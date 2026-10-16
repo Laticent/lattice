@@ -35,6 +35,75 @@ canvas variant. You can preview every one of them live: open the
 from the dropdown. The whole catalog re-renders in that palette's real
 tokens, light or dark.
 
+## Using a palette in a web app
+
+A theme file such as `@laticent/lattice/themes/indaco.css` is a **Marp theme**.
+Its first rule is `@import 'lattice'`, which only Marp's theme set resolves, so
+a bundler stops on it: Vite fails with `[postcss] ENOENT: no such file or
+directory, open 'lattice'`, and webpack with `Can't resolve 'lattice'`.
+
+What to import depends on what the page does.
+
+**To show slides, render them with the engine.** The engine composes the
+stylesheet a slide needs: the slide box, and each palette's tokens scoped to
+every slide, so a `dark` slide flips its canvas. Register the engine's CSS, then
+the palette and every theme it imports (`cuoio-dark` imports `cuoio`; a theme
+manifest's `extends` names its parent):
+
+```js
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import engine from '@laticent/lattice/engine';
+
+const require = createRequire(import.meta.url);
+const read = (spec) => fs.readFileSync(require.resolve(spec), 'utf8');
+
+engine.addThemes([
+  { name: 'lattice', css: read('@laticent/lattice/css') },
+  { name: 'cuoio', css: read('@laticent/lattice/themes/cuoio.css') },
+  { name: 'cuoio-dark', css: read('@laticent/lattice/themes/cuoio-dark.css') },
+]);
+const { html, css } = engine.render(markdown, 'cuoio-dark');
+// Put `css` in a <style> and `html` in the page. For a dark palette, give the
+// page `color-scheme: dark` as well.
+```
+
+Rendered this way, in Node, and placed in a page, six component galleries
+(51 slides) matched the CLI's own HTML render pixel for pixel in `indaco` and
+in `cuoio-dark`. Without `color-scheme: dark` on a dark palette's page, the
+browser paints a white canvas, which shows through the slide's top rule.
+
+**To use a palette's tokens in your own UI, import the palette.** Every shipped
+theme has a palette of the same name, dark variants included: the theme's
+tokens with its imports resolved, so `palette/cuoio-dark.css` carries cuoio's
+tokens and then the dark canvas pin. It imports cleanly in Vite and webpack:
+
+```js
+import '@laticent/lattice/palette/indaco.css';
+```
+
+Importing the engine's CSS beside it (`@laticent/lattice/css`) also builds, but
+it is **not** a slide renderer. That stylesheet does not size the slide, and the
+palette's tokens resolve once on the page root, so a `dark` slide keeps the
+light canvas. Measured on the same 51 slides, it matched none of them.
+
+**To show slides without running the engine in the browser, link the packed
+pair.** Render once (at build time or on a server) with `render()`, keep its
+`html`, and style it with two stylesheets. A palette swap is then a different
+second import, with no second render:
+
+```js
+import '@laticent/lattice/slides.css';
+import '@laticent/lattice/palette/cuoio-dark.slides.css';
+```
+
+Linked from `dist/` and built through Vite 8.2.2, the pair drew the same 51
+slides as the CLI in `indaco` and in `cuoio-dark`, within the regression gate's
+3% fuzz (`tools/palette-slide-parity.js`). Two limits hold by construction: the sheet
+is **16:9 only**, and it has **no panes** (their per-deck styles cannot live in
+a fixed sheet). For `size: story` or any other canvas, or for panes, use
+`render()`'s own `css`.
+
 ## The contract every palette honors
 
 1. **Single text color** on each surface — no reliance on
@@ -48,7 +117,7 @@ tokens, light or dark.
 ## Authoring a new palette
 
 A palette is a pure token-declaration job — no per-palette layout CSS.
-Copy `themes/indaco.css` to `themes/<name>.css`, change the `@theme`
+Copy `themes/indaco/indaco.css` to `themes/<name>/<name>.css`, change the `@theme`
 directive, and edit the tokens. Layouts that rely on a missing token
 fall back to the engine's defaults, which makes gaps easy to spot during
 development. Diagram theming comes for free: palette-blind per-diagram

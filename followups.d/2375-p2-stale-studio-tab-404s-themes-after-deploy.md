@@ -2,6 +2,9 @@
 origin: 2375
 priority: P2
 recorded: 2026-09-25
+area: website
+severity: high
+swimlane: engineering/decisions/2026-09-15-playground-asset-retention.md
 source: https://github.com/Laticent/lattice/pull/2375
 ---
 

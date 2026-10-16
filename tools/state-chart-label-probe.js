@@ -18,7 +18,7 @@
  * those fixes and 16 after.
  *
  * Usage:
- *   node lattice-emulator.js deck.md out.html
+ *   node lattice.js deck.md out.html
  *   node tools/state-chart-label-probe.js out.html [width height]   # default 1280 720
  *
  * Prints one JSON row per state-chart slide: `{ si, labels, hits: [...] }`. Exits 1 when any

@@ -45,7 +45,7 @@ const CASES = [
  * asserted below.
  */
 function statusTrio(palette, arm = 'light') {
-  const css = fs.readFileSync(path.join(THEMES, `${palette}.css`), 'utf8');
+  const css = fs.readFileSync(path.join(THEMES, palette, `${palette}.css`), 'utf8');
   const trio = [];
   for (const tok of ['pass', 'warn', 'fail']) {
     const m = css.match(

@@ -9,7 +9,7 @@
  *
  * Algorithm:
  *   1. Walk every .css and .js source file under lib/, src/, themes/,
- *      plus the top-level lattice.css and lattice-emulator.js
+ *      plus the top-level lattice.css and lattice.js
  *      so author-set inline tokens count as defined.
  *   2. Collect every `var(--token)` reference (with file:line provenance).
  *   3. Collect every `--token:` setter — CSS rules AND JS template literals
@@ -74,7 +74,7 @@ const SOURCE_DIRS = [
 
 const SOURCE_FILES = [
   path.join(ROOT, 'dist', 'lattice.css'),
-  path.join(ROOT, 'lattice-emulator.js'),
+  path.join(ROOT, 'lattice.js'),
 ];
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.scratch', 'dist']);
@@ -85,6 +85,9 @@ function walk(dir, out = []) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     if (SKIP_DIRS.has(ent.name)) continue;
     const p = path.join(dir, ent.name);
+    // A plugin's vendored third-party library (lib/plugins/<name>/vendor/) is not our source: it
+    // reads its own variables (Mermaid's --mermaid-font-family), as the root copy did under `-min.js`.
+    if (ent.isDirectory() && ent.name === 'vendor' && path.basename(path.dirname(dir)) === 'plugins') continue;
     if (ent.isDirectory()) walk(p, out);
     else if (ent.isFile()) {
       const isCssOrJs = p.endsWith('.css') || p.endsWith('.js');

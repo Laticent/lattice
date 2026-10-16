@@ -1,0 +1,19 @@
+{
+  "title": "A file without deck.md is refused",
+  "spec": "LATTICE-FILE-1.0",
+  "section": "5",
+  "entries": {
+    "manifest.json": {
+      "format": "lattice",
+      "version": 1,
+      "title": "Q3 board review",
+      "engine": "lattice",
+      "generatedAt": 0,
+      "comments": []
+    }
+  },
+  "expect": {
+    "ok": false,
+    "refused": "missing-entry"
+  }
+}

@@ -1,0 +1,379 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 59040,
+	"lines": [
+		{
+			"key": "2a81465367d1",
+			"text": "Your decks live under the deck name at the top left. Click it.",
+			"file": "2a81465367d1.mp3",
+			"bytes": 20016,
+			"speechMs": 3266,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Your decks live under the deck name at the top left.",
+						"words": [
+							{
+								"display": "Your",
+								"spoken": "Your",
+								"startMs": 0,
+								"endMs": 173,
+								"charOffset": 0
+							},
+							{
+								"display": "decks",
+								"spoken": "decks",
+								"startMs": 173,
+								"endMs": 346,
+								"charOffset": 5
+							},
+							{
+								"display": "live",
+								"spoken": "live",
+								"startMs": 346,
+								"endMs": 520,
+								"charOffset": 11
+							},
+							{
+								"display": "under",
+								"spoken": "under",
+								"startMs": 520,
+								"endMs": 866,
+								"charOffset": 16
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 866,
+								"endMs": 1039,
+								"charOffset": 22
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1039,
+								"endMs": 1213,
+								"charOffset": 26
+							},
+							{
+								"display": "name",
+								"spoken": "name",
+								"startMs": 1213,
+								"endMs": 1386,
+								"charOffset": 31
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 1386,
+								"endMs": 1559,
+								"charOffset": 36
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1559,
+								"endMs": 1732,
+								"charOffset": 39
+							},
+							{
+								"display": "top",
+								"spoken": "top",
+								"startMs": 1732,
+								"endMs": 1906,
+								"charOffset": 43
+							},
+							{
+								"display": "left.",
+								"spoken": "left.",
+								"startMs": 1906,
+								"endMs": 2104,
+								"charOffset": 47
+							}
+						],
+						"startMs": 0,
+						"endMs": 2429,
+						"charOffset": 0
+					},
+					{
+						"display": "Click it.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 2569,
+								"endMs": 2742,
+								"charOffset": 53
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 2742,
+								"endMs": 2941,
+								"charOffset": 59
+							}
+						],
+						"startMs": 2569,
+						"endMs": 3266,
+						"charOffset": 53
+					}
+				],
+				"durationMs": 3266
+			}
+		},
+		{
+			"key": "c8913311389c",
+			"text": "Choose New deck.",
+			"file": "c8913311389c.mp3",
+			"bytes": 5760,
+			"speechMs": 903,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Choose New deck.",
+						"words": [
+							{
+								"display": "Choose",
+								"spoken": "Choose",
+								"startMs": 0,
+								"endMs": 180,
+								"charOffset": 0
+							},
+							{
+								"display": "New",
+								"spoken": "New",
+								"startMs": 180,
+								"endMs": 359,
+								"charOffset": 7
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 359,
+								"endMs": 565,
+								"charOffset": 11
+							}
+						],
+						"startMs": 0,
+						"endMs": 903,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 903
+			}
+		},
+		{
+			"key": "aa63d142db64",
+			"text": "I’ll start a new deck for you.",
+			"file": "aa63d142db64.mp3",
+			"bytes": 8640,
+			"speechMs": 1370,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll start a new deck for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 152,
+								"charOffset": 0
+							},
+							{
+								"display": "start",
+								"spoken": "start",
+								"startMs": 152,
+								"endMs": 304,
+								"charOffset": 5
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 304,
+								"endMs": 455,
+								"charOffset": 11
+							},
+							{
+								"display": "new",
+								"spoken": "new",
+								"startMs": 455,
+								"endMs": 607,
+								"charOffset": 13
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 607,
+								"endMs": 759,
+								"charOffset": 17
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 759,
+								"endMs": 911,
+								"charOffset": 22
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 911,
+								"endMs": 1085,
+								"charOffset": 26
+							}
+						],
+						"startMs": 0,
+						"endMs": 1370,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1370
+			}
+		},
+		{
+			"key": "28cc62a4c5eb",
+			"text": "A blank deck, saved as you type. Your other decks are in that same menu.",
+			"file": "28cc62a4c5eb.mp3",
+			"bytes": 24624,
+			"speechMs": 4035,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A blank deck, saved as you type.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 168,
+								"charOffset": 0
+							},
+							{
+								"display": "blank",
+								"spoken": "blank",
+								"startMs": 168,
+								"endMs": 337,
+								"charOffset": 2
+							},
+							{
+								"display": "deck,",
+								"spoken": "deck,",
+								"startMs": 337,
+								"endMs": 530,
+								"charOffset": 8
+							},
+							{
+								"display": "saved",
+								"spoken": "saved",
+								"startMs": 694,
+								"endMs": 1030,
+								"charOffset": 14
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 1030,
+								"endMs": 1199,
+								"charOffset": 20
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1199,
+								"endMs": 1367,
+								"charOffset": 23
+							},
+							{
+								"display": "type.",
+								"spoken": "type.",
+								"startMs": 1367,
+								"endMs": 1560,
+								"charOffset": 27
+							}
+						],
+						"startMs": 0,
+						"endMs": 1876,
+						"charOffset": 0
+					},
+					{
+						"display": "Your other decks are in that same menu.",
+						"words": [
+							{
+								"display": "Your",
+								"spoken": "Your",
+								"startMs": 2011,
+								"endMs": 2180,
+								"charOffset": 33
+							},
+							{
+								"display": "other",
+								"spoken": "other",
+								"startMs": 2180,
+								"endMs": 2516,
+								"charOffset": 38
+							},
+							{
+								"display": "decks",
+								"spoken": "decks",
+								"startMs": 2516,
+								"endMs": 2685,
+								"charOffset": 44
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 2685,
+								"endMs": 2853,
+								"charOffset": 50
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 2853,
+								"endMs": 3021,
+								"charOffset": 54
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 3021,
+								"endMs": 3189,
+								"charOffset": 57
+							},
+							{
+								"display": "same",
+								"spoken": "same",
+								"startMs": 3189,
+								"endMs": 3358,
+								"charOffset": 62
+							},
+							{
+								"display": "menu.",
+								"spoken": "menu.",
+								"startMs": 3358,
+								"endMs": 3719,
+								"charOffset": 67
+							}
+						],
+						"startMs": 2011,
+						"endMs": 4035,
+						"charOffset": 33
+					}
+				],
+				"durationMs": 4035
+			}
+		}
+	]
+}

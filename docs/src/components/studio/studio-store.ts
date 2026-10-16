@@ -1,6 +1,8 @@
+import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
+import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
 import { splitSlides } from './lint';
 import { clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
@@ -241,8 +243,24 @@ export function newDeckSource(title = 'Untitled deck'): string {
 /** `N slides` for the deck-switcher meta line — the SAME splitter the live rail
  *  uses (splitSlides), front-matter excluded, so the count never disagrees with
  *  the rendered rail. */
+// Deck lists and the history panel ask for the same few decks' labels on every render; an index
+// build is a parse, so remember the last answers by text.
+const META_MAX = 64;
+const metaMemo = new Map<string, string>();
 export function metaFor(source: string): string {
-	const n = splitSlides(stripFrontMatter(source)).length || 1;
+	let m = metaMemo.get(source);
+	if (m === undefined) {
+		m = slideCountLabel(buildDeckIndex(source).partBase.at(-1) ?? 0);
+		if (metaMemo.size >= META_MAX) metaMemo.delete(metaMemo.keys().next().value as string);
+		metaMemo.set(source, m);
+	}
+	return m;
+}
+
+/** "N slides", counting RENDERED slides — the PDF's count, heading splits included, so the deck
+ *  chip agrees with the rail and the counter (docs/src/lib/fuoco). */
+export function slideCountLabel(rendered: number): string {
+	const n = rendered || 1;
 	return `${n} slide${n === 1 ? '' : 's'}`;
 }
 
@@ -613,6 +631,20 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 	return next;
 }
 
+/** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
+ *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
+export function mapCheckpointSources(deckId: string, fn: (source: string) => string): void {
+	const list = loadCheckpoints(deckId);
+	let changed = false;
+	const next = list.map((c) => {
+		const source = fn(c.source);
+		if (source === c.source) return c;
+		changed = true;
+		return { ...c, source };
+	});
+	if (changed) write(SNAP_PREFIX + deckId, next);
+}
+
 // ── Architect chat history (per deck) ──────────────────────────────────────
 export const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[] (exported for the storage-overlay drift test)
 const CHAT_CAP = 60;
@@ -630,9 +662,27 @@ export type ChatProposal = {
 	diff: { type: string; text: string }[];
 };
 
+/** A photo attached to a user turn — a REFERENCE to a Library asset, never the bytes. The picture
+ *  lives in the media store (`asset:<name>`); the thread keeps only the name and its size, so a
+ *  conversation stays a few kilobytes however many photos it has seen. */
+export type ChatPhoto = { name: string; width: number; height: number };
+
+/** A short video attached to a user turn: what the thread keeps of it. */
+export type ChatVideo = {
+	/** The clip's name in the Library (Videos). The poster is read from there, so the thread stays small. */
+	name: string;
+	durationMs: number;
+	/** Only on a thread saved before clips lived in the Library: a small JPEG data URL of the first frame. */
+	poster?: string;
+};
+
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
+	/** User turn only: the photos attached to it. */
+	photos?: ChatPhoto[];
+	/** User turn only: the video attached to it — its Library name and length, never the bytes. */
+	videos?: ChatVideo[];
 	/** Assistant turn only: the edits it proposes (reviewable per-slide diffs). */
 	proposed?: ChatProposal[];
 	/** Whether that proposal has been applied. Only ever set when at least one edit
@@ -644,7 +694,7 @@ export type ChatMessage = {
 	appliedCount?: number;
 	refused?: number;
 	/** Assistant turn only: what the chat agent read, changed and checked to produce it
-	 *  ("Read kpi", "Checked the deck") — shown under the reply so the author can see the
+	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */
 	activity?: string[];
 };
@@ -792,8 +842,8 @@ export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // trajectory, and every error, INCLUDING whatever a third-party library chose to put
 // in a `console.error` argument. That is not a thing to switch on for someone.
 // See `2026-08-18-crash-toast-retirement.md` §"Opt-in".
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false };
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean; imageModel: string; imageLook: ImageLook };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false, imageModel: DEFAULT_IMAGE_MODEL, imageLook: DEFAULT_IMAGE_LOOK };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
@@ -855,7 +905,9 @@ export function loadSettings(): StudioSettings {
 	const crashReports = saved.crashReports === true;
 	// Only an explicit 'photo' opts out of the shared writer; anything else is the default.
 	const pdfWriter: PdfWriter = saved.pdfWriter === 'photo' ? 'photo' : 'text';
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter };
+	// The photo-looking model is an OpenRouter id (`vendor/name`, or the `~vendor/name-latest` alias); anything else reads as the default.
+	const imageModel = typeof saved.imageModel === 'string' && /^~?[\w.-]+\/[\w.:-]+$/.test(saved.imageModel) ? saved.imageModel : DEFAULT_IMAGE_MODEL;
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter, imageModel, imageLook: asImageLook(saved.imageLook) };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
@@ -987,7 +1039,16 @@ export function exportStudioState(): StudioExport {
 	return { index, sources, checkpoints, chats, settings: loadSettings(), instructions: loadInstructions(), onDeviceInstructions: loadOnDeviceInstructions() };
 }
 
-export type ImportSummary = { added: number; restoredCopies: number; skipped: number };
+export type ImportSummary = {
+	added: number;
+	restoredCopies: number;
+	skipped: number;
+	/** Every deck id this import WROTE (added as-is, restored in place, or a new copy). A deck it
+	 *  skipped because the same source was already here is not in it. */
+	written: string[];
+	/** Backup deck id → the new id its copy was stored under, for a deck that diverged. */
+	copies: Record<string, string>;
+};
 
 /**
  * Merge a backup into the current workspace (never destructive):
@@ -1000,7 +1061,7 @@ export type ImportSummary = { added: number; restoredCopies: number; skipped: nu
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
-	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0 };
+	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {} };
 	const index = loadIndex();
 	const have = new Map(index.map((e) => [e.id, e]));
 	let n = 0;
@@ -1021,6 +1082,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
+			summary.written.push(entry.id);
 			continue;
 		}
 		const currentSrc = loadSource(entry.id);
@@ -1048,6 +1110,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
+			summary.written.push(entry.id);
 			continue;
 		}
 		// Truly diverged (both sides carry edits) — restore beside, never over. The source is
@@ -1065,6 +1128,8 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
+		summary.written.push(newId);
+		summary.copies[entry.id] = newId;
 	}
 	saveIndex(index);
 	// CONSENT IS NOT RESTORABLE. Every other field in `settings` is a preference
@@ -1078,6 +1143,9 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 	// standing, because `saveSettings` merges over `loadSettings()`.
 	const importedSettings: Partial<StudioSettings> = { ...data.settings };
 	delete importedSettings.crashReports;
+	// The model that looks at the person's photos is a consent too: it decides which provider receives them. Like the chat's model
+	// (never in a backup), it is not restorable from a file; the local choice stands. The look dial is only a cost knob and does restore.
+	delete importedSettings.imageModel;
 	saveSettings(importedSettings);
 	saveInstructions(data.instructions);
 	saveOnDeviceInstructions(data.onDeviceInstructions ?? ''); // absent in a pre-split backup — restores empty, never throws

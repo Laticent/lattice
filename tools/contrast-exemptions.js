@@ -3,7 +3,7 @@
  *
  * WHY IT LIVES IN ITS OWN FILE. Three callers measure rendered text runs and must agree about
  * which sub-threshold runs are NOT defects: `slide-contrast.test.js` (three surfaces, one
- * palette family), `palette-sweep.test.js` (one surface, all 32 palettes), and
+ * palette family), `palette-sweep.suite.js` (one surface, all 32 palettes), and
  * `tools/palette-native.js` (the nightly referee, which renders all 32 for real). The
  * adjudication is the same in each — a 440px watermark letter is decorative on `mustard`
  * for exactly the reason it is decorative on `indaco` — so the PREDICATES live here once
@@ -12,7 +12,7 @@
  * WHAT IS SHARED AND WHAT IS NOT. The `match` predicate and its justification are shared.
  * The `counts` map is NOT: it is keyed by `slide-contrast`'s own SURFACES, and it stays
  * meaningful only there. A caller with different surfaces owes its own pin in its own terms —
- * `palette-sweep.test.js` pins a per-palette count instead. Sharing the matcher without
+ * `palette-sweep.suite.js` pins a per-palette count instead. Sharing the matcher without
  * sharing the pin is deliberate: one adjudication, independently falsifiable ledgers.
  *
  * It sits in `tools/` rather than `test/` because `tools/palette-native.js` reads it too,

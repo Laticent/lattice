@@ -2,6 +2,9 @@
 origin: 2324
 priority: P3
 recorded: 2026-09-24
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-21-compose-fenced-code.md
 source: https://github.com/Laticent/lattice/pull/2324
 ---
 # Compose's `fenceRanges` sees no list or blockquote containers

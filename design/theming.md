@@ -15,7 +15,7 @@ and the categorical-token taxonomy.
 
 ## Anatomy of a palette
 
-A palette is one CSS file plus one small manifest. `themes/<name>.manifest.json`
+A palette is one CSS file plus one small manifest. `themes/<name>/<name>.manifest.json`
 declares the palette's **identity and role** — which picker group it belongs to,
 which canvases it has a real face for, which theme it extends — and carries no
 token names or values at all; those live in the CSS, and every gate proves the
@@ -30,7 +30,7 @@ contains:
    dark/derived variant — an `@import '<parent>'`. Both are **Marp's copy**: Marp
    has no manifest, so it learns identity and the parent edge from the stylesheet.
    Lattice DISCOVERS neither from the CSS — identity and the chain come from
-   `themes/<name>.manifest.json` (`name`, `extends`), resolved by
+   `themes/<name>/<name>.manifest.json` (`name`, `extends`), resolved by
    `lib/theme/chain.mjs`, and `check:ownership` fails if the CSS and the manifest
    disagree. The `@import` is still what splices the parent into the composed
    stylesheet at render time, so keep it accurate: it is not decoration. See `engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md`.
@@ -50,7 +50,7 @@ contains:
    ink, accents, semantic signals).
 4. A `:root` block defining `--scheme-dark-*` tokens used by the `section.dark`
    variant for cover/divider/closing slides on a dark canvas.
-5. A `:root` block defining `--hljs-*` tokens for code-block syntax colors.
+5. A `:root` block defining `--syntax-*` tokens for code-block syntax colors.
 6. A `:root` block defining `--c-*` tokens — the categorical palette
    (12-slot paired light/dark cycle, paired ink, structural stroke/line,
    plus optional overrides of the universal semantic palette).
@@ -208,23 +208,26 @@ at every use site based on the computed `color-scheme` of the element:
   matching theme variant if they care about diagram color (the variant
   is the only signal the palette parser sees).
 
-### highlight.js syntax
+### Syntax roles (code highlighting)
 
-| Token | Highlight class |
-|---|---|
-| `--hljs-comment` | `.hljs-comment, .hljs-quote` |
-| `--hljs-keyword` | `.hljs-keyword, .hljs-selector-tag, .hljs-addition` |
-| `--hljs-number` | `.hljs-number, .hljs-literal, .hljs-built_in` |
-| `--hljs-string` | `.hljs-string, .hljs-doctag, .hljs-regexp` |
-| `--hljs-title` | `.hljs-title, .hljs-section, .hljs-function` |
-| `--hljs-variable` | `.hljs-variable, .hljs-attr, .hljs-tag` |
-| `--hljs-punctuation` | `.hljs-punctuation, .hljs-operator` |
+A theme colors code through **role** tokens, never highlight.js class names: the code plugin's
+stylesheet (`lib/plugins/code/code.styles.css`) maps each `.hljs-*` class onto a role. The ten
+required roles are `--syntax-comment`, `--syntax-keyword`, `--syntax-builtin`, `--syntax-number`,
+`--syntax-constant`, `--syntax-string`, `--syntax-entity`, `--syntax-type`, `--syntax-variable`
+and `--syntax-punctuation`; four more are optional, with engine defaults: `--syntax-parameter`,
+`--syntax-markup`, and the diff pair `--syntax-inserted` / `--syntax-deleted`. The full class map
+is the table in `lib/plugins/code/code.docs.md` § The syntax roles; it is not repeated here, so
+the two cannot disagree.
+
+Every role paints on the code panel (`--code-bg`, with `--code-text` for unhighlighted text), on
+every slide, and is held to 4.5:1 there (`checkSyntaxContrast`). The a11y palettes also hold their
+roles apart under the condition they are named for (`checkSyntaxSeparation`).
 
 ### Categorical tokens (`--c-*`)
 
 Role-named, palette-blind tokens consumed by `lattice.css`'s DIAGRAM
 OVERRIDES section and by the renderer bridges (`lattice-runtime.js`,
-`lattice-emulator.js`). Slide layouts also consume them directly for
+`lattice.js`). Slide layouts also consume them directly for
 nth-child cycles (decision list, roadmap horizons, actor pills, kpi
 trajectory).
 
@@ -310,7 +313,7 @@ and re-hue it (the `new:theme` scaffold does this for you).
   `var(--cat-N-ink, var(--cat-N-mark))` — at every consumer. That spelling is the
   contract, not a decoration: `lib/base/base.tokens.css` declares **no** `:root`
   default for this tier. The original reason was an ordering hazard — the emulator's
-  export bundle concatenated the theme *before* the base (`lattice-emulator.js`,
+  export bundle concatenated the theme *before* the base (`lattice.js`,
   `paletteCSS + layoutCSS`), so a base default won on equal specificity and silently
   reverted every curated ink to its mark on the PDF path; measured in Chromium, the
   curated `#006D70` became the mark `#008386`. **#1527 flipped that concat**, so the
@@ -362,7 +365,7 @@ per theme via `--chart-catN`) and no longer uses theme-defined
 The chart bucket (pie, quadrant, radar, gantt, kanban, progress,
 state-chart, timeline-list, word-cloud) draws from its **own** two
 spectrums, defined in
-`lib/components/chart/_chart-family/chart-family.css` and decoupled from
+`lib/plugins/chart-family/chart-family.styles.css` and decoupled from
 the engine-wide `--cN` accents:
 
 - **Categorical** — `--catN-*` (N = 1–8), the well-spaced hue set pie
@@ -609,15 +612,15 @@ fine; nested `:has()` inside `:not()` / `:is()` isn't. See
 
 ## Authoring a new palette
 
-The scaffolder is the fastest path. It copies `themes/indaco.css`,
+The scaffolder is the fastest path. It copies `themes/indaco/indaco.css`,
 rewrites the `@theme` directive, stamps `TODO(palette):` markers on
 every value you're expected to change, and creates the matching
 `<name>-dark.css` wrapper so the dark variant works on day one.
 
 ```sh
 npm run new:theme verdigris
-# → themes/verdigris.css       (starter palette, TODOs at every author-edit point)
-# → themes/verdigris-dark.css  (3-line wrapper flipping color-scheme to dark)
+# → themes/verdigris/verdigris.css       (starter palette, TODOs at every author-edit point)
+# → themes/verdigris-dark/verdigris-dark.css  (3-line wrapper flipping color-scheme to dark)
 ```
 
 Then, in order of impact:
@@ -686,16 +689,16 @@ for live preview.
 
 If you prefer not to run the scaffolder:
 
-1. Copy `themes/indaco.css` to `themes/<name>.css`.
+1. Copy `themes/indaco/indaco.css` to `themes/<name>/<name>.css`.
 2. Update the `@theme <name>` directive at the top of the file to match
    the filename (this is the value authors will type in front matter).
 3. Edit the hex values in each `:root` block. Keep the variable names —
    the renderer's variable map references them by name.
-4. Copy `themes/indaco-dark.css` to `themes/<name>-dark.css` and change
+4. Copy `themes/indaco-dark/indaco-dark.css` to `themes/<name>-dark/<name>-dark.css` and change
    the `@theme` directive and `@import` target to match.
 5. Register both palettes in `.vscode/settings.json` under
    `markdown.marp.themes` so the Marp VS Code extension picks them up.
-6. Build a deck: `node lattice-emulator.js deck.md out.pdf -p <name>`.
+6. Build a deck: `npx lattice deck.md out.pdf -p <name>`.
 7. Re-render `examples/mermaid-gallery.md` with your palette to verify
    every diagram type renders correctly.
 8. Run `node --test test/unit/*.test.js` — the contrast assertions will

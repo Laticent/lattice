@@ -2,6 +2,9 @@
 origin: 2354
 priority: P3
 recorded: 2026-10-05
+area: infra
+severity: low
+swimlane: engineering/decisions/2026-09-24-lattice-studio-desktop.md §CI: a .deb build, only when the desktop app changes
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

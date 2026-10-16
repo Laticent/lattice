@@ -2,6 +2,9 @@
 origin: 2376
 priority: P2
 recorded: 2026-09-28
+area: inventory
+severity: medium
+swimlane: engineering/decisions/2026-09-25-panes-two-components-one-slide.md
 source: https://github.com/Laticent/lattice/pull/2376
 ---
 

@@ -28,9 +28,9 @@
  * parameter (`@Customer` → `who=Customer`). Both are checked when the schema is built.
  */
 
-import { type Diagnostic, type Item, parse, type Scalar, type Value } from './notation.js';
+import { bareEnd, type Diagnostic, FLAT_KIND, flatTree, type Item, isName, parse, type Scalar, type Value } from './notation.js';
 import { TAGS } from './notation-grammar.js';
-import { CLASS_ORDER, type Cls, type Type } from './types.js';
+import { CLASS_ORDER, type Cls, isBuiltIn, type Type } from './types.js';
 
 // ── declaring ──────────────────────────────────────────────────────────────
 
@@ -199,10 +199,21 @@ export function schemaProblems(spec: RecordSpec): string[] {
   return problems;
 }
 
+// Each entry point (`.`, `./read`, `./values`) is bundled on its own, so each carries its own copy of
+// this class, and a plain `instanceof` failed across them: an error thrown by `/read` was not a
+// SchemaError imported from the root. The brand is a registered symbol, the same in every copy and
+// every realm, and `instanceof` checks it instead of the prototype chain.
+const SCHEMA_ERROR = Symbol.for('@laticent/segno/SchemaError');
+
 export class SchemaError extends Error {
   constructor(readonly problems: readonly string[]) {
     super(`segno: this schema is ambiguous:\n  - ${problems.join('\n  - ')}`);
     this.name = 'SchemaError';
+    Object.defineProperty(this, SCHEMA_ERROR, { value: true });
+  }
+
+  static [Symbol.hasInstance](x: unknown): boolean {
+    return typeof x === 'object' && x !== null && (x as Record<symbol, unknown>)[SCHEMA_ERROR] === true;
   }
 }
 
@@ -271,6 +282,32 @@ class Binding {
     this.out[name] = got;
     if (t.cls === 'vocab') this.spelled(name, t.canonical?.(v.text) ?? v.text, v.text.toLowerCase(), v, it);
   }
+}
+
+/** @internal Test hook, not public: `fast: false` makes every record slot take the full bind, so a test can
+ *  hold the fast read equal to it; `hits` counts the binds the fast read made. */
+export const bindMode = {
+  fast: true,
+  hits: 0,
+  /** Under test, run the full bind beside every fast read and throw when they differ. Set before the first
+   *  read: by a test directly, or by `globalThis[Symbol.for('laticent.segno.checkBothPaths')] = true` before
+   *  the library loads. Off in every shipped path. */
+  check: (globalThis as Record<symbol, unknown>)[Symbol.for('laticent.segno.checkBothPaths')] === true,
+  /** How many fast reads `check` has compared. */
+  compared: 0,
+};
+
+// A test that loads the library by package name (the node unit tests read the built dist) cannot import
+// `bindMode`; with the check on it is published here so such a test can count the reads compared.
+if (bindMode.check) (globalThis as Record<symbol, unknown>)[Symbol.for('laticent.segno.bindMode')] = bindMode;
+
+/** Key-order-insensitive structural form, so two binds compare as `toEqual` would. */
+function canon(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canon);
+  if (v !== null && typeof v === 'object') {
+    return Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon((v as Record<string, unknown>)[k])]));
+  }
+  return v;
 }
 
 /** Declare a record slot. Throws SchemaError when a bare word could bind two ways. */
@@ -380,6 +417,93 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
     return { ok: true, value: b.out as RecordOf<S>, spellings: b.spellings ?? NO_SPELLINGS };
   };
 
+
+  // THE FAST READ. A plain `{…}` span of bare words and `name=bare` items (a pill, a point, a state
+  // mark) is bound straight from the parser's flat tree: no Item or Scalar object per item, no
+  // Binding. It is the SAME bind as `bindItems` without the objects, and it only ever SUCCEEDS.
+  // On anything else (a quote, a nested record or list, an unknown name or word, a repeat, a
+  // missing value, any error) it returns null and `read` runs the full path, which alone words a
+  // diagnostic, so an error reads as it always did. schema.test.ts pins a success equal to the
+  // full path's. Off for a slot with a tag or sigils (their handling lives in the full path), and for
+  // one with a sub-slot or a type of the caller's own: such a `read` may parse a span of its own,
+  // which overwrites the buffer this walks (schema.test.ts, "a custom type that parses").
+  const fastable = !spec.tag && !hasSigils && [...byName.values()].every((t) => !isSlot(t) && isBuiltIn(t));
+  const fastRead = (text: string): Bound<RecordOf<S>> | null => {
+    const b = flatTree(text);
+    if (b === null || b[0] !== FLAT_KIND.record) return null;
+    const end = b[3];
+    // One item means the record is the whole span's only item: a spelling may then rewrite the span.
+    const alone = b[7] === end ? { from: b[1], to: b[2] } : undefined;
+    const out: Record<string, unknown> = {};
+    let spellings: Spelling[] | null = null;
+    let pos = 0;
+    for (let k = 4; k < end; k = b[k + 3]) {
+      if (b[k] !== FLAT_KIND.word) return null;
+      const head = k + 4;
+      const nameFrom = b[head + 1];
+      const nameTo = bareEnd(text, nameFrom, b[head + 2]);
+      const tail = b[head + 3];
+      let from = nameFrom;
+      let to = nameTo;
+      let named = false;
+      let param = '';
+      let t: Type<unknown> | undefined;
+      if (tail < b[k + 3]) {
+        // `name=value`: a bare value, under a name an author can write that this slot declares.
+        if (b[tail] !== FLAT_KIND.bare) return null;
+        const label = text.slice(nameFrom, nameTo);
+        if (!isName(label)) return null;
+        param = label.toLowerCase();
+        const declared = byName.get(param);
+        if (declared === undefined || isSlot(declared)) return null;
+        t = declared;
+        named = true;
+        from = b[tail + 1];
+        to = bareEnd(text, from, b[tail + 2]);
+      } else if (pos < positional.length) {
+        param = positional[pos].name;
+        t = positional[pos].type as Type<unknown>;
+        pos++;
+      }
+      const word = text.slice(from, to);
+      let got: unknown;
+      let canonical = '';
+      let written = '';
+      let spell = false;
+      if (t !== undefined) {
+        got = t.read(word, false);
+        if (got === undefined) return null;
+        if (t.cls === 'vocab') { spell = true; canonical = t.canonical?.(word) ?? word; written = word.toLowerCase(); }
+      } else {
+        // A bare word: its vocabulary owner, else the first non-vocab parameter that reads it.
+        const lower = word.toLowerCase();
+        const hit = vocab.get(lower);
+        if (hit !== undefined) {
+          param = hit.name; got = hit.value; canonical = hit.canonical; written = lower; spell = true;
+        } else {
+          for (let c = 0; t === undefined && c < others.length; c++) {
+            const cls = others[c];
+            for (let e = 0; e < cls.length; e++) {
+              const r = cls[e][1].read(word, false);
+              if (r !== undefined) { param = cls[e][0]; t = cls[e][1]; got = r; break; }
+            }
+          }
+          if (t === undefined) return null;
+        }
+      }
+      if (Object.hasOwn(out, param)) return null;
+      out[param] = got;
+      if (spell) {
+        (spellings ??= []).push({ param, canonical, written, from, to, shortcut: false, ...(alone ? { alone } : {}), ...(named ? { named: true } : {}) });
+      }
+    }
+    for (let k = 0; k < positional.length; k++) {
+      if ((positional[k].required ?? k === 0) && !Object.hasOwn(out, positional[k].name)) return null;
+    }
+    bindMode.hits++;
+    return { ok: true, value: out as RecordOf<S>, spellings: spellings ?? NO_SPELLINGS };
+  };
+
   const slot: Slot<RecordOf<S>> = {
     kind: 'record',
     label,
@@ -403,6 +527,21 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
         const at = text.indexOf(token);
         const range = { from: at, to: at + token.length };
         return bindItems(expanded.items, { token, ...range }, expanded.items.length === 1 ? range : undefined);
+      }
+      if (fastable && bindMode.fast) {
+        const f = fastRead(text);
+        if (f !== null) {
+          if (bindMode.check) {
+            bindMode.fast = false;
+            let full: unknown;
+            try { full = slot.read(text); } finally { bindMode.fast = true; }
+            bindMode.compared++;
+            const a = JSON.stringify(canon(f));
+            const b = JSON.stringify(canon(full));
+            if (a !== b) throw new Error(`segno: the fast read and the full bind disagree on ${JSON.stringify(text)}\n  fast: ${a}\n  full: ${b}`);
+          }
+          return f;
+        }
       }
       const p = parse(text);
       if (!p.ok) return { ok: false, diagnostics: [p.diagnostic] };

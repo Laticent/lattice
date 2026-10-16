@@ -74,7 +74,7 @@ A deck on `indaco` now ships 20.
 
 | Site | Where its CSS comes from | Fallback trigger |
 |---|---|---|
-| `lattice-emulator.js` | the assembled deck `<style>` (theme chain + layout sheet, post-`sanitizeStyleText`) **plus the slide markup**, since a deck may write its own inline SVG | never — it holds the whole document |
+| `lattice.js` | the assembled deck `<style>` (theme chain + layout sheet, post-`sanitizeStyleText`) **plus the slide markup**, since a deck may write its own inline SVG | never — it holds the whole document |
 | `lib/runtime/index.js` | the `<style>` elements' `.textContent` in the live document, plus `[fill*="#latt-"]`-style attributes on the slides | a `<link rel=stylesheet>` (text not in the DOM), or a missing `latt-a11y-tex` **sentinel** |
 
 That sentinel is worth understanding before you touch the runtime half.
@@ -231,7 +231,7 @@ is roughly eight times today's defs markup on every page). Only then can
   geometry. Because the output is stable, exported
   PDF/PPTX bytes don't change from a supply-side refactor (no export sign-off needed), and
   `dist/lattice.css` (which carries only the `--cat-N-texture` token wiring, not the defs)
-  is unaffected. The module source *is* bundled into `dist/lattice-emulator.js` /
+  is unaffected. The module source *is* bundled into `dist/lattice.js` /
   `dist/lattice-runtime.js`, so a rename of its identifiers does change those bundles —
   rebuild and commit them (`build:check` enforces it).
 - **The a11y literal sets stay literal** — no `var()`, no `<style>` (the iOS all-black-pie

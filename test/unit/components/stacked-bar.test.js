@@ -2,7 +2,7 @@
  * Unit: lib/components/chart/stacked-bar/stacked-bar.transform.js — kernel for
  * the `stacked-bar` chart-family member.
  *
- * Section dispatch and the chart-frame wrap live in chart-family.js; the shared
+ * Section dispatch and the chart-frame wrap live in chart-family.dispatch.js; the shared
  * Cartesian substrate (ticks, scales, the plot box, the series DSL) is covered
  * by test/unit/components/cartesian.test.js. What is tested here is what THIS
  * kernel owns and nothing else:
@@ -96,7 +96,7 @@ describe('stacked-bar kernel', () => {
       );
       assert.deepEqual(m.series, ['Product']);
       assert.equal(m.groups[0].segs.length, 1);
-      assert.deepEqual(m.groups[0].detail, ['Best quarter in EMEA', 'Closed two weeks early']);
+      assert.deepEqual(m.groups[0].detail, ['Best quarter in <code>EMEA</code>', 'Closed two weeks early']);
     });
 
     test('an empty list is null — the kernels\' pass-through signal', () => {
@@ -144,7 +144,7 @@ describe('stacked-bar kernel', () => {
       const m = parseStackedBar(ul([['Q1', [['Product', '4'], ['Tracked as', 'PROJ-42']]]]));
       assert.deepEqual(m.series, ['Product']);
       assert.equal(m.negMin, 0);
-      assert.deepEqual(m.groups[0].detail, ['Tracked as PROJ-42']);
+      assert.deepEqual(m.groups[0].detail, ['Tracked as <code>PROJ-42</code>']);
     });
 
     test('the authored total is kept when it agrees with the parts, dropped when it does not', () => {
@@ -443,7 +443,7 @@ describe('stacked-bar kernel', () => {
 
     test('this member paints no font-size — the kernel wraps at the family FS table', () => {
       // The kernel breaks lines at cart.FS.series / cart.FS.tick, which mirror
-      // chart-family.css § Cartesian chrome (gated by cartesian.test.js). A
+      // chart-family.styles.css § Cartesian chrome (gated by cartesian.test.js). A
       // font-size declared here would paint glyphs at a width the kernel never
       // measured, which is the silent-drift defect that gate exists to stop.
       assert.doesNotMatch(css, /font-size\s*:/);

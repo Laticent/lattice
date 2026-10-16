@@ -18,7 +18,7 @@ import { promisify } from 'node:util';
 const execFileP = promisify(execFile);
 const ROOT = process.env.TREE || new URL('../..', import.meta.url).pathname;
 const OUT = process.env.OUT || new URL('../../.scratch/card-slack/html', import.meta.url).pathname;
-const EMU = path.join(ROOT, 'lattice-emulator.js');
+const EMU = path.join(ROOT, 'lattice.js');
 
 const SIZES = [
   { name: 'landscape', size: null, autosplit: false },

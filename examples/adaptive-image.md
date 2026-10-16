@@ -33,7 +33,7 @@ You hand it any rectangle. It reads the asset's shape, weighs the deck it's on, 
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do. A moderate photo gets the **clean** default — a floated card shaped to the asset, so the crop is ≈ zero.
 
-![bg](assets/sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 ---
 
@@ -44,7 +44,7 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 
 The card adapts: a squarish photo sits in a square card. One default, every moderate shape, no letterboxing and no lost subject.
 
-![bg](assets/sample-photo-square.svg)
+![bg](sample:photo-square.svg)
 
 ---
 
@@ -55,7 +55,7 @@ The card adapts: a squarish photo sits in a square card. One default, every mode
 
 An extreme aspect would waste a card, so the resolver upgrades to **split** — a full-height column that shows the whole portrait photo, the argument running alongside.
 
-![bg](assets/sample-photo-tall.svg)
+![bg](sample:photo-tall.svg)
 
 ---
 
@@ -66,7 +66,7 @@ An extreme aspect would waste a card, so the resolver upgrades to **split** — 
 
 When the photo already matches the canvas, **spotlight** lets it go full-bleed — and the message rides a solid card, so legibility never depends on the photo.
 
-![bg](assets/sample-photo-pano.svg)
+![bg](sample:photo-pano.svg)
 
 ---
 
@@ -77,7 +77,7 @@ When the photo already matches the canvas, **spotlight** lets it go full-bleed �
 
 Two treatments stay opt-in because they can't be safe for a photo we can't see. **gallery** contains the whole asset on a matte — for diagrams and screenshots where the whitespace is the point.
 
-![bg](assets/sample-photo-square.svg)
+![bg](sample:photo-square.svg)
 
 ---
 
@@ -88,7 +88,7 @@ Two treatments stay opt-in because they can't be safe for a photo we can't see. 
 
 **statement** rides the title on the photo over a scrim — a deliberate, editorial moment you reach for when you know the image carries it.
 
-![bg](assets/sample-photo-pano.svg)
+![bg](sample:photo-pano.svg)
 
 ---
 
@@ -99,7 +99,7 @@ Two treatments stay opt-in because they can't be safe for a photo we can't see. 
 
 The resolver protects an author who doesn't think about it. Name a composition and it yields — `image spotlight` forces a full-bleed cover on this tall photo, accepting the crop.
 
-![bg](assets/sample-photo-tall.svg)
+![bg](sample:photo-tall.svg)
 
 ---
 

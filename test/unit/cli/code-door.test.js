@@ -15,7 +15,7 @@ const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, 
 const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/packages/gate.js');
-const { unprivilegedUser } = require('../../../lib/core/os-sandbox.js');
+const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
 const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 const engine = require('../../../lib/engine');
 
@@ -235,6 +235,121 @@ describe('the OS layer', () => {
     assert.deepEqual(unprivilegedUser(path.join(dir, 'passwd')), { name: 'nobody', uid: 99, gid: 98 });
     assert.deepEqual(unprivilegedUser(path.join(dir, 'missing')), { name: 'nobody', uid: 65534, gid: 65534 });
   });
+
+  // Measured on ubuntu-latest (24.04), PR #2459: AppArmor blocked the sandbox for the ordinary
+  // runner user, and the consent text told them to set CHROME_PATH, which cannot help there.
+  test('AppArmor’s userns restriction is read from its sysctl', () => {
+    const dir = tmp('apparmor');
+    fs.writeFileSync(path.join(dir, 'on'), '1\n');
+    fs.writeFileSync(path.join(dir, 'off'), '0\n');
+    assert.equal(apparmorRestrictsUserns(path.join(dir, 'on')), true);
+    assert.equal(apparmorRestrictsUserns(path.join(dir, 'off')), false);
+    assert.equal(apparmorRestrictsUserns(path.join(dir, 'missing')), false, 'a kernel without the sysctl has no restriction');
+  });
+
+  test('a container is a seccomp filter on this process AND on pid 1', () => {
+    const dir = tmp('seccomp');
+    const at = (n) => path.join(dir, n);
+    fs.writeFileSync(at('filtered'), 'Name:\tnode\nSeccomp:\t2\nSeccomp_filters:\t1\n');
+    fs.writeFileSync(at('plain'), 'Name:\tsystemd\nSeccomp:\t0\nSeccomp_filters:\t0\n');
+    assert.equal(processSeccompFiltered([at('filtered'), at('filtered')]), true, 'Docker: both filtered');
+    // A hardened systemd unit (SystemCallFilter=) filters the service, not systemd: not a container,
+    // and AppArmor may be the obstacle there (the checker).
+    assert.equal(processSeccompFiltered([at('filtered'), at('plain')]), false);
+    assert.equal(processSeccompFiltered([at('plain'), at('plain')]), false);
+    assert.equal(processSeccompFiltered([at('filtered'), at('missing')]), false);
+  });
+
+  test('each OFF reason maps to its own remedy, and AppArmor never gets the CHROME_PATH advice', () => {
+    const failed = ['Failed to launch the browser process!'];
+    const cases = [
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: false, apparmor: true }, 'apparmor-userns', /AppArmor profile.*sysctl to 0/],
+      // Root: `nobody` ran the browser without the sandbox, so the sandbox was the obstacle.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: false, apparmor: true }, 'apparmor-userns', /apparmor_restrict_unprivileged_userns/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: false, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
+      // Root: `nobody` could not run it at all (a browser under /root). AppArmor is beside the
+      // point, even when a container reads its host's sysctl as 1 (the checker).
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: false, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: false, apparmor: false }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: false, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'darwin', uid: 501, failures: failed, filtered: false, apparmor: true }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'darwin', uid: 0, skipped: 'root-outside-linux', failures: [], filtered: false, apparmor: false }, 'root-outside-linux', /ordinary user/],
+      [{ platform: 'linux', uid: 0, skipped: 'no-browser-path', failures: [], filtered: false, apparmor: false }, 'no-browser-path', /CHROME_PATH to a Chromium 131/],
+      // Inside Docker (measured, p7): the container's seccomp filter is the obstacle, whatever the
+      // host's AppArmor sysctl says, and the AppArmor remedy changed nothing there.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: true, apparmor: true }, 'container-seccomp', /seccomp profile that allows them/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: true, apparmor: false }, 'container-seccomp', /seccomp=unconfined/],
+      // …but a browser `nobody` cannot run at all is still that, first.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: true, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH/],
+    ];
+    for (const [input, reason, text] of cases) {
+      assert.equal(offReason(input), reason, JSON.stringify(input));
+      assert.match(offRemedy(reason), text, reason);
+    }
+    assert.doesNotMatch(offRemedy('apparmor-userns'), /CHROME_PATH/);
+    assert.doesNotMatch(offRemedy('container-seccomp'), /AppArmor|CHROME_PATH/);
+    assert.equal(offReason({ platform: 'linux', uid: 1001, failures: [], filtered: false, apparmor: true }), null, 'measured OFF with no failed launch names no reason');
+    assert.equal(offRemedy(null), null);
+  });
+
+  test('the consent text carries the remedy for the reason the layer is off', () => {
+    const { consentText } = require('../../../lib/packages/cli.js');
+    const p = pkg('export default () => {}');
+    const off = (reason) => ({ summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', layer: { os: 'off', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason } });
+    const line = (probed) => consentText('component', 'tally', p, probed).find((l) => l.includes('the OS sandbox on this machine'));
+    assert.match(line(off('apparmor-userns')), /Failed to launch the browser process!\); to put it on, let this browser create user namespaces/);
+    assert.doesNotMatch(line(off('apparmor-userns')), /CHROME_PATH/);
+    assert.match(line(off('unprivileged-user-cannot-run')), /set CHROME_PATH/);
+    assert.doesNotMatch(line({ summary: 'on: confined', layer: { os: 'on', tried: [], reason: null } }), /to put it on/);
+  });
+
+  test('the render’s notice: OFF warns with the reason’s remedy; the platform default is a plain line', () => {
+    const { sandboxNotice } = require('../../../lib/packages/code-door.js');
+    const off = sandboxNotice(['tally'], { os: 'off', summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason: 'apparmor-userns' });
+    assert.equal(off.warn, true);
+    assert.match(off.text, /^warning: code packages: tally — OS sandbox OFF: .*\(with the OS sandbox: Failed to launch the browser process!\)\. To put it on, let this browser create user namespaces/);
+    assert.doesNotMatch(off.text, /CHROME_PATH/, 'the render repeated the old remedy after the prompt gave the right one');
+    const root = sandboxNotice(['tally'], { os: 'off', summary: 'OFF', tried: ['as nobody: EACCES'], reason: 'unprivileged-user-cannot-run' });
+    assert.match(root.text, /To put it on, set CHROME_PATH to a Chromium the unprivileged user can run/);
+    const mac = sandboxNotice(['tally'], { os: 'unmeasured', summary: "on by the platform's default, running as ann (not measured here)", tried: [], reason: null });
+    assert.deepEqual(mac, { warn: false, text: "  code packages: tally — OS sandbox on by the platform's default, running as ann (not measured here)" });
+  });
+
+  // launchCodeSandbox, driven with a stub puppeteer whose sandboxed launch fails: the wiring from
+  // the rung that failed to the reason the layer carries, which the table above cannot see.
+  test('launchCodeSandbox gives an OFF layer the reason of the rung that failed', async () => {
+    const { launchCodeSandbox } = require('../../../lib/core/os-sandbox.js');
+    const launches = [];
+    const stub = {
+      executablePath: () => '/stub/chrome',
+      launch: async (opts) => {
+        launches.push(opts.args.includes('--no-sandbox') ? 'no-sandbox' : 'sandbox');
+        if (!opts.args.includes('--no-sandbox')) throw new Error('Failed to launch the browser process!\nNo usable sandbox!');
+        return { version: async () => 'HeadlessChrome/141.0.0.0', process: () => ({ pid: 0 }), close: async () => {} };
+      },
+    };
+    const run = async (opts) => {
+      launches.length = 0;
+      const s = await launchCodeSandbox(stub, { executablePath: '/stub/chrome', ...opts });
+      await s.close();
+      return s.layer;
+    };
+    const userns = await run({ uid: 1001, platform: 'linux', apparmor: true, filtered: false });
+    assert.deepEqual(launches, ['sandbox', 'no-sandbox']);
+    assert.equal(userns.os, 'off');
+    assert.equal(userns.reason, 'apparmor-userns');
+    assert.match(userns.tried[0], /^with the OS sandbox: Failed to launch/);
+    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: false, filtered: false })).reason, 'sandbox-did-not-start');
+    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: true, filtered: true })).reason, 'container-seccomp');
+    assert.equal((await run({ uid: 501, platform: 'darwin', apparmor: true, filtered: true })).reason, 'sandbox-did-not-start', 'AppArmor is a Linux cause only');
+    const rootMac = await run({ uid: 0, platform: 'darwin' });
+    assert.deepEqual(launches, ['no-sandbox'], 'root outside Linux tries no sandboxed launch');
+    assert.equal(rootMac.reason, 'root-outside-linux');
+    const fine = { ...stub, launch: async () => ({ version: async () => 'HeadlessChrome/141.0.0.0', process: () => ({ pid: 0 }), close: async () => {} }) };
+    const s = await launchCodeSandbox(fine, { executablePath: '/stub/chrome', uid: 501, platform: 'darwin' });
+    await s.close();
+    assert.deepEqual([s.layer.os, s.layer.reason], ['unmeasured', null], 'a layer that is not OFF carries no reason');
+  });
 });
 
 describe('the final checker: what a later pass or the runtime acts on', () => {
@@ -317,4 +432,134 @@ describe('doorFinish: the handed classes come back', () => {
     const out = spliced(handed, done.html, done.classes, 'acme');
     assert.match(out, /^<section class="acme content form acme-drawn">/);
   });
+});
+
+describe('workerScript: the second wall', () => {
+  const { workerScript, WORKER_NETWORK } = require('../../../lib/packages/code-door-core.mjs');
+  const vm = require('node:vm');
+  // In a context of its own: the wall takes `Function` off every function's prototype, and in this
+  // process that would break every test after it. Returns the context, to look at its builtins.
+  const run = (self) => {
+    const ctx = vm.createContext({ self, postMessage: () => {}, OffscreenCanvas: undefined });
+    vm.runInContext(workerScript('function t(s){return s.html}export{t as default};'), ctx);
+    return ctx;
+  };
+  // A stand-in global shaped like Chromium's: a name on `self` and again on a prototype above it.
+  const globalWith = (lock) => {
+    const top = { fetch() {}, importScripts() {} };
+    Object.defineProperty(top, 'fonts', { get: () => ({}), configurable: true });
+    const self = Object.create(Object.create(top));
+    for (const n of WORKER_NETWORK) Object.defineProperty(self, n, { value: () => {}, configurable: true, writable: true });
+    if (lock) Object.defineProperty(top, 'fetch', { value: () => {}, configurable: false, writable: false });
+    self.navigator = Object.create({ get storage() { return {}; } });
+    return { self, top };
+  };
+
+  test('every holder on the prototype chain loses the name, and so does the navigator', () => {
+    const { self, top } = globalWith(false);
+    run(self);
+    for (const n of WORKER_NETWORK) assert.equal(self[n], undefined, n);
+    assert.equal(top.fetch, undefined);
+    assert.equal(Object.getOwnPropertyDescriptor(top, 'fonts').get, undefined, 'the fonts getter is gone from the prototype');
+    assert.equal(self.navigator.storage, undefined);
+  });
+
+  test('no code from strings: eval, Function (every kind), ShadowRealm, and a timer handed a string', () => {
+    const { self } = globalWith(false);
+    const ran = [];
+    for (const n of ['eval', 'Function', 'ShadowRealm']) self[n] = () => {};
+    self.setTimeout = function (h) { ran.push(this === self && h); return 1; };
+    const ctx = run(self);
+    const inCtx = (code) => vm.runInContext(code, ctx);
+    assert.equal(self.ShadowRealm, undefined);
+    assert.throws(() => self.eval('1'), /may not build code from a string \(eval\)/);
+    assert.throws(() => self.Function('return 1'), /may not build code from a string \(Function\)/);
+    for (const f of ['(function(){})', '(async function(){})', '(function*(){})', '(async function*(){})', '(()=>{})']) {
+      assert.throws(() => inCtx(`${f}.constructor("return 1")`), (e) => e.name === 'EvalError' && /from a string/.test(e.message), `${f}.constructor`);
+    }
+    // Stubs, not `undefined`: library code that reads `Function.prototype` or tests
+    // `instanceof Function` without building code still runs (lodash, core-js).
+    ctx.F = self.Function;
+    assert.equal(inCtx('F.prototype === Function.prototype && (() => 1) instanceof F && (async () => 1).constructor.prototype === Object.getPrototypeOf(async () => 1)'), true);
+    assert.throws(() => self.setTimeout('import("http://x/")', 0), /may hand setTimeout a function, not a string/);
+    const fn = () => {};
+    assert.equal(self.setTimeout(fn, 0), 1, 'a function still reaches the real timer, on the worker');
+    assert.deepEqual(ran, [fn]);
+    // The guard's own `apply` was taken before the bundle runs: replacing `call` later changes nothing.
+    inCtx('Function.prototype.call = () => { throw new Error("caught") }');
+    assert.equal(self.setTimeout(fn, 0), 1);
+  });
+
+  test('a name an engine will not let it redefine stops the package loading (fails closed)', () => {
+    const { self } = globalWith(true);
+    assert.throws(() => run(self), /could not take fetch off the worker/);
+  });
+});
+
+describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
+  const { codeSyntaxRefusal, checkedWorkerScript } = require('../../../lib/packages/code-syntax.mjs');
+  const pkgCode = (body) => `function t(s){${body};return s.html}export{t as default};`;
+
+  test('refused wherever it sits, however it is spelled', () => {
+    for (const body of ['import("http://x/")', 'import /* gap */ ("http://x/")', 'const u="http://x/";import(u).catch(()=>{})', 'async function f(){await import("h"+"ttp://x/")}', 'import(\n"http://x/")']) {
+      assert.match(codeSyntaxRefusal(pkgCode(body)), /holds a dynamic `import\(\)`/, body);
+    }
+  });
+
+  test('the word in a string, a comment, a property or a regex is not one', () => {
+    for (const body of ['const a="import(x)"', '/* import("x") */0', '// import("x")\n0', 'const o={import(){}};o.import(1)', 'const r=/import\\(/']) {
+      assert.equal(codeSyntaxRefusal(pkgCode(body)), null, body);
+    }
+  });
+
+  test('it parses the script the worker runs: an HTML comment hides nothing from it', () => {
+    // In a classic script `<!--` starts a comment; parsed as a module it would be `<`, `!`, `--`.
+    assert.equal(codeSyntaxRefusal(pkgCode('0 <!-- import("http://x/")\n')), null, 'commented out where it runs');
+    assert.match(codeSyntaxRefusal(pkgCode('0\n--> x\nimport("http://x/")')), /dynamic `import\(\)`/, 'only the `-->` line is a comment');
+  });
+
+  test('the refusal names the line and column in the author\'s file, whatever ends its lines', () => {
+    for (const nl of ['\n', '\r\n', '\r', '\u2028']) {
+      assert.match(codeSyntaxRefusal(`function t(s){${nl}const a=1;${nl}  return import("x")}export{t as default};`), /at 3:10, ` {2}return import\("x"\)\}/, JSON.stringify(nl));
+    }
+    assert.match(codeSyntaxRefusal('function t(s){return 1}}export{t as default};'), /at the end of the file/);
+  });
+
+  test('what does not parse is refused, not run unread; and the runners refuse on the text they load', () => {
+    assert.match(codeSyntaxRefusal(pkgCode('import.meta.url')), /does not parse/);
+    assert.match(codeSyntaxRefusal(`${'('.repeat(100_000)}0${')'.repeat(100_000)};${pkgCode('')}`), /does not parse|^$/);
+    assert.throws(() => checkedWorkerScript(pkgCode('import("http://x/")')), /^Error: code sandbox: the package's transform\.js holds a dynamic `import\(\)`/);
+    assert.match(checkedWorkerScript(pkgCode('')), /"use strict"/);
+  });
+
+  test('the CLI gate refuses it at add and at render', () => {
+    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const p = pkg(pkgCode('import("http://x/")'));
+    assert.match(refusePackage(p), /dynamic `import\(\)`/);
+    assert.match(refusePackage(p, { forRender: true }), /dynamic `import\(\)`/);
+  });
+
+  test('a plugin that arrives as data passes the plugin gate, and is refused for each thing the gate names', () => {
+    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const code = 'function render(f){return "<p>"+f.body.length+"</p>"}\nexport { render as default };';
+    const plugin = (over = {}, manifest = {}, name = 'gantt-plugin') => ({
+      type: 'plugin',
+      name,
+      code: true,
+      manifest: { name, type: 'plugin', contributes: { fences: { gantt: {} } }, ...manifest },
+      roles: { 'render.js': `${name}.render.js` },
+      files: { [`${name}.render.js`]: code },
+      ...over,
+    });
+    assert.equal(refusePackage(plugin()), null);
+    assert.equal(refusePackage(plugin(), { forRender: true }), null);
+    assert.match(refusePackage(plugin({}, { contributes: { fences: { gantt: {} }, hydrate: {} } })), /contributes hydrate/);
+    assert.match(refusePackage(plugin({}, { render: { exec: { hydrate: 'pass' } } })), /render\.exec/);
+    assert.match(refusePackage(plugin({}, { contributes: { fences: { mermaid: {} } } })), /fence `mermaid` is one a shipped plugin owns/);
+    assert.match(refusePackage(plugin({}, { contributes: { fences: { python: {} } } })), /code language Lattice highlights/);
+    assert.match(refusePackage(plugin({}, {}, 'chart')), /class Lattice uses/);
+    assert.match(refusePackage(plugin({ files: { 'gantt-plugin.render.js': `import("x");\n${code}` } })), /dynamic `import\(\)`/);
+    assert.match(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), /no fence and no inline kind/);
+  });
+
 });

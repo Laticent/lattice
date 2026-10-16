@@ -293,12 +293,16 @@ keeps its line endings.
 ## Sharing a deck someone else can edit
 
 To hand a deck to someone who will **edit** it, send one of these. They open it from
-the deck switcher with **Import deck…**, right under **New deck** (also in ⌘K), and
-get your deck exactly as you wrote it, as a new deck of their own.
+the deck switcher with **Import deck…**, right under **New deck** (also in ⌘K), or
+drop the file anywhere on the Studio, and get your deck exactly as you wrote it, as a
+new deck of their own. A drop never changes the deck they have open, and a drop while
+presenting is ignored. The Library and
+the editor keep their own drops: a theme or component file dropped on the Library is
+added there, and the editor takes dropped text.
 
 | Send | What they get |
 |---|---|
-| **Share → Lattice project (.lattice)** | The deck, its review comments, and the saved themes, components and finishes it uses. The complete handoff. |
+| **Share → Lattice project (.lattice)** | The deck, its review comments, the saved themes, components and finishes it uses, and the Library photos it names (an "Include photos" switch, on by default). The complete handoff. |
 | **Share → PDF** or **PowerPoint**, with **Re-openable in Lattice** on | A normal PDF or PowerPoint that also carries the deck. Anyone can view it; anyone with Lattice can import it and edit. |
 | **Share → Webpage (.html)** | The self-contained player, which always carries the deck. |
 | **Share → Markdown** | The source, and nothing else. |

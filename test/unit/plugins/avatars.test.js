@@ -1,0 +1,362 @@
+// The avatars plugin: `!{Ada Okafor, hair=coily, c3}` read, resolved and drawn
+// (lib/plugins/avatars/avatars.inline.js), and its integration with team-profile's roster.
+// Design: engineering/decisions/2026-10-09-inline-avatars.md.
+//
+// ORDER MATTERS IN THIS FILE. node --test runs each file in its own process, and the first describe
+// block needs the drawings to be ABSENT (a browser before the data script lands). Every later block
+// registers them. `pluginData` caches only a hit, so registering after a miss is found.
+
+const { test, describe, before } = require('node:test');
+const assert = require('node:assert/strict');
+const { JSDOM } = require('jsdom');
+const { provideData, markDataFailed } = require('../../../lib/plugins/plugin-data.js');
+const k = require('../../../lib/plugins/avatars/avatars.inline.js');
+const tp = require('../../../lib/components/inventory/team-profile/team-profile.transform.js');
+
+const loadData = () => provideData('avatars', () => require('../../../lib/plugins/avatars/avatars.data.generated.js'));
+const roster = (items) => `<section class="team-profile"><div class="cell-stage"><ul><li>Ada Okafor<ul>${items}</ul></li></ul></div></section>`;
+const wrap = (items) => roster(items);
+
+describe('avatars — on the runtime path, a roster waits for the drawings', () => {
+  test('a valid avatar with no drawings yet holds the roster, then a failed load gives a monogram', () => {
+    // A Marp-rendered page: the runtime's transform pass runs BEFORE its data fetch lands. Rebuilding
+    // then would make Ada a monogram for good (the rebuilt roster has no `!{…}` left to draw).
+    const dom = new JSDOM(`<body>${roster('<li><code>!{Ada Okafor}</code></li><li><code>Sponsor</code></li>')}</body>`);
+    tp.applyToDom(dom.window.document);
+    assert.equal(dom.window.document.querySelector('.team-roster'), null, 'held while the drawings may arrive');
+    markDataFailed('avatars'); // the runtime's fetch failed: stop waiting
+    tp.applyToDom(dom.window.document);
+    assert.ok(dom.window.document.querySelector('.person-figure--monogram'), 'a monogram once nothing will arrive');
+    assert.match(dom.window.document.querySelector('.person-role').textContent, /Sponsor/);
+  });
+});
+
+describe('avatars — the name picks the face', () => {
+  before(loadData);
+
+  test('the same name is the same face, whatever its case and spacing', () => {
+    const a = k.read('!{Ada Okafor}');
+    const b = k.read('!{ada   OKAFOR }');
+    assert.deepEqual(a.traits, b.traits);
+    assert.equal(a.c, b.c);
+  });
+
+  test('a written trait wins, and pinning one does not reshuffle the others', () => {
+    const base = k.read('!{Ada Okafor}');
+    const pinned = k.read('!{Ada Okafor, hair=bun, glasses=round}');
+    assert.equal(pinned.traits.hair, 'bun');
+    assert.equal(pinned.traits.glasses, 'round');
+    for (const t of ['skin', 'face', 'eyes', 'nose', 'mouth', 'top']) assert.equal(pinned.traits[t], base.traits[t], t);
+  });
+
+  test('traits are picked independently: skin does not decide the tile, the top or the nose', () => {
+    // Bare FNV-1a leaked its low bits through `% 8`: the tile equaled `c` + skin for 2000 of 2000
+    // names, and skin fixed the top and the nose. With the finalizer every pairing occurs.
+    const seen = { c: new Set(), top: new Set(), nose: new Set() };
+    let same = 0;
+    for (let i = 0; i < 2000; i++) {
+      const f = k.read(`!{Person ${i}}`);
+      seen.c.add(`${f.traits.skin}|${f.c}`);
+      seen.top.add(`${f.traits.skin}|${f.traits.top}`);
+      seen.nose.add(`${f.traits.skin}|${f.traits.nose}`);
+      if (f.c === `c${f.traits.skin}`) same++;
+    }
+    assert.equal(seen.c.size, 64);
+    assert.equal(seen.top.size, 64);
+    assert.equal(seen.nose.size, 32);
+    assert.ok(same < 400, `tile equals skin ${same}/2000 times — expected about 250`);
+  });
+
+  test('a deep skin tone never defaults to blonde or red hair', () => {
+    for (let i = 0; i < 500; i++) {
+      for (const skin of ['5', '6', '7', '8']) {
+        const f = k.read(`!{P${i}, skin=${skin}}`);
+        assert.ok(!['blonde', 'red', 'platinum', 'auburn'].includes(f.traits['hair-color']), `${i} ${skin} ${f.traits['hair-color']}`);
+      }
+    }
+  });
+
+  test('gender is a preset, not a lock', () => {
+    for (let i = 0; i < 200; i++) assert.equal(k.read(`!{P${i}, gender=woman}`).traits.beard, 'none');
+    assert.equal(k.read('!{Sam Lee, gender=woman, beard=full}').traits.beard, 'full');
+    assert.equal(k.read('!{Sam Lee, gender=man, hair=long}').traits.hair, 'long');
+  });
+});
+
+describe('avatars — reading and drawing', () => {
+  before(loadData);
+
+  test('a broken span does not read, and diagnose says why', () => {
+    assert.equal(k.read('!{Ada, skin=9}'), null);
+    assert.match(k.diagnose('!{Ada, skin=9}'), /"9" is not one of 1, 2/);
+    assert.match(k.diagnose('!{Ada, hair=mohawk}'), /mohawk/);
+    assert.equal(k.diagnose('!{Ada}'), null);
+    assert.equal(k.diagnose('!important'), null);
+  });
+
+  test('a space after the brace does not read, and is diagnosed rather than silently left as code', () => {
+    assert.equal(k.read('!{ Ada Okafor}'), null);
+    assert.match(k.diagnose('!{ Ada Okafor}'), /directly followed by its first value/);
+  });
+
+  test('every attribute value is escaped on the string path', () => {
+    const html = k.avatarHtml('!{"A<b>&\\"x, y", label="Q<"}');
+    assert.ok(html);
+    assert.doesNotMatch(html, /<b>/);
+    assert.match(html, /aria-label="Q&lt;"/);
+    assert.match(html, /data-src="!\{&quot;A&lt;b&gt;&amp;/);
+  });
+
+  test('the DOM path builds nodes, never markup', () => {
+    const { document } = new JSDOM('').window;
+    const el = k.avatarElement(document, '!{"A>B <img src=x onerror=alert(1)>"}');
+    assert.ok(el);
+    assert.equal(el.querySelectorAll('img').length, 0);
+    assert.equal(el.getAttribute('aria-label'), 'A>B <img src=x onerror=alert(1)>');
+  });
+});
+
+describe('avatars — in a team-profile roster', () => {
+  before(loadData);
+  const drawn = (text) => k.avatarHtml(text);
+
+  test('an avatar alone on its line is the portrait, hidden because the name is beside it', () => {
+    const out = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li><li><code>Sponsor</code></li>`));
+    assert.match(out, /<span class="person-figure person-figure--avatar"><span class="lat-avatar"/);
+    assert.match(out, /aria-hidden="true"><svg class="lat-avatar-svg"/);
+    assert.doesNotMatch(out, /role="img"/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+  });
+
+  test('a note that mentions someone keeps its words and its avatar', () => {
+    const out = tp.applyToRenderedHtml(wrap(
+      `<li>${drawn('!{Ada Okafor}')}</li><li>Pairs with ${drawn('!{Marcus Vale}')} on the cutover.</li>`));
+    assert.match(out, /person-figure--avatar/);
+    assert.match(out, /<span class="person-note">Pairs with <span class="lat-avatar"[^>]*role="img"/);
+    assert.match(out, /on the cutover\.<\/span>/);
+  });
+
+  test('a note BEFORE the portrait line does not steal the portrait', () => {
+    const out = tp.applyToRenderedHtml(wrap(
+      `<li>Pairs with ${drawn('!{Marcus Vale}')}.</li><li>${drawn('!{Ada Okafor}')}</li>`));
+    assert.match(out, /person-figure--avatar"><span class="lat-avatar"[^>]*data-src="!\{Ada Okafor\}"/);
+    assert.match(out, /Pairs with/);
+  });
+
+  test('two faces on one line are a note, not a portrait that drops the second', () => {
+    const out = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Dee}')} ${drawn('!{Ann}')}</li>`));
+    assert.match(out, /person-figure--monogram/);
+    assert.match(out, /data-src="!\{Dee\}"/);
+    assert.match(out, /data-src="!\{Ann\}"/);
+  });
+
+  test('a broken avatar stays literal, as a note — what lint:deck says about it is true', () => {
+    const out = tp.applyToRenderedHtml(wrap('<li><code>!{Ada, hair=nope}</code></li><li><code>Sponsor</code></li>'));
+    assert.match(out, /<span class="person-note"><code>!\{Ada, hair=nope\}<\/code><\/span>/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+  });
+
+  test('an avatar the plugin is OFF for is a missing portrait: a monogram, never the role', () => {
+    const out = tp.applyToRenderedHtml(wrap('<li><code data-lattice-off="avatars">!{Ada Okafor}</code></li><li><code>Sponsor</code></li>'));
+    assert.match(out, /<span class="person-initials">AO<\/span>/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+    assert.doesNotMatch(out, /!\{Ada/);
+  });
+
+  test('the named form `@avatar{…}` is the same portrait: off is a monogram, broken is a note', () => {
+    const off = tp.applyToRenderedHtml(wrap('<li><code data-lattice-off="avatars">@avatar{Ada Okafor}</code></li><li><code>Sponsor</code></li>'));
+    assert.match(off, /<span class="person-initials">AO<\/span>/);
+    assert.match(off, /<span class="person-role">Sponsor<\/span>/);
+    const broken = tp.applyToRenderedHtml(wrap('<li><code>@avatar{Ada, hair=nope}</code></li><li><code>Sponsor</code></li>'));
+    assert.match(broken, /<span class="person-note"><code>@avatar\{Ada, hair=nope\}<\/code><\/span>/);
+  });
+
+  const OFF = (t) => `<code data-lattice-off="avatars">${t}</code>`;
+
+  test('plugin off, beside the role: a monogram AND the role — nothing dropped', () => {
+    // The undrawn-avatar pattern once stretched across `</code>`, so `!{Ada}` `Sponsor` with the
+    // plugin off matched as one avatar and the whole line, role included, vanished.
+    const out = tp.applyToRenderedHtml(wrap(`<li>${OFF('!{Ada Okafor}')} <code>Sponsor</code></li>`));
+    assert.match(out, /<span class="person-initials">AO<\/span>/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+  });
+
+  test('plugin off, more on the line: the line stays as a note, every word kept', () => {
+    for (const item of [`${OFF('!{Dee}')} ${OFF('!{Ann}')}`, `${OFF('!{Ada}')} and <code>x</code>`]) {
+      const out = tp.applyToRenderedHtml(wrap(`<li>${item}</li>`));
+      assert.match(out, /<span class="person-note">/, item);
+      assert.ok(out.includes(item.trim()), item);
+    }
+  });
+
+  test('an undrawn avatar beside a photo never becomes the role', () => {
+    const out = tp.applyToRenderedHtml(wrap(`<li>${OFF('!{Ada Okafor}')} <img src="ada.png" alt=""></li>`));
+    assert.doesNotMatch(out, /<span class="person-role">!\{/);
+    assert.match(out, /!\{Ada Okafor\}/);
+  });
+
+  test('two codes on one line are not a role with a stray </code> in it', () => {
+    const out = tp.applyToRenderedHtml(wrap('<li><code>Sponsor</code> <code>Lead</code></li>'));
+    assert.doesNotMatch(out, /<span class="person-role">[^<]*<\/code>/);
+    assert.match(out, /Sponsor/);
+    assert.match(out, /Lead/);
+  });
+
+  test('the first portrait wins, and a later one is a note, not a lost face', () => {
+    const twoAvatars = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li><li>${drawn('!{Marcus Vale}')}</li>`));
+    assert.match(twoAvatars, /person-figure--avatar"><span class="lat-avatar"[^>]*data-src="!\{Ada Okafor\}"/);
+    assert.match(twoAvatars, /<span class="person-note"><span class="lat-avatar"[^>]*data-src="!\{Marcus Vale\}"/);
+    const thenPhoto = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li><li><img src="ada.png" alt=""></li>`));
+    assert.match(thenPhoto, /person-figure--avatar/);
+    assert.match(thenPhoto, /<span class="person-note"><img src="ada\.png"/);
+  });
+
+  test('an escaped span is the author\'s literal, not an avatar', () => {
+    // `\!{Ada}` is text the author wants shown, so it reads like any other code line: the role.
+    const out = tp.applyToRenderedHtml(wrap('<li><code data-lat-escaped="">!{Ada}</code></li>'));
+    assert.match(out, /<span class="person-role">!\{Ada\}<\/span>/);
+  });
+
+  test('the portrait carries aria-hidden exactly once', () => {
+    const out = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li>`));
+    const open = out.match(/<span class="lat-avatar"[^>]*>/)[0];
+    assert.equal((open.match(/aria-hidden=/g) || []).length, 1);
+  });
+
+  test('a hostile name survives the runtime re-serialization without injecting markup', () => {
+    // applyToDom re-serializes the section. jsdom (like older browsers) leaves `<` and `>` raw inside
+    // attribute values, and a `[^>]*` attribute match spliced a live `<img onerror>` out of this name.
+    const dom = new JSDOM('<body><section class="team-profile"><div class="cell-stage"><ul><li>Ada<ul><li id="slot"></li></ul></li></ul></div></section></body>');
+    const doc = dom.window.document;
+    doc.getElementById('slot').appendChild(k.avatarElement(doc, '!{"A>B <img src=x onerror=alert(1)>"}'));
+    tp.applyToDom(doc);
+    assert.equal(doc.querySelectorAll('img').length, 0);
+    const av = doc.querySelector('.person-figure--avatar .lat-avatar');
+    assert.ok(av, 'the avatar is the portrait');
+    assert.equal(av.getAttribute('aria-hidden'), 'true');
+    assert.equal(av.hasAttribute('aria-label'), false);
+    assert.equal(av.getAttribute('data-src'), '!{"A>B <img src=x onerror=alert(1)>"}');
+  });
+
+  test('idempotent: a second pass over a rebuilt roster changes nothing', () => {
+    const once = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li>`));
+    assert.equal(tp.applyToRenderedHtml(once), once);
+  });
+});
+
+describe('avatars — earrings, head coverings and clothing', () => {
+  before(loadData);
+  const V = require('../../../lib/plugins/avatars/avatars.vocab.generated.js').TRAITS;
+  const svg = (t) => k.svgHtml(k.read(`!{Ada Okafor, ${t}}`));
+  const data = require('../../../lib/plugins/avatars/avatars.data.generated.js');
+
+  test('a name that writes none of them gets none of them: v1 faces do not change', () => {
+    for (let i = 0; i < 200; i++) {
+      const f = k.read(`!{Person ${i}}`);
+      assert.equal(f.traits.earrings, 'none');
+      assert.equal(f.traits.headwear, 'none');
+      assert.equal(f.traits.clothing, 'crew');
+    }
+  });
+
+  test('every option is accepted and stamped on data-traits', () => {
+    for (const [trait, key] of [['earrings', 'earrings'], ['headwear', 'headwear'], ['clothing', 'clothing'], ['headwear-color', 'headwear-color']]) {
+      for (const v of V[trait]) assert.match(k.avatarHtml(`!{Ada, ${trait === 'headwear-color' ? 'headwear=cap, ' : ''}${key}=${v}}`), new RegExp(`data-traits="[^"]*${key}=${v}[ "]`));
+    }
+    assert.match(k.diagnose('!{Ada, headwear=fez}'), /fez.*none, hijab, turban, skullcap, beanie, kufi, cap, backcap/);
+  });
+
+  test('every covering draws on every hairstyle, face and skin, and paints in its color', () => {
+    for (const h of ['hijab', 'turban', 'skullcap', 'beanie', 'kufi', 'cap', 'backcap']) {
+      for (const hair of V.hair) for (const face of V.face) for (const skin of V.skin) {
+        const out = svg(`headwear=${h}, headwear-color=teal, hair=${hair}, face=${face}, skin=${skin}`);
+        assert.ok(out.includes('fill="#2F5F63"'), `${h} ${hair} ${face} ${skin}`);
+      }
+    }
+    assert.ok(!svg('headwear=none, headwear-color=teal').includes('#2F5F63'), 'a covering color is not drawn without a covering');
+  });
+
+  test('a hijab and a turban hide all hair, a cap hides the fringe and the volume above it', () => {
+    // The brows are painted in the hair's color too, so count against a bald baseline.
+    const bald = svg('hair-color=black, beard=none, hair=none').split('fill="#1E1917"').length - 1;
+    const count = (t) => svg(`hair-color=black, beard=none, ${t}`).split('fill="#1E1917"').length - 1 - bald;
+    assert.ok(count('hair=short') > 0);
+    assert.equal(count('hair=long, headwear=hijab'), 0);
+    assert.equal(count('hair=coily, headwear=turban'), 0);
+    assert.ok(count('hair=short, headwear=cap') < count('hair=short'), 'a cap hides the short fringe');
+    assert.ok(count('hair=long, headwear=cap') > 0, 'long hair still falls below a cap');
+    assert.ok(count('hair=short, headwear=skullcap') < count('hair=short'), 'a skull cap hides the short fringe');
+    assert.ok(count('hair=long, headwear=skullcap') > 0, 'long hair still falls below a skull cap');
+    assert.equal(count('hair=coily, headwear=skullcap'), 0, 'a skull cap hides an afro, which would rise above it');
+    for (const h of ['beanie', 'kufi']) {
+      assert.ok(count(`hair=short, headwear=${h}`) < count('hair=short'), `${h} hides the short fringe`);
+      assert.ok(count(`hair=long, headwear=${h}`) > 0, `long hair still falls below a ${h}`);
+      assert.equal(count(`hair=bun, headwear=${h}, gender=man`), 0, `${h} hides a bun`);
+    }
+    // A fitted cap worn backwards sits back on the crown: the fringe and hairline stay in front of it.
+    assert.equal(count('hair=short, headwear=backcap'), count('hair=short'), 'a backwards cap leaves the fringe');
+    assert.ok(count('hair=bun, headwear=backcap, gender=man') < count('hair=bun, gender=man'), 'a backwards cap hides the bun that would rise above it');
+    assert.equal(count('hair=bun, headwear=cap, gender=man'), 0, 'a cap hides a bun, which would rise above it');
+  });
+
+  test('earrings sit on the ears of every face shape', () => {
+    const lobes = (face) => data.drawings.earrings.stud[face].map((n) => n[1].cx);
+    assert.notDeepEqual(lobes('round'), lobes('long'));
+    for (const e of ['stud', 'hoop', 'drop']) for (const face of V.face) {
+      assert.ok(svg(`earrings=${e}, face=${face}, hair=short`).includes('#D4AC58'), `${e} ${face}`);
+    }
+    assert.ok(!svg('earrings=none').includes('#D4AC58'));
+  });
+
+  test('every clothing style draws the neck and the top', () => {
+    for (const c of V.clothing) {
+      const out = svg(`clothing=${c}, top=navy, skin=4`);
+      assert.ok(out.includes('#34445A'), `${c} paints the top`);
+      assert.ok(out.includes('#CC9468'), `${c} paints skin`);
+    }
+  });
+
+  test('a hijab hides earrings; data-traits names a covering color only with a covering', () => {
+    assert.ok(!svg('earrings=hoop, headwear=hijab').includes('#D4AC58'));
+    assert.ok(svg('earrings=hoop, headwear=turban').includes('#D4AC58'));
+    assert.doesNotMatch(k.avatarHtml('!{Ada}'), /headwear-color=/);
+    assert.match(k.avatarHtml('!{Ada, headwear=cap}'), /headwear-color=/);
+  });
+
+  test('a data script from before these traits leaves the span as written instead of throwing', () => {
+    // A fresh process, because pluginData caches a hit: drawings with no clothing/earrings/headwear sets.
+    const { spawnSync } = require('node:child_process');
+    const code = `
+      const d = require(${JSON.stringify(require.resolve('../../../lib/plugins/avatars/avatars.data.generated.js'))});
+      const { clothing, earrings, headwear, ...old } = d.drawings;
+      globalThis.__latticePluginData = { avatars: { palettes: d.palettes, drawings: old } };
+      const k = require(${JSON.stringify(require.resolve('../../../lib/plugins/avatars/avatars.inline.js'))});
+      process.stdout.write(String(k.avatarHtml('!{Ada Okafor}')));`;
+    const r = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout, 'null');
+  });
+
+  test('a covering is fitted to the head and the hair under it, and sits snug', () => {
+    const scale = (face, hair, h) => {
+      const m = (svg(`headwear=${h}, face=${face}, hair=${hair}`).match(/transform="matrix\(([^ ]+) 0 0 ([^ ]+) /) || []);
+      return m[1] ? { sx: +m[1], sy: +m[2] } : null;
+    };
+    const fit = data.fit;
+    for (const h of ['turban', 'skullcap', 'beanie', 'kufi', 'cap', 'backcap']) {
+      // The fitted dome's top lands just above the head (or the hair), whatever the face or hair.
+      for (const face of V.face) for (const hair of V.hair) {
+        const m = scale(face, hair, h);
+        assert.ok(m, `${h} on ${face}/${hair} is fitted`);
+        const hairTop = fit.hair[hair] ? fit.hair[hair].top : Infinity;
+        const target = Math.min(fit.faces[face].top, hairTop) - fit.margin.top;
+        const top = fit.anchor - (fit.anchor - fit.hats[h].top) * m.sy;
+        assert.ok(Math.abs(top - target) < 0.6, `${h} ${face}/${hair}: top ${top.toFixed(2)} vs ${target}`);
+      }
+    }
+    assert.notDeepEqual(scale('round', 'none', 'cap'), scale('long', 'none', 'cap'), 'the face shape changes the fit');
+    assert.notDeepEqual(scale('oval', 'none', 'cap'), scale('oval', 'short', 'cap'), 'the hair under it changes the fit');
+    assert.equal(scale('round', 'none', 'hijab'), null, 'a hijab wraps the whole head and is not fitted');
+    assert.equal(svg('face=round, hair=short').includes('transform='), false, 'no covering, nothing fitted');
+  });
+});

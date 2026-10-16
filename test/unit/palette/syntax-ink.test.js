@@ -155,7 +155,7 @@ test('a seed that already clears comes back UNCHANGED', () => {
   assert.deepStrictEqual(out.exhausted, []);
 });
 
-test('the a11y palettes seed string/number from their own status pair, not from --hljs-*', () => {
+test('the a11y palettes seed string/number from their own status pair, not from --syntax-*', () => {
   // The color-vision accommodation: those four inherit onyx's syntax family (green 144deg /
   // yellow-green 104deg), which is the red-green axis two of them exist to avoid.
   for (const name of ['a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia', 'a11y-achromatopsia']) {
@@ -164,7 +164,7 @@ test('the a11y palettes seed string/number from their own status pair, not from 
   for (const name of ['indaco', 'cuoio', 'onyx', 'concrete']) {
     assert.deepStrictEqual(
       syntaxInkSeeds(name),
-      { keyword: 'accent', string: 'hljs-string', number: 'hljs-number' },
+      { keyword: 'accent', string: 'syntax-string', number: 'syntax-number' },
       `${name} keeps its own syntax hues — onyx is a monochrome BRAND, not an accommodation`,
     );
   }

@@ -1,0 +1,16 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "crepuscolo",
+  "type": "theme",
+  "format": 1,
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "crepuscolo-dark",
+  "order": 2,
+  "swatch": "#5B3D8C"
+}

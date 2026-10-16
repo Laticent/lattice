@@ -33,7 +33,7 @@ body:
     attributes:
       label: ★ Acceptance check
       description: How an agent (or reviewer) knows this card is done — a concrete, checkable condition.
-      placeholder: e.g. "`npm run sync:backlog` regenerates BACKLOG.md with the new column; unit test covers the grouping."
+      placeholder: e.g. "`npm run sync:backlog` regenerates backlog.d/ with the new field; unit test covers the grouping."
     validations:
       required: true
   - type: dropdown

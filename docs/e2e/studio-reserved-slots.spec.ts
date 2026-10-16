@@ -1,3 +1,4 @@
+import { ENGINE_GLOB } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // RESERVED SLOTS — the two places the pre-paint shell cannot know its content, and the
@@ -101,7 +102,7 @@ test('@smoke the shell and the app reserve the same slot, and the reservation ho
 	await page.setViewportSize(WIDE);
 	// Hold the engine so the shell is measurable before the island replaces it — the same
 	// device `studio-shell-parity` uses, for the same reason.
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, 2500));
 		await route.continue();
 	});
@@ -186,7 +187,7 @@ test('a slot does not resize when its content does — the relation, over the wh
 	// and React re-renders from state, so the next paint restores the real text.
 	for (const [key, samples] of [
 		['deck-meta', ['1 slide', '7 slides', '12 slides', '999 slides']],
-		['slide-counter', ['Slide 1 / 7', 'Slide 9 / 9', 'Slide 10 / 12', 'Slide 100 / 999']],
+		['slide-counter', ['Slide 1 / 7', 'Slide 9 / 9', 'Slide 10 / 12', 'Slide 100 / 999', 'Slide 999 / 999']],
 	] as const) {
 		const slot = page.locator(`[data-shell-unknowable="${key}"]`);
 		const widths: number[] = [];

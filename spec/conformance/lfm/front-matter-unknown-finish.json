@@ -1,0 +1,7 @@
+{
+  "title": "A finish: value that is not a finish is a diagnostic; sketch is a mode, not a finish",
+  "spec": "LFM-1.0",
+  "section": "2.3",
+  "L1": { "deck": { "finish": "none", "mode": "boardroom" } },
+  "L2": { "findings": [{ "rule": "unknown-finish", "severity": "warning", "slide": 0 }] }
+}

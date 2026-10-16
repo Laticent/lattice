@@ -1,0 +1,569 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 101664,
+	"lines": [
+		{
+			"key": "ed21b8cea23a",
+			"text": "A theme sets the colors and type for the whole deck. Your words and layouts stay as they are.",
+			"file": "ed21b8cea23a.mp3",
+			"bytes": 30240,
+			"speechMs": 4980,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A theme sets the colors and type for the whole deck.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 200,
+								"charOffset": 0
+							},
+							{
+								"display": "theme",
+								"spoken": "theme",
+								"startMs": 200,
+								"endMs": 401,
+								"charOffset": 2
+							},
+							{
+								"display": "sets",
+								"spoken": "sets",
+								"startMs": 401,
+								"endMs": 601,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 601,
+								"endMs": 801,
+								"charOffset": 13
+							},
+							{
+								"display": "colors",
+								"spoken": "colors",
+								"startMs": 801,
+								"endMs": 1202,
+								"charOffset": 17
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1202,
+								"endMs": 1403,
+								"charOffset": 24
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 1403,
+								"endMs": 1603,
+								"charOffset": 28
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1603,
+								"endMs": 1803,
+								"charOffset": 33
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1803,
+								"endMs": 2004,
+								"charOffset": 37
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 2004,
+								"endMs": 2204,
+								"charOffset": 41
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 2204,
+								"endMs": 2434,
+								"charOffset": 47
+							}
+						],
+						"startMs": 0,
+						"endMs": 2810,
+						"charOffset": 0
+					},
+					{
+						"display": "Your words and layouts stay as they are.",
+						"words": [
+							{
+								"display": "Your",
+								"spoken": "Your",
+								"startMs": 2971,
+								"endMs": 3172,
+								"charOffset": 53
+							},
+							{
+								"display": "words",
+								"spoken": "words",
+								"startMs": 3172,
+								"endMs": 3372,
+								"charOffset": 58
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3372,
+								"endMs": 3573,
+								"charOffset": 64
+							},
+							{
+								"display": "layouts",
+								"spoken": "layouts",
+								"startMs": 3573,
+								"endMs": 3773,
+								"charOffset": 68
+							},
+							{
+								"display": "stay",
+								"spoken": "stay",
+								"startMs": 3773,
+								"endMs": 3973,
+								"charOffset": 76
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 3973,
+								"endMs": 4174,
+								"charOffset": 81
+							},
+							{
+								"display": "they",
+								"spoken": "they",
+								"startMs": 4174,
+								"endMs": 4374,
+								"charOffset": 84
+							},
+							{
+								"display": "are.",
+								"spoken": "are.",
+								"startMs": 4374,
+								"endMs": 4604,
+								"charOffset": 89
+							}
+						],
+						"startMs": 2971,
+						"endMs": 4980,
+						"charOffset": 53
+					}
+				],
+				"durationMs": 4980
+			}
+		},
+		{
+			"key": "14f9700a00cf",
+			"text": "Click the palette icon to see every theme.",
+			"file": "14f9700a00cf.mp3",
+			"bytes": 14688,
+			"speechMs": 2396,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click the palette icon to see every theme.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 171,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 171,
+								"endMs": 342,
+								"charOffset": 6
+							},
+							{
+								"display": "palette",
+								"spoken": "palette",
+								"startMs": 342,
+								"endMs": 683,
+								"charOffset": 10
+							},
+							{
+								"display": "icon",
+								"spoken": "icon",
+								"startMs": 683,
+								"endMs": 1025,
+								"charOffset": 18
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1025,
+								"endMs": 1196,
+								"charOffset": 23
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 1196,
+								"endMs": 1367,
+								"charOffset": 26
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 1367,
+								"endMs": 1879,
+								"charOffset": 30
+							},
+							{
+								"display": "theme.",
+								"spoken": "theme.",
+								"startMs": 1879,
+								"endMs": 2075,
+								"charOffset": 36
+							}
+						],
+						"startMs": 0,
+						"endMs": 2396,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 2396
+			}
+		},
+		{
+			"key": "9125725caa89",
+			"text": "On this screen, themes are in the menu at the top right. I’ll switch one for you.",
+			"file": "9125725caa89.mp3",
+			"bytes": 26208,
+			"speechMs": 4301,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "On this screen, themes are in the menu at the top right.",
+						"words": [
+							{
+								"display": "On",
+								"spoken": "On",
+								"startMs": 0,
+								"endMs": 172,
+								"charOffset": 0
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 172,
+								"endMs": 344,
+								"charOffset": 3
+							},
+							{
+								"display": "screen,",
+								"spoken": "screen,",
+								"startMs": 344,
+								"endMs": 542,
+								"charOffset": 8
+							},
+							{
+								"display": "themes",
+								"spoken": "themes",
+								"startMs": 710,
+								"endMs": 1054,
+								"charOffset": 16
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 1054,
+								"endMs": 1226,
+								"charOffset": 23
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1226,
+								"endMs": 1399,
+								"charOffset": 27
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1399,
+								"endMs": 1571,
+								"charOffset": 30
+							},
+							{
+								"display": "menu",
+								"spoken": "menu",
+								"startMs": 1571,
+								"endMs": 1915,
+								"charOffset": 34
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 1915,
+								"endMs": 2087,
+								"charOffset": 39
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2087,
+								"endMs": 2260,
+								"charOffset": 42
+							},
+							{
+								"display": "top",
+								"spoken": "top",
+								"startMs": 2260,
+								"endMs": 2432,
+								"charOffset": 46
+							},
+							{
+								"display": "right.",
+								"spoken": "right.",
+								"startMs": 2432,
+								"endMs": 2629,
+								"charOffset": 50
+							}
+						],
+						"startMs": 0,
+						"endMs": 2953,
+						"charOffset": 0
+					},
+					{
+						"display": "I’ll switch one for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 3091,
+								"endMs": 3264,
+								"charOffset": 57
+							},
+							{
+								"display": "switch",
+								"spoken": "switch",
+								"startMs": 3264,
+								"endMs": 3436,
+								"charOffset": 62
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 3436,
+								"endMs": 3608,
+								"charOffset": 69
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 3608,
+								"endMs": 3780,
+								"charOffset": 73
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 3780,
+								"endMs": 3978,
+								"charOffset": 77
+							}
+						],
+						"startMs": 3091,
+						"endMs": 4301,
+						"charOffset": 57
+					}
+				],
+				"durationMs": 4301
+			}
+		},
+		{
+			"key": "ce6b7a4368b0",
+			"text": "Pick a theme and watch the slides.",
+			"file": "ce6b7a4368b0.mp3",
+			"bytes": 10656,
+			"speechMs": 1725,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Pick a theme and watch the slides.",
+						"words": [
+							{
+								"display": "Pick",
+								"spoken": "Pick",
+								"startMs": 0,
+								"endMs": 172,
+								"charOffset": 0
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 172,
+								"endMs": 344,
+								"charOffset": 5
+							},
+							{
+								"display": "theme",
+								"spoken": "theme",
+								"startMs": 344,
+								"endMs": 516,
+								"charOffset": 7
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 516,
+								"endMs": 688,
+								"charOffset": 13
+							},
+							{
+								"display": "watch",
+								"spoken": "watch",
+								"startMs": 688,
+								"endMs": 860,
+								"charOffset": 17
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 860,
+								"endMs": 1032,
+								"charOffset": 23
+							},
+							{
+								"display": "slides.",
+								"spoken": "slides.",
+								"startMs": 1032,
+								"endMs": 1402,
+								"charOffset": 27
+							}
+						],
+						"startMs": 0,
+						"endMs": 1725,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1725
+			}
+		},
+		{
+			"key": "5aceb513860f",
+			"text": "Same slides, new look. Search “theme” to change it again.",
+			"file": "5aceb513860f.mp3",
+			"bytes": 19872,
+			"speechMs": 3264,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Same slides, new look.",
+						"words": [
+							{
+								"display": "Same",
+								"spoken": "Same",
+								"startMs": 0,
+								"endMs": 182,
+								"charOffset": 0
+							},
+							{
+								"display": "slides,",
+								"spoken": "slides,",
+								"startMs": 182,
+								"endMs": 571,
+								"charOffset": 5
+							},
+							{
+								"display": "new",
+								"spoken": "new",
+								"startMs": 748,
+								"endMs": 930,
+								"charOffset": 13
+							},
+							{
+								"display": "look.",
+								"spoken": "look.",
+								"startMs": 930,
+								"endMs": 1138,
+								"charOffset": 17
+							}
+						],
+						"startMs": 0,
+						"endMs": 1479,
+						"charOffset": 0
+					},
+					{
+						"display": "Search “theme” to change it again.",
+						"words": [
+							{
+								"display": "Search",
+								"spoken": "Search",
+								"startMs": 1625,
+								"endMs": 1807,
+								"charOffset": 23
+							},
+							{
+								"display": "“theme”",
+								"spoken": "theme",
+								"startMs": 1807,
+								"endMs": 1989,
+								"charOffset": 30
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1989,
+								"endMs": 2170,
+								"charOffset": 38
+							},
+							{
+								"display": "change",
+								"spoken": "change",
+								"startMs": 2170,
+								"endMs": 2352,
+								"charOffset": 41
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 2352,
+								"endMs": 2533,
+								"charOffset": 48
+							},
+							{
+								"display": "again.",
+								"spoken": "again.",
+								"startMs": 2533,
+								"endMs": 2923,
+								"charOffset": 51
+							}
+						],
+						"startMs": 1625,
+						"endMs": 3264,
+						"charOffset": 23
+					}
+				],
+				"durationMs": 3264
+			}
+		}
+	]
+}

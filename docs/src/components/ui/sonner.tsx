@@ -88,6 +88,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "#fff",
           "--normal-border": "color-mix(in srgb, #fff 16%, transparent)",
           "--border-radius": "9999px",
+          // (3) Tappable over a modal. A Radix dialog sets `pointer-events: none` on <body>
+          // while it is open, and the toaster lives in <body>, so a toast's button showed
+          // and ignored every tap — measured on the iOS "<file> is ready · Save" toast
+          // over the Share sheet (download-ios.js), where the tap fell through to the sheet.
+          pointerEvents: "auto",
         } as React.CSSProperties
       }
       toastOptions={{

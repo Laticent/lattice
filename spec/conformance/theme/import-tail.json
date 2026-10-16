@@ -1,0 +1,15 @@
+{
+  "title": "An @import with a media tail is refused",
+  "spec": "THEME-1.0",
+  "section": "6",
+  "knownThemes": [
+    "lattice"
+  ],
+  "expect": {
+    "ok": false,
+    "blocked": true,
+    "errors": [
+      "theme-import"
+    ]
+  }
+}

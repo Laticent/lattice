@@ -1,0 +1,563 @@
+---
+// Cadenza read-along — a standalone, framework-free reference page driven by the
+// REAL engine (docs/src/lib/cadenza): buildTrack → a timed track, makeReader → the
+// clock→word driver, toVtt → the caption export. No React, no slide engine — the
+// honest proof that the caption core is a self-contained library. Silent path (no
+// audio): the highlight rides Cadenza's own cadence estimate. Not in site nav — a
+// reference surface reached at /libraries/cadenza/; its Learn page is
+// /libraries/cadenza/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Cadenza — read-along</title>
+		<link rel="icon" href="/cadenza-mark-min.svg" type="image/svg+xml" />
+		<!-- Global (unscoped): the caption words/cues are created in JS at runtime, so
+		     Astro's default scoping (a hash attribute added only to template elements)
+		     would never match them and the highlight styles would silently not apply. -->
+		<style is:global>
+			:root {
+				--paper: #f6f3ec; --stage: #efeae0; --ink: #201d18; --muted: #9d968a; --spent: #c3bcae;
+				--line: #ded7c8; --accent: #3f3d8f; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6d9a4;
+				--panel: #fbf9f4; --shadow: 0 1px 2px rgba(32,29,24,.06), 0 8px 24px rgba(32,29,24,.05);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #121118; --stage: #191824; --ink: #ece7dd; --muted: #5f5d70; --spent: #46445a;
+					--line: #272637; --accent: #9491f2; --accent-ink: #14121c; --glow: #f6b64a; --glow-bg: #3a2f1c;
+					--panel: #16151f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				}
+			}
+			:root[data-theme="light"] {
+				--paper: #f6f3ec; --stage: #efeae0; --ink: #201d18; --muted: #9d968a; --spent: #c3bcae;
+				--line: #ded7c8; --accent: #3f3d8f; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6d9a4; --panel: #fbf9f4;
+			}
+			:root[data-theme="dark"] {
+				--paper: #121118; --stage: #191824; --ink: #ece7dd; --muted: #5f5d70; --spent: #46445a;
+				--line: #272637; --accent: #9491f2; --accent-ink: #14121c; --glow: #f6b64a; --glow-bg: #3a2f1c; --panel: #16151f;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 860px; margin: 0 auto; }
+			header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 62ch; margin: 8px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+			.stage { margin: 28px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(24px, 5vw, 44px); min-height: 220px; display: flex; flex-direction: column; justify-content: center; }
+			.caption { font-family: var(--stage-serif); font-size: clamp(22px, 3.4vw, 30px); line-height: 1.6; text-wrap: balance; }
+			.caption .w { color: var(--muted); transition: color .12s ease, background-color .12s ease; border-radius: 5px; padding: 0 .04em; }
+			.caption .w.spent { color: var(--spent); }
+			.caption .w.on { color: var(--glow); background: var(--glow-bg); font-weight: 600; box-shadow: 0 0 0 3px var(--glow-bg); }
+			.caption .cue { display: block; }
+			.caption .cue.future { opacity: .35; }
+			.caption .cue.done { opacity: .5; }
+			.spoken { margin-top: 22px; display: flex; align-items: center; gap: 12px; min-height: 28px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+			.spoken .lbl { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+			.spoken .disp { color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font-weight: 600; }
+			.spoken .arrow { color: var(--accent); }
+			.spoken .say { color: var(--glow); }
+			.transport { margin-top: 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+			.play { width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer; background: var(--accent);
+				color: var(--accent-ink); display: grid; place-items: center; flex-shrink: 0; transition: transform .08s ease; }
+			.play:hover { transform: scale(1.05); } .play:active { transform: scale(.96); }
+			.play svg { width: 22px; height: 22px; }
+			.bar { flex: 1; min-width: 160px; height: 8px; background: var(--line); border-radius: 999px; position: relative; overflow: hidden; cursor: pointer; }
+			.bar > i { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--accent); border-radius: 999px; }
+			.clock { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+			.pace { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--panel); }
+			.pace button { border: none; background: transparent; color: var(--muted); font-family: var(--sans); font-size: 12px; padding: 7px 13px; cursor: pointer; font-weight: 600; }
+			.pace button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			.voice { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); font-weight: 600; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 12px; }
+			.voice .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--spent); flex-shrink: 0; }
+			.voice[data-live="true"] { color: var(--ink); border-color: var(--accent); }
+			.voice[data-live="true"] .dot { background: var(--glow); box-shadow: 0 0 0 3px var(--glow-bg); }
+			.vsel { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 999px; padding: 7px 30px 7px 12px; cursor: pointer; -webkit-appearance: none; appearance: none;
+				background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: right 13px center, right 8px center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+			.vsel:disabled { opacity: .5; cursor: default; }
+			.keyrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+			.keyrow input { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+			.keyrow button { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+			.keyrow button.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+			.keyhint { color: var(--muted); font-size: 12px; margin: 0 0 4px; }
+			.keyhint a { color: var(--accent); }
+			.keystatus { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.keystatus.ok { color: var(--glow); font-weight: 600; }
+			.diag { margin-top: 12px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-word; }
+			.diag.err { color: var(--glow); font-weight: 600; }
+			details { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+			summary { cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; list-style: none; }
+			summary::-webkit-details-marker { display: none; }
+			summary .chev { color: var(--muted); transition: transform .15s ease; }
+			details[open] summary .chev { transform: rotate(90deg); }
+			summary .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
+			.panel-body { padding: 0 16px 16px; }
+			textarea { width: 100%; min-height: 96px; resize: vertical; font-family: var(--stage-serif); font-size: 15px; line-height: 1.5;
+				color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+			pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--ink); background: var(--paper);
+				border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; max-height: 260px; }
+			pre .ts { color: var(--accent); }
+			.foot { margin-top: 28px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+			/* Storyboard rail — matches /suono + /lente */
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0; font-weight: 600; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; transition: transform .08s ease; }
+			.btn:hover { transform: translateY(-1px); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow-bg); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line); color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="cadenza" />
+			<header>
+				<div class="brand"><img class="logo" src="/cadenza-mark.svg" alt="" width="46" height="46" /><h1>Cadenza</h1><span class="tag">Library</span></div>
+				<button class="theme" id="themeBtn" type="button">◐ theme</button>
+			</header>
+			<p class="promise">Words that light up as they're spoken.</p>
+			<p class="sub">Cadenza works out when each word of a text is said, with no recording needed, and exports captions any video player reads. <b>Press play</b> and watch the words light up. Notice how long <b>$4.2M</b> stays lit: Cadenza times it as "four point two million dollars". Then edit the text below and play it again.</p>
+
+			<div class="stage">
+				<div class="caption" id="caption"></div>
+				<div class="spoken" id="spoken"></div>
+			</div>
+
+			<div class="transport">
+				<button class="play" id="play" type="button" aria-label="Play">
+					<svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+				</button>
+				<div class="bar" id="bar" role="slider" aria-label="Seek" tabindex="0"><i id="fill"></i></div>
+				<span class="clock" id="clock">0.0s / 0.0s</span>
+				<div class="pace" id="pace" role="group" aria-label="Pace">
+					<button type="button" data-pace="slow">Slow</button>
+					<button type="button" data-pace="moderate" aria-pressed="true">Moderate</button>
+					<button type="button" data-pace="fast">Fast</button>
+				</div>
+				<select class="vsel" id="voiceSel" aria-label="Cloud voice" title="Cloud (Kokoro) voice — applies when a key is connected"></select>
+				<span class="voice" id="voice" title="Active voice — connect one in the Playground to hear it"><span class="dot"></span><span id="voiceLabel">silent</span></span>
+			</div>
+
+			<p class="diag" id="diag" role="status" aria-live="polite"></p>
+
+			<details id="textPanel" open>
+				<summary><span class="chev">▸</span> Your text <span class="hint">— type or paste anything; it re-times as you type</span></summary>
+				<div class="panel-body"><textarea id="input" spellcheck="false" aria-label="Text to time"></textarea></div>
+			</details>
+
+			<div class="rail">
+				<div class="rail-head">
+					<h2>Five things to try</h2>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all five</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</div>
+
+			<details id="keyPanel">
+				<summary><span class="chev">▸</span> A better voice <span class="hint">— optional; without it, your browser's own voice reads</span></summary>
+				<div class="panel-body">
+					<p class="keyhint">Your key is stored only in this browser (localStorage), same as the Playground — it never leaves your device. Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. Without a key this page uses your device’s built-in browser voice.</p>
+					<div class="keyrow">
+						<input id="orKey" type="password" placeholder="sk-or-..." autocomplete="off" spellcheck="false" aria-label="OpenRouter API key" />
+						<button id="orKeyUse" type="button">Use key</button>
+						<button id="orKeyClear" type="button" class="ghost">Clear</button>
+					</div>
+					<span class="keystatus" id="keyStatus"></span>
+				</div>
+			</details>
+
+			<details id="vttPanel">
+				<summary><span class="chev">▸</span> The caption file <span class="hint">— standard WebVTT, with a timestamp on every word</span></summary>
+				<div class="panel-body"><pre id="vtt"></pre></div>
+			</details>
+
+			<p class="foot">This page runs the real library in your browser. <a href="/libraries/cadenza/learn/">Learn how Cadenza works, and how to use it →</a></p>
+		</div>
+
+		<script>
+			import { buildTrack, makeReader, pauseAfter, toVtt } from '@/lib/cadenza';
+			import { createStage } from '@/lib/suono';
+
+			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
+			const $ = (s) => document.querySelector(s);
+			const capEl = $('#caption'), spokenEl = $('#spoken'), fillEl = $('#fill'), clockEl = $('#clock'), vttEl = $('#vtt'), inputEl = $('#input');
+			const voiceEl = $('#voice'), voiceLabelEl = $('#voiceLabel');
+			const diagEl = $('#diag');
+			function setDiag(msg, isErr) { diagEl.textContent = msg || ''; diagEl.classList.toggle('err', !!isErr); }
+			const voiceSelEl = $('#voiceSel');
+			const root = document.documentElement;
+
+			// The highlight is driven by one of two clocks, chosen fresh on each play():
+			//   • mode 'audio' — a BLOB voice (OpenRouter / Kokoro) is speaking. The highlight
+			//     rides the voice model's OWNED WebAudio clock and each sentence's MEASURED
+			//     onset re-anchors its Cadenza cue (the hybrid timing model).
+			//   • mode 'silent' — no blob clock. The highlight rides Cadenza's own cadence
+			//     estimate (a plain rAF wall-clock). This serves BOTH the no-audio case AND the
+			//     browser-voice case: speechSynthesis reports no timing, so we speak it in
+			//     PARALLEL and let the estimate carry the highlight (as read-aloud.ts does).
+			// `voicing` = a non-silent rung is actually speaking (so pause/stop must reach it).
+			let pace = 'moderate', track = null, reader = null;
+			let playing = false, started = false, elapsed = 0, lastT = 0, raf = 0;
+			let voice = null, mode = 'silent', audioBase = null, voicing = false;
+			// Suono (the shared audio library the Studio read-aloud uses): its owned stage + the current
+			// clocked sequence. This demo is Suono's second consumer — the /cadenza reference now runs the
+			// same engine, not voice-model's retired internal scheduler.
+			let stage = null, seq = null;
+
+			// The voice ladder (voice-model.js): connected OpenRouter voice → on-device Kokoro
+			// → browser voice → silent floor, sharing the Playground's OpenRouter key.
+			// `allowBrowserVoice` opts THIS demo page into the speechSynthesis rung the
+			// production Playground bans — so a visitor with no key still hears the read-along
+			// (device-dependent; labeled "browser voice", never mistaken for the quality voice).
+			// Built eagerly; if it can't load we stay on the silent path.
+			const OR_KEY_LS = 'lattice-db-or-key';
+			const VOICE_LABEL = { 'openrouter-tts': 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
+			// Pace → a TTS `speed` multiplier so the control actually changes the SPOKEN
+			// tempo (not just the silent estimate). Kept inside the Azure-safe 0.5–2.0 band;
+			// models that don't support speed ignore it (the highlight still re-anchors to
+			// whatever the audio's real duration turns out to be).
+			const PACE_SPEED = { slow: 0.8, moderate: 1.0, fast: 1.25 };
+			// Curated Kokoro voices (the af_*/am_*/bf_*/bm_* ids the hosted + on-device Kokoro
+			// rungs share). The picker persists to the same localStorage pref the voice model
+			// reads, and is passed explicitly to speak() so it applies immediately.
+			const OR_VOICE_LS = 'lattice-db-voice-or';
+			const VOICES = [
+				['American — female', [['af_heart','Heart'],['af_bella','Bella'],['af_nicole','Nicole'],['af_sarah','Sarah'],['af_sky','Sky'],['af_nova','Nova'],['af_aoede','Aoede'],['af_kore','Kore']]],
+				['American — male', [['am_michael','Michael'],['am_adam','Adam'],['am_echo','Echo'],['am_onyx','Onyx'],['am_puck','Puck'],['am_fenrir','Fenrir']]],
+				['British — female', [['bf_emma','Emma'],['bf_isabella','Isabella'],['bf_alice','Alice'],['bf_lily','Lily']]],
+				['British — male', [['bm_george','George'],['bm_lewis','Lewis'],['bm_daniel','Daniel'],['bm_fable','Fable']]],
+			];
+			let selVoice = 'af_heart';
+			try { selVoice = localStorage.getItem(OR_VOICE_LS) || 'af_heart'; } catch {}
+			function populateVoices() {
+				voiceSelEl.innerHTML = '';
+				for (const [group, items] of VOICES) {
+					const og = document.createElement('optgroup'); og.label = group;
+					for (const [id, label] of items) { const o = document.createElement('option'); o.value = id; o.textContent = label; og.appendChild(o); }
+					voiceSelEl.appendChild(og);
+				}
+				if ([...voiceSelEl.options].some((o) => o.value === selVoice)) voiceSelEl.value = selVoice;
+			}
+			import('@/playground/voice-model.js')
+				.then((m) => {
+					voice = m.createVoiceModel({
+						getOpenRouterKey: () => { try { return localStorage.getItem(OR_KEY_LS); } catch { return null; } },
+						allowBrowserVoice: true,
+					});
+					refreshVoice();
+				})
+				.catch(() => { voice = null; });
+
+			function rungNow() { try { return voice ? voice.rung() : 'silent'; } catch { return 'silent'; } }
+			function refreshVoice(rung) {
+				const r = rung || rungNow();
+				voiceLabelEl.textContent = VOICE_LABEL[r] || r;
+				voiceEl.dataset.live = String(voicing && playing && r !== 'silent');
+				// The voice picker drives Kokoro's voice (hosted or on-device); gray it out when
+				// the active rung isn't Kokoro (no key → browser voice → its voice isn't ours).
+				voiceSelEl.disabled = !(r === 'openrouter-tts' || r === 'kokoro');
+			}
+
+			function render() {
+				track = buildTrack(inputEl.value, { pace });
+				reader = makeReader({ track, onEnd: () => stop() });
+				capEl.innerHTML = '';
+				track.cues.forEach((cue, ci) => {
+					const c = document.createElement('span'); c.className = 'cue'; c.dataset.ci = String(ci);
+					cue.words.forEach((w, wi) => {
+						const el = document.createElement('span'); el.className = 'w'; el.textContent = w.display;
+						el.dataset.ci = String(ci); el.dataset.wi = String(wi); c.appendChild(el);
+						c.appendChild(document.createTextNode(' '));
+					});
+					capEl.appendChild(c);
+				});
+				const esc = (s) => s.replace(/</g, '&lt;');
+				vttEl.innerHTML = esc(toVtt(track)).replace(/&lt;(\d{2}:\d{2}:\d{2}\.\d{3})>/g, '<span class="ts">&lt;$1></span>');
+				elapsed = 0; paint(); updateClock();
+			}
+
+			// Build a labeled span with its text set via textContent — never innerHTML —
+			// so a narration token like `<img onerror=…>` can't inject into this page
+			// (which holds the user's BYOK key in localStorage). Mirrors the caption path.
+			const mkSpan = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
+
+			function paint() {
+				const a = reader.current(); // { cueIndex, wordIndex } | null
+				document.querySelectorAll('.caption .w').forEach((el) => {
+					const ci = Number(el.dataset.ci), wi = Number(el.dataset.wi), w = track.cues[ci].words[wi];
+					const on = !!a && a.cueIndex === ci && a.wordIndex === wi;
+					el.classList.toggle('on', on);
+					el.classList.toggle('spent', elapsed >= w.endMs && !on);
+				});
+				document.querySelectorAll('.caption .cue').forEach((el, ci) => {
+					el.classList.toggle('done', track.cues[ci].endMs < elapsed);
+					el.classList.toggle('future', track.cues[ci].startMs > elapsed && (!a || a.cueIndex !== ci));
+				});
+				if (a) {
+					const w = track.cues[a.cueIndex].words[a.wordIndex];
+					spokenEl.replaceChildren(mkSpan('lbl', 'speaking'), mkSpan('disp', w.display), mkSpan('arrow', '→'), mkSpan('say', w.spoken));
+				} else {
+					spokenEl.replaceChildren(mkSpan('lbl', playing ? '…' : 'press play'));
+				}
+				fillEl.style.width = (reader.durationMs() ? Math.min(100, (elapsed / reader.durationMs()) * 100) : 0) + '%';
+			}
+			function updateClock() {
+				const dur = reader.durationMs();
+				clockEl.textContent = (elapsed / 1000).toFixed(1) + 's / ' + (dur / 1000).toFixed(1) + 's';
+				const bar = $('#bar');
+				bar.setAttribute('aria-valuemin', '0');
+				bar.setAttribute('aria-valuemax', String(Math.round(dur)));
+				bar.setAttribute('aria-valuenow', String(Math.round(elapsed)));
+				bar.setAttribute('aria-valuetext', (elapsed / 1000).toFixed(1) + ' of ' + (dur / 1000).toFixed(1) + ' seconds');
+			}
+
+			function tick(now) {
+				if (!playing) return;
+				if (mode === 'audio') {
+					// Ride Suono's owned, ALREADY latency-compensated clock (clockMs = ctx time − output
+					// latency), so the highlight tracks what's HEARD, not the hardware buffer. Hold at 0
+					// until sentence 0's audio actually starts (audioBase is its measured onset, same clock).
+					elapsed = audioBase == null ? 0 : Math.max(0, stage.clockMs() - audioBase);
+				} else {
+					elapsed += now - lastT;
+				}
+				lastT = now;
+				reader.sync(elapsed); paint(); updateClock();
+				if (playing) raf = requestAnimationFrame(tick);
+			}
+
+			// Start narration for a FRESH play (not a resume). Picks the audio path if a
+			// blob voice is connected, the browser-voice path if only speechSynthesis is, else
+			// stays silent. For the blob path unlock() must run synchronously in the click
+			// gesture (iOS), so this is called straight from play() with no await before it.
+			function startVoice() {
+				mode = 'silent'; audioBase = null; voicing = false;
+				if (forceSilent) { refreshVoice('silent'); return; } // storyboard beats 1–4: pure silent estimate
+				const r = rungNow();
+				refreshVoice(r);
+				if (!voice || r === 'silent') return;
+				voicing = true;
+				// Only a BLOB voice (OpenRouter / Kokoro) gives a clock to ride + onsets to
+				// re-anchor to. The browser voice (speechSynthesis) reports neither, so it speaks
+				// in parallel while the SILENT estimate carries the highlight — mode stays 'silent'.
+				const clocked = r === 'openrouter-tts' || r === 'kokoro';
+				// Speak Cadenza's SPOKEN expansion, not the raw glyphs — so the voice says "four point two
+				// million dollars", not Kokoro's mis-parse of "$4.2M". One spoken sentence per cue keeps
+				// index i aligned with cue i, so the measured onset re-anchors the right word.
+				const sentences = track.cues.map((cue) => cue.words.map((w) => w.spoken).join(' '));
+				const speed = PACE_SPEED[pace] || 1;
+				if (clocked) {
+					// Suono owns the AudioContext + scheduler + WebAudio clock; hand it a per-sentence byte
+					// producer (voice.synthOne) and re-anchor each cue on the clip's MEASURED onset — the same
+					// hybrid timing the old voice.speak(onSentenceTiming) drove, now through the shared library
+					// the Studio uses. keyOf is content-complete (rung · voice · speed · sentence).
+					stage = stage || createStage();
+					try { stage.unlock(); } catch {}
+					mode = 'audio'; reader.reset();
+					const keyPrefix = r + '|' + selVoice + '|' + speed;
+					seq = stage.sequence({
+						items: sentences,
+						produce: async (s, { signal }) => (await voice.synthOne({ text: s, voice: selVoice, speed, signal }))?.bytes ?? null,
+						keyOf: (s) => keyPrefix + '|' + s,
+						// The inter-clip breath: cadenza's graded pauseAfter × 0.3 (the clip-silence discount).
+						gapMs: (s) => Math.round(pauseAfter(s) * 0.3),
+						onItemStart: ({ index, onsetMs, durationMs }) => {
+							if (audioBase == null) audioBase = onsetMs; // sentence 0 onset = track time 0
+							reader.align(index, onsetMs - audioBase, durationMs);
+						},
+						onState: ({ playing: seqPlaying, aborted, error }) => {
+							// Surface the REAL failure reason instead of a silent fall to the estimate: the API's
+							// HTTP status / CORS / decode message, so keyless-vs-rejected is distinguishable.
+							if (error) setDiag('\u26a0 ' + (VOICE_LABEL[rungNow()] || rungNow()) + ' failed: ' + error, true);
+							// A clocked voice that produced no audio (every synth failed) — fall back to the silent
+							// estimate so the read-along never hangs waiting for an onset.
+							if (mode === 'audio' && !seqPlaying && !aborted && playing && audioBase == null) {
+								mode = 'silent'; lastT = performance.now(); refreshVoice('silent');
+							}
+						},
+					});
+					seq.play();
+				} else {
+					// Browser voice (speechSynthesis): no bytes to schedule — speak it in PARALLEL and let the
+					// silent estimate carry the highlight (mode stays 'silent'), as read-aloud.ts does.
+					try { voice.speakThis(sentences.join(' ')); } catch {}
+				}
+				// Diagnostic: a beat after start, show the live rung + AudioContext state, so a
+				// silent-but-'running' context (audio muted by the iOS switch) is distinguishable
+				// from a 'suspended' one (gesture/interruption) at a glance.
+				setTimeout(() => { if (voicing && playing && voice) setDiag((VOICE_LABEL[rungNow()] || rungNow()) + ' · audio: ' + (stage && stage.state ? stage.state() : '?')); }, 500);
+			}
+
+			function play() {
+				if (!reader.durationMs()) return;
+				if (!started) {
+					if (elapsed >= reader.durationMs()) { elapsed = 0; reader.reset(); }
+					started = true; playing = true; setIcon(true);
+					lastT = performance.now();
+					startVoice();
+					raf = requestAnimationFrame(tick);
+				} else {
+					playing = true; setIcon(true);
+					if (seq) { try { seq.resume(); } catch {} } else if (voicing && voice) { try { voice.resume(); } catch {} }
+					lastT = performance.now();
+					raf = requestAnimationFrame(tick);
+				}
+				refreshVoice();
+			}
+			function pause() {
+				playing = false; setIcon(false); cancelAnimationFrame(raf);
+				if (seq) { try { seq.pause(); } catch {} } else if (voicing && voice) { try { voice.pause(); } catch {} }
+				refreshVoice();
+			}
+			function stop() {
+				playing = false; started = false; setIcon(false); cancelAnimationFrame(raf);
+				if (seq) { try { seq.stop(); } catch {} seq = null; }
+				if (voice) { try { voice.stop(); } catch {} } // also cancels the browser-voice (speechSynthesis) path
+				mode = 'silent'; audioBase = null; voicing = false;
+				setDiag('');
+				refreshVoice(); paint();
+			}
+			function setIcon(on) { $('#playIcon').innerHTML = on ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>' : '<path d="M8 5v14l11-7z"></path>'; $('#play').setAttribute('aria-label', on ? 'Pause' : 'Play'); }
+
+			// The storyboard's forced-silent flag + the "Play all five" tour timer, declared here so the
+			// manual controls below can leave the storyboard cleanly (drop the flag, halt the tour).
+			let forceSilent = false; // beats 1–4 force the silent estimate so they're deterministic
+			let tourTimer = 0;
+			function stopTour() { if (tourTimer) { clearInterval(tourTimer); tourTimer = 0; $('#tourBtn').textContent = '▸ Play all five'; } }
+			// A manual playback gesture (Play, pace, seek, retype, pick a voice, connect a key) exits the
+			// storyboard: halt any running tour AND drop the beats' forced-silent flag so the real browser/
+			// cloud voice plays again. Beats call restart() directly, never this path, so they stay silent.
+			function leaveStoryboard() { stopTour(); forceSilent = false; }
+			$('#play').addEventListener('click', () => { leaveStoryboard(); playing ? pause() : play(); });
+			$('#pace').addEventListener('click', (e) => {
+				leaveStoryboard();
+				const b = e.target.closest('button'); if (!b) return; pace = b.dataset.pace;
+				[...e.currentTarget.children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+				const was = started; stop(); render(); if (was) play();
+			});
+			// Move the playhead to `ms` (the shared seek path for pointer + keyboard).
+			function seekTo(ms) {
+				elapsed = Math.max(0, Math.min(reader.durationMs(), ms));
+				reader.reset(); reader.sync(elapsed); paint(); updateClock();
+			}
+			$('#bar').addEventListener('click', (e) => {
+				leaveStoryboard();
+				// Live TTS (blob OR browser voice) can't be seeked — scrubbing is the
+				// silent-preview affordance only, when no voice is speaking.
+				if (voicing && started) return;
+				const r = e.currentTarget.getBoundingClientRect();
+				seekTo(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs());
+			});
+			// Keyboard operability for the role="slider" seek bar: Arrow/Home/End scrub,
+			// paired with the aria-value* state set in updateClock() so AT announces position.
+			$('#bar').addEventListener('keydown', (e) => {
+				if (voicing && started) return;
+				const dur = reader.durationMs(); const step = Math.max(200, dur * 0.05);
+				let next;
+				if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = elapsed + step;
+				else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = elapsed - step;
+				else if (e.key === 'Home') next = 0;
+				else if (e.key === 'End') next = dur;
+				else if (e.key === 'PageUp') next = elapsed + step * 4;
+				else if (e.key === 'PageDown') next = elapsed - step * 4;
+				else return;
+				e.preventDefault(); leaveStoryboard(); seekTo(next);
+			});
+			let deb; inputEl.addEventListener('input', () => { leaveStoryboard(); clearTimeout(deb); deb = setTimeout(() => { stop(); render(); }, 250); });
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme');
+				root.setAttribute('data-theme', cur === 'dark' ? 'light' : cur === 'light' ? 'dark' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
+			});
+
+			voiceSelEl.addEventListener('change', () => {
+				leaveStoryboard();
+				selVoice = voiceSelEl.value;
+				try { localStorage.setItem(OR_VOICE_LS, selVoice); } catch {}
+				const was = started; stop(); if (was) play(); // restart so the new voice is heard
+			});
+			// Self-contained key entry: /cadenza reads the SAME localStorage key the Playground
+			// writes, so pasting one here makes the cloud (Kokoro) voice available immediately —
+			// the voice model reads the key live, so refreshVoice() flips the chip + enables the picker.
+			const orKeyEl = $('#orKey'), keyStatusEl = $('#keyStatus'), keyPanelEl = $('#keyPanel');
+			function keyPresent() { try { return !!localStorage.getItem(OR_KEY_LS); } catch { return false; } }
+			function refreshKeyUI() {
+				const has = keyPresent();
+				keyStatusEl.textContent = has ? '\u2713 key connected — cloud voice available' : 'no key — using the browser voice';
+				keyStatusEl.classList.toggle('ok', has);
+			}
+			$('#orKeyUse').addEventListener('click', () => {
+				const v = orKeyEl.value.trim(); if (!v) return; leaveStoryboard();
+				try { localStorage.setItem(OR_KEY_LS, v); } catch {}
+				orKeyEl.value = ''; keyPanelEl.open = false;
+				refreshKeyUI(); refreshVoice();
+			});
+			$('#orKeyClear').addEventListener('click', () => {
+				try { localStorage.removeItem(OR_KEY_LS); } catch {}
+				refreshKeyUI(); refreshVoice();
+			});
+			keyPanelEl.open = !keyPresent();
+			refreshKeyUI();
+			populateVoices();
+
+			// ── The storyboard — numbered beats driving the real read-along engine ──────────────────
+			const NUMBERS = "Revenue grew to $4.2M this quarter, up 18.5% from Q3 — the fastest in the company's history. We beat plan by eight points.";
+			const setText = (s) => { inputEl.value = s; };
+			const setPace = (p) => { pace = p; [...$('#pace').children].forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.pace === p))); };
+			const restart = () => { stop(); render(); play(); };
+			const beatsEl = $('#beats');
+			const BEATS = [
+				{ id: 'track', t: 'Text becomes timing', d: 'Plain text in, a start and end time for every word out. A simple timer drives the highlight here; in an app, it would be your audio player.', api: 'buildTrack → makeReader', run: () => { forceSilent = true; setText(SAMPLE); setPace('moderate'); restart(); } },
+				{ id: 'forms', t: 'What you see vs. what you hear', d: '“$4.2M” is one word on screen and five out loud. Watch the spoken form under the caption: the highlight stays as long as it takes to say.', api: 'Word.display / Word.spoken', run: () => { forceSilent = true; setText(NUMBERS); setPace('moderate'); restart(); } },
+				{ id: 'pace', t: 'Change the speed', d: 'Slow, moderate or fast: the same words on a different clock. (This plays slow.)', api: "pace: 'slow'|'moderate'|'fast'", run: () => { forceSilent = true; setText(SAMPLE); setPace('slow'); restart(); } },
+				{ id: 'vtt', t: 'Download captions', d: 'The same timing as a standard .vtt caption file, with a timestamp on every word. It opens below.', api: 'toVtt(track)', run: () => { forceSilent = true; stop(); setText(SAMPLE); render(); $('#vttPanel').open = true; $('#vttPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); setDiag('The caption file is below, with a timestamp on every word.'); } },
+				{ id: 'voice', t: 'Sync to a real voice', d: 'Play it with a voice. As each sentence starts, Cadenza re-times its words to the real audio, so the highlight follows the speaker.', api: 'onset → reader.align', run: () => { forceSilent = false; setText(SAMPLE); setPace('moderate'); restart(); } },
+			];
+			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
+			BEATS.forEach((b, i) => {
+				const el = document.createElement('button');
+				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
+				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
+				el.addEventListener('click', () => { stopTour(); setCurrentBeat(b.id); b.run(); });
+				beatsEl.appendChild(el);
+			});
+			$('#tourBtn').addEventListener('click', (e) => {
+				if (tourTimer) { stopTour(); return; }
+				let i = 0; e.target.textContent = '■ Stop tour';
+				const step = () => {
+					if (i >= BEATS.length) { stopTour(); return; }
+					const b = BEATS[i++]; setCurrentBeat(b.id); b.run();
+				};
+				step(); tourTimer = setInterval(step, 5200);
+			});
+
+			inputEl.value = SAMPLE;
+			render();
+		</script>
+	</body>
+</html>

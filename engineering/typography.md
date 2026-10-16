@@ -75,11 +75,12 @@ the `data-orientation` stamp:
 | Category | Aspect | Sizes | Reference width |
 |---|---|---|---|
 | `landscape` | `> 1.05` | hd · standard · 4k | 1280 (1cqi = 12.8 px) |
-| `square` | `0.95–1.05` | 1:1 social | 1080 (1cqi = 10.8 px) |
-| `portrait` | `< 0.95` | portrait · story · mobile | 1080 (1cqi = 10.8 px) |
+| `square` | `0.9 < aspect ≤ 1.05` | 1:1 social | 1080 (1cqi = 10.8 px) |
+| `portrait` | `≤ 0.9` | portrait · story · mobile | 1080 (1cqi = 10.8 px) |
 
-(Boundaries are the `data-orientation` stamp's — `orientationFor` in
-`lib/engine/css.js`.) Each is a *curated* hierarchy, NOT the landscape scale times a constant: portrait
+(Boundaries are the `data-orientation` stamp's. `orientationFor` in
+`lib/engine/css.js` takes them from the shared classifier,
+`lib/adaptive/families.js` `BOUNDARIES`.) Each is a *curated* hierarchy, NOT the landscape scale times a constant: portrait
 pulls the title ramp down (so a 2-line `h1` fits a tall frame) while keeping body
 generous; square stays punchier than landscape but smaller-titled than portrait
 (a 1:1 box is height-limited). `landscape` is the unstamped default and is
@@ -468,12 +469,14 @@ deck, and it shipped two live bugs. The record, with the numbers, is
   budget at the deck's scale, and a `code` block past the pane's scaled line or column
   budget. It reads the same numbers, baked into
   `lib/authoring/venue-capacity.generated.js`. A `split-panel` claim panel, and `list`,
-  `cards-grid` and `list-steps` in the registers their manifest measures (`venueCapacity.panel`
-  and `venueCapacity.rows`), are judged by the LINES their text wraps to rather than by a count,
-  because an item's line breaks decide whether it fits (the decision record's Amendments (6) and
-  (7)). A `code` or `compare-code` pane reads the row measured under as many heading lines as the
-  slide's heading wraps to, and `glossary` and `list-tabular` read an item's length in
-  characters, with an eyebrow's measured cost (Amendment (8)). `tools/score-venue-lint.js` scores
+  `cards-grid`, `list-steps`, `compare-prose` and `cycle` in the registers their manifest measures
+  (`venueCapacity.panel` and `venueCapacity.rows`), are judged by the LINES their text wraps to
+  rather than by a count, because an item's line breaks decide whether it fits (the decision
+  record's Amendments (6), (7) and (9)). A `code` or `compare-code` pane reads the row measured
+  under as many heading lines as the slide's heading wraps to, and `glossary` and `list-tabular`
+  read an item's length in characters, with an eyebrow's measured cost (Amendment (8));
+  `glossary` under an eyebrow reads a row measured on a 4k deck when the deck is 4k, where the export forgives 12 px rather than 36
+  (Amendment (9)). `tools/score-venue-lint.js` scores
   the rule against the export's clips on any deck.
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /

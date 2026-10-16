@@ -80,7 +80,7 @@
    * because lightness is exactly what the ramp spends. A dotted edge survives
    * grayscale, print and every CVD palette. */
   /* WIDTH FROM THE FAMILY, dash and color from here. The weight of a data mark's
-   * edge is chart-family.css's to set (chart-mark-edge-census.test.js); what is
+   * edge is chart-family.styles.css's to set (chart-mark-edge-census.test.js); what is
    * local to this member is what the edge MEANS — dotted, muted, "nobody measured
    * this" — not how thick it is.
    *
@@ -105,7 +105,7 @@
  * `buildCategoryLabels`, which emits `cart-cat` and nothing member-specific, so
  * a `.heatmap-row-label` rule would match no element — this file shipped one
  * for exactly that reason and it was dead the whole time. Row names take the
- * family's `.cart-cat` (chart-family.css), which is what `FS.row` mirrors and
+ * family's `.cart-cat` (chart-family.styles.css), which is what `FS.row` mirrors and
  * what svg-label-css-mirror.test.js now checks it against. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label {
   fill: var(--text-muted);

@@ -128,7 +128,7 @@ describe('chart-finish.generated.css', () => {
     const cssOf = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
     const chart = path.join(__dirname, '../../../lib/components/chart');
     const all = fs.readdirSync(chart).map((d) => path.join(chart, d)).filter((d) => fs.statSync(d).isDirectory()).map(cssOf).join('\n')
-      + fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/_chart-family/chart-family.css'), 'utf8');
+      + fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.css'), 'utf8');
     for (const s of STATUS_MARKS) {
       for (const v of [s.hue, s.ink]) {
         const name = /var\((--[a-z0-9-]+)\)/.exec(v)[1];

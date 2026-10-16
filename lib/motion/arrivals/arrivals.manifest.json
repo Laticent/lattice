@@ -1,0 +1,10 @@
+{
+  "$schema": "../motion.schema.json",
+  "name": "arrivals",
+  "type": "motion",
+  "format": 1,
+  "label": "Arrivals",
+  "description": "A rule draws itself, then two round markers slide in from the sides.",
+  "engine": "anime",
+  "order": 3
+}

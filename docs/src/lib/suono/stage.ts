@@ -247,12 +247,15 @@ export function createStage(opts: StageOptions = {}): Stage {
 	// MUTES — so playback succeeds yet nothing is heard. Promote to 'playback' (Safari 16.4+,
 	// guarded) so audio goes through the media channel that ignores the mute switch. Then resume +
 	// tick a 1-sample buffer to bless the context. Call SYNCHRONOUSLY from the gesture. Idempotent.
+	// Never downgrade 'play-and-record': the Audio Session spec ENDS a microphone track under any
+	// other explicit type, so read-aloud started during a Studio live call would cut that call's mic.
+	// 'play-and-record' also plays through the media channel, so the silent switch still can't mute us.
 	function unlock(): void {
 		const ctx = getCtx();
 		if (!ctx) return;
 		try {
 			const s = typeof navigator !== 'undefined' && (navigator as unknown as { audioSession?: { type: string } }).audioSession;
-			if (s) s.type = 'playback';
+			if (s && s.type !== 'play-and-record') s.type = 'playback';
 		} catch {
 			/* best-effort */
 		}
@@ -574,6 +577,23 @@ export function createStage(opts: StageOptions = {}): Stage {
 				/* best-effort */
 			}
 		},
+		audioState() {
+			return audioCtx?.state ?? null;
+		},
+		canSetSink() {
+			const c = getCtx() as unknown as { setSinkId?: unknown } | null;
+			return !!c && typeof c.setSinkId === 'function';
+		},
+		async setSink(deviceId) {
+			const c = getCtx() as unknown as { setSinkId?: (id: string) => Promise<void> } | null;
+			if (!c || typeof c.setSinkId !== 'function') return false;
+			try {
+				await c.setSinkId(deviceId);
+				return true;
+			} catch {
+				return false;
+			}
+		},
 		resume() {
 			try {
 				audioCtx?.resume?.().catch(() => {});
@@ -600,6 +620,112 @@ export function createStage(opts: StageOptions = {}): Stage {
 			// a next play() re-arms before the timer fires. (Each source's onended → finish() would also
 			// schedule this, but a synchronous stop()/clear may pre-empt those callbacks — arm it here too.)
 			scheduleKeepAliveRelease();
+		},
+		meter(stream) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const analyser = ctx.createAnalyser();
+				analyser.fftSize = 512;
+				// Analysis only: the analyser is a sink, never connected to the destination, so a
+				// metered stream is not played twice (the caller plays it, or it is our own microphone).
+				source.connect(analyser);
+				const buf = new Float32Array(analyser.fftSize);
+				let stopped = false;
+				return {
+					level() {
+						if (stopped) return 0;
+						analyser.getFloatTimeDomainData(buf);
+						let sum = 0;
+						for (const v of buf) sum += v * v;
+						return Math.sqrt(sum / buf.length);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+						} catch {
+							/* best-effort */
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
+		amplify(stream, gain) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function' || typeof ctx.createGain !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const node = ctx.createGain();
+				const clamp = (g: number) => Math.min(4, Math.max(0, Number.isFinite(g) ? g : 1));
+				node.gain.value = clamp(gain);
+				source.connect(node);
+				node.connect(ctx.destination);
+				let stopped = false;
+				return {
+					setGain(g) {
+						if (!stopped) node.gain.value = clamp(g);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+							node.disconnect();
+						} catch {
+							/* best-effort */
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
+		gainStream(stream, gain) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function' || typeof ctx.createMediaStreamDestination !== 'function' || typeof ctx.createGain !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const node = ctx.createGain();
+				const dest = ctx.createMediaStreamDestination();
+				const clamp = (g: number) => Math.min(4, Math.max(0, Number.isFinite(g) ? g : 1));
+				node.gain.value = clamp(gain);
+				source.connect(node);
+				node.connect(dest);
+				let stopped = false;
+				return {
+					stream: dest.stream,
+					setGain(g) {
+						if (!stopped) node.gain.value = clamp(g);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+							node.disconnect();
+						} catch {
+							/* best-effort */
+						}
+						for (const t of dest.stream.getTracks()) {
+							try {
+								t.stop();
+							} catch {
+								/* already ended */
+							}
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
 		},
 		dispose() {
 			stage.stopAll();

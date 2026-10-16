@@ -3,7 +3,7 @@
 // ONE parameter whose type takes it. A schema that could bind a word two ways does not build.
 import { describe, expect, it } from 'vitest';
 import { consistency, type Use } from './consistency';
-import { list, record, SchemaError, value } from './schema';
+import { bindMode, list, record, SchemaError, value } from './schema';
 import { flag, id, indexed, named, number, oneOf, range, text, time } from './types';
 
 const pill = record({
@@ -341,5 +341,100 @@ describe('a word past an indexed ceiling names the limit', () => {
   it('a word that is not the prefix is still unknown', () => {
     const r = pill.read('{BETA, zz9}');
     expect(!r.ok && r.diagnostics[0].code).toBe('unknown-word');
+  });
+});
+
+describe('a custom type that parses while a record binds', () => {
+  // The parser writes one REUSED flat buffer (flat.ts), so a reader that walked it lazily while
+  // binding would read garbage after a custom type parsed a span of its own. `parse` reads the
+  // whole tree into plain values before `bindItems` runs, so binding never touches the buffer.
+  // This pins that order: a type that parses a deeper, longer span on every read, then three
+  // more items after it.
+  it('binds every item after the nested parse', () => {
+    let parses = 0;
+    const base = text();
+    const greedy = {
+      ...base,
+      read(t: string, q: boolean) {
+        parses++;
+        const inner = record({ positional: [{ name: 'a', type: text() }], params: { b: named(text()) } }).read('{zz, b=[1, [2, {3}]], c=4}');
+        expect(inner.ok).toBe(false);
+        return base.read(t, q);
+      },
+    };
+    const slot = record({ positional: [{ name: 'label', type: greedy }], params: { size: oneOf(['sm', 'lg']), color: indexed('c', { max: 12 }), note: named(text()) } });
+    const r = slot.read('{BETA, lg, c4, note="kept, exactly"}');
+    expect(parses).toBe(1);
+    expect(ok(r)).toEqual({ label: 'BETA', size: 'lg', color: 4, note: 'kept, exactly' });
+  });
+});
+
+describe('the fast read', () => {
+  // A plain `{…}` span is bound from the parser's flat tree without the Item and Scalar objects
+  // (schema.ts, `fastRead`). It must equal the full bind on every span, errors included: a span it
+  // cannot bind goes to the full path, so only a SUCCESS could differ. This holds that on every
+  // sequence of one to four items from a pool built to reach each branch: a positional, a vocab
+  // word in any case, an indexed word, a number, a time, a range, a flag, a quoted value, a nested
+  // record and list, a repeat, an unknown word, an empty or spaced item, and the `name=value` forms.
+  const slots = {
+    pill,
+    point: record({
+      label: 'a point',
+      positional: [{ name: 'x', type: number() }, { name: 'y', type: number(), required: true }],
+      params: { size: named(number()), tone: oneOf(['warm', 'cool'], { aliases: { warm: ['hot'] } }) },
+    }),
+    task: record({
+      label: 'a task',
+      positional: [{ name: 'name', type: text() }],
+      params: { span: range(time()), start: named(time()), done: flag('done', { aliases: ['finished'] }), owner: id(), state: oneOf(['todo', 'doing']) },
+    }),
+    optional: record({ label: 'an optional label', positional: [{ name: 'label', type: text(), required: false }], params: { icon: named(text()), shape: oneOf(['tag', 'chip']), color: indexed('c', { max: 12 }) } }),
+  };
+  const pool = [
+    'BETA', 'tag', 'TAG', 'c4', 'C12', 'c13', 'lg', '3', '-2.5', '$4.2M', '2026-03-15', 'Q1..Q3', '1..5', 'done', 'finished', '#api', 'hot', 'doing',
+    'shape=tag', 'Shape=Chip', 'color=c4', 'size=140', 'start=2026-01-02', 'icon=mail', 'icon=a b', 'owner=#api', 'bad name=1', 'size=', '=x',
+    '"quoted, text"', '{nested}', '[1, 2]', 'x y', '  ', '', 'a=b=c', 'size="9"',
+  ];
+  const spans: string[] = [];
+  const build = (prefix: string[], depth: number) => {
+    if (prefix.length) spans.push(`{${prefix.join(', ')}}`);
+    if (depth === 0) return;
+    for (const p of pool) build([...prefix, p], depth - 1);
+  };
+  build([], 3);
+  spans.push('{BETA}', '{ BETA }', '{BETA }', '{BETA,tag}', '{BETA , tag , c4}', '{}', '{', '{BETA', '[x]', '~{1 2}', '"text"', 'plain');
+
+  const run = (r: { ok: boolean }) => JSON.parse(JSON.stringify(r));
+  for (const [name, slot] of Object.entries(slots)) {
+    it(`${name}: every span binds as the full path binds it`, () => {
+      let bound = 0;
+      const hits = bindMode.hits;
+      for (const span of spans) {
+        bindMode.fast = true;
+        const fast = run(slot.read(span));
+        bindMode.fast = false;
+        const full = run(slot.read(span));
+        bindMode.fast = true;
+        if (JSON.stringify(fast) !== JSON.stringify(full)) throw new Error(`${name} reads ${span} differently:\n fast ${JSON.stringify(fast)}\n full ${JSON.stringify(full)}`);
+        if (fast.ok) bound++;
+      }
+      expect(bound).toBeGreaterThan(20); // the pool reaches the success path, not only the errors
+      expect(bindMode.hits - hits).toBeGreaterThan(20); // and the fast read made those binds
+    });
+  }
+
+  it('a result the fast read builds is the same object shape as the full path\'s, spellings included', () => {
+    const a = pill.read('{BETA, TAG, c4}');
+    bindMode.fast = false;
+    const b = pill.read('{BETA, TAG, c4}');
+    bindMode.fast = true;
+    expect(a).toEqual(b);
+    expect(a.ok && a.spellings.map((s) => s.written)).toEqual(['tag', 'c4']);
+  });
+
+  it('a built-in type cannot be given a read that parses, so the mark stays honest', () => {
+    const t = text();
+    expect(Object.isFrozen(t)).toBe(true);
+    expect(() => Object.assign(t, { read: () => 'x' })).toThrow();
   });
 });

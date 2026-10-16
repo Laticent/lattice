@@ -23,7 +23,8 @@ import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE,
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
-import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
+import { iosNeedsShareSheet } from './download';
+import { clearDecksAndTheirPhotos, clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { LanguageSelect } from './LanguageSelect';
@@ -33,7 +34,6 @@ import { WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSec
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
 import {
-	clearAllDecks,
 	type HandleStyle,
 	lastBackupAt,
 	loadInstructions,
@@ -53,7 +53,10 @@ import {
 import { TtsSettings } from './TtsSettings';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
-import { isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+
+// The image model's picker loads when Workspace → Model is opened, not with the Studio.
+const ImageModelSettings = React.lazy(() => import('./ImageModelSettings').then((m) => ({ default: m.ImageModelSettings })));
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -283,9 +286,9 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
 	const ai = useArchitectStatus(pulse);
-	// Only a connected model whose vendor takes an EXPLICIT cache breakpoint can honor the
-	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors
-	// cache server-side whatever this says. Gate the control rather than lie about it.
+	// Only a connected model whose vendor takes an EXPLICIT cache breakpoint (Anthropic) can honor the
+	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors (OpenAI,
+	// Google, DeepSeek, x-ai) cache server-side whatever this says. Gate the control rather than lie about it.
 	const cacheUsable = ai.openRouterReady && orSupportsCache(ai.modelId ?? '');
 	const [genView, setGenView] = React.useState<GenView>('cloud');
 	const userPickedView = React.useRef(false);
@@ -419,11 +422,17 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const rows = await listStoredScenes();
 			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
 			const unreadable = rows.length - valid.length;
-			// Loaded on click, like the backup below: this sheet is in the Studio's eager bundle.
-			const { saveBlob } = await import('./download');
-			// Tell the author only about a file that exists: the desktop dialog can be dismissed.
-			if ((await saveBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid))) !== 'saved') return;
-			notify(unreadable ? `Downloaded ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.` : `Downloaded ${valid.length} scene(s).`);
+			const unreadableNote = unreadable ? ` ${unreadable} could not be read — they stay in your library and in every backup.` : '';
+			const bundle = await packBundle([], [], [], valid);
+			if (iosNeedsShareSheet()) {
+				// On iOS the Save toast says it; a "Downloaded" beside it would be a second toast
+				// claiming a save that waits on a tap (download.js). What could not be read still speaks.
+				downloadBlob('lattice-motion-scenes.zip', bundle);
+				if (unreadable) notify(`Ready: ${valid.length} scene(s).${unreadableNote}`);
+			} else {
+				// Said once the file exists: the desktop app's save dialog can be dismissed.
+				downloadBlob('lattice-motion-scenes.zip', bundle, { onSaved: () => notify(`Downloaded ${valid.length} scene(s).${unreadableNote}`) });
+			}
 		} catch (e) {
 			notify(`Scene export failed: ${(e as Error)?.message || 'unknown error'}`);
 		} finally {
@@ -436,19 +445,29 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		try {
 			const now = Date.now();
 			// Loaded on click: pack and restore are off the Studio's eager path.
-			const { backupRestoreGaps, packWorkspace, saveBlob } = await import('./workspace-backup');
+			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
 			const report: PackReport = { refdocsBytes: 0 };
-			// Record the backup only once the file exists. On the desktop the save dialog can be
-			// dismissed or the write can fail, and a recorded backup turns off the backup nudge.
-			if ((await saveBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report))) !== 'saved') return;
-			markBackupTaken(now);
-			setBackupAt(now);
+			const zip = await packWorkspace(now, report);
 			// Still downloaded: a backup you hold beats none. But it must not look like one that will
 			// restore in full when it won't (followups.d/2336 item 17b, the owner's call: warn, still
 			// save), and the warning stays up long enough to read.
 			const gaps = backupRestoreGaps(report);
-			if (gaps.length) notify(`Backup downloaded — but ${gaps.join('; and ')}. Keep the original files, or remove some and back up again.`, { duration: DEGRADED_TOAST_MS });
-			else notify('Backup downloaded — your whole workspace, yours to keep.');
+			const announce = (verb: string) => {
+				if (gaps.length) notify(`${verb} — but ${gaps.join('; and ')}. Keep the original files, or remove some and back up again.`, { duration: DEGRADED_TOAST_MS });
+				else if (verb === 'Backup downloaded') notify('Backup downloaded — your whole workspace, yours to keep.');
+			};
+			const ios = iosNeedsShareSheet();
+			// Recorded, and announced, once the file is actually handed over: on iOS that is after
+			// the share sheet, and in the desktop app after its save dialog, which can be dismissed.
+			// A recorded backup turns off the backup nudge, so a dismissed one must record nothing.
+			downloadBlob(WORKSPACE_ZIP_NAME, zip, {
+				onSaved: () => {
+					markBackupTaken(now);
+					setBackupAt(now);
+					if (!ios) announce('Backup downloaded');
+				},
+			});
+			if (ios) announce('Backup ready');
 		} catch (e) {
 			notify(`Backup failed: ${(e as Error)?.message || 'unknown error'}`);
 		} finally {
@@ -462,9 +481,10 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const s = await restoreWorkspace(file, Date.now());
 			const decks = s.added + s.restoredCopies;
 			const assets = s.themes + s.components + s.finishes + s.scenes;
+			const photos = s.media;
 			// A library package the backup held but could not be read back is NAMED, never
 			// dropped in silence — the reload below would otherwise hide that it was ever there.
-			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in.`;
+			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''}${photos ? ` + ${photos} photo${photos === 1 ? '' : 's'}` : ''} in${s.mediaRenamed ? `. ${s.mediaRenamed} photo${s.mediaRenamed === 1 ? '' : 's'} came back under a new name because a different photo already had it` : ''}.`;
 			// The restore touches decks, settings, and the Library across several
 			// stores; a reload is the one honest way to re-derive every view of them.
 			// Always reload at once, while this modal still covers the editor: a tab left live over the
@@ -1032,6 +1052,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 											<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
 										</div>
 										<div className="mt-3"><ModelPicker status={ai} /></div>
+										<div className="mt-4"><React.Suspense fallback={<div className="h-[88px]" aria-hidden />}><ImageModelSettings status={ai} /></React.Suspense></div>
 										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><span className="text-[var(--accent)]">●</span> Metered per request · the deck text leaves your device.</p>
 									</div>
 								) : (
@@ -1229,7 +1250,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 												{cacheUsable
 													? 'Chat re-sends a large, unchanging preamble every turn. Caching it bills that part at about a tenth on later turns, for a small surcharge the first time — worth leaving on for any real conversation.'
 													: ai.openRouterReady
-														? 'This model does not take a cache breakpoint, so the setting has no effect on it. Anthropic and Google models do.'
+														? 'This model caches on its own, so the setting has no effect on it. Only Anthropic models take a cache breakpoint.'
 														: 'Connect a cloud model in Model above and this applies to it.'}
 											</span>
 										</span>
@@ -1294,18 +1315,18 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								<GovRow
 									icon={<FolderTree className="size-4" />}
 									title="Decks"
-									description="Every deck in your switcher — edited source, checkpoints, and chat threads. Resets to the built-in starter decks."
+									description="Every deck in your switcher — edited source, checkpoints, and chat threads, and the photos kept to a single deck. Resets to the built-in starter decks."
 									stat={gov ? `${gov.decks.count} deck${gov.decks.count === 1 ? '' : 's'}${gov.decks.bytes ? ` · ${fmtBytes(gov.decks.bytes)}` : ''}` : undefined}
 									armed={govArmed === 'decks'}
 									busy={govBusy === 'decks'}
 									onArm={() => setGovArmed('decks')}
-									onConfirm={() => clearCategory('decks', clearAllDecks, 'Decks cleared — back to the starter set.')}
+									onConfirm={() => clearCategory('decks', clearDecksAndTheirPhotos, 'Decks cleared — back to the starter set.')}
 									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow
 									icon={<FileBox className="size-4" />}
 									title="Library assets"
-									description="Saved themes, components, finishes, and reference docs."
+									description="Saved themes, components, finishes, reference docs, and photos. Clearing this deletes your photos too."
 									stat={gov ? `${gov.library.count} asset${gov.library.count === 1 ? '' : 's'}${gov.library.bytes ? ` · ${fmtBytes(gov.library.bytes)}` : ''}` : undefined}
 									armed={govArmed === 'library'}
 									busy={govBusy === 'library'}

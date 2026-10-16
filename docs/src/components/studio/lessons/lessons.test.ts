@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RunContext } from '../../../lib/vetrina';
 import { LESSONS, loadLesson } from './catalog';
-import { aimsAt, type LessonActions, TAKEOVER_LINE, visible, yourTurn } from './lesson-kit';
+import { aimsAt, type LessonActions, type LessonEnv, TAKEOVER_LINE, visible, yourTurn } from './lesson-kit';
+import { LESSON_LINES } from './lines';
 
 // Lessons answer one question each (2026-10-05-studio-lessons.md). These pin the two contracts the
 // palette and the user depend on: every catalog row loads a real script, and a "your turn" beat
@@ -26,6 +27,7 @@ function harness(user: 'acts' | 'waits') {
 		press: () => void log.push('press'),
 		setPalette: (n) => void log.push(`palette:${n}`),
 		appendSlide: () => void log.push('append'),
+		type: (_t, text) => void log.push(`type:${text}`),
 	};
 	const ctx = {
 		stage: {
@@ -64,7 +66,7 @@ describe('the lesson catalog', () => {
 			const build = await loadLesson(l.id);
 			expect(build, l.id).not.toBeNull();
 			for (const mobile of [true, false]) {
-				expect(typeof build?.({ mobile, palette: 'cuoio', palettes: ['cuoio', 'carbone'] })).toBe('function');
+				expect(typeof build?.({ mobile, palette: 'cuoio', palettes: ['cuoio', 'carbone'], can: () => true })).toBe('function');
 			}
 		}
 	});
@@ -167,3 +169,82 @@ describe('targets', () => {
 		expect(aimsAt(target, new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(false);
 	});
 });
+
+describe('Building and Polish lessons check that their control can act before pointing at it', () => {
+	const env = (over: Partial<LessonEnv> = {}): LessonEnv => ({ mobile: false, palette: 'cuoio', palettes: ['cuoio'], can: () => true, ...over });
+
+	it('"Fix all" with nothing to fix says so and changes nothing', async () => {
+		const build = await loadLesson('fix-all');
+		const { log, ctx } = harness('waits');
+		await build?.(env({ can: (id) => id !== 'fix-all' }))(ctx);
+		expect(log).toContain(`say:${LESSON_LINES['fix-all'].nothing}`);
+		expect(log.some((l) => l.startsWith('run:'))).toBe(false);
+	});
+
+	it('"Reshape" on a phone explains where it lives and changes nothing', async () => {
+		const build = await loadLesson('reshape');
+		const { log, ctx } = harness('waits');
+		await build?.(env({ mobile: true }))(ctx);
+		expect(log).toContain(`say:${LESSON_LINES.reshape.phone}`);
+		expect(log.some((l) => l === 'press' || l.startsWith('run:'))).toBe(false);
+	});
+
+	it('"Reshape" on a slide with one layout says so instead of pointing at a disabled button', async () => {
+		const el = onScreen({ 'aria-label': 'Reshape slide' });
+		el.disabled = true;
+		const build = await loadLesson('reshape');
+		const { log, ctx } = harness('waits');
+		await build?.(env())(ctx);
+		expect(log).toContain(`say:${LESSON_LINES.reshape.unavailable}`);
+		expect(log).not.toContain('press');
+	});
+
+	it('"Add a chart" opens the gallery for a user who waits, then types the search for them', async () => {
+		onScreen({ 'aria-label': 'Add slide' });
+		const build = await loadLesson('add-chart');
+		const { log, ctx } = harness('waits');
+		// The gallery appears once the lesson opens it.
+		ctx.actions.run = (id) => {
+			log.push(`run:${id}`);
+			const i = document.createElement('input');
+			i.setAttribute('aria-label', 'Search slides');
+			i.getBoundingClientRect = () => ({ x: 0, y: 0, width: 200, height: 20, top: 0, left: 0, right: 200, bottom: 20, toJSON: () => ({}) });
+			document.body.appendChild(i);
+		};
+		ctx.actions.type = (_t, text) => {
+			log.push(`type:${text}`);
+			onScreen({ 'aria-label': 'Insert bar — a chart' });
+		};
+		await build?.(env())(ctx);
+		expect(log).toContain('run:insert');
+		expect(log).toContain('type:chart');
+		expect(log.filter((l) => l === 'press')).toHaveLength(1);
+	});
+
+	it('"Fix all" with its button off screen says where it is and applies nothing', async () => {
+		const build = await loadLesson('fix-all');
+		const { log, ctx } = harness('waits');
+		await build?.(env())(ctx);
+		expect(log).toContain(`say:${LESSON_LINES['fix-all'].missing}`);
+		expect(log.some((l) => l.startsWith('run:'))).toBe(false);
+	});
+
+	it('"Check my deck" with Coach already open does not ask for the toggle that would close it', async () => {
+		onScreen({ 'data-demo': 'coach-read' });
+		onScreen({ 'aria-label': 'Toggle Coach' });
+		const build = await loadLesson('coach');
+		const { log, ctx } = harness('waits');
+		await build?.(env())(ctx);
+		expect(log).not.toContain(`say:${LESSON_LINES.coach.click}`);
+		expect(log.some((l) => l.startsWith('run:'))).toBe(false);
+		expect(log).toContain(`say:${LESSON_LINES.coach.list}`);
+	});
+
+	it('a gallery card is found under both label shapes, the plain one and the search-ranked one', async () => {
+		const { card, visible } = await import('./lesson-kit');
+		onScreen({ 'aria-label': 'Insert bar, 87% as close a match as the top result — Use when…' });
+		onScreen({ 'aria-label': 'Insert bar-race — not this one' });
+		expect(visible(...card('bar'))()?.getAttribute('aria-label')).toMatch(/^Insert bar,/);
+	});
+});
+

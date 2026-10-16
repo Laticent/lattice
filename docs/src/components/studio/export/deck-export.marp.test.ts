@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportMarp, importedThemeNames } from './deck-export.js';
+import { sampleAssetNames, withRuntimeScriptsReport, withSampleAssets } from '../../../../../lib/core/marp-bundle.js';
+import { exportMarkdown, exportMarp, importedThemeNames } from './deck-export.js';
 
 // The Marp bundle's THEME and COMPONENT supply (2026-09-23-portable-packages.md §1, §4).
 //
@@ -20,6 +21,11 @@ const SHIPPED: Record<string, string> = {
 	'indaco.css': "/* @theme indaco */\n@import 'lattice';\n:root{--accent:#006FA8}",
 	'indaco-dark.css': "/* @theme indaco-dark */\n@import 'indaco';",
 };
+// The sample art the site stages beside its themes (docs/src/lib/samples-base.ts).
+const SAMPLES: Record<string, string> = {
+	'portrait-ada.svg': '<svg id="ada"/>',
+	'logo-acme-mark.svg': '<svg id="mark"/>',
+};
 
 let blobs: Blob[] = [];
 
@@ -31,12 +37,14 @@ beforeEach(() => {
 			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
 			liftImageBgImages: (s: string) => s,
-			withRuntimeScripts: (s: string) => s,
+			sampleAssetNames,
+			withSampleAssets,
+			withRuntimeScriptsReport: (s: string) => ({ markdown: s, removed: { scripts: 0, handlers: 0, urls: 0 } }),
 			marpScopableCss: (s: string) => s,
 			fontAssetsFor: () => [],
 			STATIC_ASSETS: [],
 			AGENT_ASSETS: [],
-			MARP_CONFIG_CJS: 'module.exports = {};',
+			marpConfigCjs: () => 'module.exports = { options: { math: false } };',
 			packageJson: (name: string) => ({ name }),
 			vscodeSettings: (themes: string[]) => JSON.stringify({ themes }),
 			readme: ({ palette }: { palette: string }) => `palette: ${palette}`,
@@ -45,7 +53,7 @@ beforeEach(() => {
 	};
 	vi.stubGlobal('fetch', vi.fn(async (url: string) => {
 		const file = String(url).split('/').pop() || '';
-		const body = SHIPPED[file];
+		const body = String(url).includes('/samples/') ? SAMPLES[file] : SHIPPED[file];
 		return body ? new Response(body, { status: 200 }) : new Response('', { status: 404 });
 	}));
 	URL.createObjectURL = vi.fn((b: Blob) => {
@@ -161,5 +169,118 @@ describe('importedThemeNames', () => {
 	});
 	it('ignores an import inside a comment', async () => {
 		expect(await importedThemeNames("/* @import 'ghost'; */\n@import 'lattice';")).toEqual(['lattice']);
+	});
+});
+
+// The deck's math is typeset at export (lib/core/marp-bundle-math.js), so Marp's own typesetter is off
+// in every bundle, whatever the deck's admission says.
+describe('exportMarp — the bundle\'s Marp config turns Marp\'s own math off', () => {
+	it('writes math: false with the math plugin on and off', async () => {
+		await exportMarp('# Hi $x$', 'deck', 'indaco', BASE, { includeAgent: false });
+		expect(await (await bundle()).file('deck/marp.config.cjs')?.async('string')).toContain('math: false');
+		blobs = [];
+		await exportMarp('# Hi $x$', 'deck', 'indaco', BASE, { includeAgent: false, pluginsOff: ['math', 'mermaid'] });
+		expect(await (await bundle()).file('deck/marp.config.cjs')?.async('string')).toContain('math: false');
+	});
+});
+
+describe('exportMarp — the bundle carries the deck\'s `sample:` pictures', () => {
+	// A name the site does not stage. Assembled, so test/unit/core/sample-images.test.js
+	// (every shipped `sample:` names a real file) does not read it as a real reference.
+	const MISSING = ['portrait', 'missing.svg'].join('-');
+	const DECK = [
+		'---',
+		'theme: indaco',
+		'logo: sample:logo-acme-mark.svg',
+		'---',
+		'',
+		'<!-- _class: team-profile -->',
+		'',
+		'## Team',
+		'',
+		'- ![Ada](sample:portrait-ada.svg)',
+		'  - Ada',
+		'- ![Ada again](sample:portrait-ada.svg "same file")',
+		'  - Ada',
+		`- ![Gone](sample:${MISSING})`,
+		'  - Nobody',
+		'',
+	].join('\n');
+
+	it('fetches each sample into assets/ and names it there, front-matter logo included', async () => {
+		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
+		const zip = await bundle();
+		expect(await zip.file('deck/assets/portrait-ada.svg')?.async('string')).toBe('<svg id="ada"/>');
+		expect(await zip.file('deck/assets/logo-acme-mark.svg')?.async('string')).toBe('<svg id="mark"/>');
+		const md = (await zip.file('deck/deck.md')?.async('string')) ?? '';
+		expect(md).toContain('logo: assets/logo-acme-mark.svg');
+		expect(md).toContain('![Ada](assets/portrait-ada.svg)');
+		expect(md).toContain('![Ada again](assets/portrait-ada.svg "same file")');
+		// The site has no such file, so the reference stays as written rather than name a path
+		// the bundle lacks.
+		expect(md).toContain(`![Gone](sample:${MISSING})`);
+		expect(zip.file(`deck/assets/${MISSING}`)).toBeNull();
+		const fetched = vi.mocked(fetch).mock.calls.map(([u]) => String(u)).filter((u) => u.includes('/samples/'));
+		expect(fetched.sort()).toEqual([
+			'https://site/playground/v/abc/samples/logo-acme-mark.svg',
+			'https://site/playground/v/abc/samples/portrait-ada.svg',
+			`https://site/playground/v/abc/samples/${MISSING}`,
+		]);
+	});
+
+	it('keeps the reference when a body read fails, and still exports', async () => {
+		vi.mocked(fetch).mockImplementation(async (url) => {
+			const file = String(url).split('/').pop() || '';
+			if (String(url).includes('/samples/')) {
+				const r = new Response(SAMPLES[file] ?? '', { status: SAMPLES[file] ? 200 : 404 });
+				if (file === 'portrait-ada.svg') r.arrayBuffer = () => Promise.reject(new Error('reset'));
+				return r;
+			}
+			return SHIPPED[file] ? new Response(SHIPPED[file], { status: 200 }) : new Response('', { status: 404 });
+		});
+		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
+		const zip = await bundle();
+		const md = (await zip.file('deck/deck.md')?.async('string')) ?? '';
+		expect(md).toContain('![Ada](sample:portrait-ada.svg)');
+		expect(zip.file('deck/assets/portrait-ada.svg')).toBeNull();
+		expect(md).toContain('logo: assets/logo-acme-mark.svg');
+	});
+
+	it('keeps the fetched logo in the baked front matter, and still drops a relative one', async () => {
+		const PG = (window as unknown as { LatticePlayground: { marp: Record<string, unknown> } }).LatticePlayground;
+		PG.marp.withRuntimeScriptsReport = withRuntimeScriptsReport;
+		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
+		const md = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
+		const baked = md.slice(md.indexOf('application/lattice-front-matter'));
+		expect(baked).toContain('logo: assets/logo-acme-mark.svg');
+		expect(md).not.toContain('sample:logo-acme-mark.svg');
+
+		blobs = [];
+		await exportMarp(DECK.replace('sample:logo-acme-mark.svg', 'brand/mark.svg'), 'deck', 'indaco', BASE, { includeAgent: false });
+		const md2 = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
+		expect(md2.slice(md2.indexOf('application/lattice-front-matter'))).not.toContain('logo:');
+	});
+});
+
+// The Library photos a deck names ride beside it (2026-10-12-library-media-assets.md §6): the caller
+// rewrites the source to `assets/<name>.<ext>` and hands the bytes in as `files`.
+describe('Markdown and Marp exports carry the photos the deck names', () => {
+	const PHOTO = new Uint8Array([1, 2, 3, 4]);
+
+	it('Marp writes the photo bytes at the path the deck names', async () => {
+		await exportMarp('# Hi\n\n![](photos/team.jpg)', 'deck', 'indaco', BASE, { includeAgent: false, files: { 'photos/team.jpg': PHOTO } });
+		const zip = await bundle();
+		expect([...(await zip.file('deck/photos/team.jpg')!.async('uint8array'))]).toEqual([1, 2, 3, 4]);
+		expect(await zip.file('deck/deck.md')!.async('string')).toContain('![](photos/team.jpg)');
+	});
+
+	it('Markdown stays a bare .md without photos, and becomes a zip with the .md beside them when it has some', async () => {
+		await exportMarkdown('# Hi', 'deck', undefined, []);
+		expect(blobs[0].type).toMatch(/markdown/);
+		blobs = [];
+		await exportMarkdown('# Hi\n\n![](photos/team.jpg)', 'deck', undefined, [], { 'photos/team.jpg': PHOTO });
+		const zip = await bundle();
+		expect(Object.keys(zip.files).filter((p) => !zip.files[p].dir).sort()).toEqual(['deck.md', 'photos/team.jpg']);
+		expect(await zip.file('deck.md')!.async('string')).toContain('photos/team.jpg');
 	});
 });

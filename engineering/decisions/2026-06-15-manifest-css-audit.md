@@ -193,4 +193,3 @@ legal: authority-chain, regulatory-update, statute-stack.
 - `roadmap.styles.css:412` grids horizons at a fixed 3 columns (`--horizon-count`
   never set), so a >3-phase horizons board would wrap.
 - `kanban` supports an undocumented optional card-body sub-bullet (an undersell).
-</content>

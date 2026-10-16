@@ -349,7 +349,7 @@ one: the map in `split-facts.js` is the source, and
 | **Anchor — never splits** | `closing` · `divider` · `title` · `topic` |
 | **viewBox graphic — container-responsive + legibility-floor→ring** | `bar` · `bullet` · `diagram` · `flowchart` *(JS-scaled; no-JS UNVERIFIED)* · `funnel` · `heatmap` · `hub-spoke` · `line` · `map` · `piechart` · `quadrant` · `radar` · `scatter` · `scene` · `slope` · `stacked-bar` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `waterfall` · `word-cloud` |
 | **Bitmap asset — responsive, no split** | `image` · `video` |
-| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `logo-wall` *(by image)* · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic". Slice-clean CSS, but the bars share a baseline and the comparison IS the read, so the slide stays whole)* · `quote` · `timeline-list` *(the spine IS the component — one rail across the set, and a `:nth-child` dot spectrum that collapses to cat-1 when sliced)* · `wifi` |
+| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `collage` · `contact` · `gantt` · `logo-wall` *(by image)* · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic". Slice-clean CSS, but the bars share a baseline and the comparison IS the read, so the slide stays whole)* · `quote` · `timeline-list` *(the spine IS the component — one rail across the set, and a `:nth-child` dot spectrum that collapses to cat-1 when sliced)* · `wifi` |
 | **List → item · light** (1/slide; a light member is one bullet or tile) | `agenda` · `checklist` · `content` · `inventory` · `list` |
 | **List → item · heavy** (1/slide; a heavy member carries a title AND a body) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* · `team-profile` |
 | **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | `glossary` · `list-tabular` · `regulatory-update` · `statute-stack` |
@@ -1035,7 +1035,8 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
      the lone cards-grid card 994px, the full stage.
   **The budget speaks again at authoring time.** `capacity-overflow` was suppressed outright
   on autosplit portrait decks, so an over-budget slide got NO signal — which is how the
-  badly-paced 14-item checklist shipped. It is replaced by `capacity-autosplit`, which
+  badly-paced 14-item checklist shipped. *(Superseded 2026-10-06: `capacity-autosplit` was
+  deleted; a split slide is the engine working as designed.)* It is replaced by `capacity-autosplit`, which
   reports what will actually happen ("14 items, so auto-split will divide it into 3 pages of
   5"). At the **advisory `info` tier**, deliberately: `lint:deck:all --strict` is a blocking
   CI gate and a pre-push hook, so a warning would red every deck that intends to split —

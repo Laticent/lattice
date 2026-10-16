@@ -2,6 +2,9 @@
 origin: 2361
 priority: P2
 recorded: 2026-09-27
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-09-25-font-scale-fit.md
 ---
 
 # `capacity-scale` on a real deck: half its warnings miss, and it claims clips that do not happen
@@ -139,6 +142,33 @@ progress  — 2026-10-05 (2): the out-of-sample sweep is in the tree too:
             the branch and on the base and renders each changed verdict (NEW CATCH / NEW FALSE /
             FALSE GONE / LOST CATCH, and any change at a deck's own size). On #2517 against
             4ce0d29 it reproduces 34 / 0 / 3 / 0, own size 0.
+progress  — 2026-10-06 (font-scale-fit.md Amendment (9)): `compare-prose` (closing note included)
+            and `cycle` are judged by lines; glossary under an eyebrow reads a 4k-measured row on a 4k deck. Five decks,
+            right/false/missed: huddle 25/1/23 → 28/1/20, conference 61/3/55 → 75/3/41, hall
+            114/0/50 → 119/0/45. Sweep vs df6e3f5: 23 new catches, 0 new false, 1 false gone,
+            0 lost, own size 0. The glossary "term column" lead was wrong: terms are `nowrap`, and
+            talk 75/76 clip on the 4k basis with every definition on one line.
+            LEFT, by misses across the venues: split-panel 16, list-steps 10, compare-prose 6
+            (`axis`, a `transition` with a subtitle line, gallery 12 at conference), roadmap /
+            list-tabular / image / content 5 each, table and matrix-2x2 4. Next: the split-panel
+            POINTS column, and list-steps' own registers (`phase`, `milestone`, `vertical`, `capsule`).
+progress  — 2026-10-06 (2) (font-scale-fit.md Amendment (10)): `list-steps` is judged by lines in
+            `phase`, `milestone`, `milestone lettered`, `vertical`, `vertical compact` and `capsule`
+            (a one-row budget per step count where a badge wraps); the split-panel POINTS column has
+            line geometry (`calibrate-capacity split-panel --points`, `pointsAt`) in bare, `mirror`,
+            `metric`, `steps`, `watermark` and `proof`. Five decks, right/false/missed: huddle
+            28/1/20 → 29/1/19, conference 75/3/41 → 80/3/36, hall 119/0/45 → 126/0/38. Sweep vs
+            9b46f54: 28 new catches, 0 new false, 0 false gone, 0 lost, own size 0.
+            LEFT, by misses across the venues: split-panel 13: `gallery.md` 57 at conference and hall (a
+            `watermark mirror` column opening on `###`, which keeps its count row; see the amendment)
+            and 11 in the CLAIM panel (`pullquote` 6,
+            `metric` 2, seven-steps 5 and 10 at conference, gallery 97 at huddle), compare-prose 6,
+            roadmap / list-tabular / image / content 5 each, table and matrix-2x2 4. Not measured:
+            `capstone`'s points (its quotation overlaps the row below instead of pushing it). Next:
+            a `pullquote` quote-panel line model, the largest split-panel miss left. Then measure a
+            pill's rendered width: `lineText` prices `{Name, cN}` as its label plus `tt`, and three
+            pill-heavy `watermark` points that clip at hall by ~200 px read 14% under (the fourth
+            checker's .scratch probe; `main` misses them too).
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

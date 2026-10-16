@@ -24,7 +24,7 @@ growth visible in the PR that caused it, but it put every Studio PR on one share
 - **14 of 49 commits** on `main` edited the file, all of them in 2026-09-27 23:28 to
   09-29 12:15, and the Studio's `eagerJsGz` went 623,460 → 637,490 (+14KB in about
   36 hours, roughly 9KB/day). The window is this clone's 50-commit depth, not a choice.
-  [#2466's follow-up](../../followups.d/2466-p2-committed-generated-files-conflict-across-prs.md)
+  #2466's follow-up (closed; see [conflict reduction §5](2026-10-06-conflict-reduction.md))
   counted 50 of the last 300 commits.
 - **Every raise also prepended to `_eagerJsGzNote`**, a single JSON string that had reached
   48KB. Two PRs raising at once always conflicted in git.
@@ -152,3 +152,40 @@ justifies. They are the remaining ways growth goes unaccounted:
 
 Watch for: explanation files that do not match the growth (each reset records declared
 bytes against the raise), and PRs that move eager code behind `import()` to dodge the count.
+
+## 7. The base and the branch must build the same bytes (2026-10-15)
+
+The allowance in §5 compares two builds, so it is only as exact as the build is repeatable.
+It was not: `measure-route-base.sh` at `9cef5d6`, run twice, measured the Studio 2 bytes and
+the Playground 3 bytes apart, and #2708, which changed no bundled code, failed the docs build
+on +2 bytes.
+
+**Cause: the checkout path reached the chunk names.** Two builds in one folder were
+byte-identical; two builds of one commit in two folders were not. The only content that
+differed was the engine's asset version in `/playground/v/<hash>/`, which
+`sync-playground-assets.mjs` hashes from the staged engine files. Those differed only in their
+`chunk-[hash]` names. esbuild keys a `file` module relative to `absWorkingDir`, but a plugin
+namespace keeps the path text the plugin returns, and the keys feed the chunk hash. Two plugins
+in `tools/build-playground.js` returned absolute paths: `lazy-chart-registry` and
+`lint-boundary-parser`. The base is built in a fresh `mktemp -d` folder, so every run named the
+chunks differently.
+
+**Fix: both plugins return repo-relative paths, with `/` on every OS**, and
+`assertCheckoutIndependent()` fails the engine build when any module key, namespace stripped, is
+an absolute path, so a new plugin cannot bring it back. It tests for an absolute path rather than
+searching for the checkout's text: a checkout at `/src` would match `docs/src/…`. `test/unit/tools/build-playground-determinism.test.js` runs the shipped build options.
+
+**The HTML had the same bug, in Astro.** Astro names each island
+`uid = shorthash(componentUrl + html + props)`, and at build time `componentUrl` is the
+component's absolute source path. shorthash is variable-length, so `htmlRaw` moved 1–3 bytes
+between folders even after the engine fix. It never failed a PR, because only `eagerJsGz` is
+compared against `main`, but it meant `htmlRaw` never measured the same twice. A patch to Astro would have to be re-made on every
+Astro upgrade, so `docs/scripts/stable-island-uids.mjs` rewrites each uid after the build instead,
+next to `hoist-stylesheets.mjs`. The new uid hashes the island's own tag without its uid, plus its
+position among identical tags, at a fixed length of 8. Astro's uids run 5–7 characters, so a
+page grows 1–3 bytes per island, once (13–17 bytes on the pages with seven islands). Rewriting is safe: Astro's island runtime never
+reads the uid (it is for dev-mode HMR), no `/_astro` chunk reads it, the site uses neither view
+transitions nor server islands, and React's ids come from the separate `prefix` attribute.
+
+So the gate needs no noise band: three `measure-route-base.sh` runs of one commit, each in a
+fresh temp folder, measure every metric of every route identically. #2709 records the runs.

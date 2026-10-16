@@ -3,7 +3,7 @@
  * gated at render time (engineering/decisions/2026-09-23-portable-packages.md §6).
  *
  * The unit tests pin `lattice packages` and the pure embed helper (lib/packages/render.js);
- * this drives the real renderer (lattice-emulator.js → .html, a browser render), which is the
+ * this drives the real renderer (lattice.js → .html, a browser render), which is the
  * only place the palette chain, the installed theme's CSS and the embedded component meet.
  *
  * THE STORE IS A PLAIN FOLDER. A package unzipped into it by hand never went through `add`,
@@ -22,7 +22,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 180000;
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-installed-${p}-`));

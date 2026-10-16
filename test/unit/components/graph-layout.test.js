@@ -54,7 +54,20 @@ const WIDE_SOFT_BUDGET = 0;
 // (a T that reads as a transition that is not there). Measured on this corpus, main left 132
 // joins on 40 of the 1,000 charts; joins are now a never-rule (`sharesRun`, and counted in
 // `sharedRuns`), so none remain, and the 29 extra crossings are clean X's a reader can follow.
-const CROSSING_BUDGET = 39;
+// Then 31: a direction whose routed layout crosses is laid out again with dagre's two other
+// rankers, and the one that crosses least is kept within 3% of the type (`reranked`).
+const CROSSING_BUDGET = 31;
+// The wrap corpus below: 100 state machines laid out on the reading-order grid alone (no
+// dagre, as a chain ships). 42 crossings when it was added, with every line count's even
+// split; 24 once a picked grid that crosses also tries moving one line break by one shape, and
+// the other direction, and keeps either only if it routes with no crossing and no fault
+// (decision note 2026-10-06-trama-crossing-aware-wrap.md).
+const WRAP_CROSSING_BUDGET = 24;
+// The same corpus with `order: 'graph'` (the charts' `rearrange` modifier, an author's opt-in):
+// 12 when it was added. Used as the order of every candidate instead, the graph's order crossed
+// MORE (the same generator's 200 charts, grid only: 50 -> 74), so it only ever stands in for a
+// pick that crosses.
+const WRAP_GRAPH_BUDGET = 12;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -262,6 +275,170 @@ describe('graph-layout — seeded random charts (ratchet)', () => {
     }
     assert.ok(soft <= SOFT_MISS_BUDGET, `${soft} charts missed a soft count (budget ${SOFT_MISS_BUDGET})`);
     assert.ok(crossed <= CROSSING_BUDGET, `${crossed} line crossings (budget ${CROSSING_BUDGET})`);
+  });
+});
+
+describe('graph-layout — the reading-order grid (wrap ratchet)', () => {
+  // The 1,000-chart corpus above never wraps: half its charts hold a group, which the grid
+  // cannot, and the rest fit on one line. So the grid's crossings are counted here, on charts
+  // shaped like the state machines that do wrap: a spine with labeled steps, side states that
+  // leave one anchor and come back to it, and the odd skip or retry.
+  test(`100 state machines on the grid: hard counts zero; crossings ≤ ${WRAP_CROSSING_BUDGET}`, () => {
+    const words = ['Draft', 'Review', 'Approved', 'Queued', 'Running', 'Blocked', 'Paused', 'Failed', 'Retrying', 'Shipped', 'Closed', 'Archived', 'Triage', 'Staging'];
+    const HARD = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine', 'endsOffBox'];
+    let crossed = 0, wrapped = 0, crossedByGraph = 0;
+    for (const seed0 of [3, 17]) {
+      let seed = seed0;
+      const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+      for (let t = 0; t < 50; t++) {
+        const k = 6 + Math.floor(rnd() * 8);
+        const shapes = [{ id: 'start', name: '', parent: null, shape: 'start' }];
+        for (let i = 0; i < k; i++) shapes.push({ id: `s${i}`, name: words[i], parent: null, shape: 'box' });
+        shapes.push({ id: 'end', name: '', parent: null, shape: 'end' });
+        const edges = [{ from: 'start', to: 's0', dir: 'out', style: {} }];
+        const side = new Set();
+        for (let j = 0; j < Math.floor(rnd() * 3); j++) side.add(1 + Math.floor(rnd() * (k - 2)));
+        const spine = [...Array(k).keys()].filter((i) => !side.has(i));
+        for (let i = 1; i < spine.length; i++) edges.push({ from: `s${spine[i - 1]}`, to: `s${spine[i]}`, dir: 'out', style: {}, label: rnd() < 0.6 ? `e${i}` : undefined });
+        edges.push({ from: `s${spine[spine.length - 1]}`, to: 'end', dir: 'out', style: {} });
+        for (const sd of side) {
+          const a = spine[Math.floor(rnd() * spine.length)];
+          edges.push({ from: `s${a}`, to: `s${sd}`, dir: 'out', style: {}, label: 'side' });
+          edges.push({ from: `s${sd}`, to: `s${a}`, dir: 'out', style: {}, label: 'back', back: a < sd ? true : undefined });
+        }
+        for (let j = Math.floor(rnd() * 3); j > 0; j--) {
+          const a = Math.floor(rnd() * k), b = Math.floor(rnd() * k);
+          if (a === b) continue;
+          edges.push({ from: `s${a}`, to: `s${b}`, dir: 'out', style: {}, label: b < a ? 'retry' : 'skip', back: b < a ? true : undefined });
+        }
+        const sizes = Object.create(null);
+        for (const x of shapes) sizes[x.id] = x.shape === 'start' ? { w: 14, h: 14 } : x.shape === 'end' ? { w: 20, h: 20 } : { w: 9 * x.name.length + 46, h: 40 };
+        const labelSizes = Object.create(null);
+        edges.forEach((e, i) => { if (e.label) labelSizes[i] = { w: 7 * e.label.length + 12, h: 16 }; });
+        const stage = t % 2 ? { w: 1072, h: 440 } : { w: 620, h: 900 };
+        const geo = K.layout({ shapes, groups: [], edges }, sizes, { wrap: true, labelSizes, stage, maxScale: 1.25 }, null);
+        for (const h of HARD) assert.equal(geo.quality[h] || 0, 0, `${h} on seed ${seed0} chart ${t}`);
+        crossed += geo.crossings;
+        if ((geo.lines || 1) > 1) wrapped++;
+        // `order: 'graph'` (the `rearrange` modifier) on the same chart: it only replaces a pick
+        // with one that has fewer faults, then fewer crossings, so never more faults, and never
+        // more crossings at the same faults. (Across faults it may: the checker found a 19-state
+        // machine, no dagre, that traded two lines through shapes for 9 more crossings, which
+        // is the kernel's ranking everywhere: a line through a shape outranks any crossings.)
+        const byGraph = K.layout({ shapes, groups: [], edges }, sizes, { wrap: true, labelSizes, stage, maxScale: 1.25, order: 'graph' }, null);
+        for (const h of HARD) assert.equal(byGraph.quality[h] || 0, 0, `${h} with order graph on seed ${seed0} chart ${t}`);
+        const faults = (g) => Object.values(g.quality).reduce((a, b) => a + b, 0);
+        assert.ok(faults(byGraph) <= faults(geo), `order graph added a fault on seed ${seed0} chart ${t}`);
+        if (faults(byGraph) === faults(geo)) assert.ok(byGraph.crossings <= geo.crossings, `order graph crossed more at equal faults on seed ${seed0} chart ${t}: ${byGraph.crossings} > ${geo.crossings}`);
+        crossedByGraph += byGraph.crossings;
+      }
+    }
+    assert.ok(wrapped >= 90, `${wrapped} of 100 wrapped: the corpus must exercise the grid`);
+    assert.ok(crossed <= WRAP_CROSSING_BUDGET, `${crossed} line crossings (budget ${WRAP_CROSSING_BUDGET})`);
+    assert.ok(crossedByGraph <= WRAP_GRAPH_BUDGET, `${crossedByGraph} line crossings with order graph (budget ${WRAP_GRAPH_BUDGET})`);
+  });
+
+  // The stress deck's ten-step pipeline: Blocked is written last but leaves In Progress.
+  const PIPELINE = (() => {
+    const names = ['Intake', 'Triage', 'Assigned', 'In Progress', 'Code Review', 'QA', 'Staging', 'Released', 'Blocked', 'Closed'];
+    const shapes = [{ id: 'start', name: '', parent: null, shape: 'start' }, ...names.map((n) => ({ id: n, name: n, parent: null, shape: 'box' })), { id: 'end', name: '', parent: null, shape: 'end' }];
+    const E = (from, to, label, back) => ({ from, to, dir: 'out', style: {}, label, back });
+    const edges = [E('start', 'Intake'), E('Intake', 'Triage'), E('Triage', 'Assigned'), E('Assigned', 'In Progress'), E('In Progress', 'Code Review'),
+      E('In Progress', 'Blocked', 'block'), E('Code Review', 'QA'), E('Code Review', 'In Progress', 'reject', true), E('QA', 'Staging'),
+      E('QA', 'In Progress', 'fail', true), E('Staging', 'Released'), E('Released', 'Closed'), E('Blocked', 'In Progress', 'unblock', true), E('Closed', 'end')];
+    const sizes = Object.create(null);
+    for (const x of shapes) sizes[x.id] = x.shape === 'start' ? { w: 14, h: 14 } : x.shape === 'end' ? { w: 20, h: 20 } : { w: 9 * x.name.length + 46, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((e, i) => { if (e.label) labelSizes[i] = { w: 7 * e.label.length + 12, h: 16 }; });
+    return { model: { shapes, groups: [], edges }, sizes, opts: { wrap: true, labelSizes, stage: { w: 1072, h: 440 }, maxScale: 1.25 } };
+  })();
+
+  test('rearrange: a side state written last moves beside the state it leaves, and the crossings go', () => {
+    const { model, sizes, opts } = PIPELINE;
+    const text = K.layout(model, sizes, opts, null);
+    const graph = K.layout(model, sizes, { ...opts, order: 'graph' }, null);
+    assert.ok(text.crossings > 0, 'the written order still crosses, so this test still means something');
+    assert.equal(graph.crossings, 0);
+    assert.equal(text.seq, undefined, 'the default never reorders');
+    assert.ok(graph.seq, 'the rearranged drawing names its order');
+    const at = (id) => graph.seq.indexOf(id);
+    assert.equal(at('Blocked'), at('Code Review') + 1, `Blocked beside Code Review: ${graph.seq.join(' > ')}`);
+    // The live pin replays the pick: its lines, direction, breaks and order, in one routing.
+    const k = graphLayoutKernel();
+    const pinned = k.layout(model, sizes, { ...opts, order: 'graph', wrap: false, dir: graph.dir, grid: graph.lines, grow: false, seq: graph.seq, ...(graph.breaks ? { breaks: graph.breaks } : {}) }, null);
+    assert.deepEqual(JSON.parse(JSON.stringify(pinned.nodes)), JSON.parse(JSON.stringify(graph.nodes)));
+    assert.equal(k.stats.routed, 1);
+  });
+
+  test('rearrange leaves a chain alone, byte for byte', () => {
+    const shapes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].map((id) => ({ id, name: `State ${id}`, parent: null, shape: 'box' }));
+    const edges = shapes.slice(1).map((x, i) => ({ from: shapes[i].id, to: x.id, dir: 'out', style: {}, label: 'go' }));
+    const sizes = Object.create(null);
+    for (const x of shapes) sizes[x.id] = { w: 110, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((_e, i) => { labelSizes[i] = { w: 24, h: 14 }; });
+    const opts = { wrap: true, labelSizes, stage: { w: 1152, h: 480 } };
+    assert.deepEqual(JSON.parse(JSON.stringify(K.layout({ shapes, groups: [], edges }, sizes, { ...opts, order: 'graph' }, null))),
+      JSON.parse(JSON.stringify(K.layout({ shapes, groups: [], edges }, sizes, opts, null))));
+  });
+
+  test('a seq that does not name every shape once is refused, not half-placed', () => {
+    const { model, sizes, opts } = PIPELINE;
+    const ids = model.shapes.map((x) => x.id);
+    for (const seq of [ids.slice(1), [...ids, ids[0]], [...ids.slice(0, -1), 'nobody']]) {
+      assert.equal(K.layoutOnce(model, sizes, { ...opts, dir: 'lr', grid: 3, grow: false, seq }, null), null);
+    }
+  });
+
+  test('a long machine pays a bounded amount of work for the near-even splits (work counts)', () => {
+    // The first build listed every split within one shape of even and bounded each: 686,011
+    // splits for 38 shapes, 45 s for a 36-state chain, the same drawing at the end. One break
+    // moved by one shape is at most 2 x (lines - 1) splits. Work counts, not milliseconds, so a
+    // busy runner cannot move them: before the splits this chain read routed 1, bounded 18.
+    const n = 36;
+    const shapes = Array.from({ length: n }, (_, i) => ({ id: `s${i}`, name: `State ${i}`, parent: null, shape: 'box' }));
+    const edges = shapes.slice(1).map((sh, i) => ({ from: shapes[i].id, to: sh.id, dir: 'out', style: {}, label: 'go' }));
+    for (let i = 5; i < n; i += 5) edges.push({ from: `s${i}`, to: `s${i - 4}`, dir: 'out', style: {}, label: 'reset', back: true });
+    for (let i = 2; i + 3 < n; i += 7) edges.push({ from: `s${i}`, to: `s${i + 3}`, dir: 'out', style: {}, label: 'skip' });
+    const sizes = Object.create(null);
+    for (const x of shapes) sizes[x.id] = { w: 110, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((e, i) => { labelSizes[i] = { w: 7 * e.label.length + 12, h: 16 }; });
+    const k = graphLayoutKernel();
+    const geo = k.layout({ shapes, groups: [], edges }, sizes, { wrap: true, labelSizes, stage: { w: 1152, h: 480 } }, null);
+    assert.ok(geo && geo.lines > 1);
+    assert.ok(k.stats.routed <= 2, `routed ${k.stats.routed}`);
+    assert.ok(k.stats.bounded <= 28, `bounded ${k.stats.bounded}`);
+  });
+
+  test('a grid line break moves by one shape to keep a side state off the run it would cut', () => {
+    // The stress deck's wizard: every step can cancel back to Welcome. Split 3/3 it crossed
+    // once; 4/2 draws it clean at the same type size.
+    const ids = ['start', 'Welcome', 'Account', 'Profile', 'Payment', 'Confirm'];
+    const shapes = ids.map((id) => ({ id, name: id === 'start' ? '' : id, parent: null, shape: id === 'start' ? 'start' : 'box' }));
+    const E = (from, to, label, back) => ({ from, to, dir: 'out', style: {}, label, back });
+    const edges = [E('start', 'Welcome'), E('Welcome', 'Account', 'next'), E('Account', 'Profile', 'next'), E('Account', 'Welcome', 'cancel', true),
+      E('Profile', 'Payment', 'next'), E('Profile', 'Welcome', 'cancel', true), E('Payment', 'Confirm', 'next'), E('Payment', 'Welcome', 'cancel', true), E('Confirm', 'Welcome', 'restart', true)];
+    const sizes = Object.create(null);
+    for (const x of shapes) sizes[x.id] = x.shape === 'start' ? { w: 14, h: 14 } : { w: 9 * x.name.length + 46, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((e, i) => { if (e.label) labelSizes[i] = { w: 7 * e.label.length + 12, h: 16 }; });
+    const opts = { wrap: true, labelSizes, stage: { w: 1072, h: 440 }, maxScale: 1.25 };
+    const even = K.layoutOnce({ shapes, groups: [], edges }, sizes, { ...opts, dir: 'lr', grid: 2, grow: false }, null);
+    assert.ok(even.crossings > 0, 'the even split still crosses, so this test still means something');
+    const geo = K.layout({ shapes, groups: [], edges }, sizes, opts, null);
+    assert.equal(geo.lines, 2);
+    assert.equal(geo.crossings, 0);
+    assert.equal(geo.scale, 1.25, 'at the type cap, as the even split was');
+    assert.deepEqual(geo.breaks, [4, 2], 'the geometry names its breaks, so the live pin can hold them');
+    // The pipeline pins the search's pick while the author types (pipeline.ts, `held`): the
+    // pinned call must draw exactly what the search drew, breaks included, and route it once.
+    // A pin without its breaks drew 3/3 while typing and jumped to 4/2 at every pause.
+    const k = graphLayoutKernel();
+    const pinned = k.layout({ shapes, groups: [], edges }, sizes, { ...opts, wrap: false, dir: geo.dir, grid: geo.lines, grow: false, breaks: geo.breaks }, null);
+    assert.deepEqual(JSON.parse(JSON.stringify(pinned.nodes)), JSON.parse(JSON.stringify(geo.nodes)));
+    assert.deepEqual(JSON.parse(JSON.stringify(pinned.routes)), JSON.parse(JSON.stringify(geo.routes)));
+    assert.equal(k.stats.routed, 1, 'a fixed grid is not reranked: dagre never places it');
   });
 });
 

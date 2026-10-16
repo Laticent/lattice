@@ -2,6 +2,9 @@
 origin: 2325
 priority: P2
 recorded: 2026-09-24
+area: chart
+severity: medium
+swimlane: lib/components/chart/journey/journey.docs.md
 ---
 
 # A journey step labeled `R&D` shows `R&amp;D` on the slide

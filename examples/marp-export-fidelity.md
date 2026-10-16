@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 color-mode: dark
-logo: ../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-on: title
 logo-x: 50
 logo-y: 82
@@ -67,7 +67,7 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 The `![bg]` lift is baked into the exported deck; the text panel is folded by the runtime. Either one alone renders wrong.
 
-![bg](assets/sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 ---
 

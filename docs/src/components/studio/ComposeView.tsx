@@ -1,5 +1,5 @@
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
-import { history, isHistoryTransaction, redo, undo } from 'prosemirror-history';
+import { history, isHistoryTransaction, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
@@ -11,17 +11,20 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, insertFence, isInCode, leadingTag, type SlideFences, slideTakesCode } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
-import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
+import { type InlineKernels, inlineObjectsPlugin, insertBlocker, insertObject, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, repaintObjects } from '@/lib/compose/inline-objects';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
+import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { notify } from '@/lib/notify';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
@@ -32,7 +35,10 @@ import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
-const { MARKER_CLASS, stateClassesFor } = stateMarks;
+// The inline object editor is lazy, like IconGrid: none of it is in the Studio's startup JavaScript.
+const InlineObjectEditorHost = React.lazy(() => import('./InlineObjectEditor'));
+
+const { stateClassesFor } = stateMarks;
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
 // register that colors the rendered deck's `hr` rules, table rails, and timeline spine —
@@ -312,11 +318,11 @@ export function collapsePlugin() {
 // View-only badge chips for the six LFM state markers at the START of a table cell — the
 // signature obligation-matrix / roadmap grammar. The underlying text stays the literal marker
 // (so the round-trip is untouched and the marker is still editable); an inline decoration just
-// tints it to the engine's semantics. The marker class and each marker's meaning come from the
-// engine's own kernel (lib/core/state-marks.js), so the editor cannot drift from the render.
+// tints it to the engine's semantics. The marker is read by the engine's list-text grammar
+// (lib/core/cell-marker-edit.mjs) and each marker's meaning comes from lib/core/state-marks.js,
+// so the editor cannot drift from the render.
 // Recomputed from the doc each update (tables are small), the same view-only pattern as the
 // collapse decoration.
-const CELL_MARKER_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]`);
 
 // The PIPE-TABLE components whose BODY cells carry LFM state markers the engine paints as stoplight
 // chips (`obligationMatrixBadges` / roadmap gate on `<td>`, spec LFM-1.0 §3.2). The other stateful
@@ -351,10 +357,10 @@ function stateMarkerPlugin() {
 					// Measure off the leading TEXT node: a leading inline atom (image) would offset the range.
 					const first = node.firstChild;
 					if (!first?.isText) return true;
-					const m = CELL_MARKER_RE.exec(first.text ?? '');
+					const m = readEditMarker(first.text ?? '');
 					if (m) {
 						const from = pos + 1; // inline content starts just inside the cell
-						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(m[1])?.sem}` }));
+						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(m.marker)?.sem}` }));
 					}
 					return true; // a cell can hold nested inline, but the marker is only ever at its start
 				});
@@ -405,6 +411,13 @@ const LUCIDE_PATHS: Record<string, string> = {
 	// distinction the door is actually making.
 	'square-code': '<path d="m10 9-3 3 3 3"/><path d="m14 15 3-3-3-3"/><rect x="3" y="3" width="18" height="18" rx="2"/>',
 	'chevron-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+	// Compose-wide undo / redo (a phone has no undo gesture the editor's history is visible to).
+	'undo-2': '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+	'redo-2': '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>',
+	// The insert-spark door.
+	'chart-line': '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
+	// The insert-pill door.
+	tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
@@ -563,13 +576,16 @@ function formatSyncPlugin() {
 	return new Plugin({
 		view() {
 			return {
-				update() {
+				update(view: EditorView) {
 					// Defense in depth: syncFormat rebuilds DOM from the pure register kernel; a throw here
 					// runs inside view.updateState, so it would propagate out and ABORT the transaction's
 					// emit branch — silently dropping the author's edits. Contain any per-view error so one
 					// bad slide can never wedge the whole editor.
+					const canUndo = undoDepth(view.state) > 0;
+					const canRedo = redoDepth(view.state) > 0;
 					for (const sv of liveSlideViews) {
 						try {
+							sv.syncHistory(canUndo, canRedo);
 							sv.syncFormat();
 						} catch (e) {
 							console.error('[compose] syncFormat', e);
@@ -587,6 +603,8 @@ class SlideView {
 	ctrl: HTMLElement;
 	collapseBtn: HTMLButtonElement;
 	private fmtGroup: HTMLElement;
+	private undoBtn: HTMLButtonElement;
+	private redoBtn: HTMLButtonElement;
 	private dangerGroup: HTMLElement;
 	private deleteBtn: HTMLButtonElement;
 	private confirmTimer = 0;
@@ -631,6 +649,8 @@ class SlideView {
 		// the door's default tag is computed at CLICK time, not at construction.
 		private getFences?: () => SlideFences | undefined,
 		private getSource?: () => string,
+		// The inline-notation kernels, once the authoring bundle has loaded (null before).
+		private getKernels?: () => InlineKernels | null,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -677,6 +697,23 @@ class SlideView {
 		div.setAttribute('aria-hidden', 'true');
 		const actions = document.createElement('div');
 		actions.className = 'cs-sb-actions';
+		// COMPOSE-WIDE UNDO / REDO. ⌘Z is keyboard-only, and on a phone iOS's own undo (shake,
+		// three-finger swipe) lists only what the BROWSER edited, never ProseMirror's history, so an
+		// author who picked the wrong color had no way back. The pair drives the one history for the
+		// whole deck, from whichever slide's bar is showing. It never takes focus, so no keyboard rises.
+		this.undoBtn = this.btn('Undo', 'undo-2', () => { undo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-undo');
+		this.redoBtn = this.btn('Redo', 'redo-2', () => { redo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-redo');
+		this.undoBtn.disabled = this.redoBtn.disabled = true;
+		// FIRST in the bar, before the Format group. On a narrow pane the bar wraps (CSS), with this pair
+		// and the insert doors on the first row.
+		const history = document.createElement('div');
+		history.className = 'cs-sb-actions';
+		history.setAttribute('role', 'group');
+		history.setAttribute('aria-label', 'History');
+		history.append(this.undoBtn, this.redoBtn);
+		const historyDiv = document.createElement('span');
+		historyDiv.className = 'cs-sb-div cs-sb-div-hist';
+		historyDiv.setAttribute('aria-hidden', 'true');
 		// "Add slide below" opens the unified add-slide gallery (SlidePicker) for this slide when
 		// wired (onInsertBelow) — the #1058 "one insert door", its Blank tile a tap away — and
 		// falls back to a direct blank insert if it isn't. It says "Add", like the other four
@@ -700,8 +737,27 @@ class SlideView {
 			insertFence(tag)(this.view.state, this.view.dispatch);
 			this.view.focus();
 		}, 'cs-pill-btn cs-insert-code'));
+		// Insert a pill at the caret and open its editor on it: the way in for an author who has
+		// no pill to click yet. A short selected word becomes its label. A no-op in a fence, in a
+		// locked slide, and until the kernels have loaded.
+		actions.append(this.btn('Insert pill', 'tag', () => {
+			// Say why when it declines, instead of doing nothing.
+			const kernels = this.getKernels?.() ?? null;
+			const deckLiteral = kernels?.isLiteralFromSource(this.getSource?.() ?? '') ?? false;
+			const why = insertBlocker(this.view.state, kernels, deckLiteral);
+			if (why) notify(why);
+			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral })(this.view.state, this.view.dispatch);
+		}, 'cs-pill-btn cs-insert-pill'));
+		// Insert a spark (a word-sized chart) after the caret's word and open its editor on it.
+		actions.append(this.btn('Insert spark', 'chart-line', () => {
+			const kernels = this.getKernels?.() ?? null;
+			const deckLiteral = kernels?.isLiteralFromSource(this.getSource?.() ?? '') ?? false;
+			const why = insertBlocker(this.view.state, kernels, deckLiteral, 'spark');
+			if (why) notify(why);
+			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral, kind: 'spark' })(this.view.state, this.view.dispatch);
+		}, 'cs-pill-btn cs-insert-spark'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
-		pill.append(this.fmtGroup, div, actions);
+		pill.append(history, historyDiv, this.fmtGroup, div, actions);
 
 		bar.append(line, pill);
 		const content = document.createElement('div');
@@ -726,6 +782,11 @@ class SlideView {
 			fn();
 		}, { signal: this.ac.signal });
 		return b;
+	}
+	/** Enable Undo / Redo to match the editor's history (called on every state change). */
+	syncHistory(canUndo: boolean, canRedo: boolean) {
+		if (this.undoBtn.disabled === canUndo) this.undoBtn.disabled = !canUndo;
+		if (this.redoBtn.disabled === canRedo) this.redoBtn.disabled = !canRedo;
 	}
 	// Rebuild the Format group from the registers that APPLY to the caret's block — only when THIS
 	// slide is active. Runs on every state change (formatSyncPlugin) so it tracks the caret; a
@@ -1500,7 +1561,7 @@ export class CommentView {
 }
 
 type PaneOpen = (getPos: () => number | undefined, paneIndex: number) => void;
-function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined) {
+function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
@@ -1510,6 +1571,7 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		collapsePlugin(),
 		activeSlidePlugin(),
 		stateMarkerPlugin(),
+		...(notation ? [inlineObjectsPlugin(notation)] : []),
 		codeHighlightPlugin(),
 		formatSyncPlugin(),
 		history(),
@@ -2056,6 +2118,90 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// constructed once per deck and must not be rebuilt on every keystroke.
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
+
+	// THE INLINE-NOTATION KERNELS — the engine's own reader, writer and vocabulary for pills
+	// (lib/authoring/inline-editors.js), loaded once from the authoring bundle the Markdown editor
+	// already uses, so this is the same module instance and not a second copy. Null until it
+	// lands; until then a pill is plain code and the "+ Pill" door declines.
+	const kernelsRef = React.useRef<InlineKernels | null>(null);
+	// The inline object the editor is open on, or null. One editor for the whole deck. The POSITION is
+	// owned by the objects plugin, which maps it through every transaction; this is a mirror for
+	// rendering (lib/compose/inline-objects.ts, "The open editor").
+	const [objEdit, setObjEdit] = React.useState<OpenObject | null>(null);
+	const closeObjEdit = React.useCallback(() => setObjEdit(null), []);
+	React.useEffect(() => {
+		let live = true;
+		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())
+			.then((m) => {
+				if (!live) return;
+				const kernels = (m as unknown as { inlineEditors: InlineKernels }).inlineEditors;
+				kernelsRef.current = kernels;
+				// Text that is an object becomes one now that the engine can say which spans those are.
+				const v = viewRef.current;
+				if (v) normalizeDeck(v, kernels, kernels.isLiteralFromSource(sourceRef.current));
+			})
+			// Without the kernels a pill stays plain code and the insert door declines; say so in the console.
+			.catch((e) => console.error('[compose] the pill editor could not load its kernels', e));
+		return () => {
+			live = false;
+		};
+	}, []);
+
+	// THE PILL SHEET — the engine's pill rules and the deck's tokens, copied from the live preview
+	// frame (lib/compose/pill-sheet.ts), so a pill is drawn here as the slide draws it. It is rebuilt
+	// when what it was built from changes: the site palette or mode, the preview frame reloading, or
+	// the deck's own front matter (a `theme:` edit restyles the preview without touching either of
+	// those). `syncPillSheet` is cheap when nothing changed, so every trigger just asks.
+	const syncSheetRef = React.useRef<() => void>(() => {});
+	React.useEffect(() => {
+		let live = true;
+		let tries = 0;
+		let retry: number | undefined;
+		let debounce: number[] = [];
+		// Objects already on the page redraw with the new sheet.
+		const repaint = () => {
+			if (live) repaintObjects();
+		};
+		const sync = () => {
+			syncPillSheet(repaint);
+		};
+		syncSheetRef.current = sync;
+		// The preview frame may not exist yet when Compose mounts: ask a bounded number of times.
+		const waitForFrame = () => {
+			if (!live || pillSheetReady() || tries++ >= 12) return;
+			sync();
+			retry = window.setTimeout(waitForFrame, 500);
+		};
+		waitForFrame();
+		// The preview frame switches a moment AFTER the page does (a mode or palette change reaches it
+		// asynchronously), so one read at 300ms can still see the old tokens. Measured on the real Studio:
+		// one read left the pill light for good after a switch to dark. Reading again as the frame settles
+		// is cheap (`syncPillSheet` rebuilds only when what it was built from changed).
+		const later = () => {
+			for (const t of debounce) window.clearTimeout(t);
+			debounce = [300, 1000, 2500].map((ms) => window.setTimeout(sync, ms));
+		};
+		const mo = new MutationObserver(later);
+		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
+		// `load` does not bubble, so the capture phase is how a document-level listener hears an iframe's.
+		const onFrameLoad = (e: Event) => {
+			if (e.target instanceof HTMLIFrameElement && e.target.classList.contains('live')) later();
+		};
+		document.addEventListener('load', onFrameLoad, true);
+		return () => {
+			live = false;
+			window.clearTimeout(retry);
+			for (const t of debounce) window.clearTimeout(t);
+			mo.disconnect();
+			document.removeEventListener('load', onFrameLoad, true);
+			releasePillSheet();
+		};
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger (a front-matter theme edit restyles the preview); the body reads the frame.
+	React.useEffect(() => {
+		const t = window.setTimeout(() => syncSheetRef.current(), 600);
+		return () => window.clearTimeout(t);
+	}, [source]);
 	const onInsertBelowRef = React.useRef(onInsertBelow);
 	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
@@ -2105,6 +2251,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		baselineRef.current = initBaseline(doc);
 		lastEmittedRef.current = src;
 		pendingResyncRef.current = null;
+		// The rebuilt doc has its pills as text again: turn them back into objects (a silent pass, so
+		// no slide is re-serialized and the emit baseline keeps every untouched slide's bytes).
+		const kernels = kernelsRef.current;
+		if (kernels) normalizeDeck(view, kernels, kernels.isLiteralFromSource(src));
 		if (folded.length) {
 			// A selection-only transaction — no doc change — so the structural guard waves it
 			// through and `dispatchTransaction`'s emit branch stays untouched (next.doc === prevDoc).
@@ -2121,11 +2271,22 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc, plugins: [...findPlugins(), ...buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined))] }),
+				state: EditorState.create({
+					doc,
+					plugins: [
+						...findPlugins(),
+						...buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined), {
+							getKernels: () => kernelsRef.current,
+							getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
+							onOpenChange: (open) => setObjEdit(open),
+						}),
+					],
+				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current, () => kernelsRef.current),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
+					inline_object: objectNodeView({ getKernels: () => kernelsRef.current, isRendered: () => pillSheetReady() }),
 					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el, pos) => onChipRef.current(el, pos), getPos as () => number | undefined),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
@@ -2142,7 +2303,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// no-op would null a PARKED external resync (`pendingResyncRef`), silently dropping
 					// an external `_class`/AI/undo change on the next blur — for a keystroke that did
 					// nothing. Only a real doc change supersedes the parked author.
-					if (next.doc !== prevDoc) {
+					if (next.doc !== prevDoc && isSilentPass(tr)) {
+						// The inline-object pass changes how a slide is REPRESENTED, never what it says: re-point
+						// the baseline at the new slide nodes and keep every cached byte, and emit nothing.
+						if (baselineRef.current) rebaselineSlides(next.doc, baselineRef.current);
+					} else if (next.doc !== prevDoc) {
 						// A fresh local edit supersedes any parked external change — otherwise the
 						// blur flush would replay a now-stale snapshot over the user's typing (the
 						// trio's resync race). Favor the actively-typing author.
@@ -2210,6 +2375,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			return;
 		}
 		viewRef.current = view;
+		// Kernels that landed before the editor mounted: turn the pills into objects now.
+		const loaded = kernelsRef.current;
+		if (loaded) normalizeDeck(view, loaded, loaded.isLiteralFromSource(sourceRef.current));
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
@@ -2310,6 +2478,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
 			    React does not own. Rendered only while a chip is open, so a deck of forty
 			    fences carries one popover rather than forty. */}
+			{/* The inline object editor — one for the whole deck, opened by a tap on a drawn pill or by the
+			    "+ Pill" door. Keyed on the open id so a tap on another object remounts it on that one. */}
+			{objEdit && viewRef.current && kernelsRef.current && (
+				<React.Suspense fallback={null}>
+					<InlineObjectEditorHost key={objEdit.id} view={viewRef.current} kernels={kernelsRef.current} open={objEdit} onClose={closeObjEdit} />
+				</React.Suspense>
+			)}
 			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchor={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
 		</div>
 	);
@@ -2376,6 +2551,7 @@ function ComposeStyles() {
 			.cs-surface.cs-paused .cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:hidden;opacity:0}
 			.cs-sb-format{display:inline-flex;align-items:center;gap:2px}
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
+
 			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}
 			.cs-sb-format:empty,.cs-sb-format:empty + .cs-sb-div{display:none}
 			/* content-register buttons — ghost glyph; the ACTIVE one is a SOLID accent chip (in-effect highlight) */
@@ -2385,7 +2561,8 @@ function ComposeStyles() {
 			.cs-fmt-on,.cs-fmt-on:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);font-weight:700;box-shadow:0 1px 3px -1px color-mix(in oklab,var(--accent,#006fa8),transparent 45%)}
 			.cs-pill-btn{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
 			.cs-pill-btn svg{display:block;width:13px;height:13px}
-			.cs-pill-btn:hover{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-pill-btn:hover:not(:disabled){color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-pill-btn:disabled{opacity:.35;cursor:default}
 			/* COLLAPSED — the slide's TITLE, with the ellipsis riding the same line.
 			   Keeping merely the FIRST block showed the eyebrow instead (an eyebrow is
 			   p:has(> code:only-child) placed BEFORE the heading — see lib/base/base.docs.md),
@@ -2495,6 +2672,14 @@ function ComposeStyles() {
 			/* THE CHIP — the fence's language, legible without the caret, and the picker's
 			   trigger. Top-right, the same corner and the same quiet mono voice as the
 			   locked-slide badge, so the two read as one family of block-level labels. */
+			/* AN INLINE OBJECT (a pill, later a spark or an avatar), drawn as the slide draws it
+			   (lib/compose/pill-sheet.ts). One atom: a tap selects it and opens its editor. Until the
+			   pill sheet is ready it shows its source in the code face, still one tappable thing. */
+			.cs-npill{display:inline-block;vertical-align:baseline;user-select:none;-webkit-user-select:none}
+			.cs-npill-btn{all:unset;display:inline-block;cursor:pointer;vertical-align:baseline;border-radius:6px;-webkit-tap-highlight-color:transparent}
+			.cs-npill-btn:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-npill-text code{padding:0 .3em;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg-alt,#f2f5fa);font-size:.9em}
+			.ProseMirror-selectednode .lat-pill,.ProseMirror-selectednode .cs-npill-text code{outline:2px solid var(--accent,#1e5f96);outline-offset:1px}
 			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
 			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			/* On a locked slide the chip is a LABEL, not a control — it still names the
@@ -2507,7 +2692,7 @@ function ComposeStyles() {
 			   ENGINE's own highlighter, so these are the slide's tokens and not a second
 			   opinion about what a keyword is.
 			   THE PALETTE IS THE STUDIO'S THREE SYNTAX INKS, not the render's fuller
-			   --hljs-* tier. That tier is theme CSS and the docs site does not emit it
+			   --syntax-* tier. That tier is theme CSS and the docs site does not emit it
 			   (lattice-tokens.generated.css carries keyword / string / number and no
 			   more), and the three-ink reading is the deliberate one for a WRITING surface
 			   — it is what the deck editor and the chat code blocks already use, and
@@ -2573,6 +2758,20 @@ function ComposeStyles() {
 				   insert buttons make on mobile. A container query, not a viewport one: the Compose
 				   pane is what narrows, and it is narrow at tablet width too. */
 				@container (max-width:460px){.cs-tblc-marks{display:none}}
+				/* A NARROW PANE GETS A TWO-ROW BAR. At 390px the widest state (a caret in body text) is history,
+				   the Format group, four insert and settings doors: about 320px against the 266px between the two
+				   end caps. Measured, not guessed. Scrolling hid the insert doors and covering the caps hid the
+				   delete, so the bar wraps: history and the doors on row one, the contextual Format group on row
+				   two. Row two is RESERVED (min-height) on every slide, so switching the active slide never moves
+				   the page. Wide panes keep the single row. */
+				@container (max-width:520px){
+					.cs-sb-pill{flex-wrap:wrap;justify-content:center;row-gap:3px;max-width:calc(100% - 68px)}
+					.cs-sb-pill > .cs-sb-format{order:3;flex:0 0 100%;justify-content:center;min-height:28px}
+					.cs-sb-pill > .cs-sb-actions:last-child{order:2}
+					.cs-sb-pill > .cs-sb-div-hist{display:none}
+					.cs-sb-pill > .cs-sb-format:empty + .cs-sb-div{display:block}
+					.cs-sb-pill > .cs-sb-format:empty{display:block}
+				}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 				.cs-caret-in-table .cs-insert-table{display:none}
 				/* A layout whose grammar has no place for a table gets no table door. Hidden rather
@@ -2588,6 +2787,11 @@ function ComposeStyles() {
 			@media (max-width:640px){
 				.cs-host .cs-pane-change,.cs-host .cs-pane-add-title{min-height:32px}
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
+				/* The ACTIVE slide's bar stays on screen while its slide scrolls under it. A phone's keyboard scrolls the
+				   pane to keep the caret in view, which left the bar half above the top edge, its buttons clipped and
+				   hard to hit (reported from a real iPhone). Opaque, so text never shows through the hairline; the
+				   containing block is the slide, so the bar leaves with its slide and the next slide's bar takes over. */
+				.cs-slide-active > .cs-slide-bar{position:sticky;top:0;z-index:20;margin-top:0;padding-top:12px;padding-bottom:6px;background:var(--bg,#fff)}
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}
 				.cs-sc-cap svg{width:15px;height:15px}

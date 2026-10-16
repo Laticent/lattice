@@ -1,7 +1,7 @@
 /**
  * THE MARK-EDGE CONTRACT IS A CENSUS, NOT A HAND-PICKED LIST.
  *
- * `chart-family.css` gives every data mark one physical edge weight. The rule it
+ * `chart-family.styles.css` gives every data mark one physical edge weight. The rule it
  * does that with names classes explicitly, because CSS cannot read a manifest —
  * and a hand-maintained list next to a declared one is a list that drifts. A new
  * chart member would join the family, declare its marks, and silently keep
@@ -42,7 +42,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const CSS = path.join(ROOT, 'lib/components/chart/_chart-family/chart-family.css');
+const CSS = path.join(ROOT, 'lib/plugins/chart-family/chart-family.styles.css');
 const CHART_DIR = path.join(ROOT, 'lib/components/chart');
 
 /** A knockout strokes the canvas color to separate touching marks. */
@@ -177,7 +177,7 @@ function memberEdgeUsers() {
 test('every fill-painted declared mark is covered by the shared edge rule', () => {
   const css = fs.readFileSync(CSS, 'utf8');
   const sel = sharedEdgeSelector(css);
-  assert.ok(sel, 'no shared rule setting stroke-width: var(--chart-edge) found in chart-family.css');
+  assert.ok(sel, 'no shared rule setting stroke-width: var(--chart-edge) found in chart-family.styles.css');
   const declared = declaredFillMarks();
   const owed = [...declared].filter((c) => !(c in KNOCKOUTS) && !(c in WRAPPERS));
   const missing = owed.filter((c) => !sel.has(c)).sort();

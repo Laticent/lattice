@@ -10,7 +10,7 @@
 // now rides the shared chart-family detail substrate).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const kernel = require('../../../../lib/components/chart/_chart-family/chart-family.js');
+const kernel = require('../../../../lib/plugins/chart-family/chart-family.dispatch.js');
 
 const authoring = `<h2>Where the planning quarter actually went.</h2><ul>
 <li>Deck production <code>46%</code><ul><li>Mostly Figma and slide assembly — the actual deck-tooling work was about a third of this.</li><li>412 hrs · 7 people</li></ul></li>

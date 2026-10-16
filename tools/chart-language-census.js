@@ -156,7 +156,7 @@ async function main() {
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chart-census-'));
   const html = path.join(tmp, 'deck.html');
-  const emulator = path.join(REPO, 'dist/lattice-emulator.js');
+  const emulator = path.join(REPO, 'dist/lattice.js');
   const emuArgs = [emulator, args.deck, html];
   if (args.theme) emuArgs.push(args.theme);
   execFileSync(process.execPath, emuArgs, { stdio: ['ignore', 'ignore', 'inherit'] });

@@ -34,9 +34,9 @@ describe('collections: countAxis', () => {
     const html = '<table><tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody></table>';
     assert.equal(countAxis(html, 'cell'), 4);
   });
-  test('line counts code lines, newline inside a span stays one line', () => {
-    const html = '<pre><code><span class="s">"a\nb"</span>\nx\ny</code></pre>';
-    assert.equal(countAxis(html, 'line'), 3);
+  test('line counts source lines, as lint does: a newline inside a span starts a line too', () => {
+    const html = '<pre><code><span class="s">"a\nb"</span>\nx\ny\n</code></pre>';
+    assert.equal(countAxis(html, 'line'), 4);
   });
   test('returns 0 when the axis collection is absent', () => {
     assert.equal(countAxis('<h2>Just a heading</h2>', 'item'), 0);

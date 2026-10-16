@@ -7,7 +7,7 @@ engine — and each slide opts into a **component** via a
 Markdown. This file orients any AI agent (Claude Code, Copilot, Cursor, an
 SDK agent) toward authoring decks correctly. For engine/contributor work,
 read `CLAUDE.md` and the `engineering/` docs instead — and before building any
-script or tool, **grep** `engineering/capabilities.md` (the generated index of
+script or tool, **grep** `dist/engineering/capabilities.md` (the generated index of
 every script, tool, and framework) for what you were about to build, then open
 the script or tool the row names — its own header is the long form. Extend what
 exists rather than reinvent it; don't read the index top-to-bottom.
@@ -69,8 +69,8 @@ escalation target beside it; `components.json` carries the same as
 `{ axis, sweet, soft, hard, escalateTo }`). `sweet` is the
 ideal count; past `soft` it crowds; past `hard` it overflows. If your count
 exceeds `hard`, **don't pick that component** — use one of its `escalateTo`
-targets or split the content across slides. `lint:deck` warns when a slide
-exceeds capacity (rules `capacity-crowd` / `capacity-overflow`), but choosing
+targets or split the content across slides. `lint:deck` flags a slide past
+capacity (`capacity-crowd` suggests, `capacity-overflow` warns), but choosing
 by capacity up front is the fix; the warning is the backstop. See
 `engineering/decisions/2026-06-17-content-capacity-contract.md`.
 
@@ -134,6 +134,10 @@ edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
   CHROME_PATH=$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome | sort -V | tail -1) \
     npx lattice deck.md deck.pdf
   ```
+
+  `npx lattice` finds the clone's own install. Outside a clone or a project with
+  `@laticent/lattice` installed, write `npx @laticent/lattice`: the unscoped `lattice`
+  package on npm is unrelated.
 
 ## The rules agents most often break
 

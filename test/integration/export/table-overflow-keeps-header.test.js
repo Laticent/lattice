@@ -23,7 +23,7 @@ const { pathToFileURL } = require('node:url');
 
 describe('export: an overflowing table keeps its header, on a slide and in a pane', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 180000;
 	const rows = (n) => Array.from({ length: n }, (_, i) => `| Region ${i + 1} | ${(i + 1) * 3} |`).join('\n');
 	const items = Array.from({ length: 16 }, (_, i) => `- Point ${i + 1} on the regional pipeline`).join('\n');

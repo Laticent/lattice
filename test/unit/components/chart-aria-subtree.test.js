@@ -46,7 +46,7 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const P = (p) => path.join(ROOT, p);
-const { transformChartSection } = require(P('lib/components/chart/_chart-family/chart-family.js'));
+const { transformChartSection } = require(P('lib/plugins/chart-family/chart-family.dispatch.js'));
 const md = new MarkdownIt({ html: true });
 
 /**

@@ -45,6 +45,9 @@ const EXPECTED_CANVAS = [
   'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
   'video', 'wifi', 'word-cloud', 'flowchart',
+  // `collage` (2026-10): a packed photo grid that sizes itself to the cell it is given, so a
+  // canvas. Not strict: the masthead lifts around it and the grid is the body.
+  'collage',
 ].sort();
 const EXPECTED_SOVEREIGN = [
   // `math` was here until 2026-09. Its claim on a sovereign frame was "drives its own

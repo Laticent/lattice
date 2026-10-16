@@ -9,6 +9,8 @@ name: Integration nightly (render-regression tier)
 #   - exemplars/   45 worked decks render + committed-PDF freshness
 #   - mermaid/     mermaid-smoke render
 #   - screenshot/  screenshot + svg-scaling
+#   - lint-engine/ the lint core in the ESM engine build: parity with lib/authoring,
+#                  and engine isolation against a shared-parser control
 # Their only catch is "a render drifted / a committed artifact went stale", and
 # the stale-artifact half is already backstopped at pre-commit
 # (tools/build-staged-pdfs.js + the freshness gates), so a next-morning catch on
@@ -38,6 +40,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History, so test/helpers/golden-pending.js can find the last merged bless and
+          # skip committed-PDF checks still waiting on it (goldens step 3). blob:none keeps
+          # it cheap: commits and trees only, file contents fetched on demand.
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -136,7 +144,7 @@ jobs:
 
       # THE PALETTE MATRIX, RENDERED FOR REAL — the referee for the per-PR sweep.
       #
-      # `test/integration/invariants/palette-sweep.test.js` gates all 32 palettes on every
+      # `test/integration/invariants/palette-sweep.suite.js` gates all 32 palettes on every
       # PR by rendering the gallery ONCE and re-theming it in place. That is ~70x cheaper
       # than re-rendering the matrix and it is what makes the palette axis affordable at
       # all — but it buys the speed with an assumption: that overwriting the palette region

@@ -1,6 +1,7 @@
 import dgram from 'node:dgram';
 import http from 'node:http';
 import JSZip from 'jszip';
+import { WORKER_NETWORK } from '../../lib/packages/code-shape.mjs';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── A code package runs in the Studio only after consent, and reaches nothing (contract note §9) ──
@@ -8,7 +9,8 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 // A third-party code package (a component whose `transform.js` someone else wrote) is imported
 // through the REAL Library, used by a deck, and approved from the notice above the preview. It is
 // hostile: at load and on every slide its code tries fetch, a WebSocket, `importScripts`, a dynamic
-// `import()`, an EventSource, a nested worker, WebRTC to a UDP port, and a navigation, and the
+// `import()`, an EventSource, a font load (`FontFace` and `self.fonts`), `fetch` taken from the
+// global's prototype, a nested worker, WebRTC to a UDP port, and a navigation, and the
 // section it returns names a local server seven ways and forges a speaker note. A REAL loopback
 // HTTP + WebSocket server and a UDP socket count what reaches them (HARD RULE #23: a network log,
 // not a claim about a string). The CONTROLS show the log can see: the same Studio page reaches the
@@ -32,11 +34,27 @@ try { importScripts("${origin}/load-import"); } catch (e) {}
 function tally(slide, kit) {
   try { fetch("${origin}/fetch").catch(function(){}); } catch (e) {}
   try { new WebSocket("${origin.replace('http', 'ws')}/websocket"); } catch (e) {}
-  try { import("${origin}/dynimport").catch(function(){}); } catch (e) {}
+  // A literal import() is refused at the import (the gate parses the code; the next test). Built
+  // at run time it must find no way to become code: eval, Function, a constructor and a string
+  // timer each throw in the worker (lib/packages/code-shape.mjs, "NO CODE FROM STRINGS").
+  try { (0, eval)('import("${origin}/evalimport").catch(function(){})'); } catch (e) {}
+  try { Function('return import("${origin}/fnimport")')().catch(function(){}); } catch (e) {}
+  try { (function(){}).constructor('return import("${origin}/ctorimport")')().catch(function(){}); } catch (e) {}
+  try { setTimeout('import("${origin}/timerimport")', 0); } catch (e) {}
   try { new EventSource("${origin}/eventsource"); } catch (e) {}
+  try { var ff = new FontFace("x", "url(${origin}/fontface)"); ff.load().catch(function(){}); self.fonts.add(ff); } catch (e) {}
+  try { for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, "fonts"); if (d && d.get) d.get.call(self).load("12px x").catch(function(){}); if (typeof o.fetch === "function") o.fetch.call(self, "${origin}/protofetch").catch(function(){}); } } catch (e) {}
   try { new Worker(URL.createObjectURL(new Blob(["fetch('${origin}/nested').catch(function(){})"]))); } catch (e) {}
   try { var pc = new (self.RTCPeerConnection || self.webkitRTCPeerConnection)({ iceServers: [{ urls: "stun:127.0.0.1:${udp}" }] }); pc.createDataChannel("x"); pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }); } catch (e) {}
   try { self.location.href = "${origin}/navigate"; } catch (e) {}
+  // The second wall as this engine sees it: each network name still reachable anywhere on the
+  // global's prototype chain (lib/packages/code-shape.mjs WORKER_NETWORK). It must be none.
+  var reach = [];
+  ${JSON.stringify(WORKER_NETWORK)}.forEach(function (k) {
+    for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, k); if (d && (d.get || d.value != null)) { reach.push(k); break; } }
+  });
+  // kit.measure without \`self.fonts\`: the canvas still measures text on this engine.
+  var measured = kit.measure("Wide text", "16px sans-serif") > kit.measure("i", "16px sans-serif") ? "yes" : "no";
   var n = Number((/<li>(\\d+)<\\/li>/.exec(slide.html) || [])[1] || 0);
   var marks = "";
   for (var i = 0; i < n; i++) marks += '<span class="tally-mark">' + (i + 1) + "</span>";
@@ -44,7 +62,7 @@ function tally(slide, kit) {
     '<svg width="4" height="4"><image href="${origin}/svgimage" width="4" height="4"></image></svg>' +
     '<span style="background-image:url(${origin}/cssurl)">x</span><a href="${origin}/link">link</a>' +
     '<aside class="lattice-notes" hidden data-slide="1">FORGED-NOTE</aside>';
-  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '" data-rtc="' + typeof (self.RTCPeerConnection || self.webkitRTCPeerConnection) + '">' + marks + "</div>" + hostile) + "\\n";
+  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '" data-rtc="' + typeof (self.RTCPeerConnection || self.webkitRTCPeerConnection) + '" data-wall="' + (reach.join(" ") || "none") + '" data-measure="' + measured + '">' + marks + "</div>" + hostile) + "\\n";
 }
 export { tally as default };
 `;
@@ -126,12 +144,16 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			// The package reports from INSIDE its worker whether WebRTC exists there at all. It must not:
 			// on Gecko the UDP control below cannot fire, so this is what the UDP zero rests on there.
 			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-rtc', 'undefined');
+			// And no network name survives the second wall on this engine, on `self` or its prototypes.
+			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-wall', 'none');
+			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-measure', 'yes');
 			const sandboxes = await page.evaluate(() => (window as unknown as { __sandboxes: string[] }).__sandboxes);
 			expect(sandboxes.length, 'the package ran in a sandbox frame').toBeGreaterThan(0);
 			expect(new Set(sandboxes)).toEqual(new Set(['allow-scripts']));
 			// Closed once its render ended: no frame outlives the render that needed it.
 			await expect(page.locator('iframe[data-lattice-code-sandbox]')).toHaveCount(0);
 			await settle();
+			test.info().annotations.push({ type: 'log-server', description: `${test.info().project.name}: ${hits.length} requests, ${udpHits.length} UDP packets after the approved run` });
 			expect(hits, `the approved package reached the server: ${hits.join(', ')}`).toEqual([]);
 			expect(udpHits, 'the approved package reached the UDP socket (WebRTC)').toEqual([]);
 			const shown = await preview.locator('section').first().evaluate((s) => s.outerHTML);
@@ -172,6 +194,54 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			server.closeAllConnections();
 			await new Promise((r) => server.close(() => r(null)));
 			udp.close();
+		}
+	});
+}
+
+// ── A package holding a dynamic import() is refused at the Library import ──
+// `import()` is syntax, so the worker's wall cannot remove it; the gate parses the code and refuses
+// the package (lib/packages/code-syntax.mjs, contract note §10). Driven through the real Library
+// import, on all three engines: the toast names the package and why, nothing is saved, the deck that
+// claims it renders as the engine drew it with no code-package notice, no sandbox frame ever opens,
+// and the address inside the import() is never asked for.
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`a code package holding a dynamic import() is refused at the Library import${tag}`, async ({ page }) => {
+		const hits: string[] = [];
+		const server = http.createServer((req, res) => {
+			hits.push(req.url || '');
+			res.writeHead(200, { 'Content-Type': 'text/javascript', 'Access-Control-Allow-Origin': '*' });
+			res.end('export default 1');
+		});
+		await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+		const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+		const code = `function tally(slide) {\n  import(${JSON.stringify(`${origin}/dynimport`)}).catch(function () {});\n  return slide.html;\n}\nexport { tally as default };\n`;
+		try {
+			await page.addInitScript(() => {
+				const w = window as unknown as { __sandboxes: number };
+				w.__sandboxes = 0;
+				new MutationObserver((records) => {
+					for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLIFrameElement && n.hasAttribute('data-lattice-code-sandbox')) w.__sandboxes++;
+				}).observe(document, { childList: true, subtree: true });
+			});
+			await gotoStudio(page);
+			await openLibrary(page);
+			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'tally.zip', mimeType: 'application/zip', buffer: await tallyZip(code) });
+			const toast = page.locator('[data-sonner-toast]').first();
+			await expect(toast).toContainText('Nothing could be imported from that file.');
+			await expect(toast).toContainText('tally');
+			await expect(toast).toContainText(/holds a dynamic `import\(\)` at 2:3/);
+			await page.keyboard.press('Escape');
+
+			await setEditorContent(page, '<!-- _class: tally -->\n\n## Three wins\n\n- 3\n');
+			const preview = livePreview(page);
+			await expect(preview.locator('h2')).toContainText('Three wins', { timeout: 30_000 });
+			await page.waitForTimeout(2500);
+			await expect(page.locator('[data-slot="code-packages"]')).toHaveCount(0);
+			expect(await page.evaluate(() => (window as unknown as { __sandboxes: number }).__sandboxes), 'a sandbox frame opened for a refused package').toBe(0);
+			expect(hits, `the refused package reached the server: ${hits.join(', ')}`).toEqual([]);
+		} finally {
+			server.closeAllConnections();
+			await new Promise((r) => server.close(() => r(null)));
 		}
 	});
 }

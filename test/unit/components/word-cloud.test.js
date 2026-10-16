@@ -59,11 +59,11 @@ describe('word-cloud', () => {
   // ── parseItem ───────────────────────────────────────────────────────────
 
   test('parseItem: extracts trailing <code> as weight', () => {
-    assert.deepEqual(parseItem('Execution <code>5</code>'), { text: 'Execution', weight: 5 });
+    assert.deepEqual(parseItem('Execution <code>5</code>'), { text: 'Execution', weight: 5, raw: '5' });
   });
 
   test('parseItem: accepts continuous floats', () => {
-    assert.deepEqual(parseItem('Velocity <code>4.3</code>'), { text: 'Velocity', weight: 4.3 });
+    assert.deepEqual(parseItem('Velocity <code>4.3</code>'), { text: 'Velocity', weight: 4.3, raw: '4.3' });
   });
 
   test('parseItem: weight is NaN (unspecified) when no <code>', () => {

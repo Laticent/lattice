@@ -14,8 +14,10 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
-import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
+import { pluginKindPins, refuseCode, refusePluginCode } from '../../../../lib/packages/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
+// The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
+import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
@@ -23,7 +25,9 @@ import type { PackageCarry } from './library/package-carry';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 
-export type PackageType = 'theme' | 'component' | 'finish' | 'motion';
+const { PLUGIN_PROJECT_REFUSAL } = pluginRefusal;
+
+export type PackageType = 'theme' | 'component' | 'finish' | 'motion' | 'plugin';
 /** One package as files: file name (`<name>.<role>`) → text. */
 export type PackageFiles = { type: PackageType; name: string; files: Record<string, string> };
 
@@ -183,12 +187,51 @@ function overridesMap(v: unknown): Record<string, { light?: string; dark?: strin
 const TYPES: readonly string[] = ['theme', 'component', 'finish', 'motion'];
 
 /**
+ * Why a code package is refused: its shape first (`refuseCode`, light, in the eager bundle), then its
+ * syntax (`codeSyntaxRefusal`, a dynamic `import()`), whose parser loads only when a zip holds code.
+ * The same two checks `lattice packages add` runs (lib/packages/gate.js).
+ */
+async function codeRefusal(pkg: Parameters<typeof refuseCode>[0], code: string | undefined): Promise<string | null> {
+	const shape = refuseCode(pkg);
+	if (shape) return shape;
+	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	return codeSyntaxRefusal(String(code ?? ''));
+}
+
+/**
+ * Why a PLUGIN package is refused: the shape gate `lattice packages add` runs (code-shape.mjs
+ * `refusePluginCode`) and the syntax gate on its one script, as a fence renderer.
+ */
+async function pluginRefusal_(pkg: Parameters<typeof refusePluginCode>[0]): Promise<string | null> {
+	const shape = refusePluginCode(pkg);
+	if (shape) return shape;
+	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	const syntax = codeSyntaxRefusal(String(pkg.files[pkg.roles['render.js']] ?? ''), { fence: true });
+	if (syntax) return syntax;
+	// Each inline kind's slot, compiled once here as `lattice packages add` does (gate.js `inlineSlotCompileRefusal`).
+	const pins = pluginKindPins(pkg.manifest);
+	if (!pins.some((k) => k.slot)) return null;
+	// Require-free, with Segno's ESM reader (the dev server serves only a CJS file that requires nothing).
+	const [{ default: segnoSpecCore }, segnoRead] = await Promise.all([import('../../../../lib/core/segno-spec-core.js'), import('@laticent/segno/read')]);
+	const { compileSlot } = segnoSpecCore.specCompiler(segnoRead);
+	for (const { name, slot } of pins) {
+		if (!slot) continue;
+		try {
+			compileSlot(slot as Parameters<typeof compileSlot>[0], `${name}.slot`);
+		} catch (e) {
+			return `its inline kind ${name}'s slot does not compile: ${String((e as Error)?.message ?? e).slice(0, 200)}`;
+		}
+	}
+	return null;
+}
+
+/**
  * Every package folder in a zip: a directory holding a `*.manifest.json`, with an optional
  * leading `<type>/` segment. Files outside any such folder (a README, a showcase PDF) are
  * not package files and are skipped. `read` returns an entry's text and charges the caller's
  * size budget.
  */
-export async function readPackagesFromZip(zip: Zip, read: (path: string) => Promise<string | undefined>): Promise<{ packages: ReadPackage[]; refused: { name: string; why: string }[] }> {
+export async function readPackagesFromZip(zip: Zip, read: (path: string) => Promise<string | undefined>, { plugins = false }: { plugins?: boolean } = {}): Promise<{ packages: ReadPackage[]; refused: { name: string; why: string }[] }> {
 	const spine = await loadSpine();
 	const paths = Object.keys(zip.files).filter((p) => !zip.files[p].dir);
 	// A folder holding a manifest — or the zip's ROOT, when someone zipped the files instead
@@ -219,12 +262,40 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 			refused.push({ name: folder ?? 'the zip', why: norm.errors.join('; ') });
 			continue;
 		}
+		// A plugin arrives as data (plugin-system §4.10), and only through the Library's own import
+		// (`plugins: true`): a `.lattice` project or a backup that carried one would bring code the
+		// user never chose, so those say where to import it instead (decision 13).
+		if (norm.pkg.type === 'plugin') {
+			if (!plugins) {
+				refused.push({ name: norm.pkg.name, why: PLUGIN_PROJECT_REFUSAL });
+				continue;
+			}
+			const why = await pluginRefusal_(norm.pkg);
+			if (why) {
+				refused.push({ name: norm.pkg.name, why });
+				continue;
+			}
+			const proles: Record<string, string> = {};
+			for (const [role, file] of Object.entries(norm.pkg.roles as Record<string, string>)) proles[role] = String(written[file] ?? '');
+			// A folder inside the plugin is not read (top-level files only), and the importer says so.
+			const nested = paths.filter((x) => x.startsWith(prefix) && x.slice(prefix.length).includes('/'));
+			packages.push({
+				type: 'plugin',
+				name: norm.pkg.name,
+				manifest: jsonGuard.parseJsonCapped(proles['manifest.json'], TOO_MANY) as Record<string, unknown>,
+				roles: proles,
+				code: true,
+				codeRefusal: null,
+				notes: [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(nested.length ? [`left out ${nested.length} file(s) in subfolders (${nested.slice(0, 3).map((x) => x.slice(prefix.length)).join(', ')}${nested.length > 3 ? ', …' : ''}); a plugin zip carries top-level files only`] : [])],
+			});
+			continue;
+		}
 		const roles: Record<string, string> = {};
 		for (const [role, file] of Object.entries(norm.pkg.roles as Record<string, string>)) roles[role] = String(written[file] ?? '');
 		// A component's images and data files (its assets) are not carried into the Studio's
 		// record yet, so they are named as left out rather than lost in silence.
 		const notes = [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(r.pkg.assets?.length ? [`left out ${r.pkg.assets.length} asset file(s): ${r.pkg.assets.join(', ')}`] : [])];
-		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? refuseCode(norm.pkg) : null, notes });
+		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? await codeRefusal(norm.pkg, roles['transform.js']) : null, notes });
 	}
 	return { packages, refused };
 }

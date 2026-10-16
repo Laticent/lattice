@@ -77,7 +77,7 @@ if (!html) {
 	const out = join(ROOT, '.scratch/svg-baselines');
 	mkdirSync(out, { recursive: true });
 	html = join(out, 'deck.html');
-	execFileSync('node', [join(ROOT, 'dist/lattice-emulator.js'), join(ROOT, DECK), html, THEME],
+	execFileSync('node', [join(ROOT, 'dist/lattice.js'), join(ROOT, DECK), html, THEME],
 		{ cwd: ROOT, stdio: 'pipe' });
 }
 

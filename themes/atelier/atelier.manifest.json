@@ -1,0 +1,16 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "atelier",
+  "type": "theme",
+  "format": 1,
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "atelier-dark",
+  "order": 8,
+  "swatch": "#1A1A18"
+}

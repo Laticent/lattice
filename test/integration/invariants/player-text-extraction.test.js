@@ -109,7 +109,7 @@ describe('exported player — one extractable copy of the deck per view', () => 
     const src = path.join(dir, 'deck.md');
     fs.writeFileSync(src, DECK_SOURCE);
     playerPath = path.join(dir, 'player.html');
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), src, playerPath, '--player', '-q'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), src, playerPath, '--player', '-q'], {
       cwd: ROOT, encoding: 'utf8', timeout: 900000,
     });
     assert.equal(res.status, 0, `player render failed:\n${res.stderr}`);

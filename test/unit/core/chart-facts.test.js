@@ -402,6 +402,29 @@ test('spoken value — a EUROPEAN separator is not read a hundred times too big'
   assert.ok(!say('1,25M').includes('one hundred twenty-five'));
 });
 
+test('spoken value — a European `1.234,5` is said, and its change measured, as the number it plots', () => {
+  // With both separators the comma used to be deleted, so the slide drew 1.2345 and the voice
+  // agreed. The chart now reads 1234.5; the voice has to say the same number, and the change
+  // between two such points has to be the change the line draws (followups.d/2686-p3).
+  assert.equal(parseValue('1.234,5'), 1234.5);
+  assert.equal(say('1.234,5'), 'one thousand two hundred thirty-four point five');
+  const { narrateChart } = require('../../../lib/core/chart-narration.js');
+  const said = narrateChart('<!-- _class: line -->\n\n## A\n\n- Q1 `1.234,5`\n- Q2 `2.345,5`\n');
+  assert.match(said, /rose one thousand one hundred eleven overall/);
+  assert.doesNotMatch(said, /1\.234,5/);
+});
+
+test('spoken value — a decimal comma is said as the decimal the chart plots, so a change sentence agrees with itself', () => {
+  // `1,5` plots at 1.5. It was said "fifteen", so once the change was measured on the plotted
+  // values the sentence read "rose zero point seven five, from fifteen to two hundred twenty-five".
+  assert.equal(say('1,5'), 'one point five');
+  assert.equal(say('12,5%'), 'twelve point five percent');
+  assert.equal(say('12,000'), 'twelve thousand', 'a US group is unchanged');
+  const { narrateChart } = require('../../../lib/core/chart-narration.js');
+  const said = narrateChart('<!-- _class: line -->\n\n## A\n\n- Q1 `1,5`\n- Q2 `2,25`\n');
+  assert.match(said, /rose zero point seven five overall, from one point five to two point two five/);
+});
+
 test('spoken value — it says it the way a person would', () => {
   assert.equal(say('0.9M'), 'nine hundred thousand', 'not "zero point nine million"');
   assert.equal(say('1200k'), 'one point two million', 'not "one thousand two hundred thousand"');
@@ -437,14 +460,12 @@ test('spoken value — the sign rides in FRONT of a currency prefix', () => {
   // speech layer passed the whole thing through as glyphs.
   assert.equal(say('$-0.8M'), 'down eight hundred thousand dollars');
   assert.equal(say('$-0.8M'), say('-$0.8M'), 'the two spellings are one quantity');
-  // THE VOICE FOLLOWS THE PARSER, WHICH IS WHAT THE PICTURE PLOTS. `parseValue` reads
-  // a U+2212 in FRONT of a currency symbol and not behind it, so `$\u22120.8M` plots
-  // POSITIVE and is spoken positive. That asymmetry is the parser's and it is shared
-  // with every chart in the family, so it is filed rather than fixed from here — but
-  // it is pinned, because the one thing that must never drift is the voice saying
-  // "down" over a bar the chart drew up.
-  assert.equal(parseValue('$\u22120.8M') > 0, true);
-  assert.equal(say('$\u22120.8M'), 'eight hundred thousand dollars');
+  // THE VOICE FOLLOWS THE PARSER, WHICH IS WHAT THE PICTURE PLOTS. A U+2212 behind the
+  // currency symbol (`$\u22120.8M`) used to plot POSITIVE and was pinned here as a filed
+  // asymmetry; the parser now reads it as the minus it is (#2699), so the picture and the
+  // voice both say "down".
+  assert.equal(parseValue('$\u22120.8M') < 0, true);
+  assert.equal(say('$\u22120.8M'), 'down eight hundred thousand dollars');
 });
 
 test('spoken value — under the smallest magnitude the LETTER goes, not the rewrite', () => {

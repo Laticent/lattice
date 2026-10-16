@@ -66,7 +66,7 @@ footer: "Panes — two components, one slide"
 <!-- _class: columns no-rule -->
 <!-- _pane: image -->
 
-![Office](assets/sample-photo-tall.svg)
+![Office](sample:photo-tall.svg)
 
 <!-- _pane: content -->
 

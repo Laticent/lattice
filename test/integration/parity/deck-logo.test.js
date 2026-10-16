@@ -4,7 +4,7 @@
  *
  * Three render paths must agree:
  *   1. the engine's `applyDeckLogoToHtml` (HTML path)
- *   2. lattice-emulator.js's HTML post-process (emulator path)
+ *   2. lattice.js's HTML post-process (emulator path)
  *   3. lattice-runtime.js's `applyDeckLogoFromFrontMatter` (browser path)
  *
  * The first two run at build time. The third runs at view time and

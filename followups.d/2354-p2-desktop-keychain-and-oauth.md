@@ -2,6 +2,9 @@
 origin: 2354
 priority: P2
 recorded: 2026-09-24
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-24-lattice-studio-desktop.md §4 · Own the look; seam only the OS
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

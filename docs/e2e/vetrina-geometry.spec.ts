@@ -5,13 +5,22 @@ import { expect, gotoStudio, test } from './studio-fixture';
 // The production report was three cues in three wrong places on an iPad, read as "geometry
 // resolved in the wrong coordinate space". Measured here, on the real Studio, it is not a
 // coordinate space at all: the stage layer sits at exactly (0,0,viewport) with no transformed
-// ancestor. It is a STALE RECT. The `reskin` beat closes the Inspector and circles the preview
-// pane in the same step, and the ring was positioned from the rect the pane had BEFORE React
-// committed the close — so it drew around a pane-width of nowhere and ran off the screen edge.
+// ancestor. It is a STALE RECT. The retired `quiet` tour's `reskin` beat closed the Inspector and
+// circled the preview pane in the same step, and the ring was positioned from the rect the pane had
+// BEFORE React committed the close — so it drew around a pane-width of nowhere and ran off the
+// screen edge.
 //
 // Instrumented on the UNFIXED build at this viewport, the ring sat at left=699 w=481 while
 // `#studio-pane-preview` was at left=571 w=609 — a 128px disagreement that held for the ring's
 // whole 1.7s life. This spec is that measurement, as an oracle.
+//
+// THE REFLOW IS NOW THE SPEC'S, NOT A TOUR'S. The tours that closed a panel under a live ring
+// became Studio lessons (2026-10-05-studio-lessons.md), and no lesson does. So the spec runs a
+// lesson whose last beat circles the preview ("How do I switch light or dark?") and, from inside
+// the page, presses Collapse editor the frame the ring first appears: a programmatic `click()`, so
+// Vetrina does not read it as the user taking over. The pane then reflows under a live ring, which
+// is the defect's mechanism, and by a wider margin than the original (the preview moves from
+// x=543 w=637 to x=47 w=1133).
 //
 // WHY 1180x703: the reported surface is an iPad in landscape under Safari's chrome, and it is
 // the box the repo already keeps for engine-divergence work (playwright.config.ts, #1227).
@@ -50,8 +59,10 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 	// retrying matcher would simply wait it out and pass against a broken build — the exact way
 	// an earlier e2e spec in this area lied. Read continuously, assert once at the end.
 	await page.addInitScript((sustain: number) => {
-		const w = window as unknown as { __worst: Worst; __saw: boolean; __frames: number };
+		const w = window as unknown as { __worst: Worst; __saw: boolean; __frames: number; __reflowed: boolean; __before: number };
 		w.__worst = null;
+		w.__reflowed = false;
+		w.__before = 0;
 		w.__saw = false;
 		w.__frames = 0;
 		const SUSTAIN = sustain;
@@ -65,6 +76,15 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 				// The ring is the only stage child sized to a target box (the cursor and the dock
 				// are not); every other cue is a small transform-centered burst.
 				const ring = [...layer.children].find((c) => (c as HTMLElement).style.borderRadius === '14px') as HTMLElement | undefined;
+				if (ring && target && !w.__reflowed) {
+					// The reflow, under the live ring (see the header): once, the first frame a ring exists.
+					const collapse = [...document.querySelectorAll<HTMLElement>('button[aria-label="Collapse editor"]')].find((b) => b.getBoundingClientRect().width > 0);
+					if (collapse) {
+						w.__before = target.getBoundingClientRect().width;
+						collapse.click();
+						w.__reflowed = true;
+					}
+				}
 				if (ring && target) {
 					const a = ring.getBoundingClientRect();
 					const b = target.getBoundingClientRect();
@@ -93,28 +113,22 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 	}, SUSTAIN);
 
 	await gotoStudio(page);
-	// The `quiet` tour is the shortest one that plays `reskin` — the beat that closes the
-	// Inspector (reflowing both panes) and circles the preview in the same step.
-	//
-	// REACHED THROUGH "More controls", NOT the top-bar tours button, and that is forced by
-	// this spec's own viewport. `data-demo="show-me"` carries `hidden … xl:inline-flex`, so
-	// it is `display: none` below 1280px — deliberately, because the repo judged a
-	// once-per-session detour cheap enough to bury one tap deeper on tablet (#1401). At
-	// 1180px the button is in the DOM and unclickable forever, which is how this spec was
-	// red from the day it landed: it timed out on actionability having measured nothing.
-	// The overflow menu carries the same `data-tour` items ungated, so this is the path a
-	// real presenter takes at this width. If the viewport ever moves to ≥1280, the top-bar
-	// button becomes reachable again and either path works.
-	await page.getByRole('button', { name: 'More controls' }).click();
-	await page.locator('[data-tour="quiet"]').first().click();
+	// Start the lesson from search, the way a user does, and let it run untouched.
+	await page.keyboard.press('ControlOrMeta+k');
+	await page.getByPlaceholder('Search or run a command…').fill('dark');
+	await page.getByRole('option', { name: 'How do I switch light or dark?', exact: true }).click();
 	await expect(page.locator('.vetrina-stage')).toBeVisible();
-	await expect(page.locator('.vetrina-stage')).toHaveCount(0, { timeout: 220_000 });
+	await expect(page.locator('.vetrina-stage')).toHaveCount(0, { timeout: 120_000 });
 
-	const { worst, saw, frames } = await page.evaluate(() => {
-		const g = window as unknown as { __worst: Worst; __saw: boolean; __frames: number };
-		return { worst: g.__worst, saw: g.__saw, frames: g.__frames };
+	const { worst, saw, frames, reflowed, before, after } = await page.evaluate(() => {
+		const g = window as unknown as { __worst: Worst; __saw: boolean; __frames: number; __reflowed: boolean; __before: number };
+		const after = document.querySelector('#studio-pane-preview')?.getBoundingClientRect().width ?? 0;
+		return { worst: g.__worst, saw: g.__saw, frames: g.__frames, reflowed: g.__reflowed, before: g.__before, after };
 	});
-	// Guard the oracle itself, three ways — a run that measured nothing reports a clean `null`
+	// The fourth guard: the reflow this spec exists for actually happened under the ring.
+	expect(reflowed, 'Collapse editor was never pressed under a live ring — the oracle tested no reflow').toBe(true);
+	expect(after - before, `the preview did not reflow (width ${before} → ${after})`).toBeGreaterThan(200);
+	// Guard the oracle itself, four ways (the fourth is above) — a run that measured nothing reports a clean `null`
 	// and is otherwise indistinguishable from a pass.
 	expect(pageErrors, `the sampler threw inside the page, so it measured nothing: ${pageErrors.join(' | ')}`).toEqual([]);
 	expect(saw, 'the tour never drew a spotlight ring — the oracle measured nothing').toBe(true);

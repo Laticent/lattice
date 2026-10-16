@@ -2,6 +2,9 @@
 origin: 2331
 priority: P4
 recorded: 2026-09-24
+area: legal
+severity: medium
+swimlane: lib/components/legal/authority-chain/authority-chain.docs.md
 source: https://github.com/Laticent/lattice/pull/2331
 ---
 

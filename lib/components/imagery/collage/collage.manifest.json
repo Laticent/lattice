@@ -1,0 +1,169 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "collage",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "photos",
+      "title",
+      "description"
+    ]
+  },
+  "function": "imagery",
+  "form": "canvas",
+  "substance": "structure",
+  "stage": "canvas",
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "tags": [
+    "visual",
+    "showcase",
+    "pitch",
+    "masonry",
+    "mood-board"
+  ],
+  "description": "Four to six photos of any shape packed edge to edge into a mood board, with the usual eyebrow, title, subtitle and description beside them.",
+  "purpose": "Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus, and a click or tap (Enter or Space on a focused photo) enlarges a photo with its alt text as the caption; Arrow keys, Home, End, a swipe or the two arrow buttons step to the other photos, and a pinch, ctrl and wheel, or the plus and minus keys zoom the open photo; Escape, a click away or the close button puts it back. The exported HTML player enlarges photos too; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.",
+  "variants": [
+    "ordered",
+    "fill",
+    "above",
+    "bleed",
+    "mirror"
+  ],
+  "slots": {
+    "eyebrow": {
+      "selector": "p > code:only-child",
+      "required": false,
+      "description": "Optional kicker above the title, a short label in backticks."
+    },
+    "title": {
+      "selector": "h2",
+      "required": false,
+      "description": "Optional title. A claim earns its place; a bare label does not."
+    },
+    "subtitle": {
+      "selector": "h2 + p > code:only-child",
+      "required": false,
+      "description": "Optional line under the title, in backticks."
+    },
+    "description": {
+      "selector": "p",
+      "required": false,
+      "description": "Optional description paragraph, written after the title and subtitle and before the photos. It is the slide's only caption and prints in every export."
+    },
+    "photos": {
+      "selector": "ul > li > img",
+      "required": true,
+      "description": "One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span: nothing in it applies, nothing is drawn for it, and lint names the word."
+    }
+  },
+  "skeleton": "<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n",
+  "sample": "<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n",
+  "whenToUse": [
+    {
+      "title": "Several photos argue together",
+      "body": "A product line, a site walk, a collection, a before-and-after set. If one photo carries the slide, use `image`."
+    },
+    {
+      "title": "Your photos come in mixed shapes",
+      "body": "Phone portraits, square product shots and wide landscapes can share one slide. The layout reads each shape and gives every photo a tile of its own shape, so nothing is cropped by default."
+    },
+    {
+      "title": "You want the order to be the packer's call, or yours",
+      "body": "The default lets the packer reorder photos for the tightest fit. Add `ordered` when the sequence matters, such as a process shot left to right."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "More than six photos",
+      "body": "Past six, tiles get too small to read from the back of the room, and the layout falls back to a plain even grid. Split the photos across two collage slides."
+    },
+    {
+      "title": "Photos used as decoration",
+      "body": "A collage of generic stock images fills space and says nothing. Use photos the audience should look at."
+    },
+    {
+      "title": "Captions on every photo",
+      "body": "There are no per-photo captions. Say what the photos show once, in the description paragraph, and let the alt text carry the rest."
+    }
+  ],
+  "related": [
+    {
+      "name": "image",
+      "when": "one photo carries the slide"
+    },
+    {
+      "name": "logo-wall",
+      "when": "the pictures are brand marks, not photographs"
+    },
+    {
+      "name": "content",
+      "when": "the slide is mostly prose with one inline visual"
+    }
+  ],
+  "variantDocs": {
+    "ordered": {
+      "label": "ordered",
+      "summary": "Keep the photos in the order written.",
+      "sample": "<!-- _class: collage ordered -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
+    },
+    "fill": {
+      "label": "fill",
+      "summary": "Allow a small crop to close empty space.",
+      "sample": "<!-- _class: collage fill -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
+    },
+    "above": {
+      "label": "above",
+      "summary": "Text above the photos instead of beside them.",
+      "sample": "<!-- _class: collage above -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
+    },
+    "bleed": {
+      "label": "bleed",
+      "summary": "The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix.",
+      "sample": "<!-- _class: collage bleed -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
+    },
+    "mirror": {
+      "label": "mirror",
+      "summary": "Text on the other side.",
+      "sample": "<!-- _class: collage mirror -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
+    }
+  },
+  "commonMistakes": [
+    {
+      "mistake": "Writing the photos as `![bg](path)` background images.",
+      "fix": "`collage` reads inline photos in a list, one per bullet: `- ![Alt](path.jpg)`. The `bg` syntax belongs to `image`."
+    },
+    {
+      "mistake": "Nesting a caption under each photo.",
+      "fix": "A collage has no per-photo captions. Write one description paragraph after the title and subtitle."
+    },
+    {
+      "mistake": "Writing hints that are not on the hint list, such as `big` or `centre`.",
+      "fix": "An unknown word voids the whole span: nothing in it applies and nothing is drawn for it. Lint names the word. The words are `hero`, `top`, `bottom`, `left`, `right`, `center` and a ratio like `3:2`."
+    }
+  ],
+  "dataCompletion": false,
+  "venueCapacity": {
+    "none": "Its elements are photographs; a synthetic deck would measure broken-image boxes, not photos. The packer holds four to six, and falls back to an even grid past six."
+  },
+  "gesture": {
+    "archetype": "grid"
+  },
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "form": "content",
+    "noBudget": "the packed grid fills whatever cell it is given; four to six photos"
+  },
+  "specimenVoice": true,
+  "stressDoc": {
+    "summary": "Six photos of five different shapes, the ceiling.",
+    "sample": "<!-- _class: collage -->\n\n`Six shapes, one frame`\n\n## Tall, wide, square and a panorama share one frame.\n\n`The packer keeps every photo whole`\n\nSix is the ceiling: past it the photos get too small to read, and the layout falls back to an even grid.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n- ![Second square](sample:photo-square.svg)\n"
+  },
+  "projection": {
+    "figure": "bare"
+  }
+}

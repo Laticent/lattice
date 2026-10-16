@@ -22,28 +22,28 @@ A grid of customer, partner, or funder logos as social proof.
 
 ## The logo wall seats the marks with captions.
 
-- ![Acme](acme.svg)
+- ![Acme](sample:logo-acme.svg)
   - Acme
   - `Series B`
-- ![Globex](globex.svg)
+- ![Globex](sample:logo-globex.svg)
   - Globex
   - `Enterprise`
-- ![Vantage](vantage.svg)
+- ![Vantage](sample:logo-vantage.svg)
   - Vantage
   - `Public`
-- ![Umbra](umbra.svg)
+- ![Umbra](sample:logo-umbra.svg)
   - Umbra
   - `Series C`
-- ![Meridian](meridian.svg)
+- ![Meridian](sample:logo-meridian.svg)
   - Meridian
   - `Seed`
-- ![Helios](helios.svg)
+- ![Helios](sample:logo-helios.svg)
   - Helios
   - `Public`
-- ![Northwind](northwind.svg)
+- ![Northwind](sample:logo-northwind.svg)
   - Northwind
   - `Anchor`
-- ![Cobalt](cobalt.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
   - `Series A`
 
@@ -57,14 +57,14 @@ A grid of customer, partner, or funder logos as social proof.
 
 ## color lets the marks keep their brands.
 
-- ![Acme](acme.svg)
-- ![Globex](globex.svg)
-- ![Initech](initech.svg)
-- ![Umbra](umbra.svg)
-- ![Vantage](vantage.svg)
-- ![Meridian](meridian.svg)
-- ![Helios](helios.svg)
-- ![Northwind](northwind.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
 
 
 ---
@@ -76,18 +76,18 @@ A grid of customer, partner, or funder logos as social proof.
 
 ## dense packs the long roster, captions off.
 
-- ![Acme](acme.svg)
-- ![Globex](globex.svg)
-- ![Initech](initech.svg)
-- ![Umbra](umbra.svg)
-- ![Vantage](vantage.svg)
-- ![Meridian](meridian.svg)
-- ![Helios](helios.svg)
-- ![Northwind](northwind.svg)
-- ![Cobalt](cobalt.svg)
-- ![Sable](sable.svg)
-- ![Quanta](quanta.svg)
-- ![Lumen](lumen.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
+- ![Sable](sample:logo-sable.svg)
+- ![Quanta](sample:logo-quanta.svg)
+- ![Lumen](sample:logo-lumen.svg)
 
 
 ---
@@ -99,28 +99,28 @@ A grid of customer, partner, or funder logos as social proof.
 
 ## The logo wall seats the marks with captions.
 
-- ![Acme](acme.svg)
+- ![Acme](sample:logo-acme.svg)
   - Acme
   - `Series B`
-- ![Globex](globex.svg)
+- ![Globex](sample:logo-globex.svg)
   - Globex
   - `Enterprise`
-- ![Vantage](vantage.svg)
+- ![Vantage](sample:logo-vantage.svg)
   - Vantage
   - `Public`
-- ![Umbra](umbra.svg)
+- ![Umbra](sample:logo-umbra.svg)
   - Umbra
   - `Series C`
-- ![Meridian](meridian.svg)
+- ![Meridian](sample:logo-meridian.svg)
   - Meridian
   - `Seed`
-- ![Helios](helios.svg)
+- ![Helios](sample:logo-helios.svg)
   - Helios
   - `Public`
-- ![Northwind](northwind.svg)
+- ![Northwind](sample:logo-northwind.svg)
   - Northwind
   - `Anchor`
-- ![Cobalt](cobalt.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
   - `Series A`
 
@@ -134,28 +134,28 @@ A grid of customer, partner, or funder logos as social proof.
 
 ## The logo wall seats the marks with captions.
 
-- ![Acme](acme.svg)
+- ![Acme](sample:logo-acme.svg)
   - Acme
   - `Series B`
-- ![Globex](globex.svg)
+- ![Globex](sample:logo-globex.svg)
   - Globex
   - `Enterprise`
-- ![Vantage](vantage.svg)
+- ![Vantage](sample:logo-vantage.svg)
   - Vantage
   - `Public`
-- ![Umbra](umbra.svg)
+- ![Umbra](sample:logo-umbra.svg)
   - Umbra
   - `Series C`
-- ![Meridian](meridian.svg)
+- ![Meridian](sample:logo-meridian.svg)
   - Meridian
   - `Seed`
-- ![Helios](helios.svg)
+- ![Helios](sample:logo-helios.svg)
   - Helios
   - `Public`
-- ![Northwind](northwind.svg)
+- ![Northwind](sample:logo-northwind.svg)
   - Northwind
   - `Anchor`
-- ![Cobalt](cobalt.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
   - `Series A`
 

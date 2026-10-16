@@ -1,0 +1,16 @@
+{
+  "title": "A theme that imports itself is refused",
+  "spec": "THEME-1.0",
+  "section": "6",
+  "knownThemes": [
+    "lattice",
+    "import-self"
+  ],
+  "expect": {
+    "ok": false,
+    "blocked": true,
+    "errors": [
+      "theme-import"
+    ]
+  }
+}

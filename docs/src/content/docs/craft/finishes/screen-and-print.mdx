@@ -90,8 +90,8 @@ evidence. Before shipping, export through **both** paths — the command-line
 PDF and the in-browser export — in **both** canvases, and look at all four:
 
 ```bash
-node lattice-emulator.js examples/my-finish.md /tmp/light.pdf
-node lattice-emulator.js examples/my-finish.md /tmp/dark.pdf -p cuoio-dark
+npx lattice examples/my-finish.md /tmp/light.pdf
+npx lattice examples/my-finish.md /tmp/dark.pdf -p cuoio-dark
 ```
 
 Look at the full-bleed areas first. A gray cloud where a fade should be is

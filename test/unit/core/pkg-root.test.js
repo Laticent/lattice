@@ -1,7 +1,7 @@
 /**
  * Unit: lib/core/pkg-root.js — the one package-root walk.
  *
- * Two callers depend on it agreeing with itself: lattice-emulator.js resolves
+ * Two callers depend on it agreeing with itself: lattice.js resolves
  * sibling assets (themes/, dist/lattice.css) through it, and
  * lib/components/index.js resolves manifest.schema.json through it. The schema
  * and the manifests it governs must come from ONE tree, or the bundle validates

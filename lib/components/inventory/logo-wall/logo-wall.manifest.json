@@ -46,7 +46,7 @@
     "logos": {
       "selector": "ul > li",
       "required": true,
-      "description": "One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale."
+      "description": "One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. To try the layout before you have the marks, use Lattice's sample logos: `![Acme](sample:logo-acme.svg)` (the full set is in `lib/samples/README.md`)."
     },
     "caption": {
       "selector": "ul > li > ul > li",
@@ -54,9 +54,9 @@
       "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark."
     }
   },
-  "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](logo-1.svg)\n  - First brand\n  - `Series B`\n- ![Second brand](logo-2.svg)\n  - Second brand\n- ![Third brand](logo-3.svg)\n- ![Fourth brand](logo-4.svg)\n- ![Fifth brand](logo-5.svg)\n- ![Sixth brand](logo-6.svg)\n",
+  "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](sample:logo-acme.svg)\n  - First brand\n  - `Series B`\n- ![Second brand](sample:logo-globex.svg)\n  - Second brand\n- ![Third brand](sample:logo-vantage.svg)\n- ![Fourth brand](sample:logo-umbra.svg)\n- ![Fifth brand](sample:logo-meridian.svg)\n- ![Sixth brand](sample:logo-helios.svg)\n",
   "anatomyBlock": "logo-wall",
-  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](helios.svg)\n  - Helios\n  - `Public`\n- ![Northwind](northwind.svg)\n  - Northwind\n  - `Anchor`\n- ![Cobalt](cobalt.svg)\n  - Cobalt\n  - `Series A`\n",
+  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](sample:logo-acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](sample:logo-globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](sample:logo-vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](sample:logo-umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](sample:logo-meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](sample:logo-helios.svg)\n  - Helios\n  - `Public`\n- ![Northwind](sample:logo-northwind.svg)\n  - Northwind\n  - `Anchor`\n- ![Cobalt](sample:logo-cobalt.svg)\n  - Cobalt\n  - `Series A`\n",
   "whenToUse": [
     {
       "title": "The proof is the logos",
@@ -111,12 +111,12 @@
     "color": {
       "label": "color",
       "summary": "Marks keep their brand hues.",
-      "sample": "<!-- _class: logo-wall color -->\n\n`logo-wall color`\n\n## color lets the marks keep their brands.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n"
+      "sample": "<!-- _class: logo-wall color -->\n\n`logo-wall color`\n\n## color lets the marks keep their brands.\n\n- ![Acme](sample:logo-acme.svg)\n- ![Globex](sample:logo-globex.svg)\n- ![Initech](sample:logo-initech.svg)\n- ![Umbra](sample:logo-umbra.svg)\n- ![Vantage](sample:logo-vantage.svg)\n- ![Meridian](sample:logo-meridian.svg)\n- ![Helios](sample:logo-helios.svg)\n- ![Northwind](sample:logo-northwind.svg)\n"
     },
     "dense": {
       "label": "dense",
       "summary": "Six columns for the long roster.",
-      "sample": "<!-- _class: logo-wall dense -->\n\n`logo-wall dense`\n\n## dense packs the long roster, captions off.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n- ![Cobalt](cobalt.svg)\n- ![Sable](sable.svg)\n- ![Quanta](quanta.svg)\n- ![Lumen](lumen.svg)\n"
+      "sample": "<!-- _class: logo-wall dense -->\n\n`logo-wall dense`\n\n## dense packs the long roster, captions off.\n\n- ![Acme](sample:logo-acme.svg)\n- ![Globex](sample:logo-globex.svg)\n- ![Initech](sample:logo-initech.svg)\n- ![Umbra](sample:logo-umbra.svg)\n- ![Vantage](sample:logo-vantage.svg)\n- ![Meridian](sample:logo-meridian.svg)\n- ![Helios](sample:logo-helios.svg)\n- ![Northwind](sample:logo-northwind.svg)\n- ![Cobalt](sample:logo-cobalt.svg)\n- ![Sable](sample:logo-sable.svg)\n- ![Quanta](sample:logo-quanta.svg)\n- ![Lumen](sample:logo-lumen.svg)\n"
     }
   },
   "commonMistakes": [

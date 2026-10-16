@@ -4,7 +4,7 @@
  * WHY IT IS ITS OWN MODULE. The banner tells a reader which token figure to quote, and it
  * got that wrong once: it said "quote `model_tokens`" on the reasoning that `context_tokens`
  * re-counts the cached prefix per turn. Both do. The harness's docblock and
- * `engineering/capabilities.md` were corrected; the two committed JSONs were not, because
+ * `dist/engineering/capabilities.md` were corrected; the two committed JSONs were not, because
  * rewriting them meant re-running a bake-off that costs about $10. So the artifact a reader
  * opens went on giving withdrawn advice — follow it and you reproduce 14.2x against the
  * 18.4x `2026-08-17-component-pick-surface.md` reports, and conclude the note is wrong.

@@ -26,7 +26,7 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 
 | Also required | Count | Notes |
 |---|---|---|
-| `--hljs-*` code syntax colors | 12 | each readable on `--code-bg` |
+| `--syntax-*` code syntax colors | 12 | each readable on `--code-bg` |
 | `--cat-N-fill` / `--cat-N-mark` | 12 pairs | the [categorical cycle](/craft/themes/categorical/) |
 | `--cat-N-ink` | 12 | generated, not hand-picked |
 | `--chart-cat1…8`, `--chart-state-*` | 13 | the chart family's own palette |
@@ -82,7 +82,7 @@ it.
 - [ ] `<name>-dark.css` is the wrapper and nothing more — the `@theme` line,
       `@import`, and `:root { color-scheme: dark; }`.
 - [ ] All 98 tokens defined directly, not inherited.
-- [ ] `themes/<name>.manifest.json` declares `role: "base"` — that is what
+- [ ] `themes/<name>/<name>.manifest.json` declares `role: "base"` — that is what
       puts the palette in the token-contract suite's scope. `npm run
       new:theme` writes it for you; a theme without it is never tested.
 - [ ] The theme added to `.vscode/settings.json` under
@@ -113,7 +113,7 @@ node tools/composed-contrast.js evergreen
 npm run test:palette               # the palette suite
 npm run build:check                # the blocking gates
 
-node lattice-emulator.js test/integration/baseline-decks/gallery.md \
+npx lattice test/integration/baseline-decks/gallery.md \
   /tmp/gallery.pdf -p evergreen    # render the gallery and LOOK at it
 ```
 

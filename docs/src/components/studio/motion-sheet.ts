@@ -217,7 +217,7 @@ export function readTargets(source: string): MotionTarget[] {
 
 	chunks.forEach((chunk, i) => {
 		const slideTokens = getClassTokens(chunk);
-		// POSITION-INDEPENDENT, like the engine's own dispatch: `chart-family.js` picks the layout
+		// POSITION-INDEPENDENT, like the engine's own dispatch: `chart-family.dispatch.js` picks the layout
 		// with `CHART_LAYOUTS.find(l => classTokens.includes(l))`, so `_class: dark funnel` is a
 		// funnel. Reading `tokens[0]` made any deck that puts a modifier first vanish from the
 		// sheet entirely — the worst failure for a surface whose promise is "every target".

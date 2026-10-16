@@ -94,7 +94,7 @@ export function WebpageOptionsPanel({
 	//
 	// Leaving the veto in place was not a harmless leftover. The CLI had already been made
 	// orthogonal, so the same deck and the same intent produced a caption track through
-	// `lattice-emulator.js --strip-notes --captions` and NO caption track through this
+	// `lattice.js --strip-notes --captions` and NO caption track through this
 	// panel — the two render paths disagreeing about one user intent, which is the shape
 	// HARD RULE #1 exists to prevent. It also cost a stripped deck the caption track a
 	// recipient needs for accessibility, for a privacy reason that no longer applied.
@@ -245,6 +245,7 @@ export function WebpageOptionsPanel({
 			<div className="flex gap-2">
 				<button
 					type="button"
+					data-demo="html-download"
 					disabled={busy}
 					onClick={() => launch(narration)}
 					className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"

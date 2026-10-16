@@ -16,6 +16,7 @@ It exists so you can browse or fetch a file straight from the repo — no clone,
 |---|---|
 | [`marp/`](./marp) | The **copy-and-go Marp kit** — engine CSS, palettes, fonts, a `marp.config.cjs` and a sample deck. Copy the folder and you are working in VS Code or `marp-cli`. |
 | [`agent/`](./agent) | **Lattice for AI** — everything needed to teach any model to write Lattice decks. **Start at [`agent/README.md`](./agent/README.md)**, which routes you by WHERE you are putting it: a Claude Project, a Custom GPT, a Gemini Gem, a coding agent, a local model, or one paste into any chat. Each of those pages names the text to paste and the files to upload. Includes three ready-made instruction texts sized to real platform caps, ten pre-bundled knowledge files, drop-ins for coding agents, a Claude Code plugin, five complete example decks, and a runnable deck checker (`agent/review/check.mjs`).|
+| [`engineering/`](./engineering) | **The contributor indexes** for people working on Lattice itself: [`capabilities.md`](./engineering/capabilities.md) (every npm script, tool and framework), [`decisions.md`](./engineering/decisions.md) (one row per decision note) and [`gotchas.md`](./engineering/gotchas.md) (one row per known gotcha). They are generated and never committed to `main`, so this is where GitHub shows them; links go to `main`. |
 
 Each folder has its own README with the details.
 

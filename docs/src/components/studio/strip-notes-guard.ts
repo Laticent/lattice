@@ -33,7 +33,7 @@
 // does — a note at column 0 between two list items, where the comment is what splits them — the
 // caller ships the deck AS WRITTEN and says so: the note text still goes, but that export no
 // longer hides which slides carried one, and its embedded source re-imports with that boundary
-// changed. Mirrors `strippedSlidesOrAuthored` in lattice-emulator.js; the two paths must not
+// changed. Mirrors `strippedSlidesOrAuthored` in lattice.js; the two paths must not
 // diverge, which is the failure class this whole area exists to close.
 
 type NotesKernel = {

@@ -44,6 +44,7 @@ import {
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
+import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
@@ -52,8 +53,10 @@ import { previewCspMeta } from '../playground/preview-csp.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
+import { pluginDataMissing } from './ensure-plugin-data';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
+import { samplesBaseFor } from './samples-base';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
 
@@ -189,6 +192,14 @@ export type SingleSlideOptions = {
 	 * omit it as well, which `e2e/reader-alarms.spec.ts` controls for.
 	 */
 	specimen?: boolean;
+	/**
+	 * This host is WATCHED, not read: a tile in the Studio's preview pool, or Present's delivered slide
+	 * and next-slide tile. Stamps `data-lattice-chromeless` on the frame's root element, and the runtime
+	 * draws no reader chrome into it: a code block's copy buttons are untappable there, and on a
+	 * projected slide they are clutter (lib/core/code-copy.mjs). It does NOT touch the overflow
+	 * watcher; that is `specimen`.
+	 */
+	chromeless?: boolean;
 	/**
 	 * This host is the preview an author TYPES into (the Studio's editing preview). Stamps
 	 * `data-lattice-live-layout` on the frame's root element, and the flowchart pass then lays
@@ -982,7 +993,7 @@ function swapSharedSheet(doc: Document, url: string): void {
 const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; page: number }>();
 
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
-	const { themeBase, runtimeUrl, engineUrl, specimen, liveLayout } = opts;
+	const { themeBase, runtimeUrl, engineUrl, specimen, chromeless, liveLayout } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
 	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
 	// `FieldCardsLive` and `RestyleShowcase` both write `useRef(createSingleSlideRenderer(...))`,
@@ -1150,13 +1161,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		let s =
 			// The theme <style> carries an id so the RESTYLE fast path (renderInto) can find
 			// and swap it in place on a theme/mode change — no srcdoc rewrite, no new realm.
-			// `data-lattice-thumbnail` (opts.thumbnail) rides on the <html> tag rather than
+			// `data-lattice-chromeless` (opts.chromeless) rides on the <html> tag rather than
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
 			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (chromeless ? ' data-lattice-chromeless' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
 			' data-lattice-live-media><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
@@ -1523,11 +1534,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const renderedTotal = run ? run.renderedTotal : opts?.slideCount;
 				const panePage = run?.panePage ?? 0;
 				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
-				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
-				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
-				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
-				// Hoisted out of the try below so the deck-context fallback render can reuse it.
-				const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
+				// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts),
+				// and a bare relative ref resolves against the same folder. Hoisted out of the try
+				// below so the deck-context fallback render can reuse it.
+				const samplesBase = samplesBaseFor(themeBase);
 				try {
 					const tEngine = performance.now();
 					// Reuse the last whole-deck render when every input is identical — a navigation
@@ -1572,12 +1582,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
 						// deck-context render populates it (`key !== null`) — see the gate above.
-						if (key !== null) {
+						// …unless a plugin's data (icon drawings) had not arrived: that render is a
+						// placeholder, and memoizing it would serve it until the next edit.
+						if (key !== null && !pluginDataMissing(renderSource)) {
 							const snapshot = { html: out.html, css: out.css, width: out.width, height: out.height };
 							// A slice render goes in the LRU; a whole-deck render in the single memo.
 							if (slicePage) sliceCachePut(key, keyInputs, snapshot);
@@ -1598,7 +1610,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// string; the `chart-frame` marker is added at RUNTIME (applyToDom) and
 						// isn't in the string yet — so we match the layout class, not the marker.
 						// This alternation MIRRORS `LAYOUTS` in
-						// lib/components/chart/_chart-family/chart-registry.generated.js (all 14
+						// lib/plugins/chart-family/shared/chart-registry.generated.js (all 14
 						// layouts) — keep it in sync when a chart is added. It was written against
 						// the old hand-written `CHART_LAYOUTS` and had already drifted: it was
 						// missing `matrix-grid`, so `stats.charts` under-counted any deck using
@@ -1664,7 +1676,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// what this surface did before deck context existed. One extra engine call on
 						// an uncommon deck shape, and only for as long as the deck stays that shape.
 						const alonePlugins = PG.pluginAdmission?.(markdown) ?? undefined;
-						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
+						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						// Swap only the HTML: theme CSS and `@size` geometry are identical (same theme,
 						// same front matter), and keeping the first render's `stats` keeps the perf
@@ -1855,8 +1867,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 											// the route-gated `slicePage` here meant omitting the position on the
 											// whole-deck route, and then reporting the pagination mismatch that caused
 											// as a finding, on any deck that paginates.
-											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: comparePage, ...(PG.pluginAdmission?.(markdown) ? { pluginDefaults: PG.pluginAdmission(markdown) as string[] } : {}) }),
-											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, page: comparePage, ...(PG.pluginAdmission?.(markdown) ? { pluginDefaults: PG.pluginAdmission(markdown) as string[] } : {}) }),
+											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase }),
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an
 										// index-based lookup into the deck's sections silently picks a slide the author
@@ -1928,14 +1940,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Mermaid `img:`). The allowed origins join the policy, so they join the sig too.
 				const remoteRef = await loadRemoteRef();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				const web = remoteRef.blockWebImages(out.html, allow);
+				// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+				const web = remoteRef.blockWebImages(out.html, remoteRef.withOwnOrigin(allow));
 				// Stamp each image slide from what is already known of its photo, before ANY sink
 				// writes it: the first painted frame is the final layout (./image-size-memo.ts).
 				const imageMemo = await loadImageMemo();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				out = { ...out, html: await imageMemo.stampKnownSizes(web.html, geom, host.querySelector<HTMLIFrameElement>('iframe.live')) };
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, allow, remoteRef.webOrigin);
+				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, remoteRef.withOwnOrigin(allow), remoteRef.webOrigin);
 				webAllow = allow;
 				// The theme and author CSS reach the frame beside the markup, so their web references
 				// count too: the restyle path swaps that <style> without touching <head>.
@@ -2203,6 +2216,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					installCollageBridge(fr.contentWindow);
 					// The frame is live: measure the deck's other photos through it, so the next slide
 					// the reader turns to is stamped final before it paints.
 					prefetchImages(fr);

@@ -213,7 +213,7 @@ describe('coda — the class is matched as a TOKEN, not an exact attribute', () 
 
 
 describe('coda — a claimed element must still work AFTER the cell is inserted', () => {
-  const chartFamily = require('../../../lib/components/chart/_chart-family/chart-family');
+  const chartFamily = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 
   // The claim ("the chart consumes its trailing <p>") is only honored if the
   // component's own transform can still FIND that <p>. `liftChartCaption` anchors on

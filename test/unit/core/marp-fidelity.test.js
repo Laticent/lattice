@@ -149,10 +149,12 @@ describe('marp fidelity ledger — coverage claims name symbols that exist', () 
     }
   });
 
-  test('every `baked` entry names a symbol the exporter calls (spelling only)', () => {
-    for (const e of LEDGER.filter((x) => x.coverage === 'baked')) {
-      assert.ok(EXPORTER_SRC.includes(`${e.via}(`),
-        `${e.plugin} claims to be baked by ${e.via}, which tools/export-marp.js never calls`);
+  // The exporter, or the shared bundle kernel both producers call (`withRuntimeScriptsReport`).
+  const KERNEL_SRC = read('lib/core/marp-bundle.js');
+  test('every `baked` entry names a symbol the exporter or the bundle kernel calls (spelling only)', () => {
+    for (const e of allEntries().filter((x) => x.coverage === 'baked')) {
+      assert.ok(EXPORTER_SRC.includes(`${e.via}(`) || KERNEL_SRC.includes(`${e.via}(`),
+        `${e.plugin || e.topic || e.package} claims to be baked by ${e.via}, which neither tools/export-marp.js nor lib/core/marp-bundle.js calls`);
     }
   });
 

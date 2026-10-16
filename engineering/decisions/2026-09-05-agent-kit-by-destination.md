@@ -227,7 +227,8 @@ named follow-up.
 - `require('@laticent/lattice')` **exits the host process**: `main` points at the
   CLI, which parses `process.argv` at top level with no `require.main` guard. The
   real API is `@laticent/lattice/engine` → `createEngine`, `render`, `geometry`,
-  `addThemes`, `hasTheme`, `languages`.
+  `addThemes`, `hasTheme`, `languages`. **Fixed 2026-10-08** (followup 2601-p1): the root import
+  is now the engine, and the CLI is reachable only as the `lattice` bin.
 - The Marp kit ships only `cuoio`. Adding `indaco` would make the engine's own
   default work on the copy-and-go route; that is `build-marp-kit.js` scope.
 - `dist/README.md` carries 60+ "TODO: describe this artifact" placeholders.

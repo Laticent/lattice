@@ -45,7 +45,8 @@ describe('marp-bundle spec', () => {
     // the runtime: an exported deck opens from `file://`, so the only place the browser
     // can find the engine is beside the script that reads it.
     assert.equal(byTo['lattice-dagre-min.js'], 'dist/lattice-dagre-min.js');
-    assert.equal(byTo['mermaid-v11-min.js'], 'mermaid-v11-min.js');
+    // Mermaid is the mermaid plugin's own copy, shipped under the bundle's name for it.
+    assert.equal(byTo['mermaid-v11-min.js'], 'lib/plugins/mermaid/vendor/mermaid.min.js');
     // The bundle is Marp-native: no emulator is shipped.
     assert.ok(!STATIC_ASSETS.some((a) => /emulator/.test(a.from) || /emulator/.test(a.to)));
     assert.equal(byTo['dist/lattice.css'], undefined);
@@ -64,16 +65,24 @@ describe('marp-bundle spec', () => {
   // Asserted as SET EQUALITY over the JavaScript assets, so it catches both directions,
   // but the two directions are not the same defect. A src with no asset is the 404
   // above. An asset with no src is a dead file in every bundle — cheap, but it is also
-  // exactly what a lazily-fetched engine would look like, and we do not ship one today.
-  // The day we do, that asset earns a named exception here rather than a quiet deletion
-  // of this assertion.
+  // exactly what a lazily-fetched engine would look like. The data plugins' scripts ARE that
+  // (the runtime fetches `lattice-plugin-icons.js` from beside itself when a deck writes an
+  // icon), so they are the named exception: each one must be in the bundle, checked against
+  // the plugin registry in the next test, and they are left out of this comparison.
+  const LAZY = /^lattice-plugin-[a-z][a-z0-9-]*\.js$/;
   test('every runtime <script src> is an asset the producers actually copy', () => {
-    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js'));
+    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js') && !LAZY.test(to));
     assert.deepEqual(
       [...RUNTIME_SCRIPT_SRCS].sort(),
       [...shipped].sort(),
       'RUNTIME_SCRIPT_SRCS and the .js entries of STATIC_ASSETS must name the same files: '
       + 'a src with no asset 404s under file://, an asset with no src is dead weight');
+  });
+
+  test('every data plugin\'s script travels with the runtime that fetches it', async () => {
+    const { DATA_PLUGINS } = await import('../../../lib/plugins/data-probe.generated.mjs');
+    const lazy = STATIC_ASSETS.map((a) => a.to).filter((to) => LAZY.test(to)).sort();
+    assert.deepEqual(lazy, DATA_PLUGINS.map((p) => p.file).sort());
   });
 
   test('safeName slugs a deck title', () => {
@@ -118,10 +127,11 @@ describe('marp-bundle spec', () => {
     // input here, and saying so in a comment would not make the pattern stop looking like
     // one. Equality is also the stronger assertion: the strip form passed no matter how the
     // generated blocks were ordered or spelled.
-    const trailer = out.slice(out.indexOf('<!-- markdownlint-disable MD033 -->'));
+    const trailer = out.slice(out.indexOf('<!-- Lattice: ends any HTML block left open above'));
     assert.equal(
       trailer,
-      '<!-- markdownlint-disable MD033 -->\n'
+      '<!-- Lattice: ends any HTML block left open above: </pre></script></style></textarea> ?> ]]> -->\n'
+      + '<!-- markdownlint-disable MD033 -->\n'
       + '<script src="mermaid-v11-min.js"></script>\n'
       + '<script src="lattice-dagre-min.js"></script>\n'
       + '<script src="lattice-runtime-min.js"></script>\n'
@@ -129,7 +139,7 @@ describe('marp-bundle spec', () => {
     );
   });
 
-  test('marp.config.cjs builds a themeSet from root lattice.css + themes/, no engine', () => {
+  test('marp.config.cjs builds a themeSet from root lattice.css + themes/', () => {
     assert.match(MARP_CONFIG_CJS, /themeSet/);
     assert.match(MARP_CONFIG_CJS, /allowLocalFiles/);
     // lattice.css is registered from the bundle ROOT (not dist/), since the
@@ -139,14 +149,19 @@ describe('marp-bundle spec', () => {
     assert.doesNotMatch(MARP_CONFIG_CJS, /@laticent\/lattice\/config/);
   });
 
-  // marp-core defaults to html:false, which ESCAPES raw HTML — the deck's two
-  // trailing runtime <script> tags came out as literal text on the last slide
-  // and the runtime never loaded, so every transform-driven component rendered
-  // as bare markdown. The flag is load-bearing, not cosmetic.
-  test('marp.config.cjs enables html so the runtime <script> tags survive', () => {
-    assert.match(MARP_CONFIG_CJS, /html:\s*true/);
+  // marp-core defaults to html:false, which ESCAPES raw HTML, so a deck's own <div class=…> came out
+  // as text. `html: true` fixed that and passed the deck's script with it; the config now carries an
+  // ALLOWLIST and an engine plugin that lets only the bundle's own trailing blocks through
+  // (lib/core/marp-bundle-html.js, test/unit/core/marp-bundle-html.test.js).
+  test('marp.config.cjs sets html to an allowlist with no <script>, and installs the engine plugin', () => {
+    assert.doesNotMatch(MARP_CONFIG_CJS, /html:\s*true/);
     const cfg = requireGeneratedConfig(MARP_CONFIG_CJS);
-    assert.equal(cfg.html, true);
+    assert.equal(typeof cfg.html, 'object');
+    assert.ok(cfg.html.div && cfg.html.span && cfg.html.svg, 'the tags the shipped decks write');
+    for (const tag of ['script', 'object', 'embed', 'base', 'meta', 'link', 'form', 'foreignobject', 'animate']) {
+      assert.equal(cfg.html[tag], undefined, `${tag} is not allowed`);
+    }
+    assert.equal(typeof cfg.engine, 'function');
     assert.equal(cfg.allowLocalFiles, true);
   });
 
@@ -162,7 +177,7 @@ describe('marp-bundle spec', () => {
   test('packageJson pins marp-cli only and scripts reference the deck', () => {
     const pkg = packageJson('My Deck');
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);
-    // The engine ships pre-bundled (dist/lattice-emulator.js), so it is NOT an
+    // The engine ships pre-bundled (dist/lattice.js), so it is NOT an
     // npm dependency — listing the unpublished @laticent/lattice would 404
     // `npm install` and the recipient would never get marp-cli either.
     assert.strictEqual(pkg.dependencies['@laticent/lattice'], undefined);
@@ -195,7 +210,9 @@ describe('marp-bundle spec', () => {
     assert.match(r, /Marp for VS Code/);
     assert.match(r, /markdown\.marp\.themes/);
     assert.match(r, /npm run pdf/);
-    assert.match(r, /--theme-set lattice\.css themes/);
+    // By hand: the config, never `--html`, which would replace the config's allowlist.
+    assert.match(r, /--config-file marp\.config\.cjs \\\n  --allow-local-files/);
+    assert.doesNotMatch(r, /--html --allow/);
     assert.match(r, /markdown\.marp\.enableHtml/);
     // Honest about the one route whose fidelity we cannot confirm. Deliberately
     // asserts the HEDGE, not the claim: whether the preview webview executes the
@@ -204,7 +221,7 @@ describe('marp-bundle spec', () => {
     assert.match(r, /not something we can confirm/);
     assert.match(r, /\.html` opens standalone in any browser/);
     // Marp-native: the README must NOT point at a bundled emulator any more.
-    assert.doesNotMatch(r, /lattice-emulator/);
+    assert.doesNotMatch(r, /lattice-emulator|\blattice\.js\b/);
   });
 
 
@@ -492,11 +509,26 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
   });
 
-  // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
-  // author's own script, and eating it would silently delete their content.
-  test('an author\'s own script tag survives a re-export', () => {
-    const deck = '---\nmarp: true\n---\n\n# A\n\n<script src="my-own-widget.js"></script>\n';
-    assert.match(withRuntimeScripts(deck), /<script src="my-own-widget\.js"><\/script>/);
+  // The runtime-block strip must recognize OUR tags, not any tag: a deck may carry its own
+  // script-shaped DATA, and eating it would silently delete their content. (An author's
+  // EXECUTABLE script is stripped on purpose, by the live-HTML boundary — tested below.)
+  test('an author\'s own data script survives a re-export', () => {
+    const deck = '---\nmarp: true\n---\n\n# A\n\n<script type="application/json" id="my-data">{}</script>\n';
+    assert.match(withRuntimeScripts(deck), /<script type="application\/json" id="my-data">\{\}<\/script>/);
+  });
+
+  // THE EXPORT BOUNDARY for the deck's own executable HTML (theme-css-is-a-preview-sink.md § 11):
+  // `html: true` in the bundle's config passed it to the recipient's marp-cli, which ran it.
+  test('the deck\'s own script, handlers, srcdoc and javascript: URLs do not reach the bundle', () => {
+    const deck = ['---', 'marp: true', '---', '', '# A', '',
+      '<script src="my-own-widget.js"></script>', '',
+      '<img src="x.png" onerror="beacon()" alt="kept">', '',
+      '<a href="javascript:go()">a</a> <iframe srcdoc="<b>x</b>"></iframe>', ''].join('\n');
+    const out = withRuntimeScripts(deck);
+    assert.doesNotMatch(out, /my-own-widget|onerror|javascript:|srcdoc/);
+    assert.match(out, /<img src="x\.png"\s+alt="kept">/, 'the element stays; only what runs goes');
+    assert.equal((out.match(/<script src="[^"]+-min\.js"><\/script>/g) || []).length, 3, 'Lattice\'s runtime tags stay');
+    assert.equal(withRuntimeScripts(out), out, 'and re-exporting is still idempotent');
   });
 
   // A DECK MAY QUOTE OUR OWN TAG BLOCK, and the kit's "how to wire the runtime"
@@ -529,5 +561,72 @@ describe('marp bundle — the overflow-marker export setting', () => {
     const twice = withRuntimeScripts(once, { overflowMarker: 'reader' });
     assert.equal(twice, once);
     assert.equal((twice.match(new RegExp(EXPORT_SETTINGS_TYPE, 'g')) || []).length, 1);
+  });
+});
+
+describe('marp-bundle — asset references (mapImageRefs, withSampleAssets)', () => {
+  const { mapImageRefs, mapFrontMatterLogo, sampleAssetNames, withSampleAssets } = require('../../../lib/core/marp-bundle');
+  const DECK = '---\ntheme: indaco\nlogo: "sample:logo-acme-mark.svg"\n---\n\n'
+    + '![bg right](sample:photo-wide.svg)\n![Ada](sample:portrait-ada.svg "Ada")\n'
+    + '![x](https://x.test/a.png)\n![y](sample:../etc/passwd)\n![z](sample:photo-wide.svg)\n';
+
+  test('mapImageRefs rewrites a target and keeps the alt and title', () => {
+    assert.equal(mapImageRefs('![A b](x.svg "t")', () => 'assets/x.svg'), '![A b](assets/x.svg "t")');
+    assert.equal(mapImageRefs('![A](x.svg)', () => null), '![A](x.svg)');
+  });
+
+  test('mapFrontMatterLogo rewrites only the logo value, quotes kept', () => {
+    assert.equal(mapFrontMatterLogo('---\nlogo: "a.svg"\n---\n', () => 'assets/a.svg'), '---\nlogo: "assets/a.svg"\n---\n');
+  });
+
+  test('sampleAssetNames lists each well-formed sample once, logo included', () => {
+    assert.deepEqual(sampleAssetNames(DECK), ['logo-acme-mark.svg', 'photo-wide.svg', 'portrait-ada.svg']);
+  });
+
+  test('reads the front matter with the fences readFrontMatterBlock accepts', () => {
+    // A trailing-space fence, and a deck that is nothing but front matter.
+    assert.deepEqual(sampleAssetNames('--- \nlogo: sample:logo-acme-mark.svg\n---  \n# A\n'), ['logo-acme-mark.svg']);
+    assert.deepEqual(sampleAssetNames('---\nlogo: "sample:logo-acme-mark.svg"\n---'), ['logo-acme-mark.svg']);
+  });
+
+  test('withSampleAssets rewrites only the names it was given', () => {
+    const out = withSampleAssets(DECK, new Map([['logo-acme-mark.svg', 'assets/logo-acme-mark.svg'], ['photo-wide.svg', 'assets/photo-wide.svg']]));
+    assert.match(out, /^logo: "assets\/logo-acme-mark\.svg"$/m);
+    assert.match(out, /!\[bg right\]\(assets\/photo-wide\.svg\)/);
+    assert.match(out, /!\[z\]\(assets\/photo-wide\.svg\)/);
+    assert.match(out, /!\[Ada\]\(sample:portrait-ada\.svg "Ada"\)/, 'not fetched, so left as written');
+    assert.match(out, /!\[y\]\(sample:\.\.\/etc\/passwd\)/, 'malformed, so never a sample');
+    assert.match(out, /!\[x\]\(https:\/\/x\.test\/a\.png\)/);
+  });
+});
+
+// The guard line before the trailer ends any raw-HTML block the deck left open, so an unclosed <pre>,
+// <textarea> or <style> on the last slide cannot swallow the runtime lines (an unclosed <style> was
+// lifted into the theme as CSS, measured: the runtime did not load). Driven through markdown-it with a
+// stand-in sanitizer; the integration test renders the real thing.
+describe('marp-bundle trailer guard', () => {
+  const { configSource } = require('../../../lib/core/marp-bundle-html');
+  const vm = require('node:vm');
+  const ctx = {};
+  vm.runInNewContext(`${configSource(RUNTIME_SCRIPT_SRCS)}\nthis.engine = engine;`, ctx);
+  const md = require('markdown-it')({ html: true });
+  md.renderer.rules.html_block = () => '[sanitized]\n';
+  ctx.engine({ marp: { use(p) { p(md); return this; } } });
+
+  test('a deck ending inside an open raw-HTML block keeps every runtime line', () => {
+    for (const tail of ['<pre>\nunclosed\n', '<textarea>\nx\n', '<style>\na{}\n', '<!--\nopen\n', '<?php\n', '<![CDATA[\nx\n']) {
+      const deck = withRuntimeScripts(`---\nmarp: true\n---\n\n# A\n\n${tail}`);
+      const out = md.render(deck);
+      for (const src of RUNTIME_SCRIPT_SRCS) assert.ok(out.includes(`<script src="${src}"></script>`), `${JSON.stringify(tail)}: ${src}`);
+      assert.equal(withRuntimeScripts(deck), deck, 'and re-export stays idempotent');
+    }
+  });
+
+  test('re-export matches the guard by its opening, and keeps an author comment that only resembles it', () => {
+    const reworded = withRuntimeScripts('# A\n').replace(/<!-- Lattice: ends[^\n]*-->/, '<!-- Lattice: ends any HTML block (older wording) -->');
+    assert.equal((withRuntimeScripts(reworded).match(/<!-- Lattice: ends/g) || []).length, 1);
+    const preGuard = '# A\n\n<!-- Lattice: ends the story here -->\n<!-- markdownlint-disable MD033 -->\n'
+      + RUNTIME_SCRIPT_SRCS.map((src) => `<script src="${src}"></script>`).join('\n') + '\n';
+    assert.match(withRuntimeScripts(preGuard), /<!-- Lattice: ends the story here -->/);
   });
 });

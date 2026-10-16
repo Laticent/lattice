@@ -8,6 +8,7 @@
 // renderer options + current palette, so Share hands off real artifacts rather
 // than a toast.
 
+import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
@@ -17,13 +18,16 @@ import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../..
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
+import type { LatticeMedia } from './lattice-file';
 import type { BakeVoice } from './read-aloud';
 import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
+import { MAX_EMBEDDED_MEDIA_BYTES, MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -104,6 +108,25 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 }
 
 /**
+ * The render option that lets an EXPORT show the deck's Library photos: a name → `data:` URI map for
+ * the photos `source` names. Empty for a deck that names none, which never loads the registry. A
+ * `blob:` URL from the live preview is not usable in a file or a capture frame (media-urls.ts).
+ */
+async function assetOpts(source: string): Promise<{ assetUrls?: Record<string, string>; assetAlts?: Record<string, string> }> {
+	if (!/\basset:[a-z0-9]/i.test(source)) return {};
+	try {
+		const { altsFor, dataUrlsFor } = await import('./media-urls');
+		const assetUrls = await dataUrlsFor(source);
+		return { assetUrls, assetAlts: await altsFor(source) };
+	} catch (e) {
+		// An EMPTY map, not none: with none the Studio's render hook would fill in the preview's `blob:` URLs,
+		// which die with the tab. With an empty map every photo is drawn as the missing-image stand-in.
+		console.warn('lattice: could not read the Library photos for an export', e);
+		return { assetUrls: {} };
+	}
+}
+
+/**
  * Render the FULL deck through the engine and assemble the `render` object the
  * image exporters need. This is the single piece of glue Share adds on top of
  * the shared exporters.
@@ -119,7 +142,7 @@ export async function buildDeckRender(
 ): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme, styles === 'flat' ? { styles } : undefined);
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), ...(styles === 'flat' ? { styles } : {}) });
 	const { previewFontFaceCss } = await loadDeckRenderFonts();
 	return {
 		html: out.html,
@@ -187,7 +210,7 @@ function escAttr(s: string): string {
  * Assemble a self-contained document equivalent to the emulator's `cleanDocHtml`
  * (the `docHtml` input `assemblePlayer` expects): base64 fonts + the deck CSS +
  * per-slide sizing + a11y texture defs + the rendered `<section>` slides. This
- * mirrors the emulator's scaffold (lattice-emulator.js htmlDoc) so the shared
+ * mirrors the emulator's scaffold (lattice.js htmlDoc) so the shared
  * assembler sees the same shape from either host. Offline by construction — the
  * `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
  */
@@ -249,7 +272,7 @@ type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: 
 
 /**
  * Materialize speaker notes + accessible descriptions into the (already re-tagged)
- * sections, mirroring the CLI emulator (lattice-emulator.js): the engine emits notes
+ * sections, mirroring the CLI emulator (lattice.js): the engine emits notes
  * ONLY as raw HTML comments, so — like the emulator — lift them via the shared
  * `notesCore` and inject a `hidden` `aside.lattice-notes` (spoken by the presenter,
  * kept out of the a11y tree) plus an sr-only `p.lattice-description` referenced by
@@ -401,7 +424,7 @@ export async function shareHtmlPlayer(
 	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
-	let out = await renderMarkdown(PG, source, theme, { styles: 'flat' });
+	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -409,7 +432,7 @@ export async function shareHtmlPlayer(
 		import('@/playground/deck-preview.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
 		import('@/lib/sanitize-slide-html.js'),
-		import('@/playground/authoring-core.generated.js'),
+		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
 	const fontCss = await fontMod.buildFontEmbedCss();
 	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[] };
@@ -483,7 +506,7 @@ export async function shareHtmlPlayer(
 	// by the recipient from the shipped file alone, since the envelope carries this same
 	// scrubbed source to re-render (#1985). Parity with the CLI is the point: `--strip-notes`
 	// and this button are the same guarantee, and the CLI does exactly this
-	// (lattice-emulator.js, "PASS 2"). Costs one extra render, on this flag's path only.
+	// (lattice.js, "PASS 2"). Costs one extra render, on this flag's path only.
 	//
 	// FAIL-CLOSED ON FIDELITY, and the measurement lives in `strip-notes-guard.ts` — loaded on
 	// demand, because it runs when someone exports and never on the way to first paint. Keeping
@@ -501,7 +524,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -515,7 +538,7 @@ export async function shareHtmlPlayer(
 		}
 	}
 	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section with it
-	// (lattice-emulator.js), and the player CSS + transport key off it. Split the render into
+	// (lattice.js), and the player CSS + transport key off it. Split the render into
 	// per-slide sections and re-tag them the same way, so the assembled player finds its slides.
 	// (The emulator's extra image fixups are preview-parity concerns handled the same way the
 	// Studio preview does — i.e. not here.) Then materialize speaker notes + a11y descriptions the
@@ -779,7 +802,7 @@ export async function shareHtmlPlayer(
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
-			// the same field in lattice-emulator.js for the reasoning (#1833).
+			// the same field in lattice.js for the reasoning (#1833).
 			notes: !stripNotes && noteRecord.some((r) => !!r.note),
 			// Motion in a forwarded file: a separate choice from motion while presenting,
 			// because it costs bytes and it moves for a recipient the author is not there to
@@ -881,8 +904,10 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 }
 
 /** Markdown source with the current theme + referenced components + (when active) the saved finish embedded. */
-export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
+export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = [], deckId?: string): Promise<string | undefined> {
 	const ex = await exporters();
+	// The photos the deck names ride beside the .md in a .zip (a Markdown file cannot hold a picture).
+	const { named, photos } = await photosBesideDeck(source, deckId);
 	// Embed the live theme CSS so the .md keeps its look even where the theme
 	// isn't installed. A saved library theme carries its own CSS; otherwise fetch
 	// the palette. Best-effort: a failed fetch still exports the bare source.
@@ -900,27 +925,59 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 	// …and the saved components the deck uses. This passed `[]` until 2026-09, so a
 	// saved component's slides arrived unstyled on the recipient's machine while the
 	// theme and finish beside them survived (2026-09-23-portable-packages.md §1).
-	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, [...components]);
+	await ex.exportMarkdown(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, theme, [...components], photos?.files);
+	return latticePhotoNote(named, true, photos);
 }
 
-/** The `.lattice` project file — the deck source + its review comments in one zip,
- *  so comments travel with the deck (re-import restores both). `now` is stamped by
- *  the caller (app code) into the manifest; the download name gets a `.lattice` ext. */
-export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages): Promise<void> {
+/** The photos a Markdown or Marp export carries, or none when the deck names none (no Library read at all). */
+async function photosBesideDeck(source: string, deckId: string | undefined) {
+	const named = (await import('./media-urls')).assetNamesIn(source);
+	const photos = named.length ? await (await import('./lattice-media')).bundlePhotos(source, deckId) : undefined;
+	return { named, photos };
+}
+
+/** The `.lattice` project file — the deck source, its review comments and the Library photos it
+ *  names, in one zip, so all three travel with the deck (re-import restores them). `now` is stamped by
+ *  the caller (app code) into the manifest; the download name gets a `.lattice` ext.
+ *
+ *  `includePhotos` (on by default) packs the photos the deck names as they sit in the Library. Resolves
+ *  to a reason for the toast when the file shipped without a picture the deck uses: the author turned
+ *  photos off, the file would have passed the size cap, or a named photo is not in the Library. The
+ *  note is written HERE because only this function knows which of the three happened. */
+export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages, includePhotos = true): Promise<string | undefined> {
 	const { listComments } = await import('./slide-comments');
-	const blob = await latticeBlob(source, deckTitle, deckId ? listComments(deckId) : [], now, packages);
+	const { assetNamesIn } = await import('./media-urls');
+	const named = assetNamesIn(source);
+	const photos = includePhotos && named.length ? await (await import('./lattice-media')).packLatticePhotos(source, deckId) : undefined;
+	const blob = await latticeBlob(source, deckTitle, deckId ? listComments(deckId) : [], now, packages, photos?.media);
 	const { downloadBlob } = await import('./download');
 	downloadBlob(`${name}.lattice`, blob);
+	return latticePhotoNote(named, includePhotos, photos);
+}
+
+const quoted = (list: string[]) => `${list.slice(0, 3).map((n) => `“${n}”`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more` : ''}`;
+
+/** The toast's sentence about photos a `.lattice` left out, or undefined when it carries every one the deck names. */
+function latticePhotoNote(named: string[], includePhotos: boolean, photos?: { omitted: string[]; missing: string[]; included: string[] }): string | undefined {
+	if (!named.length) return undefined;
+	const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+	if (!includePhotos) return `${plural(named.length, 'the photo', 'the photos')} it names (${quoted(named)}) ${plural(named.length, 'is', 'are')} not inside this file, so anyone who opens it elsewhere sees ${plural(named.length, 'a stand-in', 'stand-ins')}`;
+	const parts: string[] = [];
+	const missing = photos?.missing ?? named;
+	if (missing.length) parts.push(`${plural(missing.length, 'the photo', 'the photos')} ${quoted(missing)} could not be added (not in this browser's Library, or could not be read), so ${plural(missing.length, 'it shows', 'they show')} as a stand-in`);
+	const omitted = photos?.omitted ?? [];
+	if (omitted.length) parts.push(`${plural(omitted.length, 'the photo', 'the photos')} ${quoted(omitted)} would have made the file larger than ${Math.round(MAX_LATTICE_MEDIA_BYTES / 1_048_576)} MB, so ${plural(omitted.length, 'it is', 'they are')} not inside it`);
+	return parts.join('; ') || undefined;
 }
 
 /** ONE builder for the `.lattice` zip — the project download and the copy a re-openable
  *  PDF / PowerPoint carries — so the two can never disagree about what a deck is. */
-async function latticeBlob(source: string, deckTitle: string, comments: SlideComment[], now: number, packages?: DeckPackages): Promise<Blob> {
+async function latticeBlob(source: string, deckTitle: string, comments: SlideComment[], now: number, packages?: DeckPackages, media?: LatticeMedia): Promise<Blob> {
 	const [{ exportLatticeBlob }, pz] = await Promise.all([import('./lattice-file'), import('./package-zip')]);
 	// The user packages the deck uses ride inside the project file, as package folders, so
 	// it opens on a machine that has never seen this Library (portable-packages §4).
 	const pkgs = packages ? [...packages.themes.map(pz.themePackage), ...packages.components.map(pz.componentPackage), ...packages.finishes.map(pz.finishPackage)] : [];
-	return exportLatticeBlob(source, deckTitle, comments, now, pkgs);
+	return exportLatticeBlob(source, deckTitle, comments, now, pkgs, media);
 }
 
 /**
@@ -929,13 +986,56 @@ async function latticeBlob(source: string, deckTitle: string, comments: SlideCom
  * in — so the recipient edits what the author wrote. COMMENTS ARE NEVER IN IT: an empty list
  * is passed whatever the deck holds (2026-10-05-reopenable-exports.md).
  */
-export async function embeddableLattice(source: string, deckTitle: string, now: number, packages?: DeckPackages): Promise<Uint8Array> {
-	return new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages)).arrayBuffer());
+export async function embeddableLattice(source: string, deckTitle: string, now: number, packages?: DeckPackages, deckId?: string): Promise<{ bytes: Uint8Array; note?: string }> {
+	// The photos the deck names ride inside, up to MAX_EMBEDDED_MEDIA_BYTES (smaller than a standalone
+	// `.lattice` so the PDF or PowerPoint stays under the carrier cap the importer enforces). A deck that
+	// names none skips the Library read entirely.
+	const named = (await import('./media-urls')).assetNamesIn(source);
+	const photos = named.length ? await (await import('./lattice-media')).packLatticePhotos(source, deckId, MAX_EMBEDDED_MEDIA_BYTES) : undefined;
+	const bytes = new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages, photos?.media)).arrayBuffer());
+	// Two reasons, worded apart: a photo over the cap is in the Library and only the copy lacks it; a missing one
+	// is a stand-in on the pages too (and this note stands in for the Share sheet's own stand-in note).
+	const over = photos?.omitted ?? [];
+	const gone = photos ? photos.missing : named;
+	const parts: string[] = [];
+	if (gone.length) parts.push(`${gone.length === 1 ? 'the photo' : 'the photos'} ${quoted(gone)} could not be added (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it shows' : 'they show'} as ${gone.length === 1 ? 'a stand-in' : 'stand-ins'} in the file and in the re-openable copy`);
+	if (over.length) parts.push(`${over.length === 1 ? 'the photo' : 'the photos'} ${quoted(over)} would pass the ${Math.round(MAX_EMBEDDED_MEDIA_BYTES / 1_048_576)} MB of photos a re-openable copy holds, so ${over.length === 1 ? 'it is' : 'they are'} not inside it and whoever opens it in Lattice sees ${over.length === 1 ? 'a stand-in' : 'stand-ins'}`);
+	const note = parts.join('; ') || undefined;
+	return { bytes, note };
 }
 
-/** The self-contained Marp ZIP bundle (renders anywhere). */
-export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
+/** The Share toast's note on an Export-to-Marp bundle, or undefined: the deck's own script the export
+ *  left out (§ 11), what the bundle's HTML list will show as text or drop in marp-cli (§ 13,
+ *  lib/core/marp-bundle-html.js), a <title> left open, which swallows the slides after it, and any
+ *  equation the export could not typeset (lib/core/marp-bundle-math.js). */
+export function marpExportNote(removed?: {
+	scripts: number; handlers: number; urls: number; escaped?: boolean;
+	refused?: { tags?: Record<string, number>; attrs?: Record<string, number>; unclosed?: string[] };
+	math?: { failed?: number };
+}): string | undefined {
+	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
+	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
+	const script = n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : '';
+	// What the bundle's HTML list will show as text or drop in marp-cli (lib/core/marp-bundle-html.js).
+	const tags = Object.keys(removed?.refused?.tags ?? {});
+	const attrs = Object.keys(removed?.refused?.attrs ?? {});
+	const refused = tags.length || attrs.length
+		? `marp-cli will ${tags.length ? `show ${tags.map((t) => `<${t}>`).join(', ')} as text` : ''}${tags.length && attrs.length ? ' and ' : ''}${attrs.length ? `drop ${attrs.join(', ')}` : ''}`
+		: '';
+	// A <title> left open swallows the slides after it as text in any browser; only the author can close it.
+	const unclosed = removed?.refused?.unclosed?.includes('title') ? 'the deck leaves a <title> open, so the slides after it show as text' : '';
+	// Equations the export could not typeset ship as TeX text (lib/core/marp-bundle-math.js, fail closed).
+	const failed = removed?.math?.failed ?? 0;
+	const math = failed ? `${failed} ${failed === 1 ? 'equation' : 'equations'} could not be typeset and ${failed === 1 ? 'shows' : 'show'} as TeX` : '';
+	return [script, refused, unclosed, math].filter(Boolean).join('; ') || undefined;
+}
+
+/** The self-contained Marp ZIP bundle (renders anywhere). Resolves to a reason for the toast
+ *  when the bundle dropped the deck's own executable HTML, which marp-cli would otherwise run on
+ *  the recipient's machine (theme-css-is-a-preview-sink.md § 11). */
+export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = [], deckId?: string): Promise<string | undefined> {
 	await ensureReady(options); // PG.marp must be present
+	const { named, photos } = await photosBesideDeck(source, deckId);
 	const ex = await exporters();
 	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
 	// `overflowMarker` — who a clipped slide's marker speaks to in the exported deck.
@@ -949,7 +1049,19 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// bundle writes its CSS itself; a saved component rides as an embedded `<style>`,
 	// the same block the Markdown export uses. Without both, the bundle fell back to
 	// `indaco` and dropped the component's styling without a word.
-	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components] });
+	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
+	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.
+	const { deckPluginsOff } = await import('@/lib/plugin-admission');
+	// The bundle carries its math TYPESET (lib/core/marp-bundle-math.js): Marp's own typesetter is the
+	// injection surface it closes. Typesetting needs the real KaTeX, which the Studio loads on demand,
+	// so load it first. If it will not load, the export still goes out: each equation ships as TeX
+	// text (fail closed), and the toast below counts them.
+	if (sourceHasMath(source)) {
+		const katexUrl = deriveKatexProviderUrl();
+		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
+	}
+	const removed = await ex.exportMarp(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, files: photos?.files, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
+	return [marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined;
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format
@@ -975,6 +1087,15 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
 	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource });
+}
+
+/** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
+ *  picture per slide, or with `editable` every paragraph as a real text box over a picture
+ *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
+export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
+	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const ex = await exporters();
+	return ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource });
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
@@ -1122,11 +1243,11 @@ export async function shareCaptions(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme);
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
 
 	onStatus?.('Reading notes + projecting slides…');
 	const [authoringMod, readAlongCore, projectionMod, resolveNarrationMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([
-		import('@/playground/authoring-core.generated.js'),
+		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
 		import('@/lib/resolve-narration'),
@@ -1172,7 +1293,7 @@ export async function shareCaptions(
 	const lang = resolveNarrationMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
 	// by construction). Failure leaves the projection empty, exactly as the CLI's does
-	// (lattice-emulator.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
+	// (lattice.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
 	// so a deck whose projection fails exports only its authored say overrides.
 	let projected: string[] = [];
 	// Parallel to `projected`, and the guard below compares against THIS array rather than the

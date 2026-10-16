@@ -3,7 +3,7 @@
  * Map staged file paths → the npm test scripts that cover them.
  * Spawns each matching script in turn and exits non-zero on the first
  * failure. Used by the lefthook pre-commit hook for fast inner-loop
- * iteration; the full unit suite still runs in pre-push and CI.
+ * iteration; the full unit suite runs in CI (every PR and the merge queue).
  *
  * Safety: when a staged file isn't recognized, falls back to running
  * the full unit suite (`npm test`). Better to be slow than to miss a
@@ -28,6 +28,7 @@ const SCRIPT_FOR_LIB = {
   'palette.js':           'test:palette',
   'resolve-palette.js':   'test:palette',
   'chart-family.js':      'test:components',
+  'chart-family.dispatch.js': 'test:components',
   'match-section.js':     'test:parsing',
   'slot-label-lift.js':   'test:parsing',
   'split-slides.js':      'test:parsing',
@@ -55,9 +56,9 @@ const SCRIPT_FOR_LIB = {
 // changes under lib/runtime/** trigger the bundle rebuild AND the
 // transformer test scope via the rule below.
 const FULL_SUITE_TRIGGER = new Set([
-  'lattice-emulator.js',
+  'lattice.js',
   'dist/lattice.css',
-  'mermaid-v11-min.js',
+  'lib/plugins/mermaid/vendor/mermaid.min.js',
   'package.json',
   'package-lock.json',
   'biome.jsonc',
@@ -110,7 +111,7 @@ for (const f of process.argv.slice(2)) {
   }
 
   // lib/transformers/* — shared transformer registry consumed by
-  // lattice-emulator.js and the runtime bundle.
+  // lattice.js and the runtime bundle.
   if (rel.startsWith('lib/transformers/') && rel.endsWith('.js')) {
     scripts.add('test:transformers');
     continue;
@@ -142,6 +143,15 @@ for (const f of process.argv.slice(2)) {
     const script = SCRIPT_FOR_LIB[path.basename(rel)];
     if (script) scripts.add(script);
     else runAll = true;  // unknown lib file → safe default
+    continue;
+  }
+
+  // A plugin's stylesheet — the chart frame (the chart family plugin) styles every chart, and the
+  // chart-contrast, mark-edge and chart-finish tests read it, as they did when it lived under
+  // lib/components/chart/.
+  if (rel.startsWith('lib/plugins/') && rel.endsWith('.css')) {
+    scripts.add('test:components');
+    scripts.add('test:plugins');
     continue;
   }
 

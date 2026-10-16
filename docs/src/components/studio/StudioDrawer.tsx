@@ -4,7 +4,7 @@
 // THE ONE IDEA. The top level is a complete, flat index of nine tappable rows, and
 // exactly TWO of them are DOORS that push a second level inside this same Sheet.
 // Everything you *do* is a leaf you tap once; everything you *browse* — 18 themes,
-// 5 tours — lives behind a door, where it finally has room to be legible instead of
+// the tours — lives behind a door, where it finally has room to be legible instead of
 // crushed into a sideways rail. Nothing leaves the drawer: the product owner's
 // constraint is that the whole inventory stays reachable here, and a door is still
 // "here".
@@ -31,7 +31,7 @@
 // None of the six protected controls (Present, Share, Coach, Chat, Settings, the pane
 // toggle) are here — they stay one tap on the Eight-Cell Bar. Neither is Slide settings
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
-import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search } from 'lucide-react';
+import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search, UsersRound } from 'lucide-react';
 import * as React from 'react';
 import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset } from '@/components/ui/panel';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -183,6 +183,7 @@ export function StudioDrawer({
 	onFixAll,
 	onVersionHistory,
 	onLenses,
+	onLive,
 	demoActive,
 	tours,
 	onStartDemo,
@@ -225,6 +226,8 @@ export function StudioDrawer({
 	onFixAll: () => void;
 	onVersionHistory: () => void;
 	onLenses: () => void;
+	/** Open the Live panel: the phone's pane bar has no cell left for it. */
+	onLive: () => void;
 	demoActive: boolean;
 	tours: TourMeta[];
 	onStartDemo: (id: string) => void;
@@ -380,6 +383,7 @@ export function StudioDrawer({
 								<Row icon={<Search className="size-[18px]" />} label="Search / commands" onClick={go(onSearch)} />
 								<Row icon={<FileBox className="size-[18px]" />} label="Library" onClick={go(onLibrary)} />
 								<Row icon={<LensIcon className="size-[18px]" />} label="Reader views" onClick={go(onLenses)} />
+								<Row icon={<UsersRound className="size-[18px]" />} label="Live" onClick={go(onLive)} />
 								{/* Deck-level recovery — never pane-gated. Gating this on `effPane`
 								    once removed it from the Preview pane entirely. */}
 								<Row icon={<HistoryIcon className="size-[18px]" />} label="Version history" onClick={go(onVersionHistory)} />
@@ -398,7 +402,7 @@ export function StudioDrawer({
 										ref={(el) => { doorRefs.current['show-me'] = el; }}
 										icon={<MonitorPlay className="size-[18px]" />}
 										label="Show me"
-										value={`${tours.length} tours`}
+										value={`${tours.length} ${tours.length === 1 ? 'tour' : 'tours'}`}
 										valueText={`${tours.length} guided ${tours.length === 1 ? 'tour' : 'tours'}`}
 										onClick={() => enter('show-me')}
 									/>

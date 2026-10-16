@@ -2,7 +2,7 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE LIVE-PREVIEW PATH, ON THE REAL SURFACE.
 //
-// `guards: strict` ships on TWO render paths — the export (`lattice-emulator.js`) and
+// `guards: strict` ships on TWO render paths — the export (`lattice.js`) and
 // the runtime that drives this preview (`lib/runtime/index.js`). Three independent
 // reviews and a 196-deck render sweep all exercised the export. The runtime path was
 // only ever driven by injecting `dist/lattice-runtime.js` into an already-exported

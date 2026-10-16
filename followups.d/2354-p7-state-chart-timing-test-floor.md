@@ -2,6 +2,9 @@
 origin: 2354
 priority: P7
 recorded: 2026-09-24
+area: chart
+severity: medium
+swimlane: test/unit/components/state-chart.test.js
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

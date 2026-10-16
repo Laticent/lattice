@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "flowchart",
+  "plugins": { "optional": ["icons"] },
   "adapt": {
     "mode": "reflow",
     "priority": [
@@ -95,7 +96,8 @@
   "variants": [
     "lr",
     "tb",
-    "curved"
+    "curved",
+    "rearrange"
   ],
   "segno": {
     "style": {
@@ -111,7 +113,9 @@
         "color": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color" },
         "fill": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true },
         "border": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true },
-        "text": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true }
+        "text": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true },
+        "icon": { "type": "text", "named": true },
+        "icon-only": { "type": "flag", "word": "icon-only" }
       }
     }
   },
@@ -129,7 +133,7 @@
     "shapes": {
       "selector": "ul > li",
       "required": true,
-      "description": "One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\\{#kyc, diamond, c2}`."
+      "description": "One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\\{#kyc, diamond, c2}`. An icon from the icons plugin draws beside the name: `icon=gateway` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A group draws no icon."
     },
     "groups": {
       "selector": "li > ul",
@@ -239,6 +243,10 @@
     {
       "variant": "curved",
       "useWhen": "Softer, generously rounded corners fit the deck's tone better than tight elbows. A paint setting only: the lines are still the router's, and never cross a shape."
+    },
+    {
+      "variant": "rearrange",
+      "useWhen": "A long flow wraps and its lines cross, and where each shape sits matters more than the order you wrote them in: a detour written last moves beside the step it leaves. The chart moves a shape only when that draws a cleaner chart (fewer crossings, or a line no longer through a shape), so with nothing to fix it draws as before."
     }
   ],
   "variantDocs": {
@@ -256,6 +264,11 @@
       "label": "Curved",
       "summary": "Generously rounded corners on the router's lines.",
       "sample": "<!-- _class: flowchart curved -->\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `pill` => Auto-triage => Severity?\n- Severity? `diamond`\n  - -SEV1-> Page on-call\n  - -SEV2-> Open ticket\n- Page on-call `fail`\n  - -ack-> Mitigate\n- Open ticket -> Mitigate\n"
+    },
+    "rearrange": {
+      "label": "Rearrange",
+      "summary": "Shapes may leave their written order when that draws a cleaner chart.",
+      "sample": "<!-- _class: flowchart rearrange -->\n\n## rearrange lets a detour sit beside the step it leaves.\n\n- Lead `pill` => Qualify => Demo => Proposal => Negotiate => Sign => Onboard => Renew\n- Renew `pill`\n- Negotiate -legal review-> Legal\n- Legal -cleared-> Sign\n- Demo -needs trial-> Trial\n- Trial -converted-> Proposal\n"
     }
   },
   "specimenVoice": true,

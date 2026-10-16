@@ -1,0 +1,2 @@
+studio: +16
+No eager code grows. The changes sit in lazy chunks: `deck-export.js` (the counter properties for html-to-image, the picture `.pptx` tidy and `xmlSafe`), the PowerPoint assembly worker, and Calco, which the Studio loads through a dynamic `import('@/lib/calco')`. The +3 B measured on the Studio's eager JS is gzip variation from the lazy chunks' changed hashes, as #2574 and #2361 saw. Declared +16 to leave room for that variation.

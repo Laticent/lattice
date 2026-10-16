@@ -49,7 +49,7 @@ describe('universal token vocabulary', () => {
       test(`${theme}: ${phase} — every name is defined and resolves`, () => {
         const missing = names.filter((n) => !vars[n] || String(vars[n]).trim() === '');
         assert.deepEqual(missing, [],
-          `themes/${theme}.css + dist/lattice.css do not resolve: ${missing.join(', ')}\n` +
+          `themes/${theme}/${theme}.css + dist/lattice.css do not resolve: ${missing.join(', ')}\n` +
           `A universal-token alias was dropped or a flip left a name undefined.`);
       });
     }

@@ -4,7 +4,7 @@
  * The kernel (slope.transform.js) emits a <div class="slope-figure"> holding
  * one <svg class="cart-svg">. The plot chrome — column headers, endpoint names,
  * endpoint values — is the family's shared `cart-*` vocabulary, painted in
- * chart-family.css § Cartesian chrome and NOT restyled here; this file paints
+ * chart-family.styles.css § Cartesian chrome and NOT restyled here; this file paints
  * this member's own MARKS. Unlayered, like every component file (@layer is
  * inert in this bundle and a layered rule silently loses to an unlayered base
  * rule — cascade.md). */

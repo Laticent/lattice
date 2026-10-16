@@ -1,0 +1,12 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "onyx-dark",
+  "type": "theme",
+  "format": 1,
+  "role": "variant-dark",
+  "extends": "onyx",
+  "family": "brand",
+  "modes": [
+    "dark"
+  ]
+}

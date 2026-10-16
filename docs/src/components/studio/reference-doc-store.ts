@@ -6,8 +6,9 @@
 // Privacy: stored locally in the browser (IndexedDB), NEVER uploaded to us — the
 // bytes are only ever inlined into a call the user's own key pays for (the
 // inline-only decision, engineering/decisions/2026-06-29-studio-spend-budget.md).
-import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
-import type { ReferenceDoc } from './reference-doc';
+import { ASSET_STORE, openDB } from '@/components/studio/library/asset-db.js';
+import { deleteAsset, listAssets, putAsset, REFUSAL_PREFIX } from '@/components/studio/library/asset-store.js';
+import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES, type ReferenceDoc } from './reference-doc';
 
 /** A persisted reference doc — an asset-store record of kind 'refdoc'. */
 export type RefDocRecord = {
@@ -16,6 +17,14 @@ export type RefDocRecord = {
 	name: string;
 	docKind: 'text' | 'pdf';
 	text?: string;
+	/** A PDF's own bytes, stored as binary: base64 text would be a third larger on disk, and every list read
+	 *  would hold each PDF as a string. What a PDF is written as (`WRITE_PDFS_AS_BINARY`). */
+	blob?: Blob;
+	/** Only where an engine refused to store a `Blob` (Safari in a private window): the same bytes as an
+	 *  ArrayBuffer, rebuilt into `blob` on the way out. */
+	data?: ArrayBuffer;
+	/** A PDF as base64 text: a record from before PDFs were binary (rewritten when the Library opens), or one written
+	 *  with `{ binary: false }`. Every build reads it. */
 	dataUrl?: string;
 	bytes: number;
 	addedAt: number;
@@ -25,30 +34,120 @@ const REFDOC_KIND = 'refdoc';
 
 /** Rehydrate the in-memory ReferenceDoc a generation call consumes from a record.
  *  Carries the record `id` so the UI can match the active doc by identity. */
-export function recordToDoc(rec: RefDocRecord): ReferenceDoc {
-	return { id: rec.id, name: rec.name, kind: rec.docKind, text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes };
+export async function recordToDoc(rec: RefDocRecord): Promise<ReferenceDoc> {
+	// The base64 text a request needs is made here, once, for the doc being attached: not at rest.
+	const dataUrl = rec.dataUrl ?? (rec.blob ? await blobToDataUrl(rec.blob) : undefined);
+	return { id: rec.id, name: rec.name, kind: rec.docKind, text: rec.text, dataUrl, bytes: rec.bytes };
 }
+
+/** A saved PDF's bytes, or null for a text doc or a record with none. */
+export function refDocBlob(rec: RefDocRecord): Blob | null {
+	if (rec.blob) return rec.blob;
+	if (rec.dataUrl) {
+		try {
+			return dataUrlToBlob(rec.dataUrl);
+		} catch {
+			return null;
+		}
+	}
+	return null;
+}
+
+/** A row as the app uses it: a `blob`, whichever way the bytes were stored. */
+function readable(row: RefDocRecord): RefDocRecord {
+	if (row.blob || !row.data) return row;
+	const { data, ...rest } = row;
+	return { ...rest, blob: new Blob([data], { type: 'application/pdf' }) };
+}
+
+/**
+ * Does a saved PDF go to disk as binary (`true`) or as base64 text (`false`)?
+ *
+ * Binary. #2672 shipped the reader with the writer held back, so a rollback or a tab left open across the deploy could
+ * still see every PDF. The Studio has no outside users yet (pre-GA), so that guard protected nobody and the writer is on
+ * (2026-10-12-library-media-assets.md "How binary content is stored"). `false` still writes the base64 every build reads;
+ * the reader handles both, and the Library rewrites old records once per open (`migrateLegacyRefDocs`).
+ */
+export const WRITE_PDFS_AS_BINARY = true;
 
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */
-export async function saveRefDoc(doc: ReferenceDoc, addedAt: number): Promise<RefDocRecord> {
-	const record: Omit<RefDocRecord, 'id'> = {
-		kind: REFDOC_KIND,
-		name: doc.name,
-		docKind: doc.kind,
-		text: doc.text,
-		dataUrl: doc.dataUrl,
-		bytes: doc.bytes,
-		addedAt,
-	};
-	// putAsset assigns an id and updates an existing (kind,name) in place.
-	return (await putAsset(record)) as RefDocRecord;
+export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = WRITE_PDFS_AS_BINARY }: { binary?: boolean } = {}): Promise<RefDocRecord> {
+	// A PDF arrives as base64 text (it is read that way for the request) and is stored as the bytes it encodes,
+	// typed as a PDF whatever the text said (a file picked with no type reads as octet-stream, and a backup row can
+	// claim any type: `recordToDoc` sends this type to the model).
+	const decoded = doc.kind === 'pdf' && doc.dataUrl ? dataUrlToBlob(doc.dataUrl) : undefined;
+	const blob = decoded ? decoded.slice(0, decoded.size, 'application/pdf') : undefined;
+	// The size is what was decoded, never the row's own claim: a restored row says whatever its file says, and the
+	// cost readout and the spend guard read this number.
+	const bytes = blob ? blob.size : Math.min(MAX_DOC_BYTES, Math.max(0, Math.floor(Number(doc.bytes) || 0)));
+	const record: Omit<RefDocRecord, 'id'> = { kind: REFDOC_KIND, name: doc.name, docKind: doc.kind, text: doc.text, bytes, addedAt };
+	if (!blob) return readable((await putAsset(record)) as RefDocRecord);
+	if (!binary) {
+		// The format every build reads: base64 text, now with the type a PDF has and the size that was decoded.
+		const dataUrl = `data:application/pdf;base64,${(doc.dataUrl as string).slice((doc.dataUrl as string).indexOf(',') + 1)}`;
+		return readable((await putAsset({ ...record, dataUrl })) as RefDocRecord);
+	}
+	try {
+		// putAsset assigns an id and updates an existing (kind,name) in place.
+		return readable((await putAsset({ ...record, blob })) as RefDocRecord);
+	} catch (first) {
+		// A full disk or our own refusal is not a Blob problem; a second attempt would fail the same way.
+		if ((first as { name?: string } | null)?.name === 'QuotaExceededError' || String((first as Error)?.message ?? '').startsWith(REFUSAL_PREFIX)) throw first;
+		// Some engines refuse to store a Blob at all (Safari in a private window): the bytes go in as an ArrayBuffer.
+		return readable((await putAsset({ ...record, data: await blob.arrayBuffer() })) as RefDocRecord);
+	}
+}
+
+/** Rewrite every record that still holds a PDF as base64 text so it holds the bytes instead. Idempotent, and
+ *  it leaves a record alone when it cannot be decoded (the text stays readable). Resolves how many changed. */
+export async function migrateLegacyRefDocs(): Promise<number> {
+	let n = 0;
+	for (const rec of await listRefDocs()) {
+		if (!rec.dataUrl || rec.blob) continue;
+		try {
+			if (await swapLegacyRefDoc(rec, dataUrlToBlob(rec.dataUrl))) n++;
+		} catch (e) {
+			// Undecodable text, or a browser that will not store a Blob: the legacy record keeps working. A refused
+			// Blob (Safari in a private window) refuses every row the same way, so stop instead of decoding each
+			// PDF on the main thread for nothing (checker).
+			if ((e as { name?: string } | null)?.name === 'DataCloneError') break;
+		}
+	}
+	return n;
+}
+
+/**
+ * Rewrite ONE legacy record as binary, only if it is still exactly the record that was read: same id, same
+ * base64 text, no blob. The list is read once and the rewrites happen later, so a doc the author saved over,
+ * deleted or cleared in between must not be overwritten with the old bytes or brought back. The check and the
+ * write share one transaction. Resolves whether it wrote.
+ */
+export async function swapLegacyRefDoc(rec: RefDocRecord, blob: Blob): Promise<boolean> {
+	const db = await openDB();
+	return new Promise<boolean>((resolve, reject) => {
+		const t = db.transaction(ASSET_STORE, 'readwrite');
+		const store = t.objectStore(ASSET_STORE);
+		let wrote = false;
+		t.oncomplete = () => resolve(wrote);
+		t.onabort = t.onerror = () => reject(t.error || new Error('swapLegacyRefDoc: the change failed'));
+		const get = store.get(rec.id);
+		get.onsuccess = () => {
+			const now = get.result as RefDocRecord | undefined;
+			if (!now || now.dataUrl !== rec.dataUrl || now.blob || now.data) return;
+			const { dataUrl: _legacy, ...rest } = now;
+			// Typed as a PDF and sized from the bytes, the way `saveRefDoc` stores one: a row written before #2672 may say
+			// `text/html` or claim any size, and this rewrite is the only pass that touches it (checker).
+			store.put({ ...rest, blob: blob.slice(0, blob.size, 'application/pdf'), bytes: blob.size });
+			wrote = true;
+		};
+	});
 }
 
 /** Every saved reference doc, newest first (asset-store sorts by addedAt). */
 export async function listRefDocs(): Promise<RefDocRecord[]> {
 	try {
-		return (await listAssets(REFDOC_KIND)) as RefDocRecord[];
+		return ((await listAssets(REFDOC_KIND)) as RefDocRecord[]).map(readable);
 	} catch {
 		return []; // IndexedDB unavailable (private mode) — the library is simply empty
 	}

@@ -18,9 +18,10 @@
  *                                eyebrow, key insight, pill, dark variant,
  *                                annotation, below-note, mirror, numbered,
  *                                .overflow, .heat, KaTeX-in-non-math)
- *   8. lib/_syntax-highlight.css highlight.js token theme
- *   9. lib/_chart-family.css     shared chart-frame chrome + .chart-status
- *                                vocabulary (progress / kanban / timeline-list)
+ *   8. (highlight.js's token theme sat here until 2026-10-15; the code plugin's
+ *      stylesheet carries it now, in THE PLUGIN SLOT of TAIL_SOURCES)
+ *   9. (the chart frame lived here; it is the chart-family plugin's `styles`
+ *      contribution now, bundled in THE PLUGIN SLOT of TAIL_SOURCES)
  *  10. lib/base/base.treatments.css  27 utility classes (12 tints + 11 marks + reset)
  *  10b. lib/base/base.sketch.css  the `sketch` finish modifier (hand-drawn skin)
  *  11. lib/_semi-universal.css   compact, loose, accent
@@ -44,6 +45,7 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
 const { sizeBlock } = require('../lib/engine/sizes');
@@ -131,10 +133,10 @@ const themeMinBanner = (name) =>
 // { '<name>-min.css': minifiedContent } for every themes/*.css, @theme/@import intact.
 function buildThemes() {
   const out = {};
-  for (const file of fs.readdirSync(THEMES_SRC).sort()) {
+  for (const file of themeEntries(THEMES_SRC).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    const src = stampSizeDirectives(distributeLeadingIs(fs.readFileSync(path.join(THEMES_SRC, file), 'utf8')));
+    const src = stampSizeDirectives(distributeLeadingIs(fs.readFileSync(themePath(THEMES_SRC, file), 'utf8')));
     out[`${name}-min.css`] = minifyCss(src, themeMinBanner(name)) + '\n';
   }
   return out;
@@ -171,13 +173,6 @@ const MODIFIERS_SOURCE = 'lib/base/base.modifiers.css';
 // BEFORE modifiers and sketch so those still compose on top. See
 // lib/base/base.card-tag.css and engineering/decisions/2026-09-27-card-tag-register.md.
 const CARD_TAG_SOURCE = 'lib/base/base.card-tag.css';
-// highlight.js token theme — wires .hljs-* to the --hljs-* tokens.
-const SYNTAX_HIGHLIGHT_SOURCE = 'lib/integrations/highlight-js/highlight-js.css';
-// Shared chart-frame chrome + .chart-status pill vocabulary, shared
-// by gantt, radar, quadrant, progress, piechart, kanban, timeline-list.
-// Lives in the chart bucket under an underscore-prefixed folder
-// (skipped by the component loader and the bucket-wide CSS walker).
-const CHART_FAMILY_SOURCE = 'lib/components/chart/_chart-family/chart-family.css';
 const QR_GENERAL_SOURCE = 'lib/components/connect/_qr-card/qr-general.css';
 // 27 utility classes (12 tints + 11 marks + treatment-none reset) for
 // peripheral atmospheric accents. All palette-blind via var(--accent).
@@ -254,7 +249,7 @@ const TAIL_SOURCES = [
   // node fills). Scoped to section.print; inert on every non-print deck.
   'lib/base/base.print-textures.css',
   // Fluid-box viewer mode — inert unless :root[data-lattice-view="fluid"] is set
-  // (lattice-emulator --fluid + the runtime fluid controller). Last so its
+  // (lattice --fluid + the runtime fluid controller). Last so its
   // viewport-box override also wins on source order, not just specificity.
   'lib/base/base.fluid-view.css',
 ];
@@ -339,30 +334,27 @@ function formsSlicingCss() {
 // KaTeX base stylesheet — the math-glyph layout engine CSS. Unlike the other
 // stylesheets (highlight-js's, and mermaid's plugin sheet lib/plugins/mermaid/mermaid.styles.css),
 // each a hand-authored token map, KaTeX's base is the package's own ~720-selector
-// layout sheet, so we vendor it from the installed `katex` package at build time
-// (auto-synced — no stale committed blob). Its glyph fonts used to resolve to a
-// pinned jsDelivr CDN; they are now SELF-HOSTED — we copy the package's woff2 to
+// layout sheet, read from the math plugin's OWN copy of it (lib/plugins/math/vendor/katex/,
+// the manifest's `vendor`; lib/plugins/payload-path.js), never node_modules. Its glyph fonts used to resolve to a
+// pinned jsDelivr CDN; they are now SELF-HOSTED — we copy the plugin's woff2 to
 // dist/fonts/ and rewrite each `@font-face` src down to the single woff2 entry,
 // pointed at stylesheet-relative `fonts/<file>.woff2`. Math renders with zero
 // network, same as the text faces. (woff2 is universally supported on every
 // render path we target, so the woff/ttf fallbacks in KaTeX's src list are
 // dropped rather than shipped.) See lib/plugins/math/math.docs.md.
+const { vendorPath } = require('../lib/plugins/payload-path');
+const KATEX_CSS = vendorPath('math', 'katex-css');
+const KATEX_FONTS = vendorPath('math', 'katex-fonts');
 function katexFontFiles() {
   try {
-    const dir = path.dirname(require.resolve('katex/dist/katex.min.css'));
-    return fs.readdirSync(path.join(dir, 'fonts')).filter((f) => f.endsWith('.woff2'));
+    return fs.readdirSync(KATEX_FONTS).filter((f) => f.endsWith('.woff2'));
   } catch (_e) {
     return [];
   }
 }
 function katexBaseCss() {
-  let cssPath;
-  try {
-    cssPath = require.resolve('katex/dist/katex.min.css');
-  } catch (_e) {
-    return null; // katex not installed — math degrades to unstyled glyphs
-  }
-  const raw = fs.readFileSync(cssPath, 'utf8').replace(/\s+$/, '');
+  if (!fs.existsSync(KATEX_CSS)) return null; // no copy — math degrades to unstyled glyphs
+  const raw = fs.readFileSync(KATEX_CSS, 'utf8').replace(/\s+$/, '');
   // Collapse each `src:url(fonts/X.woff2) format("woff2"),url(...woff)...,url(...ttf)...`
   // down to just the local woff2 entry.
   const local = raw.replace(
@@ -401,7 +393,7 @@ function emojiFontFaceCss() {
 }
 
 // Copy the woff2 source-of-truth into dist/fonts/ (text faces from assets/fonts/,
-// KaTeX glyphs from the package). Returns the set of filenames written so the
+// KaTeX glyphs from the math plugin's copy). Returns the set of filenames written so the
 // caller can prune anything stale. Idempotent.
 function syncDistFonts() {
   fs.mkdirSync(DIST_FONTS, { recursive: true });
@@ -411,13 +403,11 @@ function syncDistFonts() {
     fs.copyFileSync(path.join(ASSET_FONTS, name), path.join(DIST_FONTS, name));
     written.add(name);
   }
-  // KaTeX is a hard dependency today, but guard the resolve like every sibling
-  // (katexBaseCss/katexFontFiles/distFontsStale) so the bundle still builds —
-  // sans math glyphs — if it ever goes missing, instead of crashing the build.
+  // Guarded like every sibling (katexBaseCss/katexFontFiles/distFontsStale) so the bundle still
+  // builds — sans math glyphs — if the copy ever goes missing, instead of crashing the build.
   try {
-    const katexDir = path.dirname(require.resolve('katex/dist/katex.min.css'));
     for (const name of katexFontFiles()) {
-      fs.copyFileSync(path.join(katexDir, 'fonts', name), path.join(DIST_FONTS, name));
+      fs.copyFileSync(path.join(KATEX_FONTS, name), path.join(DIST_FONTS, name));
       written.add(name);
     }
   } catch (_e) {
@@ -435,10 +425,8 @@ function syncDistFonts() {
 function distFontsStale() {
   const want = new Map();
   for (const { file } of TEXT_FACES) want.set(`${file}.woff2`, path.join(ASSET_FONTS, `${file}.woff2`));
-  let katexDir;
   try {
-    katexDir = path.dirname(require.resolve('katex/dist/katex.min.css'));
-    for (const name of katexFontFiles()) want.set(name, path.join(katexDir, 'fonts', name));
+    for (const name of katexFontFiles()) want.set(name, path.join(KATEX_FONTS, name));
   } catch (_e) {
     /* katex absent — only text faces required */
   }
@@ -578,16 +566,6 @@ function bundle() {
   if (modifiers) {
     parts.push(`/* === ${MODIFIERS_SOURCE} === */`);
     parts.push(modifiers);
-  }
-  const syntax = readIfExists(SYNTAX_HIGHLIGHT_SOURCE);
-  if (syntax) {
-    parts.push(`/* === ${SYNTAX_HIGHLIGHT_SOURCE} === */`);
-    parts.push(syntax);
-  }
-  const chartFamily = readIfExists(CHART_FAMILY_SOURCE);
-  if (chartFamily) {
-    parts.push(`/* === ${CHART_FAMILY_SOURCE} === */`);
-    parts.push(chartFamily);
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {

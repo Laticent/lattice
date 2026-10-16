@@ -239,6 +239,52 @@
           "conference": 3,
           "hall": 2
         }
+      },
+      "strict": {
+        "byWords": {
+          "6": {
+            "laptop": 8,
+            "huddle": 7,
+            "conference": 5,
+            "hall": 4
+          },
+          "8": {
+            "laptop": 8,
+            "huddle": 7,
+            "conference": 5,
+            "hall": 4
+          },
+          "10": {
+            "laptop": 8,
+            "huddle": 7,
+            "conference": 5,
+            "hall": 4
+          },
+          "12": {
+            "laptop": 8,
+            "huddle": 7,
+            "conference": 5,
+            "hall": 2
+          },
+          "13": {
+            "laptop": 8,
+            "huddle": 7,
+            "conference": 3,
+            "hall": 2
+          },
+          "14": {
+            "laptop": 8,
+            "huddle": 3,
+            "conference": 3,
+            "hall": 2
+          },
+          "16": {
+            "laptop": 8,
+            "huddle": 3,
+            "conference": 3,
+            "hall": 2
+          }
+        }
       }
     }
   },

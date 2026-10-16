@@ -2,6 +2,9 @@
 origin: 2447
 priority: P2
 recorded: 2026-09-28
+area: infra
+severity: low
+swimlane: design/skills/cli.md
 source: https://github.com/Laticent/lattice/pull/2447
 ---
 

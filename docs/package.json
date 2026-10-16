@@ -10,11 +10,12 @@
     "showcase:check": "node scripts/rasterize-showcase.mjs --check",
     "dev": "npm run sync:portal && npm run sync:playground && astro dev",
     "start": "npm run sync:portal && npm run sync:playground && astro dev",
-    "build": "npm run showcase:check && npm run sync:portal && npm run sync:playground && astro build && node scripts/bake-newcomer-frame.mjs && node scripts/check-studio-shell.mjs && node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs && node scripts/check-route-budget.mjs",
+    "build": "npm run showcase:check && npm run sync:portal && npm run sync:playground && astro build && node scripts/bake-newcomer-frame.mjs && node scripts/check-studio-shell.mjs && node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs && node scripts/stable-island-uids.mjs && node scripts/check-route-budget.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro sync && tsc --noEmit",
     "check:vetrina": "tsc -p tsconfig.vetrina.json",
+    "check:fuoco": "tsc -p tsconfig.fuoco.json",
     "check:lente": "tsc -p tsconfig.lente.json",
     "check:segno": "tsc -p tsconfig.segno.json",
     "test": "vitest run",
@@ -76,13 +77,14 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "codemirror": "^6.0.2",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.16",
     "driver.js": "^1.4.0",
     "fuse.js": "^7.4.2",
     "harfbuzzjs": "^0.10.3",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
+    "lib0": "0.2.119",
     "lucide-react": "^1.18.0",
     "markdown-it": "^14.3.0",
     "pdf-lib": "^1.17.1",
@@ -105,10 +107,14 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.1",
+    "trystero": "0.26.0",
     "tw-animate-css": "^1.4.0",
     "web-vitals": "^4.2.4",
     "wink-porter2-stemmer": "^2.0.1",
     "woff2-encoder": "^2.0.0",
+    "y-codemirror.next": "0.3.6",
+    "y-protocols": "1.0.7",
+    "yjs": "13.6.33",
     "zdog": "^1.1.3"
   },
   "overrides": {
@@ -132,5 +138,6 @@
     "puppeteer-core": "^25.1.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
-  }
+  },
+  "private": true
 }

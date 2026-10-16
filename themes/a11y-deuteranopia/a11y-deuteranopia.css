@@ -1,0 +1,184 @@
+/* @theme a11y-deuteranopia
+ *
+ * Lattice · Accessibility — Deuteranopia (red-green, the common case)
+ * ────────────────────────────────────────────────────────────────────────
+ * A first-class, mode-invariant palette: pick `theme: a11y-deuteranopia` like
+ * any theme. All the shared machinery — fixed grayscale categorical ramp,
+ * texture wiring, status glyphs, forced light scheme — lives in a11y-base.css;
+ * this file overrides only the one thing that differs per type: the status trio.
+ *
+ * Color alone separates only ~1–2 categories under dichromacy, so the texture
+ * patterns (a11y-base) carry the categorical channel; color's one job is the
+ * status trio — pass/warn/fail moved OFF the red-green axis (blue / amber /
+ * deep-red), also luminance-separated so they survive a full red-green
+ * collapse. Verified CVD-distinct (OKLab ΔE ≥ 0.15 under deuteranopia AND
+ * protanopia) + AA by tools/cvd-audit.js. */
+
+@import 'a11y-base';
+
+:root {
+  /* PAIRED even though this palette is mode-invariant. The color-scheme pin in
+   * a11y-base (declared at BOTH `:root` and `:root:root` as of #1797 — the doubled form
+   * alone was inert on every PACKED path) makes the deck-wide dark TOGGLE inert, but TWO
+   * seams reach past it:
+   * a per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
+   * and the status-marker pseudo, which base.variants.css pins to
+   * `color-scheme: dark` on every title / closing / non-light divider — so the
+   * dark arm also paints the Confidential / WIP stamp on an otherwise LIGHT
+   * slide. Both seams were broken, with different numbers, so each is given its
+   * own: on redline's 12% band the flat light-tuned trio landed at
+   * pass/warn/fail 1.80 / 3.04 / 1.59:1; on the stamp, against the bookend's
+   * black, Confidential (--fail) sat at 1.95:1 and WIP/Draft (--warn) at 4.08:1.
+   *
+   * The dark arm is each curated hue lifted up the OKLab lightness axis, hue
+   * kept, by the smallest amount that clears AA on the surface it actually
+   * lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN over
+   * --bg-alt, so the background moves with the value. Measured on that band:
+   * pass 6.87:1, warn 9.82:1, fail 5.91:1 — and 5.42:1 for the deepest stack the
+   * component ships, that band on a .stacked card's own 5% tint. (`del` also
+   * carried `opacity:.85` when these were chosen; #1640 removed it, so the ink is
+   * no longer composited back toward its own band.)
+   * Separation under simulation is held at ΔE 0.162
+   * deutan / 0.191 protan — at or above the light trio's own 0.161 / 0.189,
+   * and both are checked because protanopia shares this trio.
+   *
+   * That separation is why these are curated rather than inherited, but it is
+   * NOT what was broken on this path: with the palette winning the engine
+   * cascade a dark slide already got THESE hues, just at 1.6:1. Base's trio
+   * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) was what the
+   * EXPORT path rendered while these arms sat inert there; #1527 flipped the order and
+   * they paint on both paths now. */
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1200 light /
+   * 0.1191 dark, from 0.0341 / 0.0511. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#054c86, #82bfff);
+  --warn: light-dark(#926300, #ffdcad);
+  --fail: light-dark(#5f0009, #e9716a);
+  --chart-state-pass: #054c86;
+  --chart-state-warn: #926300;
+  --chart-state-fail: #5f0009;
+  /* Diagram alarm — a deep-red attention signal (not a green/red pair). */
+  --diagram-critical: #5f0009;
+
+  /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
+   * Until now this palette declared NONE, so a11y-base's import of onyx handed
+   * it onyx's whole family: --syntax-string green at hue 144 deg beside
+   * --syntax-keyword red at 17 deg. That pair sits on the very red-green axis this
+   * palette exists to avoid. #1720 routed the Studio's EDITOR around it; a deck
+   * rendered on this palette still got the green strings.
+   *
+   * CONTRAST WAS NEVER THE PROBLEM. Every inherited value already cleared AA on
+   * this panel, which is why checkSyntaxContrast passed the whole time. SEPARATION
+   * UNDER THE CONDITION was: 21 of 66 role pairs were distinct to a
+   * normal-sighted reader and collapsed for the reader this palette is for, the
+   * worst at dE 0.0104 (built_in/variable). Two colors can both clear contrast and still be the
+   * same color to the person reading them.
+   *
+   *
+   * THE CENSUS ABOVE COUNTS ALL TWELVE ROLES, and a first cut of it did not — it omitted
+   * --syntax-builtin and so quoted the SECOND-smallest pair over 55 pairs instead of the
+   * smallest over 66. That was the wrong direction to be wrong in: built_in is where the
+   * worst inherited collapse is under every condition, including an EXACT dE 0.0000 tie
+   * with --syntax-type under achromatopsia (#70C0B8 and #90B8D0 both simulate to #B2B2B2)
+   * — the single strongest piece of evidence for this change, left out of its own table.
+   * Caught by an independent checker recomputing it (HARD RULE #25).
+   *
+   * The "after" figure quoted here is the CROSS-GROUP worst. Over all 56 distinct pairs
+   * the worst is comment/punctuation (deuteranopia 0.0575, protanopia 0.0541, tritanopia
+   * 0.0643) — both are quiet by design and that pair is checkSyntaxContrast's to police.
+   *
+   * THE PANEL IS AN INVERTED SURFACE, which decides the seeds. --code-bg
+   * resolves to --surface-inverse (#000000, inherited from onyx) while this
+   * palette forces color-scheme:light — so these are built from the DARK side of
+   * its curated status pair, not the light side the rest of the palette renders.
+   * The light-mode --pass (#004982 on deuteranopia) would be 1.5:1 here.
+   *
+   * SIX GROUPS, NOT TWELVE. A twelve-way color distinction does not survive a
+   * dichromacy and certainly not achromatopsia; inventing one is the defect, not
+   * the fix. Roles that cannot be told apart under this condition are made
+   * DELIBERATELY identical rather than accidentally so, and the six that remain
+   * are spaced on the axes that do survive: blue 250 deg / amber 76 deg — the pair this palette already curates as --pass / --warn, plus lightness.
+   * comment and punctuation are both quiet but NOT equal — checkSyntaxContrast
+   * polices that pair by name, after an earlier change collapsed them into one
+   * gray in eight palettes.
+   *
+   * --code-text (#D9D9D9, the panel's UN-highlighted text) is a FIXED member of
+   * the separation set: a role that collides with it is as unreadable as two
+   * roles colliding, and an earlier cut of this ladder put the string row two hex
+   * digits off it.
+   *
+   *
+   * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
+   * path, and the difference is the whole caveat:
+   *
+   *   lattice.js (the PDF / HTML-player EXPORT) used to concatenate
+   *     `paletteCSS + layoutCSS`, so the base loaded AFTER the theme and
+   *     lib/base/base.tokens.css's own --syntax-* WON. Measured on a rendered PDF of this
+   *     palette at the time: the `function` keyword sampled #C792EA, the BASE's
+   *     --syntax-keyword, byte-exact. #1527 flipped it and this palette's own value paints.
+   *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
+   *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
+   *     --syntax-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
+   *   The live slide preview (Studio + docs site) loads the theme last too, measured on
+   *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
+   *
+   * So these families paint on every path now. They painted on the engine path and the
+   * live preview first and on the export only after #1527 — an asymmetry a first cut of
+   * this comment described as flatly "the export path", too broad in one direction after
+   * being too narrow in the other.
+   * Measured on THESE values, simulated: worst pair dE 0.1194
+   * (structure/numeric), against 0.0104 for what was inherited. Lowest contrast on
+   * the panel 4.69:1. Gated by checkSyntaxSeparation, which
+   * measures the SIMULATED values — no existing gate did. .hljs-comment,
+   * .hljs-built_in and .hljs-title also carry font-style:italic from
+   * highlight-js.css, a second channel that survives every condition. */
+  --syntax-comment:     #777777;   /* comment */
+  --syntax-keyword:     #E39B00;   /* structure */
+  --syntax-builtin:     #E39B00;   /* structure */
+  --syntax-number:      #FFC56D;   /* numeric */
+  --syntax-constant:    #FFC56D;   /* numeric */
+  --syntax-string:      #89C3FF;   /* string */
+  --syntax-entity:      #E39B00;   /* structure */
+  --syntax-type:        #339EFE;   /* identifier */
+  --syntax-variable:    #339EFE;   /* identifier */
+  --syntax-parameter:   #339EFE;   /* identifier */
+  --syntax-markup:      #E39B00;   /* structure */
+  --syntax-punctuation: #888888;   /* punctuation */
+  /* The diff pair reuses two of this palette's groups (string blue against structure orange), so a diff's added and removed
+   * lines stay apart under the condition (checkSyntaxSeparation's diff arm). */
+  --syntax-inserted:    #89C3FF;
+  --syntax-deleted:     #E39B00;
+
+  /* ── HEATMAP RAMP — generated by tools/derive-chart-cat-ink.js ──
+   * The heatmap prints a value INSIDE each cell, which is text on a colored fill —
+   * the one placement the chart family does not otherwise guarantee contrast for.
+   * It can here because the ramp is QUANTIZED: five chosen stops rather than a
+   * continuum, so each stop carries an ink solved against the fill that actually
+   * appears under it. A stop sits at its even position unless the fill there is one
+   * no ink can reach, in which case it is nudged (at most 2% in the shipped set).
+   * The positions are plain numbers because they serve BOTH canvases; only the ink
+   * is a light-dark() pair. Do not hand-edit: `npm run build` regenerates over it.
+   * Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
+  --heatmap-step1: 18%;
+  --heatmap-step1-ink: light-dark(#3A3A3A, #BFBFBF);
+  --heatmap-step2: 36.5%;
+  --heatmap-step2-ink: light-dark(#333333, #BFBFBF);
+  --heatmap-step3: 55%;
+  --heatmap-step3-ink: light-dark(#0B0B0B, #EDEDED);
+  --heatmap-step4: 73.5%;
+  --heatmap-step4-ink: light-dark(#D4D4D4, #292929);
+  --heatmap-step5: 92%;
+  --heatmap-step5-ink: light-dark(#A7A7A7, #4A4A4A);
+  /* ── end heatmap ramp ── */
+}
+
+/* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
+ * retired the `:root:root` duplicate that used to reach the CLI export.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */

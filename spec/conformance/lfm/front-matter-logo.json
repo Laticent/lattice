@@ -1,0 +1,6 @@
+{
+  "title": "logo: puts the deck's logo on every slide",
+  "spec": "LFM-1.0",
+  "section": "2.3",
+  "L1": { "deck": { "logo": "./brand/logo.svg" } }
+}

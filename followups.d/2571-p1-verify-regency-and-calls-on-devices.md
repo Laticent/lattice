@@ -1,0 +1,19 @@
+---
+origin: 2571
+priority: P1
+recorded: 2026-10-07
+area: website
+severity: high
+swimlane: engineering/decisions/2026-10-06-studio-live-collaboration.md §8.1
+source: https://github.com/Laticent/lattice/pull/2571
+---
+
+# Verify the regency and calls on two real devices
+
+why now   — the first host's return (reload or frozen phone tab) and audio ran only on the in-memory network or with Chromium's fake microphone; real WebRTC renegotiation, echo between two devices and iOS Safari are unverified.
+where     — the PR preview link; design note §8.1 (runbook), §12.1 and §12.2; tools/live-session-check.mjs.
+done when — on two real devices: the host's phone locks for a minute, the other editor hosts, the phone wakes and takes the session back with chat intact; and a two-person call with mute and the speaking ring works, including on an iPhone.
+evidence  — screenshots from both devices of each step, recorded in §12.1 / §12.2.
+verify    — tier 0; the owner runs it (pairs with 2547-p1-verify-live-on-two-real-networks).
+
+progress  — 2026-10-13 (#2633): the owner ran an iPhone host and a tablet on cellular and wifi: calls connect and stay up, and volume above 100 % works on the iPhone. Still open: the regency (host handoff) on devices, and two networks without a hotel-style isolation.

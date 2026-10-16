@@ -414,6 +414,24 @@ function build() {
       ])));
     });
 
+    // ── A HUB-SPOKE ICON — a drawing on a disc, so it takes the ink its disc clears ──
+    // The icon (`{icon=…}`, engineering/decisions/2026-09-29-inline-icons.md § 14) is a sibling
+    // of its disc, not a child, so it cannot read the disc's paint. Its ink is fixed per mode
+    // for the shipped bodies and clears 3:1 there; under a finish the disc takes the bodies
+    // above, and measured, no fixed ink held (a pigment group disc 2.27:1 on onyx dark, an
+    // etching status disc 1.62:1). So the icon picks black or white from the SAME body this
+    // finish gives its disc (the group rule and the status rule above, read from the same
+    // tables, so the two cannot drift), and waits on relative color like every text ink here.
+    w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');
+    const iconInk = ([a, b]) => ld(inkOn(a), inkOn(b));
+    for (const n of SLOTS) {
+      const arms = tone ? [mix(ONE, `${TONE[n - 1]}%`), mix(ONE, `${TONE[n - 1]}%`)] : [mix(hueOf(n), `${f.body[0]}%`), mix(hueOf(n), `${f.body[1]}%`)];
+      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${iconInk(arms)}`])));
+    }
+    const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
+    const sArms = tone ? [mix(hsStatus.hue, `${TONE[2]}%`), mix(hsStatus.hue, `${TONE[2]}%`)] : [mix(hsStatus.hue, `${f.body[0]}%`), mix(hsStatus.hue, `${f.body[1]}%`)];
+    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${iconInk(sArms)}`])));
+
     // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
     // A gradient here reads as a fourth color where two polygons cross.
     w('\n/* LAYERED — a flat alpha of the series body; the edge carries the series. */');

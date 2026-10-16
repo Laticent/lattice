@@ -1,0 +1,93 @@
+---
+// The Libraries hub — the one place on the site that introduces every library. Each card is
+// built from that library's catalog entry (src/content/catalog/libraries/), so the hub, the
+// demo page's bar and the Learn page can't disagree. Grouped by the job each one does, so a
+// visitor can find "the one for my problem" without knowing any of the names.
+import { getCollection } from 'astro:content';
+import CatalogLayout from '../../layouts/CatalogLayout.astro';
+import CatalogCard from '../../components/catalog/CatalogCard.astro';
+import { joinBase } from '../../lib/base-url.mjs';
+import { byOrder } from '../../lib/catalog.mjs';
+
+const url = (p) => joinBase(import.meta.env.BASE_URL, p);
+const libs = (await getCollection('catalog', (e) => e.data.kind === 'library')).sort(byOrder);
+const groups = [...new Set(libs.map((l) => l.data.group ?? 'More'))].map((g) => ({
+	name: g,
+	items: libs.filter((l) => (l.data.group ?? 'More') === g),
+}));
+const count = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][libs.length] ?? String(libs.length);
+---
+
+<CatalogLayout
+	title="Libraries — the parts Lattice is built from"
+	description={`${count} small, framework-free libraries for audio, captions, product tours, diagrams, parsing, office export and live editing. Each has a live demo and a plain-language guide.`}
+>
+	<section class="cat-hero">
+		<div class="wrap">
+			<div class="cat-hero-inner">
+				<p class="cat-eyebrow">Libraries</p>
+				<h1 class="cat-h1">{count} small libraries, each for one job.</h1>
+				<p class="cat-lede">
+					Lattice is built from parts you can lift into your own app. None of them imports anything from Lattice
+					or needs a framework, and each one has a live demo you can try in under a minute. You'll see two names
+					throughout: the Studio, Lattice's editor in the browser, and the Playground, the try-it page on this site.
+				</p>
+				<ul class="cat-traits" aria-label="What they have in common">
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> No framework required</li>
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> At most one required dependency</li>
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> TypeScript types included</li>
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> Coming to npm with Lattice 1.0</li>
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-label="The libraries" style="padding-top: 0">
+		<div class="wrap cat-groups">
+			{groups.map((g) => (
+				<section class="cat-group" aria-labelledby={`g-${g.name.replace(/\W+/g, '-')}`}>
+					<h2 class="cat-group-title" id={`g-${g.name.replace(/\W+/g, '-')}`}>{g.name}</h2>
+					<ul class="cat-cards">
+						{g.items.map((e) => <CatalogCard entry={e} />)}
+					</ul>
+				</section>
+			))}
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="in-lattice">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="in-lattice">Where you'll meet them in Lattice</h2>
+				<p>Each library started as a part of Lattice and was cut free once it could stand alone. This is where each one still works today.</p>
+			</div>
+			<div class="cat-table-wrap" tabindex="0">
+				<table class="cat-table">
+					<thead><tr><th scope="col">Library</th><th scope="col">What it does in Lattice</th></tr></thead>
+					<tbody>
+						{libs.map((l) => (
+							<tr><th scope="row"><a href={url(`libraries/${l.id.split('/').pop()}/learn/`)}>{l.data.name}</a></th><td>{l.data.inLattice}</td></tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="formats">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="formats">Looking for the file formats?</h2>
+				<p>
+					Some of these libraries read and write open formats that are written down as specs, so another tool can
+					implement them too. Cadenza and Vetrina share <a href={url('spec/ltt/')}>LTT</a>, the timing format for
+					narrated decks and tours. All the specs live in the <a href={url('overview/')}>docs</a>.
+				</p>
+			</div>
+			<div class="cat-actions">
+				<a class="cat-btn" href={url('spec/ltt/')}>Read the LTT 1.0 spec <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+				<a class="cat-btn" href={url('plugins/')}>See the plugins <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+			</div>
+		</div>
+	</section>
+</CatalogLayout>

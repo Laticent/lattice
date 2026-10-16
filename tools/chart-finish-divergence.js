@@ -118,7 +118,7 @@ function main() {
         const deck = path.join(tmp, `${tag}.md`);
         const src = v.css.trim() ? `<style>\n${v.css.trim()}\n</style>\n\n` : '';
         fs.writeFileSync(deck, src + (args.dark ? injectDark(md) : md));
-        execFileSync(process.execPath, [path.join(REPO, 'dist/lattice-emulator.js'), deck, path.join(tmp, `${tag}.png`), theme], {
+        execFileSync(process.execPath, [path.join(REPO, 'dist/lattice.js'), deck, path.join(tmp, `${tag}.png`), theme], {
           stdio: ['ignore', 'ignore', 'inherit'],
         });
         shot[theme][v.id] = {};

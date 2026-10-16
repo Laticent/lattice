@@ -1,28 +1,29 @@
 #!/usr/bin/env node
 
 /**
- * build-decisions-index.js — regenerate the "Current notes" index in
- * engineering/decisions/README.md from each note's YAML front-matter.
+ * build-decisions-index.js — generate dist/engineering/decisions.md from each note's front-matter.
  *
- * Why this exists: a hand-maintained index drifts (entries go stale, statuses
- * lie, new notes never get listed). The front-matter is the single source of
- * truth; this renders it. See engineering/decisions/README.md § Status lifecycle
- * and engineering/decisions/2026-06-17-workflow-efficiency-review.md §A.
+ * Why this exists: a hand-maintained index drifts (entries go stale, statuses lie, new
+ * notes never get listed). The front-matter is the single source of truth; this renders
+ * it. See engineering/decisions/README.md § Status lifecycle.
  *
- * WHAT A ROW CARRIES — a one-line GIST, not the whole summary. The index is a
- * pick-list: its job is to get a reader to the right note, and the note itself is
- * where the full account lives. Rendering every `summary:` in full made this file
- * 395 KB (96k tokens, measured) — an index that cost more to read than the five notes
- * anyone actually wanted, so in practice nobody read it and the record it indexes
- * went unfound. `gistFor` cuts each summary to its first sentence, capped at
- * GIST_CAP characters. Nothing is lost: the full summary is in the note's own
- * front-matter, one click (or one `head`) away, and the one-line form makes the
- * index GREPPABLE — `grep -i mermaid README.md` now returns lines, not paragraphs.
- * That grep IS the access pattern `CLAUDE.md` prescribes, and it is what the index is
- * budgeted against: see `ROW_CAP` below for why the budget is per-row and not per-file.
+ * WHY THE OUTPUT IS NOT COMMITTED. The index is built from EVERY note, so a committed copy
+ * is a file every decision-doc PR rewrites. That made it one of the two most-collided
+ * files in the repo (12 of the 50 commits to 2026-10-09), and it grew a merge driver
+ * (`merge=union`, which GitHub ignores), a deliberately weakened `--check` (#1547) and a
+ * slug sort order, all to survive two PRs sharing the merge queue. The notes are already
+ * one file each; the index is now built where it is read, like the rest of dist/:
+ * `npm install` (prepare), the SessionStart hook and `npm run build` all write it.
+ * Record: engineering/decisions/2026-10-09-generated-indexes-uncommitted.md.
  *
- * Each note (engineering/decisions/YYYY-MM-DD-*.md, excluding README.md) must
- * carry front-matter:
+ * WHAT A ROW CARRIES — a one-line GIST, not the whole summary. The index is a pick-list:
+ * its job is to get a reader to the right note. `gistFor` cuts each summary to its first
+ * sentence, capped at GIST_CAP characters, which keeps the index GREPPABLE — `grep -i
+ * mermaid dist/engineering/decisions.md` returns lines, not paragraphs. See `ROW_CAP` below for
+ * why the budget is per-row and not per-file.
+ *
+ * Each note (engineering/decisions/YYYY-MM-DD-*.md, excluding README.md) must carry
+ * front-matter:
  *   ---
  *   status: proposed | in-progress | blocked | shipped | superseded
  *   summary: one line, no trailing period needed
@@ -30,100 +31,31 @@
  *   ---
  * `created` is derived from the filename date (not duplicated in front-matter).
  *
- * `summary` may also be written as a YAML BLOCK SCALAR, which is what most notes
- * reach for once the summary outgrows a comfortable single line:
- *   ---
- *   status: shipped
- *   summary: >
- *     The first line of a summary that would be unreadable
- *     as one 1,500-character line.
- *   ---
- * Folded (`>`) and literal (`|`) headers are both accepted, with or without
- * indentation/chomping indicators, and both collapse to the one line the index
- * row renders. A header with no indented block beneath it is an ERROR, not a
- * silently empty row.
+ * `summary` may also be written as a YAML BLOCK SCALAR (`>` folded or `|` literal, with
+ * or without indentation/chomping indicators); both collapse to the one line the row
+ * renders. A header with no indented block beneath it is an ERROR, not an empty row.
  *
  * Usage:
- *   node tools/build-decisions-index.js            # rewrite the README index
- *   node tools/build-decisions-index.js --check    # exit 1 if the index is wrong
- *                                                   # about a note, or any note
- *                                                   # is malformed
+ *   node tools/build-decisions-index.js            # write dist/engineering/decisions.md
+ *   node tools/build-decisions-index.js --check    # validate the NOTES; exit 1 on a
+ *                                                   # malformed note or an oversize row
  *
- * WRITE and CHECK are deliberately not the same assertion (#1547). Write emits the
- * canonical block — one sorted, fully-normalized rendering. Check verifies something
- * weaker on purpose: every note has its own correct row, in the right group, and no
- * row is orphaned or duplicated. It does NOT assert row ORDER, and the block carries
- * no totals for it to assert.
- *
- * Why weaker: this file is GENERATED FROM EVERY NOTE and COMMITTED, so a PR adding a
- * note commits an index that is only correct until the next decision-doc PR merges.
- * The merge queue rebases onto current `main` and re-runs CI there, so the second PR
- * to merge failed `build:check` inside the queue and was ejected — green on its own
- * head, red on a `main` it had never seen, with the ejection silently clearing its
- * auto-merge flag.
- *
- * What decides which shape the race takes is WHERE THE TWO ROWS INSERT, and nothing
- * else. Measured with `git merge-file`: two insertions at the SAME position conflict,
- * and two at ANY different positions merge cleanly — even immediately adjacent ones.
- * Rows USED TO sort by date descending then filename (they sort by topic slug now —
- * see `bySlug` for why), and under that order:
- *
- *   - the two new notes sort as IMMEDIATE NEIGHBORS, nothing already between them →
- *     one insertion point → a textual git CONFLICT. Visible on the PR and resolved
- *     mechanically (HARD RULE #16) — but resolving it by keeping both sides leaves the
- *     rows in MERGE order, not sort order, which a byte-comparison would reject in
- *     turn.
- *
- *     THIS PARAGRAPH USED TO CALL THAT THE RARE CASE — "it needs the two notes to be
- *     neighbors among ~380" — AND THAT WAS WRONG. Neighborliness is not a lottery over
- *     the corpus, because rows sort DATE-DESCENDING: a note carrying today's date sorts
- *     above every existing note in its status group. Two notes written the same day into
- *     the same group are therefore ALWAYS immediate neighbors, whatever their filenames,
- *     and that is the ordinary shape of two concurrent decision-doc PRs. Measured with
- *     real branches off `main`: same date with far-apart filenames CONFLICTS, both dated
- *     today CONFLICTS, and only a third note already sorting BETWEEN them merges cleanly.
- *     It is now handled by a `merge=union` driver in `.gitattributes` (see the long note
- *     there, and `engineering/decisions/2026-09-14-the-decision-index-merges-as-a-union.md`)
- *     rather than by hand — but ONLY LOCALLY. GitHub ignores merge drivers, so the PR
- *     still showed `dirty` and got no CI run (#2466 §4b). The slug order is the fix on
- *     GitHub's terms: it makes "nothing already between them" the rare case it was
- *     once wrongly assumed to be. Measured, not assumed:
- *     `engineering/decisions/2026-09-29-decision-index-rows-scatter.md`.
- *   - the two notes are in DIFFERENT STATUS GROUPS → the footer USED TO count each
- *     group separately, so the two sides rewrote that line to DIFFERENT text and git
- *     raised an ordinary conflict. With the tally gone (#1547) they merge cleanly.
- *   - ANY other placement → git merges the two rows CLEANLY, both present and both
- *     correct, and (before #1547 deleted it) the ONLY thing wrong in the merged file was the footer's
- *     `_N notes — …_` tally: both sides rewrote that one line to the same `+1` text,
- *     so git took it without a conflict and the count came out one short. This is the
- *     common case, and the SILENT one. It is what ejected #1535 — whose two notes
- *     shared a date but had a third same-date note sorting between them.
- *
- * DATES do not decide it, which is worth stating because it is the intuitive guess and
- * #1535 is its counterexample: same-date notes merge cleanly when anything sorts
- * between them, and different-date notes conflict when nothing does.
- *
- * The fix is therefore two independent halves, closing different cases:
- *
- *   - DELETING THE TALLY closes the silent case. An aggregate over every note is the
- *     one line two concurrent PRs cannot both be right about, and a number that must be
- *     forgiven when wrong is worse than no number; the rows are the record. With it
- *     gone a cleanly-merged index is byte-canonical again on its own — so this half
- *     would work even without the second.
- *   - RELAXING ROW ORDER closes the conflict case, by making a keep-both-sides
- *     resolution legal without a regeneration.
- *
- * Everything a PR can actually be held responsible for — its own note's row — is still
- * gated, and a note missing from the index still fails.
+ * WRITE never fails on a bad note: it skips the note, warns, and writes the rest, because
+ * it runs inside `npm install` and one malformed note must not break every install on a
+ * branch. CHECK is the gate, and it reads the notes, never the output — there is no
+ * committed output to compare against, so a PR is held to exactly its own notes.
+ * tools/build.js runs it in `build:check` through the step's `validates` tag.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 
 const DIR = path.join(__dirname, '..', 'engineering', 'decisions');
-const README = path.join(DIR, 'README.md');
-const BEGIN = '<!-- decisions-index:begin -->';
-const END = '<!-- decisions-index:end -->';
+const OUT = path.join(__dirname, '..', 'dist', 'engineering', 'decisions.md');
+// Rows link from dist/engineering/ back to the notes. The prefix is constant, so `ROW_CAP`
+// measures the row WITHOUT it: the cap governs what an author controls (the filename and
+// the gist), not where the build happens to put the file.
+const LINK_BASE = '../../engineering/decisions/';
 
 // Closed status vocabulary → display glyph + which index group it lands in.
 const STATUS = {
@@ -142,17 +74,12 @@ const GROUPS = [
   ['shipped', '### Shipped — the work landed; the note stays as the record'],
   ['historical', '### Historical — superseded'],
 ];
-const HEADING_GROUP = new Map(GROUPS.map(([group, heading]) => [heading, group]));
 
-// The block's closing line. It deliberately carries NO totals — see the header
-// comment: a tally over every note is the one line two concurrent decision-doc PRs
-// cannot both be right about, and it is what ejected #1535 from the merge queue.
+// The closing line.
 const FOOTER =
   "_Generated by `npm run decisions:index` from each note's front-matter — edit the " +
-  'front-matter, not this list. Each row is a one-line GIST (first sentence, capped); ' +
-  "the full summary is in the note's own front-matter. No totals here on purpose: an " +
-  'aggregate over every note is the one line two concurrent decision-doc PRs cannot ' +
-  'both get right (#1547)._';
+  'front-matter, not this file; it is rebuilt on every install and never committed. Each row ' +
+  "is a one-line GIST (first sentence, capped); the full summary is in the note's own front-matter._";
 
 const NAME_RE = /^(\d{4}-\d{2}-\d{2})-.*\.md$/;
 
@@ -251,10 +178,6 @@ function collect() {
       errors.push(`${file}: summary: is missing or empty — give it one line, or a \`>\` block with the text indented beneath it`);
       continue;
     }
-    if (fm.summary.includes(BEGIN) || fm.summary.includes(END)) {
-      errors.push(`${file}: summary must not contain the index marker comment`);
-      continue;
-    }
     notes.push({ file, created: nm[1], status: fm.status, summary: fm.summary, supersededBy: fm['superseded-by'] });
   }
   return { notes, errors };
@@ -331,9 +254,9 @@ function gistFor(summary) {
  * what a correct entry looks like. Carries a GIST, not the full summary (see the
  * header): the index is a pick-list, the note is the record.
  */
-function rowFor(note) {
-  const tail = note.supersededBy ? ` → [${note.supersededBy}](${note.supersededBy})` : '';
-  return `- ${STATUS[note.status].glyph} [${note.file}](${note.file}) — ${gistFor(note.summary)}${tail}`;
+function rowFor(note, base = '') {
+  const tail = note.supersededBy ? ` → [${note.supersededBy}](${base}${note.supersededBy})` : '';
+  return `- ${STATUS[note.status].glyph} [${note.file}](${base}${note.file}) — ${gistFor(note.summary)}${tail}`;
 }
 
 /**
@@ -413,220 +336,62 @@ function bySlug(a, b) {
   return 0;
 }
 
+const PREAMBLE = [
+  '<!-- Generated by tools/build-decisions-index.js — DO NOT EDIT, and do not commit (dist/ is ignored). -->',
+  '',
+  '# Decision notes — the index',
+  '',
+  'One row per note in `engineering/decisions/`, grouped by status and sorted A–Z by topic ' +
+    'slug (the filename after its date) inside each group. `grep` it for a topic, then open ' +
+    'the two or three notes it names; a row is a GIST, so for a term that is not in one, ' +
+    'search the notes themselves: `grep -rln <term> engineering/decisions/`. For the newest ' +
+    'notes, list the folder: `ls engineering/decisions/20*.md | tail`. How to write a note: ' +
+    '[engineering/decisions/README.md](../../engineering/decisions/README.md).',
+  '',
+];
+
 function render(notes) {
-  const lines = [BEGIN, ''];
+  const lines = [...PREAMBLE];
   for (const [group, heading] of GROUPS) {
     const inGroup = notes
       .filter((n) => STATUS[n.status].group === group)
       .sort(bySlug);
     if (!inGroup.length) continue;
     lines.push(heading, '');
-    for (const n of inGroup) lines.push(rowFor(n));
+    for (const n of inGroup) lines.push(rowFor(n, LINK_BASE));
     lines.push('');
   }
-  lines.push(FOOTER, '', END);
+  lines.push(FOOTER, '');
   return lines.join('\n');
 }
 
-// A row line, only far enough to recover which note it claims to be about. The
-// glyph is `\S+` rather than a class of the five known ones so an unknown glyph
-// reads as a WRONG row for a known note (a status drift the reader can act on)
-// instead of an unparsable line.
-const ROW_RE = /^- \S+ \[([^\]]+)\]\(/;
-
-/**
- * Read the committed block back into the three things `verify` judges: which
- * headings are present, which rows sit under each, and the closing line.
- * Anything else non-blank inside the markers comes back in `stray` — which is
- * what catches an unresolved conflict marker, hand-edited prose, or a row
- * mangled past recognition.
- */
-function parseIndex(readme) {
-  const b = readme.indexOf(BEGIN);
-  const e = readme.indexOf(END);
-  if (b === -1 || e === -1 || e < b) {
-    throw new Error(`README.md is missing or has out-of-order ${BEGIN} / ${END} markers — add them, in order, under "## Current notes".`);
-  }
-  // Tolerate a CRLF-saved README, exactly as `frontMatter` does. Without this every
-  // line keeps a trailing \r, so no heading and no footer compares equal and the block
-  // reports a dozen problems that name anything but the line endings — the same
-  // diagnostic rabbit hole this file already paid for once on the front-matter side.
-  // A SECOND begin marker inside the block means a duplicated index was appended. `splice`
-  // is bounded by the FIRST begin/end pair, so a stray copy is never rewritten — it would sit
-  // there permanently, with rows for notes that may not exist.
-  if (readme.indexOf(BEGIN, b + BEGIN.length) !== -1 || readme.indexOf(END, e + END.length) !== -1) {
-    return { headings: [], rows: [], stray: ['a second decisions-index marker pair is present — only the first is ever regenerated'], footer: null, footers: 0, blankRuns: true };
-  }
-  const body = readme.slice(b + BEGIN.length, e).replace(/\r\n?/g, '\n').split('\n');
-  const headings = [];
-  const rows = []; // { group, file, line }
-  const stray = [];
-  let footer = null;
-  let footers = 0;
-  let group = null;
-  // A generated markdown list needs its blank lines: with them stripped, the closing line
-  // becomes a lazy continuation INSIDE the last list item and the block renders as one
-  // run-on bullet. The gate is the only thing standing between that and a committed file.
-  // Only a blank BETWEEN two content lines counts. The newline before the end marker is
-  // always there and says nothing.
-  let blankRuns = false;
-  let seenContent = false;
-  let pendingBlank = false;
-  for (const line of body) {
-    if (!line.trim()) { if (seenContent) pendingBlank = true; continue; }
-    if (pendingBlank) { blankRuns = true; pendingBlank = false; }
-    seenContent = true;
-    if (HEADING_GROUP.has(line)) {
-      headings.push(line);
-      group = HEADING_GROUP.get(line);
-      continue;
-    }
-    const m = line.match(ROW_RE);
-    if (m) {
-      rows.push({ group, file: m[1], line });
-      continue;
-    }
-    if (line === FOOTER) {
-      footers += 1;
-      footer = line;
-      continue;
-    }
-    stray.push(line);
-  }
-  return { headings, rows, stray, footer, footers, blankRuns };
-}
-
-/**
- * The CHECK assertion — weaker than `render` on purpose (#1547; see the header).
- *
- * Holds every PR to the part of the index it is actually responsible for: its own
- * note's row, rendered exactly, under the right heading, exactly once. Says nothing
- * about the order rows appear in, because two PRs merging in either order cannot
- * agree on that and neither of them is wrong.
- *
- * Returns a list of human-readable problems; empty means the index is faithful.
- */
-function verify(readme, notes) {
-  const { headings, rows, stray, footer, footers, blankRuns } = parseIndex(readme);
-  const problems = [];
-
-  // Stray lines are reported BEFORE the empty-scan guard: a structural problem (a second
-  // marker pair) makes `rows` empty by design, and returning "the block is empty" instead of
-  // naming the real cause sends the reader looking in the wrong place.
-  for (const line of stray) problems.push(`unrecognized line inside the index block: ${line.slice(0, 120)}`);
-
-  // Fail loud on an empty scan: with notes on disk and no rows parsed, every check
-  // below is vacuously clean, and a gate that cannot fail is also a claim.
-  if (notes.length && !rows.length) {
-    if (!problems.length) problems.push('the committed index has no entries at all — the block is empty, or its rows no longer parse');
-    return problems;
-  }
-
-  const byFile = new Map();
-  for (const row of rows) {
-    if (!byFile.has(row.file)) byFile.set(row.file, []);
-    byFile.get(row.file).push(row);
-  }
-
-  for (const note of notes) {
-    const found = byFile.get(note.file);
-    if (!found) {
-      problems.push(`${note.file}: no entry in the index — run \`npm run decisions:index\` and commit`);
-      continue;
-    }
-    if (found.length > 1) {
-      problems.push(`${note.file}: ${found.length} entries in the index — it must appear exactly once`);
-      continue;
-    }
-    const [row] = found;
-    const want = rowFor(note);
-    const wantGroup = STATUS[note.status].group;
-    if (row.group !== wantGroup) {
-      problems.push(`${note.file}: listed under "${row.group ?? '(no heading)'}" but status ${note.status} belongs in "${wantGroup}"`);
-    } else if (row.line !== want) {
-      problems.push(`${note.file}: entry does not match its front-matter\n      index: ${row.line}\n      note:  ${want}`);
-    }
-  }
-
-  const onDisk = new Set(notes.map((n) => n.file));
-  for (const file of byFile.keys()) {
-    if (!onDisk.has(file)) problems.push(`${file}: listed in the index but there is no such note — delete the entry`);
-  }
-
-  // Exactly the non-empty groups, each exactly ONCE. Set membership in both directions
-  // is not enough: it accepts a duplicated heading, which silently splits a group's rows
-  // into two sections that both verify clean.
-  const wantHeadings = GROUPS.filter(([g]) => notes.some((n) => STATUS[n.status].group === g)).map(([, h]) => h);
-  for (const h of wantHeadings) {
-    const seen = headings.filter((x) => x === h).length;
-    if (!seen) problems.push(`missing group heading: ${h}`);
-    else if (seen > 1) problems.push(`group heading appears ${seen} times — it must appear once: ${h}`);
-  }
-  for (const h of new Set(headings)) if (!wantHeadings.includes(h)) problems.push(`group heading present but its group is empty: ${h}`);
-
-  if (!footer) problems.push('the closing line is missing or edited — regenerate with `npm run decisions:index`');
-  else if (footers > 1) problems.push(`the closing line appears ${footers} times — it must appear once`);
-  // Without its blank lines the block is still parseable here but renders as one run-on
-  // bullet, with the closing line swallowed into the last list item.
-  if (rows.length && !blankRuns) problems.push('the index block has no blank lines — markdown needs them, or the list renders as one run-on item with the closing line inside it');
-
-  return problems;
-}
-
-function splice(readme, block) {
-  const b = readme.indexOf(BEGIN);
-  const e = readme.indexOf(END);
-  if (b === -1 || e === -1 || e < b) {
-    throw new Error(`README.md is missing or has out-of-order ${BEGIN} / ${END} markers — add them, in order, under "## Current notes".`);
-  }
-  return readme.slice(0, b) + block + readme.slice(e + END.length);
-}
-
-function main(argv) {
+// `out` is injectable ONLY so the tests can drive the real CLI path against a temp file.
+function main(argv, { out = OUT } = {}) {
   const check = argv.includes('--check');
   const { notes, errors } = collect();
-  if (errors.length) {
-    process.stderr.write(`decisions-index: ${errors.length} malformed note(s):\n`);
-    for (const e of errors) process.stderr.write(`  ✗ ${e}\n`);
-    return 1;
-  }
-
-  // The per-row cost cap fails BOTH modes: write must not emit a row it would then
-  // refuse to certify, and the author needs to hear it from `npm run decisions:index`
-  // rather than from a gate two commands later.
   const oversize = rowCostProblems(notes);
-  if (oversize.length) {
-    process.stderr.write(`decisions-index: ${oversize.length} row(s) over the ${ROW_CAP}-character cap:\n`);
-    for (const p of oversize) process.stderr.write(`  ✗ ${p}\n`);
-    return 1;
-  }
+  const problems = [...errors, ...oversize];
 
-  const readme = fs.readFileSync(README, 'utf8');
-
-  // CHECK asserts only what a single PR can be held responsible for (#1547) —
-  // never a byte-comparison against a full regeneration, which no PR sharing the
-  // merge queue with another decision-doc PR can satisfy.
   if (check) {
-    const problems = verify(readme, notes);
     if (!problems.length) {
-      process.stdout.write(`decisions-index OK — ${notes.length} notes, each with its own entry.\n`);
+      process.stdout.write(`decisions-index OK — ${notes.length} notes, each well-formed.\n`);
       return 0;
     }
-    process.stderr.write(`decisions-index WRONG — ${problems.length} problem(s) in engineering/decisions/README.md:\n`);
+    process.stderr.write(`decisions-index: ${problems.length} problem(s) in engineering/decisions/:\n`);
     for (const p of problems) process.stderr.write(`  ✗ ${p}\n`);
-    process.stderr.write('Run `npm run decisions:index` and commit.\n');
+    process.stderr.write(
+      `A row over ${ROW_CAP} characters: shorten the note's filename slug. A malformed note: fix its front-matter.\n`,
+    );
     return 1;
   }
 
-  const next = splice(readme, render(notes));
-  if (next === readme) {
-    process.stdout.write(`decisions-index OK — ${notes.length} notes, index already current.\n`);
-    return 0;
-  }
-  fs.writeFileSync(README, next);
-  process.stdout.write(`decisions-index: rewrote ${notes.length} notes into engineering/decisions/README.md\n`);
+  // Write never fails on a note (see the header): warn, skip, write the rest.
+  for (const p of problems) process.stderr.write(`decisions-index: ⚠ ${p}\n`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, render(notes));
+  process.stdout.write(`decisions-index: wrote ${notes.length} notes into ${path.relative(path.join(__dirname, '..'), out)}\n`);
   return 0;
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { frontMatter, collect, render, rowFor, gistFor, rowCostProblems, parseIndex, verify, splice, STATUS, FOOTER, GIST_CAP, ROW_CAP };
+module.exports = { frontMatter, collect, render, rowFor, gistFor, rowCostProblems, main, STATUS, FOOTER, GIST_CAP, ROW_CAP, OUT, LINK_BASE };

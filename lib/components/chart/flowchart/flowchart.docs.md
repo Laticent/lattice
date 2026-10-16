@@ -20,7 +20,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading: name the takeaway, not the diagram. |
 | `eyebrow` | `p > code` | no | Optional eyebrow naming the system or domain. |
-| `shapes` | `ul > li` | yes | One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\{#kyc, diamond, c2}`. |
+| `shapes` | `ul > li` | yes | One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\{#kyc, diamond, c2}`. An icon from the icons plugin draws beside the name: `icon=gateway` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A group draws no icon. |
 | `groups` | `li > ul` | no | A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `cN` on a group tints it. Groups nest. A line can start or end at a group. |
 | `connections` | `li` | no | An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning "from the item this row sits under", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `dashed` `dotted` `open` `dot` `cross` `loose` `cN`, several in one record (`\{dotted, cross}`). |
 | `detail` | `li > blockquote` | no | A `>` blockquote under a shape is its HIDDEN DETAIL, the house style both graph charts share: the slide never shows it. It appears when the shape is hovered or tapped in Present, Practice and Preview (the shape carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
@@ -33,6 +33,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 - **`lr`.** The flow must read left to right whatever the stage shape (a pipeline, a data flow). On a portrait deck `lr` falls back to `tb`, because a row cannot fit a tall box.
 - **`tb`.** The flow must read top to bottom (an org chart, a decision tree).
 - **`curved`.** Softer, generously rounded corners fit the deck's tone better than tight elbows. A paint setting only: the lines are still the router's, and never cross a shape.
+- **`rearrange`.** A long flow wraps and its lines cross, and where each shape sits matters more than the order you wrote them in: a detour written last moves beside the step it leaves. The chart moves a shape only when that draws a cleaner chart (fewer crossings, or a line no longer through a shape), so with nothing to fix it draws as before.
 
 ### Common mistakes
 
@@ -132,6 +133,23 @@ Generously rounded corners on the router's lines.
 - Page on-call `fail`
   - -ack-> Mitigate
 - Open ticket -> Mitigate
+```
+
+### `rearrange` — Rearrange
+
+Shapes may leave their written order when that draws a cleaner chart.
+
+```markdown
+<!-- _class: flowchart rearrange -->
+
+## rearrange lets a detour sit beside the step it leaves.
+
+- Lead `pill` => Qualify => Demo => Proposal => Negotiate => Sign => Onboard => Renew
+- Renew `pill`
+- Negotiate -legal review-> Legal
+- Legal -cleared-> Sign
+- Demo -needs trial-> Trial
+- Trial -converted-> Proposal
 ```
 
 ## Universal modifiers

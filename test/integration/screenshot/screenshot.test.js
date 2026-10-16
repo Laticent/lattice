@@ -1,7 +1,7 @@
 /**
  * Integration: end-to-end screenshot pipeline.
  *
- * Renders a small fixture deck via lattice-emulator (HTML sidecar
+ * Renders a small fixture deck via lattice (HTML sidecar
  * dropped alongside the PDF), then runs tools/screenshot-slides.js
  * against it. Asserts the resulting PNGs exist at the expected
  * dimensions for the requested scale factor, and that selectors
@@ -22,7 +22,7 @@ const { spawnSync } = require('child_process');
 
 describe('screenshot', () => {
   const ROOT       = path.join(__dirname, '..', '..', '..');
-  const EMULATOR   = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR   = path.join(ROOT, 'lattice.js');
   const SCREENSHOT = path.join(ROOT, 'tools', 'screenshot-slides.js');
   const FIXTURE    = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');
 
@@ -55,7 +55,8 @@ describe('screenshot', () => {
     const dir = tmpDir();
     const pdf = path.join(dir, 'deck.pdf');
     const html = path.join(dir, 'deck.html');
-    const r = run(EMULATOR, [FIXTURE, pdf, '--quiet']);
+    // `--keep-html`: the sidecar is the screenshot source, and it is deleted on success by default (P1).
+    const r = run(EMULATOR, [FIXTURE, pdf, '--quiet', '--keep-html']);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.ok(fs.existsSync(html), `expected HTML sidecar at ${html}`);
     return { dir, html, pdf };

@@ -86,13 +86,19 @@ vi.mock('./read-aloud', () => ({
 	stopTtsPreview: vi.fn(async () => {}),
 }));
 
-// The backup's save, held so a test can play the desktop dialog: 'saved', or 'cancelled'
-// when the author dismisses it. Pack is stubbed; the real one reads IndexedDB.
-const saveBlobSpy = vi.hoisted(() => vi.fn(async () => 'saved' as 'saved' | 'cancelled' | 'failed'));
+// The backup's save, held so a test can play the desktop dialog. download.js calls `onSaved`
+// only for a file that was written: a dismissed dialog never calls it. `saveOutcome` picks
+// which the next save does. Pack is stubbed; the real one reads IndexedDB.
+const save = vi.hoisted(() => ({ outcome: 'saved' as 'saved' | 'cancelled' }));
+const downloadBlobSpy = vi.hoisted(() =>
+	vi.fn((_name: string, _blob: Blob, opts?: { onSaved?: () => void }) => {
+		if (save.outcome === 'saved') opts?.onSaved?.();
+	}),
+);
+vi.mock('./download', async (orig) => ({ ...(await orig<object>()), downloadBlob: downloadBlobSpy }));
 vi.mock('./workspace-backup', async (orig) => ({
 	...(await orig<object>()),
 	packWorkspace: vi.fn(async () => new Blob(['zip'])),
-	saveBlob: saveBlobSpy,
 }));
 
 const noop = () => {};
@@ -514,6 +520,16 @@ describe('WorkspaceSheet — settings rehomed from the retired Drawing Board pan
 		expect(localStorage.getItem('lattice-db-or-cache')).toBe('off');
 	});
 
+	// Only Anthropic takes a cache breakpoint; OpenAI, Google, DeepSeek and x-ai cache on their own, so the switch does nothing there.
+	for (const modelId of ['google/gemini-2.5-flash', 'openai/gpt-5', '~google/gemini-flash-latest']) {
+		it(`prompt caching: disabled, with its reason, on ${modelId}`, () => {
+			statusSpy.mockReturnValue({ ...connectedStatus, modelId });
+			const { sheet } = openSheet();
+			expect(sheet.getByRole('switch', { name: 'Reuse the cached prompt' })).toBeDisabled();
+			expect(sheet.getByText(/caches on its own, so the setting has no effect on it/)).toBeInTheDocument();
+		});
+	}
+
 	it('guided tours: reflects the stored value and writes it back', async () => {
 		localStorage.setItem('lattice-tour-enabled', 'off');
 		const { user, sheet } = openSheet();
@@ -591,13 +607,13 @@ describe('WorkspaceSheet — the backup is recorded only once its file exists', 
 		const { user, sheet } = openSheet();
 		await user.click(sheet.getByRole('tab', { name: 'Data' }));
 		await user.click(sheet.getByRole('button', { name: /Download backup/ }));
-		await waitFor(() => expect(saveBlobSpy).toHaveBeenCalled());
+		await waitFor(() => expect(downloadBlobSpy).toHaveBeenCalled());
 		return sheet;
 	}
 
 	it('a saved backup is recorded and announced', async () => {
 		localStorage.clear();
-		saveBlobSpy.mockResolvedValueOnce('saved');
+		save.outcome = 'saved';
 		await clickBackup();
 		await waitFor(() => expect(lastBackupAt()).not.toBeNull());
 		expect(vi.mocked(notifyModule)).toHaveBeenCalledWith(expect.stringMatching(/^Backup downloaded/));
@@ -605,7 +621,7 @@ describe('WorkspaceSheet — the backup is recorded only once its file exists', 
 
 	it('a dismissed desktop save dialog records nothing, so the backup nudge keeps working', async () => {
 		localStorage.clear();
-		saveBlobSpy.mockResolvedValueOnce('cancelled');
+		save.outcome = 'cancelled';
 		const sheet = await clickBackup();
 		await waitFor(() => expect(sheet.getByRole('button', { name: /Download backup/ })).toBeEnabled());
 		expect(lastBackupAt()).toBeNull();

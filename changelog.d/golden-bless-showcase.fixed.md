@@ -1,0 +1,1 @@
+- The nightly golden bless now refreshes the docs landing page's showcase images when it re-blesses their source galleries, so its PR no longer fails docs-build on a stale showcase. Its verdict comment also links the run whose artifact holds the drift montages, which matters on nights too large for golden-diff's PR job.

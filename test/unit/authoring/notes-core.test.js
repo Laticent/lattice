@@ -1191,7 +1191,7 @@ describe('notes-core: say channel (say:)', () => {
 // THESE ASSERT THE DECISION, NOT A MARKDOWN MODEL. `scrub` and `render` are injected, so each
 // case states outright which source renders to what and the assertion is purely about which
 // branch fires and which answer comes back. That is the whole reason the function was extracted:
-// while it lived inline in `lattice-emulator.js`, step 3 was reachable only through a deck
+// while it lived inline in `lattice.js`, step 3 was reachable only through a deck
 // fixture whose two documents happen to want the SAME cut, so backing the entire guard out left
 // every test green.
 //
@@ -1752,7 +1752,7 @@ describe('notes-core: SCRUB_BOUNDARIES', () => {
   const path = require('node:path');
   const ROOT = path.join(__dirname, '..', '..', '..');
   const CALLERS = [
-    'lattice-emulator.js',
+    'lattice.js',
     'docs/src/components/studio/strip-notes-guard.ts',
   ];
 

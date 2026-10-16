@@ -7,6 +7,7 @@ import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import { assetVersion } from './src/playground/asset-version.mjs';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
 import viteCjsLibDev from './src/plugins/vite-cjs-lib-dev.mjs';
 
@@ -92,6 +93,17 @@ export default defineConfig({
 		'/guides/pills': '/guides/status/',
 		// Sparks moved under the Inline elements group, beside marks and pills.
 		'/guides/sparks': '/guides/inline/sparks/',
+		// Each library's demo moved under the Libraries hub, beside its Learn page
+		// (src/content/catalog/). The old top-level URLs keep working.
+		'/suono': '/libraries/suono/',
+		'/cadenza': '/libraries/cadenza/',
+		'/vetrina': '/libraries/vetrina/',
+		'/lente': '/libraries/lente/',
+		'/trama': '/libraries/trama/',
+		'/segno': '/libraries/segno/',
+		'/calco': '/libraries/calco/',
+		'/tavola': '/libraries/tavola/',
+		'/fuoco': '/libraries/fuoco/',
 	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one
@@ -117,6 +129,13 @@ export default defineConfig({
 	// does not do the job.
 	vite: {
 		server: { fs: { allow: ['..'] } },
+		// The versioned asset directory, for a module that needs an engine asset before the page has
+		// loaded the engine: the lint core (src/playground/lint-core-source.js) loads `esm/lint.js` from
+		// it. The build runs `sync:playground` first, so it names this build's hash. assetVersion(), not
+		// assetBase(): the config also loads where nothing is synced yet (`astro sync` under `typecheck`),
+		// and assetBase() throws there by design. A build that really has no hash still fails, at the
+		// first page that names the engine through engineAsset().
+		define: { __LATTICE_ASSET_BASE__: JSON.stringify(assetVersion() ? `/playground/v/${assetVersion()}/` : '/playground/') },
 		// Cadenza imports the LTT format by package name; the site reads it as SOURCE, the same
 		// alias docs/vitest.config.ts carries (its comment has the why).
 		// `dedupe`: the narration encoder (lib/core/narration-encode.mjs) imports the MP3 encoder by
@@ -232,10 +251,11 @@ export default defineConfig({
 						{ label: 'Deck settings', slug: 'guides/deck-settings' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
 						{ label: 'Using the command line', slug: 'guides/cli' },
+						{ label: 'Writing a code package', slug: 'guides/code-packages' },
 					],
 				},
 				{
-					// Elements that sit INSIDE a line of text: state marks, pills and sparks.
+					// Elements that sit INSIDE a line of text: state marks, pills, sparks and avatars.
 					// One group because they are one syntax family (inline code, one dispatcher
 					// in lib/core/inline-code-directives.js, one `\` escape), and a new inline
 					// form lands here rather than in Guides, whose pages cover the whole deck.
@@ -260,6 +280,7 @@ export default defineConfig({
 							],
 						},
 						{ label: 'Sparks', slug: 'guides/inline/sparks' },
+						{ label: 'Avatars', slug: 'guides/inline/avatars' },
 					],
 				},
 				{
@@ -275,6 +296,7 @@ export default defineConfig({
 						{ label: 'CLI', slug: 'reference/cli' },
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
+						{ label: 'Avatars cheat sheet', slug: 'guides/inline/avatars-cheat-sheet' },
 					],
 				},
 				{
@@ -362,6 +384,7 @@ export default defineConfig({
 						{ label: 'Understanding LFM', slug: 'spec/understanding-lfm' },
 						{ label: 'LFM 1.0 (spec)', slug: 'spec/lfm' },
 						{ label: 'Diagnostic Protocol', slug: 'spec/diagnostics' },
+						{ label: 'LTT 1.0 (timing track)', slug: 'spec/ltt' },
 					],
 				},
 			],

@@ -70,7 +70,7 @@ const { stalenessAgainstInputs } = require('./lib/render-inputs');
 
 const ROOT = path.join(__dirname, '..');
 const EXAMPLES_DIR = path.join(ROOT, 'examples');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const THEME_CSS = path.join(ROOT, 'dist', 'lattice.css');
 
 // The consolidated showcases. `buckets` drives membership off the live manifest

@@ -31,8 +31,8 @@ scopes: `galleries`, `parity`, `mermaid`, `screenshot`. Run via
 Three numbers, one purpose each:
 
 - **`.nvmrc` = 22** — current active LTS, what `nvm use` puts devs on.
-- **`engines.node` = `>=22.12.0`** — declared supported minimum. The `.12` is
-  load-bearing; see the `require()`-of-ESM note below.
+- **`engines.node` = `>=22.13.0`** — declared supported minimum. The `.13` is
+  load-bearing; see the note below.
 - **CI matrix = `[22, 24]`** — verifies the engines claim. The FULL unit suite
   runs on 22; on 24 a representative smoke subset (core/engine/parsing/contracts/
   transformers/export) confirms cross-version compat without paying 2× the whole
@@ -43,7 +43,10 @@ iff you drop a version from the matrix. The original cause of the
 `node --test <dir>` outage that started this whole overhaul was
 matrix=Node-18 while devs ran Node 22 — keep the three numbers aligned.
 
-`engines` is **`>=22.12.0`**, not `>=22`, and the extra `.12` is load-bearing:
+`engines` is **`>=22.13.0`**, not `>=22`. Two requirements set it, and the higher wins.
+jsdom, a runtime dependency since the 1.0 packaging work (the engine's server-side
+transforms parse with it), supports Node 22 from **22.13.0** (`^20.19.0 || ^22.13.0 ||
+>=24.0.0`). Below that sits the older reason, which set `.12`:
 `lib/authoring/{lint,review,scorecard,fact-check}-core.js` `require()` the ESM
 `lib/core/class-directive-scan.mjs` so the six authoring resolvers share one
 reader, and `require()` of an ES module is unflagged only from 22.12.0
@@ -63,9 +66,9 @@ a consumer needs Node 18 or 20, they pin to Lattice 1.x.
 ## npm scripts
 
 **The full, always-current catalog of every script, tool, and framework is
-[`engineering/capabilities.md`](./capabilities.md)** — generated from
-`package.json` + the `tools/` headers and gated by `capabilities:check`, so it
-can't drift. `npm run` lists every script live. **Before building any tool or
+`dist/engineering/capabilities.md`** — generated from `package.json` + the
+`tools/` headers by `npm install` (not committed) and gated by
+`capabilities:check`, so it can't drift. `npm run` lists every script live. **Before building any tool or
 harness, look there first** (we already have a benchmark, a parity harness,
 scaffolders, …). This section calls out only the daily inner-loop:
 
@@ -75,8 +78,8 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:watch` | Re-run the unit suite on file change |
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
-| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`) |
-| `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot |
+| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
+| `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot + the lint/engine equivalence checks (`lint-engine/`) |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
 | `lint:coverage`, `lint:coverage:bless` | Gate / re-record what Biome actually checks — see *Lint (Biome)* below |
@@ -85,16 +88,27 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `build:check:all` | The same gate WITHOUT `--exclude-uncommitted`: every generator, dist/ bundles included |
 
 Everything else — the `*:build` / `*:check` generators, `new:*` scaffolders,
-gallery builds, release and docs-portal scripts — lives in `capabilities.md`.
+gallery builds, release and docs-portal scripts — lives in `dist/engineering/capabilities.md`.
 
 ### What `build:check` does and does not cover
 
 `build:check` is `node tools/build.js --check --exclude-uncommitted`, so it checks the
-16 COMMITTED generated artifacts and skips the 28 built-not-committed ones (`dist/`, the
-docs-site bundles). That scope is deliberate and its reasoning is in `tools/build.js`: the
+COMMITTED generated artifacts and skips the built-not-committed ones (`dist/`, the
+docs-site bundles) — with one exception, the `validates` steps below. (No counts here on
+purpose: `node -e "const {STEPS}=require('./tools/build.js'); …"` gives the live ones.) That scope is deliberate and its reasoning is in `tools/build.js`: the
 gate's question is "did you commit the regenerated artifacts you own?", and an artifact
 that is never committed cannot be stale relative to a commit — a CI checkout has no `dist/`
 at all, so those generators would fail on a missing file rather than a stale one.
+
+**Generated indexes are `uncommitted` + `validates`.** The capability, decision and gotcha
+indexes are built into `dist/engineering/` and never committed, because a committed index is
+a file every PR adding an item rewrites. Their `--check` reads only their SOURCES — is every
+tool and script described, is every note's front-matter valid, is any row over its cap — so
+`build:check` still runs it. A new index follows the same contract: one file per item as
+the source, output under `dist/`, `uncommitted: true, validates: true` in `STEPS`, and a
+`--check` that never reads the output. `uncommitted-steps.test.js` holds the tags; the decision and
+gotcha index tests run their `--check` with no output on disk.
+`engineering/decisions/2026-10-09-generated-indexes-uncommitted.md`.
 
 **Its closing line says which half it measured**, and that is a fix rather than a detail
 (#2204). It used to read "all artifacts up to date" on every run, contradicting the opening
@@ -115,7 +129,7 @@ absent, and fires only under `--check` because a plain `npm run build` is the re
 `agent-kit-structure.test.js` and `marp-kit.test.js` already byte-pin 31 of the 49 in the
 unit tier. What this arm adds is the other 18 (the embedded fonts and the agent kit's
 LICENSE files, which nothing compared) and, more usefully, the ~95 seconds between a 13s
-gate and a 108s suite — which at pre-push is the difference between being told your `dist/`
+gate and a 108s suite — which, when you run the suite yourself, is the difference between being told your `dist/`
 is behind and reading two unrelated unit failures as a defect in your own diff. On CI it is
 close to decorative: the freshness job runs `build:uncommitted` first, so the copies are
 regenerated moments before they are compared, and what survives that is a BUILDER that
@@ -151,6 +165,9 @@ test/integration/components/  component- + bucket-galleries          [nightly]
 test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
 test/integration/mermaid/     mermaid-smoke                         [nightly]
 test/integration/screenshot/  screenshot, svg-scaling              [nightly]
+test/integration/lint-engine/ lint-engine-equivalence: esm/lint.js  [nightly]
+                              vs lib/authoring parity, and engine
+                              isolation with a shared-parser control
 test/benchmark/               engine-bench.mjs (npm run bench) + *.test.js
                               scaling guards (npm run test:perf) — neither is
                               in npm test, and neither blocks CI
@@ -206,7 +223,7 @@ re-lists them is one people learn to skim. Re-bless with `npm run contrast:playe
 a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
 contract and is reported in its own bucket, never as a failure.
 
-`[PR]` suites gate every `code` PR via `test:integration:pr`; `[nightly]` suites
+`[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style
 correctness gate blocking, and moves the slow fresh-render regression suites off
@@ -282,8 +299,14 @@ bypasses and false-positived on a correct edit. Rationale and residuals:
 
 ## Hooks (lefthook)
 
-`npm install` wires the hooks automatically via the `prepare` script.
-Configuration in `lefthook.yml`.
+`npm install` wires the hooks automatically via the `prepare` script
+(`tools/prepare.js`, which then builds the uncommitted `dist/` artifacts). It is a
+Node script, not a shell one-liner, because npm runs scripts through cmd.exe on
+Windows. Keep every build step it reaches spawnable there: call a tool's JS entry
+with `process.execPath` (`require.resolve('typescript/bin/tsc')`) or its API
+(`require('esbuild')`), never `node_modules/.bin/<tool>`, whose extensionless shim
+Windows cannot spawn; hand `import()` a `pathToFileURL(…).href`, never a bare path,
+which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/`. Configuration in `lefthook.yml`.
 
 **pre-commit** (parallel, ~0.5s for scoped edits, ~5s for cross-cutting):
 - `lint` — Biome on staged JS/JSON only
@@ -303,7 +326,10 @@ Configuration in `lefthook.yml`.
   tripping this guard; CI's `docs` paths-filter (which also lists `lib/` and
   `themes/`) still covers that. Widening the guard to match would put ~36s on
   nearly every engine push.
-- `unit-tests` — full unit suite
+- **No full unit suite.** `npm test` took 390s here (measured 2026-10-06) on
+  every push, and CI's `unit` job runs the same suite on every PR, whatever it
+  touches, and again in the merge queue. Pre-commit's `affected-tests` keeps the fast local signal;
+  run `npm test` yourself before you call work done.
 - `integration-tests` — full cross-renderer parity + PDF page-count tier.
   Skipped when a push touches no render-relevant files (the job mirrors CI's
   `code` paths-filter in `.github/workflows/ci.yml`; keep the two in sync).
@@ -326,7 +352,7 @@ lib/<X>.js              → SCRIPT_FOR_LIB[X]      (e.g. palette.js → test:pal
 test/unit/<scope>/*     → test:<scope>
 themes/*.css            → test:palette
 docs/, examples/, *.md  → skip — no tests needed
-lattice-emulator.js,    → full unit suite        (safe fallback;
+lattice.js,    → full unit suite        (safe fallback;
 lattice-runtime.js,                                renderers touch everything)
 lattice.css,
 package.json, etc.
@@ -335,8 +361,8 @@ unknown lib/<X>.js      → full unit suite        (safe fallback)
 ```
 
 When a staged file isn't recognized, the script falls back to the full
-suite. Better to be slow than miss a regression. Pre-push runs the full
-suite regardless as a second safety net.
+suite. Better to be slow than miss a regression. The full suite always
+runs in CI, on every PR and in the merge queue.
 
 ## Coverage (c8)
 
@@ -346,7 +372,7 @@ Configured in `.c8rc.json`. Reports HTML to `.scratch/coverage/` (the
 **Coverage is NOT a CI gate** — it's a diagnostic for "what's untested
 in the area I'm changing?" Baseline today: ~41% statements / ~80%
 branches / ~77% functions. Statement number is low because
-`lattice-emulator.js` and `lattice-runtime.js` are exercised by
+`lattice.js` and `lattice-runtime.js` are exercised by
 integration tests, not unit tests.
 
 ## CI
@@ -355,21 +381,38 @@ integration tests, not unit tests.
 `concurrency` group cancels superseded runs on the same ref.
 
 - **`changes`** — classifies the diff (`dorny/paths-filter`). `code` is
-  true unless EVERY changed file is prose markdown; decks
-  (`examples/**.md`, `baseline-decks/**.md`, `**.gallery.md`) count as
-  code. **A docs-only change runs lint only** — `unit` and `integration`
-  are skipped.
+  true when any changed file is under the filter's path list (`lib/`,
+  `tools/`, `test/`, `themes/`, `examples/`, `exemplars/`, `package.json`,
+  … — the list in `ci.yml` is canonical); decks under those roots count as
+  code. **A prose- or docs-only change runs lint and unit only** —
+  `integration` is skipped.
 - **`lint`** — ALWAYS runs, single Node, browser-free
   (`PUPPETEER_SKIP_DOWNLOAD=1`). `npm run lint` + `npm run lint:deck:all`.
-- **`unit`** — code changes only. Matrix Node 22/24, `fail-fast: false`,
-  browser-free. `npm test`, plus `npm run build:check` once (on 22) — the
-  render-free artifact-freshness gate (css, default bundle, runtime +
-  emulator bundles, component docs, portal, dist README).
-- **`integration`** — code changes only, `needs: unit`, single Node (22).
+- **`unit`** — ALWAYS runs, on every PR, because unit tests read prose and
+  config too (the US-English audit walks every `.md`). Matrix Node 22/24, `fail-fast: false`,
+  browser-free. `npm run build`, then `npm run build:check:all`, then
+  `npm test` on 22 (an engine subset on 24). The committed-artifact
+  freshness gate (`build:check`) lives in `lint`. Costs ~12 runner-minutes
+  a run (457s + 260s, measured on PR #2554).
+- **`integration`** — code changes only, `needs: changes` (it runs beside
+  `unit`, not after it), single Node (22), **sharded across four runners**:
+  check runs `integration (node 22, shard K/4)`, `fail-fast: false`.
   The only tier that renders, so the only one that downloads Chromium —
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs
-  `npm run test:integration`. ~2–3 min cold.
+  `npm run test:integration:shard` with `SHARD=K/4`. `tools/shard-tests.js` deals the
+  slice's files out slowest-first into the lightest leg, from per-file seconds committed
+  in `test/integration/shard-weights.json` (node's own `--test-shard` splits by file
+  COUNT, which gave legs of 9:43 / 5:42 / 7:05 / 3:51, the slowest 1.49x the mean). A
+  leg still finishes no sooner than its slowest file (export-formats and html-player,
+  about 5.5 min each), which is why the palette sweep is one file per deck
+  (`test/integration/invariants/palette-sweep.suite.js`). Run one leg locally with
+  `SHARD=2/4 npm run test:integration:shard`; unset, it runs every file. A new test gets
+  the median weight until the weights are re-blessed: time each file alone, write
+  `file<TAB>seconds` lines, then `node tools/shard-tests.js --weights
+  test/integration/shard-weights.json --bless TIMES.tsv`. Re-bless when the legs drift
+  past ~1.2x of their mean. The `ci` gate still sees one
+  `needs.integration.result` for all four legs, and any red leg makes it `failure`.
 - **`player-webkit`** — re-runs `test/integration/export/player-no-js.test.js` (the
   exported player with JavaScript off) in Playwright's WebKit, because iOS Quick Look
   opens exports with scripts off and Quick Look is WebKit. Runs only when `lib/export/**`
@@ -399,8 +442,8 @@ this only `studio-smoke` had a cap. `npm ci` on node 24 wedges: **four times in 
 run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 *cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
-Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 45 (raised from 25 on
-2026-10-05; `ci.yml` has the re-sample) · `golden-diff` 25 ·
+Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 25 -> 45 on
+2026-10-05, cut to 25 with the four-way shard on 2026-10-09; `ci.yml` has both) · `golden-diff` 25 ·
 `docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
@@ -430,10 +473,10 @@ inputs).
 
 **Hash inputs** (any change invalidates):
 - source `.md` content
-- `lattice-emulator.js`
+- `lattice.js`
 - `lattice.css` + every `themes/*.css`
 - every `lib/*.js`
-- `mermaid-v11-min.js`
+- `lib/plugins/mermaid/vendor/mermaid.min.js` (the Mermaid plugin's own copy, which the CLI bake draws with)
 - `package-lock.json` (catches dependency upgrades)
 - palette argument
 - Node version
@@ -551,6 +594,22 @@ runs must therefore be started with `9>&-` to close the lock fd, or it keeps the
 lock held after the waiter itself is killed — reintroducing precisely the stale
 lock flock was adopted to delete.
 
+**A second PreToolUse hook warns before a needless catch-up.**
+`.claude/hooks/warn-needless-catchup.sh` fires when a Bash command is about to
+rebase onto, merge, or pull `main`, or run a bare `git pull` on a branch that tracks
+`origin/main`. It runs `tools/queue-precheck.sh --no-fetch` in the shell's starting
+directory (the payload's `cwd`; a `cd` inside the command is not followed). If the branch merges cleanly with `main` on GitHub's terms, it says the
+catch-up is not needed (HARD RULE #16).
+
+- **It never blocks.**
+- **It stays quiet** on a real conflict, on a branch already level with `main`, and
+  on cleanup against the branch's own merge base.
+- **It matches coarsely.** It reads only the payload's `command` field, segment by
+  segment, so a command that only mentions such a rebase (in a commit message, say)
+  can draw the warning too. It cannot see GitHub's "Update branch" button, so the
+message names it. `engineering/decisions/2026-10-06-conflict-reduction.md` §2 records
+why this warns instead of blocking.
+
 **A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
 on every Bash call, spots the loop shape above, and prints a one-line pointer at
 this section. It **warns and never blocks** — the same call this repo made for
@@ -617,7 +676,7 @@ Two consequences, and they are the whole of the discipline:
 
 - **Read sections, not files.** `grep -n '^## ' <doc>` then `sed -n 'A,Bp'`. Ten documents
   reachable from `CLAUDE.md`'s routing table are 14k tokens or more — the largest being
-  `engineering/decisions/README.md` (36k), `engineering/workflow.md` (29.5k) and
+  `dist/engineering/decisions.md` (the generated decision index, ~36k), `engineering/workflow.md` (29.5k) and
   `lib/base/base.docs.md` (21.6k), and that last is a HARD RULE #6 mandated read carrying no
   "don't open it whole" guidance anywhere. Don't work from a list of names; measure, or just
   open the section.
@@ -798,12 +857,26 @@ cache). Flags: `--width`/`--height`, `--full` (full-page), `--wait <css>`
 | Studio | `…/studio/` |
 | Playground | `…/playground/` |
 | Components index | `…/components/` |
+| Libraries hub / a demo / its Learn page | `…/libraries/` · `…/libraries/suono/` · `…/libraries/suono/learn/` |
+| Plugins hub / a demo / its Learn page | `…/plugins/` · `…/plugins/math/` · `…/plugins/math/learn/` |
+
+**The catalog (libraries + plugins).** Each library and author-facing plugin is one Markdown
+file in `docs/src/content/catalog/<libraries|plugins>/<slug>.md`: its front matter feeds the
+hub card and the demo's hero, its body is the Learn page, in a fixed teaching order
+(`REQUIRED_SECTIONS` in `docs/src/lib/catalog.mjs`, held by `catalog.test.ts`). A plugin's
+demo is generated from the file's `examples` (one slide each, through the live `Specimen`);
+a library's demo is its own hand-built page under `docs/src/pages/libraries/<slug>/`, which
+carries `<DemoBar>` and repeats the file's `promise` (the test checks it). A plugin's mark is not in the
+catalog: it is the plugin manifest's `icon` (`lib/plugins/<name>/<name>.manifest.json`), drawn by
+`lib/plugins/plugin-icon.mjs`; a library's mark is the `mark:` image its catalog file names. Adding one: write
+the file, add the entry to `librariesNav` / `pluginsNav` in `nav.mjs` (same order — the nav
+test checks), and, for a library, build its demo page.
 
 The whole site chrome is ONE shared component — `docs/src/components/site/SiteHeader.astro`
-(brand · nav · Tools disclosure · ⌘K command palette · theme controls), rendered by
+(brand · nav · ⌘K command palette · theme controls), rendered by
 every standalone route AND the Starlight docs zone (`Header.astro`). Nav links are the
-single source of truth in `docs/src/lib/nav.mjs` (`contentNav` = inline; `toolsNav` =
-the Tools group) — add a new top-level entry there. The interactive bits live in the
+single source of truth in `docs/src/lib/nav.mjs` (`appsNav` and `contentNav` inline;
+`catalogNav` = the Libraries and Plugins hub links) — add a new top-level entry there. The interactive bits live in the
 `NavActions.tsx` island (search/command palette via `CommandMenu.tsx`, the mobile Sheet).
 The universal search is the ⌘K command palette: it navigates anywhere, switches theme,
 and full-text-searches the docs via Starlight's Pagefind index (built site only — in
@@ -960,11 +1033,16 @@ npm run test:e2e -- e2e/inspector.spec.ts --project=desktop   # one spec
 npx playwright test --project=desktop --grep @perf             # preview render-path perf
 ```
 
-**WebKit and Firefox are not installed in the sandbox.** To run a spec on them, start the
+**Every project runs in the sandbox, WebKit and Firefox included.** Only Chromium is baked into
+the image, so the suite's `globalSetup` (`docs/scripts/e2e-ensure-browsers.mjs`) installs WebKit
+and Firefox the first time a selected project needs one: about 30 seconds, once per sandbox.
+If the install fails, the run fails with the command to fix it. **A missing browser is never a
+reason a test did not run**, and "WebKit is not installed here" is not a result to report: run
+the suite, and the browser installs itself. To run a spec on CI's runners instead, start the
 nightly by hand on your branch with its `spec` input (Actions → Studio E2E nightly → Run
 workflow, or `workflow_dispatch` with `spec: e2e/<name>.spec.ts`). It runs only those specs,
-across every project, in minutes instead of the whole suite's 45-plus, and it files nothing on
-the rolling issue (only a scheduled or unfiltered run on `main` does).
+across every project, and files nothing on the rolling issue (only a scheduled or unfiltered
+run on `main` does).
 
 **`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
 raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —
@@ -992,6 +1070,23 @@ filed as `incomplete`, not as a violation. Budget zero, two adjudicated exceptio
 self-check that plants defects and requires them to be caught. Run one width with
 `npx playwright test axe-site --project=mobile`. Rationale and the still-open list:
 `engineering/decisions/2026-08-19-website-accessibility-gate.md`.
+
+**The Live panel against fixtures** (`e2e/live-panel.spec.ts`, harness in `e2e/live-panel-harness/`).
+The Studio mounts `LivePanel` only inside a live session, which needs a relay and a second browser.
+The panel is pure over `LiveView` + `LiveActions` (`live-model.ts`), so the harness mounts the REAL
+component with a fixture view and records every action it calls; the spec bundles it with the site's
+own Tailwind plugin and the palette tokens at test time (never committed, HARD RULE #2), so what it
+renders is what the Studio renders. It covers what a person sees and can do in the panel, at 1440
+and 390 px, and on real WebKit at iPhone 15 Pro size (`@webkit-phone`): the call row (join, mute, leave), the leave and end confirmations (they act once), the
+person menu staying on screen, the narrowest docked column, and an axe scan of the panel and the
+person menu in both color modes. Run it with `npx playwright test e2e/live-panel.spec.ts` from
+`docs/`; it needs no relay and no WebRTC, and runs in seconds. The transport (knock, admit, edit
+sync, regency, real calls) is covered by `tools/live-session-check.mjs` today, on demand, and later
+by two-browser specs against a local relay (nightly only). Two things the axe helper does on
+purpose, both measured: a scan with a Radix menu open drops only `aria-hidden-focus` (the menu marks
+the page behind it `aria-hidden` and traps focus, and `assertFocusTrapped` proves the trap in the
+same test), and the scan reads the resting state with the pointer moved away, because a hovered row
+has its own lower contrast, which is a recorded follow-up (filed in followups.d/ with this PR).
 
 **Note the distinct-tool boundary.** `tools/check-shadcn-bridge-contrast.js` grades the token
 MATH of the shadcn bridge and `tools/contrast-audit.js` grades the theme token pairs; neither can
@@ -1101,22 +1196,19 @@ was UNVERIFIED because "Chromium cannot reach any external host through the agen
 proxy" — that is false and this is what it should have said; the correction is on that
 PR as comment 5387941880.
 
-**WebKit is not in the base image — check before you conclude a spec is broken.** Only
-Chromium is baked in (`/opt/pw-browsers/chromium-1194`). The `@webkit-phone` /
-`@webkit-tablet` projects (`back-gesture`, the tablet-divergence specs) need WebKit
-installed first, which is a *separate* action from the Chromium warning above and does
-not touch the Chromium pin:
+**WebKit and Firefox install themselves.** Only Chromium is baked in
+(`/opt/pw-browsers/chromium-1194`). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
+need WebKit or Firefox, and the suite's `globalSetup` installs whichever is missing after the
+site build and before the first test (UI mode selects every project, so it installs both) (`npx playwright install-deps` then `install`, into `PLAYWRIGHT_BROWSERS_PATH`; it
+never touches the Chromium pin). To install by hand, for a tool outside the suite:
 
 ```
-ls -d /opt/pw-browsers/webkit-*      # already there? a previous session may have installed it
-npx playwright install webkit        # if not — lands in PLAYWRIGHT_BROWSERS_PATH
-npx playwright install-deps webkit   # as root; the binary will not launch without these
+npx playwright install-deps webkit firefox   # as root; the binaries will not launch without these
+npx playwright install webkit firefox        # about 30 s together, measured 2026-10-15
 ```
 
-Once installed it persists for the life of the sandbox, so a later check will find it
-present — don't take that as evidence the base image ships it. Without it,
-`--project=webkit-phone` fails to launch, which reads as a broken spec rather than a
-missing browser.
+Once installed they persist for the life of the sandbox. A `browserType.launch: Executable
+doesn't exist` error from outside the suite means install it, not skip it.
 
 **Fixed sleeps are gated.** Every `page.waitForTimeout(...)` call under `docs/e2e/**` —
 whatever its argument — must carry an entry in `SANCTIONED_E2E_SLEEPS`
@@ -1287,7 +1379,7 @@ what every surface prints and asserts, and the suggestion belongs on the button
 there is no button — printing both is what #1658 reported as the tool knowing the
 answer and making you type it anyway.
 
-### Adding a new theme (`themes/<name>.css`)
+### Adding a new theme (`themes/<name>/<name>.css`)
 No script change needed — `affected-tests.js` routes `themes/*.css` to
 `test:palette` automatically. Just:
 1. Drop the file with the required tokens (see `theming.md`).

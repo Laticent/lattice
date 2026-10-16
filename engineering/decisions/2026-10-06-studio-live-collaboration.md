@@ -1,0 +1,1184 @@
+---
+status: in-progress
+summary: Live peer-to-peer collaboration in the Studio. One link starts it - the host shares it, the guest opens it, knocks, the host admits, and both edit the same deck with live carets, presence on the slide navigator, follow mode, text chat, and audio/video in a new Collaborate panel on the left rail. Edits and media travel browser to browser. Peers find each other over public Nostr relays through Trystero, so Lattice runs no server, pays nothing and stores nothing. Retargets the two June notes from the removed Drawing Board to the Studio and replaces their open questions with a concrete experience.
+companion:
+  - ./2026-06-14-yjs-collaboration-exploration.md
+  - ./2026-06-15-webrtc-av-collaboration.md
+  - ./2026-07-04-comments-layer.md
+  - ./2026-10-06-live-collaboration-roadmap.md
+---
+
+# Live collaboration in the Studio — share a link, and you are in
+
+**Date:** 2026-10-06
+**Status:** In progress. S1 (Tavola) and S2 (live sessions in the Studio) are built on PR #2547 and hardened by three rounds of adversarial review; §12 records what shipped and how it was verified, §13 what it is built from. S3 onward are not started; the road ahead is in `2026-10-06-live-collaboration-roadmap.md`.
+**Decision owner:** Sharmarke
+**Surfaces:** `docs/src/components/studio/` — `StudioShell.tsx`, `chrome-parts.tsx`
+(`ActivityRail`), `Editor.tsx`, `studio-panels.ts`, `panel-shells.tsx`,
+`StudioChromeSkeleton.tsx`; a new sibling library, **Tavola** (`docs/src/lib/tavola/`, §7.1). No server.
+
+## 1. The ask
+
+> Someone shares a collaboration link and that triggers collaboration. A new panel and
+> icon button on the left toolbar, where Coach and Chat are, is the collaboration portal:
+> chat, video, audio. The focus stays on the editor and preview, because those drive a
+> productive session. Prioritize knowing who is participating, the initial handshake,
+> and managing the session. Bottom line: I share a link, the other person clicks it, and
+> we are collaborating.
+
+## 2. Where the June notes stand, and what changed
+
+Two notes from June already worked out the transport:
+[`2026-06-14-yjs-collaboration-exploration.md`](./2026-06-14-yjs-collaboration-exploration.md)
+(document sync with [Yjs](https://yjs.dev), a CRDT — a data type that merges concurrent
+edits without conflicts) and
+[`2026-06-15-webrtc-av-collaboration.md`](./2026-06-15-webrtc-av-collaboration.md)
+(audio and video on the same WebRTC connection). Their analysis of NAT traversal,
+corporate firewalls, mesh limits and costs still holds, and this note does not repeat it.
+
+Three things changed since, and they are why this note exists:
+
+1. **The Drawing Board is gone.** Both notes target `drawing-board.astro`; the Studio
+   replaced it (`2026-07-03-studio-succession.md`). Every code pointer in them is dead.
+2. **Neither note designs the experience.** They say "a Share button mints a room URL"
+   and stop. Nothing covers who is in the room, how they got in, or what the host can do
+   about it — the three things this ask puts first.
+3. **The June Yjs note's update recommended a server relay** (Cloudflare Durable Objects)
+   over peer-to-peer, for corporate firewalls. This ask is explicitly peer to peer, and
+   the owner ruled out any server or account of ours (§10). §7 uses public relays for
+   matchmaking and accepts the corporate-network cost that comes with that.
+
+## 3. What the Studio gives us today
+
+A scout pass mapped the Studio on 2026-10-06, and an independent fact-checker re-verified every pointer below against `main` after the rebase the same day. The facts that shape the design:
+
+| Fact | Where | Consequence |
+|---|---|---|
+| The left rail is one nullable enum, `activeAssistant: 'coach'\|'chat'\|'lenses'\|'library'\|null` — one open tool panel at a time | `StudioShell.tsx:590`, `ActivityRail` in `chrome-parts.tsx:272` | Collaborate is a fifth value. It toggles like Chat, and it closes when Coach opens |
+| The rail exists only on desktop in Craft; tablet uses the ⋯ menu and a left sheet; mobile uses a bottom bar that is **full at eight cells** with a protected set | `StudioShell.tsx:6363`, `:5647-5650`, `:6283-6296` | The live session cannot depend on the panel being open, and mobile needs an entry point that is not a ninth cell (§5.6) |
+| Deck source is plain React state; CodeMirror receives it through a prefix/suffix diff, and those inbound dispatches land on the local undo stack | `StudioShell.tsx:416`, `Editor.tsx:859-889` | During a session the editor must bind to a shared `Y.Text` directly, and undo must become "undo **my** edits" (§6.1) |
+| The active slide is `activeSlide`; `goToSlide` and `onEditorCursorSlide` write it | `StudioShell.tsx:441`, `:2616`, `:2655` | Presence ("Amina is on slide 4") and follow mode hook in here |
+| Decks live in `localStorage` (`lattice-studio-src-<id>`) | `studio-store.ts:21` | A guest's copy of a shared deck is an ordinary deck entry (§5.5) |
+| No identity: the rail's account chip is a hard-coded "SA"; comment authors are "You" | `chrome-parts.tsx:309`, `slide-comments.ts:106` | Collaboration has to introduce a name and a color. The comments note already says identity "lands with collaboration" |
+| The Studio reads no hash; OpenRouter OAuth drops every query parameter on its round trip | `architect.ts:1943` | The link uses the hash fragment, and the Studio keeps the join intent in `sessionStorage` across OAuth (§4.1) |
+| No `yjs` and no WebRTC code in the repo. Web Workers exist (PDF/PPTX export, Kokoro voice, the AI model), none for sync | `docs/package.json` | Greenfield; everything collab is lazy-loaded so solo users pay nothing |
+
+## 4. The handshake — from link to editing together
+
+The whole flow, end to end. The host is the person who shares; a guest is anyone who
+opens the link.
+
+```
+ HOST                                        GUEST
+ ────                                        ─────
+ 1. Opens Collaborate, clicks
+    "Start live session"
+    → link copied to clipboard
+                    ── sends link (Slack, email, …) ──▶
+                                             2. Opens link. Studio boots into
+                                                the LOBBY card: deck title, host
+                                                name, "Your name", camera/mic
+                                                preview (off by default)
+                                             3. Clicks "Ask to join"
+ 4. Knock appears: toast + rail badge
+    + a row at the top of the panel
+    "Amina wants to join  [Deny] [Admit]"
+ 5. Clicks Admit (or auto-admit is on)
+                    ── deck state + roster ──▶
+                                             6. Lands in the Studio on the HOST's
+                                                current slide, with the deck,
+                                                carets and presence live.
+ Both: "Amina joined" in the chat feed.
+```
+
+Three clicks for the guest's whole path (open, type a name the first time only, ask to
+join), one for the host. From the second session on, the guest's name is remembered, so
+the guest path is open → "Ask to join".
+
+### 4.1 The link
+
+```
+https://laticent.github.io/lattice/studio#live=<room>.<secret>.<host>
+```
+
+- **`room`** — 128 random bits, base64url. It names the meeting place on the public
+  relays.
+- **`secret`** — 256 random bits, base64url. It is Trystero's room `password`: Trystero
+  encrypts every connection offer and answer with an AES-GCM key derived from it, so a
+  relay carries only ciphertext.
+- **`host`** — the fingerprint (128 bits of SHA-256) of the host's ECDSA P-256 public key.
+  Every hello is signed over the host's and the recipient's peer ids, and a guest believes a
+  host only if the key matches this fingerprint. Added after the red team showed that, without
+  it, anyone holding the link could answer a newcomer first or step in while the host was away
+  (§12).
+- **It lives in the fragment** (after `#`). Browsers never send the fragment to any
+  server, so neither GitHub Pages nor any relay ever sees the secret.
+- **Survives OAuth.** On load the Studio moves the fragment into `sessionStorage` and
+  scrubs it from the address bar (so it does not show in a screenshot or a shared screen).
+  If the guest connects OpenRouter mid-lobby, or reloads, the join resumes. The browser's
+  own history may still hold the original URL, like any link a person opens.
+- **Link role.** The host picks "Can edit" (default) or "Can view" when copying. The role
+  rides in the encrypted hello, not in the URL.
+
+### 4.2 The lobby (guest side)
+
+A centered card over the dimmed Studio chrome — the guest sees where they are going
+before they arrive.
+
+```
+┌──────────────────────────────────────────────┐
+│  ◍ Sharmarke invited you to                  │
+│    Q3 Board Review                           │
+│    12 slides · Indaco                        │
+│                                              │
+│  Your name  [ Amina                       ]  │
+│             ● your color                     │
+│                                              │
+│  ┌──────────────┐   [🎤 Mic off ]            │
+│  │  camera off  │   [📷 Camera off]          │
+│  └──────────────┘                            │
+│                                              │
+│               [ Ask to join ]                │
+│  Your edits and calls go directly between    │
+│  browsers. Lattice has no server that sees them. │
+└──────────────────────────────────────────────┘
+```
+
+(The glyphs in these sketches stand for lucide icons; nothing ships a typed glyph —
+HARD RULE #29.)
+
+- **Deck title and host name** come from the host over the peer connection, as the first
+  message after it opens. The host sends nothing else until it admits the guest (§4.4).
+- **States the card must draw:** connecting; waiting for the host ("Sharmarke has been
+  asked to let you in"); denied ("The host didn't admit you"); host not here ("This
+  session isn't live right now — ask Sharmarke to open it"); link revoked; session full;
+  could not connect (with the one-line network explanation and a retry).
+- **Mic and camera start off.** Joining the deck never turns on a device. The preview
+  only asks for permission when the guest clicks a device button.
+
+### 4.3 The knock (host side)
+
+- A toast in the Studio's normal toast slot: **"Amina wants to join"** with **Admit** and
+  **Deny**. It does not steal focus from the editor, so the host can finish a sentence.
+- The rail icon gets a badge, and the Collaborate panel shows the request as its top row.
+- **Auto-admit** is a toggle in the panel ("Let people with the link in automatically"),
+  off by default. With it on, the knock becomes a "Amina joined" notice and the flow is
+  literally click-and-collaborate.
+- **Why knock by default:** the ask puts "know who is participating" first. A link travels
+  (forwarded emails, a pasted Slack channel); the knock is the one moment the host can
+  check the name against who they invited. It costs the host one click.
+- **Names are self-asserted.** The knock shows the name the guest typed. There are no
+  accounts, so nothing proves Amina is Amina; the lobby copy and this note say so plainly.
+
+### 4.4 What admission does
+
+1. Trystero has already opened a WebRTC connection between the host and the guest when
+   the guest entered the lobby (the relays carried only the encrypted offer and answer).
+   Until admission, the host sends only the title and host name over it, and the guest's
+   knock comes back the same way.
+2. On admission, over that connection the host sends the Yjs document state and the **roster**: each
+   admitted peer's id, name, color and role.
+3. Every peer in the room reaches every other (Trystero builds a mesh), but **a peer sends
+   document, awareness, chat or media only to ids on the host's roster**. A peer that holds
+   the link but was not admitted gets a connection and nothing over it.
+4. The guest's Studio opens the shared deck, jumps to the host's slide, and the panel
+   opens on the People section so the guest sees who is here.
+
+## 5. The Collaborate panel and the session in the Studio
+
+### 5.1 The rail button
+
+- **Icon:** lucide `UsersRound`, registered in `icons.ts` the way `ChatIcon` is.
+- **Caption:** "Live". It sits in the Tools group after Chat: Coach · Chat · **Live** ·
+  Library · Views. Accessible name "Toggle Live" (the e2e/tour naming contract).
+- **States:** idle (plain); live (a small filled dot in `var(--accent)`); knock pending or
+  unread chat (a count badge). The badge is the only way a closed panel asks for
+  attention.
+
+### 5.2 Panel layout
+
+The panel is the **portal**, not the workspace. It is narrow on purpose (default 232px,
+the existing assistant width; max 420px) so the editor and preview keep the room.
+
+```
+┌ LIVE ● 00:14:32 ─────────── ⋯ ┐   ← header: live dot, elapsed time,
+│                               │     menu: copy link, stop link, end session
+│ ┌ Invite ───────────────────┐ │
+│ │ [ Copy link ▾ Can edit ]  │ │   ← link role picker in the split button
+│ │ Auto-admit         ( ○ )  │ │
+│ └───────────────────────────┘ │
+│                               │
+│ Waiting (1)                   │
+│ ◍ Bruno       [Deny] [Admit]  │   ← knocks, always on top
+│                               │
+│ In this session (3)           │
+│ ◍ Sharmarke (you) · host      │
+│   Slide 4 · editing      🎤   │
+│ ◍ Amina · can edit            │
+│   Slide 4 · speaking ))) 🎤   │   ← speaking ring on the avatar
+│ ◍ Chen · can view       [⋯]   │   ← host row menu: follow, role, remove
+│   Slide 9                🔇   │
+│                               │
+│ ┌ Call ─────────────────────┐ │
+│ │ [🎤] [📷] [Join call ]     │ │   ← audio-first; video is opt-in
+│ │ ┌─────┐┌─────┐            │ │   ← video tiles only when someone
+│ │ │Amina││Chen │  ⇱ pop out │ │     has a camera on
+│ │ └─────┘└─────┘            │ │
+│ └───────────────────────────┘ │
+│                               │
+│ Chat ──────────────────────── │
+│ Amina: can we cut slide 6?    │
+│ Chen: +1, it repeats  [→ 6]   │   ← slide chip jumps the preview
+│ · Amina applied an AI edit    │
+│   to slide 3                  │   ← system lines, muted
+│ [ Message…            ] [➤]   │
+└───────────────────────────────┘
+```
+
+*Revised 2026-10-07 (§12.2, "Panel layout on a phone"): the invite is one line, your own call
+controls sit on your own row, and the header menu is on every screen size.*
+
+Section order follows the ask's priorities: **who** (waiting, then present), then
+**talk** (call), then **text** (chat). Chat takes the remaining height and scrolls; the
+other sections are fixed.
+
+### 5.3 Who is here — presence lives on the editor and preview
+
+The panel lists people; the **work surfaces show them**. This is where "the focus is the
+editor and preview" lands:
+
+- **Editor carets.** Each peer's caret and selection in their color, with a name flag that
+  shows while they type and fades after two seconds of idle (the `y-codemirror.next`
+  awareness rendering, restyled with tokens).
+- **Slide navigator.** Each thumbnail shows the avatars of the people on that slide, at
+  most three plus "+N". At a glance: "Amina and Chen are both on 4."
+- **Preview corner.** When someone else is on the slide you are looking at, a small avatar
+  stack sits in the preview's top-right corner, so you know a change could land under you.
+- **Follow.** Click a person's avatar (in the panel, navigator or preview corner) →
+  **Follow Amina**: your active slide tracks hers. A slim bar above the preview says
+  "Following Amina · Stop". Any navigation of your own stops following, so follow never
+  fights you.
+- **Bring everyone here** (host, in the ⋯ menu): asks every guest's view to jump to the
+  host's slide. A guest who is typing gets a toast with "Go" instead of a jump, so nobody
+  loses their caret mid-word.
+- **Present together** (later slice): when the host opens Present, guests get "Sharmarke
+  is presenting · Watch", which opens Present following the host. Good for rehearsal.
+
+### 5.4 Managing the session (host)
+
+| Action | Where | What happens |
+|---|---|---|
+| Admit / Deny | knock toast, panel row | §4.3 |
+| Change a role (edit ↔ view) | person row ⋯ | Roster update; a viewer's editor goes read-only |
+| Remove | person row ⋯ | The peer is disconnected **and the secret rotates**: the host sends the new secret to the remaining peers over their encrypted connections, so the removed peer's link is dead |
+| Stop sharing the link | header ⋯ | Rotates the secret; people already in stay; the old link reaches "link revoked" |
+| End session | header ⋯ | Everyone disconnects; guests keep their copy (§5.5) |
+| Auto-admit | panel toggle | §4.3 |
+
+**Roles are cooperative, not a security boundary.** In a peer-to-peer mesh nobody sits in
+the middle to refuse a write. Honest clients enforce "can view"; a hostile guest with a
+modified client could still send edits. The mitigation that is real is admission itself
+(only roster ids get connections) plus Remove-with-rotation. The panel copy does not
+promise more than that.
+
+**If the host drops** (closes the tab, loses network): guests stay connected to each other
+and keep editing; the panel says "Sharmarke is away — new people can't join until the host
+returns." When the host comes back with the same link, their browser re-syncs and resumes
+hosting. Handing the host role to someone else is a later slice.
+
+### 5.5 Whose deck is it?
+
+- **The host's deck is the deck.** It stays in the host's `localStorage` as today.
+- **A guest gets a linked copy**: a normal deck entry titled "Q3 Board Review" with a
+  "Shared by Sharmarke" tag in the deck switcher. It updates live during the session.
+  After the session ends the guest keeps it as an ordinary deck (they can delete it). This
+  matches the local-first posture: nothing is lost if the session ends unexpectedly.
+- **Rejoining** with the same link re-attaches the copy instead of creating a second one.
+
+### 5.6 When the panel is closed, and on smaller screens
+
+The session must not depend on the panel being open — closing it is how you get the room
+back for the editor.
+
+- **Presence pill in the header.** While live, the header shows an avatar stack and a mic
+  toggle next to Share on desktop and tablet. The mobile header has no Share (it is a bottom
+  bar cell, `StudioShell.tsx:6338`), so there the pill sits beside the menu trigger. Clicking the stack opens the panel; the mic toggle works in place.
+  This is the always-visible surface on every width.
+- **Floating video.** If anyone has a camera on and the panel is closed, the tiles collapse
+  into a small draggable strip over the preview's corner ("pop out" in §5.2 does the same
+  with the panel open). It never covers the editor.
+- **Tablet:** "Live" joins Coach and Chat in the ⋯ menu, and opens as the same left
+  `PanelSheet` they use.
+- **Mobile:** no ninth bar cell. The Share sheet gets a first row, **"Collaborate live"**,
+  and the header presence pill opens the panel as a bottom sheet. The lobby card is
+  full-screen.
+
+### 5.7 Chat
+
+- **Human chat, separate from the AI chat.** The AI Chat panel stays per-person; each
+  collaborator drives the Architect on their own OpenRouter key. The Live panel's chat
+  reuses the composer and shell classes (`CHAT_COMPOSER_*`, `ChatShell` in
+  `panel-shells.tsx`) but not the AI message model.
+- **Slide chips.** "slide 6" or "#6" in a message renders as a chip that jumps your preview
+  to that slide.
+- **Bubbles, like the Architect chat.** Your lines sit on the right in the primary color, the
+  same bubble the Architect chat gives your messages; everyone else's sit on the left on the
+  muted surface, with their name in their session color once per run. "Amina is typing…" shows
+  above the composer (a throttled post, at most one every 2 s, shown for 4 s). On a phone the
+  invite and people block folds away while you type, so the composer stays above the keyboard.
+- **One clock, one order: the host's.** Device clocks drift by seconds or minutes, so nothing
+  compares two of them. Tavola keeps a **session clock**: each member estimates its offset to the
+  host's clock by Cristian's algorithm (ping, the host answers its time, offset = host time + half
+  the round trip − our time; the shortest round trip wins; three samples on joining, then one
+  every 30 s), and `session.now()` reads host time on every browser. Epoch milliseconds carry no
+  time zone; each viewer formats them in its own. The same rule as Cadenza and Suono: one owner of
+  time, and everyone rides it.
+- **Chat goes through the host.** A member sends `say` to the host, which numbers the line
+  (1, 2, 3…), stamps it with session time and sends it to everyone, so every browser shows one
+  order. A returning member asks for the lines after its last number (`since`) and gets exactly
+  those; a skipped number triggers the same ask; the host tells each (re)admitted member the
+  latest number (`tip`). A line sent while the host is away waits as *Sending…* (sealed in the
+  tab, so a reload keeps it; re-sent every 15 s and on every return) and goes out when the host is
+  back. The host drops a resent line by its member and id, and sends that member its receipt
+  again; every `say` carries the sender's highest number, which the host takes as a floor, so a
+  host restored from an old save never reuses a number. Removing someone posts a `gone` first, so
+  the room reads "was removed" at once. The cost is one extra hop per line.
+- **Times** show once per run of lines (*2:05 PM* in the viewer's zone and format), and a guest's
+  session timer counts from the host's start, not from its own join.
+- **"Left" means left.** A dropped connection (a phone that backgrounds the tab, a blip) shows the
+  person dimmed as *Reconnecting…*; coming back within 60 s is not news, and only then does the
+  chat say they left. Leave sends a goodbye first, so it says "left" at once.
+- **System lines** for joins, leaves, role changes, and applied AI edits ("Amina applied an
+  AI edit to slide 3"), so a change that landed under you has a visible cause.
+- **Lifetime:** the chat rides Tavola's post channel, not the document, so a line's author is
+  the member it arrived from and nothing an editor writes into the deck can forge one (red-team
+  round 2). Every browser keeps the lines it saw, the host hands its copy to each newcomer, and a
+  reloading host keeps it in its sealed save, so late joiners see the history. It ends with the
+  session; it is not saved into the deck. (Turning a message
+  into a slide comment is a later slice, when comments sync.)
+
+### 5.8 Calls
+
+- **Audio first.** "Join call" joins with the microphone; the camera is a separate toggle.
+  The June A/V note's reasoning holds: voice scales further in a mesh and is what a deck
+  session needs most.
+- **Being in the session ≠ being on the call.** Someone can edit silently. The People rows
+  show mic state, and the speaking ring is driven by local audio level, shared through
+  awareness.
+- **Device picker** in the call section's ⋯ (input, output, camera), plus a clear denied
+  state with how to re-enable permission.
+- **On-air is unmissable:** while your mic or camera is on, the header pill shows it in
+  your color, and the browser tab title is prefixed.
+
+## 6. How it fits the editor and the source of truth
+
+### 6.1 Binding
+
+- **Solo path unchanged.** Outside a session, nothing in this note loads. The collab
+  bundle is a lazy import triggered by "Start live session" or a `#live=` link.
+- **During a session the `Y.Text` is the source of truth.** The editor binds to it with
+  `yCollab` (from `y-codemirror.next`). The React `source` state becomes a mirror,
+  updated from the `Y.Text` observer, so the preview, Coach, lint and every other reader
+  of `source` keep working unchanged.
+- **Undo becomes "undo my edits".** `yCollab` creates a `Y.UndoManager` on the `Y.Text` by
+  default (`y-codemirror.next` `src/index.js`), which tracks local changes only. CodeMirror's
+  `history()` is a plain extension (`Editor.tsx:646`), not in a `Compartment`, and
+  `Editor.tsx:622-631` records why reconfiguring it through one is a trap: the old stack
+  leaked back about 1 run in 10. So entering or leaving a session **rebuilds the
+  `EditorState`** with `yCollab` in place of `history()`, the way a deck switch already
+  does. Without this, the current inbound dispatch path (`Editor.tsx:859-889`) would put
+  everyone's edits on your undo stack.
+- **Writers other than typing** — `ComposeView`, AI apply (`onApply`), `fixAll`,
+  checkpoint restore — go through one `applySourceEdit(next)` helper that computes a
+  minimal diff and applies it to the `Y.Text` in one transaction. A checkpoint restore
+  during a session asks first ("This replaces the deck for everyone").
+- **Persistence:** the host keeps writing `lattice-studio-src-<id>` on the existing
+  debounce; the guest writes their linked copy the same way. No IndexedDB migration is
+  needed for the first slice (the June note's Phase 0 is not a prerequisite).
+
+### 6.2 What is in the shared document
+
+| Yjs type | Content |
+|---|---|
+| `Y.Text('source')` | the deck markdown |
+| awareness (not persisted) | name, color, role, active slide, caret, mic/cam/speaking, following |
+
+Chat is not in the document: it travels as Tavola posts (§5.7). Comments stay local for now; syncing them as a `Y.Array` is the comments note's planned
+path and a later slice.
+
+## 7. Transport and infrastructure
+
+Everything except signaling is peer to peer:
+
+| Piece | Choice | Who runs it |
+|---|---|---|
+| Document, awareness, chat | Yjs sync messages (`y-protocols`) over an `RTCDataChannel` | browsers |
+| Audio / video | media tracks on the **same** `RTCPeerConnection` | browsers |
+| Encryption | DTLS / SRTP between peers (always on in WebRTC); AES-GCM on signaling with the link secret | browsers |
+| Signaling (matchmaking) | [Trystero](https://github.com/dmotz/trystero) (MIT) over its default Nostr strategy — public relays, no account; BitTorrent trackers as the second strategy | third parties, free |
+| STUN | a public STUN server | third party, free |
+| TURN | a config slot, off by default (`LIVE_TURN` in `docs/src/components/studio/live/live-ice.ts`; the options, measured, are roadmap §3.1) | nobody, until the owner picks one |
+
+**Why GitHub Pages cannot be the middleman.** Pages serves static files. It cannot hold a
+connection open or pass a message from one browser to another, and two browsers need
+exactly that once, to exchange connection offers, before they can talk directly. Some
+server has to carry that first exchange. With no server of ours, the remaining choice is a
+public one, and Trystero is the library built for it: it publishes the encrypted offers on
+public relays that already exist (Nostr relays by default, hundreds of them) and hands back
+ordinary WebRTC connections, with media track support.
+
+**Why our own thin provider on Trystero instead of `y-webrtc`.** `y-webrtc` syncs the
+document to any peer that holds the room password the moment it connects. There is no step
+where a host decides. The knock in §4.3 and the roster rule in §4.4 need an application
+layer that sends nothing until the host admits. Tavola (§7.1) is that layer: it carries the
+`y-protocols` sync and awareness messages (the same ones `y-webrtc` uses) over Trystero's
+data actions, gated by the roster. Document sync and media then share one connection per
+pair of peers, as the June A/V note wanted.
+
+### 7.1 Tavola — the collaboration library
+
+The owner chose (2026-10-06) to build the engine as a sibling library, **Tavola**
+(`@laticent/tavola`, Italian for the table people gather around), alongside Vetrina,
+Cadenza, Trama, Lente, Suono and Anima. The split follows one line: **Tavola knows peers
+and bytes; the Studio knows screens.**
+
+| Tavola (`docs/src/lib/tavola/`, no UI, no React) | The Studio |
+|---|---|
+| Link codec: mint and parse `#live=<room>.<secret>`, rotation | Live panel, lobby card, knock toast, header pill |
+| Handshake protocol: hello, knock, admit, deny, roster, remove, end | Editor carets, navigator avatars, follow bar |
+| Roster gate: send and accept only for admitted ids; the 4-person cap | Binding the `Y.Text` into CodeMirror (§6.1) |
+| Sync and awareness messages (`y-protocols` shapes) over the transport | Where presence is drawn on each width (§5.6) |
+| Presence model: name, color, role, slide, mic, speaking, following | Chat rendering, slide chips |
+
+**Everything outside is passed in, the way Trama takes dagre.** The core has no runtime
+dependencies:
+
+- **A transport** — a small interface: `join(room, secret)`, `send(bytes, peer)`,
+  `onMessage`, `onPeerJoin`, `onPeerLeave`, and media `addTrack`/`onTrack`. The Trystero
+  adapter (`@laticent/tavola/trystero`, `adapters/trystero.ts`) is the only file allowed to
+  import a third-party package, and it pins the Trystero version (§7 measured 0.26.0).
+- **A document** — the app hands Tavola its `Y.Doc` and the `y-protocols` encoders, so Yjs is
+  a peer dependency the Studio already owns, not a copy Tavola bundles.
+- **A clock and randomness** — injected, so tests are deterministic.
+
+**What that buys.** The security-relevant half (knock, roster, rotation, cap) gets one
+boundary and a standalone test suite, run against an **in-memory transport** of a few
+lines. That replaces the local WebSocket relay this note first planned for tests: protocol
+tests never open a socket, and only the real-browser Playwright tier uses Trystero. The
+Tauri desktop wrapper can embed Tavola the same way the Studio does.
+
+**Contract it inherits from its siblings** (`2026-07-08-library-shape-cadenza-vetrina.md`):
+a `package.json` with `exports` and types, a README, standalone tests, and a boundary gate
+in `tools/check-ownership.js` — a proposed `checkTavolaBoundary` that rejects any import
+escaping the folder, with one sanctioned exception for `adapters/trystero.ts` →
+`trystero/nostr`. Adding a gate function is a rule in an existing gate, not a new CI job
+(CLAUDE.md's second filter, row 2). Tavola also owes a family mark (`tavola-mark.svg`,
+`-mark-min`, `-lockup`) per `2026-07-18-sibling-brand-system.md`; that is a later slice and
+does not block S1.
+
+**What third parties see.** The public relays see an opaque room topic and the timing and
+size of encrypted offers. They never see the deck, the chat, names or media. The STUN
+server sees IP addresses. The relays are run by people we do not know, so the lobby copy
+says "Lattice has no server that sees them", which is true, and not "nobody relays them",
+which is not.
+
+**Measured (2026-10-06, Trystero 0.26.0, the default Nostr relay list).** A throwaway spike
+(`.scratch/collab-spike/`, not committed) ran the §4 handshake for real: two separate
+headless Chromium processes, a fresh random room and secret per trial, the host already in
+the room, the guest then opening the "link". The guest got the host's hello, knocked, was
+admitted, received the `Y.Text`, and edits then synced both ways. A third peer that held
+the link but never knocked pushed an edit straight at the host.
+
+| | Result |
+|---|---|
+| Trials that completed (hello → knock → admit → sync → edits both ways) | **5 / 5** |
+| Guest opens link → shared deck on screen, median of 5 | **973 ms** (min 756, max 1,037) |
+| Guest opens link → peer connection open, median of 5 | **604 ms** |
+| Edits from the never-admitted peer that landed on the host | **0 / 5** (all dropped by the roster check) |
+
+What that does and does not show. It shows the public relays matched peers fast and
+reliably on this day, the password-encrypted handshake works, the relays were reached
+through the sandbox's HTTPS proxy (so matchmaking survives an HTTP proxy), and the roster
+gate in §4.4 refuses an unadmitted peer. It does **not** show NAT traversal: both browsers
+ran on one machine and connected over local addresses. Two homes, a phone on cellular and
+a corporate network are still the owner's real-device check (§8). Note also that 0.26 changed
+the action API (`makeAction` now returns `{ send, onMessage }`), so the provider pins the
+Trystero version.
+
+**Reliability, honestly.** Public relays come and go. Trystero connects to several at once,
+so one dying does not stop a join, but a join can take a few seconds and no one we pay
+stands behind the uptime. If the Nostr strategy proves flaky in practice, the fallback is
+another Trystero strategy (BitTorrent trackers, MQTT), not a server.
+
+**Limits, stated up front.** A mesh means every peer connects to every other peer.
+Cap: **4 people per session, hard** (owner's call). The fifth knock gets "This session
+is full". Corporate networks that block UDP, and some mobile carriers, will fail to connect
+without TURN, and with no server of ours there is no TURN by default. The lobby's "could
+not connect" state names that cause. A free public TURN service can go in the TURN slot
+later; it would be a third party that relays media while it is in use.
+
+**Local development and tests** must not depend on public relays (flaky, and outbound
+traffic from CI). Tavola's protocol tests run on the in-memory transport (§7.1). The
+real-browser tier runs two to four Chromium contexts on one machine; if the public relays
+are unwanted there too, Trystero's self-hosted WebSocket strategy points the same adapter
+at a throwaway local relay started by the test itself. Nothing of it ships.
+
+## 8. What we can verify here, and what we cannot
+
+- **Can verify in the sandbox** (and §7's spike already did, for the handshake): Tavola's protocol suite on the in-memory transport,
+  then two to four headless Chromium contexts — the whole handshake, knock/admit/deny, roster refusal, live
+  sync, carets, follow, chat, remove-with-rotation, reconnect. Real WebRTC data channels
+  work between two Chromium contexts on one machine. Chromium's fake-media flags exercise
+  the call plumbing and the tile UI.
+- **Screenshots at 1440 / 820 / 390** for the panel, lobby, knock, pill and floating tiles
+  in both color modes (Quality Bar).
+- **Cannot verify here, and will say UNVERIFIED:** call quality, echo, real cameras and
+  microphones, NAT traversal across real home and corporate networks, iOS Safari. Those
+  need the owner on two real devices on two networks (HARD RULE #23). The spike in §7
+  measured join time over the real public relays, but from one machine; how it holds across
+  days and networks needs the same real-world check.
+
+### 8.1 The two-network check — the owner's runbook
+
+The one test this sandbox cannot run (HARD RULE #23). It needs two real devices on two
+different networks, and it takes about five minutes.
+
+1. **Open the PR's docs preview link** on a laptop on Wi-Fi. Studio → Live → *Start live
+   session*. Copy the link and send it to your phone.
+2. **On the phone, turn Wi-Fi off** so it runs on mobile data. Open the link, type a name,
+   and tap *Ask to join*. Admit the phone on the laptop.
+3. **Edit and chat both ways.** Type a line on each device, and send a chat message from each.
+4. **Read the connection.** In the Live panel, each person row shows an icon for how this
+   browser reaches them: a Wi-Fi mark (same network), two arrows (direct across networks), or
+   a server (through a relay). Tap the person's **⋯** menu. The first lines read
+   *Connection: …* and the raw pair, for example `srflx→prflx (udp)`. Screenshot that menu
+   on both devices.
+5. **Record it in §12**: the two networks (for example, home fiber and a named carrier on 5G),
+   the pair each side shows, the time from opening the link to the lobby, and whether every
+   step worked.
+
+How to read the result: `host→host` means both devices were on one network, so the test did not
+cross networks. Run it again with Wi-Fi off. `srflx` or `prflx` on either side means a direct
+connection across networks, which is the case the feature needs. If the phone sits on
+*Connecting…* and then shows *Nobody answered* while the laptop is live, the carrier blocks
+direct connections. That is the case a TURN relay fixes (§7, and
+`followups.d/2547-p2-decide-a-turn-default.md`), so record it. It settles how urgent TURN is.
+An iPhone on Safari is worth one run of its own, because nothing here has run on WebKit.
+
+## 9. Slices
+
+One branch and PR per independent slice (HARD RULE #17). Each lands working.
+
+| # | Slice | Delivers | Depends on |
+|---|---|---|---|
+| S0 | **This note** | the design, signed off | — |
+| S1 ✔ | **Tavola core** | `docs/src/lib/tavola/`: link codec, handshake and roster protocol, 4-person cap, sync and awareness over an injected transport, the in-memory test transport, the Trystero adapter, `package.json`/README, `checkTavolaBoundary` | — |
+| S2 ✔ | **Session core — "Europa"** (chat from S3 and most of S6 came with it) | link, lobby, knock/admit/deny, roster, live co-editing, carets, navigator presence, follow, Live panel (People + Invite), header pill, linked guest copy | S1 |
+| S3 | **Chat** | session chat, slide chips, system lines | S2 |
+| S4 | **Audio** | join call, mute, speaking ring, device picker | S2 |
+| S5 | **Video** | camera, tiles, pop-out strip | S4 |
+| S6 | **Management hardening** | remove-with-rotation, stop link, host-away state, end session, auto-admit | S2 (may fold into S2 if small) |
+| S7 | **Tavola mark** | the three family SVGs per the sibling brand system | S1 |
+| later | Present together, host handoff, synced comments, TURN | | |
+
+S2 is the "I share a link, they click, we are collaborating" moment and gets the
+adversarial trio before merge (HARD RULE #25: novel, security-relevant, new third
+parties in the path). S2 also owes a short demo of the experience — a recorded two-browser walkthrough
+— in place of a slide deck, because it renders no slide surface (HARD RULE #9's evidence
+clause).
+
+## 10. Decisions — settled 2026-10-06
+
+| Question | Owner's answer |
+|---|---|
+| Admission default | **Knock; the host admits.** Auto-admit is a per-session toggle |
+| Infrastructure | **No server, no account, no cost, nothing stored by us.** GitHub Pages was the hoped-for middleman; it cannot relay (§7), so matchmaking uses public relays through Trystero |
+| Session size | **4 people, hard cap** |
+| Guest copy | **Keep a linked copy** after the session |
+| Where the engine lives | **A sibling library, Tavola**, with the transport and document passed in (§7.1) |
+
+## 11. What this replaces
+
+This note supersedes both June notes as the plan of record. Their transport, NAT and cost
+analysis stays the reference for §7, and they stay in the tree, marked superseded.
+
+## 12. What shipped (2026-10-06, PR #2547)
+
+**Built.** Tavola (`docs/src/lib/tavola/`) and the Studio's Live slot
+(`docs/src/components/studio/live/`): Start live session, the invite link (visible in the panel
+and copied), the lobby, knock / admit / deny, auto-admit, the roster and the 4-person cap, live
+co-editing with carets and per-person undo, presence on the navigator and the preview corner,
+follow, bring-everyone, session chat, role changes, remove, end, a guest's linked copy, guest
+and host reloads, and the Share sheet's *Collaborate live* row. Calls (S4, S5) are not built, so
+every mic control is hidden rather than shown dead.
+
+**Deviations from the design above.**
+- The guest's copy is an ordinary deck with the host's title; the "Shared by" tag in the deck
+  switcher (§5.5) is not drawn yet.
+- Removing someone blocks their peer id and revokes their token, but does not rotate the link
+  secret (§5.4); a removed person who reopens the link reaches the lobby as a new knock.
+- The link gained a third part, the host key fingerprint (§4.1).
+- Tests do not run against a local relay; Tavola takes its transport as an argument, and its
+  suite runs on an in-memory network (§7.1).
+
+**The adversarial review** (red team, Munger inversion, independent checker, all on Opus)
+found real defects; every one marked fixed below has a test that failed first or a step in the
+real-browser check.
+
+| Finding | Severity | Now |
+|---|---|---|
+| A link holder could pose as the host to a newcomer, or take over a guest while the host was away, and collect its rejoin token | high | fixed: signed hello + fingerprint in the link (`hostkey.ts`) |
+| End and Leave closed the connection before `end` was delivered | high | fixed in Tavola in round 1; the Studio still closed at once through its own stage listener until round 2 (below) |
+| A promoted viewer's later edits were stranded (Yjs pending forever) | high | fixed: role changes resync; viewers cannot post chat |
+| Presence was keyed by a self-claimed field: fake summons, spoofed names, CSS injection into caret styles | high | fixed: awareness rebuilt from the roster (`sanitizeAwareness`); ownership moved from first arrival to a roster binding in round 2 |
+| Late-forming or blipping member links left guests out of sync for good | high | fixed: resync on peer join; re-admit by token on a hello while live |
+| A token replay evicted the real member and bypassed the cap | medium | fixed: refused while the member is connected; cap and color checked |
+| A deck switch while live pushed the other deck into the shared text | medium | fixed: the switch is handled before any push, and asks first |
+| A guest's first sync could rebase its previous deck into everyone's text | medium | fixed: the rebase base is seeded with the shared text |
+| An overlapping outside rewrite doubled the text | medium | fixed: refused with a notice instead |
+| Denied or removed peers could knock again at once | medium | fixed: per-session block list |
+| Chat authors were self-declared | medium | fixed in round 1 by reading the Yjs client id; that proved forgeable (round 2), so chat now rides Tavola posts |
+| A host reload killed the session; a guest reload did not rejoin | medium | fixed: host resumes from its saved key, tokens and document; guest rejoins by token |
+| A network that blocks WebRTC showed "the session isn't live" | medium | fixed: the lobby names the network as a possible cause |
+| The startup JavaScript grew past the per-PR allowance | CI | fixed: all session code loads on demand |
+| CodeQL: the host's session save held the room secret (and its signing key) in clear text | high | fixed: secrets and rejoin tokens are sealed with a non-extractable AES key kept in IndexedDB, the host's private key is a non-extractable CryptoKey there too, and a `#live=` link is held in memory until sealed; the real-browser check asserts the secret is absent from both browsers' storage |
+
+**The second adversarial round** (same three lenses, on the hardened code) found these; each
+has a test that fails when its guard is removed, except where noted.
+
+| Finding | Severity | Now |
+|---|---|---|
+| After the host's link dropped, a link holder could reconnect under the host's old peer id (ids are self-declared) and be obeyed: forged roster, document, removal, and a `sync` that handed it the deck | critical | fixed: a guest stops trusting the host's id when its link drops, sends it nothing and accepts nothing from it until a fresh signed hello; a member whose link drops leaves every roster at once |
+| Chat lines could be forged under another member's name by writing Yjs items under their client id | high | fixed: chat moved to Tavola's post channel; the author is the transport sender |
+| Presence: the first peer to mention a client id owned it, so a member could hijack the host's summon and others' carets; a truncated update kept its claim | high | fixed: the host binds each member's client id in the roster from its knock; awareness counts only for the bound id; undecodable bytes are dropped whole |
+| Watch demo while live blanked the shared deck for everyone | high | fixed: it asks first, and a yes ends or leaves the session before the editor is touched (`mayLeaveDeck` now tears down itself) |
+| End in the Studio still closed the connection at once, and the host got the guest's toast | high | fixed: stage changes during a teardown are ignored |
+| A member whose seat was taken during a blip stayed "live" with edits going nowhere | high | fixed: a refused rejoin moves it to `full` / `denied`, with a toast |
+| With IndexedDB unavailable the session ran behind a "Couldn't start" toast; a failed key load was cached | medium | fixed: the session starts and says it cannot survive a reload; a failed load is retried |
+| StrictMode resumed twice and opened two sessions | medium | fixed: `resume()` is single-flight and re-checks before wiring (the second check alone also holds, so removing the memo does not fail the test) |
+| An insert whose surroundings were gone landed mid-sentence | medium | fixed: refused like a delete |
+| One malformed caret turned off everyone's remote carets | low | fixed: carets are shape-checked |
+| A failed load of the session code was silent and final; a link pasted into an open tab did nothing; a cut-off link was blamed on the network; a version mismatch timed out as "nobody answered"; a duplicated tab became a second host | medium | fixed: retry with a notice and the link kept until loaded; `hashchange`; a `bad-link` and an `outdated` lobby card; a `navigator.locks` host lock |
+| Names kept bidi overrides and zero-width characters; the waiting queue had no limit; a removal could be undone by a reload in the next second | low | fixed: stripped; 8 knocks at most; the host reseals at once on a removal and an unload writes the last sealed save synchronously |
+| The invite link carried the host page's query string | low | fixed: origin + path only |
+
+**A third check** (an independent checker on the round-2 fixes) found five more, two of them
+narrower windows of the same host-id squat; each now has a test that fails without its guard.
+
+| Finding | Severity | Now |
+|---|---|---|
+| After a host RELOAD (new peer id), the host's OLD id stayed a trusted member, so a squatter on it got the guest's edits and could write to it | high | fixed: a verified hello from a new host id drops the old one from the roster |
+| A link that dropped while its hello was being verified left the id trusted for whoever took it next | high | fixed: each link has a generation; a hello is believed only if its link is unchanged after verifying |
+| Round 2's "drop a member the moment its link drops" split two guests whose own link blipped, for good | high (regression) | fixed: on that peer's return the guest asks the host for its roster (`roster?`), which re-adds and resyncs it |
+| A cut-off link followed by a good one in the same tab stayed on "This link isn't complete" | medium | fixed: a fresh link clears it |
+| A forged Yjs item under a member's client id renames that member's document client, and presence keyed on the document id then threw | medium | fixed: presence keys on the awareness id everywhere |
+| A host that saw a member's link replaced without a leave (Trystero "peer replaced") never said hello again | medium | fixed: a join for a counted member is treated as a fresh link |
+| Out-of-order seals, a link pasted mid-resume, no save on a real unload, a repeated load-failure toast | low | fixed: newest seal wins; resume loops while a link waits; `pagehide` writes the save; one toast |
+
+**Known limits that remain.**
+- **A member's id is vouched for by the host, not proven.** When two guests' own link blips, each
+  re-admits the other on the host's word that the id is still a member. A link holder who takes
+  that id at exactly that moment, while the real member is still connected to the host, would be
+  let in by the other guest. Closing it needs a signing key per member (the host's scheme,
+  extended); it is a follow-up.
+- **Any link holder can show a waiting guest "Reload to join"**: a hello from another protocol
+  version cannot be signature-checked. A real host's hello still takes the guest on.
+- **An admitted editor is trusted with the text.** Yjs updates carry no signatures, so an editor
+  can write items under another member's client id, and by sending them to one peer only leave
+  two copies that disagree for the rest of the session. Tavola gates who may edit, not what an
+  editor writes; an editor can already delete the whole deck.
+- **No TURN.** Networks that block direct browser-to-browser traffic (many offices, some mobile
+  carriers) cannot connect. A free third-party TURN in the slot would fix most of these; it is
+  the owner's call (it puts a third party in the media path).
+- **Link holders learn members' IP addresses**, because every peer in the room gets a WebRTC
+  connection to every other before admission (§4.4).
+- **Names are self-asserted.** The knock is where the host checks who is asking.
+- **A reload resumes only in the same tab** with IndexedDB working; closing the tab ends your
+  part. The link works for as long as the session runs, wherever it was pasted.
+- **Cross-network joins are untested** here: every real-browser run had both browsers on one
+  machine.
+
+**How it was verified.**
+- Tavola: 46 tests over the in-memory network with a real Yjs document (the memory network can
+  now reconnect a peer under a departed id, and deliver a lone join or leave the way a replaced
+  link does, which is how the squat and replace tests run). Weakening the gate,
+  the signature check, the replay check, host-id trust, the refused-rejoin stage or the waiting
+  limit fails the tests that cover them.
+- Studio: the controller over the in-memory network (8 tests: a good link after a cut-off one, End timing, single-flight resume,
+  chat authorship and history, no IndexedDB, a cut-off link, a link without query, the
+  duplicate-tab lock), the rebase and awareness-sanitizer tests, and the whole docs suite
+  (5,983 tests).
+- Real surface: `tools/live-session-check.mjs`, two Chromium processes over the public Nostr
+  relays and real WebRTC, in light and dark: start, lobby, knock, admit, edits both ways,
+  carets, per-person undo, chat, remove, a second guest, a host reload (session resumes in
+  about 5.5 s with the guest still in), a guest reload (rejoins without a knock in about 5.6 s),
+  and End reaching the guest. Opening the link to editing took about 8 s on the unoptimized dev
+  server, most of it the Studio loading. The check now also reports which network path the
+  connection took: `host→host (udp)` on every run here, which is what two browsers on one machine
+  give and is no evidence about other networks.
+- Phone width (390 px, Chromium touch emulation, two browsers over the real relays): Menu → Live
+  → Start, the lobby, the knock toast with Admit, the header pill on both sides, and chat from
+  the phone reaching the host. This run found two phone defects, both fixed: Live had no entry
+  point on a phone (its pane bar is full; it is now a row in the phone drawer), and tapping
+  Start right after typing a name did nothing, because the shared phone sheet shrinks 54px when
+  a field loses focus and the click landed on the field (`followups.d/2547-p2-phone-sheet-shift-
+  misdirects-taps.md` covers the other sheets).
+- UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
+
+
+### 12.1 Host handoff, as a regency (2026-10-07)
+
+**What it does.** If the host's connection stays down, the next editor hosts **until the host is
+back**: members rejoin the regent by token without knocking, chat keeps flowing (numbered by the
+regent), and new people can knock again. When the host returns, from a reload or from a phone
+tab that was frozen, it takes the session back; the regent hands back the chat lines it numbered
+and the rejoin tokens it issued, so the people it let in stay in. The Live panel names the heir:
+the host reads *If you're disconnected for about half a minute, Amina hosts until you're back*,
+and while the host is away every member reads who hosts meanwhile.
+
+**Why a regency and not a handover.** The first design moved the role for good: the old host
+rejoined as a member. The inversion review ran it and found that what happened then depended on
+whether the browser froze the tab or threw it away. A reloaded host stepped down. A resumed tab
+took the session back, dropped the regent's chat and showed the regent a false "you were away".
+Making the creator always reclaim turns that accident into the rule. It also keeps what a host had
+before: the person who shared the link can always end the session. *This is a product choice the
+owner can reverse:* a final handover is the same mechanism with the reclaim turned off.
+
+**How the authority moves.** The host's key cannot move: in the Studio it is a non-extractable
+CryptoKey. So the host certifies the heir's own key: a cert says "this key may host at term N,
+and never above M", signed by the key that hosts now, and a hello carries the chain of certs back
+to the key the link names (`hostkey.ts`, `verifyChain`). Terms only rise, a cert can only narrow
+its issuer's range, and the highest term wins:
+
+- a guest follows a strictly higher term, and never one below its floor (the roster's term, which
+  the Studio persists with the rejoin token, so a reload is not caught by a withdrawn heir);
+- a regent that hears a higher term steps down (`moved`), rejoins with its own token, and hands back;
+- the first host never steps down: it certifies itself above the challenger's whole range;
+- when the heir changes (it left, was removed or made view-only), the host certifies itself above
+  the withdrawn range, and the range's ceiling binds every key the withdrawn heir could sign;
+- an heir that challenges a first host which still has members is never heir again.
+
+**What the heir holds.** The chain, the blocked ids, the settings, and the rejoin tokens **by id**
+(SHA-256). It can check a knock by hashing it, but cannot knock with anyone's token. A removed
+heir therefore cannot come back as another member (red team, 2026-10-07).
+
+**Waiting before taking over.** WebRTC takes about 13 s to notice a dead link (measured below),
+and a host reload is back in about 6 s, so the grace is 20 s. Then the heir asks the other
+editors whether they still reach the host. If one does, the heir is the one cut off, and it waits
+again, for at most three rounds; after that it hosts anyway, and the first host takes the session
+back when the cut heals. A viewer's answer does not count, so a viewer cannot hold the handoff off.
+
+**What the Studio does around it.** The regent keeps the session's start time and the chat
+numbering, takes over the chat-id owners the host handed it, sends its own waiting lines, holds
+the host lock and saves the session with its own key and chain. A host waits for any cert still
+being signed before it saves, and withdraws a cert it had out when it resumes from a save.
+
+**Measured on the real surface** (`tools/live-session-check.mjs`, two Chromium processes, the
+public relays, real WebRTC): the host's tab closed; the heir saw *The host is away… you host
+until they return* about 13 s later; it hosted 32.9 s after the close; a third person knocked,
+the regent admitted them, and they received its edits; the regent ended the session.
+
+**The first host's return, on the real surface** (the same check, light and dark, plus two runs of a
+two-browser variant). The check drops the host's network the way a phone loses signal: its
+connections close, and any connection made meanwhile finds no route, so it fails as it would
+offline. Chen, the heir, hosted 20.2–20.5 s after the drop; a chat line and an edit were written
+during the regency; when the host's network returned, it took the session back 22–48 s later
+(six runs, all of them), with the regency's edit and chat line, and the chat in the same order on
+both sides. Most of that wait is the connection library's own retry. A *frozen* tab could not be
+reproduced here (headless Chromium does not freeze a visible page); it ends in the same reclaim, and
+Tavola's and the Studio's tests run it.
+
+**The adversarial review** (red team, inversion, independent checker; all on Opus) found, before
+merge, and each now has a test that fails without its guard:
+
+| Finding | Severity | Now |
+|---|---|---|
+| A cert holder could certify itself at any term, so a withdrawn heir out-ranked the host | critical | ceilings: a cert can only narrow its issuer's range |
+| After a host reload, a cert still out was never withdrawn; an ex-heir could make the host step down | critical | a resumed host withdraws before its first hello; the first host never steps down |
+| A removed heir kept every rejoin token and walked back in as another member | high | the heir gets token ids only |
+| A reloading member could be caught by a withdrawn heir before the host's hello | high | the floor persists with the token |
+| A returning host's fate depended on whether its tab froze or reloaded; the regent's chat was lost | high | regency: the first host always reclaims, and the regent hands back lines and tokens |
+| One viewer answering "the host is here" held the handoff off forever | medium | only editors' answers count, and at most three rounds |
+| A save could seal the chain before a cert finished signing | medium | the save waits for signing |
+| An heir could keep a cert below the floor and take over into a void | low | dropped on the roster and before promotion |
+| The first chat-id handover to a new heir could be dropped | low | kept from the host whenever it arrives |
+
+**Protocol.** Version 2. A tab still on version 1 shows *Reload to join* rather than timing out.
+
+### 12.2 Audio calls — S4 (2026-10-07)
+
+**What it does.** *Join with audio* in the Live panel (or the mic in the header pill) captures the
+microphone with echo cancellation and noise suppression and sends it to everyone in the session;
+you hear the others once you join. Mute and unmute need no reconnection (the track is turned off).
+The call row's ⋯ picks the microphone and leaves the call. Each person's row shows their mic, and
+a speaking ring in their color while they talk; the tab title starts with *On air ·* while your
+microphone is live. If the browser blocks the microphone, the panel says how to allow it.
+
+**The gate.** Tracks go only to admitted members, and a stream from anyone else is held, unheard,
+until the host admits them (`session.setMedia`, Tavola). A removed member's stream is dropped.
+
+**Deviations from §5.8.**
+- The speaking ring is **measured by each listener** from the stream it hears (Suono's
+  `stage.meter`), not shared through awareness: a level a peer reports about itself is a
+  self-claim, and earlier review rounds found those forgeable. Only the mic on/off state is said by
+  its owner, about itself.
+- The device picker covers the microphone. Choosing the output device (`setSinkId`) is not built;
+  Safari does not support it.
+- Video (S5) is not built.
+
+**Measured on the real surface** (`tools/live-session-check.mjs`, Chromium's fake microphone, real
+WebRTC; the run's log is kept with its screenshots): both joined; each side played one remote
+stream; each side showed the speaking ring on the OTHER person's row; the host showed the guest's
+mic as *Mic on*, then *Muted* after the guest muted; the tab title read *On air · …*; the
+measured send rate was 8.7–9.9 kbit/s over two runs. The fake source is a short beep over silence,
+so Opus sends little; ordinary speech runs at roughly 25–40 kbit/s. UNVERIFIED: real
+microphones, echo between two real devices, call quality, and iOS Safari.
+
+**Found on a real iPhone** (the owner, 2026-10-07, Chrome on iOS, before merge): *Join with
+audio* showed "Couldn't start the microphone". Suono's `unlock()` sets iOS's Audio Session to
+`playback`, which is right for reading aloud. The W3C Audio Session spec ends a microphone track
+under any type but `play-and-record` or `auto` (its element update steps), so under `playback` the
+capture cannot start. Desktop browsers have no audio session, so no desktop run could see it.
+Fixed, in two places:
+- joining a call sets the session to `play-and-record` after the unlock and before asking for the
+  microphone, and leaving sets it back to `auto`;
+- Suono's `unlock()` never downgrades `play-and-record`, so read-aloud, a lesson or narration
+  started *during* a call no longer ends the call's microphone. `play-and-record` also plays
+  through the media channel, so the silent switch still cannot mute read-aloud.
+
+`live-audio.test.ts` models the spec's rule and fails without either fix. A failure now names its
+reason in the toast. Verified on the owner's iPhone on the PR #2579 preview (2026-10-07): the
+microphone starts and the call works.
+
+**Call quality** (the same iPhone test, 2026-10-07). The owner heard the call as muffled, choppy
+and too quiet. Measured on the preview, two Chromium processes over real WebRTC, sending a
+generated 48 kHz test signal (voice-like harmonics plus 9 kHz and 14 kHz tones):
+
+| Send | Measured | 14 kHz tone heard at | Noise floor (18–20 kHz) |
+|---|---|---|---|
+| Browser default (nothing set) | Opus mono, 32.3 kbit/s, in-band FEC on, 0 packets lost | −62.8 dBFS | −69.0 dBFS |
+| `maxBitrate` 96 000 | 96.3 kbit/s | −52.7 dBFS | −65.5 dBFS |
+| `maxBitrate` 64 000 (the new default) | 64.5 kbit/s | −52.3 dBFS | −59.5 dBFS |
+
+So the default was ordinary voice-call audio, and a higher cap keeps more of the top end. Calls
+now send at 64 kbit/s (`CALL_BITRATE` in `live-audio.ts`, passed as
+`session.setMedia(stream, { maxBitrate })`; the Trystero adapter's `capBitrate` sets the
+`RTCRtpSender` encoding at once where it exists (Chromium), and otherwise again each time
+negotiation settles until it lands, because Trystero's `addTrack` resolves before the offer and
+answer and a browser may have no encodings until then; checker, PR #2594). Measured on Chromium
+only; Safari and Firefox are UNVERIFIED. In a four-person call each
+person uploads one stream per other member, about 190 kbit/s. It also doubles the relay cost of a
+call that goes through TURN (roadmap §3.1), about 29 MB per hour per stream.
+
+**Who sets quality: each person, not the host.** Each browser sends its own audio straight to
+the others, so the bits it sends cost its own upload and depend on its own microphone and
+network. A host-wide setting would make someone on weak mobile data send more than their link
+carries, and turning voice processing off for everyone brings back echo for anyone on a
+speaker. Products that let the host pick (Discord's channel bitrate) pay for a server that mixes
+the call; Zoom and Meet make "original sound" a per-person switch. The owner chose this on
+2026-10-07: the 64 kbit/s default now, and a per-person *High fidelity* switch (processing off,
+128 kbit/s stereo) later.
+
+What the bitrate does not fix, all on iOS and out of the page's reach:
+- WebKit bug 311451 (open, filed 2026-04, still reported on iOS 27): with the microphone on,
+  iOS degrades all of the page's audio (lower sample rate, mono, crackling), with or without
+  `echoCancellation: false`. That matches *muffled* and part of *choppy*.
+- Bluetooth headphones switch to the hands-free profile while their microphone is in use, which
+  is telephone-quality in both directions.
+- *Too quiet*: iOS plays call audio at call volume once the microphone is on (WebKit bugs 230902
+  and 311451). Raising the gain of each person's playback is part of the follow-up.
+- *Choppy* that is network loss needs a measure from the device; the follow-up adds a per-person
+  call-quality readout (loss, jitter, bitrate), the way §8.1's connection readout did for paths.
+
+**Call quality readout** (2026-10-11). A person's ⋯ menu now says how their audio is arriving:
+*Audio: 64 kbit/s · 0.4 % lost · 18 ms jitter*, and *You send 64 kbit/s* under it. It shows while
+both of you are on the call and nothing otherwise. The Trystero adapter reads each connection's
+`inbound-rtp` / `outbound-rtp` audio stats (`audioStatsFrom`, `Transport.audioStats`, optional like
+`paths`; `session.audioStats()` filters to admitted members) on the same 5 s tick as the connection
+paths. Rates and loss cover the time since the previous read, so a bad minute shows now rather than
+averaged into a good hour; the first read shows the running loss and no rate. This is what tells
+network loss (loss and jitter climb) from the iOS bug (they stay flat while the sound is bad).
+Measured on the real surface (`tools/live-session-check.mjs`, two Chromium processes over real
+WebRTC, fake microphone): the browser's own `getStats` said the host heard the guest at 16.3 kbit/s
+with 0 of 816 packets lost; the menu said *17 kbit/s · 0.0 % lost · 0 ms jitter, You send
+16 kbit/s*. UNVERIFIED: the same readout on a real phone, and Safari's stats (WebKit may leave
+`jitter` or `packetsLost` out, in which case that part of the line is simply absent).
+
+**Playback volume** (2026-10-11). Each person's ⋯ menu has a *Volume* slider, 0–200 % in 10 %
+steps, kept for the session (not saved; a person who leaves and returns starts at 100 %). Up to
+100 % the hidden `<audio>` element plays the voice (`element.volume`). Above it the element stays
+attached but muted (Chromium feeds a remote stream to Web Audio only while an element plays it) and
+Suono's new `stage.amplify(stream, gain)` plays the stream through a `GainNode` on the owned
+context (Web Audio stays in Suono). At 100 % or below, or where Web Audio is missing, the element
+plays it as before, so the default path is unchanged. Why: an `<audio>` element cannot go above
+1.0, and iOS plays call audio at call volume once the microphone is on. Measured on the real
+surface (`tools/live-session-check.mjs`, two Chromium processes): see the PR for the run. NOT
+measured: the loudness gain on a phone (the gain stage is the only lever the page has; iOS may
+still cap the output) — UNVERIFIED until the owner tries it on the iPhone.
+
+**High fidelity** (2026-10-11). The arrow beside Mute now always opens a microphone menu: the
+picker when there is more than one microphone, and **High fidelity (music)** for everyone. It is
+per person, as decided on 2026-10-07: it changes only what *this* browser sends. Turning it on
+re-captures the microphone with echo cancellation, noise suppression and automatic gain off (a
+browser fixes voice processing when it opens the microphone, so a re-capture is the only way) and
+re-sends at 128 kbit/s (`HIGH_FIDELITY_BITRATE`) instead of 64 kbit/s. Mute, the chosen microphone
+and the call all carry over; leaving the call resets it, and a refused capture keeps the old
+setting. The menu says to wear headphones, because without echo cancellation a speaker feeds back.
+The switch is drawn as a toggle (the same track and thumb as *Let people in automatically*), in both
+states. It first shipped as a check mark that appeared only when on, and on the owner's iPhone
+(2026-10-12) the off state showed nothing at all, so there was no way to see which state it was in.
+The item stays a `menuitemcheckbox` (valid inside a menu); the toggle is its visible face, and the
+menu stays open when you tap it so you watch it flip.
+**Mono, not stereo.** The follow-up asked for 128 kbit/s stereo. A browser sends stereo Opus only
+when the other side's session description asks for it (`stereo=1` in the Opus fmtp), and Trystero
+0.26 gives us no hook on the offer or answer (it calls `setLocalDescription()` itself;
+`setCodecPreferences` accepts only the codecs the browser lists, none with `stereo=1`). So the
+switch is 128 kbit/s mono; stereo needs our own signaling or a Trystero change, and is not built.
+Measured on the real surface (`node tools/live-session-check.mjs dark --hifi`, two Chromium
+processes over real WebRTC; the host's microphone a generated 48 kHz signal of harmonics, 9 and
+14 kHz tones and white noise, since the fake device's beep is too quiet to show a rate):
+
+| Host's switch | Capture | Host sends | Guest hears the 14 kHz tone | Guest's 18–20 kHz level |
+|---|---|---|---|---|
+| off | processing on | 63.9 kbit/s | −32.4 dBFS | −102.0 dBFS |
+| **on** | processing off | **132.6 kbit/s** | −32.3 dBFS | **−83.0 dBFS** |
+| off again | processing on | 66.7 kbit/s | −32.3 dBFS | −102.7 dBFS |
+
+The rate follows the switch both ways. The 14 kHz tone was already carried at 64 kbit/s, so it does
+not move; what 128 kbit/s adds is the top band (about 20 dB more at 18–20 kHz; the rates include RTP headers). The generated
+signal ignores the processing constraints, so this run shows the bitrate effect and the constraints
+sent (`echoCancellation` false and so on, read from the recorded `getUserMedia` call), not what the
+processing does to a real microphone. The Playwright specs for these controls (`docs/e2e/live-panel-calls.spec.ts`, on the harness from
+#2639) found two accessibility defects in this work, and one is fixed: the always-visible arrow
+beside Mute was 16 px wide, under WCAG 2.2's 24 px minimum target, so it is now 24 px; the Volume
+slider sits directly inside the person menu's `role="menu"`, which axe reports as
+`aria-required-children`, and a `group` wrapper does not satisfy it. That one is the owner's call
+(a popover for Volume, or a documented exception) and its test is marked `test.fail` until then, so
+the nightly stays green while it holds and goes red when it is fixed.
+
+One capture runs at a time (`joinCall`): a second tap while the first is still waiting on the
+browser runs after it with the latest choice, and Leave call during a capture leaves once it
+lands (the checker, tier 1, on Opus, found both races; the run above also taps twice quickly and
+taps then leaves). UNVERIFIED: a real microphone with processing off, echo
+between two real devices, and Safari, Firefox and iOS.
+
+**Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
+- *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
+  leave or end) lived in the panel's title bar, and the phone sheet renders the panel without
+  one, so a phone could neither leave nor end a session. The menu is now one component,
+  `SessionMenu`, drawn in the title bar on a wide screen and portaled into the sheet's header on
+  a phone (`headerSlot`, the way the AI chat puts its cost readout there).
+- *"Leave audio" read as leaving the session.* The owner wanted the session's Leave and found
+  only the call's. The call's hang-up is now a red **Leave call** button on your own row, and
+  leaving or ending the session asks first in a dialog (*Leave the session?* / *End the session
+  for everyone?*): one stray tap must not drop you out, or end it for everyone.
+- *Rows spent on controls.* The invite is one line: copy, the link, *Can edit ▾*. Your own row
+  carries the call: *Join audio* before you join; then Mute (with a thin microphone picker when
+  there is more than one mic) and Leave call. The separate call row and your own read-only mic
+  icon are gone; "You" moved to the second line so the name keeps its room. In the docked column
+  at its default width the link would show as "http…", so there (a container query on the
+  panel's own width, `@max-[17rem]/live`) the button says *Copy* and the link wraps to its own
+  line. On touch, the row's buttons are 40 px (`pointer-coarse`).
+
+Screenshots at 390 (dark and light), 820 and 1440 px are in the PR.
+
+**The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
+takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that
+fails without it: a peer still connected keeps its stream across a re-admission; media re-syncs
+whenever a link comes or goes; a re-sent stream replaces the held one (drop, then add); a host
+that ends lets go of every stream at once; mic state is re-sent to a peer whose stream returns.
+Also fixed: remote streams play through a muted `<audio>` element until you join (Chromium
+meters a remote stream only while an element plays it), the audio context resumes inside the
+join click, a permission prompt answered after the session closed leaks nothing, and a person not
+on the call shows no mic at all (*Muted* is only for someone on the call, which also stopped the
+row from truncating names).
+
+### 12.3 Who controls what: Me, Them, Session (2026-10-12)
+
+**Why.** The owner, testing on an iPhone, found the call controls scattered ("things are all over
+the place") and could not find the Volume slider when alone in a session. Both are one fault: a
+person's own controls had no single home, and a control that exists only in some states reads as
+missing. Today a person's own settings are split across the row's Mute and Leave, the thin arrow
+beside Mute, the lobby (the name, set once, no way to change it after joining) and the header menu;
+how loud you hear others lived two taps deep in *their* menu; and nothing showed whether your own
+microphone was working.
+
+**The model: three scopes, and every control has exactly one home.**
+- **Me**: what I send and my devices. Microphone (device, a live level meter, mic level, voice
+  mode: Clean voice or High fidelity), what I hear (a master volume, the output device where the
+  browser allows it; Safari has no output picker), my name, and what I share about myself (my cursor
+  and my slide).
+- **Them**: per person. How loud I hear them and how their audio is arriving (their popover), and
+  the actions on them (follow, go to their slide, and for the host their role and removal), which
+  stay in their ⋯ menu.
+- **Session**: the invite link, auto-admit, bring everyone, leave or end. The header menu.
+
+**The rule: deterministic placement.** A control is always where it lives, in every state. Where it
+cannot act yet it stays visible and says why ("Join the call to hear and adjust people", "Amina
+isn't on the call yet") instead of disappearing. Nothing appears only when two other conditions
+hold. The owner's word for this was "deterministic".
+
+**Settled (owner, 2026-10-12).**
+- Your own controls: a **Your audio** popover from the arrow beside Mute (meter, microphone, mic
+  level, voice mode, hearing), and a **⋯ on your own row** (name, what you share, sounds), matching
+  how other people's rows work.
+- Other people's audio: a **volume button on every other person's row**, always present, opening a
+  popover with the slider and the quality line. This replaces §12.2's placement of the readout and
+  the Volume slider in the ⋯ menu, which fixes the axe `aria-required-children` finding (a slider is
+  not a menu item; a popover holds one properly). Their ⋯ menu keeps only actions.
+- The four "Me" items to build, in this order: the live mic meter (so you can test alone), mic
+  level (outgoing loudness, which also addresses a quiet call at the sender), master volume plus the
+  output device, and changing your name and what you share.
+
+**Built on #2633 (2026-10-12), in this order.** Microphone first. **Your audio** is a popover from the
+arrow beside Join audio or Mute, and it is on your row before you join too (the parts that need a live
+microphone say so). It holds: a **live level meter** of what you send (a bar from `inputLevel()`,
+`role="meter"`, red past 90 % so a clipping voice shows); the **microphone list** (a radio group when
+there is more than one); **Mic level**, 0–200 % in 10 % steps; and **High fidelity** as a real `Switch`.
+Mic level is Suono's new `stage.gainStream(stream, gain)`: the capture is routed through a gain into a
+new stream, and that stream is what the call sends, so the level changes what every listener hears.
+Mute turns off the sent track, so it still needs no renegotiation; a re-capture (a new microphone, High
+fidelity) keeps the level; a browser without Web Audio sends the capture as it always did and the slider
+says it cannot act. Measured on a real two-browser call (`tools/live-session-check.mjs dark --hifi`,
+a synthetic microphone): at 50 % the guest hears 0.26× the power (a halved amplitude is 0.25×); the
+100 % reading repeats (0.604, then 0.618). At 200 % this test signal saturates (it is already at 0.6 of
+full scale, so doubling it clips at 1.0 and the meter reads 100, red); a quieter source would show the
+full 4×. The checker (tier 1, Opus) found two real defects, both fixed with tests: after Leave call the
+microphone list was still offered and picking one rejoined the call and opened the microphone (the list
+now shows only on a call, and `pickMic` is guarded the way High fidelity is); and the shaped send only
+renders while the audio context runs, so an iPhone phone call or Siri prompt would silence every
+listener while the page still said "on the call" (the controller now resumes the context on a timer and
+on unmute, and while it is down the arrow gets a red ring and Your audio says so). A smaller one: mute
+now also disables the raw capture track, so Firefox's microphone light goes off. UNVERIFIED: the level
+on a real microphone and an iPhone, and the shaped send on WebKit/iOS (it was measured crossing a real
+peer connection on Chromium only).
+
+**Hearing, built next (2026-10-12).** The same popover has a **Hearing** section: **Everyone**, one volume
+(0–200 %) multiplied into each person's own, and the **speaker**. The multiplication is in
+`LiveAudio.applyVolume`: up to 100 % the element plays it, above that Suono's gain stage does (the
+combined gain can reach 4×, the stage's clamp). The speaker picker uses `setSinkId` on each player and on
+the stage's own context for the amplified path (`stage.setSink`), and it follows the choice for players
+made later. Safari has no `setSinkId`, so there the section says "Your browser plays through the system
+output; it has no speaker picker" instead of hiding. Before you join the speaker list is empty (labels
+need microphone permission) and says "Join audio to list your speakers". Measured on a real two-browser
+call: Everyone at 200 % mutes the element and puts a gain of 2 in the path; at 50 % the element plays at
+0.5; back at 100 % it is 1. The popover caps its height to the room Radix reports
+(`--radix-popover-content-available-height`), found when iPhone-size WebKit could not reach the last
+speaker in a popover taller than the screen under the trigger. UNVERIFIED: choosing a different speaker
+on a real device (headless Chromium lists one fake speaker), and iOS, which has no picker. Name and what
+you share are built last.
+
+**What you share, built (2026-10-12).** A **⋯ on your own row** opens **Your settings** with three
+switches: **Show my cursor**, **Show my slide**, **Show when I'm typing**. `LiveController` wraps the
+awareness object's `setLocalStateField`, so a withheld field is never written (cursor, `editingAt`,
+slide), and `applyShare` removes what was already published when you flip a switch. When the slide is
+withheld the awareness carries `slideHidden: true` and the others' rows read "Slide hidden" rather than a
+stale slide number; the receiver whitelist keeps only that boolean. Chat typing dots honor "typing" too.
+Defaults are all on. The switches are real `Switch` controls with labels, in a popover (not a menu,
+because a switch inside `role="menu"` has the same `aria-required-children` problem the slider had).
+
+**Name, built (2026-10-12).** Your settings opens with a **Your name** field (Save, or Enter). Tavola gains
+`session.rename(name)` and a `rename` control message, member to host. The host (`hostApplyRename`) cleans
+the name, **refuses one another member already has, in any letter case**, allows one change a second per
+member, updates the roster **and** the member's rejoin token (so a reconnect keeps it), and broadcasts the
+roster; the heir's copy follows because the broadcast refreshes it. An older host drops an unknown message
+without a disconnect (`decodeControl` returns null). The host's rename also updates the lobby invite, so a
+newcomer sees the new name. The independent checker (tier 1: this changes who people appear to be) found two
+real defects, both fixed with tests: a member could rename to the host's exact name and the chat grouped their
+line under the host's header, and a host rename never reached the lobby invite. It also found that a refused
+rename looked successful, so the field now says "The name did not change" after 2.5 s, and that a roster echo
+could wipe what you were still typing, so the field only follows the roster while it is not focused. Measured
+on the real two-browser call: the guest renamed "Amina" to "Amina Okafor", the host's roster showed it, and
+the guest renamed back.
+
+**What you share, after the second independent review (2026-10-13).** Five defects, all fixed with tests. (1) Your settings did not
+autofocus its first field (that is the Name input, and focusing it opens a phone keyboard every time), but it also left focus on
+the trigger, so a keyboard user's next Tab went past the popover and closed it; the popover now takes focus itself, and the
+next Tab enters it. (2) Turning typing off made `editingAt` always absent, and the "don't move me while I type" check on a host's
+Bring everyone read that field, so a person who hid their typing was yanked mid-edit; the controller now tracks the last local edit
+itself (`myEditAt`). (3) With your slide hidden, Bring everyone still wrote the slide into presence and never cleared it, so a late
+joiner received it: it is said once and withdrawn after 6 s (`SUMMON_SHOWN_MS`). (4) What you hid was not kept across a reload and
+was not re-applied when a new session started in the same tab, so a host who hid their slide and reloaded published it again: it is
+kept in sessionStorage for the tab and applied when a session wires. (5) "Slide hidden" also hid the editing mark, and the cursor note
+did not say a visible cursor shows roughly where you are working. Held up under review: y-codemirror writes `cursor` only through
+`setLocalStateField`, so the wrapper catches it; no other code writes awareness fields; the receiver whitelist stops a peer spoofing
+anything but its own `slideHidden`. Still true: turning typing off does not withdraw a chat "typing" post already sent, so it shows
+for up to 4 s.
+
+**Connection diagnostics, and what the owner's hotspot runs found (2026-10-12).** The owner ran a phone (host) and a tablet and
+reported a slow or stuck first connect, drops that came back, and audio gaps afterward. Read from Trystero 0.26: a
+connection that stays `disconnected` for 5 s is closed (`disconnectedCloseDelayMs`) and Trystero never restarts ICE itself,
+so a dropped link is rediscovered over the relays and re-admitted by token, and the call's audio returns only after that
+chain (loopback, both links closed: link back in about 2 s, audio about 6 s after the close). What was built: **Your
+settings → Connection → Copy connection log**, a bounded timeline (`TrysteroOptions` has no switch for it; it is always on)
+of every RTCPeerConnection from creation (`installPcSpy`: ICE state changes with elapsed time, candidates gathered by kind,
+STUN/TURN errors), peer joins and leaves, browser online/offline, tab visible, a round-trip sample every 10 s
+(`SAMPLE_EVERY_MS`, its own ring so samples never push out the first connection attempt), every candidate pair with its
+state (`pairs()`), the role, and whether the screen wake lock is held. **Addresses are never in the log**, only the kind
+(`describeCandidate`: ipv4, ipv6, mdns, hidden), because a public address names an ISP and a city and the log is pasted into
+bug reports. The copy starts inside the tap with a promise for the text (`ClipboardItem`), because Safari refuses a write that
+begins after an `await`. The owner's runs: an iPhone host and an iPad on the same wifi connected over `srflx→srflx (udp)`
+(out through the router and back, not directly) with clean links; jank only wifi to wifi, never cellular to wifi; then the
+tablet could not get in at all on **hotel wifi** ("Nobody answered"), which fits client isolation and blocked direct
+connections there. The final check: **phone on cellular, tablet on wifi works perfectly**. Same-wifi on such networks needs a
+relay (TURN, P5, the owner's decision); the "Nobody answered" text now names that case and the fix a person can make (put one
+device on mobile data). Also added: a **screen wake lock** while a session is live (`live-wake.ts`, tested: one request
+however often it is asked, released on every teardown path including a guest `leave()`, which moves no stage), because a locked
+phone suspends the page and a suspended host is gone from the room.
+**A recovery switch was built and then removed.** An experimental, default-off switch restarted ICE (`restartIce`) on a link
+that stayed `disconnected`, on an `online` event and on tab-visible, with the smaller peer id offering. The independent
+checker (2026-10-13) showed it can **deadlock a link that carries no call**: Trystero's `signal()` drops an offer with no
+`a=rtpmap` once the data channel is open, so the restarting side stays in `have-local-offer` and can never negotiate audio
+later (reproduced in real Chromium 131 with Trystero's own `peer.mjs`), and that while ICE is really `disconnected` the
+restart offer cannot reach the other side anyway (it rides the peer's own data channel), so it gains almost nothing where it
+was aimed. With no demonstrated benefit and a way to break calls, it was removed; it is in git history at `07e0e5d1` if a
+real-network need appears (restricting it to links already in a call is the only shape that was seen to work). Findings fixed
+from the same review: wake-lock requests stacked and a guest's leave never released it; a second transport closing out of
+order left a stale RTCPeerConnection wrapper (now one shared wrapper with a set of listeners); the log showed public /24
+addresses. Not done: the slow first connect (no data yet), the 20 s handoff grace with the phone as host, and a guest's wait
+for the host stays 12 s (it was raised to 25 s briefly on a reading of Trystero's ICE timeout that the checker showed does not
+apply: that timeout is for non-trickle ICE only). UNVERIFIED: iOS wake-lock behavior, and the iOS clipboard write.
+Found while verifying, and fixed: portaling the popover INTO the panel (the phone scroll fix) made a tap on a switch near the
+panel's edge reach react-resizable-panels' document handler, which focuses the resize handle and closed the popover on the real
+Studio. The popover now goes into the modal dialog only when the panel sits in one (the phone's Sheet) and stays in `<body>`
+otherwise. The Name field is not focused on open (it would open the phone keyboard each time).
+
+**Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
+controls are a separate PR after #2633 merges, because they build on its call controls and one
+feature is one PR. Mic level changes what every listener receives, so it gets a tier-1 independent
+check and a measurement of the send level before and after on the real two-browser call.
+
+## 13. Implementation reference — what it is built from, and why
+
+The road ahead (voice and video, a server path, firewalls, screen share, the open decisions) is
+in the companion proposal, `2026-10-06-live-collaboration-roadmap.md`.
+
+**How it works, in one paragraph.** Start makes a signing key and a random link: room, secret, and
+a fingerprint of the host's key, all after the `#`, which browsers never send to a server. A
+guest's browser finds the host through public Nostr relays; the two exchange connection offers
+the secret encrypts, then talk directly over WebRTC. The host proves who it is by signing a
+hello with the key the link names. The guest knocks; the host admits. Deck edits go browser to
+browser as Yjs updates; chat goes through the host, which numbers each line; the host's clock is
+the session clock. No Lattice server is involved.
+
+**Libraries.**
+
+| Library | Role | Why this one |
+|---|---|---|
+| Trystero 0.26.0 | Peer discovery over Nostr relays, then WebRTC connections | No server and no cost; pinned exactly, since 0.26 changed its API |
+| Yjs 13.6 | The shared deck text, as a CRDT (edits merge automatically, even concurrent or offline ones) | The standard for collaborative editing |
+| y-protocols (awareness) | Carets and who is on which slide | Yjs's own presence channel |
+| y-codemirror.next 0.3 | Binds Yjs to the editor; per-person undo | The official binding |
+| lib0 | Yjs's binary encoding | Required by Yjs |
+| Tavola (ours) | Knock and admit, the roster gate, rejoin tokens, the cap, the session clock, the post channel | What no library does; the transport plugs in |
+
+Built into the browser: WebCrypto, IndexedDB, Web Locks.
+
+**Standards.**
+- **WebRTC:** ICE and STUN find a path, DTLS encrypts every connection, SCTP data channels carry
+  the data. STUN servers: Google's and Cloudflare's public ones (Trystero's default).
+- **Nostr** relays (NIP-01) carry only the encrypted connection offers.
+- **WebCrypto:** ECDSA P-256 signs the host's hello; SHA-256 fingerprints the host key into the
+  link; AES-GCM, with a non-extractable key in IndexedDB, seals secrets at rest.
+- **URL fragment** (RFC 3986): the part after `#` never leaves the browser.
+- **Cristian's algorithm** for the session clock; **YATA**, the CRDT algorithm inside Yjs.

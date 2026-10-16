@@ -70,6 +70,7 @@ describe('mermaid.css — dominant-baseline inherits inside a mermaid root', () 
       }
     };
     walk(path.join(REPO, 'lib/components/chart'));
+    walk(path.join(REPO, 'lib/plugins/chart-family'));
     assert.deepEqual(hits, [], 'a chart SVG carrying aria-roledescription would pick up the mermaid inherit rule');
   });
 });

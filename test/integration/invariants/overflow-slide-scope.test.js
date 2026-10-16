@@ -28,7 +28,7 @@ test('a pasted export scaffold does not shift the overflow page numbers', { time
   try {
     const src = path.join(dir, 'deck.md');
     fs.writeFileSync(src, DECK);
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), src, path.join(dir, 'out.html'), 'indaco'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), src, path.join(dir, 'out.html'), 'indaco'], {
       cwd: ROOT, encoding: 'utf8', timeout: 900000,
     });
     assert.equal(res.status, 0, `render failed:\n${res.stderr}`);

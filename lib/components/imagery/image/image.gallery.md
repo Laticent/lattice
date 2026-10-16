@@ -22,7 +22,7 @@ Image as the slide's anchor, with optional text alongside — composition adapts
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 
 ---
@@ -34,7 +34,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 
 ---
@@ -46,7 +46,7 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
-![bg](sample-photo-tall.svg)
+![bg](sample:photo-tall.svg)
 
 
 ---
@@ -58,7 +58,7 @@ A portrait photo wants its full height. We give it a column and let the argument
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
-![bg](sample-photo-pano.svg)
+![bg](sample:photo-pano.svg)
 
 
 ---
@@ -70,7 +70,7 @@ When the photo already matches the canvas, let it carry the slide — the messag
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
-![bg](sample-photo-square.svg)
+![bg](sample:photo-square.svg)
 
 
 ---
@@ -82,7 +82,7 @@ The whole asset on a matte with a placard. For diagrams and screenshots where th
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 
 ---
@@ -94,7 +94,7 @@ The title rides the photo on a scrim — a deliberate, editorial choice.
 
 Text leads from the right; image anchors from the left.
 
-![bg left](sample-photo-wide.svg)
+![bg left](sample:photo-wide.svg)
 
 
 ---
@@ -106,7 +106,7 @@ Text leads from the right; image anchors from the left.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 
 ---
@@ -118,7 +118,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 
 ---
@@ -130,7 +130,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 
 ---

@@ -297,7 +297,20 @@ about the whole plugin's CSS, not one render path.
 - `highlight` — Mermaid (phase D's browser half): a highlight.js grammar the host registers under
   the plugin's code fences, so the source a fence shows before it is drawn is colored.
 - `services` — a plugin calling another plugin's named function, declared in the manifest
-  (`contributes.services: ["tex"]`) so the one-to-one check covers it. v1 has no consumer (§6).
+  (`contributes.services: ["tex"]`) so the one-to-one check covers it. **Built 2026-10-05 with
+  the icons plugin**, whose `drawHtml` / `drawElement` / `known` / `whyUnknown` the core pill
+  calls for `icon=` through `lib/plugins/services.js` `service(plugin, name, off)` — null with
+  the plugin off, so a caller renders without it (`2026-09-29-inline-icons.md` § 12).
+- `inline` — an inline-code kind behind one Segno tag character (`^{…}`), a row in the host's
+  dispatch table (`lib/core/inline-code-directives.js`) after the host's marks, pills and sparks.
+  Built 2026-10-05 for icons; in-tree only, like `syntax`.
+- `registers` — a front-matter axis register declared as data (`icon: bare etching` → `icon-*`
+  slide classes), built by the host's register factory (`lib/core/register-factory.js`), which
+  `spark:` now uses too. Built 2026-10-05 for icons; data, so a later data plugin may declare one.
+- `data` — data a plugin's kernels read only through `lib/plugins/plugin-data.js`: a lazy loader
+  on Node, its own on-demand script in a browser (`lattice-plugin-<name>.js`), so a deck that does
+  not use the plugin never loads it. §4.8's "payload when used" for in-tree data. Built
+  2026-10-05 for icons.
 - `extensionPoints` — a plugin offering a slot others fill; the chart family is the consumer.
 - `providers` — declarative tables. **Templates and validated-id patterns only, never functions**:
   today's `lib/core/video-providers.mjs` rows are functions (`id`, `watch`, `oembed`, `embed`),
@@ -569,7 +582,7 @@ untouched. `lattice packages check <folder>` runs the schema, the resolver and t
 | **chart family** | `extensionPoints.kernel`, the chart frame, `styles` | parse-time | — | `KERNEL_BUCKETS` and its mirror `KERNEL_BUCKETS_GATED` |
 | **each chart** (23) | stays a **component**; its manifest's `kernel` block (+ #287's adapter) is the slot fill | parse-time | the family, by bucket | nothing moves; the plugin registry reads kernels as a second source |
 | **highlight.js languages** | `providers` (grammar files) | `browser` | — | the fourth loader idiom; code, so in-tree only |
-| **icons** | `inline` (the `^{…}` kind), `services.draw` (callers: the pill's `icon=`, chart kernels), `registers` (`icon:`), `styles`, `diagnostics`, payload (the curated Tabler data, `when: used`); flowchart, state-chart and hub-spoke declare `optional: ["icons"]` | parse-time | — | the inline-code dispatcher's hand list (it becomes a table). Design: `2026-09-29-inline-icons.md` § 6a |
+| **icons** | `inline` (the `^{…}` kind), `services` (`drawHtml`, `drawElement`, `known`, `whyUnknown`; callers: the pill's `icon=`, chart kernels next), `registers` (`icon:`), `data` (the curated Tabler drawings, loaded when used), `styles`; flowchart, state-chart and hub-spoke declare `optional: ["icons"]` in phase 2 | parse-time | — | the inline-code dispatcher's hand list (it is a table now). Design: `2026-09-29-inline-icons.md` § 6a; as built: § 12 |
 
 **#287 is not on this path.** The uniform `transformSection` adapter is a refactor inside
 `lib/components/chart/`. It needs no plugin system and can land first as its own PR; phase F then
@@ -641,11 +654,15 @@ recording exactly what is left.
   (`render.exec.hydrate: "pass"`), its stylesheet and highlight grammar are its `styles` and
   `highlight` contributions, and the bake context's services are generic — three more ratchet
   arms (`runtimePluginNames`, `pluginAssetsOutside`, `bakeContextByName`), all 0. Its last
-  consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); what is still left is
-  `followups.d/2509-p5-plugin-phase-d-residue.md`.
+  consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); its residue is decided
+  (§11, "Phase D's residue, decided"), and what is still open is
+  `followups.d/2509-p5-mermaid-library-copies.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
-- **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
-  libraries move to `optionalDependencies` (export sign-off: it changes what installs).
+- **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels. **Done**:
+  the slot (§11, "Phase F, the slot"), then the family's code and stylesheet (§11, "Phase F, the
+  family's code"): the dispatch is the plugin's `chart-family.dispatch.js` and the chart frame is
+  its `styles` contribution. The renderer-library step has nothing to move: chart kernels import
+  only the in-repo workspace libraries (`@laticent/trama`, `@laticent/segno`), no npm dependency.
 - **G. The npm door**, after the legal grant; version ranges switch on. `spec/LPM.md` → 1.0.
 
 ## 8. Adversarial review of this note (HARD RULE #25)
@@ -757,6 +774,76 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
    `--default-plugins`) and hands the same knobs to the engine and `bakeDeck`, and the answer's
    `off` to the boundary parser (`setBoundaryPluginsOff`). The `highlight` grammars stay registered
    for every installed plugin, on purpose. A host may narrow the default set.
+
+### Owner decisions (settled 2026-10-11, phase E step 1's questions)
+
+Answered by the owner in the session that opened the fence-level code door. Decision 7's
+token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 stand.
+
+10. **A fence renderer is handed the fence's text and one id, and nothing it can get another
+    way.** `render({ body, id })`: `body` is the fence's text exactly as authored; `id` is a string
+    unique to this fence in this render, safe in an `id` attribute, so two fences of one plugin
+    cannot collide. It is the plugin's namespace, the render prefix, a short hash of the fence's text
+    and how many fences with that text came before it (one counter per render, shared by the deck
+    and every pane). It names the fence's content and not its place, so inserting a slide does not
+    change any id and the Studio's remembered results still hold. It starts with `lp-<name>`,
+    the plugin's own namespace, because the sanitizer keeps an id or class only in the package's own
+    namespace (`doorFilterAttr`). The namespace carries the `lp-` prefix because a bare `<name>` let a
+    plugin called `cell` keep the engine's `cell-stage`; and the door refuses a plugin whose name is a
+    hyphen-prefix of another's (`a`, `a-b`), whose namespaces would overlap. Text measurement is the one capability the sandbox already
+    gives every package (`kit.measure`). It is NOT handed theme values, the slide's HTML, a base
+    URL, the fence's info string or deck options. Theme colors reach a plugin as `var(--token)` in
+    the CSS and markup it writes, and the browser resolves them in the right mode and theme, so
+    passing values across would only add surface and go stale. The info string and per-deck options
+    are left out until a plugin needs them (`lib/core/fence-languages.js` `scanFences` already reads
+    full info strings, so a field is a small change when the need is real), and a field is added
+    without a version bump (the slide-facts rule, `lib/packages/slide-facts.mjs`). **A known
+    limit:** attributes written after the fence name (```` ```gantt title="Q3" ````) are ignored
+    today, and a deck that carries them will change meaning the day the field is defined; a
+    `lint:deck` warning for that is in the followup.
+11. **A deck's `plugins:` front matter is how a zip plugin is activated, and a fence of a plugin
+    the deck did not declare shows a placeholder and offers Approve.** Approve WRITES the
+    `plugins:` line (decision 9's writer), so the deck states what it needs and the CLI renders it
+    the same way. Consent to the code itself stays pinned to the code's hash and lives only in the
+    browser that took it (§9 decision 3), so a downloaded deck can name a plugin but never carry
+    its own approval. The placeholder is drawn in the house Nacre atmosphere
+    (`docs/src/styles/nacre-loader.css`, the image underpainting in `base.modifiers.css`) with a
+    plugin mark and the plugin's name, so it reads as "a plugin goes here" and not as a missing
+    picture. Palette-blind: every color is a deck token.
+12. **A zip plugin's CSS is scoped, not gated on token use, and its slot comes first.** Every
+    selector is rewritten under the plugin's own root (and the roots of the plugins it declares it
+    styles), so it cannot reach a built-in element; the plugin's CSS sits before the engine's in
+    source order. Plugins may use any declaration, `!important` included, and read every theme
+    token by inheritance. A hex color or an unscoped selector the rewrite had to fix is reported,
+    not refused. **No `@layer`:** measured in Chromium (2026-10-11), a layered plugin rule loses to
+    every engine rule, so a plugin could not restyle its own paragraphs, and a layered `!important`
+    beats the engine's `!important`, the reverse of protection. HARD RULE #26 stays untouched.
+13. **The Studio keeps a zip plugin in the browser's storage** (the asset store gains a plugin
+    kind), never in a deck or a backup.
+14. **Consent is pinned to the renderer AND the fence it owns, and the door hashes the code
+    itself.** The digest is the SHA-256 of `lattice-plugin-fence:<fence length>:<fence>\0<render.js>`
+    (`pluginConsentText`, `trust.js pluginDigest`), with the file's bytes hashed as they are, never
+    decoded (decoding drops a leading BOM and maps an invalid byte to U+FFFD, so two files could
+    share a digest). The fence's length leads, and the name must match `^[a-z][a-z0-9-]*$`, so no two
+    (fence, code) pairs split into the same text (before, `("C", "a\0x")` and `("x\0C", "a")` hashed alike). The fence name is in it because the manifest
+    alone says which fence a renderer is handed: editing the manifest's `fences` key would
+    otherwise point an approved renderer at another plugin's fence with no new consent, and
+    widening what the digest covers after approvals exist would invalidate every one of them.
+    `renderWithCodePackages` computes every digest from the code it was handed, never from a hash
+    the caller states (a stated hash let approved code's digest run different code). `styles.css`
+    is not pinned: it is data, and scoped (decision 12).
+15. **The door does not draw on a slide a shipped pass rebuilds from its text.** `video` turns a
+    bullet into a poster and a link, `contact` and `wifi` into QR cards, `qr` into a QR from a
+    link, and each runs twice: in the engine's HTML pass and again in the runtime's DOM pass
+    (`applyAllToDom`, `lib/runtime/index.js`, in `--fluid` exports and the live previews) over the
+    finished page, plugin output included. A plugin that returned `<li>https://evil.example/…</li>`
+    on a `video` slide had the address written into a poster. The door's last registry slot stops
+    the HTML pass and cannot stop the DOM pass, so the door does not draw there: the fence stays
+    the code block it is and the render says why. The list is read off the registry's own
+    `selector`s (`lib/transformers/rebuilt-classes.js`), so a pass added later denies its slides the
+    day it is registered; a short `GENERIC` list (`form`, `image`, `split-panel`…) names the class
+    sets that only frame a slide. A fence on a chart slide is therefore not drawn either (the engine
+    draws those).
 
 ## 10. Non-goals
 
@@ -1135,7 +1222,7 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   output classes, and the new `drawnFigureClasses` arm counts them as selectors outside the plugin:
   36 on `main`, 0 here. The `mermaid` prop is `drawn` (`DeckPreview`, `renderInto`, the pool, the
   landing and specimen surfaces). The CLI builds ONE `PLUGINS_DISABLED` list (`--disable-plugin`)
-  for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md`
+  for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md` (since split; §11 "Phase D's residue, decided")
   (the kernels needed a package-kind role decision — settled by #2509 P5 below; the library copies are three builds, not two).
 
 - **Admission on the browser half: done (#2509 P3).** The engine marks the `<pre>` of a code fence
@@ -1182,6 +1269,521 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   is mermaid-cli's `dist/index.html`, not a blank document), the overclaimed "refused whole".
   Recorded, not built: a gate refusing a require into `lib/plugins/<x>/shared/` from outside the
   plugin (the emulator's player capture reaches in today).
+
+- **Phase F, the slot (`extensionPoints.kernel`).** The chart family is a plugin,
+  `lib/plugins/chart-family/`, whose one contribution is an EXTENSION POINT: `contributes.extensionPoints.kernel
+  = { bucket: "chart", role: "transform", entry: "transformSection" }`. A chart fills it with the
+  `kernel` block its manifest already carried, so no chart manifest changed. The build writes the
+  slot into `lib/plugins/extension-points.generated.json`, keyed by the block a filler declares, and
+  the three hand-kept readers now read it: the component loader's `KERNEL_BUCKETS`
+  (`lib/components/index.js`), `check-ownership.js`'s `KERNEL_BUCKETS_GATED` and its module/export
+  conventions, and `tools/build-chart-registry.js`, which freezes the fills (and now the plugin's
+  name) into the dispatch table. **Filling a slot is requiring the plugin**: the build merges every
+  filler into `COMPONENT_PLUGINS`, so a chart class loads the family on a narrowed host, and a chart
+  slide reports `plugin/component-needs-plugin` when the family is not running. Switched off, the
+  family passes each chart section through as authored and marks it — and a pane of it —
+  `data-lattice-off="chart-family"`; the runtime's DOM pass skips a marked section.
+  **Design choices** (maker, under the owner's pre-authorization; tier 2 trio):
+  the slot NAME is the plugin's own and the BLOCK it reads is a separate optional field (`block`,
+  default the slot name), because a block is one global word in every component manifest and the
+  icons design already calls its renderer "the kernel" (inversion lens: slot == block would have
+  locked the word and baked a global namespace into the artifact). In api 1 a slot is filled only by
+  in-tree COMPONENTS, with code; a slot that PLUGINS fill — the icon pack of `2026-09-29-inline-icons.md`
+  §6, which is data — is reserved as a later, additive field rather than forced into this shape. One
+  slot per plugin, one per bucket, and a slot's block must be an OBJECT block of the component schema
+  (a scalar such as `name` would make every component in the bucket a filler — red team).
+  **Rejected:** a `plugins.requires: ["chart-family"]` line in 24 chart manifests (a roster by
+  another name, and the slot already says who fills it); keeping the family off the plugin list (a
+  capability the host cannot switch off is the special case "plugins are plugins" refused).
+  **Found and fixed by the trio:** `deckClassTokens` paired a stray `<!--` (quoted in a code span or
+  a fence) with the next directive's `-->`, so on a narrowed host a later chart class was never read
+  and the chart rendered as a list with no diagnostic — pre-existing, but this phase made 24 classes
+  depend on it; it now re-anchors on the opener nearest the `-->`, and the engine reports a class
+  whose plugin admission left off (`componentPluginDiagnostics` reads the admission's `off`, which
+  is the host's `disabled` on the default set). A switched-off PANE chart was silent and unmarked:
+  pane classes now count, and the marker rides onto `<lat-pane>`. The code-package shim gained
+  `PLUGIN`; the off stamp no longer stacks on a second pass; `entry` admits no `$`; a missing slot
+  throws by name instead of reading as an empty bucket list.
+  **Evidence.** Engine byte identity: every tracked Markdown file under `examples/`, `lib/`,
+  `test/integration/`, `docs/src/content/` and `spec/` (500), on the default engine and on
+  `plugins: { defaults: [] }`, against a clean `origin/main` worktree at `eb88b64` — 1,000 renders,
+  every deck identical; the only differences are the four Markdown docs this phase adds or edits.
+  `checkPluginMigration` stays at 0 on every arm. Off-state: the CLI with `--disable-plugin
+  chart-family` prints a bar slide as its list (rasterized and looked at).
+  **Recorded, not built:** the family's dispatch and the chart-frame CSS still live in
+  `lib/components/chart/_chart-family/` and the CSS bundle, so the plugin folder holds no code yet;
+  `stats.charts` in `docs/src/lib/single-slide-render.ts` counts a switched-off section (nothing
+  reads it); a code package does not receive `pluginsOff`, so it cannot honor the switch (no export
+  path uses code packages yet).
+
+- **Admission reaches Export-to-Marp and the Studio's own readers (`2509-p3`).** Two readers that do
+  not run the engine now follow a narrowed set, for every plugin whose output they draw. **The Marp bundle:** Marp renders it, so no marker is
+  ever written; the producer (`tools/export-marp.js`, which gains `--default-plugins=` and
+  `--disable-plugin=`; the Studio's Share → Marp) admits the deck and records the plugins left off
+  in the bundle's export-settings block, `pluginsOff`, and the bundled runtime writes the engine's
+  marker from it before any pass (`lib/plugins/mark-off.mjs`: a drawn fence's `<pre>`, and an
+  extension-point filler's `<section>` from the transformer that offers the slot — `plugin` +
+  `layouts` on the chart-family adapter). Absent when nothing is off, so a default-set bundle is
+  byte-identical. **The Studio's readers:** every bundle carries its own boundary-parser copy, so
+  `docs/src/lib/plugin-admission.ts` points each at the deck's `off` set — the main bundle's
+  and authoring-core's (which now exports `setBoundaryPluginsOff`). Admission
+  is decided where the WHOLE deck is held (`StudioShell`'s slide memo, the editor's lint pass):
+  every rail reader parses the body with the front matter stripped, so a hook inside `splitSlides`
+  could not see a deck's `plugins:` list — the first cut put it there and the real Studio caught it
+  (the rail stayed at 3 slides for a deck that listed math). On the default set
+  `pluginAdmission` answers null and none of it runs.
+  **Evidence.** Real marp-cli + Chromium (`test/integration/export/marp-admission.test.js`): a
+  default bundle draws the flowchart and builds the bar chart; under `--default-plugins=none
+  --disable-plugin=chart-family` the fence stays source and the chart its list, marked. The real
+  Studio (`docs/e2e/plugin-admission.spec.ts`, desktop): under `setPluginDefaults([])` the rail
+  shows 3 slides for a `$$`-with-`---` deck, as the engine renders, and 2 once the deck lists math;
+  the Share → Marp ZIP's deck carries `pluginsOff`; and when the host changes its defaults with no
+  edit, the rail follows (`setPluginDefaults` fires `lattice:plugin-defaults`). **Folded from the
+  checker:** both parser copies are switched directly (authoring-core is in the Studio's eager
+  chunk, so the lint copy is imported statically, not adopted when the editor's lint loads, which
+  left earlier readers on the default grammar); the rail re-reads on the defaults event;
+  `export-marp` sets the boundary parser before its split bake and refuses an empty
+  `--default-plugins=`. **Marp's own math** (found by the checker: marp-core typesets `$…$` itself,
+  which no runtime marker reaches): with math off, the bundle's `marp.config.cjs` passes Marp
+  `options: { math: false }` (`marpConfigCjs`; a default-set bundle's config is byte-identical), and
+  the real-marp-cli test shows the TeX as written. **Not covered, and recorded:** an author's raw-HTML Mermaid block and
+  forged `data-lattice-*` markers; the Playground page's own lint (`2509-p3` followup, narrowed).
+
+- **Phase D's residue, decided (`2509-p5`).** The list #2509 left, item by item; the followup is
+  deleted and its two open items moved to where they will be done.
+  - **The grammar field `runtimeDrawn` → `pass`**, named for `render.exec.hydrate: "pass"` (two
+    readers, both tests). **Kept:** `RUNTIME_DRAWN*` in `drawn.generated.mjs` and the browser host's
+    `runtimeDrawn` option, because they name what is still true — the runtime draws those fences —
+    and renaming them would churn thirteen files (fifteen with the host option) for a word.
+  - **The pass interface:** `describe()` keys no longer merge flat — the runtime's breadcrumb logs
+    each pass's fields under its name, so a second pass cannot overwrite the first's. **Kept:** each
+    pass's own boot wait, because each waits for its own library; one shared wait would make every
+    pass wait for the slowest.
+  - **The double-load guard's rename** (`__llMermaidBootstrapLoaded` → `__llLatticeRuntimeLoaded`):
+    accepted. Only a page carrying a pre-2026-10-04 runtime AND a current one boots both, and no such
+    page is produced or known.
+  - **`tools/diagram-oracle.mjs` captures before and after #2509 differ** by the figure marker: a
+    one-time boundary, accepted — re-capture both sides with the current tool.
+  - **The diagram component's slot named `mermaid`:** kept until the manifest schema is next revised
+    as a whole (phase G freezes LPM 1.0); renaming a slot changes every reader of slots for a word,
+    and its selector already reads the host's marker.
+  - **Moved, open:** retiring the committed `mermaid-v11-min.js` touches `lefthook.yml`, a hook
+    contract, so it is the owner's pick (`followups.d/2509-p5-mermaid-library-copies.md`); an
+    importer REPORTING a zip's dropped `shared/` belongs to phase E, while the gate refuses every
+    plugin zip whole (`2417` followup); author-forged `data-lattice-*` markers join the raw-HTML
+    `language-<fence>` refusal (`2509-p3` followup).
+  **Evidence:** engine byte identity, 502 tracked Markdown files × the default and `defaults: []`
+  engines, 1,004 renders before and after, 0 differences (the grammar field is read by no render);
+  the diagram gallery's CLI PDFs (`diagram.gallery.md` and the member gallery) byte-identical
+  before and after. The one byte change that ships is the runtime bundle's bootstrap
+  `console.log` payload (passes now nested under `passes`), which draws nothing.
+
+- **Phase F, the family's code.** The plugin folder now holds the family's code: the section dispatch
+  and the chart frame are `lib/plugins/chart-family/chart-family.dispatch.js` (moved from
+  `lib/components/chart/_chart-family/chart-family.js`), the generated dispatch table is the plugin's
+  `shared/chart-registry.generated.js` (`tools/build-chart-registry.js` writes it into whichever
+  plugin offers the slot), and the chart-frame stylesheet is `chart-family.styles.css`, the plugin's
+  `styles` contribution, whose 104 token reads the manifest's `tokens` lists (the resolver checks
+  the two agree). `dispatch.js` is a new plugin ROLE (`lib/packages/kinds.js`, spec/LPM.md §2): a
+  plugin ships one exactly when it offers an extension point, and the resolver fails either half
+  of that alone. The section transformer `lib/transformers/chart-family.js` stays where it is
+  (§4.3: section transforms stay first-party and hand-ordered) and requires the plugin's module.
+  **Kept in `_chart-family/`, deliberately:** the kernels' shared helpers (`cartesian.js`,
+  `svg-label.js`, `svg-legend.js`, `transform-utils.js`, …) are the members' library, not the
+  family's dispatch, and `chart-finish.generated.css` is generated from the members' manifests.
+  **The cascade.** `build-css.js` used to place the frame sheet by hand, before the treatments; it
+  now sits in the plugin slot (§4.9), after the forms and the accent finishes — every rule it held
+  moved later. Measured, not argued: every tracked gallery, example and baseline deck (363) rendered
+  through the real emulator twice, once with `main`'s bundle and once with this branch's, and every
+  element's computed style (and pseudo-elements') plus its box compared in Chromium — 221,733
+  elements, 0 differences beyond the render's own nondeterminism (function-plot's random clip ids,
+  Mermaid's git-graph commit ids). The harness was mutation-proved first: one added declaration on
+  a frame rule changes 49 elements of the line gallery. The chart gallery's CLI PDFs, light and
+  dark, are pixel-identical to `main`'s (50 of 50 pages). Every test and tool that walked
+  `lib/components/chart/**` for CSS or JS — and so covered the frame sheet by accident of folder —
+  now names the plugin too (the tspan census, the responsiveness gate, the webkit inherit census).
+  **Found by the tier 2 trio, and fixed.** (1) The RED TEAM drove the Guide's runtime states, which
+  no static sweep can reach: `base.focus.css`'s focus and highlight rules (0,2,1)/(0,2,2) used to beat
+  the frame's subtitle, caption and eyebrow `<code>` rules by ORDER, and lost once the frame came
+  after them — a focused gantt subtitle kept its secondary ink while its peers dimmed. Bumping the
+  Guide's rules a whole attribute OVER-corrected (391 elements took the Guide ink where `main`'s
+  higher-specificity dark-slide rules had kept their own); the fix is two frame-scoped rules exactly
+  one specificity step above the ones they mirror. Measured: all 24 charts concatenated (20,670
+  elements) × five Guide states (none, focus, highlight, ring, dim), `main`'s bundle against this
+  one — 0 differences; without the fix, 74 (focus) and 71 (highlight). (2) Three gates covered the
+  frame only by accident of folder and went silent: the section-box gate (`SECTION_BOX_ROOTS`), the
+  edge-ownership test and the `:is([data-family` guard now walk `lib/plugins` too (the section-box
+  arm mutation-proved), and `tools/affected-tests.js` routes a plugin stylesheet to
+  `test:components` and `test:plugins`. (3) The old module paths were importable through the package's `./lib/*` export; the owner (2026-10-06): pre-GA, no compatibility shims and no **Breaking:** marker — the changelog records the move. The INVERSION lens: the
+  `dispatch.js` role is in-tree only and no host contract in api 1 (LPM §2 says so); stale
+  `chart-family.js §X` pointers the rename had re-stamped now name the kernels that hold those
+  symbols; and `tokens` listing the sheet's own custom properties is recorded for the 1.0 freeze
+  (`followups.d/2417-p5-lpm-tokens-own-declarations.md`). The CHECKER: wrong historical rewrites
+  restored, LPM's "draft until F" line moved to G.
+  **Evidence.** Engine byte identity: 505 tracked Markdown files × the default and `defaults: []`
+  engines, against a clean `origin/main` worktree at `281e9e0` — 1,010 renders, every deck
+  identical; the only differences are Markdown docs this phase edits. `checkPluginMigration` stays
+  at 0 on every arm. Mutation-proved: removing `chart-family.dispatch.js` fails the registry build
+  by name.
+
+
+- **Admission reaches an author's raw HTML, and the Playground page's lint (`2509-p3`).** The
+  engine reads every raw-HTML token an author wrote, in a core rule straight after the inline
+  parse (before any engine rule synthesizes markup — the checker dumped the rule order and
+  censused every token creator), and holds it to the host's channel (`lib/plugins/author-markup.js`):
+  every host figure marker NAME it spells — `data-lattice-hydrate`, `-config`, `-settle`, `-final`,
+  `-off` — becomes `data-author-lattice-…`, always; and when a drawn plugin is not
+  admitted, its `language-<fence>` becomes `language-off-<fence>`, so no pass, probe or capture
+  reads the author's `<pre><code>` as that fence.
+  **`data-lattice-figure` is NOT refused, and CI is why.** The CLI's Mermaid bake draws each figure
+  INTO the deck's Markdown and stamps it `data-lattice-figure`; the engine then reads that markup as
+  raw HTML like any author's and cannot tell the two apart. Refusing the marker erased it from every
+  baked diagram (7 integration arms: `--disable-plugin`, the HTML player's sanitizer and toggle,
+  `--read`) — the engine-only byte-identity corpus never ran a bake, so it could not see it.
+  `BAKE_WRITTEN` names it, with the reason, and a unit census fails when a `*.bake.js` writes a marker
+  that list lacks. A forged figure marker only makes the author's own markup count as drawn in their
+  own export; the forgery that matters, a pending figure hydrated from an author-packed config, needs
+  `hydrate`, `config` and `settle`, which stay refused.
+  **Two first cuts, both caught.** (1) Refusing the whole `data-lattice-` prefix, as the
+  code-package door does: the byte-identity run caught it, because `examples/motion-asset.md`
+  authors `data-lattice-motion` — vocabulary, not a host marker. The list is exactly the host's
+  channel, and a unit arm fails if `host.js` or `host-browser.mjs` writes a marker it lacks.
+  (2) A start-tag walker that removed the attributes and stamped `data-lattice-off` on a `<pre>`:
+  the tier 1 checker broke it seven ways (a quote or `<!--` inside a value, `--!>`, a `<script>`
+  end tag with an attribute — each put the regex and the browser's tokenizer out of step) and
+  measured it quadratic (a 160 KB deck of unclosed `<script ` rendered in 48 s); and the `<pre>`
+  marking missed a second `<code>`, a `<pre>` mid-paragraph and a one-line `<marp-pre>`. Renaming
+  BY NAME needs no tokenizer: an attribute selector matches a name exactly, so a renamed one cannot
+  be read as the marker wherever it sits. The cost, accepted: raw HTML that spells a marker name as
+  TEXT shows the renamed word (no tracked deck does). **The Playground page**
+  (`docs/src/playground/editor.js`, which loads the lint bundle lazily and so was not reached by the
+  Studio's `plugin-admission.ts`) points that bundle's parser at the deck's `off` set before each
+  lint, quick fix and Fix-all, and re-lints on `lattice:plugin-defaults` (through the linter's
+  `needsRefresh`: `forceLinting` alone flushes only a lint an edit scheduled, which the real page
+  showed); `deckPluginsOffFor`
+  (`editor-diagnostics.js`) is the one copy both callers use, and the lint bundle exports
+  `PLUGIN_NAMES` so the page needs no eager import of the registry.
+  **Evidence.** Engine byte identity over the same 1,010 renders: only edited docs differ; the
+  checker separately hashed 363 decks × 4 plugin configurations against an engine with the rule
+  stubbed out, 0 differences. `test/unit/plugins/author-markup.test.js` judges the engine's output
+  with jsdom: every one of the checker's bypass shapes reaches no element with a host marker, no
+  raw-HTML Mermaid shape is selectable by the pass under `defaults: []`, `data-lattice-motion`
+  survives, and the hostile inputs run in milliseconds; with the rule uninstalled, 22 of 31 arms
+  fail. `hydrate-host.test.js`'s "author element marked pending" arm now injects the element into
+  the page, because the engine no longer lets one through — the browser-side defense it tests still
+  matters on a page the engine did not render. The real Playground page, built site, desktop
+  Chromium (`docs/e2e/plugin-admission.spec.ts`, 5 of 5): with math off the pill inside `$$` is
+  underlined on the slide the engine renders it on, and the underline goes and comes back as the
+  host switches its defaults with no edit. Not covered and recorded: the page's PREVIEW does not
+  re-render on that event (`followups.d/2509-p5-playground-preview-follows-defaults.md`).
+  **Not covered, and recorded:** an Export-to-Marp bundle is rendered by Marp with `html: true`, so
+  forged markers reach its runtime, and its `mark-off.mjs` matches `language-<fence>` as a whole
+  class word, so a raw block classed `language-mermaid-source` stays drawable there
+  (`followups.d/2509-p4-marp-bundle-author-markers.md`).
+
+- **The Mermaid plugin owns its library (`2509-p5`, owner's decision 2026-10-06).** "We host
+  third-party libraries ourselves": the plugin owns a copy, every surface ships that copy, and
+  `node_modules` is only its source. The three builds §11 "Phase D's residue" left (the repo-root
+  `mermaid-v11-min.js`, the npm payload, the bake's unminified `mermaid.js`) are one:
+  `lib/plugins/mermaid/vendor/mermaid.min.js`, recorded in the manifest's new `payload.vendored`
+  (file, version, SHA-256; spec/LPM.md §3.4) and in a new in-tree plugin folder, `vendor/`
+  (`lib/packages/kinds.js`). Node readers resolve a plugin's library through one helper,
+  `lib/plugins/payload-path.js` — the CLI export page's hydrators, the docs site's staging, the bake's
+  render worker — and the Marp kit and Export-to-Marp bundle copy it (still named
+  `mermaid-v11-min.js` inside them, the name their decks load). The generated browser registries did
+  not change: the served file name was already `mermaid.min.js`. `npm run vendor:plugins` refreshes a
+  copy and its record together; the resolver fails a copy whose SHA-256 drifts; `package.json` pins
+  `mermaid` exactly, and a unit test fails when the installed build is not the vendored one.
+  Dependabot ignores `mermaid` (owner, 2026-10-06): its bump would fail that test and hold the
+  whole weekly group, so the library is upgraded on purpose (bump the pin, run
+  `npm run vendor:plugins`). The source gates skip a plugin's
+  `vendor/` (`isVendoredLibraryDir` in `tools/check-ownership.js`), as they skipped the root copy: it
+  is not our source, and its integrity is the hash. The root copy is gone, with its entries in
+  `lefthook.yml`, `ci.yml` and `publish-kits.yml` (each already covered by `lib/**`).
+  **Evidence.** The bake now draws with the minified build instead of the unminified one: both
+  diagram galleries' CLI PDFs, light and dark, are byte-identical to `main`'s (4 of 4; 25 diagrams
+  baked). The Marp kit and the Export-to-Marp admission tests through real marp-cli: 16 of 16. The
+  resolver's hash check mutation-proved (one appended byte fails the build by name); the ownership
+  test fails when a reader goes back to `node_modules`. Recorded, not built: the other plugin
+  libraries (function-plot, KaTeX, the bake's ZenUML and mermaid-cli page) —
+  `followups.d/2509-p5-plugin-libraries-owned-copies.md`. Also fixed on the way: the diagram
+  gallery's two `<script>` paths had pointed at files that no longer existed since the galleries moved
+  into bucket folders, so its VS Code preview drew no diagrams.
+
+- **Every plugin library owned (`2509-p5`, the owner's hosting rule of 2026-10-06, finished).** The
+  rest of the libraries get Mermaid's treatment, so no surface reads a plugin library from
+  `node_modules`. **The shape, decided first** because KaTeX is not a `payload`: a new manifest map,
+  `vendor` (spec/LPM.md §3.4), holds every owned copy that is not the browser payload, with the same
+  record as `payload.vendored` (`from`, `file`, `version`, `sha256`). A copy may be one file, a whole
+  directory (`from`/`file` end in `/`) or one directory's files of one extension (`/*.<ext>`); a
+  directory is hashed as a tree, one `<path> <sha256>` line per file, sorted
+  (`lib/plugins/payload-path.js` `treeSha`). Rejected: widening `payload` past its one file (it is
+  the browser contract `ensureLibrary` reads, and KaTeX's stylesheet and fonts are not loaded that
+  way), and one record per font (20 near-identical records that say less than one tree hash).
+  **The copies.** function-plot vendors its payload (`vendor/function-plot.js`, 1.25.4). The math
+  plugin owns KaTeX 0.16.46: `vendor/katex/katex.min.js` (the engine requires it by a literal
+  relative path, which `tools/build-playground.js` swaps for the browser stub by resolved path, so
+  the Playground bundle is byte-identical), `katex.min.css` and `fonts/*.woff2` (read by
+  `build-css.js`, the emulator's inline sheet, the HTML player, the palette sweep and the docs
+  site's staging). Mermaid owns its bake's other two inputs: `vendor/mermaid-zenuml.min.js` (0.2.2;
+  it used to load the unminified build) and `vendor/mermaid-cli/` (11.12.0's `dist/`: the render
+  page, its bundle and the KaTeX and FontAwesome faces beside it). That retires `resolveBundles`'s
+  search across every root Node would try for the page, the red team's nested-tree fix, because the
+  copy sits at one path under any install layout. Each source package's `LICENSE` is a `vendor`
+  copy beside its library: all five are MIT, whose notice must travel with every copy, and
+  Mermaid's copy from #2557 had shipped without one. `package.json` pins all four new packages
+  exactly and Dependabot ignores them. The resolver now keys copies by file, holds `vendor` entries
+  to their records, and refuses any file under `vendor/`, at any depth, that no copy covers.
+  **The shipped CLI, caught by the tier 1 checker.** The installed `lattice` runs
+  `dist/lattice-emulator.js`, an esbuild bundle that inlines `payload-path.js`, where `__dirname` is
+  `<pkg>/dist`: the reader's root, counted as `__dirname/../..`, landed above the package, so the
+  bundle exported math without KaTeX's 20 faces (17 base64 faces instead of 37) and, since #2557,
+  every function plot without its library. The reader now walks to the package root
+  (`lib/core/pkg-root.js`), and a unit arm bundles it one directory deep and requires every copy to
+  resolve (mutation-proved: the counted root fails it). The Playground build also refuses an output
+  that carries KaTeX's parser, so a stub swap that stops matching cannot ship real KaTeX quietly.
+  **Evidence.** CLI PDFs against `main`, same machine: the math gallery (KaTeX and function-plot
+  plots) and both diagram galleries, light and dark, 6 of 6 byte-identical; and the math gallery
+  rendered by the shipped bundle is byte-identical to the source entry's. The galleries never
+  exercise ZenUML (its slide shows the source as a `text` fence), so the render worker was driven
+  directly on both trees with a ZenUML diagram, an ELK-layout flowchart with a KaTeX label and a
+  FontAwesome icon, and a sequence diagram: identical result JSON. Mutations: one appended byte in
+  a KaTeX font fails the build by name, and a stray file in `vendor/` fails it. The npm tarball
+  lists every copy (97 files under `vendor/`); it grows from 23.3 to 26.4 MB packed. **Not done,
+  and recorded:** the four source packages, and `mermaid`, are still `dependencies`, so an install
+  downloads them though nothing reads them at run time
+  (`followups.d/2509-p5-vendored-sources-to-dev-dependencies.md`); that changes what a consumer
+  installs, so it is the owner's call.
+
+- **Export-to-Marp refuses forged markers too (`2509-p4`).** The last render path where an
+  author's raw HTML could speak the plugin host's channel. A Marp bundle is rendered by Marp with
+  `html: true`, so the engine's refusal never ran on it. **Where, decided:** in the PRODUCER, at
+  `withRuntimeScripts` (lib/core/marp-bundle.js), the one choke point the CLI exporter and the
+  Studio's in-browser exporter both pass through, and for the reason the deck class is refused
+  there: the runtime cannot tell the author's markup from its own. Rejected: a first step in the
+  bundled runtime, which would need a signal that the page is a Marp bundle rather than an engine
+  page with legitimate markers (the CLI's fluid viewer carries the same settings block), and a new
+  settings field would change every bundle's bytes. `refuseAuthorMarkupInSource`
+  (lib/plugins/author-markup.js) parses the deck with markdown-it (`html: true`, Marp's tokenizer)
+  and applies the engine's own `refuseAuthorMarkup` to the source lines of every raw-HTML token that
+  spells a marker or an off plugin's drawn fence; code fences keep their bytes. The cost, accepted
+  and documented: a code span on the SAME line as a forged tag is renamed too, because an inline
+  token knows its lines, not its offsets. **Directives, from the tier 1 checker:** Marpit reads
+  the front matter and every comment directive as YAML and renders `header:`/`footer:` with
+  `html: true`, so `data-lattice\x2dhydrate` in a double-quoted value spelled no marker in the
+  bytes and one on the page, and an indented block scalar was code to markdown-it and HTML to
+  Marp. Those regions are now refused whole, after `decodeYamlEscapes` undoes the escapes and
+  escaped line breaks (over-refusing a hostile deck, never under). The checker also caught a lone
+  `\r` shifting every later line (markdown-it counts it as a break; the split did not); lines are
+  now split as markdown-it counts them. `offDrawnFences` is now the one copy host.js and the
+  bundle share. **The runtime half:** `mark-off.mjs` matched an off fence by the whole class word
+  (`class~=`) while the pass draws by substring (`class*=`), so a ```mermaid-source fence Marp
+  renders stayed drawable with Mermaid off; it now matches as the pass reads.
+  **Evidence.** Every one of the 2,496 tracked Markdown files comes back byte-identical through the
+  refusal, so an ordinary bundle's bytes do not change. jsdom-judged unit arms run all 14 hostile
+  shapes the engine's refusal was proved against through `withRuntimeScripts` and a markdown-it
+  render, plus a list, a blockquote and a front-matter `footer:`; with the producer refusal
+  removed, 13 fail. Four directive arms emulate Marpit (the `yaml` parser, an inline render) and
+  each also asserts the unrefused deck WOULD carry a marker; without the decoding, 3 fail. The
+  lone-CR arm fails with the old split. The `mark-off` arm fails with the old selector. Real marp-cli 4.x + Chromium
+  (`test/integration/export/marp-admission.test.js`, 3 of 3): a bundle whose deck forges a pending
+  function plot, an inline `data-lattice-off` and `-final`, and a raw `language-mermaid-source`
+  block with Mermaid off, and a YAML-escaped `footer:` that Marp itself decodes and renders,
+  carries no host figure marker on any element, draws nothing into the
+  forged element, and leaves the block as code. The evidence screenshots also exposed a latent
+  hang in that file: with three pages open, a background tab never paints, so its screenshot timed
+  out; each page is brought to the front first.
+
+- **The Playground page's preview follows the host's defaults (`2509-p5`).** The page's editor
+  re-linted on `lattice:plugin-defaults` but its preview did not, so after
+  `LatticePlayground.setPluginDefaults` with no edit it kept the render made under the old
+  defaults. `PlaygroundApp.tsx` now routes the event through the same frame scheduler as an edit
+  (the in-flight guard the palette observer uses); the defaults are already in every render-cache
+  key. Pinned by `docs/e2e/plugin-admission.spec.ts` on the built site: a deck that renders 3
+  slides with math off and 2 with it on follows each switch with no keystroke. With the listener
+  removed, the case fails (expected 3, received 2).
+
+- **The emulator bundle waits for the background library builds.** #2595 inlined LTT and Cadenza
+  into `dist/lattice-emulator.js` (`tools/build-emulator.js` `INLINE_PACKAGES`), but both dists
+  build as BACKGROUND steps in `tools/build.js`, joined only at player-core, which runs after the
+  emulator. So the emulator could bundle a dist a live child process was still writing: the race
+  `JOIN_BEFORE_SCRIPTS` exists to close. `build-emulator.js` is now in that set, and the
+  orchestrator test pins it. The same session's clean-room comparison (math and diagram galleries,
+  72 pages, pixel-identical to the in-tree render) found the sequence slide's participant names
+  painting invisibly in both renders and in the committed golden: logged as
+  `2577-p1-sequence-actor-labels-…`.
+
+- **Phase E mapped, and the Studio's silent drop closed (`2417-p5`).** A read of what phase E
+  touches found it is three pieces of work, now written into
+  `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: a fence-level code door first (today's door
+  claims slides, not fences), then the CLI half, then the Studio half, with three owner questions
+  before the second starts. On the way it found the Studio's Library import dropping a code-free
+  plugin zip with no refusal, while `lattice packages add` refused it by name. Both doors now return
+  `PLUGIN_REFUSAL` from `lib/packages/plugin-refusal.js` (its own leaf, off the eager path), checked before any file is judged; the Studio's
+  check sits in `package-zip.ts` `readPackagesFromZip`, which loads only on an import, so the Studio's
+  eager bundle does not grow. Pinned by `asset-bundle.test.ts` (with the check removed, the code-free
+  case receives `[]`) and `code-door.test.js`, and seen on the PR's docs preview: the Library's toast
+  reads "Refused 1: glow — plugin packages cannot be installed yet".
+
+**2026-10-11 — phase E step 1, the fence door: kernel and CLI side built, hardened by the adversarial
+trio; the Studio's door and the placeholder are not.** The owner settled the fence contract, the
+activation and approval flow, the CSS isolation rule and the Studio's storage (§9 decisions 10 to 14;
+decision 7's token-only gate is superseded by 12). What exists now:
+- `lib/packages/code-door-fence.mjs` (the shared kernel). It finds a plugin's fences in the engine's
+  finished HTML (`<pre><code class="language-NAME">`, read with `scanTags`, so a block in a comment
+  or `<style>` is not one and the walk is linear), so the parser and its memo keys are untouched. A
+  renderer is handed `{ body, id }` and nothing else. A fence inside a slide a code package claims
+  whole is the package's, not run. The result goes in `<div data-lattice-plugin="NAME">`, the root
+  decision 12's CSS scoping will key on; a failure keeps the author's code block and adds a note.
+- **The door runs in its own LAST registry slot** (`lib/transformers/code-fences.js`, fed by
+  `render(…, { codeFences: { names, run } })`), not beside the code packages, so no later HTML pass
+  reads a plugin's output. That is HALF the answer, and the first version of this entry said it was
+  all of it: the checker on the hardening ran `video.applyToDom` over a slide whose only content was a
+  plugin's `<li>https://…</li>` and got a poster link. The runtime's DOM pass is the other half, so
+  the door also refuses to draw on a slide a shipped pass rebuilds (decision 15). The slot's `names`
+  also make the engine's highlighter leave those fences plain: a grammar that knew the name (`tex`,
+  `sql`, `r`) had been deciding, per body and per surface, whether the plugin drew it.
+- `code-shape.mjs`: `workerScript(code, { fence: true })` (slide mode is byte-identical, pinned by a
+  digest taken from the commit before), `refusePluginCode`, `pluginConsentText`. `trust.js` approves
+  under `plugin/<name>` against `pluginDigest` (decision 14). `door-attr.mjs` `doorFinishFence`
+  is the one sanitizing step both doors call: wrap in a bare `<section>`, hand an empty one, unwrap,
+  and refuse a nested `<section>`, a `<template>` (its content hides from `querySelector`) or an
+  empty result.
+- `code-door.js`: `renderWithCodePackages(render, { packages, plugins })`, where `render(hook, more)`
+  passes `more` on as render options. It hashes the code itself, keys every result by digest, refuses
+  a fence name two plugins both claim (neither runs, and it says so), claims at most 400 fences per
+  pass, and caps the sanitized output of one render. A deck of 8,000 fences with a 300 KB renderer
+  took 89 s and 7.6 GB before; it takes 2.2 s and 130 MB, with 400 drawn and 7,600 left as code.
+- Evidence: `test/unit/cli/code-door-fence.test.js` (39: kernel through the real engine, panes,
+  inserted slides, a `video` slide, the highlight case, the gate, consent) and
+  `test/integration/export/plugin-fence-door.test.js` (12 in the real sandbox, with a network log at 0
+  requests). Mutations that fail a test: the fence slot moved early, the highlight override removed,
+  the id counter made per call, the sanitizer bypassed for fences.
+- **Known limits, on purpose.** Output carries no links, remote images or fonts (a map plugin that
+  wants tiles has to put them in `data:` images, which is safe and heavy). The Marp bundle never
+  calls the door, so a Marp export ships the raw code block, as it does for code packages. Info
+  strings are ignored (decision 10). A plugin's name must still pass `codeNameRefusal` and its fence
+  name must not be a name Lattice or highlight.js owns: step 2's gate does both.
+- Not built, and why nothing user-visible changed: no caller passes `plugins` yet, and `gate.js`
+  still refuses a plugin from outside the tree by name. Remaining, in
+  `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: the Studio's door, the placeholder and its
+  Approve strip, `lattice packages trust plugin/<name>`, then steps 2 and 3.
+
+**2026-10-12 — phase E, the Studio's door (followup step 1, item 1).** A plugin's fence now draws in
+the real Studio preview and in Share → PDF. What was built:
+- **One set of rules for both doors.** The CLI door's rules moved into the kernel
+  (`lib/packages/code-door-fence.mjs`) and both doors call them: `planFencePlugins` (a fence name two
+  plugins claim, a shipped plugin's fence, a malformed name, a highlight language, a name that is a
+  hyphen-prefix of another's), `fenceCaptureNotes` (a long block, a slide a shipped pass rebuilds, a
+  raw `<section>`, the 400-fence allowance), `FENCE_OUTPUT_MAX` and `rebuiltFromAlternatives`. The
+  Studio's door (`docs/src/lib/code-packages/door-run.ts`) calls the same `captureFences` /
+  `substituteFences`, `doorFinishFence`, `fenceId` namespace and `pluginDigest` text as the CLI's.
+  `test/fixtures/fence-door-parity.mjs` is one deck, one plugin and one list of checks that BOTH doors
+  run (`plugin-fence-door.test.js` through a real Chromium, `door.fence.test.ts` through the real
+  engine and sanitizer), so a rule one door learns and the other does not fails one of them.
+- **Data the Studio cannot derive without the registry is generated.**
+  `lib/packages/fence-door.generated.json` (built by `tools/build-packages-index.js`) holds the
+  `{ pass, classes }` list `rebuilt-classes.js` derives from the registry, and the fence names the
+  shipped plugins own. `test/unit/cli/fence-door-data.test.js` pins it to the live reads, class set by
+  class set, so a pass added tomorrow breaks the test until the file is rebuilt (and `build:check`
+  fails on a stale file).
+- **Consent in the browser** is under `plugin/<name>` in the same storage key as component approvals,
+  against `pluginDigest(code, fence)` (SHA-256 over the same text `trust.js` hashes, checked equal in
+  `door.fence.test.ts`). The Studio holds the renderer as text, so a file with a leading BOM or an
+  invalid byte has a different digest here than the CLI's, which hashes the file's bytes: an approval
+  never crosses between them, either way.
+- **Activation is the deck's `plugins:` line** (decision 11), read from the source being rendered
+  (a pane's one-slide render carries the front matter). A plugin the deck does not list runs nothing
+  and opens no frame; a listed one runs only once approved. The notice above the preview offers the
+  approval (`CodePackagesNotice`: "This deck uses code from the plugin …"), and shows the door's own
+  notes ("slide 3 is rebuilt by the shipped `video` pass…") instead of leaving a block as code silently.
+- **Output cap.** The CLI caps the sanitized output of one render at 8,000,000 characters
+  (`FENCE_OUTPUT_MAX`); the Studio counts the RAW output against the 4,000,000 it already held slides
+  to, because its sanitizer runs on the page's main thread (a render of twelve 3.9-million-character
+  slides froze it for ten seconds, before). Both spend the cap in claim order. The number differs on
+  purpose; the rule does not.
+- **Where a zip plugin lives** (decision 13): `docs/src/components/studio/plugin-library.ts`, the
+  asset store's `plugin` kind. The Library's own import reads one (`unpackBundle(file, { plugins: true })`)
+  and nothing else does: a plugin inside a `.lattice` project or a backup is refused by name
+  (`PLUGIN_PROJECT_REFUSAL`), a workspace backup never lists the kind (pinned by `import-plugins.test.ts`),
+  and "Delete everything" sweeps it with every other kind. The Library's import runs the shape gate
+  (`refusePluginCode`, which now also refuses `render.exec` and `payload` / `vendor` BY RULE, the
+  2026-10-04 acceptance criterion) and the syntax gate, then the door's name rules against the saved
+  set. A subfolder in a plugin zip is reported ("left out 1 file(s) in subfolders"), never dropped.
+  The Plugins tab lists each installed plugin (listed, approved, Remove).
+- **A finding from driving the real surface.** Share → PDF failed on a plugin that returned an empty
+  `<video>`, and shipped "without at least one image" for an `<img>` with no source: the sanitizer
+  takes the address out, and the Studio's PDF writer draws each slide into an image. A fence renderer
+  is handed no address, so such an element is a dead box. `doorFinishFence` now drops `video`, `audio`,
+  `source`, `track`, an `<img>` with no `src` and an SVG `<image>` with no `href`, in both doors; a
+  `data:` image stays. The parity fixture checks it.
+- **Not built here:** the plugin's `styles.css` is stored but not delivered (decision 12's scoped CSS
+  belongs to step 2's style sink), and the placeholder for an unlisted fence is in the next entry.
+
+**2026-10-12 — phase E, the placeholder and Approve strip; the trio's findings on the Studio door.**
+- **The placeholder** (decision 11). A plugin the deck does not list, whose fence the deck writes, draws
+  `div[data-lattice-plugin-off]` (`fencePlaceholder`, `code-door-fence.mjs`) where the block was: the
+  plugin's name and one line, painted by `lib/base/base.modifiers.css` in the underpainting's Nacre
+  tones held still (an export capture must not move), every paint a deck token, the mark the
+  `--shape-spark` mask (HARD RULES #3, #20, #29). It carries none of the author's text. The strip above
+  the preview (`CodePackagesNotice`, `data-state="offered"`) offers **Approve**, which in one click writes
+  the `plugins:` line (`writeDeckPlugins`) and records consent for the code's bytes. The preview, the
+  placeholder and the strip are seen at 1440, 820 and 390 in `docs/e2e/plugin-fence-ui.spec.ts`.
+  No demo deck (HARD RULE #9): the state exists only while a browser holds a plugin, which no CLI render can.
+- **The trio ran on the Studio door** (red team, inversion, checker; all read the commit, none edited it).
+  Fixed: a plugin whose fence is a highlight.js language (`python`, `js`) was accepted and
+  took every such block, because `isLanguage` reached no caller (now `highlightLanguages` in
+  `fence-door.generated.json`, passed by both doors and the import); two plugins in one zip that conflict
+  were both saved and silently never ran (import checks the saved set plus its siblings; a refused plugin
+  is no longer offered or approvable, and a listed refused plugin says why); two different renderers could
+  share a consent digest through a lone surrogate (refused by `refusePluginCode`); the dead-media drop missed
+  `src=""` and `#`; `name=` on a fence's `<img>` shadowed a window global the runtime reads (dropped); the
+  Studio's cap counted raw output on a fresh run and sanitized output on a remembered one, and serialization
+  grows text up to 6x (a fresh run now counts what is spliced in, a remembered result counts the same, the
+  memo is bounded in characters, and fences spend a pool of their own so slide packages cannot starve them; that last one is by construction and no test pins it);
+  activation (`activePluginNames`) moved into the kernel for the CLI caller to use. Not changed, on purpose:
+  a side render (the web-image scan, the gallery gate) runs a listed, approved plugin like any other
+  render; an approval stays in the browser after its plugin is deleted, pinned to bytes (re-importing the
+  same bytes is approved, as decision 14 designs).
+
+**2026-10-12 — phase E, the CLI half of the door: install, trust, render, lint.** A zip plugin now runs
+through `node lattice.js`, end to end (`test/integration/export/plugin-cli.test.js`, real Chromium):
+- `lib/packages/gate.js` `refusePlugin` replaces the by-name refusal (`PLUGIN_REFUSAL`, deleted): the
+  shape gate `refusePluginCode`, the syntax gate on the script as a fence renderer, `codeNameRefusal`
+  on the name, and a fence that is a shipped plugin's or a highlight.js language or alias (the same
+  `fence-door.generated.json` lists the Studio reads). `lattice packages add` installs it under
+  `plugin/<name>`, unapproved, and `lattice packages trust plugin/<name>` approves it (the digest shown is
+  the one the Studio shows for the same bytes, `759dc27d…` on the test plugin). A folder or zip below the
+  top level is reported ("left out 1 item(s) below the top level (shared/)"), never dropped.
+- `lattice.js` `withInstalledPlugins`: of the installed plugins, the ones the deck's `plugins:` line names
+  (`activePluginNames`, the kernel rule the Studio uses) go to `renderWithCodePackages`; the door refuses
+  an unapproved one with its digest and the trust command, before anything runs. An installed plugin the
+  deck writes a fence for but does not list is named once, with the line to add. A plugin sharing a shipped
+  plugin's name is refused and named.
+- `lint:deck` reads the package store: a listed zip plugin is not `unknown-plugin`, and the new
+  `plugin-fence-attributes` warning says the words after a plugin fence's name (```` ```gantt title="Q3" ````)
+  are ignored today (decision 10), so the field stays free to define. The Studio's editor passes the same
+  vocabulary (`externalFences`).
+
+**2026-10-13 — the placeholder takes space the way the plugin says, in geometry the engine already has.** The first
+placeholder was sized in `em` of the smallest content size and read as a thin chip. A second cut guessed a ratio
+(full width at every ratio, then a square-root rule) and was wrong on real shapes: an avatar became a bar across the
+slide. The engine already knows how its own figures take space: a Mermaid diagram or chart fills the stage
+(`section.diagram > .cell-stage > .mermaid`: `flex: 1; width: 100%; height: 100%`), an image takes the content width
+at a ratio, an avatar is a square in a token scale (`--avatar-size`: 1.1, 1.45, 2.4, 4em). So the manifest says
+WHICH, as data (`contributes.fences.<fence>.placeholder` in `plugin.schema.json`, additive; the code may not run
+before approval, so it cannot be asked): `placement: "stage"` fills the stage; `"figure"` (the default) takes the
+content width at `aspect` (`W/H`, default `16/9`, the web-image placeholder's) with its height at most `30cqi`, the
+slide's own container unit, so a 16:9 figure fits the stage and a wide one still fills the row; `"chip"` is a mark-only
+square in `size` `sm|md|lg|xl` (the avatar scale; name in its title and accessible name). For a figure, the
+proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg>`'s `viewBox` or `width`/`height`,
+reduced, 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200, never
+in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at import and again where the markup is made, so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
+Seen in the real Studio with five plugins (two chips, a wide and a default figure, a stage). A `stage` placeholder
+shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code.
+A `chip` is still a block (a fence is block syntax). **Amended 2026-10-14 (owner):** inline syntax such as `!{Ada Okafor}` is
+not a parser rule but an inline-code kind, and a zip plugin may now bring one, written `@kind{…}`, through this same door:
+`2026-10-14-plugin-inline-door.md`.
 
 ## References
 

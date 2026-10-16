@@ -40,7 +40,7 @@ const puppeteer = require('puppeteer');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const OUT = path.join(ROOT, '.scratch', 'numbered-bookend-stamp');
 const TIMEOUT = 300000;
 
@@ -202,7 +202,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
     // THE PRODUCTION SURFACE for every browser host: the scoped stylesheet, not the
     // unscoped bundle the emulator inlines. The mask that broke this lives in here.
     const css = composeCss({
-      themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8'),
+      themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8'),
       baseLatticeCss: fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'),
       sizeName: out.sizeName,
     });
@@ -298,7 +298,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
     const { composeCss } = require(path.join(ROOT, 'lib', 'engine', 'css.js'));
     const out = engine.render(BAND_DECK, 'indaco', { preview: true });
     const css = composeCss({
-      themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8'),
+      themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8'),
       baseLatticeCss: fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'),
       sizeName: out.sizeName,
     });

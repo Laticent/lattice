@@ -2,13 +2,16 @@
 origin: 2248
 priority: P1
 recorded: 2026-09-22
+area: engine
+severity: high
+swimlane: engineering/decisions/2026-09-20-dom-library-bakeoff.md
 source: https://github.com/Laticent/lattice/pull/2248#issuecomment-5753967687
 ---
 
 # Fix `buildReadingArticleDocument` the same way — IT IS BROKEN ON MAIN NOW
 
 Backfilled verbatim from the continuation brief on #2248 (merged 2026-09-21).
-Triaged 2026-09-24 against `main` at 6110a1e: still open. `buildReadingArticleDocument` (`lattice-emulator.js:5588`) still `require`s jsdom. This item also covers what remained of #2241 P1: #2248 already moved the captions path into the open browser.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. `buildReadingArticleDocument` (`lattice.js:5588`) still `require`s jsdom. This item also covers what remained of #2241 P1: #2248 already moved the captions path into the open browser.
 
 ```text
   P1 · [no ticket] Fix `buildReadingArticleDocument` the same way — IT IS BROKEN ON MAIN NOW
@@ -17,7 +20,7 @@ Triaged 2026-09-24 against `main` at 6110a1e: still open. `buildReadingArticleDo
                    this repo, returns '', and the caller "keeps the clean slide render" —
                    reader-mode article projection silently never appears for anyone who
                    npm-installed the package. It is a shipped regression, not a cleanup.
-       where     — lattice-emulator.js `buildReadingArticleDocument`; mirror
+       where     — lattice.js `buildReadingArticleDocument`; mirror
                    projectDeckSpeechFromHtml exactly, including the `browser.connected`
                    classifier and the guarded scratch-page close. It needs
                    `projectDeckToProse` where captions use `projectDeckToScript`, so add a

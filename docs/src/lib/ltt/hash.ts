@@ -1,4 +1,4 @@
-// The staleness hash's INPUT, defined once (engineering/ltt.md §Staleness).
+// The staleness hash's INPUT, defined once (spec/LTT-1.0.md §Staleness).
 //
 // A segment's hash is SHA-256 over the UTF-8 bytes of `segmentHashInput(text, inputs)`. This file
 // builds that string and nothing else: a digest needs `node:crypto` in Node and `crypto.subtle` in
@@ -7,14 +7,20 @@
 // pipeline (Node) both reach it. A second hasher per runtime is how two producers come to disagree
 // and flag every segment stale forever.
 
+const unwritable = (v: unknown) => v === undefined || typeof v === 'function' || typeof v === 'symbol';
+
 /** JSON with every object's keys sorted, at every depth, so two producers that build the same value
  *  in a different key order write the same string. Arrays keep their order: order is data there. */
 export function canonicalJson(value: unknown): string {
-	if (Array.isArray(value)) return `[${value.map((v) => canonicalJson(v === undefined ? null : v)).join(',')}]`;
+	// JSON.stringify's rules, so a value that is not plain JSON still hashes as JSON would write
+	// it: `toJSON` first (a Date is its ISO string), a hole or an undefined / function / symbol
+	// entry in an array is null, and such a value under an object key drops the key.
+	if (value && typeof (value as { toJSON?: unknown }).toJSON === 'function') return canonicalJson((value as { toJSON: () => unknown }).toJSON());
+	if (Array.isArray(value)) return `[${Array.from(value, (v) => (unwritable(v) ? 'null' : canonicalJson(v))).join(',')}]`;
 	if (value && typeof value === 'object') {
 		const rec = value as Record<string, unknown>;
 		const keys = Object.keys(rec)
-			.filter((k) => rec[k] !== undefined)
+			.filter((k) => !unwritable(rec[k]))
 			.sort();
 		return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(rec[k])}`).join(',')}}`;
 	}
@@ -32,7 +38,7 @@ export function canonicalJson(value: unknown): string {
  * `emphasis` is the segment's emphasis spans, one list per line, in line order. Emphasis changes
  * timing (a weighted word buys an extra hold), so a hash that missed it would call a re-timed
  * segment fresh. It belongs HERE and not in `inputs` because a span is a character range into one
- * line: it means nothing file-wide (LTT step 4 settled this, engineering/ltt.md §Staleness). An
+ * line: it means nothing file-wide (LTT step 4 settled this, spec/LTT-1.0.md §Staleness). An
  * absent or empty `emphasis` leaves the string exactly as it was, so no existing hash moves.
  */
 export function segmentHashInput(text: string, inputs: object, emphasis?: readonly (readonly unknown[] | undefined)[]): string {

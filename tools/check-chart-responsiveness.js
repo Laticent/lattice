@@ -22,7 +22,7 @@
  *      stay ~1px at every resolution, NOT scale to a chunky 3px at 4K).
  *   3. A `/* sanctioned: <reason> *\/` comment on the declaration — the explicit
  *      escape hatch for an intentional fixed-px floor (e.g. a swatch min-size so
- *      it never vanishes), matching the convention already in chart-family.css.
+ *      it never vanishes), matching the convention already in chart-family.styles.css.
  *
  * Usage:
  *   node tools/check-chart-responsiveness.js [glob...]   # default: chart CSS
@@ -243,8 +243,9 @@ function findViolations(css) {
 }
 
 function defaultGlob() {
-  // `chart/*/*.css` already covers `chart/_chart-family/chart-family.css`.
-  const out = execSync('ls lib/components/chart/*/*.css', { cwd: ROOT, encoding: 'utf8' });
+  // `chart/*/*.css` covers each member and `_chart-family/`; the chart frame is the chart family
+  // plugin's stylesheet now, so it is named on its own.
+  const out = execSync('ls lib/components/chart/*/*.css lib/plugins/chart-family/chart-family.styles.css', { cwd: ROOT, encoding: 'utf8' });
   return [...new Set(out.trim().split('\n').filter(Boolean))];
 }
 

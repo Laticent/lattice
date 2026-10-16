@@ -106,7 +106,7 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'function-plot', 'math', 'mermaid']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'math', 'mermaid']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
     assert.deepEqual(names(a).sort(), [...DEFAULT_PLUGINS].sort());
@@ -119,11 +119,19 @@ describe('admitPlugins — the three routes', () => {
     assert.deepEqual(names(admitPlugins('---\nclass: scene\n---\n# Flow\n', { defaults: [] })), ['anima']);
     // A pane renders as its component's class, so a pane marker is the component route too.
     assert.deepEqual(names(admitPlugins('<!-- _pane: math -->\n$$x^2$$\n', { defaults: [] })), ['math']);
+    // A chart FILLS the chart family's `kernel` slot, and filling it is requiring it (phase F): no
+    // chart manifest carries a `plugins` block, and the class still loads the family.
+    assert.deepEqual(names(admitPlugins('<!-- _class: bar -->\n## Revenue\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(names(admitPlugins('<!-- _pane: gantt -->\n- A `Q1`\n', { defaults: [] })), ['chart-family']);
+    // A stray `<!--` quoted earlier (a code span, a fence) must not swallow a later directive: it
+    // used to pair with the directive's `-->`, so the chart class was never read (red team).
+    assert.deepEqual(names(admitPlugins('# Intro\n\nWrite `<!--` to open one.\n\n---\n\n<!-- _class: bar -->\n\n## G\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(names(admitPlugins('```html\n<!--\n```\n\n---\n\n<!-- _class: math -->\n', { defaults: [] })), ['math']);
   });
 
   it('the usage probe admits nothing: a deck that USES a plugin it never loads keeps it off', () => {
     const a = admitPlugins('# Hi\n\n```mermaid\ngraph LR; A-->B\n```\n', { defaults: [] });
-    assert.deepEqual(a.off, ['anima', 'function-plot', 'math', 'mermaid']);
+    assert.deepEqual(a.off, ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'math', 'mermaid']);
   });
 
   it('a loaded plugin loads what it requires, transitively; optional loads nothing', () => {
@@ -206,6 +214,35 @@ describe('admission on the render paths', () => {
     const r = createEngine().render(`---\nplugins: [mermiad]\n---\n${MATH}`);
     assert.ok(r.html.includes('katex'));
     assert.deepEqual(r.diagnostics.map((d) => [d.id, d.plugin]), [['plugin/unknown-plugin', 'mermiad']]);
+  });
+
+  it('a listed name the HOST holds as data (a zip plugin) is not unknown: admission reports it as external, the engine says nothing, the lint stays quiet', () => {
+    const deck = `---\nplugins: [gantt-plugin, mermiad]\n---\n${MATH}`;
+    const a = admitPlugins(deck, { external: ['gantt-plugin'] });
+    assert.deepEqual(a.external, ['gantt-plugin']);
+    assert.deepEqual(a.unknown, [{ name: 'mermiad', malformed: false }], 'a typo is still unknown');
+    assert.deepEqual(names(a), names(admitPlugins(deck)), 'an external name loads nothing in the grammar');
+    const r = createEngine().render(deck, 'indaco', { externalPlugins: ['gantt-plugin'] });
+    assert.deepEqual(r.diagnostics.map((d) => [d.id, d.plugin]), [['plugin/unknown-plugin', 'mermiad']]);
+    assert.deepEqual(createEngine().render(deck).diagnostics.map((d) => d.plugin), ['gantt-plugin', 'mermiad'], 'without the host naming it, it is unknown, as before');
+    const core = require('../../../lib/authoring/lint-core.js');
+    const vocab = { names: new Set(), modifiers: new Set() };
+    const lint = (v) => core.lintTextWith(deck, v).filter((f) => f.rule === 'unknown-plugin').map((f) => f.classToken);
+    assert.deepEqual(lint({ ...vocab, externalPlugins: ['gantt-plugin'] }), ['mermiad']);
+    assert.deepEqual(lint(vocab), ['gantt-plugin', 'mermiad']);
+  });
+
+  it('attributes after a zip plugin’s fence name are reported once, only for fences the host holds as data', () => {
+    const core = require('../../../lib/authoring/lint-core.js');
+    const src = '---\nplugins: [gantt-plugin]\n---\n\n## P\n\n```gantt title="Q3" {a=1}\nA 1\n```\n\n```gantt\nB 2\n```\n\n```js title="x"\nlet a;\n```\n';
+    const vocab = { names: new Set(), modifiers: new Set(), externalPlugins: ['gantt-plugin'], externalFenceOf: { 'gantt-plugin': 'gantt' } };
+    const hits = core.lintTextWith(src, vocab).filter((f) => f.rule === 'plugin-fence-attributes');
+    assert.equal(hits.length, 1, 'only the fence with words after its name');
+    assert.equal(hits[0].classToken, 'gantt');
+    assert.match(hits[0].message, /title="Q3"/);
+    assert.deepEqual(core.lintTextWith(src, { names: new Set(), modifiers: new Set() }).filter((f) => f.rule === 'plugin-fence-attributes'), [], 'a host with no such plugin says nothing');
+    const unlisted = src.replace('plugins: [gantt-plugin]\n', '');
+    assert.deepEqual(core.lintTextWith(unlisted, vocab).filter((f) => f.rule === 'plugin-fence-attributes'), [], 'an installed plugin the deck does not list draws nothing, so its attributes are not "ignored"');
   });
 
   it('the CLI bake runs only for an admitted plugin', () => {

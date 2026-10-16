@@ -1,0 +1,1 @@
+- The Studio loads its walkthrough engine when a lesson or tour first starts, not on page load: 18.5 KB less gzipped JavaScript at startup. Vetrina's React adapter gains `useLazyWalkthrough`, which takes a loader for the engine.

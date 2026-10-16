@@ -1,5 +1,5 @@
 // Browser side of the self-contained player's CSS + font PRUNE (P2b) — the app-side
-// twin of the CLI emulator's prunePlayerCssInPage (lattice-emulator.js). The assembled
+// twin of the CLI emulator's prunePlayerCssInPage (lattice.js). The assembled
 // Studio player inlines the WHOLE visual contract (~1 MB lattice.css) + the whole type
 // stack; a given deck uses a fraction. This mounts the assembled player in an OFFSCREEN
 // same-origin iframe, matches every base selector against the real rendered DOM across

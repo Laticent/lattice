@@ -1,7 +1,7 @@
 /**
  * Integration: the palette wins the export cascade (#1527).
  *
- * `lattice-emulator.js` builds the deck's single `<style>` from two sheets: the engine
+ * `lattice.js` builds the deck's single `<style>` from two sheets: the engine
  * bundle and the deck's palette chain. For the whole life of the export path it wrote
  * them palette-FIRST, so `lib/base/base.tokens.css`'s plain `:root` block landed later
  * at equal specificity and won. 932 palette declarations across all 32 themes resolved
@@ -18,7 +18,7 @@
  * tokens off the rendered `<section>` in Chromium (HARD RULE #23: the surface, not a
  * stand-in), and it picks tokens where the theme and the base disagree — a token they
  * both spell the same way cannot tell the two orders apart, which is precisely how
- * #1527's own before/after sweep missed indaco's sub-AA `--hljs-literal`.
+ * #1527's own before/after sweep missed indaco's sub-AA `--syntax-constant`.
  *
  * Slow tier (spawns the emulator, which spawns Chromium).
  *
@@ -39,7 +39,7 @@ const { cliThemeStore, cliDeckSheet } = require('../../../lib/export/cli-deck-sh
 const { sheetFor } = require('../../../tools/palette-sweep.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 300000;
 
 /** Best-effort Chromium path — mirrors chrome-suppression.test.js. */
@@ -56,7 +56,7 @@ function resolveChrome() {
 }
 
 /**
- * Tokens where `themes/indaco.css` and `lib/base/base.tokens.css` declare DIFFERENT
+ * Tokens where `themes/indaco/indaco.css` and `lib/base/base.tokens.css` declare DIFFERENT
  * values, so the resolved value names which sheet won. Read from the two files rather
  * than hardcoded, because a hardcoded expectation rots into a tautology the first time
  * either value is re-tuned — and re-tuning status inks is a live activity in this repo.
@@ -68,7 +68,7 @@ function disputedTokens(names) {
     for (const m of src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) map.set(m[1], m[2].trim());
     return map;
   };
-  const theme = read(path.join(ROOT, 'themes', 'indaco.css'));
+  const theme = read(path.join(ROOT, 'themes', 'indaco', 'indaco.css'));
   const base = read(path.join(ROOT, 'lib', 'base', 'base.tokens.css'));
   const out = [];
   for (const n of names) {
@@ -137,7 +137,7 @@ describe('the palette wins the cascade on the export path', () => {
     // resolve TWO ways in one render — the baked SVG from the palette, the CSS from the
     // base.
     const disputed = disputedTokens([
-      '--pass', '--warn', '--fail', '--hljs-literal', '--hljs-keyword', '--hljs-comment', '--diagram-critical',
+      '--pass', '--warn', '--fail', '--syntax-constant', '--syntax-keyword', '--syntax-comment', '--diagram-critical',
     ]);
 
     render();
@@ -179,7 +179,7 @@ describe('the palette wins the cascade on the export path', () => {
       // moved. That is the property this test needs — the render must be order-SENSITIVE at
       // all — and it cannot be satisfied by a token that merely looks disputed.
       const read = (f) => fs.readFileSync(f, 'utf8');
-      const indaco = read(path.join(ROOT, 'themes', 'indaco.css'));
+      const indaco = read(path.join(ROOT, 'themes', 'indaco', 'indaco.css'));
       // Comments first: indaco mentions `@import 'lattice';` in its header prose, and a
       // non-global replace would strip that mention and leave the live import in place.
       const invertedTheme = `${indaco.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import\s*(['"])lattice\1\s*;?/g, '')}\n@import 'lattice';\n`;

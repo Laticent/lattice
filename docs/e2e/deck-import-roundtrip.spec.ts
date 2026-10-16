@@ -1,4 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } from './studio-fixture';
 
@@ -77,7 +80,7 @@ test('every re-openable export comes back into the Studio as the exact deck', as
 
 	const pdf = await exportFile(page, /^PDF/, /^Download PDF/, true);
 	const pptx = await exportFile(page, /^PowerPoint/, /^Download PowerPoint/, true);
-	const lattice = await exportFile(page, /^Lattice project/, null, null);
+	const lattice = await exportFile(page, /^Lattice project/, /^Download project/, null);
 	const plainPdf = await exportFile(page, /^PDF/, /^Download PDF/, false);
 
 	// The carriers are what they claim to be before anything reads them back.
@@ -95,4 +98,31 @@ test('every re-openable export comes back into the Studio as the exact deck', as
 	// Off means off: the plain PDF has nothing to open, and says how to get something that does.
 	await importFile(page, 'board.pdf', plainPdf);
 	await expect(toastText(page)).toContainText('no editable deck inside');
+});
+
+// The CLI half (`lattice deck.md out.pdf --reopenable`): one kernel builds and places the
+// payload for both tools (lib/core/reopenable.js), so a CLI export opens through the same
+// Import deck, byte for byte. Rendered here, by the real CLI, so a drift between the two
+// writers fails this file and not only a unit test of one of them.
+test('a CLI --reopenable PDF and PowerPoint come back into the Studio as the exact deck', async ({ page }) => {
+	const dir = mkdtempSync(join(tmpdir(), 'lattice-cli-reopenable-'));
+	writeFileSync(join(dir, 'deck.md'), DECK);
+	const cli = resolve(import.meta.dirname, '..', '..', 'lattice.js');
+	const files: [string, Buffer][] = [];
+	for (const ext of ['pdf', 'pptx']) {
+		const out = join(dir, `Halcyon.${ext}`);
+		const r = spawnSync(process.execPath, [cli, join(dir, 'deck.md'), out, '--reopenable', '-q'], { encoding: 'utf8', timeout: 240_000 });
+		expect(r.status, r.stderr).toBe(0);
+		files.push([`Halcyon.${ext}`, readFileSync(out)]);
+	}
+
+	// The active deck starts as something else, so each import has to MOVE the stored source.
+	await gotoStudio(page);
+	await setEditorContent(page, '# Halcyon quarterly — scratch');
+	await expect.poll(() => activeSource(page)).toBe('# Halcyon quarterly — scratch');
+	for (const [name, bytes] of files) {
+		await importFile(page, name, bytes);
+		await expect(toastText(page)).toContainText('Imported');
+		await expect.poll(() => activeSource(page)).toBe(DECK);
+	}
 });

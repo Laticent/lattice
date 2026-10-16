@@ -23,7 +23,7 @@ const os = require('os');
 const { spawnSync, execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'tabular-digits.md');
 const DIGIT_WORDS = ['24', '30-day', '1,110', '2026.'];
 

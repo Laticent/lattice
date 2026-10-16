@@ -29,6 +29,16 @@ import { reference } from './reference.mjs';
 
 const require = createRequire(import.meta.url);
 const esbuild = require('esbuild');
+// The dispatcher Lattice SHIPS, timed on the job the other two columns do: DECIDE what the span is.
+// That is the escape first, then `dispatches` ("does any kind render this?"). The markdown-it path
+// (lib/integrations/markdown-it/plugins.js) asks the escape, then `renderHtml`, which builds the
+// result, then `offPlugin` (which calls `dispatches` again, only when a plugin is off); the
+// runtime asks `renderElement`. So this column is the decision and not the render, and it does
+// not move when a kind gets faster at building its HTML. The arm's own `segnoInline` below is a
+// copy written for the race, and the kernel column is the retired pre-Segno kernel; neither says
+// how fast the shipped path is.
+const shipped = require('../../lib/core/inline-code-directives.js');
+const shippedInline = (s) => shipped.escapedText(s) !== null || shipped.dispatches(s, null);
 // SEGNO_LIB points the arm at another copy of the library — a checkout of the previous commit —
 // so a before/after pair runs in one session on one machine (HARD RULE #19's same-machine rule).
 const LIB = process.env.SEGNO_LIB || path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../docs/src/lib/segno');
@@ -46,10 +56,11 @@ const colorSlot = () => (S.indexed ? S.indexed('c', { max: 12, label: 'a color' 
 
 // ── the slots, as Lattice will declare them ─────────────────────────────────
 const SHAPES = ['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond'];
+// As lib/core/segno-slots.js declares CORE.pill: the label is optional so `{icon=database}` binds.
 const pill = S.record({
   label: 'a pill',
-  positional: [{ name: 'value', type: S.text() }],
-  params: { shape: S.oneOf(SHAPES), color: colorSlot(), size: S.oneOf(['sm', 'md', 'lg']) },
+  positional: [{ name: 'value', type: S.text(), required: false }],
+  params: { shape: S.oneOf(SHAPES), color: colorSlot(), size: S.oneOf(['sm', 'md', 'lg']), icon: S.text() },
 });
 const state = S.record({
   label: 'a state mark',
@@ -83,52 +94,106 @@ function translatePill(s) {
 }
 
 /**
- * Best of several rounds, each long enough to be JIT-warm. This sandbox's timing moves by up
- * to 2x from run to run, and a single median of short rounds reported a 2.6x gap one run and
- * 1.3x the next for the same code. The minimum over long rounds is the stable figure: noise
- * only ever ADDS time, so the fastest round is the closest to the code's real cost.
+ * The columns of a row are timed in SHORT SLICES, ALTERNATELY. A slice is one pass over about
+ * 5,000 spans (about 150 µs here); the columns take turns slice by slice, and which column goes
+ * first rotates each slice. Each column's figure is the MEDIAN of its slices, and each ratio is the
+ * median of the per-slice ratios: slice i of the shipped path over slice i of the kernel, timed
+ * back to back.
+ *
+ * Why so fine. This sandbox's speed moves on two scales. Between processes, the kernel's median
+ * for the same 4,766 spans read anything from 29 to 54 ns. Inside a process it moves within a
+ * fraction of a second: the previous harness timed seven ~70 ms rounds per column and divided the
+ * two fastest, and the shipped/kernel ratio of a single round read anything from 0.69x to 2.29x.
+ * Neither that ratio (1.34x to 1.54x over five runs) nor the median of per-round ratios (tried,
+ * no steadier: 1.35x to 1.60x) can cancel noise that lands inside one round.
+ * Pairing back-to-back slices does: both halves of a pair see the same few hundred microseconds of
+ * the machine. Five runs of unchanged code read the every-span ratio within 0.1 of each other
+ * (the README's § Speed has the readings). The ns columns still move with the machine; the ratios
+ * are the figure to compare.
+ *
+ * Each column also gets a timer function of its own (`new Function`). One shared timer has ONE
+ * `fn(s)` call site, and V8 keeps type feedback per function: after the first column it has seen
+ * every dispatcher, so later columns would be timed through a megamorphic call.
  */
-function time(fn, inputs, target = 2e6) {
-  const reps = Math.max(1, Math.round(target / inputs.length));
-  for (let r = 0; r < reps; r++) for (const s of inputs) fn(s); // warm
-  let best = Infinity;
-  for (let round = 0; round < 7; round++) {
-    const t = process.hrtime.bigint();
-    for (let r = 0; r < reps; r++) for (const s of inputs) fn(s);
-    best = Math.min(best, Number(process.hrtime.bigint() - t) / (reps * inputs.length));
+const SLICE = 5000; // spans per timed slice
+const SLICES = 3000; // slices per column: about the work of the old seven 2M-span rounds
+const TIMER = `(fn, inputs, reps) => {
+  const t = process.hrtime.bigint();
+  for (let r = 0; r < reps; r++) for (const s of inputs) fn(s);
+  return Number(process.hrtime.bigint() - t) / (reps * inputs.length);
+}`;
+let timers = 0;
+/**
+ * columns: [[fn, inputs], …] → per column, `mid` (the median per-span time of its slices, in ns)
+ * and `slices` (every slice's per-span time, in slice order). A column may be null.
+ */
+function timeSet(columns) {
+  const live = columns.map((c) => (c === null ? null : {
+    fn: c[0], inputs: c[1], reps: Math.max(1, Math.round(SLICE / c[1].length)),
+    run: new Function(`return ${TIMER} // timer ${timers++}`)(), slices: [],
+  }));
+  const on = live.filter(Boolean);
+  for (const c of on) c.run(c.fn, c.inputs, c.reps * 400); // warm: about 2M spans
+  for (let slice = 0; slice < SLICES; slice++) {
+    for (let i = 0; i < on.length; i++) { const c = on[(slice + i) % on.length]; c.slices.push(c.run(c.fn, c.inputs, c.reps)); }
   }
-  return best;
+  return live.map((c) => (c === null ? { mid: NaN, slices: [] } : { mid: median(c.slices), slices: c.slices }));
 }
+const median = (xs) => { const v = [...xs].sort((a, b) => a - b); const m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+/** The median of a/b taken slice by slice: both figures of a pair were timed back to back. */
+const paired = (a, b) => median(a.slices.map((t, i) => t / b.slices[i]));
 
 const rows = [];
-const row = (job, n, kernel, segno) => rows.push({ job, n, kernel, segno });
+/** kernel, segno, live: timeSet results (or null). The ns columns are medians; the ratios are paired. */
+const row = (job, n, kernel, segno, live = null) => rows.push({
+  job, n, kernel: kernel ? kernel.mid : NaN, segno: segno.mid, shipped: live ? live.mid : NaN,
+  segnoRatio: kernel ? paired(segno, kernel) : NaN, shippedRatio: kernel && live ? paired(live, kernel) : NaN,
+});
+const solo = (job, n, fn, inputs) => row(job, n, null, timeSet([[fn, inputs]])[0]);
+/** One row timed in all three columns, alternately: kernel on `k` (today's spelling), the arm's copy and the shipped path on `s` (Segno's). */
+const trio = (job, n, k, s) => {
+  const [kernel, segno, live] = timeSet([[reference.inline, k], [segnoInline, s], [shippedInline, s]]);
+  row(job, n, kernel, segno, live);
+};
 {
   const { real } = inputsFor('inline');
   const segnoInputs = real.map(translatePill);
   const accepted = real.map((s, i) => [s, segnoInputs[i]]).filter(([s]) => reference.inline(s) !== null);
   // Sanity: every span the kernel accepts, Segno accepts in its translated form.
   const agree = accepted.filter(([, b]) => { const r = segnoInline(b); return r && (r.ok || r.escaped !== undefined); }).length;
-  const ordinary = real.map((s, i) => [s, segnoInputs[i]]).filter(([s]) => reference.inline(s) === null);
+  // The decks are written in Segno's notation now, so some spans the kernel passes through as
+  // code are directives to Segno (`{icon=mail}`, a chart point `{$4.2M, 62%, size=140}`). On
+  // those the kernel returns null in ~30 ns and Segno reads a record: not the same job. Counted
+  // as ordinary code, they made that row read 4-5x when the dispatcher is 1.5-2x on code both
+  // readers agree is code (the 2026-10-07 followup blamed timing order, but a fresh process
+  // timing ordinary code alone gave the same 4x). They are timed on a row of their own, with no
+  // kernel figure.
+  const both = real.map((s, i) => [s, segnoInputs[i]]);
+  const segnoOnly = both.filter(([s, b]) => reference.inline(s) === null && segnoInline(b) !== null);
+  const ordinary = both.filter(([s, b]) => reference.inline(s) === null && segnoInline(b) === null);
+  const sameJob = both.filter(([s, b]) => !(reference.inline(s) === null && segnoInline(b) !== null));
   const marks = accepted.filter(([a]) => SHORTCUTS.has(a));
   const pills = accepted.filter(([a]) => a.startsWith('{'));
-  row('inline dispatch, every span', real.length, time(reference.inline, real), time(segnoInline, segnoInputs));
-  row('  ordinary code (not a directive)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)));
-  row(`  directives (${agree}/${accepted.length} agree)`, accepted.length, time(reference.inline, accepted.map(([a]) => a)), time(segnoInline, accepted.map(([, b]) => b)));
-  row('  state marks [x]', marks.length, time(reference.inline, marks.map(([a]) => a)), time(segnoInline, marks.map(([, b]) => b)));
-  row('  pills {BETA, tag, c4}', pills.length, time(reference.inline, pills.map(([a]) => a)), time(segnoInline, pills.map(([, b]) => b)));
+  const as = (rows2) => [rows2.map(([a]) => a), rows2.map(([, b]) => b)];
+  trio('inline dispatch, every span both read alike', sameJob.length, ...as(sameJob));
+  trio('  ordinary code (code to both)', ordinary.length, ...as(ordinary));
+  trio(`  directives (${agree}/${accepted.length} agree)`, accepted.length, ...as(accepted));
+  trio('  state marks [x]', marks.length, ...as(marks));
+  trio('  pills {BETA, tag, c4}', pills.length, ...as(pills));
   const p = pills.map(([, b]) => b);
-  row('    stage: grammar (flat tree)', p.length, NaN, time((s) => parseFlat(s), p));
-  row('    stage: + tree to values', p.length, NaN, time((s) => parseTree(s), p));
+  solo('    stage: grammar (flat tree)', p.length, (s) => parseFlat(s), p);
+  solo('    stage: + tree to values', p.length, (s) => parseTree(s), p);
+  { const sIn = segnoOnly.map(([, b]) => b); const [seg, live] = timeSet([[segnoInline, sIn], [shippedInline, sIn]]); row('  Segno syntax the kernel reads as code', segnoOnly.length, null, seg, live); }
 }
 {
   const lists = inputsFor('axis').real.filter((s) => s.trim().startsWith('['));
   const axes = lists.filter((s) => axis.read(s).ok);
-  row('bracket lists, same job: split into parts', lists.length, time(reference.axis, lists), time((s) => parseTree(s), lists));
-  row('quadrant axes, axis job: typed numbers, ranges', axes.length, time(reference.axis, axes), time((s) => axis.read(s), axes));
-  row('    stage: grammar (flat tree)', axes.length, NaN, time((s) => parseFlat(s), axes));
-  row('    stage: + tree to values', axes.length, NaN, time((s) => parseTree(s), axes));
+  { const [k, g] = timeSet([[reference.axis, lists], [(s) => parseTree(s), lists]]); row('bracket lists, same job: split into parts', lists.length, k, g); }
+  { const [k, g] = timeSet([[reference.axis, axes], [(s) => axis.read(s), axes]]); row('quadrant axes, axis job: typed numbers, ranges', axes.length, k, g); }
+  solo('    stage: grammar (flat tree)', axes.length, (s) => parseFlat(s), axes);
+  solo('    stage: + tree to values', axes.length, (s) => parseTree(s), axes);
   const failing = lists.filter((s) => !axis.read(s).ok);
-  row('error path: non-axis lists bound as axes', failing.length, NaN, time((s) => axis.read(s), failing));
+  solo('error path: non-axis lists bound as axes', failing.length, (s) => axis.read(s), failing);
 }
 
 const ladder = [];
@@ -164,8 +229,11 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify({ rows, ladder }, null, 2));
 } else {
   const ns = (v) => (Number.isNaN(v) ? '' : v >= 1000 ? `${(v / 1000).toFixed(2)} us` : `${v.toFixed(0)} ns`);
-  console.log('per span: kernel | segno | segno/kernel   (best of seven long rounds)');
-  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${Number.isNaN(r.kernel) ? '' : `${(r.segno / r.kernel).toFixed(2)}x`}`);
+  const x = (v) => (Number.isNaN(v) ? '' : `${v.toFixed(2)}x`);
+  console.log(`per span: kernel | segno | shipped | segno/kernel | shipped/kernel   (${SLICES} alternating slices)`);
+  console.log('  kernel = the retired pre-Segno kernel; segno = this arm\'s dispatcher; shipped = lib/core/inline-code-directives.js');
+  console.log('  ns columns: each column\'s median slice (they move with the machine). ratios: the median of the per-slice ratios (the figure to compare).');
+  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${ns(r.shipped).padStart(9)} | ${x(r.segnoRatio).padStart(6)} | ${x(r.shippedRatio).padStart(6)}`);
   console.log('\nhostile ladder, Segno (ms at 2k / 8k / 32k chars; 32k/8k near 4 is linear)');
   for (const l of ladder) console.log(`  ${l.target.padEnd(7)} ${l.shape.padEnd(20)} ${l.ms.map((m) => m.toFixed(2)).join(' / ')}  x${l.ratio.toFixed(1)}`);
 }

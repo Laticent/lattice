@@ -2,6 +2,9 @@
 origin: 2355
 priority: P2
 recorded: 2026-09-24
+area: chart
+severity: low
+swimlane: engineering/decisions/2026-09-06-state-chart-dagre-layout.md
 ---
 
 # Let an author choose the state chart's edge style and flow per slide

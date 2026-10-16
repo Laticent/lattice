@@ -12,7 +12,7 @@
  *
  * Cache key inputs (any change invalidates):
  *   - source .md content
- *   - lattice-emulator.js
+ *   - lattice.js
  *   - lattice.css + all themes/*.css
  *   - all lib/**"/"*.js AND lib/**"/"*.css, RECURSIVELY. This listed `lib/*.js` one level deep
  *     until 2026-07-27, which matched ZERO files — nothing .js sits at the top of lib/ — so the
@@ -24,7 +24,8 @@
  *     STILL NOT covered, knowingly: dist/fonts/ (base64'd into the PDF) and the resolved Chromium
  *     binary — a font or browser swap reuses renders. `process.version` is keyed, but Node is not
  *     what lays the page out.
- *   - mermaid-v11-min.js
+ *   - the mermaid plugin's own Mermaid copy (lib/plugins/mermaid/vendor/mermaid.min.js), which the
+ *     CLI bake draws diagrams with
  *   - package-lock.json (catches dep upgrades)
  *   - palette argument
  *   - Node version
@@ -52,8 +53,8 @@ const { execFileSync } = require('child_process');
 const ROOT       = path.join(__dirname, '..', '..');
 const EXAMPLES   = path.join(ROOT, 'examples');
 const THEME      = path.join(ROOT, 'dist', 'lattice.css');
-const EMULATOR   = path.join(ROOT, 'lattice-emulator.js');
-const MERMAID_JS = path.join(ROOT, 'mermaid-v11-min.js');
+const EMULATOR   = path.join(ROOT, 'lattice.js');
+const MERMAID_JS = path.join(ROOT, 'lib', 'plugins', 'mermaid', 'vendor', 'mermaid.min.js');
 const LOCKFILE   = path.join(ROOT, 'package-lock.json');
 const CACHE_DIR  = path.join(ROOT, '.scratch', 'test-cache');
 
@@ -132,7 +133,7 @@ function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
 function buildEmulator(mdPath, palette, outPdf, timeout) {
   execFileSync(
     process.execPath,
-    [EMULATOR, mdPath, THEME, outPdf, palette, '-q'],
+    [EMULATOR, mdPath, THEME, outPdf, palette, '-q', '--keep-html'],
     { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout },
   );
   if (!fs.existsSync(outPdf) || fs.statSync(outPdf).size < 10000) {

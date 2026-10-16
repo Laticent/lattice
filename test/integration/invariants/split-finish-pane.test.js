@@ -167,7 +167,7 @@ describe('split finish pane (real render)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'split-clear-pdf-'));
     const md = path.join(dir, 'clear.md');
     fs.writeFileSync(md, `---\nmarp: true\ntheme: carbone\nfinish: halo\n---\n\n<!-- _class: split-panel backdrop-clear -->\n\n${BODY}\n\n---\n\n<!-- _class: split-compare backdrop-clear -->\n\n${COMPARE}\n`);
-    const out = execFileSync(process.execPath, [path.join(__dirname, '../../../lattice-emulator.js'), md, path.join(dir, 'clear.pdf')], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: resolveChrome() || '' } });
+    const out = execFileSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), md, path.join(dir, 'clear.pdf')], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: resolveChrome() || '' } });
     const covered = out.split('\n').filter((l) => /slide \d+:.*\b\d+ covered\b/.test(l));
     assert.deepEqual(covered, [], `words were pushed into the photo as covered:\n${covered.join('\n')}`);
   }, { timeout: 300000 });

@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 const g = require('../../../lib/core/flowchart-grammar');
 const { outlineFromHtml } = require('../../../lib/core/flowchart-html');
 const { CHART_STATUS } = require('../../../lib/core/chart-status');
+const { LABEL_MAX } = require('../../../lib/core/flowchart-row-grammar');
 
 const parse = (md, opts = {}) => {
   const o = g.outlineFromMarkdown(md);
@@ -21,9 +22,13 @@ const edgeList = (m) => m.edges.map((e) => `${e.from}>${e.to}${e.label ? `[${e.l
 const rules = (m) => m.diagnostics.map((d) => d.rule);
 
 describe('arrows', () => {
+  // The arrow that opens `s`, read the way a row reads it (`splitRow`, over the generated row
+  // parser), or null when `s` does not open with one. `text` is what the arrow consumed.
   const read = (s) => {
-    const a = g.readArrow(s, 0);
-    return a && { dir: a.dir, heavy: a.heavy, label: a.label, text: s.slice(0, a.end), mermaid: a.mermaid };
+    const { parts, arrows } = g.splitRow([{ kind: 'text', value: s }]);
+    if (!arrows.length || parts[0].text !== '') return null;
+    const a = arrows[0];
+    return { dir: a.dir, heavy: a.heavy, label: a.label, text: s.slice(0, s.length - parts.slice(1).map((p) => p.text).join('').length), mermaid: a.mermaid };
   };
   test('the eight house forms', () => {
     assert.deepEqual(read('-> X'), { dir: 'out', heavy: false, label: '', text: '->', mermaid: false });
@@ -55,7 +60,13 @@ describe('arrows', () => {
     assert.equal(read('-> '.repeat(0) + '-unterminated label'), null);
   });
   test('a label past the cap is not an arrow (bounded scan)', () => {
-    assert.equal(read(`-${'a'.repeat(g.LABEL_MAX + 5)}-> X`), null);
+    assert.equal(read(`-${'a'.repeat(LABEL_MAX + 5)}-> X`), null);
+  });
+  test('the cap is exact, headed or not', () => {
+    for (const [open, close] of [['-', '->'], ['-', '-'], ['<=', '='], ['<-', '->']]) {
+      assert.equal(read(`${open}${'a'.repeat(LABEL_MAX)}${close} X`)?.label.length, LABEL_MAX, `${open}…${close} at the cap`);
+      assert.equal(read(`${open}${'a'.repeat(LABEL_MAX + 1)}${close} X`), null, `${open}…${close} one past it`);
+    }
   });
 });
 

@@ -51,7 +51,7 @@ const BUILD_OPTIONS = {
   stdin: { contents: ENTRY_CONTENTS, resolveDir: SRC_DIR, loader: 'js', sourcefile: 'player-core.entry.js' },
   bundle: true,
   // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json — the SAME
-  // hazard tools/build-read-along-core.js and tools/build-cadenza-lib.js already guard, reached
+  // hazard tools/build-read-along-core.js and tools/lib/build-workspace-lib.js already guard, reached
   // here through a third path: player-core.mjs now imports @laticent/cadenza (for the caption
   // cursor the exported player inlines), so esbuild's tsconfig walk-up from the resolved
   // docs/src/lib/cadenza/dist/index.mjs can reach docs/tsconfig.json, whose

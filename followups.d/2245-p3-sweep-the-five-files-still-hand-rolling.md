@@ -2,6 +2,9 @@
 origin: 2245
 priority: P3
 recorded: 2026-09-22
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-07-22-structure-derived-split-patterns.md
 source: https://github.com/Laticent/lattice/pull/2245#issuecomment-5754168975
 ---
 
@@ -16,7 +19,7 @@ Triaged 2026-09-24 against `main` at 6110a1e: still open.
                    on #2245 and recorded only in that kernel's header.
        where     — lib/core/carousel.js (8 occurrences), split-envelope.js (3),
                    split-panels.js (2), premise.js (1),
-                   lib/components/chart/_chart-family/chart-family.js (1).
+                   lib/plugins/chart-family/chart-family.dispatch.js (1).
        done when — each reads through the shared kernel and all 362 committed decks still
                    render byte-identically.
        evidence  — the byte-identical render diff across every committed deck.

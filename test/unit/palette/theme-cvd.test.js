@@ -42,12 +42,12 @@ describe('theme-cvd', () => {
       assert.equal(out.slice(1, 3), out.slice(3, 5), `${out} is neutral`);
       assert.equal(out.slice(3, 5), out.slice(5, 7), `${out} is neutral`);
     }
-    // It is LUMINANCE, not a channel average: onyx's --hljs-string (#80B880, a mid
-    // green) is far brighter than its --hljs-keyword (#E05060, a red) even though the
+    // It is LUMINANCE, not a channel average: onyx's --syntax-string (#80B880, a mid
+    // green) is far brighter than its --syntax-keyword (#E05060, a red) even though the
     // red has the higher single-channel maximum.
     assert.ok(simulate('#80B880', ACHROMATOPSIA) > simulate('#E05060', ACHROMATOPSIA));
     // The property the a11y syntax families are designed against (#1715), on the real
-    // values: onyx's --hljs-string (green 144°) and --hljs-number (yellow-green 104°),
+    // values: onyx's --syntax-string (green 144°) and --syntax-number (yellow-green 104°),
     // which the four a11y palettes used to inherit, are 0.1009 apart to a normal-sighted
     // reader and 0.0604 under achromatopsia — hue carries nothing, so only the small
     // lightness difference survives. Comment vs keyword is worse still, at 0.0408.

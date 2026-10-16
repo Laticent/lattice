@@ -12,7 +12,7 @@ const os = require('node:os');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const BASE = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-const INDACO = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
+const INDACO = fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8');
 
 test('the sheet is the engine flat pack, unwrapped to top-level slides', () => {
 	const { css } = cliDeckSheet(cliThemeStore(BASE, [{ name: 'indaco', css: INDACO }]), { theme: 'indaco', sizeName: 'hd' });

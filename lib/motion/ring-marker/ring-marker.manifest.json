@@ -1,0 +1,10 @@
+{
+  "$schema": "../motion.schema.json",
+  "name": "ring-marker",
+  "type": "motion",
+  "format": 1,
+  "label": "Ring and marker",
+  "description": "A ring draws, a marker on its edge draws and lights up, then a rule draws beneath.",
+  "engine": "anime",
+  "order": 4
+}

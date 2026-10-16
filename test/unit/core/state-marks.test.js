@@ -11,6 +11,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const marks = require('../../../lib/core/state-marks.js');
+const leading = require('../../../lib/core/leading-marker.js');
 
 describe('state-marks — the six markers', () => {
   const EXPECTED = {
@@ -46,11 +47,11 @@ describe('state-marks — the six markers', () => {
   test('every marker has a spoken label, and the class list is exactly the markers', () => {
     assert.deepEqual(Object.keys(marks.MARKER_LABELS).sort(), [...marks.MARKERS].sort());
     for (const m of marks.MARKERS) {
-      assert.ok(marks.LEADING_MARKER_RE.test(`[${m}] rest`), `LEADING_MARKER_RE misses [${m}]`);
-      assert.ok(marks.LEADING_MARKER_PREFIX_RE.test(`[${m}]`), `LEADING_MARKER_PREFIX_RE misses [${m}]`);
+      assert.deepEqual(leading.readLeadingMarker(`[${m}] rest`), { marker: m, rest: 'rest' }, `readLeadingMarker misses [${m}]`);
+      assert.deepEqual(leading.leadingMarkerPrefix(`[${m}]`), { marker: m, length: 3 }, `leadingMarkerPrefix misses [${m}]`);
     }
     for (const bad of ['[X] a', '[~] a', '[>] a', ' [x] a', '[xx] a']) {
-      assert.equal(marks.LEADING_MARKER_RE.test(bad), false, bad);
+      assert.equal(leading.readLeadingMarker(bad), null, bad);
     }
   });
 
@@ -107,6 +108,13 @@ describe('state-marks — what stays literal', () => {
   test('the marker set is exactly six, and nothing has crept in', () => {
     assert.deepEqual([...marks.MARKERS].sort(), [' ', '!', '-', '/', '?', 'x']);
   });
+
+  // Every reader of a leading marker, the Compose editor's included, walks the list-text grammar,
+  // which spells the set as its own string: a seventh marker added here must reach it too.
+  test('the list-text grammar reads exactly these markers', () => {
+    const grammar = require('../../../lib/core/list-text-grammar.js');
+    assert.deepEqual([...grammar.MARKERS].sort(), [...marks.MARKERS].sort());
+  });
 });
 
 describe('state-marks — one kernel, no duplicate decision', () => {
@@ -134,7 +142,9 @@ describe('state-marks — one kernel, no duplicate decision', () => {
     const PRIVATE = { test: (src) => [...src.matchAll(CLASS)].some((m) => isMarkerClass(m[1])) };
     assert.ok(PRIVATE.test('const r = /[ /x\\-]/;'), 'the guard must catch a shuffled copy');
     assert.ok(!PRIVATE.test('const r = /[x\\- ]/;'), 'matrix-grid\'s three positional markers are not the class');
-    const EXEMPT = new Set(['lib/core/state-marks.js', 'lib/core/matrix-grid-cells.js']);
+    // tools/segno-legacy/list-text.js is the FROZEN copy of the regex readers the list-text
+    // grammar replaced (Segno phase 3): the oracle's source, which nothing in lib/ reads.
+    const EXEMPT = new Set(['lib/core/state-marks.js', 'lib/core/matrix-grid-cells.js', 'tools/segno-legacy/list-text.js']);
     const offenders = [];
     const walk = (dir) => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

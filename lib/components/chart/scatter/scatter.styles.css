@@ -8,7 +8,7 @@
  * re-parented outside its `section`.
  *
  * The plot CHROME — grid, zero rule, axis rule, tick labels, axis captions —
- * is not styled here. It is family furniture painted once in chart-family.css
+ * is not styled here. It is family furniture painted once in chart-family.styles.css
  * § Cartesian chrome, and its whole job is to be identical on every Cartesian
  * member. This file styles the dots, the bubbles, the trend line and the size
  * key: this component's own geometry.
@@ -34,7 +34,7 @@
 /* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
  * two touching marks apart, so its correct weight follows what it has to
  * separate, not the family's outline weight. It is deliberately excluded
- * from the shared `--chart-edge` rule — see chart-family.css. */
+ * from the shared `--chart-edge` rule — see chart-family.styles.css. */
 :is(section.scatter, figure.chart-frame) .scatter-dot {
   fill: var(--chart-cat-1-ink);
   stroke: var(--bg);

@@ -8,7 +8,7 @@
 // but not there, so a new register cannot ship undocumented and a removed one cannot linger.
 //
 // Sourced from the 2026-09-24 inventory against the readers (lib/core/resolve-*.js,
-// lib/engine/slides.js, lattice-emulator.js) and the Settings panel (StudioShell.tsx).
+// lib/engine/slides.js, lattice.js) and the Settings panel (StudioShell.tsx).
 
 export type FrontMatterGroup = 'general' | 'look' | 'chrome' | 'accent' | 'motion' | 'speech' | 'export' | 'raw' | 'developer';
 

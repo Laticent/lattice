@@ -98,4 +98,4 @@ Three spaces of indent is still a fence, so a diagram under a bullet draws. Four
 - No deck's bytes moved
   - Measured across every tracked file: three docs changed, each already substituting its own example.
 
-<!-- _footer: "Rendered with `node lattice-emulator.js examples/mermaid-tilde-fences.md`" -->
+<!-- _footer: "Rendered with `node lattice.js examples/mermaid-tilde-fences.md`" -->

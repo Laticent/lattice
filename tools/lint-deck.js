@@ -35,6 +35,7 @@ const ROOT = path.join(__dirname, '..');
 // Read lazily and defensively: check-ownership.js is a heavy module, and a
 // checkout that somehow cannot load it should still lint (the sanction only
 // ever REMOVES a finding, so an empty set is the strict, not the lax, default).
+const { isSubjectFinding } = require('./lint-subject-decks');
 let glyphExemptDecksCache = null;
 function glyphExemptDeckSet() {
   if (glyphExemptDecksCache) return glyphExemptDecksCache;
@@ -145,6 +146,22 @@ async function main(argv) {
 
   // Build the catalog vocabulary once, reuse across all files.
   const vocab = buildVocab();
+  // The zip plugins installed here (their names, fences and inline kinds): a deck that lists one is not wrong, and attributes
+  // after one's fence name are ignored today. Read from the package store, as a render reads it.
+  try {
+    const home = require('../lib/packages/home.js');
+    // The plugins a render would USE: the same gate and shipped-name rule as lattice.js withInstalledPlugins.
+    const { refusePackage } = require('../lib/packages/gate.js');
+    const shipped = require('../lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
+    const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && !shipped.includes(p.name) && !refusePackage(p.pkg, { forRender: true }));
+    vocab.externalPlugins = plugins.map((p) => p.name);
+    vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences ?? {})[0]]).filter(([, f]) => f));
+    // Their inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): a listed plugin's kind is not unknown.
+    const { pluginInlineKinds } = require('../lib/packages/code-shape.mjs');
+    vocab.externalInlineKinds = Object.fromEntries(plugins.map((p) => [p.name, pluginInlineKinds(p.pkg.manifest)]).filter(([, k]) => k.length));
+  } catch {
+    /* no store: no external plugins */
+  }
   // Advisory review pass (brevity / density / verbose chrome) — on by default for
   // explicit file args, OFF under --all (the gallery sweep deliberately stress-
   // tests density, so its suggestions are noise there) and skippable with
@@ -176,7 +193,7 @@ async function main(argv) {
   let warnings = 0;
 
   for (const file of files) {
-    // LINE ENDINGS: normalize at the READ, like `lattice-emulator.js` does, because a deck on
+    // LINE ENDINGS: normalize at the READ, like `lattice.js` does, because a deck on
     // disk is author input and may be CRLF. Without it the same deck lints DIFFERENTLY by
     // encoding — measured on examples/a11y.md: LF reported verbose-eyebrow, verbose-key-insight
     // and no-ask; CRLF silently dropped verbose-eyebrow; lone CR dropped it and invented
@@ -224,7 +241,9 @@ async function main(argv) {
       // three consumers now honor one list: the gate counts against it, the
       // deck-lint-clean unit test skips against it, and `--strict` here would
       // otherwise fail the pre-push hook on decks the gate itself sanctions.
-      .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))));
+      .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))))
+      // A deck whose warning is its subject (tools/lint-subject-decks.js) is exempt from that one rule.
+      .filter((f) => !isSubjectFinding(relFromRoot(file), f.rule));
     for (const f of findings) {
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a
       // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),
@@ -251,6 +270,7 @@ async function main(argv) {
           file,
           slide: 0, // deck-level (front-matter registry), not a single slide
           rule: 'narration-acronyms',
+          severity: 'suggestion',
           message: `${unknown.length} all-caps token(s) will read letter-by-letter in narration: ${unknown.join(', ')}.`,
           fix: `Register any you want spoken as words in the deck's acronyms: front matter, e.g.\nacronyms:\n  ${unknown[0]}: <spoken expansion>`,
         });
@@ -267,6 +287,7 @@ async function main(argv) {
           file,
           slide: 0, // deck-level (front-matter registry), not a single slide
           rule: 'narration-passthrough',
+          severity: 'suggestion',
           message: `${unspoken.length} token(s) will read as glyphs in narration, because a slash or a colon means several different things and the normalizer will not guess: ${unspoken.join(', ')}.`,
           fix: `Say how you want each one read, in the deck's lexicon: front matter, e.g.\nlexicon:\n  ${unspoken[0]}: <spoken form>\nA ratio reads "x to y", a rate reads "x per y", an alternative reads "x or y" — only you know which.`,
         });

@@ -1,0 +1,63 @@
+{
+  "source": "svg",
+  "asset": "pipeline-beats",
+  "duration": 4500,
+  "hero": 1,
+  "elements": [
+    {
+      "id": "m3dimpz56-first-stage",
+      "pathRef": "m3dimpz56-first-stage",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0,
+          "span": 0.2
+        }
+      ]
+    },
+    {
+      "id": "m3dimpz56-first-arrow",
+      "pathRef": "m3dimpz56-first-arrow",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0.2,
+          "span": 0.2
+        }
+      ]
+    },
+    {
+      "id": "m3dimpz56-second-stage",
+      "pathRef": "m3dimpz56-second-stage",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0.4,
+          "span": 0.2
+        }
+      ]
+    },
+    {
+      "id": "m3dimpz56-second-arrow",
+      "pathRef": "m3dimpz56-second-arrow",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0.6,
+          "span": 0.2
+        }
+      ]
+    },
+    {
+      "id": "m3dimpz56-third-stage",
+      "pathRef": "m3dimpz56-third-stage",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0.8,
+          "span": 0.2
+        }
+      ]
+    }
+  ]
+}

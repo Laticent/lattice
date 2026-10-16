@@ -1,0 +1,2 @@
+studio: +200
+The Share sheet's Export-to-Marp toast now also says when a deck leaves a `<title>` open (the slides after it show as text in marp-cli), and its wording moved into the tested `marpExportNote` in `share-export.ts` (#2599, theme-css-is-a-preview-sink.md § 13). A sentence and a function boundary on the route; declared with headroom over the few bytes it measures. The report itself is computed in the lazily loaded export bundle.

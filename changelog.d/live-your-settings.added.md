@@ -1,0 +1,1 @@
+- Live: a **⋯ on your own row** opens **Your settings**, where you choose what others see of you: your cursor, which slide you are on, and when you are typing. Withholding your slide shows "Slide hidden" on your row for everyone else.

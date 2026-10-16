@@ -2,6 +2,9 @@
 origin: 2334
 priority: P2
 recorded: 2026-09-24
+area: website
+severity: low
+swimlane: engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md
 source: https://github.com/Laticent/lattice/pull/2334
 ---
 

@@ -21,11 +21,15 @@ import { type ImportRename, renameAssetInSource } from '../asset-rename';
 
 export { applyImportRenames, type ImportRename } from '../asset-rename';
 
+import { planFencePlugins } from '../../../../../lib/packages/code-door-fence.mjs';
 import { codeNameRefusal } from '../../../../../lib/packages/code-shape.mjs';
+import fenceDoor from '../../../../../lib/packages/fence-door.generated.json';
 import reservedClasses from '../../../../../lib/packages/reserved-classes.generated.js';
+import { PLUGIN_NAMES } from '../../../../../lib/plugins/blocks.generated.mjs';
 import { listStudioComponents, saveStudioComponent, toMeta } from '../component-library';
 import { listStudioFinishes, safeSaveSlug, saveStudioFinish } from '../finish-library';
 import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from '../import-gate';
+import { listStudioPlugins, saveStudioPlugin } from '../plugin-library';
 import { saveStudioScene } from '../scene-library';
 import { listStudioThemes, loadThemeCore, saveStudioTheme } from '../theme-library';
 import { unreservedComponentName } from './reserved-classes';
@@ -40,6 +44,8 @@ export type ImportTally = {
 	components: number;
 	finishes: number;
 	scenes: number;
+	/** Zip plugins saved (the Library's own import only: a project or a backup never brings one). */
+	plugins: number;
 	/** Items identical to one already saved, so nothing was written (keepMine only). */
 	unchanged: number;
 	/** Items not imported, each with the reason. */
@@ -59,7 +65,7 @@ function freeName(base: string, taken: Set<string>): string {
 }
 
 export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?: boolean } = {}): Promise<ImportTally> {
-	const t: ImportTally = { themes: 0, components: 0, finishes: 0, scenes: 0, unchanged: 0, refused: [...parsed.refused], renames: [], renamed: [], notes: [...parsed.notes] };
+	const t: ImportTally = { themes: 0, components: 0, finishes: 0, scenes: 0, plugins: 0, unchanged: 0, refused: [...parsed.refused], renames: [], renamed: [], notes: [...parsed.notes] };
 	const keepMine = !!opts.keepMine;
 	const [mineThemes, mineComps, mineFinishes] = keepMine ? await Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes()]) : [[], [], []];
 	const rename = (r: ImportRename) => {
@@ -156,6 +162,38 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 		);
 		if (sc.name !== c.name) rename({ kind: 'component', from: c.name, to: sc.name, why: sc.name === unreservedComponentName(c.name) ? 'shipped' : why });
 		t.components++;
+	}
+
+	// A zip PLUGIN (plugin-system §9 decisions 11 to 14). Its name must not be a shipped plugin's (a
+	// shipped plugin is never replaced by a stranger's), and its fence must be one the door will run:
+	// the rules both doors share (planFencePlugins), asked of the saved set plus this one, so a fence two
+	// plugins would both claim, a shipped plugin's fence, or a name whose prefix overlaps another's is
+	// refused here, with the reason, rather than saved and silently not run.
+	if (parsed.plugins?.length) {
+		const mine = await listStudioPlugins();
+		for (const pl of parsed.plugins) {
+			if ((PLUGIN_NAMES as readonly string[]).includes(pl.name)) {
+				t.refused.push({ name: pl.name, why: `"${pl.name}" is the name of a plugin that ships with Lattice, and a shipped plugin is never replaced` });
+				continue;
+			}
+			// The saved set AND the siblings this zip already added: two plugins in one zip can conflict with each other.
+			const kindNames = (k?: { name: string }[]) => (k ?? []).map((x) => x.name);
+			const others = mine.filter((m) => m.name !== pl.name).map((m) => ({ name: m.name, fence: m.fence, kinds: kindNames(m.kinds) }));
+			const plan = planFencePlugins([...others, { name: pl.name, fence: pl.fence, kinds: kindNames(pl.kinds) }], { shipped: fenceDoor.shippedFences, isLanguage: (n: string) => fenceDoor.highlightLanguages.includes(n), shippedKinds: fenceDoor.shippedKinds });
+			// Refused when it would not run at all, or when one of its kinds or its fence would be left out because another plugin claims it.
+			const mineDraws = (plan.fences as Map<string, string>).get(pl.fence) === pl.name || !pl.fence;
+			const lostKinds = kindNames(pl.kinds).filter((k) => (plan.kinds as Map<string, string>).get(k) !== pl.name);
+			if (!plan.run.some((r: { name: string }) => r.name === pl.name) || !mineDraws || lostKinds.length) {
+				const mentions = (n: string) => n.includes(pl.name) || (pl.fence && n.includes(`\`${pl.fence}\``)) || lostKinds.some((k) => n.includes(`\`@${k}{…}\``));
+				t.refused.push({ name: pl.name, why: plan.notes.filter(mentions).map((n: string) => n.replace(/^warning: /, '')).join('; ') || 'the door would not run it' });
+				continue;
+			}
+			const saved = await saveStudioPlugin(pl, history);
+			const at = mine.findIndex((m) => m.name === pl.name);
+			if (at >= 0) mine[at] = saved;
+			else mine.push(saved);
+			t.plugins++;
+		}
 	}
 
 	// A finish needs no CSS gate: `saveStudioFinish` DISCARDS any CSS and regenerates it from

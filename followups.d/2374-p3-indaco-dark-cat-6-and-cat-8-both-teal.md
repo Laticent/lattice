@@ -2,6 +2,9 @@
 origin: 2374
 priority: P3
 recorded: 2026-09-25
+area: theming
+severity: medium
+swimlane: design/theming.md
 source: https://github.com/Laticent/lattice/pull/2374
 ---
 

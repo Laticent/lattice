@@ -253,7 +253,7 @@ not a meeting).
    it on case alone. Not MoSCoW (Scrum-flavoured).
 2. **One board or many** → **one Project board per repo.** When the
    Tauri/Laticent desktop work splits into its own repo, it gets its own board
-   (and its own `ROADMAP.md`).
+   (and its own `ROADMAP.md`). *(Corrected 2026-10-06: there is no separate desktop repo — the app will live in this repository and is not built yet. See `2026-05-10-tauri-exploration.md` §Repository structure.)*
 3. **Extraction** → a **one-time maker-checker reconciliation sweep**, code as the
    source of truth (see §Seeding the queue) — not lazy, not hand-transcribed.
 4. **Definition of Ready enforcement** → **issue template + an Action gate** on the

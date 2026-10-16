@@ -306,6 +306,17 @@ jobs:
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
 
+      # LAST, so the report upload and both issue steps above have already run. The run step stays
+      # green on a spec failure so those steps always fire, which left the JOB green too: three
+      # Guide specs sat red on main for days while every run read green, and a dispatch run with
+      # `spec:` files no issue, so nothing at all said red (followups.d/2557-p3). Owner's pick,
+      # 2026-10-08. A timed-out run step already fails the job; this covers the failed specs.
+      - name: Fail the job when the Studio E2E suite failed
+        if: always() && steps.e2e.outputs.failed == 'true'
+        run: |
+          echo "::error::the Studio E2E suite failed; the report is in this run's artifact."
+          exit 1
+
   # THE SANDBOX SPECS, ON THEIR OWN, ON ALL THREE ENGINES. Two specs hold the Studio's
   # security claims with a network log and a control, against a real loopback server:
   # code-packages.spec.ts (a stranger's code runs only after consent, in a worker in a sandboxed
@@ -453,6 +464,17 @@ jobs:
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+
+      # LAST, so the report upload and both issue steps above have already run. The run step stays
+      # green on a spec failure so those steps always fire, which left the JOB green too: three
+      # Guide specs sat red on main for days while every run read green, and a dispatch run with
+      # `spec:` files no issue, so nothing at all said red (followups.d/2557-p3). Owner's pick,
+      # 2026-10-08. A timed-out run step already fails the job; this covers the failed specs.
+      - name: Fail the job when the sandbox specs failed
+        if: always() && steps.security.outputs.failed == 'true'
+        run: |
+          echo "::error::the sandbox specs failed; the report is in this run's artifact."
+          exit 1
 
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):
   # drives the Architect against a LIVE OpenRouter model and asserts a real

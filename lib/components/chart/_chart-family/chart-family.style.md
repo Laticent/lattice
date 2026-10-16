@@ -6,7 +6,7 @@ three curated themes (cuoio, onyx, indaco) read as **different yet similar**.
 This is the *design rationale*. For the mechanical contract — the override
 hooks, the token tables, the assessment method — see
 `design/theming.md` › **Chart-family palette**. For the token definitions and
-the canvas-aware fallback spectrum, see `chart-family.css`.
+the canvas-aware fallback spectrum, see `chart-family.styles.css`.
 
 ## One recipe, three expressions
 
@@ -123,7 +123,7 @@ of these followed:
 5. **Verify visually.** Render the chart bucket gallery in the theme, light
    **and** dark, and read the dark canvas hardest — that is where warm-hue mud
    and value-collapse hide. Set the override hooks at `:root` in
-   `themes/<name>.css`; the mechanical token tables live in `design/theming.md`.
+   `themes/<name>/<name>.css`; the mechanical token tables live in `design/theming.md`.
 
 A theme is "curated to standard" when its charts read as *its own* palette on
 both canvases and clear the assessment — same as the three exemplars.
@@ -152,8 +152,8 @@ current pie/quadrant — is the reference baseline that variant would toggle off
 
 - `design/theming.md` › **Chart-family palette** — the hooks, token tables, and
   the full assessment procedure (the *how*).
-- `chart-family.css` — the `--catN-*` / `--state-*` token definitions and the
+- `chart-family.styles.css` — the `--catN-*` / `--state-*` token definitions and the
   canvas-aware fallback spectrum (the *defaults*).
 - `themes/palette-audit.md` — ranked candidate values per theme.
-- `themes/cuoio.css`, `themes/onyx.css`, `themes/indaco.css` — the three
+- `themes/cuoio/cuoio.css`, `themes/onyx/onyx.css`, `themes/indaco/indaco.css` — the three
   curations in source.

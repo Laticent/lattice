@@ -56,7 +56,7 @@ Individual sub-tools also run standalone for a faster, narrower loop:
 ```
 node tools/change-coupling.js --json --since=2025-01-01
 node tools/complexity-report.js --min-complexity=20
-npx depcruise --config .dependency-cruiser.cjs --output-type json lib tools lattice-emulator.js
+npx depcruise --config .dependency-cruiser.cjs --output-type json lib tools lattice.js
 npx jscpd --config .jscpd.json
 npx knip
 ```
@@ -128,7 +128,7 @@ signal beyond the seven core dimensions, reported but not baseline-gated.
 ## Why these tools, not others
 
 None of the seven dimensions were covered by any existing script or
-harness in this repo before this — see `engineering/capabilities.md` (the
+harness in this repo before this — see `dist/engineering/capabilities.md` (the
 generated index of everything that already exists; checked before writing
 anything new, per HARD RULE #15). `dependency-cruiser` / `jscpd` / `knip`
 are the maintained, widely-used Node tools for graph/duplication/dead-code

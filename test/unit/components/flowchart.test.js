@@ -81,6 +81,11 @@ describe('flowchart — pass-through', () => {
     assert.equal(transformSection(inner, { classTokens: ['flowchart'] }), inner);
   });
 
+  test('`rearrange` asks the layout for the graph\'s order; without it the figure says nothing', () => {
+    assert.match(render('- A -> B', 'flowchart rearrange'), /data-fc-order="graph"/);
+    assert.doesNotMatch(render('- A -> B'), /data-fc-order/);
+  });
+
   test('`curved` is a paint setting on the figure', () => {
     assert.match(render('- A -> B', 'flowchart curved'), /data-fc-style="curved"/);
     assert.doesNotMatch(render('- A -> B'), /data-fc-style/);

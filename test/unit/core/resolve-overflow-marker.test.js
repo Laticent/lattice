@@ -3,7 +3,7 @@
  * and the drawing policy it selects (lib/runtime/fluid-view-policy.js).
  *
  * The setting exists because two shipped policies disagreed and BOTH were right on
- * their own surface: lattice-emulator.js strips every marker before printing a PDF
+ * their own surface: lattice.js strips every marker before printing a PDF
  * and warns the author on stderr; the browser runtime draws the marker so a reader
  * never gets a silent clip. An Export-to-Marp bundle renders through the runtime
  * inside marp-cli's browser, so it inherited the AUTHORING default by accident and
@@ -137,7 +137,7 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
 /**
  * `off` has work to do — it is not "skip the watcher".
  *
- * lattice-emulator.js stamps `.overflow` into exported HTML at BUILD time, and a
+ * lattice.js stamps `.overflow` into exported HTML at BUILD time, and a
  * re-render can hand the watcher a document an earlier, louder pass already
  * marked. Returning early without sweeping would leave exactly the chrome `off`
  * was asked to remove, which is the failure a reader would actually see.

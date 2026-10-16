@@ -96,7 +96,7 @@ describe('resolve-headline', () => {
       'lib/forms/cell/masthead-lede/masthead-lede.css',                        // eyebrow + heading
       'lib/base/base.modifiers.css',                                           // key insight + divider.light eyebrow
       'lib/components/comparison/compare-prose/compare-prose.styles.css',      // below-note
-      'lib/components/chart/_chart-family/chart-family.css',                   // chart caption
+      'lib/plugins/chart-family/chart-family.styles.css',                   // chart caption
       'lib/components/diagram/diagram/diagram.styles.css',                     // diagram dek + caption
       'lib/components/anchor/title/title.styles.css',
       'lib/components/anchor/closing/closing.styles.css',
@@ -110,7 +110,7 @@ describe('resolve-headline', () => {
     // The flex-positioned pieces additionally read --headline-justify (align-items/self).
     const JUSTIFY = [
       ['lib/base/base.elements.css', /section hr[^}]*--headline-justify/],     // the free hr
-      ['lib/components/chart/_chart-family/chart-family.css', /--headline-justify/], // chart caption align-items
+      ['lib/plugins/chart-family/chart-family.styles.css', /--headline-justify/], // chart caption align-items
       ['lib/components/anchor/title/title.styles.css', /--headline-justify/],
       ['lib/components/anchor/closing/closing.styles.css', /--headline-justify/],
       ['lib/components/anchor/divider/divider.styles.css', /--headline-justify/],

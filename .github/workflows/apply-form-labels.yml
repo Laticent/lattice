@@ -3,7 +3,7 @@ name: Apply work-item form labels
 # GitHub issue forms apply only the static `labels:` front-matter — a dropdown
 # SELECTION does not become a label. So a card filed via work-item.yml would
 # land with just `status:backlog`, leaving its area/type/priority as body text
-# and the BACKLOG sort + board swimlanes inert. This reads the rendered form and
+# and the backlog.d/ mirror's axes + board swimlanes inert. This reads the rendered form and
 # applies the selected area:/type:/priority: labels (the dropdown values ARE the
 # label names), intersected with the committed taxonomy so only real labels land.
 #

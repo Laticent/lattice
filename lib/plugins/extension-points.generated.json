@@ -1,0 +1,9 @@
+{
+  "kernel": {
+    "plugin": "chart-family",
+    "slot": "kernel",
+    "bucket": "chart",
+    "role": "transform",
+    "entry": "transformSection"
+  }
+}

@@ -17,6 +17,7 @@
  * the author asked for and cannot see.
  */
 const { test, describe, before, after } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -36,7 +37,7 @@ const COVERS = [
 ];
 const CONTROLS = ['content', 'title', 'closing', 'divider'];
 const CATS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `cat-${n}`);
-const THEMES = fs.readdirSync(path.join(ROOT, 'themes'))
+const THEMES = themeEntries(path.join(ROOT, 'themes'))
   .filter((f) => f.endsWith('.css') && f !== 'a11y-base.css')
   .map((f) => f.replace(/\.css$/, ''));
 
@@ -61,7 +62,7 @@ function cases() {
 function themeSheet(name, seen = new Set()) {
   if (seen.has(name)) return '';
   seen.add(name);
-  const css = fs.readFileSync(path.join(ROOT, 'themes', `${name}.css`), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'themes', name, `${name}.css`), 'utf8');
   return css.replace(/@import\s+['"]([\w-]+)['"]\s*;/g, (_, dep) => (dep === 'lattice' ? '' : themeSheet(dep, seen)));
 }
 

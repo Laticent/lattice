@@ -54,7 +54,7 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	const pg = await engine();
 	// An engine without the reference read can't finish the check, so it doesn't pass it.
 	if (!pg.referenceTargets) throw new Error('the render engine is out of date');
-	const { html } = await renderMarkdown(pg, md, CHECK_THEME);
+	const { html } = await renderMarkdown(pg, md, CHECK_THEME, { assetUrls: {} });
 	const doc = new DOMParser().parseFromString(html, 'text/html');
 	// A reference definition renders nothing where it is written, yet resolves an image in the
 	// deck the slide is inserted into, so every one is read too.
@@ -64,7 +64,7 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	const fenced = (matchMermaidFences(md) as { body: string }[]).flatMap((f) => mermaidRemoteRefs(f.body) as string[]);
 	// Read it twice: alone, and AS INSERTED. Insert splices the gallery after a slide and a
 	// `---`, so its front matter stops being front matter and renders.
-	const inserted = new DOMParser().parseFromString((await renderMarkdown(pg, `# x\n\n---\n\n${md.trim()}\n`, CHECK_THEME)).html, 'text/html');
+	const inserted = new DOMParser().parseFromString((await renderMarkdown(pg, `# x\n\n---\n\n${md.trim()}\n`, CHECK_THEME, { assetUrls: {} })).html, 'text/html');
 	const fm = frontMatterOf(md) as string | null;
 	return [
 		...new Set([

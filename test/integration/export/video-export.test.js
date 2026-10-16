@@ -64,7 +64,7 @@ let decoder;
 before(async () => {
 	tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-video-test-'));
 	fs.writeFileSync(path.join(tmp, 'deck.md'), SOURCE);
-	execFileSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(tmp, 'deck.md'), path.join(tmp, 'deck.html'), '-q'], { stdio: 'pipe' });
+	execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(tmp, 'deck.md'), path.join(tmp, 'deck.html'), '-q'], { stdio: 'pipe' });
 	docHtml = fs.readFileSync(path.join(tmp, 'deck.html'), 'utf8');
 	browser = await require('puppeteer').launch({ executablePath: CHROME(), headless: true, args: ['--no-sandbox'] });
 	decoder = await browser.newPage();

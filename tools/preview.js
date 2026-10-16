@@ -48,7 +48,7 @@ const path = require('node:path');
 const { execSync, spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 
 // Per-deck PDF outputs we track. Anything in examples/ following the
 // pattern `examples/<name>.md` is a candidate; this list is the closed
@@ -113,9 +113,9 @@ const PATTERNS = Object.freeze({
   fullDiff: [
     /^lib\/_(legacy|scaffold|universal|semi-universal|base|root|theme|diagram-overrides)\.css$/,
     /^themes\//,
-    /^lattice-emulator\.js$/,
+    /^lattice\.js$/,
     /^dist\/lattice-runtime\.js$/,
-    /^lib\/components\/chart\/_chart-family\/chart-family\.js$/,
+    /^lib\/plugins\/chart-family\/chart-family\.dispatch\.js$/,
     /^lib\/match-section\.js$/,
     /^lib\/slot-label-lift\.js$/,
     /^lib\/split-(panels|slides)\.js$/,

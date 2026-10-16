@@ -1,0 +1,7 @@
+{
+  "title": "A comment that is neither a directive nor a tooling pragma is a speaker note",
+  "spec": "LFM-1.0",
+  "section": "3.5",
+  "L0": { "visible": ["The one claim"], "hidden": ["Open cold", "markdownlint", "paginate"] },
+  "L1": { "slides": [{ "notes": ["Open cold. Pause before the first word.", "Then land the number."] }] }
+}

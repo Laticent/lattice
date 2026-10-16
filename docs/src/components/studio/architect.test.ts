@@ -1,6 +1,6 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, deckSystem, estimateUsd, generateComponent, generateTheme, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -134,6 +134,16 @@ describe('withStudioVoice — language + instructions injection', () => {
 // The deck system is TIERED: the cloud gets the full canon (cached in the prefix);
 // a small on-device model gets the SHORT canon so a long prompt doesn't drown it. The
 // persona + edit-block protocol are identical across tiers (the parser needs the grammar).
+// The canon lives in the lint core, which the Studio loads after first paint; every model call
+// awaits it, and these tests do the same.
+beforeAll(() => loadArchitectAuthoring());
+
+describe('the canon readout before the lint core loads', () => {
+	it('prices the canon by the size of the real text', () => {
+		expect(CANON_TOKENS_EST).toEqual({ cloud: estTokens(deckCanon.DECK_CANON), short: estTokens(deckCanon.DECK_CANON_SHORT) });
+	});
+});
+
 describe('deckSystem — tiered canon by model', () => {
 	it('cloud (openrouter) carries the FULL canon; on-device carries the SHORT one', () => {
 		const cloud = deckSystem('openrouter');
@@ -181,6 +191,10 @@ describe('estimateUsd — pre-send cost estimate', () => {
 		const est = estimateUsd('x'.repeat(400), price, 1000);
 		expect(est).toBeCloseTo(0.0003 + 0.015, 6);
 	});
+	it('adds a dollar surcharge on top of the token figure (the picture price of a model that lists one)', () => {
+		const base = estimateUsd('x'.repeat(400), price, 1000) ?? 0;
+		expect(estimateUsd('x'.repeat(400), price, 1000, 0, 0.005)).toBeCloseTo(base + 0.005, 9);
+	});
 	it('returns null when the price is unknown (catalog not loaded) — the gate then skips', () => {
 		expect(estimateUsd('hello', null)).toBeNull();
 		expect(estimateUsd('hello', { promptPerM: null, completionPerM: null })).toBeNull();
@@ -216,6 +230,103 @@ describe('setBudget — the cap the architect honors', () => {
 		s = architectSpend();
 		expect(s.cap).toBe(0);
 		expect(s.mode).toBe('alert');
+	});
+});
+
+describe('cloudBudgetBlock — a picture on a model with its own image price', () => {
+	// Five 800-token pictures at $3/M is $0.012 at the prompt rate. At a $9/M image rate they cost $0.036.
+	const modelAt = (imagePerM: number | null) => ({ openRouterModelPrice: () => ({ promptPerM: 3, completionPerM: 0, imagePerM }) }) as unknown as Parameters<typeof cloudBudgetBlock>[0];
+	const flatTokens = 5 * 800;
+	it('refuses the round the model price would breach, and lets the flat figure through', async () => {
+		const { pictureSurchargeUsd } = await import('./picture-tokens');
+		setBudget(0.02, 'stop');
+		try {
+			const price = { promptPerM: 3, imagePerM: 9 };
+			// Before: only the flat tokens were charged, $0.012 < the $0.02 cap, so the round went through.
+			expect(await cloudBudgetBlock(modelAt(null), '', flatTokens, 0)).toBeNull();
+			expect(await cloudBudgetBlock(modelAt(9), '', flatTokens, 0)).toBeNull();
+			// After: the model's own rate is charged, $0.036 > the cap, so the gate stops it.
+			expect(await cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, [{ count: 5, tokens: 800 }]))).toMatch(/exceed your \$0\.02 cap/);
+			// A model with no image price is unchanged by the new argument.
+			expect(await cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, [{ count: 5, tokens: 800 }]))).toBeNull();
+		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+});
+
+describe('cloudBudgetBlock — a price that has not loaded yet', () => {
+	// The price comes from the model catalog, which loads on demand. With none the cap has nothing to hold a call to.
+	const lateModel = (listed: () => Promise<unknown>) => {
+		let loaded = false;
+		return {
+			openRouterModelPrice: () => (loaded ? { promptPerM: 10, completionPerM: 0 } : null),
+			listOpenRouterModels: async () => {
+				const r = await listed();
+				loaded = true;
+				return r;
+			},
+		} as unknown as Parameters<typeof cloudBudgetBlock>[0];
+	};
+	it('waits for the catalog, then holds the call to the cap (the Coach Fix, refine and generate all go through here)', async () => {
+		setBudget(0.001, 'stop');
+		try {
+			expect(await cloudBudgetBlock(lateModel(async () => []), 'x'.repeat(40_000), 0, 0)).toMatch(/exceed your \$0\.00 cap/);
+		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+	it('does not wait when nothing could use the price: no cap, or alert mode', async () => {
+		let asked = 0;
+		const model = { openRouterModelPrice: () => null, listOpenRouterModels: async () => { asked++; return []; } } as unknown as Parameters<typeof cloudBudgetBlock>[0];
+		setBudget(null, 'alert');
+		expect(await cloudBudgetBlock(model, 'hello')).toBeNull();
+		setBudget(5, 'alert');
+		expect(await cloudBudgetBlock(model, 'hello')).toBeNull();
+		setBudget(null, 'alert');
+		expect(asked).toBe(0);
+	});
+	it('gives up after 4 s on a catalog that never arrives, and lets the call through as before', async () => {
+		vi.useFakeTimers();
+		setBudget(0.001, 'stop');
+		try {
+			const model = { openRouterModelPrice: () => null, listOpenRouterModels: () => new Promise(() => {}) } as unknown as Parameters<typeof cloudBudgetBlock>[0];
+			const p = cloudBudgetBlock(model, 'x'.repeat(40_000), 0, 0);
+			await vi.advanceTimersByTimeAsync(4100);
+			expect(await p).toBeNull();
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+			setBudget(null, 'alert');
+		}
+	});
+});
+
+describe('cloudBudgetBlock — which model’s price', () => {
+	// The Library's Suggest sends its picture to the author's image model, not the chat model: the gate prices THAT model, before and after any wait.
+	it('prices the model it is told to, in the first lookup and again after the catalog loads', async () => {
+		let loaded = false;
+		const asked: (string | undefined)[] = [];
+		const model = {
+			openRouterModelPrice: (id?: string) => {
+				asked.push(id);
+				if (id !== 'openai/gpt-4o-mini') return { promptPerM: 0.0001, completionPerM: 0 }; // the chat model: nearly free
+				return loaded ? { promptPerM: 10, completionPerM: 0 } : null; // the image model: dear, once the catalog is in
+			},
+			listOpenRouterModels: async () => {
+				loaded = true;
+				return [];
+			},
+		} as unknown as Parameters<typeof cloudBudgetBlock>[0];
+		setBudget(0.001, 'stop');
+		try {
+			expect(await cloudBudgetBlock(model, 'x'.repeat(40_000), 0, 0, 0, 'openai/gpt-4o-mini')).toMatch(/exceed your \$0\.00 cap/);
+			expect(asked.every((id) => id === 'openai/gpt-4o-mini')).toBe(true);
+			expect(asked.length).toBeGreaterThanOrEqual(2); // the lookup, the wait, the lookup again
+			expect(await cloudBudgetBlock(model, 'x'.repeat(40_000), 0, 0)).toBeNull(); // no id: the chat model's near-free price
+		} finally {
+			setBudget(null, 'alert');
+		}
 	});
 });
 
@@ -630,11 +741,42 @@ describe('agentTurnUsd — the readout quotes a question AND an edit, at the typ
 		expect(t.question).toBeLessThan(((CHAT_OUTPUT_EST * price.completionPerM) / 1e6) * 0.5);
 	});
 
+	it('adds the Library list and the three asset tools when there are photos, and nothing when there are none', () => {
+		const none = agentTurnUsd(price, grounding, true, deck, 0, 0);
+		const base = agentTurnUsd(price, grounding, true, deck);
+		expect(none).toEqual(base); // an empty Library leaves the readout byte-for-byte as it was
+		const three = agentTurnUsd(price, grounding, true, deck, 0, 3);
+		const forty = agentTurnUsd(price, grounding, true, deck, 0, 40);
+		const eighty = agentTurnUsd(price, grounding, true, deck, 0, 80);
+		expect(three?.question).toBeGreaterThan(base?.question ?? Infinity);
+		expect(three?.edit).toBeGreaterThan(base?.edit ?? Infinity);
+		expect(forty?.question).toBeGreaterThan(three?.question ?? Infinity);
+		// The list is capped at 40 lines, so a bigger Library costs no more per turn.
+		expect(eighty).toEqual(forty);
+		// And it stays small: even the worst-case 40-photo Library (every line a long name and a full caption)
+		// adds about a cent to an edit at this price, never more than two.
+		expect((forty?.edit ?? 0) - (base?.edit ?? 0)).toBeLessThan(0.02);
+	});
+
 	it('prices a first turn (the prefix not yet cached) above a warm one, and says nothing without a price', () => {
 		const warm = agentTurnUsd(price, grounding, true, deck);
 		const cold = agentTurnUsd(price, grounding, false, deck);
 		expect(cold?.question).toBeGreaterThan(warm?.question ?? Infinity);
 		expect(agentTurnUsd(null, grounding, true, deck)).toBeNull();
+	});
+
+	it('applies cache write premiums and read discounts only when explicit breakpoints are sent', () => {
+		const cached = agentTurnUsd(price, grounding, true, deck, 0, 0, true);
+		const cold = agentTurnUsd(price, grounding, false, deck, 0, 0, true);
+		const plain = agentTurnUsd(price, grounding, true, deck, 0, 0, false);
+		const plainCold = agentTurnUsd(price, grounding, false, deck, 0, 0, false);
+		// No breakpoint: no 0.1x read, no 2x / 1.25x write, so a first turn and a later one cost the same and sit above the warm cached quote.
+		expect(plain).toEqual(plainCold);
+		expect(plain?.question).toBeGreaterThan(cached?.question ?? Infinity);
+		// A cold explicit-cache turn pays the write premium, which plain input does not.
+		expect(cold?.question).toBeGreaterThan(plain?.question ?? Infinity);
+		// The default is the Anthropic quote.
+		expect(agentTurnUsd(price, grounding, true, deck)).toEqual(cached);
 	});
 });
 

@@ -128,7 +128,7 @@ jobs:
           - \`package.json\` + \`package-lock.json\` — version bumped to $V.
           - \`CHANGELOG.md\` — pending \`changelog.d/\` fragments folded into \`## Unreleased\` under their category headings, then rolled into a dated \`## $V\` section, fresh empty Unreleased seeded above it.
           - \`changelog.d/\` — the fragments this release consumed, deleted.
-          - \`dist/\` — rebuilt (the emulator bundle inlines \`package.json\`, so the bump restales it).
+          - \`dist/\` — rebuilt from the bumped tree.
 
           ## Tests
 

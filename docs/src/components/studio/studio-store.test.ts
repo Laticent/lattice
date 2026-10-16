@@ -508,6 +508,23 @@ describe('studio-store — settings', () => {
 		expect(loadSettings().validation).toBe(true); // untouched keys keep defaults
 	});
 
+	it('the image model defaults to the latest Sonnet, and a junk value reads as the default', () => {
+		expect(loadSettings()).toMatchObject({ imageModel: '~anthropic/claude-sonnet-latest', imageLook: 'careful' });
+		saveSettings({ imageModel: 'openai/gpt-5', imageLook: 'thorough' });
+		expect(loadSettings()).toMatchObject({ imageModel: 'openai/gpt-5', imageLook: 'thorough' });
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ imageModel: 'not a model id', imageLook: 'extreme' }));
+		expect(loadSettings()).toMatchObject({ imageModel: '~anthropic/claude-sonnet-latest', imageLook: 'careful' });
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ imageModel: 42 }));
+		expect(loadSettings().imageModel).toBe('~anthropic/claude-sonnet-latest');
+	});
+
+	it('a backup file cannot choose which provider receives the photos, but its look dial restores', () => {
+		saveSettings({ imageModel: 'openai/gpt-5' });
+		const snap = exportStudioState();
+		importStudioState({ ...snap, settings: { ...snap.settings, imageModel: 'evil/model', imageLook: 'quick' } }, 1000);
+		expect(loadSettings()).toMatchObject({ imageModel: 'openai/gpt-5', imageLook: 'quick' });
+	});
+
 	it('derives the boot posture, and drops the legacy flag', () => {
 		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Craft.
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));

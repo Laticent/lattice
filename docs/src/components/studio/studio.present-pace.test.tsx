@@ -1,7 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadAuthoring } from '@/playground/authoring-door.js';
 import { PresentOverlay } from './PresentOverlay';
+
+// The module under test reads the lint core synchronously; in the app, its loader awaits this first.
+beforeAll(() => loadAuthoring());
+
 
 // THE DECK CARRIES ITS OWN RHYTHM (#1399).
 //

@@ -2,6 +2,9 @@
 origin: 2354
 priority: P1
 recorded: 2026-09-24
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-24-lattice-studio-desktop.md §Next slices, in order of what they unblock
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

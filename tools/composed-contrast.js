@@ -91,6 +91,7 @@
  */
 
 const fs   = require('fs');
+const { themeEntries } = require('../lib/theme/files.js');
 const path = require('path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
 const { contrastRatio, hexToRgb, rgbToHex } = require('../lib/theme/color.js');
@@ -136,7 +137,7 @@ const KPI = 'lib/components/evidence/kpi/kpi.styles.css';
 const SPLITPANEL = 'lib/components/statement/split-panel/split-panel.styles.css';
 const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styles.css';
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
-const CHARTFAMILY = 'lib/components/chart/_chart-family/chart-family.css';
+const CHARTFAMILY = 'lib/plugins/chart-family/chart-family.styles.css';
 const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
 const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
 const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.layout.js';
@@ -507,7 +508,7 @@ const SURFACES = [
   //
   // MODELING NOTE, because getting this wrong is silent. `--state-{s}-fill` and
   // `--chart-state-*` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
-  // cannot see them and they are seeded here from chart-family.css. And the card must stay a
+  // cannot see them and they are seeded here from chart-family.styles.css. And the card must stay a
   // TOKEN (`--kanban-card`) rather than being inlined: `resolveTokenExpr` reduces a
   // `color-mix()` nested directly inside another `color-mix()`'s argument to a WRONG hex
   // rather than returning its input verbatim, which is the contract the rest of this file
@@ -569,7 +570,7 @@ const SURFACES = [
   })),
   // ── kanban · the inline-code chip inside a card ──────────────────────────
   // Reached WITHOUT any status markup: the card transform consumes a trailing <code>
-  // only when it is a SIZE (chart-family.js KB_SIZE) and reads a status only off a
+  // only when it is a SIZE (`kanbanSize`, lib/core/kanban-sizes.js) and reads a status only off a
   // SUB-BULLET, so `- Pilot retro pack \`done\`` on one line survives verbatim as a raw
   // chip (test/integration/baseline-decks/gallery.md, the kanban slide). Rendered at
   // 12.7px / weight 600, so the bar is 4.5 rather than 3.
@@ -701,7 +702,7 @@ const SURFACES = [
 // Ratios are floored to 2dp; DEGRADE_TOLERANCE absorbs the last digit.
 //
 // A NEW PALETTE WILL LAND HERE. `tools/new-theme.js` scaffolds from
-// `themes/indaco.css`, which carries two of these rows, so a fresh palette starts
+// `themes/indaco/indaco.css`, which carries two of these rows, so a fresh palette starts
 // with two new keys and this gate goes red. That is the gate working: either
 // re-tune the two arms it names, or add the rows with the tracking issue in the
 // commit message. Do not delete the check.
@@ -787,11 +788,11 @@ const ROOT_COMPOUND = /^(?::root|:root:root|:where\(:root\))(?:\[[^\]]*\]|:(?!:)
 /**
  * The B column of a root-family compound, and it is LOAD-BEARING on the export arm.
  *
- * `lattice-emulator.js` concatenates the bundle AFTER the palette, so at EQUAL
+ * `lattice.js` concatenates the bundle AFTER the palette, so at EQUAL
  * specificity the engine default wins on source order and the palette's value is
  * silently discarded in the rendered PDF (#1527). `:root:root` is (0,2,0) and beats
  * the bundle's (0,1,0) whatever the order — which is exactly why four palettes
- * already reach `--panel-edge-mark` that way (themes/ardesia.css, atelier, concrete,
+ * already reach `--panel-edge-mark` that way (themes/ardesia/ardesia.css, atelier, concrete,
  * onyx; 2026-08-18-split-frame-edge-ownership.md) and why the status trios reach
  * `--pass` / `--warn` / `--fail` that way as of #1698.
  *
@@ -913,7 +914,7 @@ function parseRootVars(css, into = { vars: {}, spec: {} }) {
  */
 function paletteChainFiles(name) {
   return themeChain(name, THEME_EDGES)
-    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .map((n) => path.join(THEMES_DIR, n, `${n}.css`))
     .filter((f) => fs.existsSync(f));
 }
 
@@ -935,7 +936,7 @@ function bundleVars() {
  * Merged token map for one palette.
  *
  * `baseWins` composes the OTHER way, with `base.tokens.css`'s universal defaults
- * overriding everything a palette curated. That was the order `lattice-emulator.js`
+ * overriding everything a palette curated. That was the order `lattice.js`
  * used for the document shell until #1527 flipped it; no path renders it now, and it
  * is kept because the REGRESSION arm needs it as a REFERENCE — "is the palette's own
  * value worse than the default it replaces" is a question about two inks on one
@@ -945,7 +946,7 @@ function bundleVars() {
  * Component tokens `mergedVars` cannot see, seeded so a surface can NAME them.
  *
  * `--state-{s}-hue` / `--state-{s}-fill` are declared on `section.chart-frame`
- * (lib/components/chart/_chart-family/chart-family.css:394-416), not on `:root`, so the
+ * (lib/plugins/chart-family/chart-family.styles.css:394-416), not on `:root`, so the
  * `:root`-block parser below never collects them. A surface that needs one had to inline its
  * definition instead — and inlining puts a `color-mix()` inside another `color-mix()`'s
  * argument, which `resolveTokenExpr` reduces to a WRONG hex rather than returning verbatim.
@@ -1026,7 +1027,7 @@ function evalSurface(vars, surface, isDark) {
 }
 
 function listAllThemes() {
-  return fs.readdirSync(THEMES_DIR)
+  return themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace('.css', ''))
     .sort();
@@ -1043,7 +1044,7 @@ const MODES = [['light', false], ['dark', true]];
 
 /** Audit one theme in both cascade orders. Pure — no console, no process state. */
 function auditTheme(theme) {
-  if (!fs.existsSync(path.join(THEMES_DIR, `${theme}.css`))) return null;
+  if (!fs.existsSync(path.join(THEMES_DIR, theme, `${theme}.css`))) return null;
   const vars     = mergedVars(theme);
   const baseVars = mergedVars(theme, { baseWins: true });
   const rows = [];

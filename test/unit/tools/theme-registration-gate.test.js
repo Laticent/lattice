@@ -27,7 +27,7 @@ const { checkThemeRegistrationCallSites } = require('../../../tools/check-owners
 // and both were observed (#2117): `node --test` runs files concurrently, so a probe
 // present for this suite is walked by every other check scanning `tools/`; and a `finally`
 // does not run on SIGINT, so a Ctrl-C left one behind — one survived long enough for the
-// docs generator to pick it up and commit it into `engineering/capabilities.md` as a real
+// docs generator to pick it up and commit it into `dist/engineering/capabilities.md` as a real
 // tool row. The gate now accepts a root, the way `checkPreviewHtmlSinks` already did, so
 // the scratch tree this file's header always claimed is now real.
 const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), 'theme-reg-gate-'));

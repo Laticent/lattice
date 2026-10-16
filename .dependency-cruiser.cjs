@@ -6,7 +6,7 @@
 //
 // Run via `npm run quality` (tools/quality-assessment.js), or directly:
 //   npx depcruise --config .dependency-cruiser.cjs --output-type json \
-//     lib tools lattice-emulator.js lib/runtime/index.js lib/playground/index.js
+//     lib tools lattice.js lib/runtime/index.js lib/playground/index.js
 //
 // The component-bucket list is derived from the filesystem at config-load
 // time, not hardcoded — CLAUDE.md's own hand-written bucket list has already

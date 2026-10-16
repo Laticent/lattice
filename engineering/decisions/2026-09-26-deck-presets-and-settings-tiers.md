@@ -245,7 +245,7 @@ sample slide under that preset, and it went through two designs.
 - The linter's `bookend-finish-contrast` note ("the house pattern keeps a title slide clean")
   reads only a `finish:` the author wrote. A preset's backdrop is a look the author picked
   whole; if the note read it, every Editorial and Brand-forward deck would carry it on its
-  title slide.
+  title slide. *(Superseded 2026-10-06: the note was deleted, so this reader is gone.)*
 - The Playground's deck sheet (`docs/src/playground/deck-config.js`) edits `finish` and `lift`
   with its own read/write rules. The round-two check found that it showed "None" for a
   preset's backdrop and that picking None deleted the key, handing control back to the preset.

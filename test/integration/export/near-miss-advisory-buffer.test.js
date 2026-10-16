@@ -41,7 +41,7 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'near-miss-advisory-only.md');
 const TIMEOUT = 180000;
 

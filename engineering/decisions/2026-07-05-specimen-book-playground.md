@@ -143,6 +143,25 @@ Bucket galleries are **already** aggregated with a standing drift gate — this 
 
 **Tour.** `docs/src/playground/playground-tour.js` is rewritten for the reader (picker → Walk bar → variant jump → Edit escape hatch → Galleries → Deck setup); the stale Drawing Board/Workbench outro (:69) is deleted. **Every step declares the mode (and pane) its target needs, and `onReveal` switches the surface to it before highlighting** — the most common first visit arrives via "Open in Playground", i.e. a handoff forcing Edit, where Read-mode chrome isn't mounted; without mode-aware reveal the tour would spotlight nothing. A unit test walks the step list against both modes' mounted element ids and fails on any unreachable selector; the handoff entry path is a named manual drive in PR 6. The shared engine `guided-tour.js` is **untouched** (Studio-succession freeze). Production-only, first-visit, same prefs key.
 
+### 4a. "All examples" (2026-10-13)
+
+The Galleries sheet also lists every `examples/*.md` deck (273 at the time), because a per-feature demo deck
+(HARD RULE #9) could otherwise be reviewed only by pasting its source. `galleries.mjs` `loadExampleDecks` derives
+the list from the directory, so a new example needs no list edit. These decks are NOT inlined into the page like the
+curated ones: `sync-playground-assets.mjs` stages `galleries/index.json` and one `galleries/<slug>.md` per deck under
+the hashed asset folder, and `PlaygroundApp` fetches the index when the sheet first opens and a deck when it is picked
+(the `plansBase` pattern), then opens it through the same Explore path as a curated deck. A failed fetch shows
+"Gallery unavailable." The list sits inline in the sheet, not in a popover: the sheet is non-modal, and a portaled
+popover counts as an outside click and would dismiss it. Cost: +0.6 KB eager JS gz on the route
+(`docs/route-budget.d/2631-playground-examples-dropdown.md`).
+
+**The curated decks fetch the same way (2026-10-14).** They rode inline in the route's `gallerySources` prop, so every
+visitor downloaded 16 decks whether or not they opened the sheet. `sync-playground-assets.mjs` now stages each one as
+`galleries/curated/<id>.md` (a subfolder, so an example slug cannot collide with a curated id), the props keep only
+id, label and slide count, and `onLoadGallery` and `onLoadExample` share one `loadDeck` fetch path. Measured with
+`npm run build` in `docs/`: playground `htmlRaw` 555.5 KB to 429.9 KB (the soft target went 539.0 to 429.9 KB via
+`route-budget:rebaseline`). A curated deck opens as before; checked in a built site at 1440, 820 and 390 px.
+
 ## 5. Reuse map (HARD RULE #15)
 
 - `Popover` + `Command`/cmdk + `component-search.ts` ranking — picker (kept; only state lifting changes).

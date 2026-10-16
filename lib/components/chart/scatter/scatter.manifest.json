@@ -77,7 +77,7 @@
     "axes": {
       "selector": "p > code",
       "required": true,
-      "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
+      "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name; a stray `]` right after a quoted name closes the list early, and `lint:deck` warns (`bracket-list-closed-early`). A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
     },
     "points": {
       "selector": "ul > li",

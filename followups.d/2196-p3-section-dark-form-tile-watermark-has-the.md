@@ -2,6 +2,9 @@
 origin: 2196
 priority: P3
 recorded: 2026-09-22
+area: theming
+severity: medium
+swimlane: lib/base/base.docs.md
 source: https://github.com/Laticent/lattice/pull/2196#issuecomment-5673067175
 ---
 

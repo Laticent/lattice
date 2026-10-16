@@ -187,7 +187,7 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 	const e = createEngine();
 	e.addThemes([
 		fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'),
-		fs.readFileSync(path.join(ROOT, 'themes/indaco.css'), 'utf8'),
+		fs.readFileSync(path.join(ROOT, 'themes/indaco/indaco.css'), 'utf8'),
 	]);
 	// THE SQUAT IS HARVESTED FROM A REAL RENDER, NOT HARD-CODED. A previous version wrote
 	// `pie-wedge-2-1` with the comment "the chart lives on slide 2 of this deck" — so adding ONE slide

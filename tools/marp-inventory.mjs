@@ -89,7 +89,7 @@ const BLURB = {
  * engineering/decisions/2026-08-02-marp-reference-register.md §6.
  */
 const OVERRIDES = {
-  'lattice-emulator.js': [
+  'lattice.js': [
     'interop',
     'Audited 2026-08-02. Its header called the OWNED CLI a "Marp-faithful HTML renderer" for "lattice.css (written for Marp)" and told end users to run Marp CLI instead — corrected. What remains is format-accurate: the Marpit-compatible HTML shape, the `style:` and `lang:` directives, and Marp-equivalent pagination chrome.',
   ],

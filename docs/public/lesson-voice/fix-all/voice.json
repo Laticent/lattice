@@ -1,0 +1,674 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 127872,
+	"lines": [
+		{
+			"key": "c87fc6fd0a1d",
+			"text": "Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them.",
+			"file": "c87fc6fd0a1d.mp3",
+			"bytes": 37008,
+			"speechMs": 6113,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Some problems have one sure fix, like a slide with no heading.",
+						"words": [
+							{
+								"display": "Some",
+								"spoken": "Some",
+								"startMs": 0,
+								"endMs": 204,
+								"charOffset": 0
+							},
+							{
+								"display": "problems",
+								"spoken": "problems",
+								"startMs": 204,
+								"endMs": 612,
+								"charOffset": 5
+							},
+							{
+								"display": "have",
+								"spoken": "have",
+								"startMs": 612,
+								"endMs": 816,
+								"charOffset": 14
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 816,
+								"endMs": 1020,
+								"charOffset": 19
+							},
+							{
+								"display": "sure",
+								"spoken": "sure",
+								"startMs": 1020,
+								"endMs": 1224,
+								"charOffset": 23
+							},
+							{
+								"display": "fix,",
+								"spoken": "fix,",
+								"startMs": 1224,
+								"endMs": 1457,
+								"charOffset": 28
+							},
+							{
+								"display": "like",
+								"spoken": "like",
+								"startMs": 1656,
+								"endMs": 1860,
+								"charOffset": 33
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 1860,
+								"endMs": 2064,
+								"charOffset": 38
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2064,
+								"endMs": 2268,
+								"charOffset": 40
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2268,
+								"endMs": 2472,
+								"charOffset": 46
+							},
+							{
+								"display": "no",
+								"spoken": "no",
+								"startMs": 2472,
+								"endMs": 2676,
+								"charOffset": 51
+							},
+							{
+								"display": "heading.",
+								"spoken": "heading.",
+								"startMs": 2676,
+								"endMs": 3114,
+								"charOffset": 54
+							}
+						],
+						"startMs": 0,
+						"endMs": 3497,
+						"charOffset": 0
+					},
+					{
+						"display": "Fix all applies every one of them.",
+						"words": [
+							{
+								"display": "Fix",
+								"spoken": "Fix",
+								"startMs": 3661,
+								"endMs": 3865,
+								"charOffset": 63
+							},
+							{
+								"display": "all",
+								"spoken": "all",
+								"startMs": 3865,
+								"endMs": 4069,
+								"charOffset": 67
+							},
+							{
+								"display": "applies",
+								"spoken": "applies",
+								"startMs": 4069,
+								"endMs": 4477,
+								"charOffset": 71
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 4477,
+								"endMs": 5088,
+								"charOffset": 79
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 5088,
+								"endMs": 5292,
+								"charOffset": 85
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 5292,
+								"endMs": 5496,
+								"charOffset": 89
+							},
+							{
+								"display": "them.",
+								"spoken": "them.",
+								"startMs": 5496,
+								"endMs": 5730,
+								"charOffset": 92
+							}
+						],
+						"startMs": 3661,
+						"endMs": 6113,
+						"charOffset": 63
+					}
+				],
+				"durationMs": 6113
+			}
+		},
+		{
+			"key": "8d2419b2f330",
+			"text": "This is Fix all. Your deck has nothing Coach can fix on its own right now, which is a good sign.",
+			"file": "8d2419b2f330.mp3",
+			"bytes": 33696,
+			"speechMs": 5562,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This is Fix all.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 199,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 199,
+								"endMs": 398,
+								"charOffset": 5
+							},
+							{
+								"display": "Fix",
+								"spoken": "Fix",
+								"startMs": 398,
+								"endMs": 596,
+								"charOffset": 8
+							},
+							{
+								"display": "all.",
+								"spoken": "all.",
+								"startMs": 596,
+								"endMs": 824,
+								"charOffset": 12
+							}
+						],
+						"startMs": 0,
+						"endMs": 1198,
+						"charOffset": 0
+					},
+					{
+						"display": "Your deck has nothing Coach can fix on its own right now, which is a good sign.",
+						"words": [
+							{
+								"display": "Your",
+								"spoken": "Your",
+								"startMs": 1358,
+								"endMs": 1557,
+								"charOffset": 17
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1557,
+								"endMs": 1755,
+								"charOffset": 22
+							},
+							{
+								"display": "has",
+								"spoken": "has",
+								"startMs": 1755,
+								"endMs": 1954,
+								"charOffset": 27
+							},
+							{
+								"display": "nothing",
+								"spoken": "nothing",
+								"startMs": 1954,
+								"endMs": 2352,
+								"charOffset": 31
+							},
+							{
+								"display": "Coach",
+								"spoken": "Coach",
+								"startMs": 2352,
+								"endMs": 2551,
+								"charOffset": 39
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 2551,
+								"endMs": 2749,
+								"charOffset": 45
+							},
+							{
+								"display": "fix",
+								"spoken": "fix",
+								"startMs": 2749,
+								"endMs": 2948,
+								"charOffset": 49
+							},
+							{
+								"display": "on",
+								"spoken": "on",
+								"startMs": 2948,
+								"endMs": 3147,
+								"charOffset": 53
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 3147,
+								"endMs": 3346,
+								"charOffset": 56
+							},
+							{
+								"display": "own",
+								"spoken": "own",
+								"startMs": 3346,
+								"endMs": 3545,
+								"charOffset": 60
+							},
+							{
+								"display": "right",
+								"spoken": "right",
+								"startMs": 3545,
+								"endMs": 3744,
+								"charOffset": 64
+							},
+							{
+								"display": "now,",
+								"spoken": "now,",
+								"startMs": 3744,
+								"endMs": 3971,
+								"charOffset": 70
+							},
+							{
+								"display": "which",
+								"spoken": "which",
+								"startMs": 4165,
+								"endMs": 4364,
+								"charOffset": 75
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 4364,
+								"endMs": 4563,
+								"charOffset": 81
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4563,
+								"endMs": 4762,
+								"charOffset": 84
+							},
+							{
+								"display": "good",
+								"spoken": "good",
+								"startMs": 4762,
+								"endMs": 4961,
+								"charOffset": 86
+							},
+							{
+								"display": "sign.",
+								"spoken": "sign.",
+								"startMs": 4961,
+								"endMs": 5189,
+								"charOffset": 91
+							}
+						],
+						"startMs": 1358,
+						"endMs": 5562,
+						"charOffset": 17
+					}
+				],
+				"durationMs": 5562
+			}
+		},
+		{
+			"key": "52e3426fb119",
+			"text": "Click Fix all.",
+			"file": "52e3426fb119.mp3",
+			"bytes": 5904,
+			"speechMs": 924,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click Fix all.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 184,
+								"charOffset": 0
+							},
+							{
+								"display": "Fix",
+								"spoken": "Fix",
+								"startMs": 184,
+								"endMs": 368,
+								"charOffset": 6
+							},
+							{
+								"display": "all.",
+								"spoken": "all.",
+								"startMs": 368,
+								"endMs": 579,
+								"charOffset": 10
+							}
+						],
+						"startMs": 0,
+						"endMs": 924,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 924
+			}
+		},
+		{
+			"key": "0c3fdaa30435",
+			"text": "Fix all sits in the bar above your text, and in the menu on a phone. Open your text to use it.",
+			"file": "0c3fdaa30435.mp3",
+			"bytes": 34416,
+			"speechMs": 5672,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Fix all sits in the bar above your text, and in the menu on a phone.",
+						"words": [
+							{
+								"display": "Fix",
+								"spoken": "Fix",
+								"startMs": 0,
+								"endMs": 183,
+								"charOffset": 0
+							},
+							{
+								"display": "all",
+								"spoken": "all",
+								"startMs": 183,
+								"endMs": 366,
+								"charOffset": 4
+							},
+							{
+								"display": "sits",
+								"spoken": "sits",
+								"startMs": 366,
+								"endMs": 549,
+								"charOffset": 8
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 549,
+								"endMs": 732,
+								"charOffset": 13
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 732,
+								"endMs": 916,
+								"charOffset": 16
+							},
+							{
+								"display": "bar",
+								"spoken": "bar",
+								"startMs": 916,
+								"endMs": 1099,
+								"charOffset": 20
+							},
+							{
+								"display": "above",
+								"spoken": "above",
+								"startMs": 1099,
+								"endMs": 1465,
+								"charOffset": 24
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1465,
+								"endMs": 1648,
+								"charOffset": 30
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 1648,
+								"endMs": 1858,
+								"charOffset": 35
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2037,
+								"endMs": 2220,
+								"charOffset": 41
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 2220,
+								"endMs": 2403,
+								"charOffset": 45
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2403,
+								"endMs": 2586,
+								"charOffset": 48
+							},
+							{
+								"display": "menu",
+								"spoken": "menu",
+								"startMs": 2586,
+								"endMs": 2952,
+								"charOffset": 52
+							},
+							{
+								"display": "on",
+								"spoken": "on",
+								"startMs": 2952,
+								"endMs": 3135,
+								"charOffset": 57
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3135,
+								"endMs": 3318,
+								"charOffset": 60
+							},
+							{
+								"display": "phone.",
+								"spoken": "phone.",
+								"startMs": 3318,
+								"endMs": 3528,
+								"charOffset": 62
+							}
+						],
+						"startMs": 0,
+						"endMs": 3872,
+						"charOffset": 0
+					},
+					{
+						"display": "Open your text to use it.",
+						"words": [
+							{
+								"display": "Open",
+								"spoken": "Open",
+								"startMs": 4020,
+								"endMs": 4386,
+								"charOffset": 69
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 4386,
+								"endMs": 4569,
+								"charOffset": 74
+							},
+							{
+								"display": "text",
+								"spoken": "text",
+								"startMs": 4569,
+								"endMs": 4752,
+								"charOffset": 79
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4752,
+								"endMs": 4935,
+								"charOffset": 84
+							},
+							{
+								"display": "use",
+								"spoken": "use",
+								"startMs": 4935,
+								"endMs": 5118,
+								"charOffset": 87
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 5118,
+								"endMs": 5328,
+								"charOffset": 91
+							}
+						],
+						"startMs": 4020,
+						"endMs": 5672,
+						"charOffset": 69
+					}
+				],
+				"durationMs": 5672
+			}
+		},
+		{
+			"key": "2224bf7e6b10",
+			"text": "Each fix is in your text, and Undo takes it back.",
+			"file": "2224bf7e6b10.mp3",
+			"bytes": 16848,
+			"speechMs": 2739,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Each fix is in your text, and Undo takes it back.",
+						"words": [
+							{
+								"display": "Each",
+								"spoken": "Each",
+								"startMs": 0,
+								"endMs": 170,
+								"charOffset": 0
+							},
+							{
+								"display": "fix",
+								"spoken": "fix",
+								"startMs": 170,
+								"endMs": 339,
+								"charOffset": 5
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 339,
+								"endMs": 509,
+								"charOffset": 9
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 509,
+								"endMs": 679,
+								"charOffset": 12
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 679,
+								"endMs": 848,
+								"charOffset": 15
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 848,
+								"endMs": 1043,
+								"charOffset": 20
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1208,
+								"endMs": 1378,
+								"charOffset": 26
+							},
+							{
+								"display": "Undo",
+								"spoken": "Undo",
+								"startMs": 1378,
+								"endMs": 1717,
+								"charOffset": 30
+							},
+							{
+								"display": "takes",
+								"spoken": "takes",
+								"startMs": 1717,
+								"endMs": 2056,
+								"charOffset": 35
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 2056,
+								"endMs": 2226,
+								"charOffset": 41
+							},
+							{
+								"display": "back.",
+								"spoken": "back.",
+								"startMs": 2226,
+								"endMs": 2420,
+								"charOffset": 44
+							}
+						],
+						"startMs": 0,
+						"endMs": 2739,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 2739
+			}
+		}
+	]
+}

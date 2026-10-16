@@ -1,0 +1,16 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "laguna",
+  "type": "theme",
+  "format": 1,
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "laguna-dark",
+  "order": 3,
+  "swatch": "#006D77"
+}

@@ -259,7 +259,7 @@ check('no CSP refusal, page error, or network attempt', problems.length === 0, p
 // the audio says. The dark file is then played end to end.
 const DEMO = 'examples/ltt-timing-track.md';
 const demoOut = path.resolve('.scratch/out/ltt-demo');
-execFileSync(process.execPath, ['lattice-emulator.js', DEMO, demoOut, '--quiet'], { stdio: 'pipe' });
+execFileSync(process.execPath, ['lattice.js', DEMO, demoOut, '--quiet', '--keep-html'], { stdio: 'pipe' });
 // Folded like every deck read (#1349): a BOM or a CRLF would defeat the `^---` anchor below.
 const demoSource = (await import('node:fs')).readFileSync(DEMO, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 const demoDoc = (await import('node:fs')).readFileSync(`${demoOut}.html`, 'utf8');
@@ -356,7 +356,7 @@ await variant(
 // CAPTIONS ONLY — a teleprompter read-along on the player's own wall clock, no audio at all.
 // With no clip anywhere, every length is known before Play, so this is also where the player's
 // own timing is checked against the LTT's: each slide must ARRIVE when `timeline()` says it
-// starts (engineering/ltt.md §The transport; the conformance fixtures pin the same arithmetic).
+// starts (spec/LTT-1.0.md §The transport; the conformance fixtures pin the same arithmetic).
 const captionsOnly = { ...narration, voice: null, slides: narration.slides.map((s) => ({ ...s, clips: [] })) };
 await variant('captions-only', captionsOnly, async (p) => {
   check('captions-only: the band is there', (await p.locator('#lp-caption').count()) === 1);
@@ -459,7 +459,7 @@ await variant('captions-only', captionsOnly, async (p) => {
   });
 }
 
-// A CLIP THAT WILL NOT DECODE (followups.d/2347-p2-…, engineering/ltt.md transport rule 4). The
+// A CLIP THAT WILL NOT DECODE (followups.d/2347-p2-…, spec/LTT-1.0.md transport rule 4). The
 // PR #2347 checker's repro: the first cue carries a truncated WAV header. The player used to stop
 // on it — aria-pressed false from the first sample, caption empty, never leaving slide 1 — because
 // the rejected play() ran the autoplay-refusal branch and cleared the fallback. It must instead

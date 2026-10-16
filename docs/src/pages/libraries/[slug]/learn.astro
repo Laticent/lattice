@@ -1,0 +1,16 @@
+---
+// The Learn page for one entry of the catalog's libraries — content from
+// src/content/catalog/libraries/<slug>.md, layout in components/catalog/LearnPage.astro.
+import { getCollection } from 'astro:content';
+import LearnPage from '../../../components/catalog/LearnPage.astro';
+import { byOrder, slugOf } from '../../../lib/catalog.mjs';
+
+export async function getStaticPaths() {
+	const siblings = (await getCollection('catalog', (e) => e.id.startsWith('libraries/'))).sort(byOrder);
+	return siblings.map((entry) => ({ params: { slug: slugOf(entry) }, props: { entry, siblings } }));
+}
+
+const { entry, siblings } = Astro.props;
+---
+
+<LearnPage entry={entry} siblings={siblings} />

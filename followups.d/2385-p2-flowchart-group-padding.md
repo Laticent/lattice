@@ -2,6 +2,9 @@
 origin: 2385
 priority: P2
 recorded: 2026-09-26
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-25-flowchart-authoring.md
 ---
 
 # Give a flowchart group's title and contents real breathing room

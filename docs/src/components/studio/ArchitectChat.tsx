@@ -3,19 +3,34 @@ import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unloc
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
-import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
+import { ChatAttach } from './ChatAttach';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
+import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigure';
+import { ChatLiveStatus } from './ChatLiveStatus';
+import { MessagePhotos, PhotoStrip } from './ChatPhotos';
+import { activitySentence } from './chat-activity';
+import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
+import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
+import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
+import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
-import { getFrontMatter } from './front-matter';
-import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
+import { frontMatterBlock, getFrontMatter } from './front-matter';
+import { classifyMedia, LIBRARY_MEDIA_ACCEPT } from './media-import';
+import type { MediaRecord } from './media-store';
+import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
+import { CHAT_COMPOSER_BAR, CHAT_COMPOSER_STACK, CHAT_COMPOSER_TEXT, ChatEmptyCard } from './panel-shells';
+import { PreviewPool } from './preview-pool';
+import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
+import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
 // The Architect chat (Converse) — a real conversational thread. Replies STREAM in
 // token-by-token (rAF-coalesced), render as on-brand Markdown (prose sanitized with
@@ -31,7 +46,7 @@ import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat,
 // DOMPurify profile matched to EXACTLY the tags chat-markdown emits (headings are
 // <div>, not h1–h4). Defense-in-depth: the renderer already escapes first, but the
 // bubble is a same-origin sink, so we sanitize the prose HTML before it enters the DOM.
-const CHAT_SANITIZE = { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'div', 'span'], ALLOWED_ATTR: ['href', 'target', 'rel', 'class'], ALLOW_DATA_ATTR: false };
+const CHAT_SANITIZE = { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote', 'hr'], ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'start'], ALLOW_DATA_ATTR: false };
 const sanitizeChat = (html: string): string => DOMPurify.sanitize(html, CHAT_SANITIZE) as unknown as string;
 
 function AssistantBody({ text, streaming }: { text: string; streaming: boolean }) {
@@ -41,7 +56,7 @@ function AssistantBody({ text, streaming }: { text: string; streaming: boolean }
 			{segs.map((s, i) =>
 				s.type === 'code' ? (
 					// biome-ignore lint/suspicious/noArrayIndexKey: append-only segment list for one render.
-					<ChatCodeBlock key={i} code={s.code} lang={s.lang} />
+					isFigureLang(s.lang) ? <ChatFigure key={i} code={s.code} lang={s.lang} /> : <ChatCodeBlock key={i} code={s.code} lang={s.lang} />
 				) : (
 					// biome-ignore lint/suspicious/noArrayIndexKey: append-only segment list for one render.
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: prose is escape-first rendered by renderProse then DOMPurify-sanitized with the chat tag profile — the single sanitized sink; code never takes this path.
@@ -177,8 +192,23 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	);
 	const [pulse, setPulse] = React.useState(0);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
+	// Photos picked for the NEXT message. Ephemeral like the draft's attachments: the bytes live in the
+	// Library, and a sent message keeps only the reference (studio-store `ChatPhoto`).
+	const [pendingPhotos, setPendingPhotos] = React.useState<ChatPhoto[]>([]);
+	// `keep` marks a clip picked FROM THE LIBRARY: taking it off the message must not delete it. A clip added from the
+	// device was saved only for this message, so taking it off removes it again.
+	const [pendingVideos, setPendingVideos] = React.useState<(ChatVideo & { keep?: boolean })[]>([]);
+	const [addingPhotos, setAddingPhotos] = React.useState(false);
+	const addingRef = React.useRef(false);
 	const refDoc = useReferenceDoc(onManageDocs);
 	const status = useArchitectStatus(pulse);
+
+	// What a figure in a reply needs to draw as the open deck would: the render context the shell
+	// already hands the chat for its fit check, plus the deck's own front-matter block. Keyed on the
+	// front-matter STRING, not the source, so typing in the deck does not re-point a figure.
+	const fm = frontMatterBlock(source);
+	const fitRender = grounding?.fitRender;
+	const figureRender = React.useMemo<ChatFigureRender | null>(() => (fitRender ? { options: fitRender.options, palette: fitRender.palette, mode: fitRender.mode, extra: fitRender.extra, extraCss: fitRender.extraCss, frontMatter: fm } : null), [fitRender, fm]);
 
 	const deckIdRef = React.useRef(deckId);
 	deckIdRef.current = deckId;
@@ -205,6 +235,26 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	}, []);
 	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
 	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
+	// Photos picked for the next message belong to the deck they were picked on (they are saved to its
+	// shelf); carrying them to another deck sent pixels the new deck cannot name.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `deckId` is the trigger; the body reads nothing from it.
+	React.useEffect(() => {
+		setPendingPhotos([]);
+		setPendingVideos((cur) => {
+			for (const v of cur) if (!v.keep) void discardChatVideo(v.name);
+			return [];
+		});
+	}, [deckId]);
+	// Closing the chat unmounts it and drops what was pending, so a clip added from the device and never sent goes with
+	// it, as on a deck switch above. Read through a ref: the cleanup runs once, with the state of the last render.
+	const pendingVideosRef = React.useRef(pendingVideos);
+	pendingVideosRef.current = pendingVideos;
+	React.useEffect(
+		() => () => {
+			for (const v of pendingVideosRef.current) if (!v.keep) void discardChatVideo(v.name);
+		},
+		[],
+	);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
@@ -220,7 +270,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// After the first turn of a thread the cached prefix is a READ, not a write — the cost
 	// readout weights it accordingly. Chat state, so it is resolved here and handed down.
-	const primed = status.generation === 'openrouter' && readCachingEnabled() && messages.length > 0;
+	// Only a request that carries Anthropic's explicit breakpoint is billed at cache rates (2x / 1.25x writes, 0.1x reads). With the switch off,
+	// or on any other vendor, `explicitCache` is false and the readout prices every token at the base rate: an upper bound for the vendors that
+	// cache on their own (OpenAI, Google, DeepSeek, x-ai), exact for one that does not cache at all.
+	const explicitCache = status.generation === 'openrouter' && readCachingEnabled() && orSupportsCache(status.modelId ?? '');
+	const primed = status.generation === 'openrouter' && (readCachingEnabled() || !orSupportsCache(status.modelId ?? '')) && messages.length > 0;
 	// The money readout lives in the PANEL HEADER now (ChatCost), not in a strip of its
 	// own between the transcript and the composer — that row cost a whole line of a narrow
 	// panel to show two short numbers. ChatCost reads the spend gauge itself and refreshes
@@ -247,6 +301,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		setStreaming({ deck: sendDeckId, text: '' });
 		const onToken = (tok: string) => {
 			bufferRef.current += tok;
+			// Prose arrived, so the last tool's label is finished news. Synchronous on purpose:
+			// the next round's label is set by a later call, and clearing from the rAF below
+			// would run AFTER it and wipe it.
+			if (tok) setLiveActivity(null);
 			if (!rafRef.current)
 				rafRef.current = requestAnimationFrame(() => {
 					rafRef.current = 0;
@@ -257,11 +315,28 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				});
 		};
 		try {
-			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
+			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
+			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
+			const lastIdx = history.length - 1;
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }));
+			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
+			const clips = (await Promise.all(sentVideos.map(async (v) => ({ name: v.name, dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
+			if (clips.length < sentVideos.length) notify('That video is no longer in the Library, so the model did not see it.');
+			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
+			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
+			if (seen.length < sent.length) notify(sent.length === 1 ? 'That photo is no longer in the Library, so the model did not see it.' : `${sent.length - seen.length} of those photos are no longer in the Library, so the model did not see them.`);
+			// The model is told too: a regenerated turn whose clip was deleted otherwise reached it as only "Here is a short
+			// video." with nothing attached, which invites a made-up description (checker).
+			const lostClips = sentVideos.length - clips.length;
+			const lostPhotos = sent.length - seen.length;
+			if ((lostClips || lostPhotos) && turns[lastIdx]?.role === 'user') {
+				const what = [lostClips && `${lostClips} video${lostClips === 1 ? '' : 's'}`, lostPhotos && `${lostPhotos} photo${lostPhotos === 1 ? '' : 's'}`].filter(Boolean).join(' and ');
+				turns[lastIdx] = { ...turns[lastIdx], content: `${turns[lastIdx].content}\n\n(The author attached ${what} that could not be sent: deleted from the Library since. Say you could not see ${lostClips + lostPhotos === 1 ? 'it' : 'them'}; never describe ${lostClips + lostPhotos === 1 ? 'it' : 'them'}.)` };
+			}
 			const onActivity = (label: string) => {
 				if (mountedRef.current) setLiveActivity(label);
 			};
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -321,14 +396,166 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	const send = () => {
 		const text = input.trim();
-		if (!text || busy) return;
+		// A photo alone is a message: the model is told what was attached either way.
+		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos) return;
 		const sendDeckId = deckId;
+		const photos = pendingPhotos;
+		const videos = pendingVideos.map(({ name, durationMs }) => ({ name, durationMs }));
 		setInput('');
+		setPendingPhotos([]);
+		setPendingVideos([]);
 		saveChatDraft(sendDeckId, '');
-		const history: ChatMessage[] = [...messages, { role: 'user', content: text }];
+		const history: ChatMessage[] = [...messages, { role: 'user', content: text || (videos.length ? 'Here is a short video.' : photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}), ...(videos.length ? { videos } : {}) }];
 		saveChat(sendDeckId, history);
 		if (deckIdRef.current === sendDeckId) setMessages(history);
 		void run(history, sendDeckId);
+	};
+
+	/**
+	 * Can this conversation take photos and clips right now? Cloud tier only (the on-device tiers cannot see), and a model
+	 * the catalog says cannot read photos or video is refused here, in words, rather than after the author has typed the
+	 * question. Resolves which of the two kinds may go; the same rule for a file from the device and one from the Library.
+	 */
+	const mediaGate = async (wantImages: boolean, wantClips: boolean): Promise<{ images: boolean; clips: boolean }> => {
+		if (status.generation !== 'openrouter') {
+			notify('Photos and video need a cloud model that can see — connect one in Workspace → AI.');
+			return { images: false, clips: false };
+		}
+		let images = wantImages;
+		let clips = wantClips;
+		try {
+			if (images || clips) {
+				const known = (await listStudioModels()).find((m) => m.id === status.modelId);
+				if (images && known && known.vision === false) {
+					notify(`${known.name || 'This model'} can't read photos — pick one marked "vision" in the model menu.`);
+					images = false;
+				}
+				// `video` is absent on a catalog cached before the field existed: unknown, so allowed, and the
+				// model's own refusal is turned into the same advice (describeModelError).
+				if (clips && known && known.video === false) {
+					notify(`${known.name || 'This model'} can't read video — pick one marked "video" in the model menu.`);
+					clips = false;
+				}
+			}
+		} catch {
+			/* catalog unreachable: the model's own answer says it if it cannot see */
+		}
+		return { images, clips };
+	};
+
+	// Photos and clips from the device picker (or a paste): into the Library on THIS deck's shelf, then pending for the
+	// next message.
+	const attachMedia = async (files: File[]) => {
+		const forDeck = deckId;
+		// By `classifyMedia`, which falls back to the extension: some pickers hand a `.mov` over with an empty type, and
+		// split on `type` it was sent down the photo path and refused as "isn't an image" (checker).
+		let clips = files.filter((f) => classifyMedia(f) === 'video');
+		let images = files.filter((f) => classifyMedia(f) !== 'video');
+		const room = MAX_CHAT_PHOTOS - pendingPhotos.length;
+		// Each kind is judged on its own: a refusal for one never drops the other (a full shelf of
+		// photos still lets the clip in, and a clip already pending still lets the photos in).
+		if (images.length && room <= 0) {
+			notify(`A message can carry ${MAX_CHAT_PHOTOS} photos — remove one first.`);
+			images = [];
+		}
+		if (clips.length && pendingVideos.length) {
+			notify('A message can carry one video — remove it first.');
+			clips = [];
+		}
+		if (!images.length && !clips.length) return;
+		const gate = await mediaGate(images.length > 0, clips.length > 0);
+		if (!gate.images) images = [];
+		if (!gate.clips) clips = [];
+		if (!images.length && !clips.length) return;
+		setAddingPhotos(true);
+		try {
+			if (images.length) {
+				const res = await addChatPhotos(images.slice(0, room), forDeck);
+				if (res.photos.length) {
+					// The preview, the Library and the editor's completion learn of the new shelf entry.
+					await setActiveAssetDeck(forDeck);
+					await refreshAssetUrls();
+					// Only if the author is still on the deck the photo was saved for.
+					if (deckIdRef.current === forDeck) setPendingPhotos((cur) => [...cur, ...res.photos].slice(0, MAX_CHAT_PHOTOS));
+				}
+				if (images.length > room) notify(`Only the first ${room} photo${room === 1 ? '' : 's'} fit — a message carries ${MAX_CHAT_PHOTOS}.`);
+				if (res.renamed.length) notify(`${res.renamed.slice(0, 2).join('; ')}.`);
+				if (res.failed.length) notify(res.failed.slice(0, 2).join(' '));
+			}
+			if (clips.length) {
+				if (clips.length > 1) notify('A message can carry one video — using the first.');
+				const got = await addChatVideo(clips[0], forDeck);
+				if ('error' in got) notify(got.error);
+				else if (deckIdRef.current === forDeck) setPendingVideos([got.video]);
+				else void discardChatVideo(got.video.name); // the author left the deck while it was saved: nothing will send it
+			}
+		} finally {
+			setAddingPhotos(false);
+		}
+	};
+	// One add at a time, and the flag is taken BEFORE the first await: `room` and `pendingVideos` are read
+	// from the last render, so two pastes that both passed a late check each saw room for the whole
+	// limit (and the second clip replaced the first, leaking its bytes).
+	const addPhotos = async (files: File[]) => {
+		if (addingRef.current) {
+			notify('Still adding the last attachment — one moment.');
+			return;
+		}
+		addingRef.current = true;
+		try {
+			await attachMedia(files);
+		} finally {
+			addingRef.current = false;
+		}
+	};
+
+	// What the device picker returns is sorted by what each file is: a photo or a clip goes through the media path, anything
+	// else is a reference document. Each path judges its own files and says why when it refuses one.
+	const onDeviceFiles = (files: File[]) => {
+		const media = files.filter((f) => classifyMedia(f) !== null);
+		const docs = files.filter((f) => classifyMedia(f) === null);
+		if (media.length) void addPhotos(media);
+		if (docs.length) void refDoc.addFiles(docs);
+	};
+
+	/** Take a pending clip off the message. A clip added from the device was saved only for this message, so it goes too;
+	 *  one picked from the Library stays in the Library. */
+	const removePendingVideo = (name: string) => {
+		if (!pendingVideos.find((v) => v.name === name)?.keep) void discardChatVideo(name);
+		setPendingVideos((cur) => cur.filter((v) => v.name !== name));
+	};
+
+	/** A Library photo on or off this message. It is already a Library asset: nothing is imported or copied. */
+	const toggleLibraryPhoto = async (m: MediaRecord) => {
+		if (pendingPhotos.some((p) => p.name === m.name)) {
+			setPendingPhotos((cur) => cur.filter((p) => p.name !== m.name));
+			return;
+		}
+		if (pendingPhotos.length >= MAX_CHAT_PHOTOS) {
+			notify(`A message can carry ${MAX_CHAT_PHOTOS} photos — remove one first.`);
+			return;
+		}
+		if (!(await mediaGate(true, false)).images) return;
+		setPendingPhotos((cur) => (cur.some((p) => p.name === m.name) || cur.length >= MAX_CHAT_PHOTOS ? cur : [...cur, { name: m.name, width: m.width, height: m.height }]));
+	};
+
+	/** A Library clip on or off this message, under the same size and length rules as one from the device. One clip per
+	 *  message: picking another takes the first off. */
+	const toggleLibraryVideo = async (m: MediaRecord) => {
+		// A device clip still saving would replace this one when it lands; wait for it (checker).
+		if (addingRef.current) return;
+		if (pendingVideos.some((v) => v.name === m.name)) {
+			removePendingVideo(m.name);
+			return;
+		}
+		const why = videoRefusal((m.durationMs ?? 0) / 1000, m.bytes);
+		if (why) {
+			notify(why);
+			return;
+		}
+		if (!(await mediaGate(false, true)).clips) return;
+		for (const v of pendingVideos) if (!v.keep) void discardChatVideo(v.name);
+		setPendingVideos([{ name: m.name, durationMs: m.durationMs ?? 0, keep: true }]);
 	};
 
 	const stop = () => abortRef.current?.abort();
@@ -372,7 +599,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
@@ -409,13 +636,20 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			) : costSlot ? (
 				createPortal(costReadout, costSlot)
 			) : null}
-			<div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+				{/* ONE POOL FOR THE TRANSCRIPT. Figures in replies are tiles in it, so a long conversation
+				    holds a handful of live frames however many figures it has (the bake-off decision). */}
+				<ChatFigureContext.Provider value={figureRender}>
+				<PreviewPool className="space-y-3" baseSlots={4}>
 				{empty && <ChatEmptyCard aiReady={aiReady} />}
 				{messages.map((m, i) =>
 					m.role === 'user' ? (
 						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
 						<div key={i} className="flex justify-end">
-							<div className="max-w-[92%] whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
+							<div className="flex max-w-[92%] flex-col items-end gap-1.5">
+								{m.photos?.length || m.videos?.length ? <MessagePhotos photos={m.photos ?? []} videos={m.videos} deckId={deckId} /> : null}
+								<div className="whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
+							</div>
 						</div>
 					) : (
 						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
@@ -426,7 +660,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
-							{m.activity?.length ? <div className="text-[10.5px] leading-snug text-muted-foreground">{m.activity.join(' · ')}</div> : null}
+							{m.activity?.length ? <p className="text-[11.5px] leading-snug text-muted-foreground">{activitySentence(m.activity)}</p> : null}
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
@@ -442,19 +676,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 							<Sparkles className="size-3 animate-pulse text-[var(--accent)]" /> Architect
 						</div>
-						{liveActivity && <div className="text-[10.5px] text-muted-foreground" role="status">{liveActivity}</div>}
-						{live === '' ? (
-							<div className="flex gap-1 py-1" role="status" aria-label="Thinking">
-								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.2s]" />
-								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.1s]" />
-								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)]" />
-							</div>
-						) : (
+						{live !== '' && (
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={live} streaming={true} />
-								<span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-[var(--accent)] align-text-bottom" aria-hidden />
 							</div>
 						)}
+						{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
+						<ChatLiveStatus label={liveActivity ?? (live === '' ? THINKING : 'Writing…')} progress={`${liveActivity ?? ''}|${live.length}`} />
 					</div>
 				)}
 				{shownNotice && (
@@ -463,29 +691,23 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						<span>{shownNotice.text}</span>
 					</div>
 				)}
+				</PreviewPool>
+				</ChatFigureContext.Provider>
 			</div>
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
-				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
-					    clear the `rounded-xl` corner — content inset closer than the radius reads as
-					    crowding into the curve. The buttons are `shrink-0` and the field is the only
-					    flexible child, so the row reflows by changing the FIELD's width and nothing
-					    else. Gap matches the padding (both 8px) so the spacing keeps one rhythm
-					    instead of two nearly-equal values reading as a mistake. */}
-				<div className={cn(CHAT_COMPOSER_ROW, 'focus-within:border-[var(--accent)]')}>
-					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field,
-					    which wrecks a textarea's own text layout — with it, 800 characters
-					    measured as 67 wrapped lines against a ~72px-wide box. `min-w-0` lets it
-					    actually shrink inside the flex row instead of being floored by content.
-					    `min-h-7` matches the buttons' `size-7`, and `py-[5px]` centers a single
-					    line inside that box ((28 − 18.1) / 2). Without both, `items-end` pinned a
-					    22px field to the bottom of a 28px row and the first line sat 6px low —
-					    measured 13px above / 7px below, which is the asymmetry that reads as "off".
-					    Grows with the prompt, to FOUR rows, so a typical instruction is visible
-					    while it is being written instead of scrolling inside one line. The
-					    surrounding row is `items-end`, so the buttons stay pinned to the bottom
-					    edge as it grows rather than drifting to the middle. */}
+				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={removePendingVideo} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
+				{/* LAYOUT. The field takes its own full-width line and the controls sit on a bar under it
+					    (`CHAT_COMPOSER_STACK` / `_BAR` in `panel-shells.tsx`). In one row the five buttons took a third of a
+					    phone's width and left the field ~215px. Padding is p-2 on every side and clears the `rounded-xl`
+					    corner. The attach and Library buttons are 32px with 8px between them: two 28px targets 2px apart
+					    let iOS's tap adjustment hand a Library tap to the file input beside it. */}
+				<div className={cn(CHAT_COMPOSER_STACK, 'focus-within:border-[var(--accent)]')}>
+					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field, which wrecks a textarea's
+					    own text layout (800 characters measured as 67 wrapped lines against a ~72px-wide box).
+					    `min-h-7` + `py-[5px]` centers a single line in 28px. It grows with the prompt, to FOUR rows,
+					    so a typical instruction is visible while it is written. */}
 					<Textarea
 						autosize
 						maxRows={4}
@@ -499,6 +721,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						data-focus-ring="container"
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
+						onPaste={(e) => {
+							// A picture on the clipboard (a screenshot, a copied image) is a photo, not text.
+							const imgs = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
+							if (!imgs.length) return;
+							e.preventDefault();
+							void addPhotos(imgs);
+						}}
 						onKeyDown={(e) => {
 							if (e.key === 'Enter' && !e.shiftKey) {
 								e.preventDefault();
@@ -508,31 +737,47 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						rows={1}
 						placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'}
 						aria-label="Message the Architect"
-						className={CHAT_COMPOSER_FIELD}
+						className={CHAT_COMPOSER_TEXT}
 					/>
-					<div className={CHAT_COMPOSER_TOOLS}>
-					{refDoc.attachButton}
+					<div className={CHAT_COMPOSER_BAR}>
+					<div className="flex items-center gap-2">
+					<ChatAttach
+						deckId={deckId}
+						deviceAccept={`${LIBRARY_MEDIA_ACCEPT},${REF_DOC_ACCEPT}`}
+						onDeviceFiles={onDeviceFiles}
+						savedDocs={refDoc.saved}
+						activeDocIds={new Set(refDoc.docs.map((d) => d.id).filter((id): id is string => !!id))}
+						onToggleDoc={(rec) => void refDoc.toggleSaved(rec)}
+						onRefreshDocs={refDoc.refresh}
+						photoNames={new Set(pendingPhotos.map((p) => p.name))}
+						videoNames={new Set(pendingVideos.map((v) => v.name))}
+						onTogglePhoto={(m) => void toggleLibraryPhoto(m)}
+						onToggleVideo={(m) => void toggleLibraryVideo(m)}
+						onManage={onManageDocs}
+						hasAttachments={refDoc.docs.length > 0 || pendingPhotos.length > 0 || pendingVideos.length > 0}
+					/>
 					<button
 						type="button"
 						onClick={() => setFactsLocked((v) => !v)}
 						title={factsLocked ? 'Preserve facts: ON — asking the model to change wording only, not numbers or names. Best-effort — review the diff to confirm.' : 'Preserve facts — ask the model to improve wording without changing numbers or names (best-effort; review the diff).'}
 						aria-label="Preserve facts — ask the model not to change numbers or names"
 						aria-pressed={factsLocked}
-						className={cn('grid size-7 shrink-0 place-items-center rounded-lg', factsLocked ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
+						className={cn('grid size-8 shrink-0 place-items-center rounded-lg', factsLocked ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
 					>
 						{factsLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
 					</button>
 					{messages.some((m) => m.role === 'assistant') && !busy && (
-						<button type="button" onClick={regenerate} aria-label="Regenerate last reply" className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-foreground">
+						<button type="button" onClick={regenerate} aria-label="Regenerate last reply" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-foreground">
 							<RotateCcw className="size-3.5" />
 						</button>
 					)}
+					</div>
 					{busy ? (
-						<button type="button" onClick={stop} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--fail-fill,#b3261e)] text-white">
+						<button type="button" onClick={stop} aria-label="Stop" className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--fail-fill,#b3261e)] text-white">
 							<Square className="size-3.5" />
 						</button>
 					) : (
-						<button type="button" onClick={send} disabled={!input.trim()} aria-label="Send" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
+						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length && !pendingVideos.length) || addingPhotos} aria-label="Send" className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
 							<ArrowUp className="size-4" />
 						</button>
 					)}

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-logo: ../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 header: "Lattice · the marker corner"
 meta: Marker corner · four claimants, one capsule
 ---

@@ -20,7 +20,7 @@
 // chart rung, so every recognized chart slide (funnel, radar, quadrant, weighted journey,
 // state chart) narrated its computed facts live and its heading-only figure projection on
 // export. The CLI had already closed that gap for its own captions (#902 Gap 1,
-// lattice-emulator.js); the browser export had not. `applyChartNarration` below is that
+// lattice.js); the browser export had not. `applyChartNarration` below is that
 // same substitution, shared rather than copied a third time.
 //
 // THE SPEAKER NOTE IS NOT A RUNG. It was one — sitting above the chart facts and the

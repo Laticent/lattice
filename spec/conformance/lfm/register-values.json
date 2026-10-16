@@ -1,0 +1,11 @@
+{
+ "title": "A register value matches without regard to case, and an unknown single-word value changes nothing",
+ "spec": "LFM-1.1",
+ "section": "2.3",
+ "rows": [
+  { "name": "mode: Sketch is sketch", "source": "---\nmode: Sketch\n---\n\n## A\n\nText.\n", "L1": { "deck": { "mode": "sketch" } }, "L2": { "findings": [] } },
+  { "name": "finish: Halo is halo", "source": "---\nfinish: Halo\n---\n\n## A\n\nText.\n", "L1": { "deck": { "finish": "halo" } }, "L2": { "findings": [] } },
+  { "name": "an unknown mode renders the default", "source": "---\nmode: woodcut\n---\n\n## A\n\nText.\n", "L1": { "deck": { "mode": "boardroom" } }, "L2": { "findings": [{ "rule": "unknown-mode", "severity": "warning", "slide": 0 }] } },
+  { "name": "an unknown finish draws none", "source": "---\nfinish: marble\n---\n\n## A\n\nText.\n", "L1": { "deck": { "finish": "none" } }, "L2": { "findings": [{ "rule": "unknown-finish", "severity": "warning", "slide": 0 }] } }
+ ]
+}

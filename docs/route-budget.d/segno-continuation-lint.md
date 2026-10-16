@@ -1,0 +1,2 @@
+studio: +370
+The Studio ships lint-core eagerly for its live lint, and lint-core gained the `bracket-list-closed-early` rule: one scan of a lone bracketed span, plus its message and fix text (+355 B gz against main on CI, +358 locally; +370 covers gzip variation, as earlier declarations here do). The rule is what tells an author that a stray `]` after a quoted name dropped their chart's axis to plain text, which is why it runs while they type rather than only in `lint:deck`. The Playground, which bundles the same rule, measured -2 B.

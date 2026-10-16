@@ -1,0 +1,1 @@
+- The Studio editor completes icon names: typing `` `^{da `` (or `icon=da` inside a pill or a chart record) offers the icon names that start with it, aliases included, and each row shows the icon's drawing. The drawings load the first time the menu opens with an icon in it.

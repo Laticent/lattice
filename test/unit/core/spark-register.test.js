@@ -87,7 +87,7 @@ test('lint: an unknown word and a second word on an axis warn; the slide classes
   const found = lintText(deck(['spark: bare glossy framed'], '<!-- _class: content spark-etching -->\n\n## One\n\nText.'));
   const spark = found.filter((f) => f.rule === 'unknown-spark');
   assert.equal(spark.length, 2, spark.map((f) => f.message).join(' | '));
-  assert.ok(spark.some((f) => /'glossy' is not a known spark value/.test(f.message)));
-  assert.ok(spark.some((f) => /second frame word \('framed'\)/.test(f.message)));
+  assert.ok(spark.some((f) => /'glossy' isn't a valid `spark:` value/.test(f.message)));
+  assert.ok(spark.some((f) => /two frame values; only the first is used, so 'framed' is ignored/.test(f.message)));
   assert.equal(found.filter((f) => f.rule === 'unknown-class').length, 0, 'spark-etching is a known slide class');
 });

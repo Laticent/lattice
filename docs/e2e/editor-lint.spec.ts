@@ -13,7 +13,9 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 // (`unknownComponents`), where the button was offered and then did nothing. `kpii` is one
 // character off `kpi`, so it carries a Quick fix and Fix-all has something to do.
 const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
-const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /Fix all/i });
+// The exact name: the issue-count button beside it now reads "1 issue: … Fix all swaps it for …",
+// so a /Fix all/ pattern matches both and fails strict mode.
+const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Fix all issues', exact: true });
 
 /** The width at which `useBreakpoint` flips the Studio to a single swappable pane. */
 const SINGLE_PANE_MAX_WIDTH = 699;
@@ -166,8 +168,8 @@ test('@crosswidth @webkit-phone a bad render-target value underlines its own fro
 	// SOURCE. Only the needle has to be verbatim — it is the one the editor searches with.
 	await warningCovering(page, 'FLUID: ture').hover();
 	const tooltip = page.locator('.cm-tooltip-lint');
-	await expect(tooltip).toContainText("'ture' is not an on/off value for `fluid:`");
-	await expect(tooltip).toContainText('Set `fluid:` to one of true / yes / on');
+	await expect(tooltip).toContainText("'ture' isn't on or off, so the export treats `fluid:` as off");
+	await expect(tooltip).toContainText('Set `fluid:` to true/yes/on or false/no/off');
 
 	// Evidence artifacts for HARD RULE #23, both from the running Studio.
 	// Both PNGs are written to the run's output dir (not only into the report blob) so they
@@ -200,8 +202,8 @@ test('@crosswidth @webkit-phone a nested render-target key warns on the nested l
 
 	await warningCovering(page, 'fluid: "true"').hover();
 	const tooltip = page.locator('.cm-tooltip-lint');
-	await expect(tooltip).toContainText("the export reads it as the deck's own `fluid:`");
-	await expect(tooltip).toContainText('Move `fluid:` to the left margin');
+	await expect(tooltip).toContainText('`fluid:` is indented, but the export still reads it as the deck setting');
+	await expect(tooltip).toContainText('Move it to the left margin');
 
 	const shot = testInfo.outputPath('nested-render-target-key.png');
 	await page.locator('.cm-editor').first().screenshot({ path: shot });
@@ -225,7 +227,7 @@ test('a mistyped register value (`guards: strcit`) underlines its front-matter l
 
 	await warningCovering(page, 'guards: strcit').hover();
 	const tooltip = page.locator('.cm-tooltip-lint');
-	await expect(tooltip).toContainText("'strcit' is not a known guards value");
+	await expect(tooltip).toContainText("`guards:` has been renamed to `fit:`, and 'strcit' isn't a valid value");
 	// The fix names the new key, `fit:`, and its values — `guards:` is the old spelling.
 	await expect(tooltip).toContainText('report, heal, trim');
 

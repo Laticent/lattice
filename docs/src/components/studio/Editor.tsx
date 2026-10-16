@@ -4,15 +4,20 @@ import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
-import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
+import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
+import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
+import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
+import type { Focus, FocusHub } from '@/lib/fuoco/hub';
+import { partAt, unitAt } from '@/lib/fuoco/outline';
+import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
+import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { createFindStore, FindPortal, openFind, studioFind } from './find-panel';
-import { slideEditableOffset, slideIndexAt } from './lint';
+import { iconPreviewOption } from './icon-preview';
 import { tourChromeMargin } from './tour-chrome';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
@@ -21,7 +26,7 @@ import { tourChromeMargin } from './tour-chrome';
 // biome-ignore lint/suspicious/noExplicitAny: the bundled CJS lint kernel.
 let lintCoreMod: any = null;
 function loadLintCore() {
-	return import('@/playground/authoring-core.generated.js')
+	return import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())
 		.then((m) => {
 			lintCoreMod = m.lintCore;
 			return lintCoreMod;
@@ -176,6 +181,20 @@ export function carryApplies(state: CarriedState | null, key: string | undefined
 
 const BOM = '\uFEFF';
 const stripBom = (text: string) => (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+
+/**
+ * Format the editor's code blocks and apply the result as ONE undoable change, block by block, so the
+ * caret stays where it was. `all`: every block a formatter reads (the command); otherwise only the
+ * blocks that ask (format-on-blur). The formatters are async, so if the author edited the deck while
+ * they ran, the result is for text that no longer exists: nothing is applied, and null comes back.
+ */
+async function formatInto(view: EditorView, all: boolean): Promise<FormatResult | null> {
+	const before = view.state.doc.toString();
+	const result = await formatCode(before, { all });
+	if (view.state.doc.toString() !== before) return null;
+	if (result.changes.length) view.dispatch({ changes: result.changes, userEvent: 'input.format' });
+	return result;
+}
 const noLeadingBom = EditorState.transactionFilter.of((tr) => {
 	if (!tr.docChanged || tr.newDoc.length === 0) return tr;
 	if (tr.newDoc.sliceString(0, 1) !== BOM) return tr;
@@ -225,18 +244,45 @@ function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Ar
 	});
 }
 
+/** Marks the value-sync's dispatch, so its caret is not reported as an author move. */
+const fromValueSync = Annotation.define<boolean>();
+
+/** One span covering every change in `changes`, in the shape the slide index takes. */
+function changedSpan(changes: ChangeSet): { from: number; toA: number; toB: number } | undefined {
+	let from = Number.POSITIVE_INFINITY;
+	let toA = -1;
+	changes.iterChangedRanges((fA, tA) => {
+		if (fA < from) from = fA;
+		if (tA > toA) toA = tA;
+	});
+	if (toA < 0) return undefined;
+	return { from, toA, toB: toA + (changes.newLength - changes.length) };
+}
+
+/** A genuine authoring edit carries a user-event annotation; the value-sync, a collaborator's
+ *  change and the demo's typing do not. */
+function isAuthorEdit(u: { transactions: readonly { isUserEvent(e: string): boolean }[] }): boolean {
+	return u.transactions.some((tr) => tr.isUserEvent('input') || tr.isUserEvent('delete') || tr.isUserEvent('move') || tr.isUserEvent('undo') || tr.isUserEvent('redo'));
+}
+
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
 export type EditorHandle = {
 	fixAll: () => void;
-	/** Frame a slide. `focus` additionally takes keyboard focus and parks the caret on
-	 *  the slide's first line of real content — what picking a slide in the preview
-	 *  should do, so the next keystroke edits the slide you just chose (#1291). */
-	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
+	/** Pretty-print every code block a formatter reads, except `format=off`, as one undoable edit
+	 *  (lib/authoring/code-format/). Resolves with what changed and what was left alone, or null
+	 *  when no editor is mounted or the deck changed while the formatters ran. */
+	formatCode: () => Promise<FormatResult | null>;
 	/** The current primary selection (text + range). `empty` when nothing is selected. */
 	getSelection: () => EditorSelection;
 	/** Replace the current selection with `text` as one undoable transaction, then
 	 *  re-select the inserted run so a follow-up refine stacks on the same span. */
 	replaceSelection: (text: string) => void;
+	/** Edit at the caret what `build` returns for the caret's line (`back` characters before the caret
+	 *  deleted, any selection replaced, `text` inserted, caret after it), as one undoable change.
+	 *  False when no editor is mounted or the one mounted is hidden or inert (Compose, the phone's
+	 *  Preview pane, the Read stop, a collapsed editor), so the caller can hand the text over another
+	 *  way instead of writing where the author cannot see. */
+	insertAtCaret: (build: (lineBefore: string, lineAfter: string) => { back: number; text: string }) => boolean;
 	/** Append `text` at the document end, move the caret there, and scroll to follow —
 	 *  the self-driving demo's typing channel. A native CodeMirror insert (not a
 	 *  full-doc replace via the value prop): the caret + scroll behave like real
@@ -278,6 +324,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	knownComponents?: string[];
 	/** The component catalog, for autocomplete (name/bucket/description). */
 	completionComponents?: CompletionComponent[];
+	/** Reads the Library photos the open deck may name, for `asset:` completion. Called on the first image
+	 *  reference typed, never at start-up. */
+	completionAssets?: () => Promise<AssetChoice[]>;
 	/** `finish:` front-matter VALUE vocabulary — built-in presets (bare) + saved
 	 *  finishes (prefixed `finish-<slug>`). Drives both the value completion AND the
 	 *  inline `unknown-finish` lint (a valid value is exactly what's offered). */
@@ -300,11 +349,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	/** Saved local-component names (Component Studio). Folded into the real lint-core
 	 *  vocabulary so a `.<name>` you authored isn't flagged "unknown component". */
 	extraComponentNames?: string[];
-	/** Fired when the cursor crosses into a different slide — drives the preview. */
-	onCursorSlide?: (index: number) => void;
-	/** The caret line's text, fired when it changes. The preview uses it to show the page of a
-	 *  split slide that holds the line being edited (split-page-pick.ts). */
-	onCursorText?: (text: string) => void;
+	/** The focus hub (docs/src/lib/fuoco). The editor reports its text and caret to it, and
+	 *  reveals the slide whenever another pane navigates. It is the editor's only sync channel:
+	 *  no slide index or caret text leaves it any other way. */
+	focusHub?: FocusHub | null;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
 	/** Identity of the deck this editor is showing. The undo history is carried across the
@@ -329,19 +377,32 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  slide at `slideIndex`. Lint cannot see a layout, so these arrive from the preview and
 	 *  join the lint pass as `spark-too-big` warnings with a one-click resize. */
 	measuredSparks?: { slideIndex: number; reports: SparkFitReport[] } | null;
+	/** A live-collaboration binding (live/use-live-session.ts). While present, the editor is bound
+	 *  to the shared text: it rebuilds with `extension` IN PLACE OF its own undo history (which
+	 *  would put everyone's edits on your stack), seeds its document from `seed()` — the shared
+	 *  text, which may be ahead of `value` — and stops syncing from `value`, because the binding
+	 *  already carries every change and a second copy would apply it twice. `key` changes when the
+	 *  binding must be rebuilt (a role change makes it read-only). */
+	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	// The find bar's bridge from CodeMirror's panel to this component's React tree (find-panel.tsx).
 	const findStore = React.useRef(createFindStore());
+	const collabRef = React.useRef(collab);
+	collabRef.current = collab;
+	const collabKey = collab?.key ?? null;
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
-	const onCursorSlideRef = React.useRef(onCursorSlide);
-	onCursorSlideRef.current = onCursorSlide;
-	const onCursorTextRef = React.useRef(onCursorText);
-	onCursorTextRef.current = onCursorText;
-	const lastCursorTextRef = React.useRef<string | null>(null);
+	const hubRef = React.useRef(focusHub);
+	hubRef.current = focusHub;
+	// The index revision the editor's text was last fed as, so a caret report names the text
+	// it was computed against (the hub drops a report against older text).
+	const revRef = React.useRef<number | undefined>(undefined);
+	// A reveal that arrived before this editor held the text it targets (the hub moved to a
+	// slide of text the value-sync has not pushed in yet). Applied by the value-sync.
+	const pendingRevealRef = React.useRef<Focus | null>(null);
 	const onSelectionChangeRef = React.useRef(onSelectionChange);
 	onSelectionChangeRef.current = onSelectionChange;
 	const onUserEditRef = React.useRef(onUserEdit);
@@ -367,15 +428,6 @@ export const Editor = React.forwardRef<EditorHandle, {
 		onLintCountsRef.current?.(findings && { total: findings.length, fixable: findings.filter((f) => f?.autofixable).length });
 	}, []);
 	const lastHasSelRef = React.useRef(false);
-	const lastSlideRef = React.useRef(-1);
-	// WHAT THE LAST BUILT VIEW WAS BUILT FOR. Distinguishes a genuine REBUILD (the deck changed,
-	// or the known-component set did) from a first mount — and, just as importantly, from
-	// StrictMode's dev-only mount/unmount/mount, where both are identical. A plain
-	// "have I built before?" boolean gets StrictMode wrong: the second invocation looks like a
-	// rebuild, re-states the refs, and reintroduces in dev exactly the swallowed-first-caret-move
-	// defect the guard exists to prevent. `StudioIsland` really does wrap the shell in
-	// `StrictMode`, so that is a live path, not a hypothetical.
-	const builtForRef = React.useRef<{ key: string | undefined; known: unknown } | null>(null);
 	const [failed, setFailed] = React.useState(false);
 	const known = React.useMemo(() => new Set(knownComponents), [knownComponents]);
 	// Real grammar lint when a vocabulary is supplied; otherwise the unknown-
@@ -419,15 +471,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// change; finish/vocab changes flow through the reconfigure effects below, so a
 	// freshly-saved finish stops being flagged / starts completing immediately.
 	const acComp = React.useRef(new Compartment());
+	// Read at completion time, so a new callback never rebuilds the editor.
+	const assetsRef = React.useRef(completionAssets);
+	assetsRef.current = completionAssets;
 	const lintComp = React.useRef(new Compartment());
 	// What may come next in a spark or pill, from the lint core once it has loaded (read at
 	// completion time, so the menu works the moment the core arrives, without a reconfigure).
-	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span) ?? null;
+	// The `@` menu also lists the zip plugins' kinds the Studio holds (2026-10-14-plugin-inline-door.md).
+	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span, externalInlineKinds()) ?? null;
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
@@ -444,7 +500,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					let findings: Array<{ autofixable?: boolean }>;
 					try {
-						findings = core.lintTextWith(view.state.doc.toString(), vocabSets);
+						const doc = view.state.doc.toString();
+						// Under a host that narrowed its plugin set, parse as the engine does (math off →
+						// a `---` inside `$$` is a slide break here too). A no-op on the default set.
+						followDeckAdmission(doc);
+						findings = core.lintTextWith(doc, vocabSets);
 					} catch {
 						// The lint threw, so this pass knows NOTHING. Say so rather than reporting
 						// zero, which would read as "clean" and disable Fix all over a real issue.
@@ -466,9 +526,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const measuredFindings: Array<{ autofixable?: boolean }> = [];
 					if (m?.reports.length && core.sparkFitFindings) {
 						const text = view.state.doc.toString();
+						const live = hubRef.current?.outline();
+						const ix = live && live.source === text ? live : buildDeckIndex(text);
 						for (const f of core.sparkFitFindings(text, m.reports)) {
 							const [d] = findingsToDiagnostics(view.state.doc, [f], fixOpts) as Diagnostic[];
-							if (!d || slideIndexAt(text, d.from) !== m.slideIndex) continue;
+							if (!d || Math.max(0, unitAt(ix, d.from)) !== m.slideIndex) continue;
 							measured.push(d);
 							// Counted, but NOT as bulk-fixable: "Fix all" runs applyAllFixes over the
 							// linted findings only and cannot see a measurement, so counting these as
@@ -483,10 +545,76 @@ export const Editor = React.forwardRef<EditorHandle, {
 				})
 			: makeLinter(known, reportLint);
 
+	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,
+	// a swipe, the shell after a slide operation, Live) moves the focus, and when a new view is
+	// built. It is never called for this editor's own caret moves: the hub does not deliver a
+	// pane its own origin, so typing never re-scrolls.
+	//
+	// TOP-ANCHORS the slide's first editable line. Two things it deliberately does NOT do:
+	//
+	//   • It does not center the whole slide range. Centering means the slide you just picked
+	//     shows up mid-screen with the PREVIOUS slide's tail above it, and how much of it you see
+	//     depends on how long it happens to be. `y: 'start'` on the editable line is the same
+	//     answer every time.
+	//   • It does not gate the caret on `grab`. Setting a selection costs nothing on a touch
+	//     device — only `.focus()` raises the software keyboard — so bundling the two silently
+	//     removed the caret placement on tablets along with the keyboard (#1291).
+	//
+	// The caret move this makes is reported like any other, and agrees with the focus that asked
+	// for it (the editable line is inside the same slide), so the hub publishes nothing. That is
+	// what replaced the `lastSlideRef` pre-seed: agreement, not suppression.
+	//
+	// WRONG TEXT, NOT YET. If the hub's index is for text this view does not hold yet (the shell
+	// inserted a slide and went to it; the value-sync has not pushed the text in), the reveal
+	// parks in `pendingRevealRef` and the value-sync applies it once the texts match.
+	//
+	// GUARDED BY `docs/e2e/studio-jargon-alignment.spec.ts` ("the editor frames the slide the
+	// rail selected"), which measures the landed scroll position against this contract. It is
+	// NIGHTLY, off the PR gate, so changing where this scrolls means updating that spec in the
+	// same change (#1315).
+	const revealFocus = React.useCallback((v: EditorView, f: Focus, onlyIfElsewhere = false) => {
+		const ix = hubRef.current?.outline();
+		if (!ix || f.unitIndex < 0) return;
+		if (ix.source.length !== v.state.doc.length || ix.source !== v.state.doc.toString()) {
+			pendingRevealRef.current = f;
+			return;
+		}
+		pendingRevealRef.current = null;
+		if (onlyIfElsewhere) {
+			const here = partAt(ix, v.state.selection.main.head);
+			if (here && here.unit === f.unitIndex && here.part === f.part) return;
+		}
+		if (f.cause === 'pick' && f.anchor !== null && f.head !== null) {
+			// A preview pick selects the element's source span.
+			v.dispatch({ selection: { anchor: f.anchor, head: f.head }, effects: EditorView.scrollIntoView(f.anchor, { y: 'center' }) });
+		} else {
+			const caret = Math.min(deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
+			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
+		}
+		if (f.grab) v.focus();
+	}, []);
+	// Navigation from every other pane. `frame` lane: a held key that crosses three slides in one
+	// frame reveals once, the last.
+	React.useEffect(() => {
+		if (!focusHub) return;
+		return focusHub.subscribe(
+			(f) => f,
+			(f) => {
+				const v = viewRef.current;
+				if (v && (f.cause === 'nav' || f.cause === 'pick')) revealFocus(v, f);
+			},
+			{ ignoreOrigin: 'markdown', equals: (a, b) => a.seq === b.seq },
+		);
+	}, [focusHub, revealFocus]);
+
 	React.useImperativeHandle(ref, () => ({
 		openFind(opts) {
 			const v = viewRef.current;
 			if (v) openFind(v, opts?.replace ?? false);
+		},
+		formatCode() {
+			const v = viewRef.current;
+			return v ? formatInto(v, true) : Promise.resolve(null);
 		},
 		fixAll() {
 			const v = viewRef.current;
@@ -512,42 +640,6 @@ export const Editor = React.forwardRef<EditorHandle, {
 				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } });
 			}
 		},
-		// Reveal a slide in the editor — called only from explicit NAV (rail / arrow /
-		// filmstrip / source click), never from a cursor-move effect, so typing never
-		// re-scrolls. TOP-ANCHORS the slide's first editable line (see below for why not
-		// centered). Sets the caret to that line and pre-seeds lastSlideRef so the
-		// resulting selectionSet echoes the SAME index → onCursorSlide no-ops, no sync
-		// loop. A single scroll effect — NO end→start caret hop (that parked the caret in
-		// slide index+1 and flickered the preview).
-		//
-		// GUARDED BY `docs/e2e/studio-jargon-alignment.spec.ts` ("the editor frames the
-		// slide the rail selected"), which measures the landed scroll position against the
-		// contract below. Changing where this scrolls means updating that spec in the same
-		// change: it is NIGHTLY, off the PR gate, so a stale assertion here goes red on
-		// main and blocks nothing (#1315).
-		revealSlide(index: number, opts?: { focus?: boolean }) {
-			const v = viewRef.current;
-			if (!v) return;
-			const doc = v.state.doc.toString();
-			const caret = Math.min(slideEditableOffset(doc, index), v.state.doc.length);
-			lastSlideRef.current = index;
-			// Put the slide's first EDITABLE line at the top of the viewport, and park the
-			// caret on it. Two things this deliberately does NOT do:
-			//
-			//   • It does not center the whole slide range. Centering means the slide you
-			//     just picked shows up mid-screen with the PREVIOUS slide's tail above it,
-			//     and how much of it you see depends on how long it happens to be. `y:
-			//     'start'` on the editable line is the same answer every time.
-			//   • It does not gate the caret on `focus`. Setting a selection costs nothing
-			//     on a touch device — only `.focus()` raises the software keyboard — so
-			//     bundling the two (as this did) silently removed the caret placement on
-			//     tablets along with the keyboard, which is the regression that followed.
-			v.dispatch({
-				selection: { anchor: caret },
-				effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }),
-			});
-			if (opts?.focus) v.focus();
-		},
 		getSelection(): EditorSelection {
 			const v = viewRef.current;
 			if (!v) return { empty: true, text: '', from: 0, to: 0 };
@@ -563,6 +655,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// (or ⌘Z) acts on the same span the author was working.
 			v.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from, head: r.from + text.length } });
 			v.focus();
+		},
+		insertAtCaret(build: (lineBefore: string, lineAfter: string) => { back: number; text: string }) {
+			const v = viewRef.current;
+			if (!v) return false;
+			// Mounted is not shown: the phone's Preview pane and the Read stop keep the editor in the
+			// tree, hidden and inert. An insert there lands where nobody sees it.
+			const dom = v.dom;
+			if (dom.closest('[inert]') || dom.getClientRects().length === 0 || getComputedStyle(dom).visibility === 'hidden') return false;
+			const r = v.state.selection.main;
+			const line = v.state.doc.lineAt(r.from);
+			const { back, text } = build(v.state.sliceDoc(line.from, r.from), v.state.sliceDoc(r.to, line.to));
+			if (!text) return false;
+			const from = Math.max(line.from, r.from - Math.max(0, back));
+			v.dispatch({ changes: { from, to: r.to, insert: text }, selection: { anchor: from + text.length }, scrollIntoView: true, userEvent: 'input' });
+			v.focus();
+			return true;
 		},
 		typeTail(text: string) {
 			const v = viewRef.current;
@@ -607,7 +715,6 @@ export const Editor = React.forwardRef<EditorHandle, {
 			if (!v || v.state.doc.toString() === text) return;
 			// Whole-doc replace, right now — the demo's guarantee that the canvas is exactly
 			// `text` before the first typeTail (see the handle doc above). Caret to the top.
-			lastSlideRef.current = 0;
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text }, selection: { anchor: 0 } });
 		},
 	}));
@@ -637,19 +744,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 	//
 	// The Compose carry below is unaffected: a deck-switch rebuild stores a `carried` whose doc
 	// is the OLD deck's, so `carryApplies` rejects it on the document half.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`carryKey`; `value` seeds the doc and is synced separately.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`carryKey`/`collabKey`; `value` seeds the doc and is synced separately, and `collab` is read at build time through its key.
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
 			const seed = {
 					// Canonicalized here because `EditorState.create` runs NO transaction filter — a
 					// deck stored with a BOM before this landed would otherwise keep it on screen.
-					doc: stripBom(value),
+					doc: collab ? collab.seed() : stripBom(value),
 					extensions: [
 						lineNumbers(),
 						noLeadingBom,
-						history(),
-						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : [history()]),
+						keymap.of([...defaultKeymap, ...(collab ? [] : historyKeymap), ...completionKeymap]),
 						// Find/replace (Ctrl/Cmd+F, Ctrl+H or Cmd+Alt+F). Its keymap sits beside the defaults; see
 						// find-panel.tsx for the bar and for the two search bindings left out on purpose.
 						studioFind(findStore.current),
@@ -702,13 +809,33 @@ export const Editor = React.forwardRef<EditorHandle, {
 						scrollPastEnd(),
 						EditorView.lineWrapping,
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
+						// FORMAT ON LEAVING THE EDITOR, for the blocks that ask (`@code{format}`, or the
+						// deck's `code: format`). The Studio autosaves on every keystroke, so leaving the
+						// editor is its "save": formatting while the author types would move the text under
+						// the caret, and code mid-edit does not parse anyway (lib/authoring/code-format/).
+						EditorView.domEventHandlers({
+							blur: (_e, view) => {
+								if (!view.state.facet(EditorState.readOnly) && wantsFormat(view.state.doc.toString())) void formatInto(view, false);
+								return false;
+							},
+						}),
 						EditorView.updateListener.of((u) => {
+							const hub = hubRef.current;
+							// The value-sync pushing the SHELL's text in is not an author move: the hub
+							// already has that text from the shell, and the caret it leaves is the editor's
+							// own mapping, not a place the author chose.
+							const fromSync = u.transactions.some((tr) => tr.annotation(fromValueSync));
 							if (u.docChanged) {
 								// CANONICAL ON THE WAY OUT — see the `noLeadingBom` note above. An undo can put a
 								// leading BOM back in the document (undo bypasses transaction filters), and
 								// `source` is what the preview renders, the export ships and the autosave stores,
 								// so it is this boundary that has to hold rather than the filter alone.
-								onChangeRef.current(stripBom(u.state.doc.toString()));
+								const text = stripBom(u.state.doc.toString());
+								// The hub first, with the editor's own account of what changed: a text diff
+								// cannot tell which of two equal-looking edits the author made, and the slide
+								// ids that keep the rail stable depend on it.
+								if (hub) revRef.current = hub.update(text, { span: changedSpan(u.changes), by: isAuthorEdit(u) ? 'markdown' : 'sync' });
+								onChangeRef.current(text);
 								// A genuine authoring edit carries a userEvent annotation; the
 								// external value-sync dispatch (deck switch, AI apply, restore)
 								// does not — so this fires for typing/paste/delete only.
@@ -717,16 +844,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 								}
 							}
 								if (u.docChanged || u.selectionSet) {
-									const lineText = u.state.doc.lineAt(u.state.selection.main.head).text;
-									if (lineText !== lastCursorTextRef.current) {
-										lastCursorTextRef.current = lineText;
-										onCursorTextRef.current?.(lineText);
-									}
-									const idx = slideIndexAt(u.state.doc.toString(), u.state.selection.main.head);
-									if (idx !== lastSlideRef.current) {
-										lastSlideRef.current = idx;
-										onCursorSlideRef.current?.(idx);
-									}
+									// THE CARET, to the hub: where it is and the line it is on. Constant work per
+									// update (a binary search in the hub), and the hub publishes only when a
+									// subscriber's selected value changed — so an arrow press along a line costs
+									// the rail and the shell nothing.
+									const sel = u.state.selection.main;
+									// `quiet` when no transaction is the author's: the editor's own reveal of what another
+									// pane asked for. The hub then keeps that pane's page choice (see `report`).
+									if (hub && !fromSync) hub.report('markdown', { head: sel.head, anchor: sel.anchor, line: u.state.doc.lineAt(sel.head).text, rev: revRef.current, quiet: !u.transactions.some((tr) => tr.annotation(Transaction.userEvent) !== undefined) });
 									// Emit selection emptiness transitions only (gates the Refine control).
 									const hasSel = !u.state.selection.main.empty;
 									if (hasSel !== lastHasSelRef.current) {
@@ -739,7 +864,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 			};
 			// Consume the carry here, not in the cleanup: a carry that does not match is
 			// dropped rather than kept for some later mount that might match by accident.
-			const restored = carryApplies(carried, carryKey, value) ? carried : null;
+			// A bound editor never restores a carried history: the binding owns undo while live.
+			const restored = !collab && carryApplies(carried, carryKey, value) ? carried : null;
 			carried = null;
 			const view = new EditorView({
 				parent: hostRef.current,
@@ -748,10 +874,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 					: EditorState.create(seed),
 			});
 			viewRef.current = view;
-			// THE LATEST-REFS BELONG TO THE COMPONENT, NOT THE VIEW, so a new view leaves them holding
-			// the OLD one's answers — and the update listener above only emits on a CHANGE, so
-			// nothing corrects them. Both channels are re-stated here, but under DIFFERENT rules,
-			// and each rule is a defect a checker caught after the other one was "fixed".
+			// THE LATEST-REF BELONGS TO THE COMPONENT, NOT THE VIEW, so a new view leaves it holding
+			// the OLD one's answer — and the update listener above only emits on a CHANGE, so
+			// nothing corrects it.
 			//
 			// SELECTION — ALWAYS, on every build. It gates a control ("Refine"), so it has to match
 			// the view that is actually on screen, and the emit-on-change comparison is what keeps
@@ -761,30 +886,24 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// empty, and the restored carry brings a live selection back with no announcement:
 			// measured on the built Studio, selection 0–1924 and no Refine button. The teardown
 			// withdrew it on the way out and nothing put it back.
-			//
-			// CURSOR-SLIDE — ONLY ON A REBUILD, never on a first mount, and never on StrictMode's
-			// repeat of one. `lastSlideRef` starts at -1 precisely so the author's FIRST caret move
-			// always emits; seeding it at mount from a document whose caret is at offset 0 swallows
-			// that move, and the shell keeps whatever slide `loadBootSlide()` restored. Measured:
-			// reload parked on slide 3, click into slide 1, and the rail stayed on 3 until you
-			// clicked a THIRD slide. It cannot simply be announced on every build either — that
-			// moves the preview off slide 1 whenever a carried state returns with its caret
-			// elsewhere, which put 19 shell tests red. So: re-stated silently, and only when the
-			// view was rebuilt for a different deck or a different known-set.
-			//
-			// `builtForRef` records what the last view was BUILT FOR rather than "have I built
-			// before", because `StudioIsland` wraps the Studio in `StrictMode` and its dev-only
-			// repeat mount matches on both halves — a boolean would read it as a rebuild.
-			const prevBuild = builtForRef.current;
-			builtForRef.current = { key: carryKey, known };
 			const hasSel0 = !view.state.selection.main.empty;
 			if (hasSel0 !== lastHasSelRef.current) {
 				lastHasSelRef.current = hasSel0;
 				onSelectionChangeRef.current?.(hasSel0);
 			}
-			if (prevBuild && (prevBuild.key !== carryKey || prevBuild.known !== known)) {
-				lastSlideRef.current = slideIndexAt(view.state.doc.toString(), view.state.selection.main.head);
-			}
+			// A NEW VIEW FOLLOWS THE FOCUS; it does not announce its own caret. A view built after
+			// a Compose round trip restores a carried caret from before the trip, and a view built
+			// for a deck switch starts at the top: neither is where the author is now. The hub is
+			// (the slide the rail and preview show), so the view moves to it. Before Fuoco this
+			// was a `lastSlideRef` seeded under rules that took three defects to get right.
+			// The view's text is the shell's text, which the hub already holds (the shell feeds it
+			// during render, before this effect): restate the revision this view's reports carry.
+			// A view built without a dispatch — a deck switch — otherwise kept the PREVIOUS deck's
+			// revision, and the hub dropped every caret report as stale until the next keystroke.
+			const hub = hubRef.current;
+			revRef.current = hub ? hub.update(stripBom(view.state.doc.toString()), { by: 'sync' }) : undefined;
+			const f = hub?.get();
+			if (f && f.unitIndex >= 0) revealFocus(view, f, true);
 		} catch {
 			setFailed(true);
 		}
@@ -806,7 +925,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// then hold whichever render happened to build it). It depends on `carryKey` now, so
 			// the closure is exactly the deck in question and the ref is the wrong answer.
 			const key = carryKey;
-			if (v && key) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
+			if (v && key && !collab) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
 			v?.destroy();
 			viewRef.current = null;
 			// This editor's lint answers die with it. Withdraw them, so a consumer holding a
@@ -823,7 +942,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			lastHasSelRef.current = false;
 			onSelectionChangeRef.current?.(false);
 		};
-	}, [known, carryKey]);
+	}, [known, carryKey, collabKey]);
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
@@ -866,6 +985,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// already seeded with the new deck's text and it returns at the guard below.
 	React.useEffect(() => {
 		const v = viewRef.current;
+		// Bound to a live session: the binding carries every change (see `collab`).
+		if (collabRef.current) return;
 		if (!v || value === v.state.doc.toString()) return;
 		const old = v.state.doc.toString();
 		// Minimal diff — the common prefix/suffix the two docs share.
@@ -878,23 +999,25 @@ export const Editor = React.forwardRef<EditorHandle, {
 		const toOld = old.length - suf;
 		const insert = value.slice(p, value.length - suf);
 		// A LOCALIZED change (a surgical slide-settings / note write) PRESERVES the caret:
-		// dispatch only the changed span so CodeMirror maps the selection through it, and
-		// pre-seed lastSlideRef with the caret's resulting slide so the value-sync doesn't
-		// fire a spurious cursor->preview jump. Under the old modal the caret-reset was
-		// invisible; beside the open Inspector column it was a visible jump to doc-top.
-		// A WHOLESALE replace (deck switch / restore / AI apply) still resets to the top —
-		// the old caret is meaningless in the new doc (the original guard).
+		// dispatch only the changed span so CodeMirror maps the selection through it. Under the
+		// old modal the caret-reset was invisible; beside the open Inspector column it was a
+		// visible jump to doc-top. A WHOLESALE replace (restore / AI apply) resets to the top —
+		// the old caret is meaningless in the new doc. Either way the dispatch carries
+		// `fromValueSync`, so the caret it leaves is not reported as the author's: where the
+		// author is after a shell edit is the shell's call (`go(…, { after })`), not this
+		// mapping's.
 		const localized = toOld - from <= old.length / 2 && insert.length <= value.length / 2;
 		if (localized) {
 			const change = { from, to: toOld, insert };
 			const mappedHead = ChangeSet.of(change, old.length).mapPos(v.state.selection.main.head, 1);
-			lastSlideRef.current = slideIndexAt(value, mappedHead);
-			v.dispatch({ changes: change, selection: { anchor: mappedHead } });
+			v.dispatch({ changes: change, selection: { anchor: mappedHead }, annotations: fromValueSync.of(true) });
 		} else {
-			lastSlideRef.current = 0;
-			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 } });
+			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 }, annotations: fromValueSync.of(true) });
 		}
-	}, [value]);
+		// A navigation that was waiting for this text (see `revealFocus`) lands now.
+		const parked = pendingRevealRef.current;
+		if (parked) revealFocus(v, parked);
+	}, [value, revealFocus]);
 
 	if (failed) {
 		return (

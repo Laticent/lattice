@@ -71,8 +71,8 @@ describe('repo package → zip → Studio → zip yields identical files', () =>
 	});
 
 	it('a theme (manifest, css)', async () => {
-		// Themes are still flat files (phase 5 moves them into folders), so pick indaco's two.
-		const first = repoPackage('theme', 'themes', 'probe-indaco', ['indaco.css', 'indaco.manifest.json']);
+		// A theme is a folder, themes/indaco/ (portable-packages phase 5), like every other kind.
+		const first = repoPackage('theme', 'themes/indaco', 'probe-indaco');
 		const parsed = await unpackBundle(await zipFolder('probe-indaco', first));
 		const t = parsed.themes[0];
 		const saved = await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css, pkg: t.pkg });

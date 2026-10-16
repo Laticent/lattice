@@ -2,6 +2,9 @@
 origin: 2360
 priority: P3
 recorded: 2026-09-25
+area: infra
+severity: low
+swimlane: RELEASE.md
 source: https://github.com/Laticent/lattice/issues/2360
 ---
 
@@ -30,9 +33,9 @@ Measured the same day with `npm publish --dry-run --access public` in each packa
 
 **Trama, 2026-09-27.** `@laticent/trama` (the graph-chart library) is a sixth workspace
 library, and the flowchart draws with it on every export. The published CLI bundle,
-`dist/lattice-emulator.js`, inlines it (`tools/build-emulator.js` `INLINE_PACKAGES`, pinned by
+`dist/lattice.js`, inlines it (`tools/build-cli.js` `INLINE_PACKAGES`, pinned by
 `test/unit/trama/serialization.test.js`), so the bin needs no install of it. Two surfaces still
-resolve it only through the workspace symlink: the LOOSE `lattice-emulator.js` source and a
+resolve it only through the workspace symlink: the LOOSE `lattice.js` source and a
 consumer that `require()`s `lib/components/chart/flowchart/flowchart.layout.js` directly. On
 either, outside the repo, the flowchart exports as its fallback tiles, and the CLI now warns
 that it did. Publishing Trama, or adding it to `dependencies`, closes both.
@@ -44,3 +47,9 @@ still loads). The bundles in `dist/` inline it, but the `./engine` and `./lib/*`
 `@laticent/lattice` publishes, Trama must ship with it (a dependency or inside `files`), or a
 hub-spoke slide rendered through `./engine` throws `Cannot find module '@laticent/trama/radial'`.
 The flowchart's browser pass has the same need.
+
+**Owner ruling, 2026-10-07: publish all nine.** The "not now" above has ended. All nine
+libraries (now including segno, calco, lente and tavola) publish alongside `@laticent/lattice`
+1.0.0, each on its own version line. The plan and its order are in
+`engineering/decisions/2026-10-07-first-npm-release.md`: slice B makes the libraries
+publishable, slice C brings in Changesets, and slice E is the first publish.

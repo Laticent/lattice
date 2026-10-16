@@ -2,6 +2,9 @@
 origin: 2354
 priority: P4
 recorded: 2026-09-24
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-24-lattice-studio-desktop.md §What shipped, and how it was checked
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

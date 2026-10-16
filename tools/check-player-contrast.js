@@ -135,7 +135,7 @@ function playerFor(input) {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-player-contrast-'));
 	TEMP_DIRS.push(dir);
 	const out = path.join(dir, `${path.basename(input, '.md')}.html`);
-	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), input, out, '--quiet', '--player'], {
+	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), input, out, '--quiet', '--player'], {
 		cwd: ROOT,
 		encoding: 'utf8',
 		env: { ...process.env },

@@ -95,7 +95,6 @@ export async function readDeckFile(file: File): Promise<LatticeImport> {
 }
 
 async function readZipDeck(file: File): Promise<LatticeImport> {
-	const { MAX_ZIP_BYTES } = await import('./zip-limits');
 	const { MAX_CARRIER_BYTES, extractFromPptx } = await import('./embedded-source');
 	if (file.size > MAX_CARRIER_BYTES) throw new Error('That file is too large to open.');
 	const { default: JSZip } = await import('jszip');
@@ -108,7 +107,6 @@ async function readZipDeck(file: File): Promise<LatticeImport> {
 	// A `.lattice` names its two parts at the root. Its own reader re-opens the archive with
 	// its own (tighter) size cap, which is the point: one reader, one set of limits.
 	if (zip.file('deck.md') && zip.file('manifest.json')) {
-		if (bytes.byteLength > MAX_ZIP_BYTES) throw new Error('That .lattice file is too large to open.');
 		const { readLatticeFile } = await import('./lattice-file');
 		return readLatticeFile(bytes);
 	}

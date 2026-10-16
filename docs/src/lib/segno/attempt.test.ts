@@ -235,6 +235,21 @@ describe('attempt(): what it reads', () => {
   });
 });
 
+describe('attempt(): the generated parser', () => {
+  // x_K explains why a BARE attempt failed; an attempt in a choice hands its character on instead
+  // and never reads it. Emitting it anyway left four unused functions in the committed flowchart
+  // row parser (PR #2545's code-quality scan).
+  it('writes the failure explanation only for an attempt used bare', () => {
+    const arrow = () => attempt(node('a', seq('-', '>')), { max: 4, next: ' ' });
+    const inChoice = generate({ start: 'r', rules: { r: many(alt(arrow(), chars('-> x', 'c'))) } });
+    const bare = generate({ start: 'r', rules: { r: seq(arrow(), many(chars('x', 'x'))) } });
+    expect(inChoice).toMatch(/function t_0\(/);
+    expect(inChoice).not.toMatch(/function x_0\(/);
+    expect(bare).toMatch(/function x_0\(/);
+    expect(bare).toMatch(/err = x_0\(\)/);
+  });
+});
+
 describe('attempt(): the linear bound', () => {
   // Every word start opens an attempt that reads its whole window and fails: the worst case.
   const spec = row(alt(attempt(arrow, { max: 64, next: SP }), word));
@@ -251,6 +266,20 @@ describe('attempt(): the linear bound', () => {
     // (a window running to the end of the input) misses by orders of magnitude.
     expect(time(() => c.parse(input))).toBeLessThan(1_500);
     expect(time(() => g(input))).toBeLessThan(1_500);
+  });
+
+  // A run LONGER than the window, under an attempt at every position. The generator finishes a
+  // long run with a regular expression, which cannot stop at a window's end; used inside an
+  // attempt it read the rest of the run each time — 8.7 s at 160k characters where the parse
+  // takes 0.15 s. The tree was right throughout, so only a timing catches it.
+  it('a loop inside an attempt reads no further than the window, however long the run', () => {
+    const a = chars('a');
+    const g = gen({ start: 'r', rules: { r: many(alt(attempt(seq(many(a), 'b'), { max: 256, next: ' ' }), a)) } });
+    const time = (s: string) => { g(s); let best = Infinity; for (let k = 0; k < 3; k++) { const t = performance.now(); g(s); best = Math.min(best, performance.now() - t); } return best; };
+    expect(g('a'.repeat(1000)).ok).toBe(true);
+    // 160k characters, each read about 256 times by design (max x input): about 0.15 s here. The
+    // quadratic version took about 60x that.
+    expect(time('a'.repeat(160_000))).toBeLessThan(2_000);
   });
 });
 

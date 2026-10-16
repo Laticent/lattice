@@ -1,0 +1,3 @@
+- The site-wide search finds Studio lessons: type "pdf" on any page and "How do I export a PDF?" opens the Studio running that lesson (`/studio/?lesson=<id>`).
+- Finished lessons are remembered. Search marks them "Done", and the end of a lesson offers the next one.
+- Opening Coach or Slide settings for the first time offers its lesson, once.

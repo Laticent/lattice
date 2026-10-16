@@ -2,6 +2,9 @@
 origin: 2289
 priority: P2
 recorded: 2026-09-22
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-21-compose-fenced-code.md
 source: https://github.com/Laticent/lattice/pull/2289#issuecomment-5767837535
 ---
 

@@ -23,7 +23,7 @@ const notesCore = require('../../../lib/authoring/notes-core');
 
 // Depth-counted scan over <section>…</section>, so a nested split-panel section
 // stays inside its parent — the same "one <section> string per slide" shape the
-// emulator + browser exporters consume (lattice-emulator.js engineSlides()).
+// emulator + browser exporters consume (lattice.js engineSlides()).
 function sectionsOf(html) {
   const re = /<section\b[^>]*>|<\/section>/gi;
   const out = [];

@@ -22,6 +22,23 @@
  */
 
 export type Cls = 'vocab' | 'id' | 'number' | 'time' | 'range' | 'text';
+const BUILT_IN = new WeakSet<object>();
+/** Mark a type as one of Segno's own: its `read` only looks at the text it is given. */
+function own<T extends object>(t: T): T {
+  // Frozen, so a caller cannot swap in a `read` that parses and keep the mark.
+  Object.freeze(t);
+  BUILT_IN.add(t);
+  return t;
+}
+/**
+ * Is this one of Segno's own types (a `range` or `named` only if what it wraps is)? Their `read`
+ * never parses a span, so a slot may read them while it walks the parser's reused buffer
+ * (schema.ts, the fast read). A caller's own type may do anything, so it is not asked there. A
+ * copy of a built-in (`{ ...text(), read }`) is not marked, which is the point.
+ */
+/** @internal */
+export const isBuiltIn = (t: object): boolean => BUILT_IN.has(t);
+
 export const CLASS_ORDER: readonly Cls[] = ['vocab', 'id', 'number', 'time', 'range', 'text'];
 
 export interface Type<T> {
@@ -50,11 +67,12 @@ export interface Type<T> {
  * schema would not build. Named-only parameters take no part in bare-word binding.
  */
 export function named<T>(t: Type<T>): Type<T> {
-  return { ...t, namedOnly: true, describe: `${t.describe}, written name=value` };
+  const n = { ...t, namedOnly: true, describe: `${t.describe}, written name=value` };
+  return isBuiltIn(t) ? own(n) : n;
 }
 
 /** Any text. Quoted text is only ever this type. */
-export const text = (): Type<string> => ({
+export const text = (): Type<string> => own({
   cls: 'text',
   describe: 'text',
   read: (s) => s,
@@ -84,26 +102,26 @@ export function oneOf<const V extends string>(values: readonly V[], options: Enu
     if (!values.includes(v as V)) throw new Error(`segno: alias target "${v}" is not one of ${values.join(', ')}`);
     for (const a of alts) claim(a, v as V);
   }
-  return {
+  return own({
     cls: 'vocab',
     describe: `one of ${values.join(', ')}`,
     words: [...map.keys()],
     read: (s, quoted) => (quoted ? undefined : map.get(s.toLowerCase())),
     canonical: (s) => map.get(s.toLowerCase()),
-  };
+  });
 }
 
 /** A declared word that switches something on: `milestone`, `total`, `dashed`. */
 export function flag(word: string, options: { aliases?: readonly string[] } = {}): Type<true> {
   const words = [word, ...(options.aliases ?? [])].map((w) => w.toLowerCase());
   for (const w of words) if (!TYPEABLE.test(w)) throw new Error(`segno: "${w}" cannot be written as a bare word — it holds a separator, quote, bracket or edge space`);
-  return {
+  return own({
     cls: 'vocab',
     describe: `"${word}"`,
     words,
     read: (s, quoted) => (!quoted && words.includes(s.toLowerCase()) ? true : undefined),
     canonical: (s) => (words.includes(s.toLowerCase()) ? word : undefined),
-  };
+  });
 }
 
 /**
@@ -124,7 +142,7 @@ export function indexed(prefix: string, options: { max: number; label?: string }
   const { max } = options;
   const words = Array.from({ length: max }, (_, i) => `${p}${i + 1}`);
   const range = `${p}1–${p}${max}`;
-  return {
+  return own({
     cls: 'vocab',
     describe: options.label ? `${options.label} ${range}` : range,
     words,
@@ -144,11 +162,11 @@ export function indexed(prefix: string, options: { max: number; label?: string }
       if (s.length <= p.length || s.slice(0, p.length).toLowerCase() !== p || !/^[1-9]\d*$/.test(s.slice(p.length))) return undefined;
       return `"${s}" is past the limit — this takes ${range}`;
     },
-  };
+  });
 }
 
 /** An id: `#api`. Lower-case letters, digits and hyphens, starting with a letter or digit. */
-export const id = (): Type<string> => ({
+export const id = (): Type<string> => own({
   cls: 'id',
   describe: 'an id like #api',
   read: (s, quoted) => {
@@ -169,20 +187,67 @@ export interface NumberValue {
 }
 
 const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9, bn: 1e9, T: 1e12 };
-// A WHOLLY numeric pill: optional sign or `(`, up to three symbol characters (a currency),
-// an optional inner sign, a digit run, an optional short unit, an optional `)`.
-// The same language as chart-values.js's pattern, written so no two `\s*` runs are separated
-// only by an optional piece: there, a failing match on a long run of tabs tried every way to
-// split it, and 20,000 tabs took 420 ms. Each optional piece now carries its own trailing space.
-const NUMERIC = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
+// A WHOLLY numeric pill, in one of three shapes: `(…)` around an unsigned number, the accounting
+// negative; one sign before an optional symbol prefix (`-$0.8M`); or one sign after it (`$-0.8M`).
+// The symbol prefix is up to three characters that are not a sign, a parenthesis or a separator
+// (`$`, `€`, `~`). The digits are one well-formed number: US groups (`1,234.5`), EU groups
+// (`1.234,5`), one decimal point or comma (`12.5`, `1,25`), or a bare fraction (`.5`). Then an
+// optional unit (`%`, U+2030, or one to six letters). The same language as chart-values.js's
+// pattern, written so no two `\s*` runs are separated only by an optional piece: there, a failing
+// match on a long run of tabs tried every way to split it, and 20,000 tabs took 420 ms.
+//
+// The older, looser pattern let a typo become a different number with no warning: `--5` read -5,
+// `(5` and `5)` read 5, `1,2,3` read 1.2 with the unit `.3`, and `1.2.3.4x` read 1234
+// (followups.d/2609-p2). Those are not numbers now; `malformedNumber` says why, and lint names it.
+// A sign look-alike is not a symbol: the dashes U+2010 to U+2015, the small and fullwidth
+// hyphen-minus (U+FE58, U+FE63, U+FF0D), the emoji minus U+2796, the katakana long-vowel mark U+30FC
+// a Japanese IME types for a minus, the modifier, superscript and subscript minus (U+02D7, U+207B,
+// U+208B), and the fullwidth and small plus (U+FF0B, U+FE62). `\u20135`
+// read as +5 with the dash taken for a currency. It is refused, and `malformedNumber` says so.
+const SIGN_LOOKALIKES = '\\u2010-\\u2015\\ufe58\\ufe62\\ufe63\\uff0b\\uff0d\\u2796\\u30fc\\u02d7\\u207b\\u208b';
+const SIGN_LOOKALIKE = new RegExp(`[${SIGN_LOOKALIKES}]`);
+const SYM = '[^\\w\\s+\\-\\u2212' + SIGN_LOOKALIKES + '().,]';
+const CORE = '(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)';
+const TAIL = '\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?';
+export const NUMERIC = new RegExp(
+  `^(?:\\(\\s*(?:${SYM}{1,3}\\s*)?${CORE}${TAIL}\\)|[+\\-\\u2212]?\\s*(?:${SYM}{1,3}\\s*)?${CORE}${TAIL}|${SYM}{1,3}\\s*[+\\-\\u2212]${CORE}${TAIL})$`,
+);
+// The older pattern: what LOOKS like an attempt at a number. A string it accepts and NUMERIC does
+// not is a malformed number, which a chart must not read as prose with a figure in it.
+export const NUMBER_SHAPED = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
 
-/** `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point. */
+// A European number: dot-grouped thousands, then ONE decimal comma, as the whole string (`1.234,5`,
+// `€1.234.567,89M`, `(1.234,5)`). Only this shape swaps the two separators. Anything looser keeps
+// the US reading, so prose the lenient fallback scans (`grew 3.5%, margin 12%`) is not multiplied.
+const EU_NUMBER = /^[^\d,.]*\d{1,3}(?:\.\d{3})+,\d+[^\d,.]*$/;
+
+// ISO 80000-1 digit grouping: a whole number whose thousands are separated by single spaces
+// (`12 000`, `1 234,5`, `€12 000k`), a no-break, narrow no-break or thin space as well. The spaces
+// are removed before anything else reads the number, so it plots, speaks and lints as one value:
+// before this it was not a value at all, and the lenient fallback read its first group (`1 234` → 1).
+// Only exact three-digit groups after the first, and only on a whole value: a sign or currency
+// before it, a unit after it, as a value pill allows, so `4 beds`, `Q1 2025`, `Q1 120` and
+// `Top 100 500` keep their reading. With space grouping the comma can only be the decimal mark
+// (ISO 80000-1), so `1 000,000` is 1000, not a million.
+const ISO_GROUPED = /^([(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?)(\d{1,3}(?:[ \u00A0\u202F\u2009]\d{3})+)(?:([.,])(\d+))?(\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?)$/;
+function collapseIsoGroups(s: string): string {
+  const m = ISO_GROUPED.exec(s);
+  return m ? m[1] + m[2].replace(/[ \u00A0\u202F\u2009]/g, '') + (m[4] ? `.${m[4]}` : '') + m[5] : s;
+}
+
+/**
+ * `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point.
+ * With both, a whole European number (`1.234,5`, see EU_NUMBER) reads its comma as the decimal, and
+ * anything else deletes the commas (`1,234.5`): both read 1234.5. Deleting the commas from `1.234,5`
+ * read it as 1.2345, a thousandfold misread.
+ */
 function normalizeSeparators(s: string): string {
+  s = collapseIsoGroups(s);
   const dots = (s.match(/\./g) || []).length;
   const commas = (s.match(/,/g) || []).length;
   if (commas && !dots) return /,\d{3}(?!\d)/.test(s) && !/,\d{1,2}(?!\d)/.test(s) ? s.replace(/,/g, '') : s.replace(/,/g, '.');
   if (dots > 1 && !commas) return s.replace(/\./g, '');
-  if (commas && dots) return s.replace(/,/g, '');
+  if (commas && dots) return EU_NUMBER.test(s) ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   return s;
 }
 
@@ -195,20 +260,30 @@ function normalizeSeparators(s: string): string {
  * token, and a number is read for every value in every chart.
  *
  * The rules it mirrors, each from `chart-values.js`: `(…)` is negative; a leading `-` or
- * U+2212 flips the sign; a `-` directly before the digits that the lead did not take is the
+ * U+2212 flips the sign; a `-` or U+2212 directly before the digits that the lead did not take is the
  * number's own sign; a magnitude letter (`k` `M` `B` `bn` `T`) must end the word; the sign is
  * "written" when the part before the digits holds `+`, `-` or U+2212, or the whole is `(…)`.
  */
 export function readNumberFast(t: string): NumberValue | null | undefined {
   const n = t.length;
   let i = 0;
-  // Prefix: at most three symbol characters from the everyday set, no spaces.
+  // Prefix: at most three symbol characters from the everyday set, no spaces. Anything the full
+  // reader refuses (a second sign, a `(` that is not first, a sign inside `(…)`) goes to it.
+  let signs = 0;
+  let symBeforeSign = false;
   while (i < n && i < 4) {
     const c = t.charCodeAt(i);
-    if (c === 40 || c === 43 || c === 45 || c === 0x2212 || c === 36 || c === 0x20ac || c === 0xa3 || c === 0xa5) i++;
+    const sym = c === 36 || c === 0x20ac || c === 0xa3 || c === 0xa5;
+    if (c === 43 || c === 45 || c === 0x2212) signs++;
+    else if (c === 40 && i > 0) return null;
+    // A sign sits before the symbols (`-$0.8M`) or after them (`$-0.8M`), never between two
+    // (`$-$2`): that shape goes to the full reader, which refuses it.
+    else if (sym && signs && symBeforeSign) return null;
+    else if (sym && !signs) symBeforeSign = true;
+    if (c === 40 || c === 43 || c === 45 || c === 0x2212 || sym) i++;
     else break;
   }
-  if (i > 3) return null;
+  if (i > 3 || signs > 1) return null;
   const digitsFrom = i;
   while (i < n && t.charCodeAt(i) >= 48 && t.charCodeAt(i) <= 57) i++;
   if (i === digitsFrom) return null;
@@ -232,6 +307,7 @@ export function readNumberFast(t: string): NumberValue | null | undefined {
   if (i !== n) return null;
 
   const opens = t.charCodeAt(0) === 40;
+  if (opens !== closes || (opens && signs)) return null;
   const paren = opens && closes;
   // With the parenthesis pair gone, a leading sign flips; the digits' own `-` is what is left.
   let p = paren ? 1 : 0;
@@ -239,7 +315,7 @@ export function readNumberFast(t: string): NumberValue | null | undefined {
   const lead = t.charCodeAt(p);
   if (p < digitsFrom && (lead === 45 || lead === 0x2212)) { neg = !neg; p++; }
   let x = Number.parseFloat(t.slice(digitsFrom, digitsTo));
-  if (digitsFrom > p && t.charCodeAt(digitsFrom - 1) === 45) x = -x;
+  if (digitsFrom > p && (t.charCodeAt(digitsFrom - 1) === 45 || t.charCodeAt(digitsFrom - 1) === 0x2212)) x = -x;
   if (!Number.isFinite(x)) return undefined;
   const unit = t.slice(unitFrom, unitTo);
   const mag = unit === 'bn' || (unit.length === 1 && 'kKmMBbT'.includes(unit)) ? unit : '';
@@ -268,13 +344,16 @@ export function readNumber(raw: string): NumberValue | undefined {
 export function readNumberFull(t: string): NumberValue | undefined {
   // `..` is the range delimiter and never part of a number. Without this, the separator rule
   // (two or more dots group) read `0..10` as 10 — a range silently became its upper end.
+  // An ISO-grouped number (`12 000`) is one value; NUMERIC has no room for its spaces.
+  t = collapseIsoGroups(t);
   if (!t || t.includes('..') || !NUMERIC.test(t)) return undefined;
   let s = normalizeSeparators(t);
   let neg = false;
   if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1).trim(); }
   const lead = s.match(/^[-\u2212]\s*/);
   if (lead) { neg = !neg; s = s.slice(lead[0].length); }
-  const m = s.match(/-?\d*\.?\d+/);
+  // U+2212 right before the digits (`$\u22125`) is a minus like `-`; it read as +5.
+  const m = s.replace(/\u2212(?=[\d.])/, '-').match(/-?\d*\.?\d+/);
   if (!m || m.index === undefined) return undefined;
   const n = Number.parseFloat(m[0]);
   if (!Number.isFinite(n)) return undefined;
@@ -287,7 +366,30 @@ export function readNumberFull(t: string): NumberValue | undefined {
   return { value: neg ? -Math.abs(value) : value, signed, unit };
 }
 
-export const number = (): Type<NumberValue> => ({
+const CORE_ONLY = new RegExp(`^${CORE}$`);
+/**
+ * Why a string that LOOKS like a number (NUMBER_SHAPED) is not one, or undefined when it is a
+ * number or plainly not an attempt at one. Lint quotes this, so an author learns why `--5` did not
+ * plot instead of watching the chart draw something else.
+ */
+export function malformedNumber(raw: string): string | undefined {
+  const t = collapseIsoGroups(raw.trim());
+  if (!t || t.includes('..') || !NUMBER_SHAPED.test(t) || readNumber(t) !== undefined) return undefined;
+  const at = t.search(/\d/);
+  const before = t.slice(0, at);
+  if (SIGN_LOOKALIKE.test(before)) return 'it has a look-alike where a sign goes: type `-` or `+`';
+  const signs = (before.match(/[+\-\u2212]/g) || []).length;
+  const inner = /\(/.test(before.slice(1)) && t.endsWith(')');
+  if (signs + (t.startsWith('(') && t.endsWith(')') ? 1 : 0) + (inner ? 1 : 0) > 1) return 'it has two signs';
+  // `$(1,234)`: a paired accounting negative, but the `(` must come first, as in `($1,234)`.
+  if (inner) return 'its `(` must come first, before any symbol';
+  if (t.startsWith('(') !== t.endsWith(')') || /\(/.test(before.slice(1))) return 'its parentheses do not pair';
+  const digits = /\d[\d,.]*/.exec(t.slice(at))?.[0] ?? '';
+  if (!CORE_ONLY.test(digits)) return 'its digits are not one number (group thousands in threes, with one decimal mark)';
+  return 'it is not written as one number';
+}
+
+export const number = (): Type<NumberValue> => own({
   cls: 'number',
   describe: 'a number',
   read: (s, quoted) => (quoted ? undefined : readNumber(s)),
@@ -329,7 +431,7 @@ export function readTime(raw: string): TimePoint | undefined {
   return undefined;
 }
 
-export const time = (): Type<TimePoint> => ({
+export const time = (): Type<TimePoint> => own({
   cls: 'time',
   describe: 'a time (2026-03-15, 2026 Q1, Q3, Jan)',
   read: (s, quoted) => (quoted ? undefined : readTime(s)),
@@ -344,7 +446,7 @@ export interface Range<T> {
 
 /** `a..b` over another type. `..` is the only range delimiter; the first one splits. */
 export function range<T>(of: Type<T>): Type<Range<T>> {
-  return {
+  const r: Type<Range<T>> = {
     cls: 'range',
     describe: `a range of ${of.describe} (a..b)`,
     read: (s, quoted) => {
@@ -356,4 +458,5 @@ export function range<T>(of: Type<T>): Type<Range<T>> {
       return from !== undefined && to !== undefined ? { from, to } : undefined;
     },
   };
+  return isBuiltIn(of) ? own(r) : r;
 }

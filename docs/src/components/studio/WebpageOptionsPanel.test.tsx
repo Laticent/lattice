@@ -14,7 +14,7 @@ import { WebpageOptionsPanel } from './WebpageOptionsPanel';
 // is generated from slide CONTENT, which --strip-notes does not touch — and the CLI was
 // made orthogonal in the same change. The Studio was not, and NOTHING PINNED IT, so the
 // two render paths silently disagreed about one user intent: the same deck exported with
-// notes stripped produced a caption track from `lattice-emulator.js` and no caption track
+// notes stripped produced a caption track from `lattice.js` and no caption track
 // from this panel. That is the shape HARD RULE #1 exists to prevent, and it cost a
 // stripped deck the caption track a recipient needs for accessibility.
 //

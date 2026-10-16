@@ -384,6 +384,320 @@
           }
         },
         "cols": 0
+      },
+      "vertical": {
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [113.8, 97],
+              "huddle": [99.5, 111],
+              "conference": [87.5, 126],
+              "hall": [76.2, 145]
+            },
+            "body": {
+              "laptop": [119.5, 103],
+              "huddle": [103.9, 119],
+              "conference": [91.9, 134],
+              "hall": [79.7, 155]
+            },
+            "budget": {
+              "laptop": 1542,
+              "huddle": 1543,
+              "conference": 1543,
+              "hall": 1542
+            },
+            "row": {
+              "laptop": 335,
+              "huddle": 345,
+              "conference": 369,
+              "hall": 399
+            }
+          }
+        },
+        "cols": 1
+      },
+      "vertical compact": {
+        "frame": {
+          "eyebrow": {
+            "laptop": [96.6, 103],
+            "huddle": [84, 119],
+            "conference": [64.6, 134],
+            "hall": [49.5, 155]
+          },
+          "heading": {
+            "laptop": [66.6, 135],
+            "huddle": [57.9, 155],
+            "conference": [51.2, 176],
+            "hall": [44.4, 203]
+          },
+          "callout": {
+            "laptop": [120.8, 97],
+            "huddle": [105, 111],
+            "conference": [92.9, 126],
+            "hall": [80.5, 145]
+          },
+          "eyebrowAt": {
+            "laptop": 11,
+            "huddle": 11,
+            "conference": 11,
+            "hall": 11
+          },
+          "calloutAt": {
+            "laptop": 181,
+            "huddle": 192,
+            "conference": 217,
+            "hall": 250
+          }
+        },
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [113.8, 97],
+              "huddle": [101.2, 111],
+              "conference": [87.5, 126],
+              "hall": [77.5, 145]
+            },
+            "body": {
+              "laptop": [120.8, 103],
+              "huddle": [105, 119],
+              "conference": [92.9, 134],
+              "hall": [80.5, 155]
+            },
+            "budget": {
+              "laptop": 1567,
+              "huddle": 1568,
+              "conference": 1568,
+              "hall": 1566
+            },
+            "row": {
+              "laptop": 269,
+              "huddle": 279,
+              "conference": 302,
+              "hall": 333
+            }
+          }
+        },
+        "cols": 1
+      },
+      "phase": {
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [
+                [51.8, 31.4, 20.6, 14.9],
+                97
+              ],
+              "huddle": [
+                [44.3, 27.5, 18.5, 12.9],
+                111
+              ],
+              "conference": [
+                [40.3, 24.2, 16.2, 11.5],
+                126
+              ],
+              "hall": [
+                [33.3, 20.6, 13.6, 10.4],
+                145
+              ]
+            },
+            "body": {
+              "laptop": [
+                [54.5, 32.9, 22, 15.5],
+                103
+              ],
+              "huddle": [
+                [47.4, 28.6, 19.1, 13.5],
+                119
+              ],
+              "conference": [
+                [41.9, 25.3, 16.9, 11.9],
+                134
+              ],
+              "hall": [
+                [36.3, 21.9, 14.7, 10.6],
+                155
+              ]
+            },
+            "budget": {
+              "laptop": 1281,
+              "huddle": 1271,
+              "conference": 1248,
+              "hall": [1217, 1218, 1218, 1086]
+            },
+            "row": {
+              "laptop": 0,
+              "huddle": 0,
+              "conference": 0,
+              "hall": 0
+            }
+          }
+        },
+        "cols": 0
+      },
+      "milestone": {
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [
+                [51.8, 31.4, 20.6, 14.9],
+                97
+              ],
+              "huddle": [
+                [44.3, 27.5, 18.5, 12.9],
+                111
+              ],
+              "conference": [
+                [40.3, 24.2, 16.2, 11.5],
+                126
+              ],
+              "hall": [
+                [33.3, 20.6, 13.6, 10.4],
+                145
+              ]
+            },
+            "body": {
+              "laptop": [
+                [54.5, 32.9, 22, 15.5],
+                103
+              ],
+              "huddle": [
+                [47.4, 28.6, 19.1, 13.5],
+                119
+              ],
+              "conference": [
+                [41.9, 25.3, 16.9, 11.9],
+                134
+              ],
+              "hall": [
+                [36.3, 21.9, 14.7, 10.6],
+                155
+              ]
+            },
+            "budget": {
+              "laptop": 1281,
+              "huddle": 1271,
+              "conference": [1248, 1248, 1248, 1147],
+              "hall": [1217, 1218, 1085, 1086]
+            },
+            "row": {
+              "laptop": 0,
+              "huddle": 0,
+              "conference": 0,
+              "hall": 0
+            }
+          }
+        },
+        "cols": 0
+      },
+      "milestone lettered": {
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [
+                [51.8, 31.4, 20.6, 14.9],
+                97
+              ],
+              "huddle": [
+                [44.3, 27.5, 18.5, 12.9],
+                111
+              ],
+              "conference": [
+                [40.3, 24.2, 16.2, 11.5],
+                126
+              ],
+              "hall": [
+                [33.3, 20.6, 13.6, 10.4],
+                145
+              ]
+            },
+            "body": {
+              "laptop": [
+                [54.5, 32.9, 22, 15.5],
+                103
+              ],
+              "huddle": [
+                [47.4, 28.6, 19.1, 13.5],
+                119
+              ],
+              "conference": [
+                [41.9, 25.3, 16.9, 11.9],
+                134
+              ],
+              "hall": [
+                [36.3, 21.9, 14.7, 10.6],
+                155
+              ]
+            },
+            "budget": {
+              "laptop": 1281,
+              "huddle": 1271,
+              "conference": [1248, 1248, 1248, 1147],
+              "hall": [1217, 1218, 1085, 1086]
+            },
+            "row": {
+              "laptop": 0,
+              "huddle": 0,
+              "conference": 0,
+              "hall": 0
+            }
+          }
+        },
+        "cols": 0
+      },
+      "capsule": {
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [
+                [40.5, 23.3, 15, 10.4],
+                97
+              ],
+              "huddle": [
+                [33.3, 20.6, 13.2, 10.4],
+                111
+              ],
+              "conference": [
+                [31, 17.8, 11.5, 10.4],
+                126
+              ],
+              "hall": [
+                [26.9, 15.5, 10.4, 10.4],
+                145
+              ]
+            },
+            "body": {
+              "laptop": [
+                [42, 24.6, 15.8, 10.8],
+                103
+              ],
+              "huddle": [
+                [36.5, 21.3, 13.7, 10.8],
+                119
+              ],
+              "conference": [
+                [32.3, 18.9, 12.1, 10.8],
+                134
+              ],
+              "hall": [
+                [28, 16.4, 10.8, 10.8],
+                155
+              ]
+            },
+            "budget": {
+              "laptop": 1199,
+              "huddle": 1188,
+              "conference": [1161, 1161, 1161, 1094],
+              "hall": [1126, 1125, 1038, 1038]
+            },
+            "row": {
+              "laptop": 0,
+              "huddle": 0,
+              "conference": 0,
+              "hall": 0
+            }
+          }
+        },
+        "cols": 0
       }
     }
   },

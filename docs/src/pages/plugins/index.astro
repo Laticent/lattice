@@ -1,0 +1,142 @@
+---
+// The Plugins hub — what a plugin is, the six an author writes, how they load, and how to
+// write one. The cards come from src/content/catalog/plugins/; the explainer below them is the
+// author's view of lib/plugins/README.md and spec/LPM.md, without the internals. Two shipped
+// plugins get a note rather than a card (chart-family is plumbing; anima's format is not
+// settled), so the cards list only what an author can usefully write today.
+import { getCollection } from 'astro:content';
+import CatalogLayout from '../../layouts/CatalogLayout.astro';
+import CatalogCard from '../../components/catalog/CatalogCard.astro';
+import { joinBase } from '../../lib/base-url.mjs';
+import { byOrder } from '../../lib/catalog.mjs';
+
+const url = (p) => joinBase(import.meta.env.BASE_URL, p);
+const plugins = (await getCollection('catalog', (e) => e.data.kind === 'plugin')).sort(byOrder);
+const GH = 'https://github.com/Laticent/lattice/blob/main/';
+---
+
+<CatalogLayout
+	title="Plugins — new things you can write on any slide"
+	description="Math, Mermaid diagrams, icons, avatars, function plots and highlighted code: plugins add a syntax that works on any Lattice slide. Each has a live demo and a plain-language guide."
+>
+	<section class="cat-hero">
+		<div class="wrap">
+			<div class="cat-hero-inner">
+				<p class="cat-eyebrow">Plugins</p>
+				<h1 class="cat-h1">Plugins teach your Markdown new tricks.</h1>
+				<p class="cat-lede">
+					A plugin adds something you can write on any slide: an equation, a diagram, an icon, a face, a graph.
+					Every one is on by default, and costs nothing until a slide uses it. The Studio is Lattice's editor in the
+					browser; the Playground is the try-it page on this site. Both draw everything below.
+				</p>
+				<ul class="cat-traits" aria-label="What they have in common">
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> On by default</li>
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> Works on any slide</li>
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> Drawn in the deck's colors</li>
+					<li class="cat-trait"><span class="ico ico-check" aria-hidden="true"></span> The same figure in the Studio, the PDF and the HTML</li>
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="the-plugins" style="padding-top: 0">
+		<div class="wrap cat-group">
+			<h2 class="cat-group-title" id="the-plugins">The six you write</h2>
+			<ul class="cat-cards">
+				{plugins.map((e) => <CatalogCard entry={e} />)}
+			</ul>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="how">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="how">How a plugin works</h2>
+				<p>You never install or switch anything on. You write, and the deck draws.</p>
+			</div>
+			<ol class="cat-steps">
+				<li class="cat-step">
+					<h3>You write the syntax</h3>
+					<p><code>$E = mc^2$</code> in a sentence, a <code>```mermaid</code> block, <code>`^&#123;database&#125;`</code> in inline code. Each plugin reads its own small piece of Markdown.</p>
+				</li>
+				<li class="cat-step">
+					<h3>Lattice loads what the deck uses</h3>
+					<p>Every plugin is on by default, but its heavy parts — a diagram library, a set of drawings — load only for a deck that writes its syntax. A deck with no diagrams never downloads the diagram library.</p>
+				</li>
+				<li class="cat-step">
+					<h3>Every surface draws it</h3>
+					<p>The Studio, the Playground, the PDF and the HTML export show the same figure, in the slide's colors, light or dark. PowerPoint gets a picture of the slide.</p>
+				</li>
+			</ol>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="vs">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="vs">Plugin, component or library?</h2>
+				<p>Three words you'll meet on this site. They answer different questions.</p>
+			</div>
+			<div class="cat-table-wrap" tabindex="0">
+				<table class="cat-table">
+					<thead><tr><th scope="col"></th><th scope="col">What it is</th><th scope="col">How you use it</th><th scope="col">For example</th></tr></thead>
+					<tbody>
+						<tr><th scope="row">A plugin</th><td>Something new you can write, on any slide</td><td>Write its syntax anywhere</td><td>A <code>```mermaid</code> block on an ordinary slide</td></tr>
+						<tr><th scope="row"><a href={url('components/')}>A component</a></th><td>A layout for a whole slide</td><td><code>&lt;!-- _class: diagram --&gt;</code> at the top of a slide</td><td>The <code>diagram</code> slide, designed around a Mermaid block</td></tr>
+						<tr><th scope="row"><a href={url('libraries/')}>A library</a></th><td>A standalone part of Lattice you can use in your own app</td><td>Install it and call it from code</td><td>Trama, which lays out Lattice's own flowcharts</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="control">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="control">When you want more control</h2>
+				<p>Most decks never need any of this. It's here for decks that travel between tools, and for teams that run Lattice themselves.</p>
+			</div>
+			<ul class="cat-note-list">
+				<li><strong>List the plugins a deck relies on.</strong> <span>A <code>plugins: [math, mermaid]</code> line in the deck's front matter (the settings block at the top of the file) loads those plugins wherever the deck is opened, even in a setup that starts with fewer plugins on. It only ever adds; it never removes one.</span></li>
+				<li><strong>See why each one is on.</strong> <span>The Studio's deck settings have a Plugins tab: one row per plugin, the syntax it reads, and why it's on for this deck — by default, listed in the deck, or needed by a slide.</span></li>
+				<li><strong>Switch one off.</strong> <span>Whoever runs the export can turn a plugin off with <code>--disable-plugin mermaid</code>. Each falls back gracefully: a diagram shows its source, math shows the TeX as text. A deck's own list can't switch it back on.</span></li>
+			</ul>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="hood">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="hood">Under the hood</h2>
+				<p>Two more plugins ship with Lattice. You'll see them in the Studio's Plugins tab, but you won't write them yourself.</p>
+			</div>
+			<ul class="cat-note-list">
+				<li><strong>Chart family</strong> <span>The machinery behind every chart slide — bar, line, Gantt and the rest. It has no syntax of its own; a chart slide loads it. Switched off, a chart slide shows the list it was written as.</span></li>
+				<li><strong>Anima</strong> <span>Carries an animated scene to the <code>scene</code> slide, which plays it in the Studio and the HTML export while the PDF keeps a still. Its scene format is still changing, so it isn't documented here yet.</span></li>
+			</ul>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="own">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="own">Write your own</h2>
+				<p>
+					One command writes a working plugin: a folder with a manifest, a renderer, a stylesheet, a reference page
+					and its test cases. It passes the build and the test suite before you change a line.
+				</p>
+			</div>
+			<div class="cat-prose" style="padding-bottom: 20px">
+				<pre><code>lattice packages new plugin my-plugin</code></pre>
+			</div>
+			<p class="cat-lede" style="font-size: 16px; padding-bottom: 20px">
+				Today that means working in a copy of the Lattice repository: the plugin contract is still a draft, and
+				publishing plugins on their own comes later.
+			</p>
+			<div class="cat-actions">
+				<a class="cat-btn" href={`${GH}lib/plugins/README.md`}>The plugin guide <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+				<a class="cat-btn" href={`${GH}spec/LPM.md`}>The plugin contract (draft) <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+			</div>
+		</div>
+	</section>
+</CatalogLayout>

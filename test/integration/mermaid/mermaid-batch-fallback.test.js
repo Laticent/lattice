@@ -37,14 +37,14 @@ const { spawnSync } = require('node:child_process');
 
 describe('mermaid batch fallback', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'mermaid-batch-fallback.md');
   const TIMEOUT = 120000;
 
   test('a malformed fence costs only itself — the valid one still renders', { timeout: TIMEOUT }, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mmd-fb-'));
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out], {
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
 

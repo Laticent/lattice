@@ -932,7 +932,7 @@ describe('review-core — defects found by running the shipped checker', () => {
 			densityOf: () => ({ axis: 'item', soft: 16, hard: 40, note: 'a stacked card is a short paragraph at most' }),
 		}).filter((f) => f.rule.startsWith('density-'));
 		assert.equal(density.length, 1);
-		// Without this the reader gets "a cards-stack element runs to 22 words" and
+		// Without this the reader gets "one item on this slide runs to 22 words" and
 		// has to find which of the cards it is by hand.
 		assert.equal(density[0].line, 'Lift and shift');
 	});

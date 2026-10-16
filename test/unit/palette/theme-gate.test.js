@@ -17,6 +17,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -31,8 +32,8 @@ const { STARTERS, getStarter } = require('../../../lib/theme/starters.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES_DIR = path.join(ROOT, 'themes');
-const THEME_FILES = fs.readdirSync(THEMES_DIR).filter(f => f.endsWith('.css')).sort();
-const readTheme = f => fs.readFileSync(path.join(THEMES_DIR, f), 'utf8');
+const THEME_FILES = themeEntries(THEMES_DIR).filter(f => f.endsWith('.css')).sort();
+const readTheme = f => fs.readFileSync(themePath(THEMES_DIR, f), 'utf8');
 /** The live registry a Studio host would pass: every shipped palette + the base. */
 const REGISTRY = [...THEME_FILES.map(f => f.replace(/\.css$/, '')), BASE_THEME];
 
@@ -72,7 +73,7 @@ describe('theme gate — the shipped corpus', () => {
   });
 
   test('a composing theme is never indicted for the tokens it INHERITS', () => {
-    // themes/ardesia-dark.css is, in its entirety, `@import 'ardesia';` plus a
+    // themes/ardesia-dark/ardesia-dark.css is, in its entirety, `@import 'ardesia';` plus a
     // `color-scheme: dark` root block. It declares 0 of the 107 contract tokens and
     // is completely correct; a conformance rung that ran over it would report ~107
     // phantom errors against a shipped file.
@@ -139,7 +140,7 @@ describe('theme gate — the @import allowlist, reject case by reject case', () 
   test('a quoted target that is not a bare theme name', () => {
     rejects("@import 'https://evil.example/x.css';", 'quoted absolute URL');
     rejects("@import './sibling.css';", 'quoted relative path');
-    rejects("@import 'themes/ardesia.css';", 'quoted path that contains a real theme name');
+    rejects("@import 'themes/ardesia/ardesia.css';", 'quoted path that contains a real theme name');
     rejects("@import '';", 'empty target');
   });
 

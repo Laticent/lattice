@@ -7,5 +7,7 @@
  * reads values (Lattice's chart-values.js and gantt-time.js, which every chart and the narrator
  * share) takes this entry so a bundle that cannot tree-shake a CommonJS `require` does not carry
  * the whole grammar engine. Same code as the main entry's readers — this file only re-exports.
+ * `malformedNumber` says why a string shaped like a number is not one (`--5`, `(5`, `1,2,3`), so
+ * a consumer can warn instead of reading it as prose with a figure in it.
  */
-export { type NumberValue, readNumber, readTime, type TimePoint } from './types.js';
+export { malformedNumber, NUMERIC, type NumberValue, readNumber, readTime, type TimePoint } from './types.js';

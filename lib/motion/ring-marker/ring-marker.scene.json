@@ -1,0 +1,46 @@
+{
+  "source": "svg",
+  "asset": "ring-marker",
+  "duration": 1650,
+  "hero": 1,
+  "elements": [
+    {
+      "id": "mxyqxfnzu-ring",
+      "pathRef": "mxyqxfnzu-ring",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0,
+          "span": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "mxyqxfnzu-bead",
+      "pathRef": "mxyqxfnzu-bead",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0.333333,
+          "span": 0.333333
+        },
+        {
+          "verb": "highlight",
+          "at": 0.333333,
+          "span": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "mxyqxfnzu-rule",
+      "pathRef": "mxyqxfnzu-rule",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0.666667,
+          "span": 0.333333
+        }
+      ]
+    }
+  ]
+}

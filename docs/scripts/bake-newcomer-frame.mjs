@@ -31,7 +31,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 
@@ -134,10 +134,16 @@ async function main() {
 	}
 	globalThis.fetch = win.fetch;
 
-	// The engine bundle the browser runs, run in the window.
+	// The engine the browser runs: the staged ESM files, imported here with `window` pointing at the
+	// jsdom window above, so the engine registers itself there exactly as it does in the page. Every
+	// chart kernel is imported up front, which leaves the bridge's on-demand chart load nothing to do
+	// (the browser fetches them by URL; Node cannot fetch a site-relative URL).
 	const engineFile = path.join(DIST, new URL(pg.engineUrl, origin + '/').pathname);
-	win.eval(fs.readFileSync(engineFile, 'utf8'));
-	if (!win.LatticePlayground) throw new Error('bake: the engine bundle did not register window.LatticePlayground');
+	await import(pathToFileURL(engineFile).href);
+	for (const f of fs.readdirSync(path.dirname(engineFile)).filter((n) => /^chart-[a-z0-9-]+\.js$/.test(n))) {
+		await import(pathToFileURL(path.join(path.dirname(engineFile), f)).href);
+	}
+	if (!win.LatticePlayground) throw new Error('bake: the engine did not register window.LatticePlayground');
 
 	const vite = await createServer({
 		root: DOCS,

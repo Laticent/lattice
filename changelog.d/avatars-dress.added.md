@@ -1,0 +1,6 @@
+- **Avatars can wear earrings, head coverings and a choice of top.** Four new traits, all opt-in, so a
+  face you already drew does not change: `earrings=stud|hoop|drop`, `headwear=hijab|turban|skullcap|beanie|kufi|cap|backcap` with
+  `headwear-color` (the nine `top` colors), and `clothing=crew|vneck|collar|turtleneck|hoodie|blazer`
+  (`crew` is the default). Every covering except the hijab is fitted to the face shape (a flatter dome on a round head, a taller one on a long head). A hijab and a turban hide all hair; a skull cap, beanie, kufi and baseball cap (`cap`) hide the fringe and any
+  volume above them; a fitted cap worn backwards (`backcap`) sits back on the crown and leaves the fringe showing (a bun, an afro, curls); a hijab covers the ears, so it hides earrings. The Avatars guide, cheat sheet and `avatars.docs.md`
+  list them, and `examples/avatars-dress.md` shows each.

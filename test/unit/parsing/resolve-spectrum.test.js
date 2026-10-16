@@ -13,6 +13,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -301,9 +302,9 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
   test('no theme reads the raw `var(--spectrum)` for a structural accent (would defeat spectrum-trim)', () => {
     const themesDir = path.join(__dirname, '../../../themes');
     const offenders = [];
-    for (const f of fs.readdirSync(themesDir)) {
+    for (const f of themeEntries(themesDir)) {
       if (!f.endsWith('.css')) continue;
-      const css = fs.readFileSync(path.join(themesDir, f), 'utf8');
+      const css = fs.readFileSync(themePath(themesDir, f), 'utf8');
       // Exact `var(--spectrum)` — the trailing `)` excludes `--spectrum-vertical/-end/-solid/-structure`.
       if (/var\(--spectrum\)/.test(css)) offenders.push(f);
     }

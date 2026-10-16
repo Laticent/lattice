@@ -1,0 +1,1 @@
+- **Editable `.pptx` is now schema-valid.** PptxGenJS 3.12 wrote a paragraph's properties before every run instead of once, listed the notes master out of order, and declared a slide master per slide that the file does not contain. Calco now mends all three when it writes the file, so a strict reader such as PowerPoint has nothing to repair. Text renders exactly as before.

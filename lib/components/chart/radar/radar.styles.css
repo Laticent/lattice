@@ -33,7 +33,7 @@
  *
  * Sibling implementations:
  *   - lib/radar.js          transform module (canonical)
- *   - lattice-emulator.js   per-slide HTML-string transform
+ *   - lattice.js   per-slide HTML-string transform
  *   - lib/engine           the engine render path
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */
@@ -67,7 +67,7 @@
 
 :is(section.radar, figure.chart-frame) .radar-svg {
   /* Sizing (height-bound on the unified viewBox aspect — diagram + key as one
-   * unit) is the shared SVG-native rule in _chart-family/chart-family.css. The
+   * unit) is the shared SVG-native rule in lib/plugins/chart-family/chart-family.styles.css. The
    * old square `aspect-ratio:1/1` is retired: the viewBox is no longer square
    * (it now includes the key rail), so forcing a square letterboxed the whole
    * unit small. Only the rim-label overflow stays radar's own — axis labels
@@ -161,7 +161,7 @@
 /* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
  * two touching marks apart, so its correct weight follows what it has to
  * separate, not the family's outline weight. It is deliberately excluded
- * from the shared `--chart-edge` rule — see chart-family.css. */
+ * from the shared `--chart-edge` rule — see chart-family.styles.css. */
 :is(section.radar, figure.chart-frame) .radar-dot {
   fill: var(--series-color);
   stroke: var(--bg);
@@ -170,7 +170,7 @@
 
 /* ── Legend ───────────────────────────────────────────────────────────────
  * The key is now SVG-native (svg-legend.js → `.chart-key-*`, styled in
- * _chart-family/chart-family.css). A muted reference series (target / before /
+ * lib/plugins/chart-family/chart-family.styles.css). A muted reference series (target / before /
  * comparison band) is keyed with a quiet swatch from the kernel rather than the
  * old dashed-chip CSS. The HTML `.radar-legend` rules are retired with it. See
  * 2026-06-13-svg-native-legend.md. */
@@ -254,7 +254,7 @@
  * stay at their basis while the body keeps the leftover.
  *
  * SCOPED to the same condition that makes `.chart-body` a size container
- * (chart-family.css excludes claim-hero/claim-bleed). `100cqh` with no query
+ * (chart-family.styles.css excludes claim-hero/claim-bleed). `100cqh` with no query
  * container resolves against the VIEWPORT, and at claim-hero the pre-existing
  * `section.radar:is(.claim-hero,.claim-bleed) .radar-figure { height: auto }`
  * ties this rule on specificity — so leaving it unscoped would hand the
@@ -311,7 +311,7 @@ section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure[data-variant
  *
  * The token is calibrated by MEASUREMENT against the surface whose BYTES ship —
  * the emulator document Chrome prints the PDF from, AT THE VIEWPORT IT PRINTS
- * AT (1280x720; `lattice-emulator.js` setViewport before `page.pdf`). There
+ * AT (1280x720; `lattice.js` setViewport before `page.pdf`). There
  * `cqi` resolves against the nearest size container's CONTENT box, `.chart-body`
  * at 921.8px, so 1cqi = 9.218px and the old 188px is 20.399cqi.
  *
@@ -380,7 +380,7 @@ section.radar.dark {
 
 /* ── RADAR · COVER ──────────────────────────────────────────────────────
  * `cover` is the global full-bleed-with-caption modifier (base.variants.css),
- * and the chart family generalizes it (chart-family.css `section.chart-frame
+ * and the chart family generalizes it (chart-family.styles.css `section.chart-frame
  * :is(.claim-hero, .claim-bleed)`): the bleed, hidden chrome, exposed title, filled chart-body, and the
  * sheen caption band all come from there. This block adds only radar's own
  * extras — centering and scaling up the single SVG unit (diagram + key), and the

@@ -29,7 +29,10 @@ describe('saveFile — web host', () => {
 		const pending = saveFile('deck.pdf', blob);
 		// No await yet: the click has already happened.
 		expect(click).toHaveBeenCalledTimes(1);
-		expect(created).toEqual([blob]);
+		// download.js wraps the bytes in a File named like the export (see its header).
+		expect(created).toHaveLength(1);
+		expect(created[0]).toBeInstanceOf(File);
+		expect((created[0] as File).name).toBe('deck.pdf');
 		expect(document.querySelector('a[download]')).toBeNull();
 		click.mockRestore();
 		return expect(pending).resolves.toBe('saved');
@@ -151,7 +154,7 @@ describe('signIn — web host', () => {
 // A grep for `a.download` alone missed one (a library's own saver, pptxgenjs `writeFile`),
 // so this census also catches `writeFile(` called on a library object.
 describe('every Studio save goes through the seam', () => {
-	it('no source file outside lib/platform.js saves by itself', async () => {
+	it('no source file outside the seam saves by itself', async () => {
 		const { readFileSync, readdirSync, statSync } = await import('node:fs');
 		const { join, relative } = await import('node:path');
 		const root = join(__dirname, '..');
@@ -165,7 +168,9 @@ describe('every Studio save goes through the seam', () => {
 				if (statSync(path).isDirectory()) { walk(path); continue; }
 				if (!/\.(js|mjs|ts|tsx|astro)$/.test(name) || /\.test\./.test(name)) continue;
 				const rel = relative(root, path);
-				if (rel === 'lib/platform.js' || outsideTheApp.has(rel)) continue;
+				// The seam's two halves: download.js clicks the browser's link and sends a desktop
+				// save to lib/platform.js, which shows the native dialog.
+				if (rel === 'lib/platform.js' || rel === 'components/studio/download.js' || outsideTheApp.has(rel)) continue;
 				readFileSync(path, 'utf8').split('\n').forEach((line, i) => {
 					if (bypass.test(line) && !/^\s*(\/\/|\*)/.test(line)) offenders.push(`${rel}:${i + 1}`);
 				});
@@ -173,5 +178,48 @@ describe('every Studio save goes through the seam', () => {
 		};
 		walk(root);
 		expect(offenders).toEqual([]);
+	});
+});
+
+// The Studio calls download.js, not saveFile: in the desktop app download.js hands the save
+// here, and its `onSaved` must mean "the file exists". The backup records itself in `onSaved`,
+// so a dismissed dialog that still called it would switch off the backup nudge.
+describe('download.js in the desktop app', () => {
+	const invoke = vi.fn();
+	beforeEach(() => {
+		if (!Blob.prototype.arrayBuffer) {
+			Blob.prototype.arrayBuffer = function (this: Blob) {
+				return new Promise<ArrayBuffer>((resolve, reject) => {
+					const r = new FileReader();
+					r.onload = () => resolve(r.result as ArrayBuffer);
+					r.onerror = () => reject(r.error);
+					r.readAsArrayBuffer(this);
+				});
+			};
+		}
+		invoke.mockReset();
+		(window as W).__TAURI_INTERNALS__ = { invoke };
+	});
+	afterEach(() => {
+		delete (window as W).__TAURI_INTERNALS__;
+	});
+
+	it('saves through the native dialog, clicks no link, and calls onSaved only for a written file', async () => {
+		const { downloadBlob } = await import('@/components/studio/download');
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+		const onSaved = vi.fn();
+
+		invoke.mockResolvedValueOnce(null); // the author dismissed the dialog
+		downloadBlob('backup.zip', new Blob(['zip']), { onSaved });
+		await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+		await new Promise((r) => setTimeout(r));
+		expect(onSaved).not.toHaveBeenCalled();
+
+		invoke.mockResolvedValueOnce(true); // saved
+		downloadBlob('backup.zip', new Blob(['zip']), { onSaved });
+		await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+		expect(invoke.mock.calls[0][0]).toBe('save_file');
+		expect(click).not.toHaveBeenCalled();
+		click.mockRestore();
 	});
 });

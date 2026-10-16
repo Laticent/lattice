@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -158,7 +159,7 @@ test('the reference scan does not confuse a set with its longer-named sibling', 
 
 // ── ACCEPTANCE #3: both emission sites derive the SAME answer ────────────────
 //
-// lattice-emulator.js scans the assembled deck stylesheet (theme chain files on
+// lattice.js scans the assembled deck stylesheet (theme chain files on
 // disk + the layout sheet); lib/runtime/index.js scans the live document through
 // CSSOM. Different routes to the same question, and the issue's stated risk is
 // that they diverge. Two pins:
@@ -175,7 +176,7 @@ test('neither emission site re-implements the reference matcher', () => {
   // the only surviving mention of a texture id in each site is a CSS ATTRIBUTE
   // SELECTOR — never a regex, a slot number, or an id built by hand.
   const root = path.join(__dirname, '..', '..', '..');
-  for (const site of ['lattice-emulator.js', 'lib/runtime/index.js']) {
+  for (const site of ['lattice.js', 'lib/runtime/index.js']) {
     const src = fs.readFileSync(path.join(root, site), 'utf8');
     assert.match(src, /texturePrefixesReferencedIn/,
       `${site} must ask the kernel which sets to emit`);
@@ -192,13 +193,13 @@ test('neither emission site re-implements the reference matcher', () => {
   }
 });
 
-const shippedPalettes = fs.readdirSync(THEMES_DIR)
+const shippedPalettes = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.css'))
   .map((f) => f.replace(/\.css$/, ''))
-  .filter((n) => THEME_EDGES[n] !== undefined || fs.existsSync(path.join(THEMES_DIR, `${n}.manifest.json`)));
+  .filter((n) => THEME_EDGES[n] !== undefined || fs.existsSync(path.join(THEMES_DIR, n, `${n}.manifest.json`)));
 
 const chainCss = (name) => themeChain(name, THEME_EDGES)
-  .map((n) => fs.readFileSync(path.join(THEMES_DIR, `${n}.css`), 'utf8'))
+  .map((n) => fs.readFileSync(path.join(THEMES_DIR, n, `${n}.css`), 'utf8'))
   .join('\n');
 
 test('every shipped palette resolves the same set through both spellings', () => {

@@ -20,7 +20,7 @@
  *   2b. axis-DOM catalog      tools/build-axis-dom-catalog.js (lib/runtime/, before step 3)
  *   2c. chart dispatch registry tools/build-chart-registry.js (lib/components/chart/, before step 3)
  *   3. lattice-runtime.js     tools/build-runtime.js
- *   4. lattice-emulator.js    tools/build-emulator.js    (bundled CLI bin)
+ *   4. lattice.js    tools/build-cli.js    (bundled CLI bin)
  *   5. VS Code snippets       tools/build-snippets.js
  *   6. per-component docs      tools/build-component-docs.js
  *   7. canonical doc portal    tools/build-docs-portal.js (components.md/.json)
@@ -29,10 +29,11 @@
  *   8. landing tokens          tools/build-landing-tokens.js  (docs site palette CSS)
  *   9. playground bundle       tools/build-playground.js      (docs site browser engine)
  *   9b. katex-provider bundle  tools/build-katex-provider.js  (on-demand KaTeX, split out of 9)
+ *   9c. plugin data bundles    tools/build-plugin-data-bundles.js (on-demand plugin data, split out of 9)
  *  10. theme-core bundle       tools/build-theme-core.js      (docs site Theme Studio core)
  *  11. layout-core bundle      tools/build-layout-core.js     (docs site Layout Studio core)
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
- *  13. capability index        tools/build-capabilities.js (engineering/capabilities.md)
+ *  13. capability index        tools/build-capabilities.js (dist/engineering/capabilities.md)
  *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
  *  15. dist README            tools/build-dist-readme.js (indexes dist/; runs last)
  *
@@ -99,13 +100,25 @@ const STEPS = [
   // also ahead of the bundles: lib/engine requires the registry, and the boundary parser imports
   // its grammar, so esbuild inlines both into every engine bundle.
   // engineering/decisions/2026-09-27-plugin-system.md.
+  // The icons plugin's vocabulary and drawings, from its curation list and the pinned Tabler
+  // package. BEFORE the registry: the registry requires each plugin's inline and services modules,
+  // which require the vocabulary. engineering/decisions/2026-09-29-inline-icons.md § 7.
+  { label: 'icons data (lib/plugins/icons)', script: 'build-icons-data.js' },
+  // The avatars plugin's vocabulary and drawings, from its trait and part sources, for the same
+  // reason: the registry requires its inline module, which requires the vocabulary.
+  // engineering/decisions/2026-10-09-inline-avatars.md § 6.
+  { label: 'avatars data (lib/plugins/avatars)', script: 'build-avatars-data.js' },
+  // The code plugin's language table (every highlight.js language, its aliases and the grammars it
+  // embeds), for the same reason: the registry requires the code plugin's render module, which
+  // requires the table. engineering/decisions/2026-10-15-code-plugin.md § 4.3.
+  { label: 'code languages (lib/plugins/code)', script: 'build-code-languages.js' },
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The chart-finish rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
   { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-chart-finish-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
-  // Must run BEFORE lattice-runtime.js / lattice-emulator.js — those bundles
+  // Must run BEFORE lattice-runtime.js / lattice.js — those bundles
   // `require()` these generated catalogs directly (esbuild inlines them at
   // bundle time). The stage catalog is the single source of the stage-cell
   // classification the masthead kernel reads (stage-cell classification, step A).
@@ -129,13 +142,13 @@ const STEPS = [
   { label: 'projection catalog (lib/core)', script: 'build-projection-catalog.js' },
   // Ahead of the bundles: the state-chart transform requires the generated
   // dagre IIFE at BUNDLE time, so a stale or missing file would be baked into
-  // lattice-runtime.js and lattice-emulator.js rather than caught later.
+  // lattice-runtime.js and lattice.js rather than caught later.
   { label: 'dagre bundle (state-chart layout)', script: 'build-dagre-bundle.js', uncommitted: true },
   // Ahead of the bundles for the same reason as dagre, and it used to sit 18 steps
   // LATER, next to build-player-core.js — its first-discovered consumer. player-core
-  // is not its only one: lattice-emulator.js's graph reaches
+  // is not its only one: lattice.js's graph reaches
   // lib/export/anima-player-bundle.generated.mjs too, so esbuild inlined it into
-  // dist/lattice-emulator.js at step 8 and this step then rewrote it at step 26.
+  // dist/lattice.js at step 8 and this step then rewrote it at step 26.
   // Measured on a real `npm run build`: the emulator was written 2.6s BEFORE the file
   // it contains. One build could not converge when an anima source changed — and
   // nothing caught it, because dist/ is gitignored and `build:check
@@ -148,14 +161,17 @@ const STEPS = [
   // Ahead of the emulator bundle for the same reason as the two above: the emulator
   // dynamic-imports lib/export/speech-projection-bundle.generated.mjs (the caption
   // projection it evaluates inside its own Chromium page), so esbuild inlines it at
-  // bundle time and a stale file would be baked into dist/lattice-emulator.js.
+  // bundle time and a stale file would be baked into dist/lattice.js.
   { label: 'speech-projection bundle (engine export)', script: 'build-speech-projection-bundle.js' },
   // Trama, the graph-chart library (2026-09-27-trama-graph-chart-library.md). FOREGROUND and
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
   // dist/: as a background step it would be joined only at player-core, far too late.
   { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
+  // Calco, the office-export library (2026-10-06-calco-office-export-library.md). FOREGROUND
+  // and ahead of the emulator, which bundles `@laticent/calco` from this dist/.
+  { label: 'Calco library dist (CJS + .d.ts)', script: 'build-calco-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
-  { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
+  { label: 'lattice.js', script: 'build-cli.js', uncommitted: true },
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
   // modules through Vite). dist/ only: ~1.8 MB is too large to commit. See
   // engineering/decisions/2026-09-27-studio-export-one-engine.md.
@@ -169,9 +185,15 @@ const STEPS = [
   { label: 'spec pages (docs site)', script: 'build-spec-docs.js' },
   { label: 'playground bundle (docs site)', script: 'build-playground.js', uncommitted: true },
   { label: 'katex-provider bundle (docs site)', script: 'build-katex-provider.js', uncommitted: true },
+  // Each plugin's data as its own on-demand script (lattice-plugin-<name>.js), split out of the
+  // playground bundle the way KaTeX is: a deck that uses no icon never fetches the drawings.
+  { label: 'plugin data bundles (docs site)', script: 'build-plugin-data-bundles.js', uncommitted: true },
   // Per-language highlight.js grammars for on-demand preview loading. After the
   // playground bundle only for log ordering — it reads node_modules, not the bundle.
   { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },
+  // The code formatter's browser half: an entry and one chunk per formatter, fetched only when the
+  // author formats a block in that language (engineering/decisions/2026-10-15-code-plugin.md §6).
+  { label: 'code-format bundle (docs site)', script: 'build-code-format.js', uncommitted: true },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
   // The package spine for the Studio's zip import/export (package-zip.ts).
@@ -186,7 +208,8 @@ const STEPS = [
   // The LTT format package (2026-09-24-lattice-timing-track.md §6). Ordered before Cadenza,
   // which depends on it — though Cadenza's build inlines it from SOURCE (build-cadenza-lib.js),
   // so the two run in parallel with no join between them. What reads this dist/ is root CJS
-  // (`require('@laticent/ltt')` from lib/core/) and an npm publish.
+  // (`require('@laticent/ltt')` from lib/core/), the emulator bundle, which inlines it, and an
+  // npm publish.
   // Guardrail G1: the LTT JSON Schema is GENERATED from docs/src/lib/ltt/types.ts and
   // committed, so build:check fails when a type changes without it. Reads source only.
   { label: 'LTT JSON Schema (docs/src/lib/ltt/ltt.schema.json)', script: 'build-ltt-schema.js' },
@@ -194,11 +217,17 @@ const STEPS = [
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
   { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js', uncommitted: true },
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
+  // Fuoco is a browser library (the Studio's focus hub); nothing at the root requires it, but it
+  // publishes ./dist like its siblings, so it builds like them.
+  { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@laticent/lente')` / publish break.
   { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
   { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
+  // Tavola is a browser library (the Studio's live collaboration); nothing at the root
+  // requires it, but it publishes ./dist like its siblings, so it builds like them.
+  { label: 'Tavola library dist (ESM + CJS + .d.ts)', script: 'build-tavola-lib.js', uncommitted: true },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js', uncommitted: true },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
@@ -208,15 +237,28 @@ const STEPS = [
   // before anything that copies themes/ into dist/.
   { label: 'categorical on-canvas ink (themes/*.css)', script: 'derive-cat-ink.js' },
   { label: 'chart categorical ink (themes/*.css)', script: 'derive-chart-cat-ink.js' },
-  { label: 'capability index (engineering/capabilities.md)', script: 'build-capabilities.js' },
+  // THE THREE INDEXES — `uncommitted` + `validates`. Each is generated from a folder of
+  // one-file-per-item sources (tools/ headers + package.json scripts, the decision notes,
+  // the gotcha topic files) into dist/engineering/, and none is committed: a committed index is a
+  // file every PR that adds an item rewrites, so two unrelated PRs collide on it
+  // (engineering/decisions/2026-10-09-generated-indexes-uncommitted.md).
+  //
+  // `validates` is the half that keeps them gated. `build:check` skips `uncommitted`
+  // steps, because their output is not on disk to compare against; a step that is ALSO
+  // `validates` still runs there, because its `--check` reads only its SOURCES (is every
+  // tool described? is every note's front-matter valid? is any row over its cap?) and
+  // never its output. A new generated index is `uncommitted: true, validates: true` and a
+  // `--check` that reads sources only. test/unit/tools/uncommitted-steps.test.js holds the
+  // TAGS; the decision and gotcha index tests run their --check with no output on disk.
+  { label: 'capability index (dist/engineering/capabilities.md)', script: 'build-capabilities.js', uncommitted: true, validates: true },
   // §0c's split-treatment table — renders TREATMENTS (lib/core/split-facts.js) into
   // the split decision note. Reads manifests + that map; order-independent.
   { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },
   // Decision-doc index — reads each note's front-matter; order-independent.
-  { label: 'decision index (engineering/decisions/README.md)', script: 'build-decisions-index.js' },
+  { label: 'decision index (dist/engineering/decisions.md)', script: 'build-decisions-index.js', uncommitted: true, validates: true },
   // Gotchas symptom index — reads the entry headings in engineering/gotchas/;
   // order-independent, same as the decision index above.
-  { label: 'gotchas index (engineering/gotchas.md)', script: 'build-gotchas-index.js' },
+  { label: 'gotchas index (dist/engineering/gotchas.md)', script: 'build-gotchas-index.js', uncommitted: true, validates: true },
   // Last — it indexes the finished dist/ folder, so every other artifact
   // must already be (re)written before it runs.
   // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice-min.css,
@@ -230,7 +272,7 @@ const STEPS = [
 
 // The slowest steps (non-incremental `tsc --emitDeclarationOnly`). Their only
 // ordering dependency is on the steps that BUNDLE their dist/ — today
-// build-player-core.js and build-read-along-core.js, both of which reach
+// build-cli.js, build-player-core.js and build-read-along-core.js, all of which reach
 // Cadenza's (see JOIN_BEFORE_SCRIPTS below; this comment claimed read-along-core
 // was the only one, and it was wrong). Run them in the background as soon as the
 // pipeline starts; join right before the first step that consumes one. Each -lib
@@ -263,7 +305,21 @@ const BACKGROUND_LABELS = new Set([
 // colder container, or one step moved earlier flips it. The same dependency, in its
 // serial form, is already on the record: the bootstrap loop below hit
 // `Could not resolve "@laticent/cadenza"` for exactly this reason.
-const JOIN_BEFORE_SCRIPTS = new Set(['build-player-core.js', 'build-read-along-core.js']);
+//
+// build-cli.js joined the set when the CLI bundle began inlining `@laticent/ltt` and
+// `@laticent/cadenza` (tools/build-cli.js INLINE_PACKAGES): it now reads both dists, and it
+// runs ahead of player-core, so it is the first consumer and the one that does the joining.
+const JOIN_BEFORE_SCRIPTS = new Set(['build-cli.js', 'build-player-core.js', 'build-read-along-core.js']);
+
+// Which steps a run covers. `--only-uncommitted` writes the built-not-committed half;
+// `--exclude-uncommitted` (build:check) checks the committed half PLUS every `validates`
+// step, whose --check reads only its sources (see the three indexes in STEPS).
+// test/unit/tools/uncommitted-steps.test.js pins this.
+function scopeSteps({ onlyUncommitted = false, excludeUncommitted = false } = {}) {
+  if (onlyUncommitted) return STEPS.filter((s) => s.uncommitted);
+  if (excludeUncommitted) return STEPS.filter((s) => !s.uncommitted || s.validates);
+  return STEPS;
+}
 
 function runStep(step, check) {
   const args = [path.join(__dirname, step.script), ...(step.args || [])];
@@ -305,10 +361,10 @@ async function main(argv) {
   // that is never committed cannot be stale relative to anything.
   //
   // Each surviving generator keeps its OWN --check semantics, which is load-bearing:
-  // build-decisions-index.js's is deliberately WEAKER than a byte-diff (#1547) so
-  // two decision-doc PRs can share the merge queue. An earlier attempt at this
-  // scoping rebuilt the tree and diffed it with git instead, which silently
-  // overrode that and re-opened the ejection #1547 closed.
+  // the three index generators (`validates`) check their SOURCES and never read their
+  // output, which is not committed. An earlier attempt at this scoping rebuilt the tree
+  // and diffed it with git instead, which would override per-generator semantics like
+  // that one.
   //
   // The tags were derived by MEASUREMENT — timestamp the tree, run each of the 39
   // generators alone, see what it writes — not by reading the build; that is how
@@ -331,14 +387,10 @@ async function main(argv) {
   // which is the state the gate needs to judge.
   const onlyUncommitted = argv.includes('--only-uncommitted');
 
-  const steps = onlyUncommitted
-    ? STEPS.filter((s) => s.uncommitted)
-    : excludeUncommitted
-      ? STEPS.filter((s) => !s.uncommitted)
-      : STEPS;
+  const steps = scopeSteps({ onlyUncommitted, excludeUncommitted });
   const mode = check ? 'check' : 'build';
   const scope = excludeUncommitted
-    ? `${steps.length} committed artifacts (${STEPS.length - steps.length} built-not-committed skipped)`
+    ? `${steps.length} committed artifacts and source validators (${STEPS.length - steps.length} built-not-committed skipped)`
     : `${steps.length} artifacts`;
   process.stdout.write(`Lattice ${mode}: ${scope} behind the ownership gate.\n\n`);
 
@@ -362,7 +414,7 @@ async function main(argv) {
   // CONSTRAINT this creates, and it is load-bearing: an uncommitted step may not
   // depend on a COMMITTED step's output being freshly generated, because the
   // bootstrap skips those. Today that holds — build-player-core.js AND
-  // build-emulator.js both need build-anima-player.js's
+  // build-cli.js both need build-anima-player.js's
   // lib/export/anima-player-bundle.generated.mjs, and that file is committed, so a
   // checkout always has it. If a dependency of an uncommitted step is ever moved out
   // of git, bootstrap it here too.
@@ -498,4 +550,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).then((code) => process.exit(code));
 
-module.exports = { STEPS, GUARD, PREFLIGHT, BACKGROUND_LABELS, JOIN_BEFORE_SCRIPTS };
+module.exports = { STEPS, GUARD, PREFLIGHT, BACKGROUND_LABELS, JOIN_BEFORE_SCRIPTS, scopeSteps };

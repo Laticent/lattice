@@ -12,7 +12,7 @@ paginate: true
      463.7px of void below the number; on this branch it measures 329.2 / 1.
      Autosplit does not run at the wide family (AUTOSPLIT_APPLIES), so `square`
      is the shallowest geometry that reaches the lone-member split rule.
-       node lattice-emulator.js tools/spike-card-slack/fixtures/stats-square-autosplit.md out.pdf -->
+       node lattice.js tools/spike-card-slack/fixtures/stats-square-autosplit.md out.pdf -->
 
 <!-- _class: stats -->
 

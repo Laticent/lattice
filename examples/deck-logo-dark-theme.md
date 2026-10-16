@@ -4,7 +4,7 @@ theme: indaco-dark
 paginate: true
 header: "Lattice · Deck logo on a dark THEME"
 meta: "Deck logo · the theme is a canvas too"
-logo: ../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 ---
 
 <!-- _class: title silent -->

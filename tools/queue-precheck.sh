@@ -9,12 +9,13 @@
 #
 # It merges HEAD with origin/main IN MEMORY (`git merge-tree --write-tree`: no
 # working-tree, index or ref changes) THE WAY GITHUB DOES — that is, ignoring the
-# merge drivers in .gitattributes. This matters for one file above all:
-# engineering/decisions/README.md is marked `merge=union`, so a LOCAL merge or
-# rebase of two PRs that each add an index row succeeds silently, but GitHub does
-# not apply that driver: it marks the PR `mergeable_state: dirty`, runs no
-# pull_request CI on it, and the queue cannot take it. PR #2466 hit exactly this
-# (local merge clean, GitHub dirty, CI silent for three pushes). So the check
+# merge drivers in .gitattributes. It mattered most for the decision index's
+# `merge=union` driver: a LOCAL merge or rebase of two PRs that each added an index
+# row succeeded silently, but GitHub does not apply drivers: it marked the PR
+# `mergeable_state: dirty`, ran no pull_request CI on it, and the queue could not
+# take it. PR #2466 hit exactly this (local merge clean, GitHub dirty, CI silent for
+# three pushes). That index is no longer committed and the driver is gone; ignoring
+# drivers stays, so no future one can fool this check. So the check
 # reads attributes from an empty tree (`git --attr-source=<empty>`),
 # and an index clash reports as the conflict GitHub will see.
 #

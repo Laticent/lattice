@@ -2,6 +2,9 @@
 origin: 2348
 priority: P2
 recorded: 2026-09-24
+area: engine
+severity: medium
+swimlane: lib/base/base.registers.docs.md
 ---
 
 # `size:`, `theme:` and the motion keys are not linted, so a typo renders the default silently

@@ -28,6 +28,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath, themeTarget } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -50,8 +51,8 @@ const THEMES = path.join(__dirname, '../../../themes');
 function corpusWithCollapse(token) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'latt-quiet-tier-'));
   let patched = null;
-  for (const f of fs.readdirSync(THEMES)) {
-    const src = fs.readFileSync(path.join(THEMES, f), 'utf8');
+  for (const f of themeEntries(THEMES)) {
+    const src = fs.readFileSync(themePath(THEMES, f), 'utf8');
     let out = src;
     const bodyDecl = src.match(/^\s*--text-body\s*:\s*([^;]+);/m);
     const re = new RegExp(`^(\\s*${token}\\s*:\\s*)[^;]+;`, 'm');
@@ -59,7 +60,7 @@ function corpusWithCollapse(token) {
       out = src.replace(re, `$1${bodyDecl[1].trim()};`);
       patched = { theme: f.replace(/\.css$/, '') };
     }
-    fs.writeFileSync(path.join(dir, f), out);
+    fs.writeFileSync(themeTarget(dir, f), out);
   }
   assert.ok(patched, `no palette declares ${token} beside --text-body — the mutation is inert`);
   return { dir, ...patched };
@@ -98,8 +99,8 @@ describe('checkMutedTierFloors · the ink-vs-ink separation arm', () => {
    */
   test('an UNMUTATED copy of the corpus is clean through the same path', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'latt-quiet-tier-'));
-    for (const f of fs.readdirSync(THEMES)) {
-      fs.copyFileSync(path.join(THEMES, f), path.join(dir, f));
+    for (const f of themeEntries(THEMES)) {
+      fs.copyFileSync(themePath(THEMES, f), themeTarget(dir, f));
     }
     const errors = [];
     checkMutedTierFloors(errors, dir);

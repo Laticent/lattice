@@ -79,8 +79,8 @@ describe('code-line-clipped — when it fires', () => {
     // above the rule first.
     assert.equal(f.severity, 'info');
     assert.equal(f.classToken, 'compare-code');
-    assert.match(f.message, new RegExp(`${WIDE + 11} columns wide`));
-    assert.match(f.message, /the last 11 columns are clipped/);
+    assert.match(f.message, new RegExp(`is ${WIDE + 11} characters`));
+    assert.match(f.message, /the last 11 are cut off/);
     // The escape hatch names the full-width budget, so the advice is actionable.
     assert.match(f.fix, new RegExp(`about ${core.CODE_LINE_BUDGET.code.wide}`));
   });
@@ -89,7 +89,7 @@ describe('code-line-clipped — when it fires', () => {
     assert.equal(clipFinding(codeSlide('compare-code', ['x'.repeat(WIDE)])), undefined);
     const f = clipFinding(codeSlide('compare-code', ['x'.repeat(WIDE + 1)]));
     assert.ok(f, 'one column past the budget must warn');
-    assert.match(f.message, /the last 1 column is clipped/, 'singular, not "1 columns"');
+    assert.match(f.message, /the last 1 is cut off/, 'singular, not "1 are"');
   });
 
   test('one finding per slide, reporting the WORST line', () => {
@@ -98,7 +98,7 @@ describe('code-line-clipped — when it fires', () => {
       vocab,
     ).filter((f) => f.rule === 'code-line-clipped');
     assert.equal(out.length, 1, 'three bad lines must not print three warnings');
-    assert.match(out[0].message, new RegExp(`${WIDE + 40} columns wide`));
+    assert.match(out[0].message, new RegExp(`is ${WIDE + 40} characters`));
   });
 
   test('a stress specimen is silent — the marker means "I know"', () => {
@@ -131,7 +131,7 @@ describe('code-line-clipped — the box decides', () => {
       );
       const f = clipFinding(codeSlide('code', ['x'.repeat(budget + 1)], size));
       assert.ok(f, `${family}: one past the budget must warn`);
-      assert.match(f.message, new RegExp(`the ${family} pane fits about ${budget}`));
+      assert.match(f.message, new RegExp(`this pane fits about ${budget}`), family);
       seen.push(budget);
     }
     // A smaller box shows fewer columns — a table that ever inverted this would
@@ -266,7 +266,8 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
         + `<!-- _class: compare-code -->\n\n\`L\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n\`R\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n`
         + `---\n\n<!-- _class: code -->\n\n\`\`\`js\n${ruler}\n\`\`\`\n`);
       const base = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}`);
-      execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q'],
+      // `--keep-html`: this reads the `.html` sidecar beside the PDF, deleted on success by default (P1).
+      execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
       const page = await browser.newPage();
       await page.setViewport({ width: 1600, height: 1000 });

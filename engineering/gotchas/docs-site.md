@@ -1,7 +1,7 @@
 # Gotchas — Docs site build and dev server (Astro + GitHub Pages)
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## `astro dev` serves stale assets after previewing a production build (service worker)
 
@@ -479,7 +479,7 @@ owe nothing here. See
 - **Cause:** the two builds do not produce the same document. `build:e2e` (what
   `playwright.config.ts`'s `webServer` runs, and what CI runs) is
   `sync:portal → sync:playground → astro build` and stops there. `build` adds
-  four post-build steps, and **two of them rewrite the head of every page**:
+  five post-build steps, and **two of them rewrite the head of every page**:
   `inject-modulepreload.mjs` and `hoist-stylesheets.mjs`. Measured on the same
   commit: `/playground/index.html` carries **41** `<link rel="modulepreload">`
   after `npm run build` and **0** after `npm run build:e2e` (`/studio/` 74 vs 0);
@@ -492,11 +492,33 @@ owe nothing here. See
   spec, 3 runs in 3 green against one dist and 6 in 6 red against the other.
 - **Fix:** say which build produced the `dist` before believing a timing result,
   and re-run against the other shape before calling anything fixed —
-  `node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs`
-  turns a `build:e2e` dist into a production-shaped one in a couple of seconds
+  `node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs &&
+  node scripts/stable-island-uids.mjs` turns a `build:e2e` dist into a
+  production-shaped one in a couple of seconds (the last only renames island
+  uids, so it never moves a timing)
   (`astro build` leaves the `dist/chunk-graph.json` the injector needs, and
   deletes it on the way out, so it is a one-shot). Better, don't let a spec depend
   on it: measure a pre-hydration window from **inside** the page, per the entry
   above.
 - **Triggered by:** #2125. **Removable when:** #2134 makes the two builds agree
   on the served document.
+
+## A timing spec re-downloads everything, because `page.route()` turns off the HTTP cache
+
+- **Symptom:** an e2e spec that times something after page load (a first render, a lazy
+  check) reports seconds where a real browser takes milliseconds, and the request log shows
+  `200`s with full bodies for files the page already fetched: `lattice-runtime.js` and
+  `mermaid.min.js` fetched two or three times in one test.
+- **Cause:** Playwright documents it: "enabling routing disables http cache". It disables the
+  cache for every request in the page, not just the URL the route matched. Turning the cache
+  back on with CDP `Network.setCacheDisabled(false)` after the route is installed did not help
+  (measured: still full `200`s).
+- **What it cost:** the chat agent's cold fit check (decision note
+  `2026-10-05-studio-chat-agent.md` §11) measured 20.5 s and timed out on an emulated slow link.
+  With the cache working, the same check took 2.2 s.
+- **Fix:** for a TIMING spec, mock the network from inside the page instead: patch
+  `window.fetch` in `page.addInitScript` for the one origin you need to fake, and pass every
+  other call through. Check the log for `304`s to confirm the cache is in play. Specs that only
+  check behavior can keep `page.route()`.
+- **Triggered by:** follow-up `2539-p3-fit-check-cold-start`.
+

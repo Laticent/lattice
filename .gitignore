@@ -14,6 +14,11 @@ tokenization/
 *.pptx
 *.pdf
 !examples/*.pdf
+# One level down too (the token-contrast set): tools/build-staged-pdfs.js classify()
+# accepts examples/<dir>/<name>.md, and the nightly bless can only commit what git sees.
+!examples/*/*.pdf
+# design-system demo decks, rendered and committed by the nightly bless.
+!design/*.gallery.pdf
 !exemplars/**/*.pdf
 !lib/components/**/*.pdf
 !lib/base/**/*.pdf
@@ -28,10 +33,10 @@ tokenization/
 !themes/*.pdf
 
 # esbuild check tempfiles — produced next to the bundles by
-# `npm run runtime:check` / `emulator:check`. The scripts clean up on
+# `npm run runtime:check` / `cli:check`. The scripts clean up on
 # success/failure; these catch the killed-mid-build case.
 dist/lattice-runtime.js.check.tmp
-dist/lattice-emulator.js.check.tmp
+dist/lattice.js.check.tmp
 
 # Opt-in full-offline colour-emoji font (~25 MB) vendored on demand by
 # `npm run fonts:emoji`. Excluded from the npm tarball (package.json `files`)

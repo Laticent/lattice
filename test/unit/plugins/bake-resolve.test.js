@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 
 const { resolvePlugins } = require('../../../lib/plugins/resolve');
-const { installPlugins, PLUGINS } = require('../../../lib/plugins/host');
+const { installPlugins, codeHighlighter, PLUGINS } = require('../../../lib/plugins/host');
 const { bakeDeck } = require('../../../lib/plugins/host-bake');
 const { BAKERS } = require('../../../lib/plugins/bake.generated.js');
 
@@ -62,13 +62,14 @@ describe('resolvePlugins — code fences, bake, a hydrate pass', () => {
     expectError([bakingPlugin('a', { patch: (m) => { m.contributes.highlight = true; m.contributes.fences.afence = { body: 'text' }; return m; }, exports: { hasHighlight: true, fences: ['afence'] } })], /declares highlight but no fence rendered as code/);
   });
   test('the host registers a plugin grammar under its code fence, even with the plugin switched off', () => {
-    const hljs = require('highlight.js');
+    // On the code renderer's highlight.js (lib/plugins/code/shared/highlighter.js), the one every
+    // fence is colored with. Unregister first, so each arm proves its own registration.
+    const { hljs } = codeHighlighter();
     for (const disabled of [[], ['mermaid']]) {
-      const md = new MarkdownIt('commonmark');
-      md.highlightjs = hljs.newInstance();
-      installPlugins(md, { disabled });
-      assert.ok(md.highlightjs.getLanguage('mermaid'), `the mermaid grammar is registered (disabled: ${JSON.stringify(disabled)})`);
-      assert.match(md.highlightjs.highlight('flowchart LR\n  A --> B', { language: 'mermaid' }).value, /hljs-keyword/);
+      hljs.unregisterLanguage('mermaid');
+      installPlugins(new MarkdownIt('commonmark'), { disabled });
+      assert.ok(hljs.getLanguage('mermaid'), `the mermaid grammar is registered (disabled: ${JSON.stringify(disabled)})`);
+      assert.match(hljs.highlight('flowchart LR\n  A --> B', { language: 'mermaid' }).value, /hljs-keyword/);
     }
   });
   test('a pass may require: it is bundled, never serialized', () => {
@@ -87,7 +88,7 @@ describe('the host fence table leaves a code fence to the code renderer', () => 
   test('the registry records the fence as code, drawn by a hydrate pass, with no renderer', () => {
     const mermaid = PLUGINS.find((p) => p.name === 'mermaid');
     assert.equal(mermaid.fences.mermaid.as, 'code');
-    assert.equal(mermaid.runtimeDrawn, true);
+    assert.equal(mermaid.pass, true);
     assert.equal(mermaid.hydrate, true);
     assert.equal(mermaid.fenceRenderers.mermaid, undefined);
   });

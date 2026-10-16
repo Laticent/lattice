@@ -1,0 +1,14 @@
+{
+  "title": "Omitting a \u2020 or \u2021 token is a warning, not an error",
+  "spec": "THEME-1.0",
+  "section": "4.1",
+  "expect": {
+    "ok": true,
+    "blocked": false,
+    "errors": [],
+    "warnings": [
+      "token-default",
+      "token-fallback"
+    ]
+  }
+}

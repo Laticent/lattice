@@ -16,8 +16,8 @@ pre-commit:
     - name: affected-tests
       # Maps staged files → scoped test scripts and runs only those.
       # Falls back to the full unit suite for cross-cutting changes
-      # (lattice-emulator.js, lattice.css, package.json, …). The full
-      # suite still runs in pre-push as a safety net.
+      # (lattice.js, lattice.css, package.json, …). The full
+      # suite runs in CI on every PR and in the merge queue, not in pre-push.
       run: node tools/affected-tests.js {staged_files}
     - name: lint-deck
       # Author-facing footgun checks on staged decks (--strict): card-style
@@ -31,45 +31,14 @@ pre-commit:
         - 'lib/components/**/*.gallery.md'
         - 'lib/integrations/**/*.gallery.md'
       run: node tools/lint-deck.js --strict {staged_files}
-    - name: pdf-rebuild
-      # Auto-rebuilds + re-stages the PDF for every staged deck markdown,
-      # incrementally — only the decks whose source changed. Supersedes
-      # the old check-pdf-freshness.sh *gate* (which failed on stale and
-      # made you rebuild by hand): the PDF is a derived artifact, so the
-      # hook regenerates it for you. Scope is markdown-only; component
-      # CSS / shared CSS / engine changes affect many decks at once and
-      # stay in CI (build:galleries:check). The tool queries the git
-      # index directly, so the glob only decides whether it runs.
-      # Skippable via `git commit --no-verify` only as a last resort.
-      #
-      # KEEP THIS GLOB IN SYNC WITH `classify()` in tools/build-staged-pdfs.js.
-      # The tool already handled exemplars, but this glob did not list them, so a
-      # commit touching ONLY exemplar markdown never ran the job at all — 45 worked
-      # decks that each ship a committed PDF had no auto-rebuild, and 14 of them
-      # went stale in this branch alone (the committed PDF still showed rows the
-      # markdown no longer had). `examples/*.md` was single-level for the same
-      # reason and missed all 13 examples/token-contrast decks. A path the tool can
-      # classify but the glob cannot reach is a silently dead gate.
-      #
-      # BOTH `dir/*.md` AND `dir/**/*.md` ARE LISTED ON PURPOSE — DO NOT "SIMPLIFY".
-      # In lefthook v2.1.6 `**/` requires AT LEAST ONE intervening directory, so
-      # `examples/**/*.md` matches `examples/token-contrast/indaco.md` but NOT
-      # `examples/pricing.md`. Collapsing the pair to the `**/` form alone silently
-      # drops all 108 top-level example decks — the first cut of this very fix did
-      # exactly that, trading 59 covered decks for 109 dropped ones. Verified against
-      # the pinned binary; test/unit/tools/staged-pdf-glob.test.js drives the real
-      # lefthook rather than a glob library, because picomatch DISAGREES here (it
-      # matches zero directories and calls the broken pattern fine).
-      glob:
-        - 'examples/*.md'
-        - 'examples/**/*.md'
-        - 'exemplars/*.md'
-        - 'exemplars/**/*.md'
-        - 'design/*.gallery.md'
-        - 'test/integration/baseline-decks/*.md'
-        - 'lib/components/*.gallery.md'
-        - 'lib/components/**/*.gallery.md'
-      run: node tools/build-staged-pdfs.js
+    # pdf-rebuild WAS HERE, and is gone on purpose (goldens rollout step 3). It rendered
+    # and STAGED the PDF of every staged deck; pull requests no longer commit PDFs
+    # (the lint job's tools/check-no-pdf-in-pr.mjs), and the nightly bless bot is their
+    # one writer (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.3). A hook
+    # that stages PDFs would only make every deck edit fail lint. For a local look,
+    # `node tools/build-staged-pdfs.js <deck.md>` renders without staging, and
+    # `npm run preview` shows the slides. test/unit/tools/staged-pdf-glob.test.js pins
+    # that no pre-commit job stages PDFs again.
 
     # ── Generated-artifact freshness lives in pre-push, not here ──────────────
     # Eleven per-bundle freshness gates (runtime/emulator/theme-core/layout-core/
@@ -108,6 +77,11 @@ pre-push:
   # so overlapping them risks file contention. Per-component / bucket-gallery
   # PDF freshness (58 + 18 rebuilds, ~30 min) still lives in CI only — see
   # pre-push-disabled above.
+  #
+  # `piped: true` is what makes "fail-fast" true: without it lefthook runs every
+  # remaining job after one fails, so a failing push still paid for every later
+  # job (checker finding on PR #2561, reproduced with the real binary).
+  piped: true
   jobs:
     - name: lint
       run: npm run lint
@@ -131,8 +105,8 @@ pre-push:
       # engineering/gotchas/ci.md § "A docs test passes in declaration order".
       #
       # Placed here on purpose: ~36-40s, so it runs after the cheap deterministic
-      # gates (lint 3s, lint-deck 1s, build:check 13s) and before the ~108s unit
-      # suite, keeping this hook fail-fast cheap-first.
+      # gates (lint 3s, lint-deck 1s, build:check 13s), keeping this hook
+      # fail-fast cheap-first.
       #
       # Path guard — same shape as integration-tests below, deliberately scoped to
       # docs/ ONLY: this is worth ~36s when you actually touched docs/, not on an
@@ -155,10 +129,15 @@ pre-push:
         else
           echo "docs-typecheck: skipped — no docs/ changes vs origin/main"
         fi
-    - name: unit-tests
-      # Safety net: full unit suite runs before push regardless of what
-      # pre-commit's affected-tests ran.
-      run: npm test
+    # ── No full unit suite here, on purpose ─────────────────────────────────
+    # `npm test` used to run here as a second safety net behind pre-commit's
+    # affected-tests. It took 390s on the cloud sandbox (measured 2026-10-06),
+    # paid on EVERY push, and CI's `unit` job runs the identical suite on every
+    # PR (whatever it touches, since PR #2554) and again in the merge queue — so a regression it would catch still
+    # cannot reach `main`. Pre-commit's affected-tests keeps the fast local
+    # signal (and falls back to the full suite for cross-cutting files). Run
+    # `npm test` yourself before declaring work done (CLAUDE.md rule 5).
+    # See engineering/development.md § Hooks.
     - name: integration-tests
       # The FULL integration tier (every suite — both the PR slice CI blocks on
       # AND the nightly render-regression slice). CI's REQUIRED merge gate now runs
@@ -168,7 +147,7 @@ pre-push:
       # regression before it reaches `main`, a slice CI no longer blocks on per-PR.
       # It costs ~4.5 min warm, so locally it's OPT-IN, not a gatekeeper: it runs
       # only when LATTICE_FULL_PUSH=1. The cheap deterministic gates above (lint,
-      # lint:deck:all, build:check, full unit suite) ALWAYS run, so a push is
+      # lint:deck:all, build:check, docs-typecheck) ALWAYS run, so a push is
       # never unverified — CI still blocks merge on the PR slice regardless. This
       # is strictly safer than the `--no-verify` an agent reaches for when a gate
       # is too slow. Set LATTICE_FULL_PUSH=1 to run it locally before pushing.
@@ -187,7 +166,7 @@ pre-push:
         base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
         run_it=1
         if [ -n "$base" ] && files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
-          printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice-emulator\.js$|^mermaid-v11-min\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
+          printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
         fi
         if [ "$run_it" = 1 ]; then
           export CHROME_PATH="${CHROME_PATH:-$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1)}"

@@ -2,6 +2,9 @@
 origin: 2239
 priority: P2
 recorded: 2026-09-22
+area: infra
+severity: low
+swimlane: engineering/decisions/2026-09-20-issue-queue-triage.md
 source: https://github.com/Laticent/lattice/pull/2239#issuecomment-5751812986
 ---
 

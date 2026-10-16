@@ -1,0 +1,22 @@
+{
+  "title": "The worked example in Appendix A reads as the appendix says, in both viewers",
+  "spec": "LFM-1.0",
+  "section": "A",
+  "L0": { "visible": ["Q3 Strategy", "[-] Hiring partially staffed", "Expand EU", "Two markets live by Q4."], "hidden": ["_class", "paginate"], "rules": 2 },
+  "L1": {
+    "slideCount": 3,
+    "deck": { "mode": "boardroom", "finish": "none" },
+    "slides": [
+      { "component": "title" },
+      { "component": "checklist", "states": ["yes", "partly", "open"] },
+      {
+        "component": "cards-grid",
+        "cards": [
+          { "title": "Expand EU", "body": ["Two markets live by Q4."] },
+          { "title": "Ship the API", "body": ["Private beta with six design partners."] }
+        ]
+      }
+    ]
+  },
+  "L2": { "findings": [] }
+}

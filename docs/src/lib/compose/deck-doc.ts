@@ -1,4 +1,5 @@
 import { Fragment, type Node as PMNode, Schema } from 'prosemirror-model';
+import rowDetail from '../../../../lib/core/chart-row-detail.js';
 import { CLIP_ORIGIN } from './clip-origin';
 import { latticeMarkdownSerializer, parseSlideProse, proseSchema } from './deck-markdown';
 import { composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
@@ -101,7 +102,14 @@ function readDirectives(raw: string | null, origin: string | null): string[] {
 }
 
 /** The deck schema — prosemirror-markdown's block/mark set + table nodes, wrapped in slide nodes. */
-export const deckSchema = new Schema({ nodes, marks: proseSchema.spec.marks });
+// The `code` mark opts out of spellcheck. Inline code in a deck is notation — `{SHIPPED, c2}`,
+// `~{12 14 17}`, `!{Ada Okafor, hair=coily}` — so a red squiggle under it reads as an error in
+// the very syntax Compose is meant to hide. Prose keeps its spellcheck; Chrome and Safari honor
+// `spellcheck="false"` on a descendant of a spellchecked editable.
+const codeMark = proseSchema.spec.marks.get('code');
+if (!codeMark) throw new Error("prosemirror-markdown's schema lost its `code` mark");
+const marks = proseSchema.spec.marks.update('code', { ...codeMark, toDOM: () => ['code', { spellcheck: 'false' }] });
+export const deckSchema = new Schema({ nodes, marks });
 
 const EMPTY_PARAGRAPH = () => Fragment.from(deckSchema.nodes.paragraph.create());
 
@@ -115,7 +123,7 @@ export function deckToDoc(source: string): PMNode {
 		const proseDoc = parseSlideProse(s.prose || '');
 		// Bridge the parsed block content into the deck schema by JSON — the block
 		// node + mark names are identical, so it re-validates cleanly.
-		const json = proseDoc.content.toJSON();
+		const json = tightenChartLists(proseDoc.content.toJSON(), s.directives);
 		let content = json ? Fragment.fromJSON(deckSchema, json) : EMPTY_PARAGRAPH();
 		if (content.childCount === 0) content = EMPTY_PARAGRAPH();
 		// `raw` carries the slide's original source chunk so an UNTOUCHED slide is
@@ -126,6 +134,28 @@ export function deckToDoc(source: string): PMNode {
 		return deckSchema.nodes.slide.create({ directives: s.directives, raw: s.raw, locked: hasLossyConstruct(s.prose || '') }, content);
 	});
 	return deckSchema.nodes.doc.create({ frontMatter: fm }, slideNodes);
+}
+
+/** The charts whose rows are a list Compose may tighten: the ones that read a row's `>`. */
+const ROW_LIST_CHARTS = new Set<string>([...rowDetail.DETAIL_CHARTS, ...rowDetail.QUOTE_CHARTS]);
+
+/**
+ * A chart's rows are data, so a blank line between them means nothing: the chart draws the same
+ * either way. Compose used to save a row's `>` description with blank lines around it, and those
+ * made the whole list loose, so every later save kept a blank line between every row and the
+ * card spaced its sublist apart (the owner's deck on #2690). On a chart slide every list is
+ * marked tight when the slide is read, so the next save writes the rows back together. A slide
+ * the author never touches still re-emits its own bytes (`raw`), so nothing changes unasked.
+ */
+function tightenChartLists(json: unknown, directives: string[]): unknown {
+	const cls = directives.map((d) => /(?:^|[\s-])_?class\s*:\s*([\w-]+)/.exec(d)?.[1]).find(Boolean);
+	if (!cls || !ROW_LIST_CHARTS.has(cls) || !Array.isArray(json)) return json;
+	const walk = (node: { type?: string; attrs?: Record<string, unknown>; content?: unknown[] }) => {
+		if (node.type === 'bullet_list' || node.type === 'ordered_list') node.attrs = { ...node.attrs, tight: true };
+		for (const child of node.content ?? []) walk(child as typeof node);
+	};
+	for (const node of json) walk(node);
+	return json;
 }
 
 const SEP = '\n\n---\n\n';
@@ -169,6 +199,20 @@ export function initBaseline(doc: PMNode): EmitBaseline {
 		raws.push(raw || serializeSlideNode(slide));
 	});
 	return { nodes, raws };
+}
+
+/** Re-point an emit baseline at `doc`'s slide nodes WITHOUT touching the bytes it caches.
+ *
+ *  For a transaction that changes how a slide is REPRESENTED but not what it says: the inline-object
+ *  pass turns `{SHIPPED, c2}` code spans into atom nodes that serialize back to the same bytes.
+ *  Those slides get new node identities, and without this `emitDeck` would take each for an edited
+ *  slide and re-serialize it, rewriting an untouched slide's bytes (a `*` bullet becoming `-`)
+ *  merely because the deck was opened. The slide count must not have changed. */
+export function rebaselineSlides(doc: PMNode, baseline: EmitBaseline): void {
+	if (doc.childCount !== baseline.nodes.length) return;
+	doc.forEach((slide, _offset, i) => {
+		baseline.nodes[i] = slide;
+	});
 }
 
 /** One document → deck source, EDIT-LOCAL. A slide whose node identity still matches the

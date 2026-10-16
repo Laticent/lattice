@@ -598,6 +598,11 @@ export function radialLayoutKernel(): RadialKernel {
    */
   function solveStar(spec: StarSpec): StarResult {
     const { n, W, half, pad, tall, cone, minNeck, rs0, rsMin, labelW, halo, floor, radiiAt, centerAt, centerCeil } = spec;
+    // `bad: []` promises every floor held, so input no figure can satisfy says so instead of
+    // solving into NaN or a negative radius (library trio, TRA-R3).
+    const wrong: string[] = (['W', 'half', 'pad', 'rs0', 'rsMin'] as const).filter((k) => !(Number.isFinite(spec[k]) && spec[k] >= 0));
+    if (!Number.isInteger(n) || n < 0) wrong.push('n');
+    if (wrong.length) return { T: { pts: [], r: [], rr: [], RY: 0 }, Rh: 0, rsMax: 0, bad: wrong.map((k) => `input: ${k} is not a finite number >= 0`) };
     const check = (pts: RadialPoint[], r: number[], Rh: number, overOk = false) => {
       const bad: string[] = [];
       for (let i = 0; i < n; i++) {

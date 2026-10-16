@@ -106,7 +106,7 @@ describe('line kernel', () => {
       );
       assert.deepEqual(m.series, ['Product'], 'a non-numeric pill is not a series');
       assert.match(m.marks[0].detail, /Closed two weeks early/);
-      assert.match(m.marks[0].detail, /Best quarter in EMEA/);
+      assert.match(m.marks[0].detail, /Best quarter in <code>EMEA<\/code>/);
     });
   });
 
@@ -510,7 +510,7 @@ describe('line kernel', () => {
 
     test('the stylesheet declares NO font size — the shared cart-* rules own it', () => {
       // The kernel wraps its labels to `cart-series` / `cart-value` / `cart-cat`
-      // sizes, which chart-family.css paints and cartesian.test.js pins. A size
+      // sizes, which chart-family.styles.css paints and cartesian.test.js pins. A size
       // declared here would silently break lines to a width the glyphs do not
       // occupy.
       assert.equal(/font-size/.test(css), false);

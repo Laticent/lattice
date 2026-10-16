@@ -881,3 +881,219 @@ it is the record of what was wrong.
   `settings`, `instructions` and `onDeviceInstructions` the right type when present (a
   pre-split backup lacks them). A refusal names the file and the field ("`chats` should be an
   object of chat histories by deck, but it is null") and says nothing was changed.
+- **Phase 5, themes into folders: done (2026-10-06); the motion library is not started.** Every
+  shipped theme is now `themes/<name>/<name>.css` beside `themes/<name>/<name>.manifest.json`, one
+  folder per theme like every other kind, and `kinds.js` gives themes the `folder` layout. The one
+  blocker recorded in `followups.d/2314-p4-themes-into-folders.md`, an external desktop wrapper
+  that might read flat theme paths off disk, is gone: #2552 records that the desktop app is built in
+  this repository and does not exist yet, so no embedder outside the repo reads `themes/`.
+  - **The published path still resolves.** `package.json` `exports` maps `./themes/*.css` to
+    `./themes/*/*.css` and `./themes/*.manifest.json` to `./themes/*/*.manifest.json`, beside
+    `./themes/*`. Node ranks pattern keys by specificity, not by their order in the file (the
+    checker reordered them in a packed consumer and every subpath resolved the same), so the order
+    is only for reading; the followup's "the more specific pattern has to come first" was wrong. Measured from a packed tarball on Node
+    22.22: `@laticent/lattice/themes/indaco.css` resolves to `themes/indaco/indaco.css`, the
+    manifest likewise, and `themes/theme.schema.json` and `themes/README.md` through `./themes/*`.
+    A pattern holds one `*`, so the folder path `@laticent/lattice/themes/indaco/indaco.css` does
+    NOT resolve through `exports`; the flat name is the published one. A consumer that read
+    `node_modules/@laticent/lattice/themes/<name>.css` off disk must read the folder path now, and
+    so must a CDN's raw file URL (unpkg, jsDelivr), which ignores `exports`.
+  - **A parked `themes/_name/` folder is skipped** by the gates and the builds, as every package
+    walk skips `_` folders. A flat `themes/_wip.css` used to be read by the theme gates; a deck
+    can still name `theme: _wip` and the CLI renders it, ungated, as it renders any folder it finds.
+  - **Outputs stay flat.** `dist/themes/<name>-min.css`, the Marp export's `themes/<name>.css`, the
+    Marp kit and the docs site's `…/playground/v/<hash>/themes/<name>.css` are build outputs and
+    keep their layout: a Marp user still registers one folder of theme files.
+  - **One walk.** `lib/packages/fs.js` `listFolderPackages` replaces `listFlatPackages` for the
+    theme gates in `check-ownership.js`. The tools and tests that listed `themes/` themselves go
+    through `lib/theme/files.js`: `themeEntries` keeps the old flat listing's shape (base names,
+    loose files included) and `themePath` maps a base name back to its folder, so each walk changed
+    in two calls, not in its logic. `themeTarget` writes a test's mutated copy of the corpus in the
+    folder shape. The manifest-schema sweep reads the theme family as folders (the flat branch is
+    gone, and a parked `themes/_name/` is skipped by both walks), and each theme manifest's
+    `$schema` is now `../theme.schema.json`.
+  - **Why the tests were trusted after the move.** The walks that found nothing after the move
+    FAILED rather than passing empty: the suite asserts "saw 0" in a dozen places (the theme set,
+    the palette set, the dark wrappers), so a walk still reading the flat layout shows up red. One
+    gate had no such floor, `checkPackedRootReach`, which would have checked zero files in silence;
+    it was found by reading every remaining `readdirSync` over a themes directory, not by a test.
+  - **Closed since (2026-10-07):** the theme schema's `type` and `format`, and the shipped motion
+    library. See the next entry.
+- **Phase 5, the rest: done (2026-10-07).** Phase 5 is complete.
+  - **The theme schema takes `type` and `format`.** `themes/theme.schema.json` declares
+    `"type": "theme"` and `"format": 1`, optional as in the component schema, and all 33 shipped
+    manifests carry both (`new:theme` writes them). A theme the Studio or `lattice packages export`
+    writes is now a valid `themes/` manifest as written; `packages-spine.test.js` round-trips
+    `indaco` and `indaco-dark` through `writePackage` and validates the result. The two fields are
+    one-value `enum`s, not `const`s: `manifest-schema-equivalence.test.js` holds the schema to the
+    retired walker, which checks `enum` and has no `const` arm, so a `const` would have widened the
+    ajv-only margin. The corpus grew 55 → 59 (one `enum` mutation per field per seed), the margin
+    stayed 4, and the legal variants went 216 → 220
+    (`2026-09-01-manifest-schema-gate.md` has the table).
+  - **The shipped motion library.** `lib/motion/<name>/` holds four scenes, seeded from the
+    example decks and chosen so each shows a different verb: `rotor` (a `built` scene: spin and
+    orbit), `pipeline-beats` (draw, one part per beat), `arrivals` (slide paired with a fade) and
+    `ring-marker` (draw, then highlight). Three example scenes were left out on purpose: the
+    all-at-once pipeline (`motion-asset.md` says the motion adds nothing there), the second
+    "flow" pipeline (the same drawing and plan as `pipeline-beats`) and the bead-less rotor (the
+    same scene, minus one part). Each package carries a manifest (`label`, `description`,
+    `engine`, `order`, gated by `lib/motion/motion.schema.json`, a new family in
+    `tools/manifest-schemas.js`), its scene, a poster and, for an `svg` scene, the drawing. The
+    kind still lets an IMPORTED scene omit its poster, as the Studio always has; a SHIPPED one
+    must carry it, and `packages-spine.test.js` says so.
+  - **What lists and inserts them.** `lattice packages list --type motion` lists them from
+    `packages.generated.json` with no CLI change. `tools/build-packages-index.js` writes
+    `lib/motion/scenes.generated.js`, which the Studio's Library loads on demand (the Studio
+    route's eager budget has under a kilobyte of headroom) and lists on its Motion tab under
+    "Shipped with Lattice". Insert goes through the same `slideSkeleton` as a saved scene, so a
+    shipped scene lands as a copy with fresh ids; a `built` scene has no line art, so its poster
+    is the drawing. Every drawing passes `parseScene` and `sanitizeSceneAssets` on the way in,
+    and `shipped-scenes.test.ts` asserts the sanitizer changes none of them. The shipped cards
+    are insert-only: no select, Share or Delete, and they never count toward the Library's
+    total, so an empty shelf still reads as empty on the All tab.
+- **A palette a bundler can import: done (2026-10-07).** Found while proving the folder move
+  resolves through Vite (#2568): `import '@laticent/lattice/themes/cuoio.css'` fails in Vite 8.2.2
+  with `[postcss] ENOENT: no such file or directory, open 'lattice'`, on the folder layout and the
+  old flat one alike, because the theme's first rule is Marp's `@import 'lattice'`. The fix
+  publishes a second form rather than changing the theme file, which Marp still reads by name.
+  - **What ships.** `tools/build-default-bundle.js`, which already flattens engine + cuoio into
+    `dist/lattice-default.css`, also writes `dist/palettes/<name>.css` for all 33 themes: the
+    theme with its comments stripped, `@import 'lattice'` dropped and a theme import (`@import
+    'cuoio'` in `cuoio-dark`, the three-deep `a11y-achromatopsia` → `a11y-base` → `onyx`) replaced
+    by that theme's resolved body. `package.json` `exports` maps `./palette/*.css` to it. A web
+    app imports `@laticent/lattice/css` and then one palette, which is the composition the
+    default bundle's own banner already told consumers to use. The 33 files add 320 KB, unpacked, to
+    the package; a flattened engine per theme would have added about 85 MB, unpacked.
+  - **Why not a recipe.** A Vite alias for `lattice` makes the plain import build, but every
+    consumer would write it, and each dark variant would need an alias for its base too. A
+    published form needs no configuration.
+  - **Measured.** From a packed tarball in a scratch Vite 8.2.2 project: the plain theme import
+    fails as above; `css` + `palette/cuoio.css` and `css` + `palette/cuoio-dark.css` build, and
+    the bundle carries cuoio's `--brand-accent:#7a5a10`, the dark pin and the engine's fonts.
+    `docs/src/lib/published-palette.test.ts` runs the same builds through Vite's API in the docs
+    suite (the one CI job with Vite and a built `dist/`), including the failing arm, and
+    `test/unit/tools/palette-bundle.test.js` pins the generator: one palette per theme, no
+    `@import` or `@theme` left, cuoio equal to the default bundle's token block, a variant
+    opening with its base, a cycle or a missing import refused by name, and the `exports` entry
+    resolving from Node. That last arm runs in the root unit job on every PR; the Vite arm runs
+    only where the docs job runs.
+  - **Rendered, the palette pair is not a slide renderer (measured 2026-10-07, after the merge
+    ask).** The card's one open item was a rendered page, so it was measured: six component
+    galleries (title, big-number, cards-grid, split-compare, stats, quote; 51 slides) in
+    `indaco` and `cuoio-dark`, each slide screenshotted in Chromium at 1280×720 and diffed
+    against the CLI's own HTML render of the same deck with `compare -fuzz 3%`, the regression
+    gate's threshold.
+    - `css` + `palette/<name>.css` built by Vite: **0 of 51 slides match**, in either palette.
+      The engine stylesheet does not give the slide its width and height (its `@size` lines are
+      comments that only Marp reads; `composeCss`'s scaffold applies them), and with the slide box supplied by hand
+      (the scaffold's own rules, as a third import) it still fails on most slides, 4 of 51 matching
+      in `indaco` and 5 of 51 in `cuoio-dark`, all of them `split-compare` slides: a palette's `light-dark()` tokens resolve once on `:root`, so a `dark` slide
+      inherits the light values the renderer re-resolves per slide (Marpit's `:root` →
+      `section` pack, `packTheme`). Type and spacing drift too. The same holds for
+      `lattice-default.css` and the README's browser embed, which predate this PR.
+    - `render()` from `@laticent/lattice/engine`, with `lattice` and the palette chain
+      registered by `addThemes`, its `css` and `html` put in a page: **51 of 51 match, 0 px
+      over fuzz, in both palettes**, once a dark palette's page sets `color-scheme: dark`
+      (without it the browser canvas is white and shows through the slide's top rule, 2,560 px
+      per affected slide). The recipe was run from a consumer's side, every file resolved
+      through the package `exports`.
+    - webpack 5.111.1 (`css-loader`, `mini-css-extract-plugin`) behaves as Vite does: the theme
+      import fails with `Can't resolve 'lattice'`, and the palette imports build with the
+      tokens and the 37 `@font-face` rules of the engine CSS imported beside them; the palette files carry
+      none.
+    So the docs changed, not the files: the palette is published for tokens (a bundler, an
+    app's own UI), the README and the themes guide say plainly that it is not a slide
+    renderer, and they point to `render()` for slides. A packed palette form (tokens scoped to
+    the slide, as `packTheme` does) would close the gap without the engine, but it is a new
+    published surface and a design question, so it is not built here.
+  - **The README's browser embed** linked the Marp theme file BEFORE the engine, so the theme's
+    `@import 'lattice'` 404'd and the engine's own `:root` tokens (26 of them, the
+    `--diagram-*` family among them) overrode the palette's on source order. It now links the
+    engine, then `dist/palettes/<name>.css`.
+- **The packed palette form, prototyped and measured (2026-10-07, p11).** The follow-up
+  `followups.d/2580-p3-packed-palette-form.md` asks the owner to choose between (a) publishing a
+  stylesheet pair that renders slides without the engine and (b) keeping `render()` as the one
+  slide path. The prototype was built so the choice rests on numbers, and it is **not published**:
+  nothing in `package.json` `exports` or `dist/` changed.
+  - **The candidate.** Two files, both built from functions `lib/engine/css.js` already exports.
+    `slides.css` is `scaffold()` + `packTheme(dist/lattice.css)` + the 16:9 geometry stamp, run
+    through `hoistImports`: the sheet `composeCss` writes for a 16:9 deck without panes, minus the
+    palette (1.15 MB, the base's comments stripped). Each
+    `palette/<name>.slides.css` is `packTheme(dist/palettes/<name>.css)`, the palette's tokens
+    moved from `:root` onto every slide (353 KB for all 33). A consumer links `slides.css` once and
+    swaps a palette file to change palette.
+  - **Measured.** `tools/palette-slide-parity.js` is the #2580 harness, now committed: the CLI's
+    HTML render is the reference, `engine.render()`'s slide markup goes in a plain page under each
+    candidate stylesheet, and every slide is diffed with `compare -metric AE -fuzz 3%`.
+
+    | Decks | Palette | `render()` css | packed pair | today's pair |
+    |---|---|---|---|---|
+    | six galleries, 51 slides | indaco | 51/51 | **51/51** | 0/51 |
+    | six galleries, 51 slides | cuoio-dark | 51/51 | **51/51** | 0/51 |
+    | a two-slide panes deck | both | 2/2 | **0/2** | 0/2 |
+    | quote gallery at `size: story`, first 7 slides | both | 7/7 | **0/7** | 0/7 |
+
+    Every match is 0 px over the fuzz. The `story` row stops at slide 7 because the CLI splits
+    that deck into 12 slides and `render()` does not, so later slides compare different content.
+  - **What the two failures are.** A panes slide loses its component styling: the list cards and
+    the table's styling (header labels, row rules, row tint) are gone, because `composeCss` adds a `lat-pane` twin for each rule
+    that reaches a pane's body (`widenForPanes`, decided per deck), and a published sheet cannot
+    know the deck. A `story` slide keeps the 16:9 box, because the scaffold writes one size. Both
+    are fixed by construction, so a published form would be documented as "16:9, no panes", with
+    `render()` for everything else.
+  - **What (a) would cost.** About 25 lines in `tools/build-default-bundle.js` (the two loops
+    above), two `exports` entries, a unit test beside `test/unit/tools/palette-bundle.test.js`,
+    1.5 MB unpacked in the package, and a public contract that must keep matching the CLI.
+  - **Whose slides it serves.** The packed pair styles markup; it does not make any. The only
+    source of `<article class="lattice">` markup is `render()`. The CLI renders through the same
+    engine but writes flat `<section data-lattice-slide>` HTML with its own stylesheet. So the
+    packed pair's only real input is `render()`'s markup, and `render()` already returns a
+    stylesheet that matches 51 of 51. So (a) helps a consumer that renders once
+    (at build time or on a server) and then changes palette in the browser without rendering again,
+    or that ships many decks and wants one cached engine sheet instead of a sheet per render (1.16
+    MB for the quote gallery in indaco).
+  - **Through a bundler (measured the same day, after the merge ask, to raise the card).** The
+    numbers above link the candidate files from a plain page; a consumer imports them through a
+    bundler, so the pair was built with Vite 8.2.2 from a package whose `exports` map the two
+    files, and the built stylesheet became a fourth arm (`--bundled`). It matched **47 of 51** in
+    each palette. The 4 misses were the `accent` slides, whose solid top bar came out as the
+    spectrum gradient: Vite's default CSS minifier, lightningcss 1.32.0, rewrites
+    `border-image: none` to an empty `border-image:`, which the browser drops. Today's published
+    `@laticent/lattice/css` export minifies the same way through Vite. Two declarations in the
+    engine had the shorthand (`accent` in `lib/shared/shared.styles.css`, `tone-edge` in
+    `lib/base/base.variants.css`). Both now reset the longhand, `border-image-source: none`, which
+    draws the same and survives the minifier. Afterwards the bundled pair matched **51 of 51** in
+    both palettes, and 10 of 10 on `examples/status-markers.md`, the deck that uses `tone-edge`.
+    The CLI's own renders did not move: 102 gallery slides and the 10 status-marker slides are
+    pixel-identical before and after the fix, with no fuzz.
+    `test/unit/css/border-image-none-shorthand.test.js` keeps the shorthand out of `lib/` and
+    `themes/`, and `engineering/gotchas/css.md` has the symptom.
+  - **Status.** Decided 2026-10-13 (p13): **(a), published.** The owner's reason is the product goal,
+    not a named consumer: Lattice should be universal and hassle free, so an embedder gets live palette
+    swap without running the engine. The recommendation had been (b) unless a consumer needed the swap.
+
+- **The packed palette form, published (2026-10-13, p13).** `tools/build-default-bundle.js` now writes
+  `dist/slides.css` and `dist/palettes/<name>.slides.css` (33), reached through a new `./slides.css`
+  `exports` entry; the existing `./palette/*.css` pattern already exposes the palette files. The
+  parity harness's `packed` arm links those files, so it measures what ships. Measured on the six
+  galleries (51 slides): `render()` 51/51, packed 51/51, today's pair 0/51, in `indaco` and `cuoio-dark`,
+  linked from `dist/`. Through a Vite 8.2.2 build (`--bundled`, relative asset URLs) the packed pair
+  matched **19/51 in indaco and 51/51 in cuoio-dark** until one fix. A light palette starts with
+  `:where(:root) { color-scheme: light }`, which `packSelector` prepends `section ` to, so the rule
+  matched a slide's descendants and never the slide. Natively that is harmless. lightningcss lowers
+  `light-dark()` to a `--lightningcss-light` / `--lightningcss-dark` toggle that `color-scheme` must
+  set on the same element, so on the slide the toggles were unset and `--bg-alt` read
+  `#f2f5fa#002847`: white cards, black text. The packed build now writes that selector as `:root`, which
+  packs onto the slide. After, Vite: **51/51 in both palettes**. Without the one-line change, the unit
+  test in `test/unit/tools/palette-bundle.test.js` and the Vite test in
+  `docs/src/lib/published-palette.test.ts` both fail. `packTheme` itself is unchanged: it also serves
+  the CLI, the Studio and `render()`, and the dead descendant rule is harmless to them.
+  - **Limits, stated in the files' banner, the README and the themes guide.** 16:9 only, no panes. The
+    quote gallery at `size: story` (0/7) and the two-slide panes deck (0/2) did not match in the
+    prototype and are not claimed. `render()`'s own `css` covers them.
+  - **Measured after the merge (2026-10-14).** The harness ran every shipped palette, 33 of 33, six
+    galleries and 51 slides each. `render()` css: 66/66 lines at 51/51. Packed, linked from `dist/`:
+    33/33 palettes at 51/51. Packed, through a Vite 8.2.2 build of each pair (`--bundled`, relative
+    asset URLs): 33/33 palettes at 51/51. The checker had also compared all 33 palettes against the
+    engine's own composition and found them equal apart from the `color-scheme` selector.
+  - **Not measured:** webpack, and a consumer's own markup (`followups.d/2678-p3-packed-form-webpack-and-ci-gate.md`). The sheet is 1.2 MB unpacked and the 33 palette files add about 350 KB.

@@ -2,7 +2,7 @@
  * Unit tests for the chart-family transformer's applyToDom (DOM-walk path).
  *
  * applyToDom delegates to engine.transformChartSection — same kernel
- * lattice-emulator.js (via lib/engine) uses. These tests cover three
+ * lattice.js (via lib/engine) uses. These tests cover three
  * of the seven layouts (progress, piechart, radar) with the simplest
  * input that exercises each one's branch. The HTML-string kernel is
  * covered separately in registry.test.js and the integration suite.
@@ -12,7 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const chartFamily = require('../../../lib/transformers/chart-family');
-const engine = require('../../../lib/components/chart/_chart-family/chart-family');
+const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const notesCore = require('../../../lib/authoring/notes-core');
 

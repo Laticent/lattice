@@ -9,9 +9,9 @@
  * checked, and says nothing about it. That is a gate quietly getting smaller —
  * the failure mode is silence, which is why an earlier attempt rejected step
  * tagging altogether and rebuilt-and-diffed the tree instead. That alternative
- * was worse: it assumed every generator's `--check` IS a byte-diff, and
- * build-decisions-index.js's is deliberately weaker (#1547) so two decision-doc
- * PRs can share the merge queue. Rebuilding and diffing re-opened that ejection.
+ * was worse: it assumed every generator's `--check` IS a byte-diff, and the
+ * index generators' checks validate SOURCES instead (their output is never
+ * committed). Rebuilding and diffing the tree cannot express that.
  *
  * So the tags stay, and the drift risk is answered by ASSERTING THE PARTITION
  * here rather than by trusting whoever edits STEPS next. The tags themselves were
@@ -22,7 +22,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { STEPS } = require('../../../tools/build.js');
+const { STEPS, scopeSteps } = require('../../../tools/build.js');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -46,12 +46,18 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-css.js',
   'build-default-bundle.js',
   'build-runtime.js',
-  'build-emulator.js',
+  'build-cli.js',
   'build-docs-portal.js',
   'build-forms.js',
   'build-concepts.js',
   'build-playground.js',
   'build-katex-provider.js',
+  // Measured 2026-10-05: writes only docs/public/playground/lattice-plugin-<name>.js, beside the
+  // KaTeX provider and covered by the same ignore rule.
+  'build-plugin-data-bundles.js',
+  // Measured 2026-10-15: writes only docs/public/playground/fmt/ (gitignored), the code
+  // formatter's browser entry, its formatter chunks and their WebAssembly.
+  'build-code-format.js',
   'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',
@@ -70,12 +76,18 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-ltt-lib.js',
   'build-cadenza-lib.js',
   'build-trama-lib.js',
+  // Calco's write set is docs/src/lib/calco/dist/, covered by docs/.gitignore's `dist/`.
+  'build-calco-lib.js',
   'build-vetrina-lib.js',
+  // Its whole write set is docs/src/lib/fuoco/dist/, covered by docs/.gitignore's `dist/`.
+  'build-fuoco-lib.js',
   'build-lente-lib.js',
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.
   'build-segno-lib.js',
   'build-suono-lib.js',
+  // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
+  'build-tavola-lib.js',
   'build-read-along-core.js',
   'build-marp-kit.js',
   'build-agent-kit.mjs',
@@ -84,6 +96,12 @@ const EXPECTED_UNCOMMITTED = new Set([
   // dist/lattice-pdf-compose-min.js (the shared PDF writer the CLI injects), which
   // .gitignore's dist/ covers. Its esbuild entry is a temp file it deletes before exiting.
   'build-pdf-compose.js',
+  // Measured 2026-10-09 against a timestamped tree: each one's whole write set is one file
+  // under dist/engineering/ (capabilities.md, decisions.md, gotchas.md). They are the
+  // three generated INDEXES, and they are also `validates` — see the test below.
+  'build-capabilities.js',
+  'build-decisions-index.js',
+  'build-gotchas-index.js',
 ]);
 
 // Generators that write PR-owned artifacts. Listed explicitly, so that tagging
@@ -92,24 +110,38 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
-  // Measured 2026-09-24: its whole write set is lib/packages/packages.generated.json and
-  // lib/finishes/presets.generated.js, both tracked — the spine's registry and the finish
-  // register read them.
+  // Re-measured 2026-10-07: its whole write set is lib/packages/packages.generated.json,
+  // lib/finishes/presets.generated.js, lib/motion/scenes.generated.js,
+  // lib/base/base.finish.css and lib/packages/reserved-classes.generated.js, all tracked —
+  // the spine's registry, the finish register and the Studio's shipped-motion list read them.
   'build-packages-index.js', // lib/packages
   'build-axis-dom-catalog.js', // lib/runtime
   // Measured 2026-09-21 against a timestamped tree: its whole write set is
   // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide
   // imports it as an ordinary module, so a missing file is a docs build error.
   'build-guide-handles.js', // docs/src/components/studio
-  'build-chart-registry.js', // lib/components/chart/_chart-family/chart-registry.generated.js
+  'build-chart-registry.js', // lib/plugins/chart-family/shared/chart-registry.generated.js
   'build-chart-finish-css.js', // lib/components/chart/_chart-family/chart-finish.generated.css
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',
+  // Measured 2026-10-05: writes lib/plugins/icons/icons.{vocab,data}.generated.js, both tracked —
+  // the registry and the engine require them.
+  'build-icons-data.js',
+  // Measured 2026-10-09 against a timestamped tree: writes exactly
+  // lib/plugins/avatars/avatars.{vocab,data}.generated.js, both tracked — the registry and the
+  // engine require them, as they do the icons'.
+  'build-avatars-data.js',
+  // Measured 2026-10-15 against a timestamped tree: writes exactly
+  // lib/plugins/code/shared/languages.generated.js, which git tracks — the code plugin's
+  // highlighter requires it, so the engine does.
+  'build-code-languages.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
-  // tracks — the docs site and Vitest import it.
-  'build-segno-grammar.js', // docs/src/lib/segno
+  // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
+  // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's
+  // list text (2026-10-06) lib/core/list-text.generated.js, which leading-marker.js requires.
+  'build-segno-grammar.js', // docs/src/lib/segno, lib/core
   'build-snippets.js', // .vscode
   'build-component-docs.js', // lib/components/**/*.docs.md
   'build-landing-tokens.js', // docs/src/styles
@@ -124,10 +156,7 @@ const EXPECTED_PR_OWNED = new Set([
   'build-speech-projection-bundle.js', // lib/export
   'derive-cat-ink.js', // themes/*.css
   'derive-chart-cat-ink.js', // themes/*.css
-  'build-capabilities.js', // engineering/capabilities.md
   'build-split-treatments.js', // engineering/decisions/*.md
-  'build-decisions-index.js', // engineering/decisions/README.md
-  'build-gotchas-index.js', // engineering/gotchas.md
 ]);
 
 test('built-not-committed build steps', async (t) => {
@@ -166,14 +195,40 @@ test('built-not-committed build steps', async (t) => {
     }
   });
 
-  await t.test('the PR-owned set still covers the artifacts a PR must own', () => {
-    // The load-bearing three: a PR is responsible for its own decision-note row,
-    // its own capability-index row, and its own component docs. If any of these
-    // ever gets tagged built-not-committed, PRs stop being held to them at all.
-    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-component-docs.js']) {
+  await t.test('a PR is still held to its own index rows', () => {
+    // A PR is responsible for its own decision note, its own tool or script description,
+    // and its own gotcha heading. The three indexes are no longer committed, so that duty
+    // moved from "commit the regenerated row" to "pass the source validator": each is
+    // `uncommitted` AND `validates`, and `build:check` runs every `validates` step's
+    // --check even though it skips other uncommitted steps. Lose `validates` and the
+    // gate shrinks silently. Component docs stay a committed, PR-owned artifact.
+    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-gotchas-index.js']) {
       const step = STEPS.find((x) => x.script === s);
       assert.ok(step, `${s} missing from STEPS`);
-      assert.ok(!step.uncommitted, `${s} must stay PR-owned — a PR owns this artifact`);
+      assert.ok(step.uncommitted && step.validates, `${s} must be uncommitted + validates`);
+    }
+    const docs = STEPS.find((x) => x.script === 'build-component-docs.js');
+    assert.ok(docs && !docs.uncommitted, 'build-component-docs.js must stay PR-owned');
+  });
+
+  await t.test('validates only ever rides on an uncommitted step', () => {
+    // On a committed step `validates` means nothing (build:check already runs it), and
+    // a reader would wrongly take it to change what the gate does.
+    for (const step of STEPS) {
+      if (step.validates) assert.ok(step.uncommitted, `${step.script}: validates without uncommitted`);
+    }
+  });
+
+  await t.test('build:check keeps every validates step in scope', () => {
+    // Through the orchestrator's own scoping function, the one `main` calls.
+    const scoped = new Set(scopeSteps({ excludeUncommitted: true }).map((s) => s.script));
+    for (const step of STEPS.filter((s) => s.validates)) {
+      assert.ok(scoped.has(step.script), `${step.script} is not in build:check's scope`);
+    }
+    // And they are still WRITTEN by the install-time bootstrap.
+    const installed = new Set(scopeSteps({ onlyUncommitted: true }).map((s) => s.script));
+    for (const step of STEPS.filter((s) => s.validates)) {
+      assert.ok(installed.has(step.script), `${step.script} is not written by build:uncommitted`);
     }
   });
 
@@ -193,7 +248,7 @@ test('built-not-committed build steps', async (t) => {
     assert.equal(isIgnored('docs/src/lib/theme-catalog.generated.ts'), false);
     assert.equal(isIgnored('lib/theme/edges.generated.mjs'), false);
     // And the sanity check in the other direction: the bundles ARE ignored.
-    assert.equal(isIgnored('dist/lattice-emulator.js'), true);
+    assert.equal(isIgnored('dist/lattice.js'), true);
     assert.equal(isIgnored('docs/public/playground/lattice-playground.js'), true);
   });
 });

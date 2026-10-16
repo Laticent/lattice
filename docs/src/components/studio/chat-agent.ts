@@ -13,15 +13,20 @@
 // over its soft budget; importing them DYNAMICALLY instead made the bundler re-split shared
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
+import { assetManifest, libraryPromptTokens } from './agent-assets';
+import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
-import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
+import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
+import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');
 type Spend = typeof import('@/components/studio/ai/spend.js');
-type Core = typeof import('@/playground/authoring-core.generated.js');
+type Core = Awaited<ReturnType<typeof import('@/playground/authoring-door.js')['loadAuthoring']>>;
 type Ref = typeof import('./reference-doc');
 
 /** What `architect.ts` hands over: everything the agent needs that startup code already loaded. */
@@ -90,16 +95,55 @@ function agentBudget(grounding?: ChatGrounding): { slideWordBudget: number; prof
 }
 
 /** The agent's two system halves — exported so the cost readout prices the same prompt. */
-export function agentSystemParts(source: string, grounding?: ChatGrounding, factGuard = ''): { staticPrefix: string; dynamicTail: string } {
+export function agentSystemParts(source: string, grounding?: ChatGrounding, factGuard = '', assetsBlock = ''): { staticPrefix: string; dynamicTail: string } {
 	const budget = agentBudget(grounding);
 	const brief = deckBrief(source, { ...budget, findings: grounding?.findings, diagrams: grounding?.diagrams });
-	return { staticPrefix: agentSystem(grounding?.catalog ?? []), dynamicTail: `\n\n${brief}${factGuard}` };
+	// The Library manifest changes whenever a photo is added or captioned, so it rides in the
+	// tail with the deck brief, never in the cached prefix.
+	return { staticPrefix: agentSystem(grounding?.catalog ?? []), dynamicTail: `\n\n${brief}${assetsBlock ? `\n\n${assetsBlock}` : ''}${factGuard}` };
+}
+
+/** Can the selected OpenRouter model read images? From the model catalog, which the picker has
+ *  already fetched; unknown reads as no, so the agent never promises a look it cannot take. */
+function modelSeesImages(model: ArchitectModel, catalog: { id: string; vision?: boolean }[]): boolean {
+	try {
+		const id = model.openRouterModel();
+		return !!catalog.find((m) => m.id === id)?.vision;
+	} catch {
+		return false;
+	}
+}
+
+/** A message's text for the budget gate. A picture counts as a per-model charge (picture-tokens.ts), not as the
+ *  base64 that carries it (one thumbnail is ~40K characters). */
+function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: string; images: number } {
+	let images = 0;
+	const c = m.content;
+	const parts = Array.isArray(c) ? c : [];
+	images = parts.filter((p) => (p as { type?: string })?.type === 'image_url').length;
+	const text = typeof c === 'string' ? c : Array.isArray(c) ? parts.map((p) => ((p as { type?: string })?.type === 'image_url' ? '[image]' : (p as { type?: string })?.type === 'video_url' ? '[video]' : JSON.stringify(p))).join('') : JSON.stringify(c ?? '');
+	return { text: text + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''), images };
 }
 
 export async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
-	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '');
+	// The model catalog, read at most once a turn and only when something needs it (the vision check, an alias lookup). It is fetched when a model
+	// connects (architect-model.js), so this normally finds it loaded; the wait is bounded (4 s) so a stalled fetch cannot hold the turn. The budget
+	// gate waits for the price itself (cloudBudgetBlock), in stop mode with a cap.
+	let catalogOnce: ReturnType<typeof boundedCatalog> | null = null;
+	const catalog = () => (catalogOnce ??= boundedCatalog(model));
+	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
+	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
+	// captions from that read, instead of one full read per call.
+	const agentAssets = createAgentAssets();
+	const library = await agentAssets.list().catch(() => []);
+	// Asked only when there is something to look at: a model that cannot read images is not nudged to try.
+	const sees = library.length ? await modelSeesImages(model, await catalog()) : false;
+	// The clips riding this message, by Library name: the prompt says so, because the Library lists them as videos and
+	// `view_asset` cannot show a video, and a model told both reasonably answers that it cannot watch it.
+	const attachedVideos = new Set((opts?.videos ?? []).map((v) => v.name).filter((n): n is string => !!n));
+	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees, attachedVideos));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
 		{ type: 'text', text: dynamicTail },
@@ -113,6 +157,16 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		docs,
 		true,
 	);
+	// This turn's photos ride the last user message as image parts, so every round of the tool loop
+	// re-sends them (on a model that takes a cache breakpoint, the one on the tail makes that a read, not a write).
+	const photos = opts?.photos ?? [];
+	const videos = opts?.videos ?? [];
+	ground.messages = withPhotos(ground.messages, photos, videos) as typeof ground.messages;
+	// A clip is priced flat (its base64 is skipped by budgetText). Pictures are priced per round, by the model:
+	// the agent's 512 px views and the author's 1568 px attachments cost different amounts on every model.
+	const attachedTokens = videos.length * VIDEO_TOKENS;
+	// Resolved on the first round that holds a picture: an alias id needs the model catalog, and a turn with no picture has no reason to wait for it.
+	let pictureCost: Promise<Awaited<ReturnType<typeof resolvePictureTokens>>> | null = null;
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -120,6 +174,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		library: agentLibrary,
 		check: withFit(grounding),
 		slideWordBudget: agentBudget(grounding).slideWordBudget,
+		assets: library.length ? agentAssets : undefined,
+		canSee: async () => sees,
+		attachedVideos,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 	const docTokens = refDocsTokens(docs);
@@ -129,6 +186,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const done: string[] = [];
 	let streamed = '';
 	let roundPrompt = '';
+	// The pictures in the round in flight, so a Stop prices them too.
+	let roundPictureTokens = 0;
+	let roundPictureUsd = 0;
 	let genId: string | null = null;
 	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
 	// prices only an open round — a finished one already reported its exact cost.
@@ -139,15 +199,20 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const complete: AgentComplete = async (msgs, { tools, onToken }) => {
 		// The budget gate prices EVERY round, not just the first: a tool round re-sends the
 		// whole conversation so far, and a hard-stop cap has to hold across all of them.
-		const convo = msgs
-			.slice(1)
-			.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')) + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))
-			.join('\n');
+		const priced = msgs.slice(1).map(budgetText);
+		const convo = priced.map((p) => p.text).join('\n');
+		// The author's photos ride the last user message and are re-sent every round; every other picture is a view_asset thumbnail.
+		// A model that lists its own image price may charge more than the token figure at the prompt rate; the gap rides as dollars.
+		const pictureCount = priced.reduce((n, p) => n + p.images, 0);
+		if (pictureCount && !pictureCost) pictureCost = catalog().then((c) => resolvePictureTokens(model, c));
+		const { tokens: pictureTokens, usd: pictureUsd } = pictureCount && pictureCost ? priceRound(await pictureCost, model.openRouterModelPrice?.() ?? null, pictureCount, photos.length) : { tokens: 0, usd: 0 };
+		roundPictureTokens = pictureTokens;
+		roundPictureUsd = pictureUsd;
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens, CHAT_MAX_TOKENS);
+		const blk = await cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -157,6 +222,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		let calls: ToolCall[] = [];
 		let finish: string | null = null;
 		roundOpen = true;
+		// Every round opens by saying so. The panel clears the last tool's label when prose
+		// arrives, so without this the gap between "tool finished" and "first token of the next
+		// round" — the longest silent stretch of an edit turn — showed nothing at all.
+		opts?.onActivity?.(THINKING);
 		const text = await model.complete({
 			messages: msgs as { role: string; content: MsgContent }[],
 			plugins: ground.plugins,
@@ -164,11 +233,14 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			cacheTtl: '1h',
 			cacheTail: true,
 			maxTokens: CHAT_MAX_TOKENS,
-			tools: AGENT_TOOLS,
+			tools: library.length ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS,
 			toolChoice: tools ? 'auto' : 'none',
 			onToolCalls: (c) => {
 				calls = c;
 			},
+			// A call's name lands long before its arguments do (a whole slide streams inside
+			// `edit_slides` with no prose), so say what is being drafted while it arrives.
+			onToolStart: (name: string) => opts?.onActivity?.(TOOL_DRAFTING[name] ?? TOOL_ACTIVITY[name] ?? THINKING),
 			onToken: (t: string) => {
 				streamed += t;
 				onToken(t);
@@ -221,7 +293,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens) ?? 0;
+				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model
@@ -261,11 +333,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
 }
 
-/** The checker's warnings on a draft the turn ended on: no errors, but worth a look. */
+/** The checker's warnings on a draft the turn ended on: no errors, but worth a look. Said to
+ *  the author in their words — "the checker" and "warning" are this module's vocabulary, not theirs. */
 export function checkerNote(warnings: string[]): string {
 	const shown = warnings.slice(0, 3).map((w) => w.replace(/\s+/g, ' ').trim().slice(0, 120));
 	const more = warnings.length - shown.length;
-	return `The checker found no errors in this change, and ${warnings.length} warning${warnings.length === 1 ? '' : 's'}: ${shown.join('; ')}${more ? `; and ${more} more in the Coach` : ''}.`;
+	return `Worth a look before you apply this: ${shown.join('; ')}${more ? `; and ${more} more in the Coach` : ''}.`;
 }
 
 /** The host's check plus fit from a real render of the draft (draft-fit.ts). The render path
@@ -304,21 +377,26 @@ function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCh
  * 4,096-token output CEILING, which is the budget gate's worst case and quoted every turn at
  * ~3x a question's real cost. The ceiling stays in the gate; this is the typical turn.
  */
-export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0): { question: number; edit: number } | null {
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0, explicitCache = true): { question: number; edit: number } | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
 	const inUsd = price.promptPerM / 1e6;
 	const outUsd = price.completionPerM / 1e6;
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding);
 	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
-	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify(AGENT_TOOLS))) * AGENT_TOKEN_SCALE;
+	// With a Library the three asset tools join them (they are sent only then), and the list rides in the tail.
+	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify(libraryCount > 0 ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS))) * AGENT_TOKEN_SCALE;
 	// The turn carries the deck whole, or past INLINE_DECK_CHARS an outline (deckForTurn).
-	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens) * AGENT_TOKEN_SCALE;
+	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens + libraryPromptTokens(libraryCount)) * AGENT_TOKEN_SCALE;
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
 	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
 	// 5-minute cache for the next round (1.25x).
-	const firstIn = stat * (primed ? CACHE_READ_RATE : CACHE_WRITE_1H_RATE) + rest * CACHE_WRITE_RATE;
+	// The 2x / 1.25x writes and the 0.1x read belong to a request that carries explicit cache breakpoints (Anthropic, with the
+	// Workspace switch on). Without them nothing is written at a premium and no discount is promised: a vendor that caches on its
+	// own (Google) may bill less than this, so the readout is an upper bound there, never an under-quote.
+	const [readRate, write1h, write5m] = explicitCache ? [CACHE_READ_RATE, CACHE_WRITE_1H_RATE, CACHE_WRITE_RATE] : [1, 1, 1];
+	const firstIn = stat * (primed ? readRate : write1h) + rest * write5m;
 	const question = firstIn * inUsd + AGENT_TURN.questionOut * outUsd;
-	const second = ((stat + rest) * CACHE_READ_RATE + AGENT_TURN.editDocTokens * CACHE_WRITE_RATE) * inUsd + AGENT_TURN.editOut * outUsd;
+	const second = ((stat + rest) * readRate + AGENT_TURN.editDocTokens * write5m) * inUsd + AGENT_TURN.editOut * outUsd;
 	const edit = firstIn * inUsd + AGENT_TURN.editFirstOut * outUsd + second;
 	return { question, edit };
 }
@@ -331,6 +409,12 @@ const CACHE_WRITE_1H_RATE = 2;
 /** What a cached prompt-prefix read costs, as a fraction of base input (architect.ts). */
 const CACHE_READ_RATE = 0.1;
 
+/** What the transcript says while a tool call is still ARRIVING — only the edit tools differ
+ *  from the running label, because their arguments are the slow part. */
+const TOOL_DRAFTING: Record<string, string> = {
+	edit_slides: 'Drafting the edit…',
+};
+
 /** What the transcript says while a tool runs. */
 const TOOL_ACTIVITY: Record<string, string> = {
 	read_component: 'Reading a component…',
@@ -340,6 +424,9 @@ const TOOL_ACTIVITY: Record<string, string> = {
 	edit_slides: 'Editing the draft…',
 	set_front_matter: 'Setting front matter…',
 	check_deck: 'Checking the deck…',
+	list_assets: 'Searching the Library…',
+	view_asset: 'Looking at photos…',
+	caption_asset: 'Saving photo captions…',
 };
 
 /** Fold an agent turn into the ChatResult the panel already renders: the prose, and the
@@ -390,6 +477,10 @@ export function describeModelError(message: string): string {
 	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
 	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
 	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
+	// A model that cannot read video refuses a request that carries a clip.
+	if ((status === 400 || status === 404 || status === 422) && /video/i.test(detail || raw)) return `The selected model can't read video — pick one marked "video" in the model menu, or remove the clip and ask again.${tail}`;
+	// A model that cannot read images refuses a request that carries one; say so, and say the way out.
+	if ((status === 400 || status === 404 || status === 422) && /image|vision|multimodal|modalit/i.test(detail || raw)) return `The selected model can't read photos — pick one marked "vision" in the model menu, or remove the photo and ask again.${tail}`;
 	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;
 	if (status === 429) return `OpenRouter is rate-limiting this key — wait a moment and send again.${tail}`;
 	if (status >= 500) return `OpenRouter or the model's provider had an error — send again in a moment.${tail}`;

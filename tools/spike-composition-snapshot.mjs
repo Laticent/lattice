@@ -41,7 +41,7 @@
  *
  * Usage:
  *   node tools/spike-composition-snapshot.mjs <deck.html> <out.snap> [--print]
- *   (the .html sidecar is written next to the .pdf by lattice-emulator.js)
+ *   (the .html sidecar is written next to the .pdf by lattice.js)
  */
 
 import fs from 'node:fs';
@@ -69,7 +69,7 @@ try {
   if (PRINT) await page.emulateMediaType('print');
   await page.goto(`file://${path.resolve(htmlPath)}`, { waitUntil: 'load' });
   // Mirror the emulator's explicit force-load: `waitUntil` is not what makes the
-  // fonts correct (lattice-emulator.js, after each navigation).
+  // fonts correct (lattice.js, after each navigation).
   await page.evaluate(async () => {
     await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
     await document.fonts.ready;

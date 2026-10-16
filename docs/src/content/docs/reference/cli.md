@@ -4,12 +4,18 @@ description: Every command, flag, environment variable and exit code of the latt
 ---
 
 Every option the `lattice` command accepts. To learn the command through
-worked tasks, start with [Using the command line](/guides/cli/). The same
-list, in the terminal:
+worked tasks, start with [Using the command line](/guides/cli/). In the
+terminal, `--help` prints one screen (the formats and the common options) and
+`--help all` prints every option, the same list as this page:
 
 ```sh
 npx lattice --help
+npx lattice --help all
 ```
+
+The command is `lattice`; the package is `@laticent/lattice`. Every `npx lattice`
+below runs the copy installed in your project. Outside one, write
+`npx @laticent/lattice`, because the unscoped `lattice` package on npm is unrelated.
 
 ## Command shapes
 
@@ -19,6 +25,8 @@ npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
 npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
+npx lattice fmt <deck.md> [more.md …] [options]
+npx lattice completion <bash | zsh | fish | powershell>
 ```
 
 Named flags win over positional arguments when you give both. Flags that take
@@ -33,20 +41,26 @@ it.
 |---|---|
 | `.pdf` | A vector PDF with selectable text |
 | `.pptx` | A PowerPoint, one full-bleed slide image per slide |
+| `.odp` | A LibreOffice Impress (OpenDocument) deck, one full-bleed slide image per slide |
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
-| no extension | A PDF, plus the HTML sidecar |
+| no extension | A PDF, plus the HTML sidecar as the deliverable |
 
-Every format except `.html` also writes an HTML sidecar, `<output>.html`.
-Any other extension stops with an error. For `.webp`, `.jpg` or `.jpeg`, the
-error also prints the `.zip` command to use instead.
+For a `.pdf`, `.pptx`, `.odp`, `.png` or `.zip`, the render captures from an
+HTML file, `<output>.html`, and then deletes it — it keeps the deck's own raw
+HTML and runs it when opened. Pass `--keep-html` (or set `LATTICE_KEEP_HTML=1`)
+to keep it. An extensionless output path is the exception: there the `.html` is
+the deliverable and stays. Any other extension stops with an error. For
+`.webp`, `.jpg` or `.jpeg`, the error also prints the `.zip` command to use
+instead.
 
 ## General options
 
 | Option | What it does |
 |---|---|
-| `-h`, `--help` | Print the help and exit |
+| `-h`, `--help` | Print one screen of help (the formats and the common options) and exit |
+| `--help all`, `--help=all` | Print every option and exit |
 | `-v`, `--version` | Print the version and exit |
 | `-o`, `--output <path>` | The output file, instead of the second positional argument |
 | `-p`, `--palette <name>` | The palette, instead of the positional one |
@@ -55,6 +69,7 @@ error also prints the `.zip` command to use instead.
 | `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K` |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
 | `--allow-remote` | Let the render fetch web images, media and fonts. Off by default, so web images show as placeholders |
+| `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
 | `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page shows their source too. An unknown name fails the run |
 | `--default-plugins <names>` | Narrow the default plugin set for this run, comma-separated, or `none` (default: every shipped plugin). A plugin outside it loads only when the deck lists it in `plugins:` or a component the deck uses requires it; one that does not load exports as source on every output. An unknown name fails the run |
@@ -70,8 +85,17 @@ error also prints the `.zip` command to use instead.
 | `--paper <size>` | Fit each slide onto `auto`, `letter`, `legal` or `a4` paper with a 9 mm margin. Text is not selectable |
 | `--orientation <o>` | `auto`, `landscape` or `portrait` for `--paper`. On its own, implies `--paper auto` |
 | `--embed-source` | Attach the deck's Markdown to the PDF. Includes speaker notes unless you add `--strip-notes` |
+| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
+
+## Office options
+
+For `.odp` and `.pptx`.
+
+| Option | What it does |
+|---|---|
+| `--editable` | Make every paragraph a real text box in the deck's own font, over a picture of the slide with its text removed. Charts, diagrams and equations stay part of the picture. The `.odp` embeds the fonts; the `.pptx` names them, so a reader without them sees a substitute |
 
 ## HTML output
 
@@ -150,6 +174,29 @@ Themes, components, finishes and motion made in the Studio are packages.
 The store is `$LATTICE_HOME/packages`, or `~/.lattice/packages` when
 `LATTICE_HOME` is not set. `--packages <dir>` overrides it for one run.
 
+## `lattice fmt`
+
+Pretty-prints a deck's code blocks, in place: every top-level fenced block a
+formatter reads, except one whose `@code{…}` record says `format=off`. Prettier
+formats JavaScript, TypeScript, JSON, CSS, SCSS, Less, HTML, Vue, Markdown,
+YAML, GraphQL, PHP, XML and Java; ruff formats Python; sql-formatter formats SQL
+(PostgreSQL unless the record names another `dialect=`). A record's `width=`
+sets the line width. A block a formatter cannot parse keeps its text and is
+reported. Line endings and a byte-order mark stay as the file had them.
+
+The formatters are optional dependencies: an install without them still renders
+every deck, and `lattice fmt` names the package a block needs.
+
+| Option | What it does |
+|---|---|
+| `--check` | Write nothing; exit 1 when a block would change (for CI) |
+| `--stdout` | Print the formatted deck instead of writing it (one file only) |
+| `--quiet` | Print no per-block notes |
+
+The Studio formats the same way: **Format code blocks** in the command palette,
+and a block whose record says `format` (or a deck with `code: format`) is
+formatted when you leave the editor.
+
 ## `lattice video`
 
 Renders a narrated deck to an MP4 (H.264 video, AAC audio, a caption track) and
@@ -180,12 +227,33 @@ a `.vtt` beside it.
 It needs a Chromium that encodes H.264 with WebCodecs, such as Chrome or
 Chrome for Testing. Set `CHROME_PATH` to choose one.
 
+## `lattice completion`
+
+Prints a Tab-completion script for one shell to stdout. It completes the
+subcommands, every option above, the closed-set values (palettes, `--size`,
+`--paper`, `--orientation`, `--player-mode`, the image-set options,
+`--overflow-marker`, plugin names) and installed package names, and leaves
+paths to the shell, narrowed by extension.
+
+| Shell | Install (one line) |
+|---|---|
+| `bash` | `eval "$(lattice completion bash)"` in `~/.bashrc` (bash 3.2 or newer) |
+| `zsh` | `source <(lattice completion zsh)` in `~/.zshrc`, after `compinit` |
+| `fish` | `mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish` |
+| `powershell` | `lattice completion powershell \| Out-String \| Invoke-Expression` in `$PROFILE` |
+
+The script calls the installed `lib/cli/complete.js` directly, so a Tab press
+costs one Node start (about 50 ms here), not a load of the CLI bundle. If that file
+has moved, it falls back to `lattice __complete`, the hidden command that
+serves the candidates. cmd.exe has no programmable completion.
+
 ## Environment variables
 
 | Variable | What it sets |
 |---|---|
 | `LATTICE_PALETTE` | The palette, below the command line and above the deck's `theme:` |
 | `LATTICE_OVERFLOW_MARKER` | The standing `--overflow-marker` level (`reader` or `author`; `off` is per render only) |
+| `LATTICE_KEEP_HTML` | `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html` |
 | `LATTICE_HOME` | The folder that holds the package store, `<dir>/packages` |
 | `CHROME_PATH` | The Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set |
 | `LATTICE_RENDER_WATCHDOG_MS` | How long one render step may take before it is stopped. Default `90000` |
@@ -206,4 +274,4 @@ These run from a clone of the repository, not from the installed package.
 | `npm run lint:deck -- <deck.md …>` | Check decks for authoring mistakes, with no browser. `--strict`, `--fix`, `--json`. Exits `1` on an error, `2` on a usage error |
 | `node tools/new-slide.js <layout>` | Print a working skeleton of a layout. `--list` shows them all |
 | `npm run export:marp -- <deck.md> <out.zip> [palette]` | Write a self-contained bundle that renders with `marp-cli` |
-| `npm run new:theme -- <name>` | Start a new palette: `themes/<name>.css`, its `<name>-dark.css` twin and their manifests |
+| `npm run new:theme -- <name>` | Start a new palette: `themes/<name>/<name>.css`, its `<name>-dark.css` twin and their manifests |

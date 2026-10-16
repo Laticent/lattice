@@ -176,9 +176,9 @@ test('the four intra-schema collection-axis copies agree, and focusAxes extends 
 test('the emulator\'s WIDTH_REDUCING_STRATEGIES hand-subset stays within the schema strategy enum', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lattice-emulator.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lattice.js'), 'utf8');
   const m = src.match(/WIDTH_REDUCING_STRATEGIES = new Set\(\[([^\]]*)\]\)/);
-  assert.ok(m, 'WIDTH_REDUCING_STRATEGIES set not found in lattice-emulator.js — update this extraction');
+  assert.ok(m, 'WIDTH_REDUCING_STRATEGIES set not found in lattice.js — update this extraction');
   const listed = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
   assert.ok(listed.length >= 1, 'extraction came back empty');
   const strategies = new Set(schema.properties.split.properties.strategy.enum);

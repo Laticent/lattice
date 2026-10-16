@@ -89,8 +89,8 @@ unknown word still draws, in the informational color. Only `gantt` warns.
 
 | Command | Catches |
 |---|---|
-| `npm run lint:deck -- deck.md` | Moved `[ ]`, label-set keys, words in `circle`, `{x}` in braces, typed `✓` `✗` |
-| `npm run lint:deck -- --fix deck.md` | Rewrites old verdict-grid and pricing `[ ]` to `[!]`, plus every other machine fix |
+| `npm run lint:deck -- deck.md` | Label-set keys, words in `circle`, `{x}` in braces, typed `✓` `✗` |
+| `npm run lint:deck -- --fix deck.md` | Applies every machine fix in place |
 
 Upgrading a deck written before the six answers? See
 [Upgrading an older deck](/guides/status/upgrading/).

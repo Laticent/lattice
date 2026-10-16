@@ -1,0 +1,1 @@
+- Three lint findings drop to `suggestion`, so `lint:deck --strict` no longer fails on them: `capacity-crowd` and `pane-crowd` (a crowded slide or pane still renders whole), and `autosplit-retired` for `autosplit: off` at a landscape size, where nothing splits and the line is only stale. `autosplit: off` at a portrait, square or strip size stays an error.

@@ -1,7 +1,7 @@
 /**
  * Integration: Mermaid pre-rendering smoke test.
  *
- * Renders a deck with one trivial flowchart through lattice-emulator.js.
+ * Renders a deck with one trivial flowchart through lattice.js.
  * mmdc converts the ```mermaid block to SVG at build time; the emulator
  * inlines the SVG into the HTML. Asserts:
  *
@@ -27,7 +27,7 @@ const { readStartMark } = require('../../../lib/core/export-shell-marks.js');
 
 describe('mermaid-smoke', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'mermaid-smoke.md');
 
   const TIMEOUT = 60000;
@@ -49,7 +49,7 @@ describe('mermaid-smoke', () => {
     const dir = tmpDir();
     const pdf = path.join(dir, 'deck.pdf');
     const html = path.join(dir, 'deck.html');
-    const args = [FIXTURE, pdf, '--quiet'];
+    const args = [FIXTURE, pdf, '--quiet', '--keep-html'];
     if (palette) args.push(palette);
     const r = run(args);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

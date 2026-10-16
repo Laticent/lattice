@@ -5,7 +5,7 @@
 // on a non-curated palette (ardesia, an a11y-* theme, …) would otherwise be dropped
 // back to indaco and lose the instant-shell + flash the wrong color.
 //
-// THE SOURCE IS `themes/<name>.manifest.json`. These lists used to be hand-maintained
+// THE SOURCE IS `themes/<name>/<name>.manifest.json`. These lists used to be hand-maintained
 // here, with the swatches hand-maintained separately in ThemePicker, and a test
 // (palettes.test.ts) keeping the two in lockstep because adding a palette to one and
 // forgetting the other shipped a dot-less menu item or a stale entry. Both now derive

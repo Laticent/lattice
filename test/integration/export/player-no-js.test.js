@@ -32,7 +32,7 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 // Pinned-light, pinned-dark and bookend slides: the cases the flip's carve-outs exist for.
 const DECK = path.join(ROOT, 'examples', 'slide-class-forms.md');
 const TIMEOUT = 240000;

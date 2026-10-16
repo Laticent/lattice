@@ -25,7 +25,7 @@ describe('corner export capability', async () => {
   });
 
   test('formats that cannot carry a hole square instead', () => {
-    for (const t of ['jpeg', 'pdf', 'pptx']) {
+    for (const t of ['jpeg', 'pdf', 'pptx', 'odp']) {
       assert.equal(cornerSurvivesExport(t), false, `${t} must square`);
       assert.equal(isFlatExportTarget(t), true, `${t} is a KNOWN flat target, not an unclassified one`);
     }
@@ -69,7 +69,7 @@ describe('corner export capability', async () => {
     // design. That default is right for safety and wrong for discovery, so this is the test
     // that turns "we forgot to classify avif" from a shipped artifact into a red suite.
     const { IMAGE_FORMATS } = require('../../../lib/export/image-set.js');
-    // The emulator's OUT_FORMAT vocabulary (lattice-emulator.js) plus the literals the
+    // The emulator's OUT_FORMAT vocabulary (lattice.js) plus the literals the
     // Studio's capture sites pass (deck-export.js). Kept explicit rather than parsed out of
     // the sources: a regex over those files would rot more quietly than this list.
     const EXPORTER_TARGETS = [...IMAGE_FORMATS, 'pdf', 'pptx', 'html'];

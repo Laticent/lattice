@@ -1,0 +1,1 @@
+- The picture-only PowerPoint export (CLI and Studio) is now schema-valid: the notes master is listed where the OOXML schema puts it, and the package no longer declares a slide master per slide that it does not hold. Strict readers have nothing to repair.

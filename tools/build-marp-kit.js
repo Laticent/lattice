@@ -84,7 +84,7 @@ const THEME = 'cuoio';
  * UNMINIFIED_PAIRS adds a readable counterpart beside each Lattice-authored
  * minified file, `to` matching the minified name minus `-min`. `dist/lattice.css`
  * and `dist/lattice-runtime.js` are the same build's unminified output;
- * `themes/${THEME}.css` is not a `dist/` build output at all but the tracked
+ * `themes/${THEME}/${THEME}.css` is not a `dist/` build output at all but the tracked
  * SOURCE the minifier reads — reusing it (rather than adding an unminified
  * theme build) means one less thing for the theme pipeline to produce. Nothing
  * here is wired into marp.config.cjs / .vscode/settings.json — see the
@@ -93,12 +93,14 @@ const THEME = 'cuoio';
 const UNMINIFIED_PAIRS = [
   { from: 'dist/lattice.css', to: 'lattice.css' },
   { from: 'dist/lattice-runtime.js', to: 'lattice-runtime.js' },
-  { from: `themes/${THEME}.css`, to: `${THEME}.css` },
-  { from: `themes/${THEME}-dark.css`, to: `${THEME}-dark.css` },
+  { from: `themes/${THEME}/${THEME}.css`, to: `${THEME}.css` },
+  { from: `themes/${THEME}-dark/${THEME}-dark.css`, to: `${THEME}-dark.css` },
 ];
 
 const ASSETS = [
-  ...STATIC_ASSETS.map(({ from }) => ({ from, to: path.basename(from) })),
+  // Our own `dist/` builds keep their `-min` basename (see above); a third-party copy (Mermaid,
+  // from the plugin that owns it) keeps the name the export gives it, which the kit's deck loads.
+  ...STATIC_ASSETS.map(({ from, to }) => ({ from, to: from.startsWith('dist/') ? path.basename(from) : to })),
   { from: `dist/themes/${THEME}-min.css`, to: `${THEME}-min.css` },
   { from: `dist/themes/${THEME}-dark-min.css`, to: `${THEME}-dark-min.css` },
   ...UNMINIFIED_PAIRS,
@@ -251,6 +253,7 @@ AGPL above.
 | Component | Files | License |
 |---|---|---|
 | Mermaid | \`mermaid-v11-min.js\` | MIT — Copyright (c) 2014-2022 Knut Sveidqvist |
+| Tabler Icons | \`lattice-plugin-icons.js\` (all but \`stream\` and \`gateway\`) | MIT — Copyright (c) 2020-2026 Paweł Kuna |
 | KaTeX fonts | \`fonts/KaTeX_*.woff2\` | MIT — Copyright (c) 2013-2020 Khan Academy and contributors |
 | Outfit | \`fonts/outfit-*.woff2\` | SIL Open Font License 1.1 |
 | Playfair Display | \`fonts/playfair-*.woff2\` | SIL Open Font License 1.1 |
@@ -312,6 +315,8 @@ nothing on our side had ever rendered it. The reference render was made with
 | \`lattice-runtime-min.js\` | Builds charts and diagrams in the browser. |
 | \`mermaid-v11-min.js\` | Third party. Diagram slides need it. |
 | \`lattice-dagre-min.js\` | Third party. Lays out a state chart that BRANCHES. **Delete it and the chart still draws** — on the reading-order grid a chain uses, each branch drawn as a skip, which looks deliberate rather than broken. It is the one file here whose absence is invisible on the slide. |
+| \`lattice-plugin-icons.js\` | Third party (Tabler Icons). The icon drawings; the runtime loads it the first time a slide writes \`^{name}\`. **Delete it and every icon stays the code you typed.** |
+| \`lattice-plugin-avatars.js\` | Ours. The avatar drawings; the runtime loads it the first time a slide writes \`!{Name}\`. **Delete it and every avatar stays the code you typed, and a team-profile portrait becomes a monogram.** |
 | \`lattice.css\` · \`${THEME}.css\` · \`${THEME}-dark.css\` · \`lattice-runtime.js\` | Unminified counterparts of the four above, for reading or diffing. Neither config references them — delete them freely, or keep them for reference. |
 | \`fonts/\` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
@@ -460,6 +465,12 @@ function thirdPartyLicenses() {
     rule,
     '',
     read('MIT-dagre-d3-es.txt'),
+    '',
+    rule,
+    'Tabler Icons — the icon drawings, shipped as lattice-plugin-icons.js',
+    rule,
+    '',
+    read('MIT-tabler-icons.txt'),
     '',
     rule,
     'Lodash — the subset dagre-d3-es pulls in, bundled into the same file',

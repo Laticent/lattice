@@ -1,0 +1,4 @@
+- The nine `@laticent/*` libraries now point TypeScript at their built `.d.ts` files. Before, a project with strict settings such as `noUncheckedIndexedAccess` got hundreds of type errors inside our packages.
+- `@laticent/ltt` reads every `1.x` timing file, as its spec's version rule says, instead of refusing anything but `1.0`. Its JSON Schema is served at its own `$id`, and its hash input follows `JSON.stringify` for sparse arrays and dates.
+- `@laticent/segno` refuses a character set built from an emoji (use `lit()`), marks a stack-exhausted parse with `code: 'stack'`, keeps `instanceof SchemaError` working across its entry points, and lints a very wide alternation in milliseconds instead of seconds.
+- `@laticent/trama` returns the same layout from its cache as fresh, reports input `solveStar` cannot solve, and loads dagre into its worker only from a script the page actually ran.

@@ -23,7 +23,7 @@
  *
  * ── Why baked path data, not a fetched asset ────────────────────────────────
  * The kernel (map.transform.js) `require()`s the JSON this writes. esbuild
- * inlines it into dist/lattice-emulator.js and dist/lattice-runtime.js (CJS
+ * inlines it into dist/lattice.js and dist/lattice-runtime.js (CJS
  * requires are not tree-shaken, and the chart-family dispatcher is always
  * loaded), so the basemap ships in those two JS bundles — never in
  * dist/lattice.css, which carries only color rules. Baking it inline keeps

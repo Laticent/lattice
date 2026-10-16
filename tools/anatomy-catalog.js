@@ -25,11 +25,15 @@ let _catalog = null;
 /** Build (once) and return the full {blockId -> asciiText} catalog. */
 function loadAnatomyCatalog() {
   if (_catalog) return _catalog;
-  const out = execFileSync('python3', [ASCII_TOOL, 'build'], { encoding: 'utf8' });
+  // UTF-8 on the pipe whatever the console's code page: the catalog draws with box characters,
+  // and Python on a Windows console encodes stdout as cp1252 and dies on the first one (#2459).
+  const out = execFileSync('python3', [ASCII_TOOL, 'build'], { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
   const catalog = Object.create(null);
   let currentId = null;
   let currentLines = [];
-  for (const line of out.split('\n')) {
+  // Python on Windows writes text-mode stdout as CRLF; a `\r` left on each line kept every
+  // `=== id ===` header from matching, and the catalog came back empty (#2459's runner probe).
+  for (const line of out.split(/\r?\n/)) {
     const m = line.match(/^=== (\S+) ===$/);
     if (m) {
       if (currentId) catalog[currentId] = currentLines.join('\n').replace(/\n+$/, '');

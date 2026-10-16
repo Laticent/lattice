@@ -364,7 +364,7 @@ allows different things:
 | Library | Gate | Allows beyond in-folder imports |
 |---|---|---|
 | Cadenza | `checkCadenzaBoundary` | `node:` built-ins; static `from` imports only are matched |
-| Vetrina | `checkVetrinaBoundary` | `node:` built-ins; `react` / `react-dom` in `react.ts` only; static `from` imports only are matched |
+| Vetrina | `checkVetrinaBoundary` | `node:` built-ins; `react` / `react-dom` in `react.ts` only; `@laticent/ltt` by exact name; same pattern set as Suono since followup 2462-p3 (before it, static `from` imports only were matched) |
 | Suono | `checkSuonoBoundary` | also catches side-effect, dynamic `import()` and `require()` imports |
 | Lente | `checkLenteBoundary` | same pattern set as Suono |
 | Anima | `checkAnimaBoundary` | intra-library `../` imports; sanctioned engine dependencies (`zdog`, `animejs`, `animejs/svg`) per backend file |

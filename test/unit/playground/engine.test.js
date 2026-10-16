@@ -24,7 +24,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-const cuoioCss = fs.readFileSync(path.join(ROOT, 'themes', 'cuoio.css'), 'utf8');
+const cuoioCss = fs.readFileSync(path.join(ROOT, 'themes', 'cuoio', 'cuoio.css'), 'utf8');
 
 // lib/playground/index.js is an ESM module; dynamic import() loads it from CJS.
 // In Node `typeof window === 'undefined'`, so the window.LatticePlayground

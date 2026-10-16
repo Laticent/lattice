@@ -19,7 +19,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const engine = require('../../../lib/components/chart/_chart-family/chart-family');
+const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 

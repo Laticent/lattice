@@ -76,6 +76,10 @@ export type DeckPreviewProps = {
 	/** The page of the shown slide's pane split that holds the caret, or absent to keep the page
 	 *  shown. `pageIndex` wins over it. */
 	panePage?: number;
+	/** The shown slide's run is SLIDES in their own right, not pages of one slide: a chunk the
+	 *  deck splits on headings. Its members are already numbered by the host's counter and rail,
+	 *  so the "page 2 of 3" pill would describe them wrongly; it is not drawn. */
+	runIsSlides?: boolean;
 	/** Reports each definitive render of a slide: which slide it showed, and, when that slide
 	 *  split, which page of how many. `page` is `null` for an unsplit slide and for a failed
 	 *  render. The host's navigation steps through the run, and waits for this after it moves. */
@@ -178,14 +182,18 @@ export type DeckPreviewProps = {
 	 * thumbnail / specimen host must stay static (a grid of popovers would be noise). Off by default.
 	 */
 	chartDetail?: boolean;
-	/**
-	 * This preview is a THUMBNAIL — a miniature in a grid of its peers, not a slide
-	 * anyone authors from. Folded into the renderer's options so the frame is stamped
-	 * `<html data-lattice-thumbnail>` and the engine runtime skips its overflow /
-	 * type-floor watcher (see `SingleSlideOptions.thumbnail`). Set by `SlideThumbFace`;
-	 * every full-size host omits it and keeps the watcher.
-	 */
+	/** A catalog sample the author did not write: the runtime silences its overflow / type-floor
+	 *  watcher (see `SingleSlideOptions.specimen`, which says why a thumbnail of the author's own
+	 *  slide must NOT set it). */
 	specimen?: boolean;
+	/**
+	 * This preview is WATCHED, not read: a tile in a grid of its peers, Present's delivered slide or
+	 * its next-slide tile. Nobody acts on what is inside it. Folded into the renderer's options so the
+	 * frame is stamped `<html data-lattice-chromeless>`, and the runtime draws no reader chrome into it
+	 * (a code block's copy buttons, lib/core/code-copy.mjs). Unlike `specimen` it keeps the overflow
+	 * watcher. Set for every tile the Studio's preview pool renders and for Present's two frames.
+	 */
+	chromeless?: boolean;
 	/** The preview an author types into: its flowcharts redraw in a worker (single-slide-render `liveLayout`). */
 	liveLayout?: boolean;
 };
@@ -205,6 +213,7 @@ export function DeckPreview({
 	pageIndex,
 	paneCounts,
 	panePage,
+	runIsSlides = false,
 	onSplitPage,
 	deckId,
 	webOrigins,
@@ -226,6 +235,7 @@ export function DeckPreview({
 	loader = false,
 	chartDetail = false,
 	specimen = false,
+	chromeless = false,
 	liveLayout = false,
 	...aria
 }: DeckPreviewProps) {
@@ -279,14 +289,14 @@ export function DeckPreview({
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
 	// (avoids re-running createSingleSlideRenderer every render).
-	// `thumbnail` is folded in HERE rather than pushed onto every caller's `options`:
-	// the flag is a property of THIS HOST (a grid tile vs a full-size preview), while
-	// `options` is page-level config the Studio hands identically to both. Read once,
-	// like `options` itself — a host does not become a thumbnail mid-life.
+	// `specimen`, `chromeless` and `liveLayout` are folded in HERE rather than pushed onto every
+	// caller's `options`: each is a property of THIS HOST (a grid tile vs a full-size preview), while
+	// `options` is page-level config the Studio hands identically to both. Read once, like `options`
+	// itself — a host does not become a tile mid-life.
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
 	// The FIRST render's arguments, held so a StrictMode remount can rebuild the renderer from
 	// inside an effect (see `runRenderRef`) without reading a later render's `options`.
-	const makeEngineRef = React.useRef(() => createSingleSlideRenderer(specimen || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options));
+	const makeEngineRef = React.useRef(() => createSingleSlideRenderer(specimen || chromeless || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(chromeless ? { chromeless: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options));
 	if (engineRef.current === null) engineRef.current = makeEngineRef.current();
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
@@ -891,7 +901,7 @@ export function DeckPreview({
 			{/* A split slide's page indicator: which page of the run the frame holds, numbered as the
 			    PDF prints it. Visual and announced; it takes no pointer events (the preview box is a
 			    swipe surface). */}
-			{splitPage && !failed && (
+			{splitPage && !failed && !runIsSlides && (
 				<div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center" data-split-page>
 					<span className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-2.5 py-1 font-mono text-[11px] text-muted-foreground tabular-nums shadow-sm" role="status" aria-label={`Page ${splitPage.label}, ${splitPage.index + 1} of ${splitPage.count} in this slide`}>
 						<span className="flex gap-1" aria-hidden="true">

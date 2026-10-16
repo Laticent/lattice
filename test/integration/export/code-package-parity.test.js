@@ -27,9 +27,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { codePackages, bundleCodePackage } = require('../../../lib/packages/code-bundle.js');
 const { launchSandboxBrowser, openPackageSandbox, workerScript, runPackage } = require('../../../lib/core/code-sandbox.js');
+const { WORKER_NETWORK } = require('../../../lib/packages/code-shape.mjs');
 const { splitSections } = require('../../../lib/core/split-sections.js');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
-const { LAYOUTS } = require('../../../lib/components/chart/_chart-family/chart-registry.generated.js');
+const { LAYOUTS } = require('../../../lib/plugins/chart-family/shared/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
 const { slideFacts } = require('../../../lib/packages/slide-facts.mjs');
 const { openSanitizerPage } = require('../../../lib/packages/code-door-worker.js');
@@ -39,6 +40,9 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const TIMEOUT = 600000;
 
 /** The deck that shows a package off: its component's gallery, or the `qr` variant's example. */
+// Where a render resolves `sample:<file>` pictures (lib/samples/); the Studio's own shape.
+const SAMPLES_URL = 'https://studio.example/samples/';
+
 function sampleDeck(name) {
   if (name === 'qr') return path.join(ROOT, 'examples', 'qr.md');
   const [hit] = fs.globSync(`lib/components/*/${name}/${name}.gallery.md`, { cwd: ROOT });
@@ -58,7 +62,10 @@ function captureAdapter(adapterPath, deck) {
     return out;
   };
   try {
-    engine.render(fs.readFileSync(deck, 'utf8'));
+    // The galleries name their pictures `sample:<file>`; every host renders with a samples folder,
+    // so this one does too (lib/engine/background-image.js installSampleImages resolves them before
+    // any adapter sees the slide, which is what keeps the package and the in-repo render equal).
+    engine.render(fs.readFileSync(deck, 'utf8'), undefined, { samplesUrl: SAMPLES_URL });
   } finally {
     adapter.applyToHtml = original;
   }
@@ -209,10 +216,36 @@ describe('code packages: every shipped transform runs in the locked page and mat
   test('the worker has no network constructors, and the bundle cannot put them back', async () => {
     // The second wall (code-door-core.mjs WORKER_NETWORK): the policy's inheritance is each engine's
     // to get right, and Firefox let EventSource out of a worker the policy covered.
-    const probe = 'try{delete self.EventSource}catch(e){}try{Object.defineProperty(self,"fetch",{value:()=>1})}catch(e){}try{self.WebSocket=function(){}}catch(e){}function t(s){return JSON.stringify(["fetch","XMLHttpRequest","WebSocket","EventSource","WebTransport","importScripts","Worker"].map((n)=>typeof self[n]))}export{t as default};';
+    // Every name is checked on `self` AND on each prototype above it: Chromium defines `fetch`,
+    // `importScripts`, `indexedDB` and `fonts` on WorkerGlobalScope.prototype, not on `self`, so a
+    // wall on `self` alone only shadowed them and `.call(self, …)` walked around it.
+    const probe = 'try{delete self.EventSource}catch(e){}try{Object.defineProperty(self,"fetch",{value:()=>1})}catch(e){}try{self.WebSocket=function(){}}catch(e){}' +
+      'try{Object.defineProperty(WorkerGlobalScope.prototype,"fetch",{value:()=>1})}catch(e){}try{delete WorkerGlobalScope.prototype.fonts}catch(e){}' +
+      `function t(s,kit){const reach=[];for(const n of ${JSON.stringify(WORKER_NETWORK)})for(let o=self;o;o=Object.getPrototypeOf(o)){const d=Object.getOwnPropertyDescriptor(o,n);if(d&&(d.get||d.value!=null)){reach.push(n);break}}` +
+      'let font="refused";try{new FontFace("x","url(data:,)");font="made"}catch(e){}return JSON.stringify({reach,font,measured:kit.measure("Wide text","16px sans-serif")>0})}export{t as default};';
     const sandbox = await openPackageSandbox(browser, probe);
     try {
-      assert.equal(await runPackage(sandbox, { html: '<section></section>', index: 0 }), JSON.stringify(Array(7).fill('undefined')));
+      assert.deepEqual(JSON.parse(await runPackage(sandbox, { html: '<section></section>', index: 0 })), { reach: [], font: 'refused', measured: true });
+    } finally {
+      await sandbox.close();
+    }
+  });
+
+  test('no import(): refused in the source, and no string becomes code that could hold one', async () => {
+    // `import()` is syntax, so no name wall reaches it (contract note §10): the runner refuses a
+    // package that holds one before any worker exists, and the wall removes every way to turn a
+    // string into code at run time, so the package cannot write one there either.
+    await assert.rejects(openPackageSandbox(browser, 'function t(s){import("https://example.com/x").catch(()=>{});return s.html}export{t as default};'), /holds a dynamic `import\(\)`/);
+    const built = 'function t(s){const tried={};const at=(k,f)=>{try{f();tried[k]="ran"}catch(e){tried[k]="refused"}};' +
+      'at("eval",()=>eval("1"));at("indirect eval",()=>(0,eval)("1"));at("Function",()=>Function("return 1")());' +
+      'at("constructor",()=>(()=>{}).constructor("return 1")());at("async constructor",()=>(async()=>{}).constructor("return 1"));' +
+      'at("generator constructor",()=>(function*(){}).constructor("yield 1"));at("async generator constructor",()=>(async function*(){}).constructor("yield 1"));' +
+      'at("string timer",()=>setTimeout("1",0));at("string interval",()=>clearInterval(setInterval("1",1000)));at("function timer",()=>setTimeout(()=>{},0));' +
+      'return JSON.stringify(tried)}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, built);
+    try {
+      const tried = JSON.parse(await runPackage(sandbox, { html: '<section></section>', index: 0 }));
+      assert.deepEqual(tried, { eval: 'refused', 'indirect eval': 'refused', Function: 'refused', constructor: 'refused', 'async constructor': 'refused', 'generator constructor': 'refused', 'async generator constructor': 'refused', 'string timer': 'refused', 'string interval': 'refused', 'function timer': 'ran' });
     } finally {
       await sandbox.close();
     }
@@ -295,7 +328,9 @@ describe('code packages: every shipped transform runs in the locked page and mat
 
     const people = captureAdapter(codePackages().find((p) => p.name === 'team-profile').adapter, sampleDeck('team-profile'));
     const baseUrl = 'https://studio.example/decks/42/';
-    const slides = sections(people.input).map((html, index) => ({ html, index, idPrefix: '', baseUrl }));
+    // The gallery's portraits arrive already resolved into the samples folder; this case needs
+    // deck-RELATIVE photos, so it hands the adapter their bare names.
+    const slides = sections(people.input.split(SAMPLES_URL).join('')).map((html, index) => ({ html, index, idPrefix: '', baseUrl }));
     const expected = slides.map((s) => inRepo(people.adapter, s, { baseUrl }));
     assert.ok(expected.some((h) => h.includes(`src="${baseUrl}`)), 'the base case must resolve an asset against the base');
     assert.deepEqual((await inSandbox(browser, 'team-profile', slides)).outs, expected);

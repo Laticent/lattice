@@ -6,7 +6,7 @@ const { JSDOM } = require('jsdom');
 const DOMPurify = require('dompurify');
 
 // The browser bundle the CLI export evaluates inside its own Chromium to project
-// caption narration (lattice-emulator.js `projectDeckSpeechFromHtml`). The export path
+// caption narration (lattice.js `projectDeckSpeechFromHtml`). The export path
 // itself needs a live page, which this tier has no business launching — so the contract
 // is pinned where it can be: the bundle is driven in a DOM and its output is compared
 // against the Node-side kernel call it replaced.
@@ -116,7 +116,7 @@ test('the emulator projects the deck BEFORE any branch closes the browser', () =
 	// arm stayed green. It also false-failed on a line rewrap and on renaming the `g`
 	// parameter. So it now compares offsets, which is the claim, and matches loosely enough
 	// that reformatting does not break it.
-	const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+	const src = fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8');
 	const call = src.search(/captionScript\s*=\s*CAPTIONS[\s\S]{0,80}?projectDeckSpeechFromHtml\(/);
 	assert.ok(call > 0, 'renderBody projects the deck into `captionScript`');
 
@@ -148,9 +148,9 @@ test('the caption path no longer constructs a jsdom window', () => {
 	// for reader-mode article projection — and a file-wide assertion went red for a reason
 	// that has nothing to do with the caption path. A test that fails when an unrelated
 	// feature lands is a test that gets deleted, so it now asserts the claim it means.
-	const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+	const src = fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8');
 	const start = src.indexOf('async function projectDeckSpeechFromHtml(');
-	assert.ok(start > 0, 'projectDeckSpeechFromHtml is still in lattice-emulator.js');
+	assert.ok(start > 0, 'projectDeckSpeechFromHtml is still in lattice.js');
 	// The function ends at the next brace in column 0 — this file's top-level style.
 	const end = src.indexOf('\n}\n', start);
 	assert.ok(end > start, 'found the end of projectDeckSpeechFromHtml');

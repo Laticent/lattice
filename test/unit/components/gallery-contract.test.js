@@ -64,6 +64,7 @@ const VOICE_EXEMPT = {
   wifi: { rules: ['stressDoc', 'density'], reason: 'fixed credentials card; slots, not a collection' },
   // Logo wall: marks carry no prose to budget; the dense variant is the documented upper limit.
   'logo-wall': { rules: ['stressDoc', 'density'], reason: 'no prose axis; dense variant is the ceiling' },
+  collage: { rules: ['density'], reason: 'photos, not prose; the one description paragraph is covered by the universal body budget' },
   // Prose statements: no item/row axis — prose density is review-core's advisory domain.
   'big-number': { rules: ['density'], reason: 'one number and a caption — no countable axis' },
   content: { rules: ['density'], reason: 'freeform prose — no item/row axis' },

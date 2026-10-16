@@ -51,7 +51,25 @@ const GROUPS = [
       'The copy-and-go Marp kit — engine, default palette, runtime, Mermaid, fonts, '
       + 'a marp-cli config, VS Code settings, LICENSE/NOTICE, and a self-documenting '
       + '`Sample-Deck.md`. Copy the folder, open it in VS Code, start editing.',
-    consume: 'Copy `dist/marp-kit/` wholesale; see its own `README.md`.',
+    consume: 'Copy `dist/marp-kit/` wholesale; see its own `README.md`. Not in the npm package: take it from a repo build, the release zip, or the `dist-kits` branch.',
+  },
+  {
+    prefix: 'palettes/',
+    purpose:
+      'Two files per shipped palette. `<name>.css` is its tokens with every `@import` resolved (a dark '
+      + 'variant carries its base), for a bundler or your own UI, since a bundler cannot resolve the Marp '
+      + 'theme file\'s `@import \'lattice\'`; it is not a slide renderer. `<name>.slides.css` is the same '
+      + 'tokens scoped to each slide, the second half of the packed slide form (with `slides.css`).',
+    consume: '`import \'@laticent/lattice/palette/<name>.css\';` · `import \'@laticent/lattice/palette/<name>.slides.css\';`',
+  },
+  {
+    prefix: 'engineering/',
+    purpose:
+      'The contributor indexes — `capabilities.md` (every npm script, tool and framework), '
+      + '`decisions.md` (one row per decision note) and `gotchas.md` (one row per gotcha). Each is '
+      + 'generated from one-file-per-item sources and never committed, so two PRs that each add an '
+      + 'item never touch the same file (engineering/decisions/2026-10-09-generated-indexes-uncommitted.md).',
+    consume: '`grep` them in a repo checkout. Not in the npm package: their links point into `engineering/`. Also published on the `dist-kits` branch.',
   },
   {
     prefix: 'agent-kit/',
@@ -63,13 +81,17 @@ const GROUPS = [
       + '`review/` (a runnable self-contained deck checker and its rubric) and '
       + '`reference/` (the machine catalogs). For a model or coding agent that has '
       + 'to author a deck; every folder has its own README.',
-    consume: 'Copy `dist/agent-kit/` wholesale; see its own `README.md`.',
+    consume: 'Copy `dist/agent-kit/` wholesale; see its own `README.md`. Not in the npm package: take it from a repo build, the release zip, or the `dist-kits` branch.',
   },
 ];
 
 // Keyed by dist-relative POSIX path. `consume` is the public entry point or
 // a short note on how the file is used.
 const DESCRIPTIONS = {
+  'slides.css': {
+    purpose: 'The packed slide form, engine half: the engine scaffold and CSS scoped to `article.lattice > section`, plus the 16:9 slide box. Pair it with one `palette/<name>.slides.css` around the markup `render()` returns. 16:9 only, no panes.',
+    consume: '`@laticent/lattice/slides.css`',
+  },
   'lattice.css': {
     purpose: 'Engine bundle — the palette-blind layout system (layouts + modifiers, no color tokens).',
     consume: '`@laticent/lattice/css`',
@@ -88,7 +110,7 @@ const DESCRIPTIONS = {
   },
   'lattice-emoji.css': {
     purpose: 'Opt-in full-offline color emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font.',
-    consume: '`@laticent/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`)',
+    consume: '`@laticent/lattice/dist/lattice-emoji.css` (opt-in)',
   },
   'lattice-runtime.js': {
     purpose: 'Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip\'s full-fidelity HTML route. esbuild IIFE.',
@@ -102,13 +124,13 @@ const DESCRIPTIONS = {
     purpose: 'The dagre graph-layout engine (`dagre-d3-es`, MIT), tree-shaken to `layout` + `Graph`, as a standalone IIFE that installs `globalThis.__latticeDagre`. Load it with a `<script src>` BEFORE `lattice-runtime-min.js` on any page whose deck has a state chart — the runtime\'s layout pass reads that global synchronously on its first draw. Absent, a state chart that BRANCHES falls back to the reading-order grid a chain uses, drawing each branch as a skip (a different layout, not a blank one; the runtime says so on the console). Split out of the runtime bundle so a reader with no state chart does not fetch 25.9 KiB gzipped of layout engine.',
     consume: '`<script src="lattice-dagre-min.js">`, beside the runtime',
   },
-  'lattice-emulator.js': {
-    purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`.',
-    consume: '`lattice` bin / `@laticent/lattice`',
+  'lattice.js': {
+    purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin`; it is not an import path (the root import `@laticent/lattice` is the engine, `lib/engine/index.js`).',
+    consume: '`lattice` bin',
   },
-  'lattice-emulator-min.js': {
-    purpose: 'Minified `lattice-emulator.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file.',
-    consume: '`@laticent/lattice/min`',
+  'lattice-min.js': {
+    purpose: 'Minified `lattice.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin stays the unminified file. Not exported: run it directly.',
+    consume: '`node dist/lattice-min.js`',
   },
   'docs/components.json': {
     purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component.',

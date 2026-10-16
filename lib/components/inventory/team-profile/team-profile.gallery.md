@@ -23,27 +23,27 @@ A roster of named people, each under a portrait, with the role they own.
 ## The team profile seats each face over a name, a role, and one line.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods; holds the dates.
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.
 
@@ -58,20 +58,20 @@ A roster of named people, each under a portrait, with the role they own.
 ## lead gives the first person the hero cell and ranks the rest beneath.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Signs the scope and owns the outcome.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 
 
@@ -85,34 +85,34 @@ A roster of named people, each under a portrait, with the role they own.
 ## bench packs the long roster down to a face, a name, and a role.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Hana Suzuki
   - `Field Engineer`
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Owen Adeyemi
   - `Revenue Ops`
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
 - Clara Nunes
   - `Quality Lead`
 - Sofia Marchetti
-  - ![](sofia.svg)
+  - ![](sample:portrait-sofia.svg)
   - `Security Lead`
 - Kenji Sato
-  - ![](kenji.svg)
+  - ![](sample:portrait-kenji.svg)
   - `Support Manager`
 - Idris Khan
   - `Release Manager`
@@ -156,19 +156,19 @@ A roster of named people, each under a portrait, with the role they own.
 ## bio turns the grid on its side and gives the note a line of its own.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Fifteen years running operations across forty sites.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Landed this migration twice under a regulator.
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Owns the pods and the board date.
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Wrote the spec the plan hangs from.
 
@@ -184,28 +184,28 @@ A roster of named people, each under a portrait, with the role they own.
 ## Twelve is the ceiling, and bench is the only composition that seats them.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Chief Financial Officer`
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Global Delivery`
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Principal Solutions Architect`
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Platform Lead`
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success Director`
 - Sofia Marchetti
-  - ![](sofia.svg)
+  - ![](sample:portrait-sofia.svg)
   - `Information Security Lead`
 - Kenji Sato
-  - ![](kenji.svg)
+  - ![](sample:portrait-kenji.svg)
   - `Support Escalation Manager`
 - Hana Suzuki
   - `Field Reliability Engineer`
@@ -227,27 +227,27 @@ A roster of named people, each under a portrait, with the role they own.
 ## The team profile seats each face over a name, a role, and one line.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods; holds the dates.
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.
 
@@ -262,27 +262,27 @@ A roster of named people, each under a portrait, with the role they own.
 ## The team profile seats each face over a name, a role, and one line.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods; holds the dates.
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.
 
@@ -297,27 +297,27 @@ A roster of named people, each under a portrait, with the role they own.
 ## The team profile seats each face over a name, a role, and one line.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods; holds the dates.
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.
 

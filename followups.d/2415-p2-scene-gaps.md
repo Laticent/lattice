@@ -2,6 +2,9 @@
 origin: 2415
 priority: P2
 recorded: 2026-09-27
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md
 source: https://github.com/Laticent/lattice/pull/2415
 ---
 

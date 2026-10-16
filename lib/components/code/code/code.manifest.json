@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "code",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "native",
     "priority": [
@@ -14,6 +18,7 @@
   "function": "evidence",
   "bucket": "code",
   "form": "canvas",
+  "plugins": { "requires": ["code"] },
   "substance": "prose",
   "stage": "flow",
   "tags": [

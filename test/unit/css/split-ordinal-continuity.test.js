@@ -103,7 +103,7 @@ function components() {
 /**
  * Is this component enrolled for splitting?
  *
- * `axis || split`, WHICH IS THE ENGINE'S OWN PREDICATE (`lattice-emulator.js`: the capacity map
+ * `axis || split`, WHICH IS THE ENGINE'S OWN PREDICATE (`lattice.js`: the capacity map
  * takes a component when `axis || m.split`). The first version of this gate asked only about
  * `capacity.axis` and was therefore blind to every component enrolled by a carousel RECIPE —
  * `compare-code`, `compare-prose`, `decision`, `redline`, `glossary`, `list-tabular` and

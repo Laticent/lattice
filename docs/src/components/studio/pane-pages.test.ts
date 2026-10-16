@@ -3,12 +3,17 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { loadAuthoring } from '@/playground/authoring-door.js';
 import { SLIDE_SEP } from './deck-ops';
 import { frontMatterBlock, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { foldPaneSplits, type SlideScript } from './narration-projection';
 import { panePageOfCaret, paneSplitCounts, paneSplitLineOf, renderedPageCounts } from './pane-pages';
+
+// The module under test reads the lint core synchronously; in the app, its loader awaits this first.
+beforeAll(() => loadAuthoring());
+
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const engine = require('../../../../lib/engine/index.js') as { render: (md: string, theme: string) => { html: string } };

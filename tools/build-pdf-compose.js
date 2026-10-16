@@ -19,7 +19,6 @@
  *
  * Flags: --check (exit 1 when the bundle is missing or stale), --silent.
  */
-const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -36,11 +35,19 @@ function build({ check = false, silent = false } = {}) {
 	fs.writeFileSync(ENTRY, ENTRY_SRC);
 	let iife;
 	try {
-		iife = execFileSync(
-			path.join(ROOT, 'node_modules', '.bin', 'esbuild'),
-			[ENTRY, '--bundle', '--minify', '--format=iife', '--platform=browser', '--log-level=error', '--legal-comments=none'],
-			{ cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-		);
+		// esbuild's own API, not `node_modules/.bin/esbuild`: that shim is extensionless and Windows
+		// cannot spawn it, so this step failed there with ENOENT (#2459).
+		iife = require('esbuild').buildSync({
+			entryPoints: [ENTRY],
+			bundle: true,
+			minify: true,
+			format: 'iife',
+			platform: 'browser',
+			logLevel: 'error',
+			legalComments: 'none',
+			write: false,
+			absWorkingDir: ROOT,
+		}).outputFiles[0].text;
 	} finally {
 		fs.rmSync(ENTRY, { force: true });
 	}

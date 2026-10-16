@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const runMock = vi.fn();
 vi.mock('./index', () => ({ run: (opts: unknown) => runMock(opts) }));
 
-import { useWalkthrough } from './react';
+import { useLazyWalkthrough, useWalkthrough } from './react';
 
 type FakeHandle = { active: boolean; stop: () => void };
 /** Wire runMock to return a controllable handle and capture the merged onStop. */
@@ -147,3 +147,124 @@ describe('useWalkthrough — the React lifecycle adapter', () => {
 		expect(rig.handle.stop).not.toHaveBeenCalled();
 	});
 });
+
+describe('useLazyWalkthrough — the engine loads on first start', () => {
+	const rootRef = () => ({ current: document.createElement('div') });
+	const config = () => ({ actions: {}, play: async () => {} });
+	/** A load the test settles by hand, handing back the mocked engine. */
+	function deferredLoad() {
+		let release: () => void = () => {};
+		let fail: (e: unknown) => void = () => {};
+		const load = vi.fn(
+			() =>
+				new Promise<{ run: typeof runMock }>((res, rej) => {
+					release = () => res({ run: (o: unknown) => runMock(o) } as never);
+					fail = rej;
+				}),
+		);
+		return { load, release: () => release(), fail: (e: unknown) => fail(e) };
+	}
+
+	it('is active from the call, runs once the engine arrives, and a second start while loading is a no-op', async () => {
+		primeRun();
+		const { load, release } = deferredLoad();
+		const { result } = renderHook(() => useLazyWalkthrough(rootRef(), config, load as never));
+		let p1: Promise<void> = Promise.resolve();
+		act(() => {
+			p1 = result.current.start();
+			void result.current.start();
+		});
+		expect(result.current.active).toBe(true);
+		expect(load).toHaveBeenCalledTimes(1);
+		expect(runMock).not.toHaveBeenCalled();
+		await act(async () => {
+			release();
+			await p1;
+		});
+		expect(runMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('stop() while the engine loads cancels the start', async () => {
+		primeRun();
+		const { load, release } = deferredLoad();
+		const { result } = renderHook(() => useLazyWalkthrough(rootRef(), config, load as never));
+		let p: Promise<void> = Promise.resolve();
+		act(() => {
+			p = result.current.start();
+		});
+		act(() => result.current.stop());
+		expect(result.current.active).toBe(false);
+		await act(async () => {
+			release();
+			await p;
+		});
+		expect(runMock).not.toHaveBeenCalled();
+	});
+
+	it('a failed load rejects start() and unlatches, so a later start can try again', async () => {
+		primeRun();
+		const { load, fail } = deferredLoad();
+		const { result } = renderHook(() => useLazyWalkthrough(rootRef(), config, load as never));
+		let p: Promise<void> = Promise.resolve();
+		act(() => {
+			p = result.current.start();
+		});
+		await act(async () => {
+			fail(new Error('chunk 404'));
+			await expect(p).rejects.toThrow('chunk 404');
+		});
+		expect(result.current.active).toBe(false);
+		act(() => {
+			void result.current.start();
+		});
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('a load that fails after stop() settles quietly — the cancelled start is nobody’s to report', async () => {
+		primeRun();
+		const { load, fail } = deferredLoad();
+		const { result } = renderHook(() => useLazyWalkthrough(rootRef(), config, load as never));
+		let p: Promise<void> = Promise.resolve();
+		act(() => {
+			p = result.current.start();
+		});
+		act(() => result.current.stop());
+		await act(async () => {
+			fail(new Error('late 404'));
+			await expect(p).resolves.toBeUndefined();
+		});
+		expect(result.current.active).toBe(false);
+	});
+
+	it('unmounting while the engine loads never starts a run', async () => {
+		primeRun();
+		const { load, release } = deferredLoad();
+		const { result, unmount } = renderHook(() => useLazyWalkthrough(rootRef(), config, load as never));
+		let p: Promise<void> = Promise.resolve();
+		act(() => {
+			p = result.current.start();
+		});
+		unmount();
+		release();
+		await p;
+		expect(runMock).not.toHaveBeenCalled();
+	});
+
+	it('a run() that throws rejects start() and unlatches active', async () => {
+		runMock.mockImplementation(() => {
+			throw new Error('one run at a time');
+		});
+		const { load, release } = deferredLoad();
+		const { result } = renderHook(() => useLazyWalkthrough(rootRef(), config, load as never));
+		let p: Promise<void> = Promise.resolve();
+		act(() => {
+			p = result.current.start();
+		});
+		await act(async () => {
+			release();
+			await expect(p).rejects.toThrow('one run at a time');
+		});
+		expect(result.current.active).toBe(false);
+	});
+});
+

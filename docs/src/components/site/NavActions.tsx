@@ -28,8 +28,8 @@ import { useIsPhone } from '@/lib/use-breakpoint';
  *   • the shared <PaletteControls> (theme <select> + light/dark toggle);
  *   • a GitHub link;
  *   • on standalone routes, the mobile hamburger → a Sheet carrying the full
- *     nav, grouped Open (the apps) / Browse (content) / Libraries in the same
- *     order the desktop bar uses. In the docs zone (`mobileMenu={false}`)
+ *     nav, grouped Open (the apps) / Browse (content, then the Libraries and
+ *     Plugins hubs) in the same order the desktop bar uses. In the docs zone (`mobileMenu={false}`)
  *     Starlight owns the mobile menu (it also needs the page TOC), so we
  *     render only the cluster.
  *
@@ -40,7 +40,6 @@ export default function NavActions({
 	links,
 	apps,
 	content,
-	libraries = [],
 	githubUrl,
 	pagefindUrl,
 	homeHref,
@@ -50,7 +49,6 @@ export default function NavActions({
 	links: NavLink[];
 	apps: NavLink[];
 	content: NavLink[];
-	libraries?: NavLink[];
 	githubUrl: string;
 	pagefindUrl: string;
 	homeHref: string;
@@ -96,7 +94,7 @@ export default function NavActions({
 				variant="outline"
 				onClick={() => setOpen(true)}
 				aria-label="Search (⌘K)"
-				className="hidden h-8 w-44 justify-start gap-2 px-3 text-muted-foreground xl:inline-flex 2xl:w-64"
+				className="hidden h-8 w-44 justify-start gap-2 px-3 text-muted-foreground xl:inline-flex"
 			>
 				<Search className="size-4" />
 				<span className="text-sm">Search the docs…</span>
@@ -155,9 +153,6 @@ export default function NavActions({
 							    Studio is the first thing a phone visitor sees here too. */}
 							<SheetSection title="Open" items={apps} onNavigate={() => setSheet(false)} />
 							<SheetSection title="Browse" items={content} onNavigate={() => setSheet(false)} />
-							{libraries.length > 0 && (
-								<SheetSection title="Libraries" items={libraries} onNavigate={() => setSheet(false)} />
-							)}
 							<div className="flex flex-col gap-3 border-t pt-4">
 								<span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Theme</span>
 								<PaletteControls palettes={palettes} />

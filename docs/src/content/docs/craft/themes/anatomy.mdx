@@ -50,7 +50,7 @@ Every theme has the same three parts, in this order.
 ```
 
 **The name.** `/* @theme evergreen */` registers the palette, and it has to
-match the filename — `themes/evergreen.css`. A deck then picks it up with
+match the filename — `themes/evergreen/evergreen.css`. A deck then picks it up with
 `theme: evergreen` in its front matter.
 
 **The import.** `@import 'lattice'` brings in the engine — all sixty-one
@@ -69,7 +69,7 @@ Theme and palette mean the same thing here. The picker in the site header
 uses the second word.
 
 Real palettes carry a small companion file too,
-`themes/evergreen.manifest.json`, which records the palette's identity: its
+`themes/evergreen/evergreen.manifest.json`, which records the palette's identity: its
 slug, which group the picker files it under, whether it is a base palette or
 a variant of one, and one `swatch` hex for the picker's own chip. It carries
 no token names and no token values — those are the CSS's job, and the two
@@ -95,10 +95,12 @@ another's work.
 
 ```text
 themes/
-  evergreen.css                   ← your colors
-  evergreen.manifest.json         ← the palette's identity
-  evergreen-dark.css              ← the dark wrapper; see Light and dark
-  evergreen-dark.manifest.json    ← the wrapper's identity
+  evergreen/
+    evergreen.css                   ← your colors
+    evergreen.manifest.json         ← the palette's identity
+  evergreen-dark/
+    evergreen-dark.css              ← the dark wrapper; see Light and dark
+    evergreen-dark.manifest.json    ← the wrapper's identity
 ```
 
 Four files, and `npm run new:theme` writes all four. The dark wrapper does

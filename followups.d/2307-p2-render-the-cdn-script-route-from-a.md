@@ -2,6 +2,9 @@
 origin: 2307
 priority: P2
 recorded: 2026-09-22
+area: infra
+severity: high
+swimlane: engineering/decisions/2026-08-30-agent-kit-and-dist-kits.md
 source: https://github.com/Laticent/lattice/pull/2307#issuecomment-5777628875
 ---
 

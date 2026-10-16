@@ -146,7 +146,7 @@ section.head-left { --headline-align: left; --headline-justify: flex-start; }
  * OTHER capped framing containers (the trailing key-insight panel, below-note) so their boxes
  * center on one axis too. The chart caption is NOT flexed: it is one inline paragraph, and a flex
  * box would stack its text runs and `<code>` spans as separate lines; it is full-width, so
- * `--headline-align` alone places its text and hairline (chart-family.css). `text-align:center` (via --headline-align) only
+ * `--headline-align` alone places its text and hairline (chart-family.styles.css). `text-align:center` (via --headline-align) only
  * centers TEXT within a box — flexing centers the BOX. The key-insight blockquote carries the SAME
  * body-exclusion guard as its base rule (base.modifiers.css) so head-center never centers a BODY
  * blockquote (quote / math / citation-card / redline / inventory / policy-recommendation / layout-*).

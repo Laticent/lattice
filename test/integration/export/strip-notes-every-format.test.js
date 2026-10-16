@@ -11,14 +11,14 @@
  * hard to open quietly:
  *
  *   1. The case list is checked against the emulator's OWN closed format table
- *      (`OUT_FORMATS` in lattice-emulator.js, which its comment calls closed: "A format
+ *      (`OUT_FORMATS` in lattice.js, which its comment calls closed: "A format
  *      is added by adding a row here"). Add a row without adding a case and this suite
  *      fails, naming the uncovered format. The next format is covered by construction
  *      rather than by someone remembering.
  *
  *      WHAT THIS LOCKS IS THE **FORMAT** AXIS, NOT THE CHANNEL AXIS — say it plainly,
  *      because the stronger claim is tempting and false. Four output channels are written
- *      OUTSIDE that table: the `<out>.html` sidecar (emitted for every non-html format),
+ *      OUTSIDE that table: the `<out>.html` sidecar (kept here with --keep-html; deleted by default),
  *      the `<out>.notes.txt` sidecar, the `.vtt` caption sidecar, and the `--player` /
  *      `--fluid` rewrite (which sits outside the format if/else, so it applies to pdf,
  *      pptx, png and zip too). Those are caught here only because `producedFiles` walks
@@ -61,7 +61,7 @@ const JSZip = require('jszip');
 
 describe('strip-notes: every export format', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck.md');
   // The note text the fixture carries on all three slides. Absence of THIS is the claim.
   const TOKEN = 'PRIVATELEAKTOKEN';
@@ -74,7 +74,7 @@ describe('strip-notes: every export format', () => {
   function outFormatsFromSource() {
     const src = fs.readFileSync(EMULATOR, 'utf8');
     const block = /const OUT_FORMATS = Object\.freeze\(\{([\s\S]*?)\}\);/.exec(src);
-    assert.ok(block, 'could not find the OUT_FORMATS table in lattice-emulator.js — has it moved?');
+    assert.ok(block, 'could not find the OUT_FORMATS table in lattice.js — has it moved?');
     // TWO passes, and the second is the one that matters. Counting ROWS is deliberately
     // permissive (any key shape, any value shape); reading VALUES is necessarily narrower.
     // If the narrow pass reads fewer rows than the permissive one saw, some row is written in
@@ -130,6 +130,10 @@ describe('strip-notes: every export format', () => {
     { name: 'pdf --paper', format: 'pdf', out: 'paper.pdf', args: ['--notes', '--paper', 'a4'], carriesNote: true },
     // #1837: PowerPoint shows ppt/notesSlides/*.xml to anyone who opens the file.
     { name: 'pptx', format: 'pptx', out: 'deck.pptx', args: ['--notes'], carriesNote: true },
+    // Calco's office files: an .odp page's notes view, and both editable writers.
+    { name: 'odp', format: 'odp', out: 'deck.odp', args: ['--notes'], carriesNote: true },
+    { name: 'odp --editable', format: 'odp', out: 'edit.odp', args: ['--notes', '--editable'], carriesNote: true },
+    { name: 'pptx --editable', format: 'pptx', out: 'edit.pptx', args: ['--notes', '--editable'], carriesNote: true },
     { name: 'png', format: 'png', out: 'deck.png', args: ['--notes'], carriesNote: false },
     { name: 'imageset (.zip)', format: 'imageset', out: 'deck.zip', args: ['--notes'], carriesNote: false },
     { name: 'html', format: 'html', out: 'deck.html', args: ['--notes'], carriesNote: true },
@@ -148,7 +152,9 @@ describe('strip-notes: every export format', () => {
 
   function render(dir, c, extra = []) {
     const out = path.join(dir, c.out);
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', ...c.args, ...extra], {
+    // --keep-html: the HTML sidecar is deleted by default for a non-html format now, so this
+    // sidecar-contents test opts in to keep it (the point here is that it carries no stripped note).
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--keep-html', ...c.args, ...extra], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed for ${c.name}: ${r.stderr}`);
@@ -156,7 +162,7 @@ describe('strip-notes: every export format', () => {
   }
 
   // Every file the render produced, not just the named deliverable — a sidecar leak is
-  // still a leak, and the HTML sidecar is written alongside every non-html format.
+  // still a leak, and the HTML sidecar is kept here (--keep-html) alongside every non-html format.
   function producedFiles(dir) {
     const out = [];
     for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: true })) {

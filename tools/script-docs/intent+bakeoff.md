@@ -1,0 +1,4 @@
+---
+group: Test & verify
+---
+Bake-off for the component intent ranker (docs/src/lib/intent-search.ts, HARD RULE #1 shared search core): four query corpora — slide headings and slide prose harvested from every committed deck via its `_class` directive, plus authored intent and adversarial phrasings — scored top1/top3/top5/MRR against the shipped substring+Fuse baseline. It BUNDLES the shipped module with esbuild rather than copying it, so it cannot drift from what users get. `-- --dev` shows the tuning split and its misses (the only split tuning may read). The wink-nlp candidates #1440 proposed are optional peers: `npm i --no-save wink-nlp wink-eng-lite-web-model wink-naive-bayes-text-classifier wink-bm25-text-search` reproduces the rejection. On-demand, not a CI gate; see engineering/decisions/2026-08-09-on-device-intent-routing.md.

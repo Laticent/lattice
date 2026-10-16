@@ -86,7 +86,7 @@ footer: "Pane layouts — columns and rows"
 <!-- _pane: image no-title -->
 ### The Lisbon office in its opening week
 
-![The Lisbon office in its opening week](assets/sample-photo-tall.svg)
+![The Lisbon office in its opening week](sample:photo-tall.svg)
 
 <!-- _pane: content -->
 ### Eleven weeks, lease to open

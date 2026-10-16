@@ -32,7 +32,7 @@ const {
 const COMPONENT_DIR = path.join(__dirname, '../../../lib/components/chart/bullet');
 const STYLES = fs.readFileSync(path.join(COMPONENT_DIR, 'bullet.styles.css'), 'utf8');
 const FAMILY_STYLES = fs.readFileSync(
-  path.join(__dirname, '../../../lib/components/chart/_chart-family/chart-family.css'), 'utf8',
+  path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.css'), 'utf8',
 );
 
 /** The <ul> inner HTML the dispatcher hands the kernel, for the flat form. */

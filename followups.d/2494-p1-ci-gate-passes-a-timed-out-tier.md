@@ -2,6 +2,9 @@
 origin: 2494
 priority: P1
 recorded: 2026-09-29
+area: infra
+severity: high
+swimlane: engineering/workflow.md
 source: https://github.com/Laticent/lattice/pull/2494
 ---
 

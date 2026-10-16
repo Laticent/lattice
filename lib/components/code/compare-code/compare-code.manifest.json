@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "compare-code",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "reflow",
     "priority": [
@@ -28,6 +32,7 @@
   "function": "comparison",
   "bucket": "code",
   "form": "split",
+  "plugins": { "requires": ["code"] },
   "substance": "structure",
   "tags": [
     "snippet",

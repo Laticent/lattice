@@ -55,7 +55,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const SNAPSHOT_ROOT = path.join(ROOT, '.scratch', 'pixel-check');
 
 const { ALL_DECKS, pageDeltaNote, parseAeCount } = require('./preview');

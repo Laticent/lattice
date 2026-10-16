@@ -1,7 +1,7 @@
 import { Check, Download, FileBox, FileText, Package, Pencil, Plus,  Share2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
@@ -9,21 +9,33 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
+import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
-import { downloadBlob } from './download';
+import { downloadBlob, iosNeedsShareSheet } from './download';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
+import { MediaCard } from './MediaCard';
+import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
+import { classifyMedia, importImage, importVideo, LIBRARY_MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
+import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
+import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
+import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
-import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
+import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
+import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
+import { loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
+
+// The detail dialog (and the shadcn parts only it uses) loads the first time a photo is opened, not with the Library: most visits never open one.
+const MediaDetailDialog = React.lazy(() => import('./MediaDetailDialog').then((m) => ({ default: m.MediaDetailDialog })));
 
 // The unified Library — one shelf for every saved theme + component + finish + the
 // user's reference docs (#651), with a consistent apply/insert · share · manage flow
@@ -33,17 +45,14 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 
 type Filter = LibraryFilter;
 
-// Every save goes through the platform seam (download.ts → lib/platform.js).
-const download = (blob: Blob, filename: string) => downloadBlob(filename, blob);
+function download(blob: Blob, filename: string) {
+	downloadBlob(filename, blob);
+}
 
-// Rebuild a Blob from a `data:…;base64,…` URL (a stored PDF's original bytes).
-function dataUrlToBlob(dataUrl: string): Blob {
-	const [head, b64] = dataUrl.split(',');
-	const mime = /:(.*?);/.exec(head)?.[1] || 'application/octet-stream';
-	const bin = atob(b64 || '');
-	const bytes = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-	return new Blob([bytes], { type: mime });
+// On iOS the Save toast is the confirmation (download.js); a "Shared …" beside it would be a
+// second toast claiming a save that still waits on a tap.
+function sharedNotice(message: string) {
+	if (!iosNeedsShareSheet()) notify(message);
 }
 
 // Honest, free date label for a reference-doc card (the record's addedAt).
@@ -71,17 +80,19 @@ const extOf = (name: string) => (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerC
  * the drag wiring around it is verified on the real Studio, but which file goes where
  * is plain logic and belongs in a unit test.
  */
-export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; rejected: File[] } {
+export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; images: File[]; rejected: File[] } {
 	const zips: File[] = [];
 	const docs: File[] = [];
+	const images: File[] = [];
 	const rejected: File[] = [];
 	for (const f of files) {
 		const ext = extOf(f.name);
 		if (ext === '.zip') zips.push(f);
 		else if (REF_DOC_EXTS.has(ext)) docs.push(f);
+		else if (classifyMedia(f)) images.push(f);
 		else rejected.push(f);
 	}
-	return { zips, docs, rejected };
+	return { zips, docs, images, rejected };
 }
 
 /**
@@ -92,7 +103,7 @@ export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; re
 export function rejectedMessage(names: string[]): string {
 	const shown = names.slice(0, 3).join(', ');
 	const rest = names.length > 3 ? ` and ${names.length - 3} more` : '';
-	return `Can't add ${shown}${rest} — drop a .zip or ${REF_DOC_ACCEPT}.`;
+	return `Can't add ${shown}${rest} — drop a .zip, an image, a video, or ${REF_DOC_ACCEPT}.`;
 }
 
 /**
@@ -144,18 +155,18 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	// dropped anywhere in the Library is caught — not only over the card grid. Inside the
 	// Sheet that needs its own filling div: PanelSheet owns its root, and a drop target
 	// that covers only part of the panel is one an author finds by accident.
-	if (docked) return <div className="relative flex h-full min-h-0 flex-col [container-type:inline-size]" {...dropProps}>{children}</div>;
+	if (docked) return <div data-file-drop="" className="relative flex h-full min-h-0 flex-col [container-type:inline-size]" {...dropProps}>{children}</div>;
 	// PanelSheet, not a hand-rolled SheetContent: it is what makes this a bottom sheet
 	// on a phone (and keeps the 720px right sheet at tablet) — one framing decision,
 	// made once, for every panel the drawer can open (#1211).
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg">
-			<div className="relative flex h-full min-h-0 flex-col" {...dropProps}>{children}</div>
+			<div data-file-drop="" className="relative flex h-full min-h-0 flex-col" {...dropProps}>{children}</div>
 		</PanelSheet>
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -165,6 +176,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	activePalette: string;
 	activeFinish: string;
 	initialFilter?: Filter;
+	/** The deck open in the Studio. Decides which deck-scoped images the Images tab shows and what "This deck" means on add. */
+	activeDeckId?: string | null;
+	/** The open deck's CURRENT markdown. The "used in N decks" count reads it live, so it follows what is typed beside the panel; every other deck is read from storage when the panel loads. */
+	activeDeckSource?: string;
 	onApplyTheme: (name: string) => void;
 	onApplyFinish: (name: string) => void;
 	onInsert: (skeleton: string, name: string) => void;
@@ -182,6 +197,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
+	/** Replace the open deck's markdown (the shell owns it live). Used when a photo's decks are rewritten to its new name. */
+	onReplaceSource: (source: string) => void;
 }) {
 	// A phone docks the search field at the bottom; the docked column and the tablet
 	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
@@ -192,6 +209,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [components, setComponents] = React.useState<StudioComponent[]>([]);
 	const [finishes, setFinishes] = React.useState<StudioFinish[]>([]);
 	const [docs, setDocs] = React.useState<RefDocRecord[]>([]);
+	const [media, setMedia] = React.useState<MediaRecord[]>([]);
+	// Where the NEXT add goes. Defaults to the shared shelf: the Library is shared assets,
+	// and a deck-only image is the deliberate choice.
+	const [addScope, setAddScope] = React.useState<'library' | 'deck'>('library');
+	// Every OTHER deck's markdown, read when the panel loads. The open deck's is the live prop below.
+	const [otherSources, setOtherSources] = React.useState<string[]>([]);
 	const [filter, setFilter] = React.useState<Filter>('all');
 	const [query, setQuery] = React.useState('');
 	const [sel, setSel] = React.useState<Set<string>>(new Set());
@@ -202,16 +225,42 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [versionCounts, setVersionCounts] = React.useState<Record<string, number>>({});
 	const [historyFor, setHistoryFor] = React.useState<VersionedAsset | null>(null);
 	const [scenes, setScenes] = React.useState<StudioScene[]>([]);
+	const [shipped, setShipped] = React.useState<ShippedScene[]>([]);
 	const fileRef = React.useRef<HTMLInputElement>(null);
 	const docFileRef = React.useRef<HTMLInputElement>(null);
+	const mediaFileRef = React.useRef<HTMLInputElement>(null);
+
+	// `reload` is a stable callback, so it reads the open deck through a ref rather than closing over a stale id.
+	const activeDeckIdRef = React.useRef(activeDeckId);
+	activeDeckIdRef.current = activeDeckId;
+	// How many decks name each photo is read from the decks' sources, so the count cannot drift from what a
+	// deck says. The OPEN deck is excluded here: its source is live (`activeDeckSource`, below).
+	const readOtherSources = React.useCallback(() => {
+		try {
+			setOtherSources(loadDeckList().filter((dk) => dk.id !== activeDeckIdRef.current).map((dk) => loadSource(dk.id) ?? ''));
+		} catch {
+			setOtherSources([]);
+		}
+	}, []);
+	// The docked Library stays open while the person switches decks: the new deck is then the live one and
+	// the old deck a stored one, so the split is re-read, or the new deck is counted twice and the old dropped.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `activeDeckId` is the trigger; the callback reads it through a ref.
+	React.useEffect(() => {
+		readOtherSources();
+	}, [activeDeckId, readOtherSources]);
 
 	const reload = React.useCallback(() => {
-		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes()]).then(([t, c, f, d, m]) => {
+		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
+		// never selected, shared or deleted, and it does not count toward `total`.
+		listShippedScenes().then(setShipped);
+		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes(), listMedia()]).then(([t, c, f, d, m, md]) => {
 			setThemes(t);
 			setComponents(c);
 			setFinishes(f);
 			setDocs(d);
 			setScenes(m);
+			setMedia(md);
+			readOtherSources();
 			// Version counts, and the orphan net, in the same pass.
 			//
 			// `listAssets()` — the RAW store, every kind, one read — and deliberately not the
@@ -242,12 +291,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				})
 				.catch(() => setVersionCounts({}));
 		});
-	}, []);
+	}, [readOtherSources]);
 	// Load (and refresh) whenever the drawer opens; honor a requested initial tab
 	// (the picker's "Manage in Library" link opens straight to Files).
 	React.useEffect(() => {
 		if (open) {
 			reload();
+			// On open (and again when the effect re-runs on a deck switch, which is harmless: the rewrite is idempotent): a PDF saved as base64 text before PDFs were written as binary is rewritten as its
+			// bytes. A compare-and-swap, so a doc saved over or deleted meanwhile is left alone; a failure keeps
+			// the text record, which every build reads.
+			void migrateLegacyRefDocs().catch(() => {});
 			if (initialFilter) setFilter(initialFilter);
 		} else {
 			setSel(new Set());
@@ -260,15 +313,31 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vComponents = filter === 'all' || filter === 'component' ? components.filter((c) => !q || c.name.includes(q) || (c.bucket || '').includes(q)) : [];
 	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
 	const vScenes = filter === 'all' || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
+	const shownMedia = visibleMedia(media, activeDeckId);
+	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
+	const liveSource = React.useDeferredValue(activeDeckSource);
+	// Decks OTHER than the open one that name each photo: what keeps a shared photo from being kept to one deck.
+	const usedElsewhere = React.useMemo(() => Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, otherSources)])), [media, otherSources]);
+	const mediaUse = React.useMemo(() => {
+		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
+		return Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, sources)]));
+	}, [media, otherSources, liveSource]);
+	// The Images tab holds photos and the Videos tab clips; "All" shows both.
+	const vMedia = filter === 'all' || filter === 'media' || filter === 'video' ? shownMedia.filter((a) => (filter === 'all' || a.kind === (filter === 'video' ? 'video' : 'image')) && (!q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q))) : [];
+	const mediaTab = filter === 'media' || filter === 'video';
+	const videoCount = shownMedia.filter((a) => a.kind === 'video').length;
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
+	// The shipped scenes show on the Motion tab only. "All" is the user's own shelf, and four
+	// read-only cards there would bury what they saved under what they did not.
+	const vShipped = filter === 'motion' ? shipped.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	// `scenes` belongs in this sum. Without it a Library holding ONLY motion assets rendered its
 	// empty state, which gates the whole card grid — so the shelf the Motion faculty saves to was
 	// invisible, and Insert/Edit/Delete with it. That is the exact defect the card was added to close.
-	const total = themes.length + components.length + finishes.length + docs.length + scenes.length;
+	const total = themes.length + components.length + finishes.length + docs.length + scenes.length + shownMedia.length;
 	// Only the reference files carry a byte size (a theme/component/finish is CSS + a
 	// recipe, measured in kilobytes nobody budgets), so the status bar reports the one
 	// number a browser-storage shelf can genuinely run out of rather than a made-up total.
-	const docBytes = docs.reduce((n, d) => n + (d.bytes || 0), 0);
+	const docBytes = docs.reduce((n, d) => n + (d.bytes || 0), 0) + shownMedia.reduce((n, a) => n + (a.bytes || 0), 0);
 
 	const tKey = (t: StudioTheme) => `theme:${t.id}`;
 	const cKey = (c: StudioComponent) => `comp:${c.id}`;
@@ -370,8 +439,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// lattice assets), so refdoc cards carry no selection checkbox.
 	function downloadDoc(d: RefDocRecord) {
 		try {
-			if (d.docKind === 'pdf' && !d.dataUrl) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
-			const blob = d.docKind === 'pdf' && d.dataUrl ? dataUrlToBlob(d.dataUrl) : new Blob([d.text ?? ''], { type: 'text/plain' });
+			const pdfBytes = refDocBlob(d);
+			if (d.docKind === 'pdf' && !pdfBytes) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
+			const blob = d.docKind === 'pdf' && pdfBytes ? pdfBytes : new Blob([d.text ?? ''], { type: 'text/plain' });
 			download(blob, d.name);
 		} catch {
 			notify('Could not download that doc.');
@@ -400,13 +470,236 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		}
 	}
 
+	// Images (engineering/decisions/2026-10-12-library-media-assets.md). Each file is decoded,
+	// resized or re-encoded when the plan says so, named from its file name, and saved to the
+	// chosen scope. A batch names its files against what is on the shelf AND against each other,
+	// so IMG_0042 and IMG_0042 (1) land as img-0042 and img-0042-1 instead of refusing each other.
+	// The pick waits in `pendingPhotos` while the person chooses a format (PhotoFormatDialog); only
+	// `importPicked` writes anything.
+	const [pendingPhotos, setPendingPhotos] = React.useState<File[] | null>(null);
+	function addMediaFiles(files: FileList | File[] | null) {
+		// COPY THE FILES OUT FIRST, before any await. A FileList is live: in WebKit it is already empty by
+		// the time the `await` below returns (measured on real WebKit, where the first version added
+		// nothing and said nothing), and the drop path hands over a DataTransfer's list that dies with it.
+		const picked = Array.from(files ?? []);
+		if (!picked.length) return;
+		// Photos wait for the format dialog; a clip is stored as given, so it goes straight in.
+		const clips = picked.filter((f) => classifyMedia(f) === 'video');
+		const photos = picked.filter((f) => classifyMedia(f) !== 'video');
+		if (clips.length) void importClips(clips);
+		if (photos.length) setPendingPhotos(photos);
+		else if (mediaFileRef.current) mediaFileRef.current.value = '';
+	}
+	async function importClips(picked: File[]) {
+		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
+		setBusy('Adding…');
+		const taken = new Set((await listMedia()).map((a) => a.name));
+		let n = 0;
+		const failed: string[] = [];
+		try {
+			for (const file of picked) {
+				try {
+					const rec = await importVideo(file, scope);
+					rec.name = uniqueName(rec.name, taken);
+					await saveMedia(rec, Date.now());
+					taken.add(rec.name);
+					n++;
+				} catch (e) {
+					console.warn('lattice: could not add a video', file.name, e);
+					const msg = String((e as Error)?.message ?? '');
+					failed.push(e instanceof MediaImportError || msg.startsWith(MEDIA_REFUSAL_PREFIX) ? msg : `${file.name}: could not be added.`);
+				}
+			}
+			reload();
+			if (n) void navigator.storage?.persist?.().catch(() => {});
+			if (n) notify(`Added ${n} video${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
+			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
+		} finally {
+			setBusy(null);
+			if (mediaFileRef.current) mediaFileRef.current.value = '';
+		}
+	}
+	async function importPicked(picked: File[], format: PhotoFormat) {
+		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
+		setBusy('Adding…');
+		const taken = new Set((await listMedia()).flatMap(namesOf));
+		let n = 0;
+		const failed: string[] = [];
+		const renamed: string[] = [];
+		let described = 0;
+		try {
+			for (const file of picked) {
+				try {
+					if (classifyMedia(file) !== 'image') throw new MediaImportError(`${file.name} isn't an image.`);
+					const rec = await importImage(file, scope, format);
+					const wanted = rec.name;
+					rec.name = uniqueName(rec.name, taken);
+					if (rec.name !== wanted) renamed.push(`“${wanted}” was taken, so ${file.name} is “${rec.name}”`);
+					await saveMedia(rec, Date.now());
+					taken.add(rec.name);
+					n++;
+					if (rec.fileCaption) described++;
+				} catch (e) {
+					// The person is told below; the cause goes to the console for whoever has to debug a browser
+					// that refuses (a private window, a full quota, an engine that cannot store a Blob).
+					console.warn('lattice: could not add an image', file.name, e);
+					const msg = String((e as Error)?.message ?? '');
+					failed.push(e instanceof MediaImportError || msg.startsWith(MEDIA_REFUSAL_PREFIX) ? msg : `${file.name}: could not be added.`);
+				}
+			}
+			reload();
+			if (n) onChanged(); // the open deck's previews learn of the new photo
+			// Browsers may evict a site's storage under pressure (Safari after a week unused); ask to keep it. A refusal changes nothing.
+			if (n) void navigator.storage?.persist?.().catch(() => {});
+			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.${described ? ` ${described === 1 ? 'It has' : `${described} have`} a description in the file: open ${described === 1 ? 'it' : 'one'} to use it.` : ''}`);
+			// A name that was already a photo is never replaced: say which name the new one took, so a deck that
+			// still shows the old picture is not a mystery.
+			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}${renamed.length > 2 ? ` (+${renamed.length - 2} more)` : ''}. Delete the old one first to reuse the name.`);
+			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
+		} finally {
+			setBusy(null);
+			if (mediaFileRef.current) mediaFileRef.current.value = '';
+		}
+	}
+	function removeMedia(a: MediaRecord) {
+		const used = mediaUse[a.name] || 0;
+		// A photo a deck names is not deleted on a stray double tap: say what it will cost first.
+		if (used > 0 && !window.confirm(`${used} deck${used === 1 ? '' : 's'} use “${a.name}”. Delete it anyway? ${used === 1 ? 'That deck' : 'Those decks'} will show a placeholder.`)) return;
+		deleteMedia(a.id)
+			.then(() => {
+				reload();
+				onChanged();
+				notify(`Deleted ${a.name}.`);
+			})
+			.catch(() => notify(`Could not delete ${a.name}. Try again.`));
+	}
+	// The photo whose detail dialog is open. Held by id and read from `media`, so a save shows at once.
+	const [detailId, setDetailId] = React.useState<string | null>(null);
+	// The control that opened the detail dialog, so closing it returns keyboard focus there.
+	const openerRef = React.useRef<HTMLElement | null>(null);
+	const detail = media.find((a) => a.id === detailId) ?? null;
+	// Mounted from the first open on and kept, so closing plays its exit and returns focus to the card that opened it.
+	const [dialogWanted, setDialogWanted] = React.useState(false);
+	React.useEffect(() => {
+		if (detail) setDialogWanted(true);
+	}, [detail]);
+	// The reader of deck markdown (asset-refs.ts) carries the markdown parser, so it loads only when a photo with old names is
+	// opened, never with the Library itself. Until it arrives the dialog says it is checking, not that no deck uses the name.
+	const [refsModule, setRefsModule] = React.useState<typeof import('./asset-refs') | null>(null);
+	// The lazy load can fail (offline, a stale chunk). Then the dialog says so and offers no removal, rather than "checking" forever.
+	const [refsFailed, setRefsFailed] = React.useState(false);
+	// A failed load is retried the next time a photo is opened.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: detailId is the trigger, not a value read
+	React.useEffect(() => setRefsFailed(false), [detailId]);
+	const needsRefs = !!detail && (detail.aliases?.length ?? 0) > 0;
+	React.useEffect(() => {
+		if (needsRefs && !refsModule && !refsFailed) void import('./asset-refs').then(setRefsModule, () => setRefsFailed(true));
+	}, [needsRefs, refsModule, refsFailed]);
+	// Every name and alias on the shelf except the open photo's own: a suggested name is made unique against these before it is applied.
+	const detailTaken = React.useMemo(() => new Set(media.filter((a) => a.id !== detail?.id).flatMap(namesOf)), [media, detail?.id]);
+	const detailAliasUse = React.useMemo(() => {
+		if (!detail || !refsModule) return null;
+		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
+		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, refsModule.decksUsingOutsideCode(n, sources)]));
+	}, [detail, otherSources, liveSource, refsModule]);
+	/** Run a metadata change, refresh the shelf and the open deck's previews, and turn a refusal into a line to show. */
+	async function changeMedia(run: () => Promise<unknown>): Promise<string | null> {
+		try {
+			await run();
+			reload();
+			onChanged();
+			return null;
+		} catch (e) {
+			return String((e as Error)?.message || 'That did not save. Try again.').replace(/^Can't add — /, '');
+		}
+	}
+	/** Rewrite every deck that writes `asset:<alias>` to the photo's current name. Each deck gets a Version history entry
+	 *  first, so the change can be undone from there. The open deck goes through the shell (its text is live in the
+	 *  editor); every other deck is rewritten in storage. Code samples that mention the name are left as written. */
+	async function adoptNewName(a: MediaRecord, alias: string): Promise<string | null> {
+		try {
+			const { renameAssetRefsOutsideCode } = await import('./asset-refs');
+			const stamp = Date.now();
+			const label = `Before using asset:${a.name}`;
+			let changed = 0;
+			let outOfRoom = false;
+			for (const dk of loadDeckList()) {
+				const isActive = dk.id === activeDeckIdRef.current;
+				const src = isActive ? (activeDeckSource ?? loadSource(dk.id)) : loadSource(dk.id);
+				if (src == null) continue;
+				const next = renameAssetRefsOutsideCode(src, alias, a.name);
+				if (next === src) continue;
+				// The way back is saved FIRST, and read back: the store swallows a full-storage error, and a deck must not be
+				// rewritten on a promise of an undo that was never written.
+				saveCheckpoint(dk.id, src, label, stamp);
+				if (loadCheckpoints(dk.id)[0]?.source !== src) {
+					outOfRoom = true;
+					break;
+				}
+				if (isActive) {
+					onReplaceSource(next);
+				} else {
+					saveSource(dk.id, next);
+					if (loadSource(dk.id) !== next) {
+						outOfRoom = true;
+						break;
+					}
+				}
+				changed++;
+			}
+			readOtherSources();
+			onChanged();
+			if (outOfRoom) {
+				return `This browser has no room left to save. ${changed ? `${changed} deck${changed === 1 ? ' was' : 's were'} updated; the` : 'No deck was changed; the'} rest still use asset:${alias}, which keeps working. Free some space and try again.`;
+			}
+			notify(changed ? `Updated ${changed} deck${changed === 1 ? '' : 's'} to asset:${a.name}. The earlier text is in Version history.` : `No deck writes asset:${alias} any more.`);
+			return null;
+		} catch {
+			return 'Could not update the decks. Try again; the old name keeps working in the meantime.';
+		}
+	}
+	/** A draft description for one photo, from the connected model. The model and the budget live in the Architect
+	 *  bridge, loaded only now: a Library that never asks for a suggestion never pays for it. */
+	async function suggestDescription(a: MediaRecord): Promise<{ text: string; name?: string } | { note: string }> {
+		const { suggestPhotoDescription, imageSettings } = await import('./suggest-photo-description');
+		const { IMAGE_LOOKS } = await import('./image-look');
+		const thumb = await createAgentAssets().thumbnail(a.name, IMAGE_LOOKS[imageSettings().look].edge);
+		if (!thumb) return { note: "This photo couldn't be read to describe it." };
+		const { deckOutputLang } = await import('./studio-language');
+		const r = await suggestPhotoDescription(thumb, activeDeckSource ? deckOutputLang(activeDeckSource) : undefined);
+		switch (r.status) {
+			case 'ok':
+				return { text: r.text, ...(r.name ? { name: r.name } : {}) };
+			case 'offline':
+				return { note: 'Connect your OpenRouter account in Setup to get suggestions. Until then you can type them.' };
+			case 'novision':
+				return { note: "The image model you picked can't read images. Choose another in Workspace → Model → Image model, or type a description." };
+			case 'blocked':
+				return { note: r.note };
+			case 'short':
+				return { note: 'The image model ran out of room before it answered. Try Quick in Workspace → Model → Look closer, or pick another image model.' };
+			default:
+				return { note: 'No suggestion came back. Try again, or type one.' };
+		}
+	}
+	function moveMedia(a: MediaRecord, scope: string) {
+		setMediaScope(a.id, scope)
+			.then(() => {
+				reload();
+				onChanged();
+				notify(scope === LIBRARY_SCOPE ? `${a.name} is now in all decks.` : `${a.name} now belongs to this deck.`);
+			})
+			.catch(() => notify(`Could not move ${a.name}. Try again.`));
+	}
+
 	async function shareTheme(t: StudioTheme) {
 		setBusy(`Rendering ${t.label} showcase…`);
 		try {
 			let pdf: Blob | null = null;
 			try { pdf = await renderThemeShowcase(options, t); } catch { pdf = null; } // showcase is best-effort
 			download(await packTheme(t, pdf), themeZipName(t));
-			notify(pdf ? `Shared ${t.label} (with showcase PDF).` : `Shared ${t.label} (showcase skipped — engine busy).`);
+			if (pdf) sharedNotice(`Shared ${t.label} (with showcase PDF).`);
+			else notify(`${iosNeedsShareSheet() ? 'Ready' : 'Shared'}: ${t.label} (showcase skipped — engine busy).`);
 		} catch {
 			notify('Could not build the theme zip.');
 		} finally {
@@ -417,7 +710,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		setBusy(`Packing .${c.name}…`);
 		try {
 			download(await packComponent(c), componentZipName(c));
-			notify(`Shared .${c.name}.`);
+			sharedNotice(`Shared .${c.name}.`);
 		} finally {
 			setBusy(null);
 		}
@@ -426,7 +719,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		setBusy(`Packing ${f.label}…`);
 		try {
 			download(await packFinish(f), finishZipName(f));
-			notify(`Shared ${f.label}.`);
+			sharedNotice(`Shared ${f.label}.`);
 		} finally {
 			setBusy(null);
 		}
@@ -450,7 +743,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		try {
 			const withPdf = await Promise.all(selThemes.map(async (theme) => ({ theme, showcase: await renderThemeShowcase(options, theme).catch(() => null) })));
 			download(await packBundle(withPdf, selComps, selFinishes, selScenes), 'lattice-assets.zip');
-			notify(`Exported ${n} assets as lattice-assets.zip.`);
+			sharedNotice(`Exported ${n} assets as lattice-assets.zip.`);
 			setSel(new Set());
 		} catch {
 			notify('Could not build the bundle.');
@@ -465,6 +758,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nComps = 0;
 		let nFinishes = 0;
 		let nScenes = 0;
+		let nPlugins = 0;
 		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
 		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
 		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
@@ -483,11 +777,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// `.lattice` project carries (library/import-parsed.ts): the same CSS gates, the
 				// same reserved-name renames, the same refusals.
 				const { importParsedBundle } = await import('./library/import-parsed');
-				const t = await importParsedBundle(await unpackBundle(f));
+				const t = await importParsedBundle(await unpackBundle(f, { plugins: true }));
 				nThemes += t.themes;
 				nComps += t.components;
 				nFinishes += t.finishes;
 				nScenes += t.scenes;
+				nPlugins += t.plugins;
 				refused.push(...t.refused);
 				renamed.push(...t.renamed);
 				notes.push(...t.notes);
@@ -504,7 +799,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// a stale shelf is how a partial import reads as "nothing happened".
 			reload();
 			onChanged();
-			const got = nThemes + nComps + nFinishes + nScenes;
+			const got = nThemes + nComps + nFinishes + nScenes + nPlugins;
 			// ONE message for the whole import. The refusals used to go out in a loop —
 			// one toast each — so a bundle carrying four bad scenes raised five pills in
 			// a single tick and buried its own success line. The outcome is a headline
@@ -515,7 +810,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			const renamedLine = renamed.length ? `Renamed because a shipped item uses the name: ${renamed.join(', ')}.` : null;
 			const notesLine = notes.length ? `Adjusted on import: ${notes.join('; ')}.` : null;
 			const detail = [refusals.length ? refusedDetail(refusals) : null, renamedLine, notesLine].filter(Boolean).join('\n') || undefined;
-			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
+			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}${nPlugins ? ` + ${nPlugins} plugin(s) (see Deck settings → Plugins)` : ''}.`;
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals
 				// go UNDER the reason rather than replacing it.
@@ -541,7 +836,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// regardless of which filter tab happens to be showing. Anything else is named in
 	// the toast rather than silently ignored — a drop that does nothing reads as broken.
 	async function acceptDropped(files: File[]) {
-		const { zips, docs, rejected } = classifyDropped(files);
+		const { zips, docs, images, rejected } = classifyDropped(files);
 		// A FileList is what both ingests take; rebuild one per group rather than
 		// widening their signatures for this one caller.
 		const asList = (fs: File[]) => {
@@ -551,6 +846,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		};
 		if (zips.length) await importFiles(asList(zips));
 		if (docs.length) await addDocFiles(asList(docs));
+		if (images.length) await addMediaFiles(images);
 		if (rejected.length) notify(rejectedMessage(rejected.map((f) => f.name)));
 	}
 	// A counter, not a boolean: `dragleave` fires every time the pointer crosses into a
@@ -615,6 +911,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		onOpenChange(false);
 		notify(`Inserted “${m.label}”.`);
 	}
+	// A shipped scene inserts through the same writer. A `built` scene has no line-art, so its
+	// still is the drawing: `reinstance` leaves unstamped markup alone and `labelArt` names it.
+	async function insertShipped(m: ShippedScene) {
+		const art = shippedDrawing(m);
+		if (!art) return;
+		const { slideSkeleton } = await import('./motion/skeleton');
+		onInsert(slideSkeleton({ label: m.label, description: m.description, art, spec: m.spec }), m.name);
+		onOpenChange(false);
+		notify(`Inserted “${m.label}”.`);
+	}
 
 	const selCount = sel.size;
 
@@ -641,13 +947,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{phone ? null : searchField}
 					{/* Contextual add: the Files tab attaches .txt/.md/.pdf reference files; every
 					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
-					{filter === 'refdoc' ? (
+					{mediaTab ? (
+							<Tip label={filter === 'video' ? 'Add videos' : 'Add photos or images'}><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => mediaFileRef.current?.click()} aria-label={filter === 'video' ? 'Add videos' : 'Add images'}><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>{filter === 'video' ? 'Add video' : 'Add image'}</span></Button></Tip>
+						) : filter === 'refdoc' ? (
 						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Add file</span></Button></Tip>
 					) : (
 						<Tip label="Import a .zip"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => fileRef.current?.click()} aria-label="Import .zip"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
 					)}
 					<input ref={fileRef} type="file" accept=".zip" multiple hidden onChange={(e) => importFiles(e.target.files)} />
 					<input ref={docFileRef} type="file" accept={REF_DOC_ACCEPT} multiple hidden onChange={(e) => addDocFiles(e.target.files)} />
+						<input ref={mediaFileRef} type="file" accept={LIBRARY_MEDIA_ACCEPT} multiple hidden onChange={(e) => addMediaFiles(e.target.files)} />
 		</>
 	);
 
@@ -696,7 +1005,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
-					{total === 0 ? (
+					{total === 0 && vShipped.length === 0 && filter !== 'media' ? (
 						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
 						   across every drawer, the same way there is one header. */
 						<div className="grid h-full place-items-center">
@@ -705,6 +1014,24 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							</PanelEmpty>
 						</div>
 					) : (
+						<>
+						{mediaTab && (
+							<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+								<span className="font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">Add to</span>
+								{activeDeckId ? (
+									<PillTabs ariaLabel="Where new media goes" value={addScope} onValueChange={(v) => setAddScope(v as 'library' | 'deck')} tabs={[{ value: 'library', label: 'All decks' }, { value: 'deck', label: 'This deck' }]} />
+								) : (
+									<span className="text-[12px] text-foreground">All decks <span className="text-muted-foreground">(open a deck to add to just that one)</span></span>
+								)}
+							</div>
+						)}
+						{mediaTab && vMedia.length === 0 && (
+							<div className="grid place-items-center py-10">
+								<PanelEmpty icon={<FileBox />} title={q ? `No ${filter === 'video' ? 'videos' : 'images'} match` : `No ${filter === 'video' ? 'videos' : 'images'} yet`}>
+									{q ? 'Try a different search.' : filter === 'video' ? <>Add a clip from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose videos</button>. A clip you send in the chat lands here too.</> : <>Add photos from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose images</button>. Drop them on this panel too.</>}
+								</PanelEmpty>
+							</div>
+						)}
 						<div className={cardGrid}>
 							{vThemes.map((t) => {
 								const k = tKey(t);
@@ -786,7 +1113,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										    `sanitizeSlideHtml` before it was ever stored, and `saveStudioScene` re-runs it at the
 										    store boundary on EVERY write (HARD RULE #22), so no path can put raw markup here. */}
 										{/* biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TWICE before it can reach here — svg-intake runs sanitizeSlideHtml before the art is ever held, and saveStudioScene re-runs it at the store boundary on every write (HARD RULE #22), so no path can put raw markup on this shelf. */}
-										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
+										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden style={MOTION_PALETTE_STYLE} dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
 										<div className="p-2.5">
 											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Motion</span></div>
 											{metaLine(m.art ? <>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</> : <>{m.name} · no drawing — saved by the old Motion tab</>, { id: m.id, label: m.label })}
@@ -799,6 +1126,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 									</div>
 								);
 							})}
+							{vMedia.map((a) => (
+								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={(opener) => { openerRef.current = opener; setDetailId(a.id); }} />
+							))}
 							{vDocs.map((d) => (
 								// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
 								<div key={`refdoc:${d.id}`} className="relative overflow-hidden rounded-xl border border-border bg-card">
@@ -814,6 +1144,40 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								</div>
 							))}
 						</div>
+						{vShipped.length > 0 && (
+							// SHIPPED WITH LATTICE — the motion packages in lib/motion/ (portable-packages §5).
+							// Insert-only: a shipped package is read-only, so it has no select box, no Share
+							// (`lattice packages export` is its exporter) and no Delete.
+							<PanelSection label="Shipped with Lattice" className={cn(vScenes.length > 0 && 'pt-5')}>
+								<div className={cardGrid}>
+									{vShipped.map((m) => {
+										const drawing = shippedDrawing(m);
+										const facts = m.spec.source === 'svg'
+											? (() => {
+												const beats = new Set(m.spec.elements.flatMap((el) => (el.motion ?? []).map((mo) => (mo as { at?: number }).at ?? 0))).size;
+												const parts = m.spec.elements.length;
+												return `${m.name} · ${parts} part${parts === 1 ? '' : 's'} · ${beats} beat${beats === 1 ? '' : 's'}`;
+											})()
+											: `${m.name} · 3D · loops`;
+										return (
+											<div key={`shipped-motion:${m.name}`} className="relative overflow-hidden rounded-xl border border-border bg-card">
+												{/* MOTION_PALETTE_STYLE: the Studio document has no `--cat-N-mark` ramp, so without it every stroke painted from the ramp drops out of the thumbnail (motion/palette-fallback.ts). */}
+												{/* biome-ignore lint/security/noDangerouslySetInnerHtml: listShippedScenes runs every drawing through sanitizeSceneAssets (sanitizeSlideHtml + the remote-reference strip) before it reaches state, the same guard a saved scene passes (HARD RULE #22). */}
+												<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden style={MOTION_PALETTE_STYLE} dangerouslySetInnerHTML={{ __html: drawing ?? '' }} />
+												<div className="p-2.5">
+													<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-border bg-[var(--bg-alt)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-muted-foreground">Shipped</span></div>
+													<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{facts}</div>
+													<div className="mt-2.5 flex items-center gap-1.5">
+														<button type="button" disabled={!drawing} onClick={() => insertShipped(m)} aria-label={`Insert ${m.label}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)] disabled:opacity-50"><Plus className="size-3.5" />Insert</button>
+													</div>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							</PanelSection>
+						)}
+						</>
 					)}
 				</div>
 
@@ -836,6 +1200,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							themes.length && `${themes.length} theme${themes.length === 1 ? '' : 's'}`,
 							components.length && `${components.length} component${components.length === 1 ? '' : 's'}`,
 							finishes.length && `${finishes.length} finish${finishes.length === 1 ? '' : 'es'}`,
+							shownMedia.length - videoCount && `${shownMedia.length - videoCount} image${shownMedia.length - videoCount === 1 ? '' : 's'}`,
+							videoCount && `${videoCount} video${videoCount === 1 ? '' : 's'}`,
 							docs.length && `${docs.length} file${docs.length === 1 ? '' : 's'}`,
 						].filter(Boolean).join(' · ') || 'nothing saved yet'}
 					</span>
@@ -854,18 +1220,48 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					<div className="flex flex-col items-center gap-2 text-center">
 						<Upload className="size-7 text-[var(--accent)]" />
 						<div className="text-[13px] font-bold text-[var(--text-heading)]">Drop to add</div>
-						<div className="font-mono text-[10.5px] text-muted-foreground">a lattice-asset .zip, or {REF_DOC_ACCEPT}</div>
+						<div className="font-mono text-[10.5px] text-muted-foreground">a lattice-asset .zip, an image, or {REF_DOC_ACCEPT}</div>
 					</div>
 				</div>
 			)}
 			{/* Mounted inside the frame so it shares the Library's lifecycle, but rendered by
 			    Dialog into the TOP LAYER, so it sits above the panel in both transports rather
 			    than inside the sheet that would otherwise own the dismiss gesture. */}
+			{dialogWanted && (
+			<React.Suspense fallback={null}>
+			<MediaDetailDialog
+				m={detail}
+				open={!!detail}
+				onOpenChange={(o) => { if (!o) setDetailId(null); }}
+				usedIn={detail ? mediaUse[detail.name] || 0 : 0}
+				aliasUse={detailAliasUse}
+				aliasUseFailed={refsFailed}
+				takenNames={detailTaken}
+				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
+				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
+				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}
+				onSuggest={() => suggestDescription(detail as MediaRecord)}
+				returnFocusTo={() => openerRef.current}
+			/>
+			</React.Suspense>
+			)}
 			<AssetVersionsDialog
 				asset={historyFor}
 				open={!!historyFor}
 				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
 				onRestored={() => { reload(); onChanged(); }}
+			/>
+			<PhotoFormatDialog
+				files={pendingPhotos}
+				onCancel={() => {
+					setPendingPhotos(null);
+					if (mediaFileRef.current) mediaFileRef.current.value = '';
+				}}
+				onConfirm={(format) => {
+					const picked = pendingPhotos;
+					setPendingPhotos(null);
+					if (picked) void importPicked(picked, format);
+				}}
 			/>
 		</LibraryFrame>
 	);

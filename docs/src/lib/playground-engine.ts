@@ -13,6 +13,7 @@ import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
+import { samplesBaseFor } from './samples-base';
 import { createThemeFetcher } from './theme-fetch';
 
 type PreviewState = { frameSig: string; lastSections: unknown };
@@ -52,13 +53,9 @@ export function createEngineBridge(
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
 	const themes = createThemeFetcher(themeBase);
-	// Resolve a deck's relative image refs (a loaded gallery deck's
-	// `![bg](image/sample-photo-wide.svg)`, the inventory logo-wall) against the
-	// staged samples/ base — the same base the component studio uses. Absolute,
-	// since the engine's WHATWG-URL resolver needs one. themeBase ends in `themes/`.
-	let samplesBase: string | undefined;
-	try { samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href; }
-	catch { samplesBase = undefined; }
+	// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts), and a
+	// bare relative ref resolves against the same folder — the site has no deck directory.
+	const samplesBase = samplesBaseFor(themeBase);
 
 	/** True once both irreducible globals are present (engine bundle + bridge). */
 	function ready(): boolean {
@@ -128,7 +125,7 @@ export function createEngineBridge(
 			});
 			await themes.ensure(deckPalette, deckMode);
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
-			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase });
+			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
 			const geom = { w: out.width || 1280, h: out.height || 720 };
 			// Split on STRUCTURE, the way the PDF export does (lib/core/structural-split.js). The
 			// render is one section per authored slide; at portrait/square the export cuts each

@@ -185,11 +185,15 @@ describe('shape-glyphs — no inline span is exempt', () => {
 });
 
 describe('shape-glyphs — advice', () => {
-  test('author advice names the risk AND the fix', () => {
+  // The lint message states the risk once per finding, so the author advice is only the
+  // fix: the glyph, then one sentence (2026-10-06).
+  test('author advice names the glyph and the fix, in one sentence', () => {
     const advice = shapeGlyphAdvice('✓', 'author');
-    assert.match(advice, /U\+2713/);
-    assert.match(advice, /typed, not drawn/);
+    assert.match(advice, /^`✓`: /);
     assert.match(advice, /\[x\]/);
+    for (const e of SHAPE_GLYPHS) {
+      assert.equal((e.authorFix.match(/[.!?](\s|$)/g) || []).length, 1, `${e.glyph}: one sentence`);
+    }
   });
 
   test('engine advice names the token', () => {

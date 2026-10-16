@@ -59,7 +59,7 @@ them, and the rest are ordinary code that must stay literal.
 | 8 | The library is named **Segno** ("sign, mark"; also the musical *dal segno* sign), with a **demo page and branding** | owner, after a scored shortlist |
 | 9 | **Clean break**: a codemod rewrites every shipped deck and doc, the old parsers are deleted, no dual-syntax period | owner — Lattice is not GA |
 | 10 | **Coordinates are one record** for quadrant and scatter alike: `{3, 70, size=12}` | owner |
-| 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped | owner |
+| 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped. **Amended 2026-10-14 (owner): the `@Customer` shortcut is retired too; journey reads standard Segno only** | owner |
 | 12 | **One `color` type**, `c1`–`c12`, and each slot declares its ceiling (the flowchart's is 8), so `c9` on a flowchart is an error that names the limit | owner |
 | 13 | **Segno is a general-purpose library; Lattice is its first user.** It is meant for non-Lattice uses too, so nothing in its API, messages or docs may assume Lattice: "per deck" is "per document", examples lead with general cases (a rollout rule, a retry policy), and Lattice is the documented first user. The phase-1 audit and what it left open: § General-purpose, not Lattice's | owner |
 | 14 | **The license stays `AGPL-3.0-only`**, as its sibling libraries are, with the adoption cost stated (§ General-purpose, not Lattice's) | owner, over Apache-2.0 and MIT |
@@ -203,7 +203,7 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 | 13–14 | `chart-values.js` + six private readers | one `number` type everywhere, so `1,25M` means 1.25M on every chart |
 | 15 | waterfall `total` / `step` must be last | a flag, order-free |
 | 17–18 | scatter: three pills; quadrant: one `` `3, 70` `` pill | `` `{3, 70, size=12}` `` for both (decision 10) |
-| 19 | journey `` `@Customer` `:4` `+120` `` | `` `{who=Customer, mood=4, volume=120}` ``, or the `` `@Customer` `` shortcut (decision 11) |
+| 19 | journey `` `@Customer` `:4` `+120` `` | `` `{who=Customer, mood=4, volume=120}` `` (decision 11; the `` `@Customer` `` shortcut retired 2026-10-14) |
 | 20 | heatmap `` `# why` `` | `` `note="why"` `` |
 | 21 | kanban `` `XL` `` | unchanged (a `size` enum) |
 | 22 | state-chart `` `approve => 2` `` | retired with state chart v1: v2 (#2424) reads the flowchart's rows, `-approve-> Approved`, so its styles are row 25 |
@@ -215,7 +215,8 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 
 Out of scope for the first cut, because they live in list TEXT rather than inside backticks: flowchart
 arrows (`A -> B`), leading `- [x]` markers, the matrix-grid cell marker, and `_track`. They are Segno's
-second grammar, not its first.
+second grammar, not its first. Phase 3b moved the arrows and phase 3 the other three (§ Phase 3b as
+built, § Phase 3 as built: list text).
 
 ## The engine
 
@@ -296,6 +297,18 @@ with a handful of inputs, and V8 names no single deoptimization; chasing it furt
 one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipped decks hold 24
 of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
 which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
+
+**The harness, 2026-10-14.** The phase-1 figures above take each column's fastest round and divide
+them. On a cloud sandbox that ratio spread by 0.20 to 0.25 across runs of unchanged code, which
+straddles this bar. The bakeoff now times a row's columns in alternating ~150 µs slices and reports
+the median of the per-slice ratios: five runs of unchanged code read the shipped dispatcher's
+every-span ratio at 1.32x to 1.40x, a spread of 0.08. The readings and the method are in the
+library README's § Speed.
+
+The paired method also exposed a regression. From #2513 the arm's own dispatcher read about 2.0x,
+not the 1.5x above. A bisect over twelve library commits put it in #2513's tagged-record guard in
+`isDirective`: a `TAGS.includes` call on every span not opening with `{`, about 15 ns. Char-code
+compares restore 1.41x to 1.54x (three runs). The shipped dispatcher never ran that path.
 
 ### Three additions for document-sized grammars (decision 21)
 
@@ -383,6 +396,98 @@ against brute-force parsing) and found the round-per-rule cost above. The five: 
 through rule references, the unbounded terminator, the backstop's invented level count, and its
 catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
 and the runtimes can disagree near the stack limit.
+
+### Generated-parser speed, against real tokenizers (2026-10-07)
+
+The owner asked whether Segno has room to be the fastest JavaScript parser on Markdown, CSS, HTML
+and inline code without losing a capability. The `languages` arm compared Segno only with full
+parsers, which build trees, so it now also races each parser's tokenizer layer, the like-for-like
+job. Before this pass, Segno tied postcss's tokenizer on CSS (112 vs 112 MB/s) and lost to
+css-tree's (149).
+
+`generate()` took three changes. `compile()` and the grammar language are unchanged, so no
+capability is lost. README § How the generated parser stays fast describes each one:
+
+| change | CSS | HTML | Markdown |
+|---|---|---|---|
+| `main` | 112 | 117 | 101 |
+| + a tested character is not tested again | 184 | 139 | 108 |
+| + a shared piece is written once | 181 | 139 | 111 |
+| + runs scan on locals, then by regex | **178** | **156** | **207** |
+| tokenizer beside it | postcss 103, css-tree 142 | parse5 23 | markdown-it block pass 68 |
+
+The figures are MB/s, best of eleven, and HTML's 0.2 MB corpus moves about ±20% from run to run.
+Every tree is byte-identical to `main`'s on all three corpora (a checksum over the flat buffers).
+The hostile ladders stay about linear, and several shapes got much cheaper (Markdown unclosed
+backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
+
+- **Tried and dropped: a jump table for wide choices.** A 128-entry branch table and a `switch`
+  measured +2% on CSS and nothing elsewhere, inside noise, so it did not earn its code.
+- **The checker found a quadratic case, now fixed.** A regular expression cannot stop at an
+  `attempt()` window's end, so the first version read the rest of a long run on every attempt:
+  8.7 s at 160k characters, where `main` takes 0.15 s. The trees were right, so no differential
+  could catch it. The regex now runs only with no window open, and `attempt.test.ts` pins the
+  timing. With no regex inside a window, an attempt again reads at most `max` characters, so
+  the bound holds by construction, the shipped flowchart-row parser included. After the fix, the
+  checker's differential found 0 mismatches against `compile()` and `main`'s generator on about
+  1.2 million grammar/input pairs, and a planted mutant of the fix was caught 9,486 times.
+- **Inline code did not move, and the arm overstated its gap.** These changes leave the inline
+  notation within noise. `parser:bakeoff:segno` reported ordinary code at 4.5x the kernel (215
+  vs 47 ns). The first guess, that the arm's timing order skewed V8, was wrong: ordinary code
+  timed alone in a fresh process gave the same 4x. The cause is the corpus. The decks are written
+  in Segno's notation now, so 387 of the 4,973 spans the legacy kernel passes through as code are
+  directives to Segno (`{icon=mail}`, chart points like `{$310k, 24%, size=800}`). The kernel
+  returns null on those in about 30 ns; Segno reads a record in about 1.3 µs. The arm now counts
+  as ordinary only the spans both readers call code, times the 387 on a row of their own with no
+  kernel figure, and declares `icon` on its pill as `lib/core/segno-slots.js` does (the
+  directives row had read "26/53 agree" without it). Back to back on 2026-10-07: the arm gives
+  ordinary code at 76 vs 39 ns (1.94x), and the standalone timing 60 vs 32 ns (1.88x).
+
+- **A set with many ranges above ASCII is searched, not chained (2026-10-07).** The red team
+  found that `testExpr()` and `compileTest()` tested such a set one range at a time, so a set of
+  every other code unit (32k ranges) read 256k characters inside attempt windows in 11.4 s
+  generated and 1.6 s compiled. Past 16 ranges above U+007F, both runtimes now binary-search a
+  sorted table of range bounds: about 6 ms each. No shipped parser changed, since the widest
+  shipped set has 9 such ranges. The search sorts its ranges first, because a hand-built set need
+  not be sorted.
+- **A grammar that reuses a piece at every level is checked in linear time (2026-10-07).** Checking
+  one cost 2^depth. The followup blamed the FIRST and FOLLOW passes, but a profile showed four walks
+  that treated the grammar as a tree: `ruleGroups()`'s reference walk, the generator's scan for
+  attempts, and, found by the checker, `leadingRefs()` (the left-recursion check) and
+  `expectedAt()` (the "expected …" text). Each now visits a piece once. At depth 22, `compile()`
+  went from 415 to 5 ms and `generate()` from 921 to 3 ms, and both stay flat to depth 26. A
+  differential of 40,000 random grammars that reuse pieces, run on the previous engine and on this
+  one, found `lint()` identical on every grammar, and identical trees and errors in both runtimes
+  on the 48,720 grammar/input pairs that compiled. A second run of 15,000 after the last two fixes
+  agreed too. The generated source differed only where a set has more than 16 high ranges.
+
+**In WebKit and Firefox too (2026-10-07).** Every figure above is V8, and the Studio runs the
+generated parsers in Safari and Firefox as well. `npm run parser:bakeoff:languages:browsers --
+--base 996b435^` builds the generator from before this pass and from the working tree, and times both
+sets of parsers in Playwright's three engines over the same corpus, rounds alternating, best of
+nine samples of 100 ms or more each. Base and head agreed on every file in every engine. MB/s, cloud
+sandbox, the second of two runs (the first agreed within ±8%):
+
+| engine | CSS before → after | HTML before → after | Markdown before → after |
+|---|---|---|---|
+| Chromium 141.0.7390.37 (V8) | 177 → 285 (1.61x) | 165 → 245 (1.49x) | 182 → 334 (1.83x) |
+| Firefox 142.0.1 (SpiderMonkey) | 143 → 208 (1.45x) | 139 → 172 (1.24x) | 181 → 282 (1.56x) |
+| WebKit 26.0 (JavaScriptCore) | 245 → 324 (1.32x) | 246 → 296 (1.21x) | 271 → 420 (1.55x) |
+
+No language got slower in any engine, so nothing is gated per engine. The gain is smallest in WebKit,
+which was already the fastest before the pass.
+
+Playwright's WebKit ran on x86 Linux, and Apple devices run on ARM, where JavaScriptCore compiles
+different machine code. So the same race also ran on a real iPhone (iOS 18.7, Firefox for iOS, which
+like every iOS browser uses WebKit and JavaScriptCore), from the page `--page` writes, over the 11.8 MB
+corpus that page carries: CSS 224 → 324 (1.45x), HTML 236 → 304 (1.29x), Markdown 276 → 400 (1.45x),
+with identical trees on every file. Safari on an ARM Mac, which runs the same engine and compiler, was
+not run.
+
+"Fastest" holds for what was measured: among JavaScript tokenizers on Lattice's own files, on one
+machine and engine. The tokenizers it beats also classify tokens (css-tree tells a number from a
+dimension, parse5 decodes entities). Matching that classification is grammar work, and it is
+where an honest race against a full parser would start.
 
 ### Flowchart rows need a bounded attempt (the #2462 spike)
 
@@ -474,8 +579,9 @@ choices the spike left open:
   match nothing; and, for a grammar built by hand rather than by `attempt()`, a `max` outside
   1–256 or a `next` that is not a set.
 
-The row grammar replaces the spike's stand-in loop; it lives in
-`tools/parser-bakeoff/flow-row-grammar.mjs`, which the bake-off and a unit test both import. The
+The row grammar replaces the spike's stand-in loop; it lived in
+`tools/parser-bakeoff/flow-row-grammar.mjs`, which the bake-off and a unit test both import, until
+phase 3b moved it to `lib/core/flowchart-row-grammar.js`. The
 kernel's 61-character label cap counts from the label, not the arrow, so a headed and an unheaded
 arrow at the cap differ in length by one, and the grammar spells each as its own attempt: the
 headed one first, which requires its `>`, then the rest. Measured with `npm run parser:bakeoff:flow`
@@ -679,7 +785,8 @@ its own mark and palette.
 | 1b | `greedy()`, `until()`, per-grammar `maxDepth` (decision 21) | one |
 | 2 | Lattice on Segno: the 27 slot schemas plus sparks (row 28, decision 19) in the manifests, binding straight off the flat tree, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
 | 3a | `attempt()` in both runtimes, and the flowchart-row grammar that uses it, in the bake-off (§ Flowchart rows need a bounded attempt, "Built") | #2519's follow-up |
-| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar, starting from 3a's row grammar | one |
+| 3b | Flowchart rows on Segno: `splitRow` walks a parser generated from 3a's row grammar, and the hand-written scan is deleted (§ Phase 3b as built) | #2545 |
+| 3 | The remaining list-text grammars: leading markers, the matrix-grid cell, `_track` (§ Phase 3 as built: list text) | this PR |
 
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).
@@ -712,6 +819,12 @@ reads the slot.
 - **Journey (decision 11).** A record names `who` once, so a second actor is a second `@` pill:
   `{who=me, mood=1}` `@cat`. `mood=2.5` now rounds to 3 in both the chart and the voice, where
   `parseInt` truncated it to 2.
+  **Amended 2026-10-14 (owner):** journey is authored in standard Segno, so the `@` shortcut is
+  retired and a second actor is a second record, `{who=me, mood=1}` `{who=cat}`. Every shipped deck
+  moved and renders byte-identically; `lint:deck` warns on a leftover `@name` span
+  (`journey-actor-shortcut`) and `--fix` rewrites it. It also leaves `@` with one meaning in
+  inline code: `@kind{…}`, the plugin inline door (`2026-10-14-plugin-inline-door.md`), which the host
+  reads before Segno does, so the notation's grammar is unchanged.
 - **Flowchart (row 25).** A single style word stands alone (`doc`, `fail`); two or more go in braces.
   The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
 - **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did
@@ -749,6 +862,170 @@ cannot read.
 **Not in this PR — decision 7**, the per-deck alias-consistency lint with an autofix. The binder already
 reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
 must hand those spellings to lint, which is its own change. It is open for the owner at the merge ask.
+
+**Decision 7, as built (2026-10-05, with inline icons phase 1).** `lint:deck` warns `mixed-spelling`
+and `--fix` rewrites each minority span to the deck's most-used spelling (a tie goes to the first),
+through Segno's own `consistency`, which the reader entry `@laticent/segno/read` now exports (it
+reads binds and builds nothing). A survey of the readers found only two that bind a word with other
+spellings today: the waterfall's markers (`total` / `subtotal` / `sum` / `level`, `step` / `delta` /
+`change`, now one kernel, `lib/core/waterfall-markers.js`, that the chart and lint share) and the
+icons plugin's names and aliases (`db` / `database`), whose inline row exports `spellings` — and the
+same names in a pill's `icon=`, which the pill kernel reports (`iconSpelling`), so `{Orders, icon=db}`
+competes with `^{database}`. A marker counts only where the chart reads one, a trailing pill on a
+waterfall's list row; `step` in the prose above the chart is the author's word. No slot
+declares a shortcut that a reader binds — the state slot's `[x]` → `{done}` shortcuts are declared,
+but marks are read by `lib/core/state-marks.js`, and no component reads `{done}` as a state — so the
+`[x]` / `{done}` pair in the example above has nothing to compare yet. A later reader joins by
+exporting its spellings; the rule reads the dispatch table, not a hand list. Every alias counts, by
+the decision's letter: a waterfall that writes `subtotal` mid-walk and `total` at the end is flagged.
+
+### Phase 3b as built: flowchart rows
+
+`splitRow` (lib/core/flowchart-grammar.js) no longer scans a row by hand. The grammar moved from
+the bake-off into `lib/core/flowchart-row-grammar.js`, unchanged but for one rule;
+`tools/build-segno-grammar.js` generates it into `lib/core/flowchart-row.generated.js` (plain
+CommonJS, committed, held fresh by build:check); and `splitRow` walks that parser's flat tree.
+`readArrow` is gone. What the walk still does by hand is what was never the grammar's job: code
+spans, escaped `\{literal}` spans and the name text around them.
+
+- **The rule added.** `splitRow` carries one bit across a row's segments: whether the next text
+  starts a word. Text right after an escaped span does not (`\{LIVE}-> B` keeps `->` as text), so
+  the grammar has a second entry, `rest`, which reads the rest of a word before the row:
+  `seq(greedy(many(wchar)), ref('row'))`. The generated parser takes the entry by name.
+- **The oracle, frozen first.** Before the swap, `tools/parser-bakeoff/freeze-flow-rows.mjs`
+  recorded what the scan returned, read from a verbatim copy kept in
+  `tools/segno-legacy/flowchart-row.js`: the 443 corpus rows and the 251 rows whose segments carry
+  state, in full, and a digest per 100 rows of two seeded 20,000-row fuzzes (one of rows, one of
+  segment lists). `test/unit/tools/flow-row-grammar.test.js` holds both runtimes to it on every
+  PR. Planted defects each fail it: always entering at `row` (1 test), the `<--` Mermaid flag (2),
+  the bit after an escape (1), `\&` kept as `&` (4), the bit after an empty text segment (1; the
+  checker's plant, which the fuzz missed, so a hand-written case pins it). To change the syntax on
+  purpose, `freeze-flow-rows.mjs --from-shipped` re-freezes from the shipped reader and prints every
+  row whose output changes, for the PR body.
+- **Parity.** `npm run parser:bakeoff:flow`, whose incumbent is now the frozen copy: the shipped
+  `splitRow` agrees on 443 of 443 corpus rows and 200,096 of 200,096 fuzzed rows, as does
+  `compile()`. The 15 example decks with a flowchart or state chart render byte-identical PDFs
+  (`tools/pixel-check.js`, snapshot with the old scan, diff with the new).
+- **Speed.** Per corpus row (best of seven rounds), the old scan against the new `splitRow`:
+  about 500 ns against 720 to 740 ns (1.4x) in a process that only reads the corpus, and 490 to
+  550 ns against 850 ns (1.6x to 1.7x) after both have read the 200,096-row fuzz. The bake-off,
+  which runs every candidate in one process, gave 533 against 1,442 ns (2.7x) once and, in the
+  checker's two runs, 604 and 620 against 880 and 902 ns (1.45x); its candidates share the JIT,
+  so it is the noisiest of the three. Of the new time,
+  the generated parser is about 80% and the walk 20%. `npm run bench` does not move beyond its
+  noise: `charts` (chart.gallery.md, four flowchart slides) measured 83.4 and 84.0 ms before,
+  84.0 and 85.9 ms after, interleaved.
+- **`cap()` not added.** A CPU profile puts about 17% of a row's time in the arrow attempts, and a
+  grammar with ONE attempt per shaft (what `cap()` would allow; wrong at the cap, kept only to
+  time the corpus) is no faster: timed in separate processes, 650 to 667 ns per row against the
+  doubled attempt's 641 to 671 (timed in one process, whichever runs second loses about 50 ns,
+  which first read as a 6% gap the other way). Only the hostile
+  `-y ` ladder would gain. The rest of the cost is the generated parser's per-character loop,
+  which every Segno grammar pays.
+- **The 1.5x bar: accepted by the owner (2026-10-06, on #2545).** The bar in § The engine is per
+  inline span, a hot path every code span in every deck takes. A flowchart row is under a
+  microsecond either way, and only flowchart and state-chart slides read one, so the owner accepted
+  the measured 1.4x to 1.7x per row for flowchart rows. The inline-span bar is unchanged.
+
+### Phase 3 as built: list text
+
+Nine hand-written readers of list text now walk one generated parser. The grammar is
+`lib/core/list-text-grammar.js`; `tools/build-segno-grammar.js` generates it into
+`lib/core/list-text.generated.js` (committed, held fresh by build:check), beside the flowchart row's.
+It shipped with nine entry rules, one per shape a reader used, each reading a whole string. `spoken` has since folded into `grid`, and the editor added `edit` and `escaped` (below):
+
+| rule | shape | replaced | read by |
+|---|---|---|---|
+| `line` | `[m]`, whitespace, text on one line | `LEADING_MARKER_RE` | verdict-grid and pricing badges, status cells (`readLeadingMarker`) |
+| `lead` | `[m]`, whitespace, anything | `LEADING_MARKER_PREFIX_RE` | list-item state classes, speech of table cells (`leadingMarkerPrefix`) |
+| `cell` | `line` after one opening tag | chart narration's `MARKED_CELL` | `readMarkedCell` |
+| `tagged` | `lead` after whitespace and one tag, the tag kept | the roadmap's two `CELL_MARKER` patterns | `cellMarkerPrefix` |
+| `bare` | only a marker, `[X]` included | `MARKER_CELL` (with its `i` flag) | the row-label bet (`isMarkerCell`) |
+| `grid` | matrix-grid's three markers, a gap of up to 8 | `CELL_MARKER` | `parseCell` |
+| ~~`spoken`~~ | the same, any gap, untrimmed | narration's own matrix-grid pattern | folded into `grid`: narration calls `parseCell` |
+| `any` | any one character in brackets | narration's bracket strip | `leadingBracketPrefix` |
+| `track` | items between pipes | `parseTrackSpec`'s split | `parseTrackSpec` |
+
+The kernels are `leading-marker.js` (new: the six marker readers), `matrix-grid-cells.js` and
+`track-spec.js`; the engine, the runtime mirror, narration, speech, lint and the roadmap transform
+call them. `state-marks.js` keeps what a marker MEANS and stays require-free, because the Studio's
+Compose editor imports it on the docs dev server, whose CommonJS shim serves only a module with no
+`require` of its own (the red team found the first cut, with the readers in `state-marks.js`, broke
+the Compose view there and failed `vite-cjs-lib-dev.test.ts`). Every consumer that
+called a regular expression now calls a function, so the old exports are gone (a `**Breaking:**`
+fragment). `MARKER_CLASS` stays, for the three scanners below and the parser bake-off's other
+implementations (`tools/parser-bakeoff/shared.mjs`).
+
+- **Parity, not a cleanup.** The rules copy the expressions' quirks on purpose, so no deck changes:
+  whitespace is JavaScript's `\s` (U+FEFF and the Unicode spaces included), text on a `line` stops at
+  the four characters `.` refuses, `bare` takes `[X]` and nothing else does, `grid` bounds the gap at 8
+  and `spoken` does not. `spoken` and `grid` differ only on untrimmed text and a gap past 8, and
+  narration trims every cell and label first, so folding them would change nothing a listener hears
+  (the inversion review measured 300,000 trimmed cells with no difference). They stay two rules here
+  only because this PR's oracle compares each reader's raw output; the fold is a small follow-up.
+  **Folded since:** narration now calls `parseCell`, and `spoken` and `readGridMarker` are gone. The
+  oracle keeps its `spokenGrid` column, re-frozen from the shipped readers as narration's reading
+  (`[marker, label]` from `parseCell`): 242 corpus inputs change in that column and no other. The
+  narration and Guide refs (`narrateChartScript`) of the 20 matrix-grid slides in `examples/`, the
+  baseline decks, `docs/src` and the component docs are byte-identical before and after, and so are
+  13,409 slides of adversarial and random cells the maker-checker review ran; narration only uses a cell's words for a filled cell or an
+  unmarked one, and there the two rules agree once the cell is trimmed.
+- **`_track`'s current item.** An item is current when, trimmed, it opens with `[` and closes with
+  `]`, and the close is only known at the item's end. Rather than an `attempt()` (bounded at 256
+  characters, so a long bracketed label would read differently), the grammar marks every run of `]`
+  and whitespace after an opening `[` as a `shut` node, each `]` an `rb`; the item is current when its
+  last `shut` ends it. That stays strict LL(1) with one greedy loop, and needs no window.
+- **The oracle, frozen first.** Before the swap, `tools/parser-bakeoff/freeze-list-text.mjs` recorded
+  what the expressions returned, read from a verbatim copy in `tools/segno-legacy/list-text.js`: every
+  candidate string in the shipped decks and docs and in the readers' own tests that some reader
+  answered (609, all nine outputs in full), every near miss that leads with a bracket or a tag and no
+  reader answered (1,760, input only), and a digest per 100 inputs of a seeded fuzz (20,000 random
+  inputs plus 104 at each matrix-grid gap from 0 to 12).
+  `test/unit/tools/list-text-grammar.test.js` holds the shipped kernels and, through a second walk of
+  its own, `compile()` to it on every PR. Nine planted defects each fail it: U+2028 read as text, a gap
+  of 9, U+FEFF not whitespace, `bare` without `[X]`, an empty tag, a `_track` item current on any
+  `shut`, its label cut at the first `]`, the roadmap dropping its tag, and `spoken` bounded at 8.
+- **Pixels.** `tools/pixel-check.js` on the 56 example decks that carry a marker, a status cell, a
+  roadmap, a matrix-grid, a pricing or verdict grid, or `_track`, snapshotted before the swap: 55 are
+  byte- or pixel-identical. The 56th, `system-design-foundations`, also differs from its own
+  snapshot when rendered with the UNCHANGED code, on different pages each run, so it is a flaky deck
+  and not this change (recorded in `followups.d/`).
+- **Speed.** Per call, the expression against the generated parser (`npm run
+  parser:bakeoff:list-text`, each side in its own process, best of seven): 50 to 100 ns against 80 to
+  330 ns for the marker rules (2x to 5x), 0.8 to 1.2 µs against 1.1 to 1.9 µs for `_track` (1.35x to
+  1.56x), and level for narration's two. Most of the gap is the generated parser's fixed cost per
+  call, which an expression that fails on its first character does not pay. A whole `npm run bench`
+  run makes about 16,400 of these calls across all its datasets, so the gap is about 3 ms per bench
+  run, under 0.05 ms per render; three interleaved pairs against `main` stay inside the bench's
+  ±10% noise. The 1.5x bar in § The engine is per inline span, and these are not inline spans; the
+  owner accepted the same trade for flowchart rows (§ Phase 3b as built).
+- **The Studio's editor, moved after.** Phase 3 left seven patterns built from `MARKER_CLASS`: five
+  in the Compose editor and two in tools. A follow-up moved the four that READ a marker at the start
+  of a cell onto two new rules, `edit` (`[m]` and at most one whitespace character, the one the
+  picker inserts and replaces) and `escaped` (the serializer's `\[m\]`). The readers live in
+  `lib/core/cell-marker-edit.mjs`, an ES module that imports only the generated parser, so the docs
+  dev server's CommonJS shim still serves the chain and `state-marks.js` stays require-free. They
+  replace `table-commands.ts` `CELL_MARKER` and `CELL_MARKER_BARE`, `ComposeView.tsx`
+  `CELL_MARKER_RE` and `deck-markdown.ts` `ESCAPED_LEADING_MARKER_RE`. Their old outputs were frozen
+  first, as three oracle columns (`edit`, `editBare`, `unescape`); the `spokenGrid` column left,
+  since narration reads `grid` now. A fixed block of every marker, `X` and a non-marker in each
+  editor shape joined the fuzz, after a planted `\[X\]` passed the first freeze unnoticed; three
+  planted defects (`X` in `escaped`, `X` in `edit`, a space-only gap in `edit`) each fail it, and
+  the checker's brute force found no difference from the old patterns over 10,092,550 inputs.
+  `state-marks.test.js` now holds the grammar's marker set to `MARKERS`, since the editor no longer
+  builds from `MARKER_CLASS`.
+  `compose-state-markers.spec.ts` drives the real Compose editor: six badges, a pick that keeps the
+  cell's words, and a source that holds all six markers unescaped.
+- **Not moved, on purpose: three SCANNERS.** `deck-source.ts` locks a slide when any list line
+  in the whole slide leads with a marker. Its pattern is multi-line: `^` matches after every line
+  break, and its `\s` runs may cross one. It reads Markdown's list syntax and only then a marker.
+  `tools/build-component-docs.js` `DECK_MARKER_SPAN_RE` finds every backticked `` `[m]` `` span
+  and `tools/audit-capacity-basis.js` `STATE_MARKER_RE` every `[m]`, anywhere in text, and both
+  replace every match. A list-text rule reads one
+  WHOLE string from its start. Running one at every position would turn a single regex pass into a
+  parse at each offset, to re-derive what one character class already says. All three still take the
+  marker set from `MARKER_CLASS`, so the set cannot drift; only its placement differs, and that is
+  the scanner's own business.
 
 ## Open questions
 

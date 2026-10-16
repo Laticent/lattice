@@ -290,8 +290,14 @@ function syncAgent(gap) {
 export function linkGuardAgent() {
 	return [
 		'(function(){',
+		'  function tileOpen(tile,viaKey){',
+		'    if(typeof window.__collageOpen!=="function")return false;',
+		'    try{return !!window.__collageOpen(tile,viaKey);}catch(_c){return false;}',
+		'  }',
 		'  document.addEventListener("click",function(e){',
-		'    var t=e.target,a=t&&t.closest?t.closest("a[href]"):null;',
+		'    var t=e.target,tile=t&&t.closest?t.closest(".collage-tile"):null;',
+		'    if(tile&&tileOpen(tile)){e.preventDefault();return;}',
+		'    var a=t&&t.closest?t.closest("a[href]"):null;',
 		'    if(!a)return;',
 		'    var href=a.getAttribute("href")||"";',
 		'    if(!/^https?:/i.test(href))return;',
@@ -300,6 +306,12 @@ export function linkGuardAgent() {
 		'    }',
 		'    e.preventDefault();',
 		'    try{(window.top||window).open(href,"_blank","noopener,noreferrer");}catch(_e){}',
+		'  },true);',
+		'  document.addEventListener("keydown",function(e){',
+		'    if(e.key!=="Enter"&&e.key!==" ")return;',
+		'    var el=e.target,tile=el&&el.closest?el.closest(".collage-tile"):null;if(!tile)return;',
+		'    try{if(!el.matches(":focus-visible"))return;}catch(_f){}',
+		'    if(tileOpen(tile,true)){e.preventDefault();e.stopPropagation();}',
 		'  },true);',
 		'})();',
 	].join('\n');
@@ -486,7 +498,8 @@ export function buildSrcdoc({
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
 	// (drawing-board-export.js); the in-repo renderDeck path also pre-sanitizes
 	// for its innerHTML patch, so this is a no-op there.
-	const web = remoteRef.blockWebImages(html, webOrigins);
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const web = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin(webOrigins));
 	html = sanitizeSlideHtml(web.html);
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;

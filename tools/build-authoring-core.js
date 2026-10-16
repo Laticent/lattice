@@ -52,6 +52,8 @@ import lintCore from './lint-core.js';
 import reviewCore from './review-core.js';
 import scorecard from './scorecard.js';
 import notesCore from './notes-core.js';
+// The kernels the Compose inline-notation editors read (pill reader, writer, vocabulary).
+import inlineEditors from './inline-editors.js';
 import deckCanon from './deck-canon.js';
 // The genre table + resolver. The Studio Coach needs it directly (not only through
 // reviewCore) so the panel can SHOW which profile is in play, where that came from,
@@ -67,7 +69,16 @@ import deckProfiles from './deck-profiles.js';
 // door's default import is undefined and the bundle throws at load.
 import { splitSections as splitSectionsCore } from '../core/split-sections.mjs';
 
-export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore };
+// This bundle's OWN copy of the boundary parser's admission switch, so a host that narrowed its
+// plugin set can point the lint's parser at the deck's admission (docs/src/lib/plugin-admission.ts).
+// The same module lint-core reaches through the CommonJS door, so esbuild keeps one copy.
+import { boundaryRulesGeneration, setBoundaryPluginsOff } from '../core/boundary-parser.mjs';
+// Every installed plugin's name, so a host that loads this bundle lazily (the Playground editor)
+// can turn the playground's admission (the plugins a deck loads) into the set left off, without
+// pulling the registry into its own eager chunk. Already in the bundle: the parser imports it.
+import { PLUGIN_NAMES } from '../plugins/blocks.generated.mjs';
+
+export { lintCore, reviewCore, scorecard, notesCore, inlineEditors, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration, PLUGIN_NAMES };
 `;
 
 const BUILD_OPTIONS = {
@@ -113,7 +124,13 @@ async function main() {
   if (!silent) console.log(`[build-authoring-core] wrote ${path.relative(ROOT, OUT_FILE)} (${out.length} bytes)`);
 }
 
-main().catch(e => {
-  console.error('[build-authoring-core] failed:', e.message);
-  process.exit(1);
-});
+// The same entry is the `lint` entry of the ESM engine build (tools/build-playground.js), which is
+// what the docs site loads. This file (built, not committed) is what vitest and the types read.
+module.exports = { ENTRY_CONTENTS, SRC_DIR };
+
+if (require.main === module) {
+  main().catch(e => {
+    console.error('[build-authoring-core] failed:', e.message);
+    process.exit(1);
+  });
+}

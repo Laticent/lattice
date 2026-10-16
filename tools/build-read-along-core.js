@@ -78,7 +78,7 @@ const BUILD_OPTIONS = {
   // path can reach docs/tsconfig.json (whose `extends: astro/tsconfigs/strict`
   // resolves unevenly across environments — astro is a docs-only dep). Left
   // unpinned this makes the emitted bytes environment-dependent and flaps the
-  // freshness gate in CI (the exact hazard tools/build-cadenza-lib.js already
+  // freshness gate in CI (the exact hazard tools/lib/build-workspace-lib.js already
   // guards against — this bundle reaches the same file through a different path).
   tsconfigRaw: '{}',
   banner: {

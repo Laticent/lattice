@@ -7,7 +7,7 @@
 
 # Lattice
 
-A Markdown slide-deck engine for boardroom-quality decks — PDF, HTML, PPTX, or PNG sets.
+A Markdown slide-deck engine for boardroom-quality decks — PDF, HTML, PPTX, ODP, or PNG sets.
 
 Lattice produces decks where every slide is a deliberate component
 (title, diagram, verdict-grid, and dozens more), all themed through a
@@ -51,7 +51,7 @@ and what the name means — is at
 
 ## What you get
 
-- **A renderer.** The bundled `lattice-emulator.js` emits PDF, PPTX, and PNG
+- **A renderer.** The `lattice` command emits PDF, PPTX, ODP, and PNG
   sets (plus an HTML sidecar) from the same source — the output extension picks
   the format, and PPTX/PNG rasterize from the same render as the PDF. Mermaid diagrams pre-render
   as inline SVG. Code blocks syntax-highlight. Slides are 1280×720.
@@ -87,9 +87,9 @@ docs-site bundles are generated, not committed (they conflicted in the merge
 queue on every other PR). It takes ~16s and needs no browser. If you ever need to
 regenerate them by hand, `npm run build`.
 
-Requires Node 22.12+ (`require()` of an ES module, which `lib/authoring` uses to
-share the class-directive scanner, is unflagged from that release).
-`npm install` pulls in the Mermaid CLI and Puppeteer
+Requires Node 22.13+ (jsdom, which the engine's server-side transforms parse with,
+supports 22.x from 22.13; `require()` of an ES module, which `lib/authoring` uses,
+is unflagged from 22.12). `npm install` pulls in Puppeteer
 (which downloads a matching Chromium). It does **not** pull Marp — the owned
 engine renders every first-party path.
 
@@ -102,10 +102,18 @@ engine — there is no Marp dependency or Marp render path:
 ```sh
 npm install @laticent/lattice
 
-# The emulator, exposed as a bin (the owned engine). Resolves the engine +
-# every theme relative to the installed package, so it works from any dir.
+# The `lattice` command, run from inside that project (npx finds the local
+# install). It resolves the engine and every theme relative to the package.
 npx lattice deck.md deck.pdf
+
+# Outside a project, name the package: the unscoped `lattice` on npm is an
+# unrelated package, so a bare `npx lattice` there would fetch it instead.
+npx @laticent/lattice deck.md deck.pdf
 ```
+
+Tab completion for bash, zsh, fish and PowerShell is one line, for example
+`eval "$(lattice completion bash)"` in `~/.bashrc`; `lattice completion --help`
+lists the line for each shell.
 
 Need a portable bundle for someone who renders with Marp? The docs-site
 **Studio**'s **Export to Marp** (also available via `npm run export:marp`)
@@ -116,17 +124,19 @@ The package also exposes these named entry points:
 
 | Subpath | Resolves to | For |
 |---|---|---|
-| `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
-| `@laticent/lattice/default/min` | `dist/lattice-default-min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
-| `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
+| `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one stylesheet that loads without a theme set. Not a slide renderer on its own (see the note below) |
+| `@laticent/lattice/default/min` | `dist/lattice-default-min.css` | minified zero-config default, for production or a CDN |
+| `@laticent/lattice` (`main`/`.`) · `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
 | `@laticent/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
 | `@laticent/lattice/runtime/min` | `dist/lattice-runtime-min.js` | minified runtime — production / CDN drop-in (no inline source map). **Not self-sufficient:** ship `dist/lattice-dagre-min.js` beside it (see [Embed in a browser](#embed-in-a-browser)) |
 | — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
 | `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@laticent/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
-| `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
-| `@laticent/lattice/min` | `dist/lattice-emulator-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
+| `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved, for a bundler (Vite, webpack) or your own UI. Not a slide renderer on its own: to show slides, use `render()` from `@laticent/lattice/engine`, or the packed pair below (see the themes guide) |
+| `@laticent/lattice/slides.css` | `dist/slides.css` | the **packed slide form**: the engine scaffold and CSS scoped to `article.lattice > section`, plus the 16:9 slide box. Link it with one `palette/<name>.slides.css`, around the markup `render()` returns. 16:9 only, no panes (use `render()`'s own `css` for those) |
+| `@laticent/lattice/palette/<name>.slides.css` | `dist/palettes/<name>.slides.css` | one palette's tokens moved from `:root` onto every slide, so a palette swap is a different second `<link>` with no second render |
+| `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet; a bundler stops on its `@import 'lattice'` |
+| `lattice` bin (not an import path) | `dist/lattice.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`). Run it; don't `require` it — it reads the process's arguments and exits. `dist/lattice-min.js` is its minified twin, shipped in the tarball and the release zip but not exported |
 
 The `-min` variants are byte-for-byte render-faithful to their unminified
 siblings — the CSS minifier preserves Marp's directive comments, so a
@@ -136,50 +146,63 @@ the `-min` files for production / CDN delivery.
 
 **The default theme is cuoio** (warm leather/cream). In a Marp deck,
 `theme: cuoio` selects it; with no theme chosen, decks render against the
-engine's neutral built-in tokens. For a non-Marp / browser context, drop
-in the flattened default — a single self-contained stylesheet:
+engine's neutral built-in tokens. Outside Marp, the flattened default
+loads as one stylesheet with no theme set, for your own UI or a page you
+style yourself:
 
 ```html
 <link rel="stylesheet" href="…/@laticent/lattice/default">  <!-- engine + cuoio -->
 ```
 
+To show slides, render them with `render()` from `@laticent/lattice/engine`
+instead; the note below says why.
+
 > **Per-theme files are Marp theme files, not drop-in CSS.** Each declares
 > `@theme <name>` and pulls the engine in by name (`@import 'lattice'`),
 > which only Marp's theme set resolves — a browser `<link>` to a *theme
 > file* can't resolve it, and `dist/lattice.css` alone is palette-blind.
-> The flattened `dist/lattice-default.css` is the exception: its
-> `@import` is resolved at build time, so it is genuinely browser-droppable.
-> Only cuoio is flattened today; other palettes would each be a new
-> flatten target.
+> The flattened `dist/lattice-default.css` and the per-palette
+> `@laticent/lattice/palette/<name>.css` resolve that import at build time,
+> so they load in a browser or a bundler without error. **They are not slide
+> renderers.** Neither sizes the slide, and their tokens resolve once on the
+> page root, so a `dark` slide keeps the light canvas: measured against the
+> CLI's render, the engine-plus-palette stylesheet matched none of 51 slides.
+> To show slides in a web page, render them with `render()` from
+> `@laticent/lattice/engine`, which composes the stylesheet each slide needs
+> and matched the CLI on all 51. The recipe is in the themes guide
+> (`docs/src/content/docs/guides/themes.md`, "Using a palette in a web app").
 
 The published tarball ships only what these entry points need — engine
 source, `dist/`, `themes/`, and the authoring docs. Regression-baseline
 PDFs and per-bucket galleries stay in git but are excluded from the
 package.
 
-### Render to PDF, PPTX, or PNG
+### Render to PDF, PPTX, ODP, or PNG
 
-The bundled `lattice` bin (the emulator) emits all of them from one source —
+The `lattice` command emits all of them from one source —
 the **output extension picks the format** — plus an HTML sidecar:
 
 ```sh
 lattice deck.md deck.pdf     # vector PDF, selectable text
 lattice deck.md deck.pptx    # PowerPoint, one full-bleed image per slide
+lattice deck.md deck.odp     # LibreOffice Impress (OpenDocument), same image slides
 lattice deck.md deck.png     # one PNG per slide → deck.001.png, deck.002.png, …
 ```
 
-PPTX and PNG rasterize from the same headless-Chromium render as the PDF, so
+PPTX, ODP and PNG rasterize from the same headless-Chromium render as the PDF, so
 every format is pixel-identical. Rendering needs Chromium — set `CHROME_PATH`
 if no system Chrome is found.
 
-The recognized extensions are `.pdf`, `.pptx`, `.png`, `.zip` (an image set) and
+The recognized extensions are `.pdf`, `.pptx`, `.odp`, `.png`, `.zip` (an image set) and
 `.html`; anything else is a usage error rather than a silent PDF under the wrong
 name. (An output path with no extension at all still renders the PDF — nothing is
 mislabeled when nothing is labeled.) For per-slide JPEG or WebP, render a `.zip`
 with `--image-format jpeg|webp`.
 
-> **PPTX note.** Slides export as one full-bleed *image* per slide (not editable
-> text/shapes). Editable PPTX export (which needs LibreOffice) is not included.
+> **PPTX / ODP note.** Slides export as one full-bleed *image* per slide (not
+> editable text/shapes), with speaker notes and alt text carried along. Lattice
+> writes the `.odp` itself, so exporting needs no LibreOffice install. Editable
+> PPTX export (which needs LibreOffice) is not included.
 
 Pass `--present` to mark the PDF to **open straight into full-screen
 presentation mode** with a subtle cross-fade between slides:
@@ -206,6 +229,7 @@ Three more PDF delivery options:
 ```sh
 lattice deck.md deck.pdf --raster              # one full-page image per slide
 lattice deck.md deck.pdf --embed-source        # attach the .md inside the PDF
+lattice deck.md deck.pdf --reopenable          # carry a .lattice the Studio can import (also .pptx)
 lattice deck.md deck.pdf --keep-vector-images  # keep SVG images as vectors
 lattice deck.md deck.pdf --chrome-pdf          # print with Chrome instead of Lattice's writer
 ```
@@ -247,8 +271,8 @@ For other delivery formats from the same source, just change the output
 extension — the deck's `theme:` front matter selects the palette:
 
 ```sh
-node lattice-emulator.js deck.md deck.pptx   # PowerPoint (image slides)
-node lattice-emulator.js deck.md deck.png    # → deck.001.png, deck.002.png, …
+npx lattice deck.md deck.pptx   # PowerPoint (image slides)
+npx lattice deck.md deck.png    # → deck.001.png, deck.002.png, …
 ```
 
 PNG slides rasterize at 2× the slide dimensions (2560×1440 from 1280×720) —
@@ -280,11 +304,11 @@ theme: cuoio    # warm leather
 For CLI builds, the active palette can also be overridden positionally:
 
 ```sh
-node lattice-emulator.js deck.md out.pdf <palette-name>
+npx lattice deck.md out.pdf <palette-name>
 ```
 
 The third positional argument names a file in `themes/`. The default is
-`indaco`. To author a new palette, copy `themes/indaco.css`, change its
+`indaco`. To author a new palette, copy `themes/indaco/indaco.css`, change its
 `@theme` directive to your name, and edit the tokens. See
 [design/theming.md](design/theming.md) for the variable contract and the per-diagram
 Mermaid override surface.
@@ -295,12 +319,18 @@ For web-export contexts, include `dist/lattice-runtime.js` and the two engines i
 expects to find beside it:
 
 ```html
-<link rel="stylesheet" href="themes/indaco.css">
 <link rel="stylesheet" href="dist/lattice.css">
+<link rel="stylesheet" href="dist/palettes/indaco.css">
 <script src="mermaid-v11-min.js"></script>
 <script src="dist/lattice-dagre-min.js"></script>
 <script src="dist/lattice-runtime.js"></script>
 ```
+
+The two stylesheets load the engine and a palette's tokens, but they do not
+compose a slide the way the renderer does: nothing sizes the slide, and a
+`dark` slide keeps the light canvas. For slide markup you render yourself, take
+the stylesheet from `render()` in `@laticent/lattice/engine` instead (the themes
+guide, "Using a palette in a web app", has the recipe and the measurement).
 
 **Order matters, and so does the third tag.** Mermaid and dagre install globals the
 runtime reads on its first pass, and classic scripts run in document order — a tag
@@ -314,15 +344,16 @@ marp kit) carry all three automatically.
 Both engines are vendored, not fetched: this snippet used to point Mermaid at
 jsdelivr, which is the CDN dependency
 `engineering/decisions/2026-09-03-self-hosted-runtime-deps.md` removed from the
-codebase — `mermaid-v11-min.js` ships in the repo root and in every export bundle.
+codebase — the Mermaid plugin owns a committed copy (`lib/plugins/mermaid/vendor/mermaid.min.js`), and every export bundle and the Marp kit carry it as `mermaid-v11-min.js`. In an npm install, load it from `node_modules/@laticent/lattice/lib/plugins/mermaid/vendor/mermaid.min.js`.
 
 Keep `dist/fonts/` beside `dist/lattice.css` — the `@font-face` srcs are
 stylesheet-relative, so moving the CSS without the directory drops the deck to
 system serif/sans on every slide.
 
-The runtime reads CSS custom properties from the loaded palette, derives
-the Mermaid `themeVariables` object, and fetches the Mermaid CSS section
-from the palette file. Same theme as the build path; one file to edit.
+The runtime reads the palette's CSS custom properties from the rendered
+slide and derives Mermaid's `themeVariables` from them
+(`lib/plugins/mermaid/mermaid.hydrate.js`); it fetches no theme file. Same
+theme as the build path; one file to edit.
 
 It also composes every slide as **Form** — the masthead band, bay, progress rail,
 and section watermarks — matching the engine, so a deck dropped into a Marp tool
@@ -337,8 +368,10 @@ everything else composes as the chrome-hosting `standard` Frame. See
 **Where this actually runs.** Anywhere the browser executes the `<script>`
 tags: a plain HTML page, an Export-to-Marp bundle's `.html`, and marp-cli's
 `marp --html … --pdf` (it drives a real headless browser). Marp tools need
-raw HTML enabled or the tags are escaped into visible text — `html: true` /
-`--html` for marp-cli, `markdown.marp.enableHtml` for the VS Code extension.
+raw HTML enabled or the tags are escaped into visible text — for marp-cli, an
+Export-to-Marp bundle's own `marp.config.cjs` (an HTML allowlist; do not add
+`--html`, which replaces it with "everything") or `html: true` / `--html` for
+the Marp kit and a bare deck; `markdown.marp.enableHtml` for the VS Code extension.
 The one surface where this is **not** guaranteed is the **marp-vscode preview
 pane** — its webview is understood to block script execution, which would leave
 runtime-composed structure (Form, split panels, Mermaid, the chart family) flat
@@ -355,13 +388,13 @@ indexed elsewhere; follow the pointers.
 
 ```text
 lattice/
-├── lattice-emulator.js   # the owned engine (CLI renderer; esbuild entry)
+├── lattice.js            # the `lattice` command's source (bundled to dist/lattice.js)
 ├── dist/                 # GENERATED, NOT committed — built by `npm install` / `npm run build`
-│                         #   (lattice.css, the runtime/emulator bundles, docs/).
+│                         #   (lattice.css, the runtime and CLI bundles, docs/).
 │                         #   Regenerate: npm run build · index: dist/README.md
 ├── lib/                  # engine source: core kernels, transformers, components/, theme/, forms/
 ├── themes/               # palettes (each light theme + a paired dark variant)
-├── examples/             # the galleries + per-feature demo decks (+ committed PDFs)
+├── examples/             # the galleries + per-feature demo decks (PDFs committed by the nightly bless)
 ├── docs/                 # the public documentation site (separate Astro package)
 ├── engineering/          # internal engineering references (+ decisions/ — design/ADR notes)
 ├── design/               # the design system + the deck-authoring contract
@@ -371,8 +404,8 @@ lattice/
 
 - **Which doc covers what** → the "Read the canonical doc before working in its
   area" table in [`CLAUDE.md`](CLAUDE.md).
-- **Every script/tool that exists** → [`engineering/capabilities.md`](engineering/capabilities.md)
-  (generated from `package.json` + `tools/`).
+- **Every script/tool that exists** → `dist/engineering/capabilities.md`
+  (generated from `package.json` + `tools/` by `npm install`; not committed).
 - **The component/theme/token catalog** → `dist/docs/components.pick.md` (pick a
   component), `dist/docs/components.json` (the full machine record) and
   [`design/design-system.md`](design/design-system.md). `dist/` is generated —
@@ -386,7 +419,7 @@ Two tiers, both built on Node's `node:test`:
 ```sh
 npm test                  # unit tier — palette, var-map contract, source parse
 npm run test:integration  # integration tier — rebuilds the galleries through
-                          # lattice-emulator and the runtime; cross-renderer parity
+                          # lattice and the runtime; cross-renderer parity
 npm run test:all          # both tiers
 ```
 
@@ -399,7 +432,7 @@ per-component galleries derive their counts from the manifest itself
 via `expectedGallerySlideCount()`.
 
 The integration suite asserts cross-renderer parity between the two
-render paths — the owned engine (`lattice-emulator.js`) and the browser
+render paths — the owned engine (`lattice.js`) and the browser
 runtime (`dist/lattice-runtime.js`).
 
 ## The Laticent project
@@ -409,11 +442,11 @@ publishes tools for crafting deck-quality documents. The repositories
 (current and planned) live at
 [github.com/Laticent](https://github.com/Laticent):
 
-- **lattice** — this repo. The deck rendering engine, the default palette,
-  the docs site with Lattice Studio, and Lattice Studio's desktop build
-  (`desktop/`, Tauri). The desktop app is the same Studio in a native
-  window, for people who don't run `node` from a terminal. (Under
-  development; Linux first.)
+- **lattice** — this repo. The deck rendering engine + default palette,
+  the docs site with Lattice Studio, and the home of the **Laticent desktop app**,
+  Lattice Studio's desktop build (`desktop/`, Tauri): the same Studio in a native
+  window, for people who don't run `node` from a terminal. It does not get a
+  repository of its own. (A preview; Linux and Windows.)
 - **themes** — additional palette packs that can drop into Lattice.
   (Future.)
 

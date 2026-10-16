@@ -20,7 +20,7 @@ const { JSDOM } = require('jsdom');
 
 describe('export: the reading article keeps each slide\'s Key Insight and below-note', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 180000;
 	const DECK = [
 		'---\ntheme: indaco\n---',

@@ -1,7 +1,7 @@
 /**
  * Unit: lib/quadrant.js — kernel for the `quadrant` chart-family member.
  *
- * Section dispatch + chart-frame wrapping live in lib/components/chart/_chart-family/chart-family.js
+ * Section dispatch + chart-frame wrapping live in lib/plugins/chart-family/chart-family.dispatch.js
  * (quadrant is one of CHART_LAYOUTS); this kernel just produces the
  * figure HTML. Tests here cover the layers chart-family delegates to:
  *
@@ -550,11 +550,11 @@ test('buildQuadrant: magic — author-supplied group names override defaults', (
   assert.doesNotMatch(out, /Challengers/);
 });
 
-// ── chart-family dispatch (integration with lib/components/chart/_chart-family/chart-family.js) ───────
+// ── chart-family dispatch (integration with lib/plugins/chart-family/chart-family.dispatch.js) ───────
 // Quadrant is a chart-family member; section dispatch + chart-frame
-// wrapping are owned by lib/components/chart/_chart-family/chart-family.js. These pin the wiring.
+// wrapping are owned by lib/plugins/chart-family/chart-family.dispatch.js. These pin the wiring.
 
-const { transformChartSection } = require('../../../lib/components/chart/_chart-family/chart-family');
+const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 
 describe('quadrant', () => {
   test('chart-family: quadrant section is wrapped in chart-frame', () => {

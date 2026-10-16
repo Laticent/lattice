@@ -1,0 +1,33 @@
+---
+// ISOLATED PROTOTYPE — the chat-figures bake-off harness. Delete this page, the island in
+// components/proto/ChatFiguresBakeoff.tsx and tools/chat-figures-bakeoff.mjs to revert.
+// Route: /proto/chat-figures/  (see the island's header for the query parameters)
+import '../../styles/landing.css';
+import ChatFiguresBakeoff from '../../components/proto/ChatFiguresBakeoff.tsx';
+import { joinBase } from '../../lib/base-url.mjs';
+import { assetBase, engineAsset } from '../../playground/asset-version.mjs';
+
+const base = import.meta.env.BASE_URL;
+const url = (p) => joinBase(base, p);
+const pg = assetBase();
+const options = {
+	themeBase: url(pg + 'themes/'),
+	runtimeUrl: url(pg + 'lattice-runtime.js'),
+	engineUrl: url(engineAsset()),
+	dagreUrl: url(pg + 'lattice-dagre.js'),
+	katexUrl: url(pg + 'katex/katex.min.css'),
+};
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Chat figures · bake-off</title>
+</head>
+<body>
+<ChatFiguresBakeoff client:only="react" options={options} />
+</body>
+</html>

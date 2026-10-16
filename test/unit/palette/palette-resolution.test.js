@@ -138,7 +138,7 @@ describe('palette-resolution', () => {
   // read the palette fine. Two readers, one question, opposite answers (#1416's class).
   //
   // Caught by rendering the real CLI, not by a unit test: every unit suite passed
-  // while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
+  // while `node dist/lattice.js` still emitted the wrong `--accent`.
 
   test('resolve: a trailing YAML comment does not lose the deck its palette', () => {
     const r = resolvePalette({ md: '---\ntheme: cuoio  # our brand palette\n---\n\n# T\n', env: {} });
@@ -153,7 +153,7 @@ describe('palette-resolution', () => {
   });
 
   test('resolve: the path-traversal guard survives the shared reader', () => {
-    // The name becomes `themes/<name>.css`, so this constraint is load-bearing. It used
+    // The name becomes `themes/<name>/<name>.css`, so this constraint is load-bearing. It used
     // to be implicit in the capture group; it is now an explicit predicate, and this is
     // what proves the explicit one still holds.
     for (const bad of ['../../etc/passwd', 'a b', 'foo/bar', '..']) {
@@ -169,7 +169,7 @@ describe('palette-resolution', () => {
     // explicit instruction from whoever ran the command, so silently rendering something else is the
     // failure this module's own docblock was written about.
     //
-    // It is also a path: the name becomes `themes/<name>.css`, and only the front-matter reader had
+    // It is also a path: the name becomes `themes/<name>/<name>.css`, and only the front-matter reader had
     // ever constrained it — so `--palette ../elsewhere/sheet` loaded a stylesheet from anywhere on
     // disk, which also carried CSS past the reader-view export's check on caller-supplied sheets.
     for (const bad of ['../../etc/passwd', 'a b', 'foo/bar', '..', '../.scratch/evil']) {

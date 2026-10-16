@@ -26,10 +26,12 @@ const core = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- _class: ${cls} -->`, '', body].join('\n');
 const render = (md) => new JSDOM(latticeEngine.createEngine().render(md).html).window.document;
 
-test('the owners come from the manifests: the two graph charts, and only components that declare it', () => {
-  assert.deepEqual([...LIST_ROW_OWNERS].sort(), ['flowchart', 'state-chart']);
+test('the owners come from the manifests: the two graph charts and hub-spoke, and only components that declare it', () => {
+  // hub-spoke joined for its icon record (`{icon=…}`, the inline-icons note § 14).
+  assert.deepEqual([...LIST_ROW_OWNERS].sort(), ['flowchart', 'hub-spoke', 'state-chart']);
   assert.equal(ownsListRows(['flowchart', 'lr']), true);
   assert.equal(ownsListRows(['state-chart', 'tb']), true);
+  assert.equal(ownsListRows(['hub-spoke', 'tiered']), true);
   assert.equal(ownsListRows(['list', 'quadrant']), false);
 });
 
@@ -127,4 +129,28 @@ test('the text of an escaped span is protected: no arrow, fan-out or markup insi
     const names = [...doc.querySelectorAll('[data-shape]')].map((n) => n.textContent.trim());
     assert.deepEqual(names.sort(), [name, 'Triage'].sort(), `render: ${span}`);
   }
+});
+
+test('hub-spoke owns only the rows it reads; its detail sublist renders pills as anywhere', () => {
+  const { ownedRowDepth } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
+  assert.equal(ownedRowDepth(['hub-spoke']), 2);
+  assert.equal(ownedRowDepth(['hub-spoke', 'tiered']), 3);
+  assert.equal(ownedRowDepth(['flowchart', 'lr']), Number.POSITIVE_INFINITY);
+  assert.equal(ownedRowDepth(['list']), 0);
+  const engine = require(path.join(ROOT, 'lib/engine'));
+  const deck = (cls) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n- Hub \`{icon=server}\`\n  - A \`{LIVE, tag}\`\n    - detail \`{LIVE, tag}\`\n  - B\n`;
+  const pills = (cls) => (engine.render(deck(cls)).html.match(/class="lat-pill"/g) || []).length;
+  assert.equal(pills('hub-spoke'), 1, 'only the detail row makes a pill');
+  assert.equal(pills('hub-spoke tiered'), 0, 'under tiered the third level is a leaf row, owned');
+});
+
+test('the runtime counts the same depth', () => {
+  const { JSDOM } = require('jsdom');
+  const { isOwnedElement } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
+  const doc = new JSDOM('<section class="hub-spoke"><ul><li>H <code id="h">x</code><ul><li>S <code id="s">x</code><ul><li>D <code id="d">x</code></li></ul></li></ul></li></ul></section>').window.document;
+  assert.equal(isOwnedElement(doc.getElementById('h')), true);
+  assert.equal(isOwnedElement(doc.getElementById('s')), true);
+  assert.equal(isOwnedElement(doc.getElementById('d')), false);
+  doc.querySelector('section').classList.add('tiered');
+  assert.equal(isOwnedElement(doc.getElementById('d')), true);
 });

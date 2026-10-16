@@ -2,6 +2,9 @@
 origin: 2385
 priority: P2
 recorded: 2026-09-26
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-25-flowchart-authoring.md
 ---
 
 # Throttle the flowchart's live layout to one per ~300 ms while typing

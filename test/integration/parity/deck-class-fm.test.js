@@ -6,7 +6,7 @@
  * Lattice intentionally diverges from that semantic via:
  *   - The `deckClassPropagate` plugin (runtime path,
  *     loaded by the vscode Marp preview)
- *   - The front-matter reader in lattice-emulator.js (emulator path)
+ *   - The front-matter reader in lattice.js (emulator path)
  *
  * Both paths APPEND the deck-wide class tokens to every section's class
  * list, so `class: dark` + `_class: title` becomes `class="title dark"`.

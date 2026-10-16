@@ -1,11 +1,13 @@
 import { expect, gotoStudio, railButtons, readStorage, test, toastText } from './studio-fixture';
 
-// The "Show Me" guided-tour library. Five tours drive the Studio's own setters (not synthetic
+// The "Show Me" tour. One tour remains — `first-look`, the showcase; the other four became Studio
+// lessons (lessons.spec.ts, engineering/decisions/2026-10-05-studio-lessons.md). It drives the
+// Studio's own setters (not synthetic
 // events), so the oracles are real cause→effect: the menu lists every tour, launching one mounts
 // the stage and builds a real deck, and each exit path (complete · take-over · Escape · Exit)
 // tears the stage down — LEAVING BEHIND the real "My First Deck" it built, never restoring the
-// viewer's prior deck, never duplicating it across runs. These drive the default "full
-// walkthrough" tour (4 slides: title · big-number · radar · close).
+// viewer's prior deck, never duplicating it across runs. `first-look` types three slides:
+// title · big-number · radar.
 
 test.describe.configure({ timeout: 180_000 });
 
@@ -13,8 +15,8 @@ const STAGE = '.vetrina-stage';
 const SHOW_ME = 'button[data-demo="show-me"]';
 const FIRST_DECK = 'My First Deck';
 
-/** Open the Show Me menu and launch a tour by id (default: the full walkthrough). */
-async function startTour(page: import('@playwright/test').Page, tourId = 'walkthrough'): Promise<void> {
+/** Open the Show Me menu and launch a tour by id. */
+async function startTour(page: import('@playwright/test').Page, tourId = 'first-look'): Promise<void> {
 	await page.locator(SHOW_ME).click();
 	await page.locator(`[data-tour="${tourId}"]`).first().click();
 }
@@ -31,24 +33,23 @@ async function firstDeckIds(page: import('@playwright/test').Page): Promise<stri
 }
 const firstDeckCount = (page: import('@playwright/test').Page) => firstDeckIds(page).then((ids) => ids.length);
 
-test('the Show Me menu lists every tour, and a tour builds a deck and completes', async ({ page }) => {
+test('@smoke the Show Me menu lists the tour, and it builds a deck and completes', async ({ page }) => {
 	await gotoStudio(page);
 	expect(await firstDeckCount(page)).toBe(0); // fresh context — no deck yet
 
-	// The menu offers all five tours.
+	// The menu offers the tour.
 	await page.locator(SHOW_ME).click();
-	for (const id of ['first-look', 'walkthrough', 'board-deck', 'just-markdown', 'quiet']) {
-		await expect(page.locator(`[data-tour="${id}"]`)).toBeVisible();
-	}
+	await expect(page.locator('[data-tour]')).toHaveCount(1);
+	await expect(page.locator('[data-tour="first-look"]')).toBeVisible();
 
-	// Launch the full walkthrough. The stage mounts and the Show Me trigger hides while it runs
+	// Launch it. The stage mounts and the Show Me trigger hides while it runs
 	// (rendered `invisible`, so it stays in the DOM — assert hidden, not removed).
-	await page.locator('[data-tour="walkthrough"]').click();
+	await page.locator('[data-tour="first-look"]').click();
 	await expect(page.locator(STAGE)).toBeVisible();
 	await expect(page.locator(SHOW_ME)).toBeHidden();
 
-	// It drives: mints "My First Deck" and types the four-slide deck into it.
-	await expect.poll(() => railButtons(page).count(), { timeout: 90_000 }).toBe(4);
+	// It drives: mints "My First Deck" and types the three-slide deck into it.
+	await expect.poll(() => railButtons(page).count(), { timeout: 90_000 }).toBe(3);
 
 	// It completes on its own: the stage detaches and the built deck is LEFT BEHIND.
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 130_000 });
@@ -57,43 +58,13 @@ test('the Show Me menu lists every tour, and a tour builds a deck and completes'
 	// "My First Deck". Its stable creation LABEL is still that, which is what
 	// firstDeckCount below asserts on.
 	await expect(toastText(page)).toContainText('yours to edit');
-	await expect.poll(() => railButtons(page).count()).toBe(4);
+	await expect.poll(() => railButtons(page).count()).toBe(3);
 	expect(await firstDeckCount(page)).toBe(1); // persisted, single
 	await expect(page.locator(SHOW_ME)).toBeVisible();
 });
 
-test('the walkthrough reskin drives the REAL deck Inspector (not a phantom point)', async ({ page }) => {
-	// Regression guard: the reskin beat points at the theme picker, which lives INSIDE the
-	// deck-scope Inspector. If the tour forgets to open it, the cursor points at nothing and the
-	// deck reshades with no visible cause. Assert the deck-scope Inspector actually opens.
-	//
-	// This asserts the panel's deck-scope HEADER, not its element type. It used to read
-	// `locator('aside').filter(...)`, which has been unmatchable since #1116 (e2bc5558c)
-	// swapped the docked Inspector's <aside> for a react-resizable-panels <ResizablePanel>
-	// — a div. The guard therefore could not fail for the reason it was written to catch.
-	await gotoStudio(page);
-	await startTour(page); // the full walkthrough
-	await expect(page.locator(STAGE)).toBeVisible();
-	// The scope echo's announcement — see the note in split.spec.ts; the visible line has
-	// two phrasings and a container query decides which is drawn.
-	await expect(page.getByRole('status').filter({ hasText: /Set it once — all \d+ slides follow/ }).first())
-		.toHaveText(/Set it once — all \d+ slides follow/, { timeout: 100_000 });
-});
-
-// The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours
-// run their opening beats without a crash (a bad selector / content would abort the run, detaching
-// the stage). Each gets a fresh page — launch, confirm it mints the deck (the newDeck beat ran
-// past the preamble) and the stage is still live (no error abort). Cheaper than four full
-// completions, and no flaky menu-reuse within one session.
-for (const id of ['first-look', 'board-deck', 'just-markdown', 'quiet']) {
-	test(`@smoke the "${id}" tour launches and builds without erroring out`, async ({ page }) => {
-		await gotoStudio(page);
-		await startTour(page, id);
-		await expect(page.locator(STAGE)).toBeVisible();
-		await expect.poll(() => firstDeckCount(page), { timeout: 45_000 }).toBe(1); // opening beats ran, no crash
-		await expect(page.locator(STAGE)).toBeVisible(); // still live — the run didn't abort on an error
-	});
-}
+// The reskin beat and the four-tour smoke loop left with the tours they tested. Changing the theme
+// is now a lesson, and lessons.spec.ts drives it on the real Studio.
 
 test('re-running a tour never duplicates "My First Deck" (beforeSetup dedup)', async ({ page }) => {
 	await gotoStudio(page);

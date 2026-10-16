@@ -1,10 +1,11 @@
 /**
  * Integration: the owned multi-format export (PDF / PPTX / PNG) end-to-end.
  *
- * Renders the 3-slide fixture deck through lattice-emulator once per output
+ * Renders the 3-slide fixture deck through lattice once per output
  * extension and asserts each artifact is real and well-formed:
  *   - .pdf  : the original vector path still works (regression guard).
  *   - .pptx : a valid OOXML zip with one slide part + one media image per slide.
+ *   - .odp  : a valid OpenDocument package with one page + one picture per slide.
  *   - .png  : one PNG per slide (`<base>.NNN.png`) at the 2× raster size.
  * No marp-cli — this is the marp-free export path. Slow tier (spawns Chromium);
  * kept tight with the same no-Mermaid fixture the screenshot suite uses.
@@ -19,7 +20,7 @@ const { spawnSync, execFileSync } = require('child_process');
 
 describe('export-formats', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');
   // A deck carrying one keyed chart + one Mermaid diagram — exercises the image
   // set's standalone-SVG extraction (both kinds), which the no-Mermaid FIXTURE can't.
@@ -30,8 +31,8 @@ describe('export-formats', () => {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-export-'));
   }
 
-  function run(out) {
-    return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet'], {
+  function run(out, extra = []) {
+    return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', ...extra], {
       cwd: ROOT,
       encoding: 'utf8',
       env: { ...process.env },
@@ -102,6 +103,70 @@ describe('export-formats', () => {
     const media  = names.filter((n) => /^ppt\/media\/.+\.png$/i.test(n));
     assert.equal(slides.length, 3, `expected 3 slides, got ${slides.length}`);
     assert.equal(media.length, 3, `expected 3 images, got ${media.length}`);
+  });
+
+  test('renders an OpenDocument .odp with one page + picture per slide', { timeout: TIMEOUT }, async () => {
+    const out = path.join(tmpDir(), 'deck.odp');
+    const r = run(out);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const bytes = fs.readFileSync(out);
+    assert.equal(bytes.subarray(0, 4).toString('hex'), '504b0304', 'odp is not a zip');
+    // ODF identifies itself by a STORED `mimetype` as the first entry.
+    assert.equal(bytes.subarray(30, 38).toString(), 'mimetype');
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(bytes);
+    assert.equal(await zip.file('mimetype').async('string'), 'application/vnd.oasis.opendocument.presentation');
+    const content = await zip.file('content.xml').async('string');
+    const pictures = Object.keys(zip.files).filter((n) => /^Pictures\/slide\d+\.png$/.test(n));
+    assert.equal(content.match(/<draw:page /g).length, 3, 'expected 3 pages');
+    assert.equal(pictures.length, 3, `expected 3 pictures, got ${pictures.length}`);
+  });
+
+  test('--editable .odp: real text boxes over text-free pictures, fonts embedded', { timeout: TIMEOUT }, async () => {
+    const out = path.join(tmpDir(), 'deck.odp');
+    const r = run(out, ['--editable']);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const content = await zip.file('content.xml').async('string');
+    assert.equal(content.match(/<draw:page /g).length, 3);
+    assert.ok((content.match(/<draw:text-box>/g) || []).length >= 3, 'every slide has text boxes');
+    const fonts = Object.keys(zip.files).filter((n) => n.startsWith('Fonts/'));
+    assert.ok(fonts.length >= 1, 'the deck fonts are embedded');
+    assert.match(content, /style:font-name="/, 'runs name an embedded face');
+  });
+
+  test('--editable .pptx: text boxes over each picture; plain .pptx stays image-only', { timeout: TIMEOUT }, async () => {
+    const JSZip = require('jszip');
+    const edited = path.join(tmpDir(), 'deck.pptx');
+    assert.equal(run(edited, ['--editable']).status, 0);
+    const zip = await JSZip.loadAsync(fs.readFileSync(edited));
+    const slide = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.match(slide, /<p:sp>/, 'a text box');
+    assert.match(slide, /<a:t>[^<]+<\/a:t>/, 'with text in it');
+    assert.ok(Object.keys(zip.files).some((n) => /^ppt\/fonts\/.+\.fntdata$/.test(n)), 'fonts embedded as EOT');
+    assert.match(await zip.file('ppt/presentation.xml').async('string'), /<p:embeddedFontLst>/);
+  });
+
+  // The source CLI passed while the PUBLISHED bundle crashed: esbuild wrapped a default
+  // import (woff2-encoder) so that `--editable` died on "decompress is not a function".
+  test('the published CLI bundle writes an editable .odp too', { timeout: TIMEOUT }, async (t) => {
+    const bundle = path.join(ROOT, 'dist', 'lattice.js');
+    if (!fs.existsSync(bundle)) return t.skip('dist/lattice.js not built');
+    const out = path.join(tmpDir(), 'deck.odp');
+    const r = spawnSync(process.execPath, [bundle, FIXTURE, out, '--quiet', '--editable'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `bundled CLI failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    assert.ok(Object.keys(zip.files).some((n) => n.startsWith('Fonts/')), 'fonts embedded by the bundle');
+  });
+
+  test('--editable on another format warns and is ignored', { timeout: TIMEOUT }, () => {
+    const out = path.join(tmpDir(), 'deck.png');
+    const r = run(out, ['--editable']);
+    assert.equal(r.status, 0);
+    assert.match(r.stderr + r.stdout, /--editable applies only to \.odp and \.pptx/);
   });
 
   // Parse a poppler P6 .ppm (raw RGB) into { w, h, data }.
@@ -298,7 +363,7 @@ describe('export-formats', () => {
   const NOTE_MARKER   = 'Raster note marker 9c1d';
   function writeSvgFixture(dir) {
     fs.copyFileSync(
-      path.join(ROOT, 'examples', 'assets', 'sample-photo-wide.svg'),
+      path.join(ROOT, 'lib', 'samples', 'photo-wide.svg'),
       path.join(dir, 'photo.svg'),
     );
     const src = path.join(dir, 'deck.md');
@@ -694,6 +759,38 @@ describe('export-formats', () => {
     const rows = pdfImageRows(out);
     assert.ok(rows.some((row) => /\bimage\s+4\s+4\b/.test(row)), `the original 4x4 PNG is embedded:\n${rows.join('\n')}`);
     assert.ok(rows.some((row) => /^\s*2\s.*\bimage\s+2560\s+1440\b/.test(row)), `slide 2's photo is 2x:\n${rows.join('\n')}`);
+  });
+
+  test('a JPEG stored rotated (EXIF Orientation 6) stays in the photo, where it is upright', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    // The same sample twice: once as shipped (Orientation 6), once with its Exif segment removed.
+    // Only the rotated copy may stay in the photo; the plain one is embedded at its own bytes. One image
+    // per slide, so neither can be refused for sharing a line with the other.
+    const rotated = fs.readFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'));
+    fs.writeFileSync(path.join(dir, 'rotated.jpg'), rotated);
+    const sof = rotated.indexOf(Buffer.from([0xff, 0xc0]));
+    const app1 = rotated.indexOf(Buffer.from([0xff, 0xe1]));
+    assert.ok(app1 > 0 && app1 < sof, 'fixture: the sample has an Exif segment ahead of its frame header');
+    const app1End = app1 + 2 + rotated.readUInt16BE(app1 + 2);
+    fs.writeFileSync(path.join(dir, 'plain.jpg'), Buffer.concat([rotated.subarray(0, app1), rotated.subarray(app1End)]));
+    const src = path.join(dir, 'rotated.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '## Rotated', '',
+      '<img src="rotated.jpg" style="width:200px;height:300px">', '',
+      '---', '',
+      '## Plain', '',
+      '<img src="plain.jpg" style="width:200px;height:300px">', '',
+    ].join('\n'));
+    const out = path.join(dir, 'rotated.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.refusedImages.rotated, 1, `the rotated copy stays in the photo: ${JSON.stringify(rep)}`);
+    assert.equal(rep.images, 1, `the plain copy is embedded natively: ${JSON.stringify(rep)}`);
   });
 
   test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
@@ -1320,7 +1417,7 @@ describe('export-formats', () => {
       assert.match(r.stderr, /unsupported output extension '\.webp'/);
       // The supported set is named IN the message — a bare "unsupported" makes the
       // caller go read the source to find out what is supported.
-      for (const ext of ['.pdf', '.pptx', '.png', '.zip', '.html']) {
+      for (const ext of ['.pdf', '.pptx', '.odp', '.png', '.zip', '.html']) {
         assert.ok(r.stderr.includes(ext), `error should name ${ext} as supported`);
       }
     });

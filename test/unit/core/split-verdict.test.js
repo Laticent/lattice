@@ -2,7 +2,7 @@
  * buildSplitVerdict — extent + legibility → the verdict `resplitDoc` eats.
  *
  * These are the branch tests the logic never had while it lived inside
- * `lattice-emulator.js`'s `page.evaluate`, where nothing could call it. The
+ * `lattice.js`'s `page.evaluate`, where nothing could call it. The
  * end-to-end evidence that the extraction changed nothing is the emulator
  * comparison in the PR (splitting decks render byte-identically); this file is
  * what keeps each BRANCH honest from here on.

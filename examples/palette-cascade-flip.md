@@ -34,7 +34,7 @@ Render this deck at any palette: what you see is what that palette's author wrot
 ---
 
 <!-- _class: code -->
-<!-- _footer: "The twelve --hljs-* tokens" -->
+<!-- _footer: "The twelve --syntax-* tokens" -->
 
 ## Each palette's own syntax ramp paints now.
 
@@ -97,7 +97,7 @@ Nine of these tokens used to resolve two ways in one render — the baked SVG fr
 
 ## The struck clause sits on a tint of the palette's own red.
 
-`lattice-emulator.js:847 · #1527`
+`lattice.js:847 · #1527`
 
 > The deck stylesheet is assembled as <del>the palette then the engine bundle</del> <ins>the engine bundle then the palette</ins>, so a token the palette declares at `:root` <del>loses to the engine default</del> <ins>wins</ins> at equal specificity. A palette's syntax ramp, status trio and diagram state family therefore <del>resolve to the engine's value on the export path while the Playground shows the palette's</del> <ins>resolve the same way everywhere</ins>, and the nine tokens read by both the stylesheet and the Mermaid token map <del>can no longer</del> <ins>no longer</ins> paint a bar and the rule beside it from one name and two values.
 

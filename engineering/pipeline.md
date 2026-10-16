@@ -1,6 +1,6 @@
-# Rendering pipeline — running PDF / PPTX / PNG / HTML
+# Rendering pipeline — running PDF / PPTX / ODP / PNG / HTML
 
-<!-- Output-format table below: keep in sync with `lattice-emulator.js` --help and
+<!-- Output-format table below: keep in sync with `lattice.js` --help and
      the format switch (`OUT_FORMAT`). Cost figures come from
      engineering/decisions/2026-08-16-render-format-cost-assessment.md. -->
 
@@ -11,7 +11,7 @@ transforms Markdown into HTML, why it works the way it does), read
 doesn't repeat that, it tells you how to run it and what to do when it
 misbehaves.
 
-**One render path, one engine.** `dist/lattice-emulator.js` (built from
+**One render path, one engine.** `dist/lattice.js` (built from
 `lib/engine`) IS the renderer — there is no separate "when the real tool
 isn't available, fall back to a hand-rolled one" path. If you're rendering a
 Lattice deck, this is the tool, full stop.
@@ -19,11 +19,12 @@ Lattice deck, this is the tool, full stop.
 ## 1. Run it
 
 ```bash
-node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
+node lattice.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
 ```
 
 The output extension picks the format — `.pdf` (vector, selectable text),
-`.pptx` (one full-bleed slide image per slide), `.png` (one file
+`.pptx` (one full-bleed slide image per slide), `.odp` (the same, as a
+LibreOffice Impress / OpenDocument deck), `.png` (one file
 per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 (the rendered HTML *as* the deliverable, no PDF). For every format except
 `.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
@@ -49,6 +50,8 @@ Nothing is mislabeled when nothing is labeled.
 | `.html` | 6.77s | You want the HTML itself — `--player`/`--fluid` viewers, or anything reading markup or structure |
 | `.pdf` | 8.24s | Sharing, review, goldens. **The cheapest artifact we commit** — 3–12× smaller than any image golden |
 | `.pptx` / `.png` / `.zip` | 58–74s | You genuinely need pixels. ~860 ms/slide to rasterize |
+
+`.odp` runs the same raster loop as `.pptx`; it was not in the measured set.
 
 The vector PDF is **not** the expensive option — every image format costs 7–9×
 more and 3–12× more bytes. To review a PDF as images, rasterize it
@@ -106,7 +109,7 @@ deck's `.pdf`. (Auto-split itself stopped measuring on 2026-09-01; it reads the
 markup. The browser is still needed here for everything else.) For markup with **no** layout (0.78s,
 and no fonts/measurement/overflow/split), call `lib/engine` directly instead —
 a different coverage tier, not a faster version of this one.
-`node lattice-emulator.js --help` is the full reference (flags for speaker
+`node lattice.js --help` is the full reference (flags for speaker
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
 
@@ -202,14 +205,49 @@ limit — low-DPI rasterization (what this script does) keeps vector edges
 sharp at a smaller pixel count; naive downscaling blurs them. Full option
 reference: run the script with no args, or read its header comment.
 
-## 4. PPTX / PNG specifics
+## 4. PPTX / ODP / PNG specifics
 
 Both rasterize through the same screenshot path the PDF's `--raster` flag
 uses — one full-bleed image per slide, selectable text is lost (PPTX has
 always been image slides; `--raster` opts a PDF into the same trade for
-maximum viewer compatibility). If a recipient needs an *editable* PPTX
-(real text boxes, not an image), that's out of scope for this exporter —
-Lattice's PPTX output is a presentation artifact, not an authoring one.
+maximum viewer compatibility).
+
+**`.odp` and `--editable` go through Calco.** Calco (`@laticent/calco`,
+`docs/src/lib/calco/`) is the office-export library; `lib/export/office-export.js`
+is the Lattice host that hands it JSZip, PptxGenJS, the deck's fonts and the HarfBuzz
+pinner. Two modes:
+
+- **Picture** (every `.odp` without the flag): one full-bleed PNG per page, the
+  speaker notes on each page's notes view, the `describe:` text as each picture's
+  alt text. The PPTX twin is the plain `.pptx`, which stays on
+  `lib/export/pptx-export.js`.
+- **Editable** (`--editable` on `.odp` or `.pptx`): Calco reads every paragraph off
+  the rendered slide, hides that text, photographs the slide, and writes each
+  paragraph back as a real text box in its own font, with the browser's line
+  breaks. Both embed the fonts, each pinned to one weight with every character
+  kept: the `.odp` as TrueType, the `.pptx` as Embedded OpenType, one family
+  per weight.
+  Charts, diagrams, equations, `::before`/`::after` text, rotated text and
+  ellipsized lines stay in the picture.
+  **Fidelity needs the deck's fonts at the reader.** Lines are broken where the
+  browser broke them (no wrap), and each word is placed from the browser's
+  measure, so the file matches the slide only when the reader draws the same face.
+  LibreOffice does not use a `.pptx`'s embedded fonts: with Outfit missing it falls
+  back to Inter, every line runs wider, and a picture set mid-sentence (an
+  inline icon, spark or avatar, which stays a picture at the x the browser
+  measured) sits off its words. With Outfit installed, the same file keeps every
+  picture beside its words (measured on a deck with `^{bucket}` and `!{Ada}` spans,
+  2026-10-11). Not a writer defect, so no writer change. Real PowerPoint was not
+  checked; it should read the embedded fonts. If font-less readers matter later, the
+  options are splitting each line at its pictures, or leaving such a paragraph in the
+  picture whole.
+
+Calco writes the zip itself, so no `soffice` is needed to export — LibreOffice is
+only the reader. Rounded corners square on both, as on the PPTX: the page sets no
+fill, so a transparent corner would show the reader's own template
+(`lib/core/corner-export-capability.mjs`). How it was built and measured, and the six
+LibreOffice behaviors the writer works around:
+`engineering/decisions/2026-10-06-calco-office-export-library.md`.
 
 **The Studio's browser PDF is the exception, and only its worker lane.** It
 rasterizes like the above, then writes every word back over the page image
@@ -257,8 +295,28 @@ that keeps text or a raster image in it. That covers:
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
 deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
 photo stops at 2560 px on the long edge, so a 4K slide's is downsampled. A downsampled photo is
-JPEG only: the downsample already softens a 1 px rule, and PNG there cost the 4K gallery ~13 s
-a render (`followups.d/2503-p3-pdf-photo-exact-4k.md`).
+JPEG only: PNG there cost the 4K gallery ~13 s a render.
+
+**The slide's own edge is a vector, not part of the photo.** The section paints its top edge
+itself, as a gradient: a light slide's spectrum bar is a `border-image` on its top border, and
+a dark slide's 1 px hairline is a `background-image` (the `spectrum-edge-*` rails are the same
+two shapes on other sides). The reader (`readSectionEdges`) draws each as an axial shading over
+the photo and drops it from the photo, so the edge is exact at any size: at 4K, where the
+downsampled photo wrote the dark hairline 86 levels off Chrome's print, it is now within 1.
+A gradient whose stops are not legacy sRGB colors (the `mono` style's `color-mix`) is sampled
+through the browser's own `color-mix` in the gradient's interpolation space. Only a strip flush with one side, the side's full length and at
+most 1% of the slide thick, counts as an edge. The edge is drawn straight over the photo, before the slide's
+images and shapes, because a section's background and border paint under everything on it. A
+background edge (the hairline, a rail) is checked twice before it is drawn: by geometry in the
+reader, and then by the photo itself. With the edge hidden, the band must show nothing but the
+slide's own color (`bandIsClear`, `compose.mjs`); anything else drops the vector edge and retakes
+that slide's photo with the edge in it (`edge-ink`). A border bar needs neither, since the section
+clips its content inside the bar. The edge stays in
+the photo when anything's ink can reach it (a finish's pseudo-element layer, an inset shadow over
+the hairline, an outer shadow, a list marker, a full-bleed image), when the slide is clipped or rounded (`corners-rounded`), or
+when its geometry is not one the reader models; `LATTICE_PDF_REPORT` names the reason
+(`edge-covered`, `edge-clip-path`, …). Other 1 px rules a finish paints (the frame keyline, an
+inset ring) still ride in the photo, and stay soft at 4K.
 
 **The photo is PNG first.** A flat photo (`pngIsFlat`) is kept as PNG; a busy one is also
 taken as JPEG and `smallestPhoto` (`compose.mjs`) keeps the smaller file. A busy slide's JPEG
@@ -283,9 +341,19 @@ back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is
 writer fails. The reasons and the
 measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
 
+**SVG text takes its fill per character.** `read-slide.mjs` reads each character's fill from
+the element that holds its text node, and splits a run where the fill changes. It does not use
+the `<text>`'s own fill: Mermaid paints a sequence participant's name on the `<tspan>`
+(`text.actor > tspan`) and gives the `<text>` the box's fill, so the `<text>` fill drew every
+name in its box's color. `test/integration/export/pdf-svg-text-owner-fill.test.js` renders the
+real PDF and counts ink inside each box. After editing `read-slide.mjs`, run
+`node tools/build-pdf-compose.js`: the CLI runs the built `dist/` bundle, not the source.
+
 ## 4a. CLI PDF output is byte-reproducible
 
-Rendering the same deck twice **on the same machine** writes the same bytes — so
+Rendering the same deck twice **on the same machine** writes the same bytes, with one measured
+exception: a 4K deck rendered while the machine is busy (its photo is taken at a fractional
+`deviceScaleFactor`; gotchas/export.md, "A 4K deck's PDF changes bytes from run to run"). So
 re-blessing a golden that did not visually change adds nothing to git, and `git
 diff` on a committed PDF means the picture actually moved.
 
@@ -302,7 +370,7 @@ Set `SOURCE_DATE_EPOCH` (the [reproducible-builds][rb] convention) to stamp a
 real date instead, and still get stable bytes:
 
 ```bash
-SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice-emulator.js deck.md out.pdf
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice.js deck.md out.pdf
 ```
 
 [rb]: https://reproducible-builds.org/specs/source-date-epoch/
@@ -330,8 +398,8 @@ A `.zip` output writes an **image set**: one raster per slide plus, by default,
 small thumbnails and the deck's charts + Mermaid diagrams as standalone SVGs.
 
 ```bash
-node lattice-emulator.js deck.md out.zip                              # perfect-fidelity PNG
-node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
+node lattice.js deck.md out.zip                              # perfect-fidelity PNG
+node lattice.js deck.md out.zip --image-format webp --image-size 1x
 ```
 
 The zip is one folder (`<deck>/`) holding `slides/`, `thumbnails/`, `assets/`
@@ -405,12 +473,12 @@ fonts embedded so each `.svg` opens anywhere.
 HTML export:
 
 ```bash
-node lattice-emulator.js video deck.md                # voiced with Kokoro -> deck.mp4 + deck.vtt
-node lattice-emulator.js video deck.md --mode light   # the export's mode, over the deck's own
-node lattice-emulator.js video deck.md --no-guide     # no Guide (on by default; delivery: picks its style)
-node lattice-emulator.js video deck.md --no-captions  # no caption track and no .vtt (on by default)
-node lattice-emulator.js video deck.html              # a narrated export (the Studio's)
-node lattice-emulator.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
+node lattice.js video deck.md                # voiced with Kokoro -> deck.mp4 + deck.vtt
+node lattice.js video deck.md --mode light   # the export's mode, over the deck's own
+node lattice.js video deck.md --no-guide     # no Guide (on by default; delivery: picks its style)
+node lattice.js video deck.md --no-captions  # no caption track and no .vtt (on by default)
+node lattice.js video deck.html              # a narrated export (the Studio's)
+node lattice.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
 ```
 
 **A deck is voiced first, through the Studio's clip steps.** `lattice video deck.md` runs the

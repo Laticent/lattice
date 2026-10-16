@@ -2,6 +2,9 @@
 origin: 2354
 priority: P2
 recorded: 2026-10-05
+area: website
+severity: high
+swimlane: engineering/decisions/2026-09-24-lattice-studio-desktop.md §The Windows test run (2026-10-05)
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

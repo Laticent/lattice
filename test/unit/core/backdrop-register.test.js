@@ -230,7 +230,7 @@ test('css: open, spotlight and finish-none switch the clear layer off; tone slid
   assert.match(optOut, /--backdrop-clear-scrim: none/);
   assert.match(optOut, /--fin-backdrop-clear-scrim: none/);
   assert.match(optOut, /--backdrop-clear-filter: none/);
-  assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::before \{\s*left: -8px;/);
+  assert.match(css, /tone-skip[^)]*\)\.finish > \.backdrop > \.backdrop-mask::before \{\s*left: -8px;/);
 });
 
 test('css: a baked strength without a mask stays opacity; steps and masks use the veil', () => {
@@ -270,7 +270,7 @@ test('css: the frame keyline is drawn on top of the finish, clear of the header 
   assert.match(top[0], /box-shadow: 0 0 0 calc\(0\.22 \* var\(--_sec-1cqi, 1cqi\)\) var\(--fin-frame-mark, transparent\);/);
   assert.doesNotMatch(top[0], /^\s*outline(-offset)?:/m);
   // It steps back by the mask's own inset on a tone slide (8px) and under the overflow ring (4px).
-  assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::after \{\s*left: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\) - 8px\);/);
+  assert.match(css, /tone-skip[^)]*\)\.finish > \.backdrop > \.backdrop-mask::after \{\s*left: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\) - 8px\);/);
   assert.match(css, /\[data-lattice-overflow-marker="off"\]\) > \.backdrop > \.backdrop-mask::after \{\s*inset: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\) - 4px\);/);
   // Every opt-out that clears the shadow frame clears the keyline too.
   const clears = css.match(/--fin-frame: 0 0 transparent;[^\n]*\n\s*--fin-frame-mark: transparent;/g) || [];

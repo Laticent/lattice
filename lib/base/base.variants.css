@@ -71,7 +71,7 @@ section.no-paginate .lat-pagination {
  * shared Cell CSS (lib/forms/cell/stage/stage.css) — they act on the frame's
  * chrome Cells, not on a component root, so they are not here. A chart at
  * `claim-hero` gets an extra chart-family layer (the full-bleed caption band)
- * in chart-family.css (`section.chart-frame.claim-hero`), which absorbed the
+ * in chart-family.styles.css (`section.chart-frame.claim-hero`), which absorbed the
  * retired chart-only `cover` modifier (2026-07-03 decision). */
 
 /* ── TONE ── canvas-level reuse of the state-token color system ─────── */
@@ -101,11 +101,21 @@ section.tone-pass { --tone-color: var(--pass); }
 section.tone-warn { --tone-color: var(--warn); }
 section.tone-fail { --tone-color: var(--fail); }
 section.tone-skip { --tone-color: var(--muted-mark); }
+/* An auto-split page swaps the layout class for the split role's, so the semantic tone rides as
+   `data-split-mods` (lib/core/split-envelope.js) while the tone STYLES (`tone-rail`, `tone-edge`,
+   `tone-glow`) stay classes (TONE_STYLE_TOKENS ride as classes). Every rule keyed on the semantic
+   therefore matches BOTH forms; with a class-only selector a `size: story` split page lost the rail and
+   glow on its cover and `decision` pages, and `tone-edge` never matched
+   (engineering/decisions/2026-08-18-split-frame-edge-ownership.md addenda). */
+section[data-split-mods~="tone-pass"] { --tone-color: var(--pass); }
+section[data-split-mods~="tone-warn"] { --tone-color: var(--warn); }
+section[data-split-mods~="tone-fail"] { --tone-color: var(--fail); }
+section[data-split-mods~="tone-skip"] { --tone-color: var(--muted-mark); }
 /* The tone STYLE axis (orthogonal to the semantic tone above) sets the box-shadow
    SHAPE, so `tone-fail tone-edge` composes. Default (no style) = the left rail; a
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
    collides with the state ::before or the pagination ::after, and prints in the PDF. */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip, [data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]) {
   --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
   /* The rail is the left edge, so the engine keyline yields there (base.modifiers.css). */
@@ -114,7 +124,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
 section.tone-rail { --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); --_edge-t: 0; --_edge-r: 0; --_edge-b: 0; }  /* full inset ring — it is the edge on every side, so no keyline draws */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip, [data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]).tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); --_edge-t: 0; --_edge-r: 0; --_edge-b: 0; }  /* full inset ring — it is the edge on every side, so no keyline draws */
 
 /* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
    rather than painting a SEPARATE top band that would fight it — the same move the
@@ -124,14 +134,30 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-glow { --tone-ra
    spectrum untouched; where the spectrum is absent (dark/divider slides set
    border-top:none) it is a clean no-op. See
    engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge,
+section.tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]) {
   --tone-rail: 0 0 transparent;   /* no box-shadow band — the recolored border carries the tone */
   --_edge-t: 0;                   /* the tone bar is the top edge, even under `spectrum: off` */
   --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   --_edge-l: 1;                   /* …and the rail is gone, so the left keyline returns */
   border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
-  border-image: none;
+  border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
 }
+/* On a split frame the bar is not a section border: each panel paints its own segment (a ribbon
+   background on the supporting zone, a mark on the featured one), and `border-top: none` on the
+   frame (split-panel / split-compare .styles.css) is (0,1,1), so the rule above would stack a
+   second bar over the ribbon. Where `accent` recolors the supporting-zone ribbon, a semantic
+   `tone-edge` does the same: it drops the border and carries --tone-color on the ribbon, at
+   (0,3,1) / (0,4,1) so it also beats those components' `spectrum-off` / `spectrum-edge-*` clears,
+   as `tone-edge` does on every other layout. Lives here, not in the component files, because the
+   variant-declaration gate reads a `.tone-edge` chained onto a component root as an undeclared
+   variant. 2026-08-18-split-frame-edge-ownership.md */
+section.split-panel:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge,
+section.split-compare:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
+  border-top: none; --_edge-t: 0; --_bar-t: 0px;
+}
+section.split-panel:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge { --_ribbon: linear-gradient(var(--tone-color), var(--tone-color)); }
+section.split-compare:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge .compare-right { background-image: linear-gradient(var(--tone-color), var(--tone-color)); }
 
 /* ── SPECTRUM registers ── the accent-gradient controls, two orthogonal keys.
    The rainbow accent is one token (`--spectrum` / `--spectrum-vertical`, defined per theme)
@@ -255,10 +281,14 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    including the title/closing/dark bookends whose default edge is bar-less or a 1px line — so a
    deliberately-chosen brand style reads consistently across the deck (this matches the
    pre-consolidation `solid` behavior; the rainbow default's bookend treatment is unchanged).
-   Reads --spectrum-bar, so duo/mono follow. Excluded when a `spectrum-edge:` placement is
+   Reads --spectrum-bar, so duo/mono follow. Excluded on `split-panel` and `split-compare`, whose own two-segment bar IS the top edge (a section border above it doubled the bar; 2026-08-18-split-frame-edge-ownership.md). Excluded when a `spectrum-edge:` placement is
    set (the EDGE rules own the bar then) and on the divider (its --spectrum-vertical left rail
-   already follows the style). */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]) {
+   already follows the style). Also excluded where the slide itself recolors the bar: `accent`
+   and a semantic `tone-edge` are explicit per-slide choices and win over the deck-wide style, as
+   they do over the default rainbow (2026-07-03-status-marker-style-variants.md §9). The
+   exclusion mirrors those rules' own gates and sits in `:where()` so this rule keeps its
+   (0,3,1) specificity against everything else. */
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]):not(:where(.split-panel, .split-compare, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
   --_edge-t: 0; /* the bar is the top edge — the engine keyline yields to it (base.modifiers.css) */
   --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
@@ -375,14 +405,14 @@ section.divider:not(.light).spectrum-edge-off {
    palette token, so every style is on-brand across themes/palettes automatically.
    See engineering/decisions/2026-07-03-status-marker-style-variants.md. */
 
-section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); }
-section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); }
-section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); }
-section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); }
-section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); }
-section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); }
-section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
-section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
+section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); --stamp-len: 12; }
+section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); --stamp-len: 3; }
+section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); --stamp-len: 5; }
+section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); --stamp-len: 3; }
+section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); --stamp-len: 8; }
+section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); --stamp-len: 8; }
+section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); --stamp-len: 6; }
+section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); --stamp-len: 7; }
 
 /* ── NO STAMP RESERVES ANYTHING FOR THE MARKER ANY MORE ───────────────────────
  *
@@ -543,9 +573,15 @@ section.stamp-dot::before {
 
 /* ── MARK — a restrained diagonal watermark (opt-in; the iconic DRAFT look). */
 section.stamp-mark::before {
-  inset: 0; clip-path: none; display: grid; place-items: center;
+  /* `background: none` — the shared DEFAULT+TAB rule above fills every state marker's
+   * pseudo with --stamp-color, and this full-slide box would carry that fill as an opaque
+   * rotated slab over the content instead of a faint word. */
+  inset: 0; clip-path: none; display: grid; place-items: center; background: none; padding: 0;
   color: color-mix(in srgb, var(--stamp-color) 12%, transparent);
-  font-family: var(--font-display); font-weight: 900; font-size: 16cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
+  /* Sized to its word: 16cqi for a short label, smaller for a long one, so CONFIDENTIAL
+   * fits across the slide instead of running off it. --stamp-len is each state's letter
+   * count (set beside --stamp-label); a glyph of this face at weight 900 is ~0.78em wide. */
+  font-family: var(--font-display); font-weight: 900; font-size: min(16cqi, calc(105cqi / (var(--stamp-len, 5) * 0.78))); /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
   letter-spacing: 0.06em; transform: rotate(-18deg);
 }
 
@@ -558,12 +594,12 @@ section.stamp-veil::before {
   font-size: 0.74cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
 }
 
-/* ── BAR — a redaction bar (label hidden; the shape is the message). */
+/* ── BAR — a redaction bar that names its state: a dark strip, the label in light caps. */
 section.stamp-bar::before {
   top: 6.5%; right: 5%; clip-path: none;
-  color: transparent; overflow: hidden;
+  color: var(--on-accent);
   background: color-mix(in srgb, var(--stamp-color) 82%, var(--text-heading));
-  border-radius: 0.2cqi; height: 1.5cqi; width: 8cqi;
+  border-radius: 0.2cqi; min-width: 8cqi; padding: 0.4cqi 1.2cqi; text-align: center;
 }
 
 /* ── PIN — a bookmark pin dropped from the top edge (label hidden). */

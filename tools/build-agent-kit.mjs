@@ -66,7 +66,7 @@ import {
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -371,6 +371,14 @@ function reviewBundle() {
         "    .replace(/design\\/design-system\\.md §6\\.5/g, 'authoring/modifiers.md');",
         '}',
         '',
+        '// An author in the Studio gets a picker; a kit reader has only the files. So an',
+        '// unknown class also names where the real list lives.',
+        'function kitFix(f) {',
+        '  const fix = f.fix ? kitPaths(f.fix) : f.fix;',
+        "  if (f.rule !== 'unknown-class') return fix;",
+        "  return (fix ? fix + ' ' : '') + 'The full list is in reference/components.json.';",
+        '}',
+        '',
         '// The two halves answer different questions and a deck needs both. The',
         '// LINTER asks whether the deck is even valid — an invented `_class` is the',
         '// single most likely mistake a model makes here, and the reviewer cannot',
@@ -380,7 +388,7 @@ function reviewBundle() {
         '  const { bucketOf, densityOf, vocab } = catalogLookups();',
         '  const lint = vocab ? lintTextWith(source, vocab) : [];',
         '  const findings = [',
-        '    ...lint.map((f) => ({ ...f, fix: f.fix ? kitPaths(f.fix) : f.fix, message: kitPaths(f.message) })),',
+        '    ...lint.map((f) => ({ ...f, fix: kitFix(f), message: kitPaths(f.message) })),',
         '    ...reviewText(source, { bucketOf, densityOf }),',
         '  ];',
         "  const rank = { error: 0, warning: 1, suggestion: 2 };",
@@ -928,11 +936,13 @@ function studioPromptsDoc() {
 
 /** authoring/primer.md — the Studio's layout dossier, body byte-identical. */
 async function buildPrimer() {
+  // As file:// URLs: `import()` of a bare Windows path (`D:\…`) reads `d:` as a URL scheme and
+  // throws, so this step failed on every Windows build (#2459's runner probe).
   const { buildStudioCatalog } = await import(
-    path.join(ROOT, 'docs', 'src', 'lib', 'studio-catalog.mjs')
+    pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'studio-catalog.mjs')).href
   );
   const { buildLatticePrimer, AUTHORING_RULES } = await import(
-    path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')
+    pathToFileURL(path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')).href
   );
   const catalog = buildStudioCatalog(ROOT);
   if (!catalog.length) {
@@ -1751,6 +1761,9 @@ function renderDoc() {
     'And one thing on the renderer\'s side: **`html: true`**. marp-core escapes raw HTML by',
     'default, which turns the deck\'s `<script>` tags into visible text and leaves every',
     'chart and diagram unbuilt. Pass `--html` on the CLI, or set it in a config file.',
+    'In an Export-to-Marp bundle folder, render with its own `npm run pdf` instead: its',
+    '`marp.config.cjs` passes a list of HTML tags plus the runtime, and `--html` would',
+    'replace that list with everything.',
     '',
     `The ${numberWord(RUNTIME_SCRIPT_NAMES.length)} tags, in this order — the runtime reads the dagre global synchronously`,
     'on its first draw, so it has to come last:',
@@ -1857,10 +1870,10 @@ function renderDoc() {
     '',
     'If you have the source checked out, the engine renders PDF, PPTX, PNG and HTML:',
     '',
-    ...fenced('node dist/lattice-emulator.js your-deck.md your-deck.pdf', 'sh'),
+    ...fenced('node dist/lattice.js your-deck.md your-deck.pdf', 'sh'),
     '',
     'The output format is chosen by the extension — `.pdf`, `.pptx`, `.png`, `.zip`, `.html`.',
-    'Needs Node 22.12 or newer and a Chromium that Puppeteer can find. This route needs no',
+    'Needs Node 22.13 or newer and a Chromium that Puppeteer can find. This route needs no',
     '`--theme-set` and no `<script>` tags: the engine owns both ends, and it strips the',
     'deck\'s runtime scripts before export, so a deck carrying them renders the same here.',
     '',
@@ -1954,7 +1967,7 @@ function exampleDecks() {
  * layout absent, no error anywhere. With them it composes correctly.
  *
  * Safe on every route: the CLI strips deck-embedded runtime scripts before
- * export (`lattice-emulator.js`), so a deck carrying them renders identically
+ * export (`lattice.js`), so a deck carrying them renders identically
  * there. That is what makes them the right default rather than a Marp-only
  * footnote.
  */

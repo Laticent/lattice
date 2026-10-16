@@ -1,0 +1,562 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 100224,
+	"lines": [
+		{
+			"key": "0445943ff94f",
+			"text": "Speaker notes are for you. Present shows them to you, and the audience never sees them.",
+			"file": "0445943ff94f.mp3",
+			"bytes": 30384,
+			"speechMs": 5012,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Speaker notes are for you.",
+						"words": [
+							{
+								"display": "Speaker",
+								"spoken": "Speaker",
+								"startMs": 0,
+								"endMs": 372,
+								"charOffset": 0
+							},
+							{
+								"display": "notes",
+								"spoken": "notes",
+								"startMs": 372,
+								"endMs": 743,
+								"charOffset": 8
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 743,
+								"endMs": 929,
+								"charOffset": 14
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 929,
+								"endMs": 1115,
+								"charOffset": 18
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1115,
+								"endMs": 1328,
+								"charOffset": 22
+							}
+						],
+						"startMs": 0,
+						"endMs": 1677,
+						"charOffset": 0
+					},
+					{
+						"display": "Present shows them to you, and the audience never sees them.",
+						"words": [
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 1826,
+								"endMs": 2198,
+								"charOffset": 27
+							},
+							{
+								"display": "shows",
+								"spoken": "shows",
+								"startMs": 2198,
+								"endMs": 2384,
+								"charOffset": 35
+							},
+							{
+								"display": "them",
+								"spoken": "them",
+								"startMs": 2384,
+								"endMs": 2569,
+								"charOffset": 41
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2569,
+								"endMs": 2755,
+								"charOffset": 46
+							},
+							{
+								"display": "you,",
+								"spoken": "you,",
+								"startMs": 2755,
+								"endMs": 2968,
+								"charOffset": 49
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3149,
+								"endMs": 3335,
+								"charOffset": 54
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3335,
+								"endMs": 3521,
+								"charOffset": 58
+							},
+							{
+								"display": "audience",
+								"spoken": "audience",
+								"startMs": 3521,
+								"endMs": 3893,
+								"charOffset": 62
+							},
+							{
+								"display": "never",
+								"spoken": "never",
+								"startMs": 3893,
+								"endMs": 4264,
+								"charOffset": 71
+							},
+							{
+								"display": "sees",
+								"spoken": "sees",
+								"startMs": 4264,
+								"endMs": 4450,
+								"charOffset": 77
+							},
+							{
+								"display": "them.",
+								"spoken": "them.",
+								"startMs": 4450,
+								"endMs": 4663,
+								"charOffset": 82
+							}
+						],
+						"startMs": 1826,
+						"endMs": 5012,
+						"charOffset": 27
+					}
+				],
+				"durationMs": 5012
+			}
+		},
+		{
+			"key": "b6367e6e1032",
+			"text": "Notes live in Slide settings. Click it.",
+			"file": "b6367e6e1032.mp3",
+			"bytes": 14400,
+			"speechMs": 2344,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Notes live in Slide settings.",
+						"words": [
+							{
+								"display": "Notes",
+								"spoken": "Notes",
+								"startMs": 0,
+								"endMs": 338,
+								"charOffset": 0
+							},
+							{
+								"display": "live",
+								"spoken": "live",
+								"startMs": 338,
+								"endMs": 508,
+								"charOffset": 6
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 508,
+								"endMs": 677,
+								"charOffset": 11
+							},
+							{
+								"display": "Slide",
+								"spoken": "Slide",
+								"startMs": 677,
+								"endMs": 846,
+								"charOffset": 14
+							},
+							{
+								"display": "settings.",
+								"spoken": "settings.",
+								"startMs": 846,
+								"endMs": 1209,
+								"charOffset": 20
+							}
+						],
+						"startMs": 0,
+						"endMs": 1527,
+						"charOffset": 0
+					},
+					{
+						"display": "Click it.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 1663,
+								"endMs": 1832,
+								"charOffset": 30
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 1832,
+								"endMs": 2026,
+								"charOffset": 36
+							}
+						],
+						"startMs": 1663,
+						"endMs": 2344,
+						"charOffset": 30
+					}
+				],
+				"durationMs": 2344
+			}
+		},
+		{
+			"key": "876638517577",
+			"text": "I’ll open this slide’s settings for you.",
+			"file": "876638517577.mp3",
+			"bytes": 11520,
+			"speechMs": 1849,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open this slide’s settings for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 154,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 154,
+								"endMs": 461,
+								"charOffset": 5
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 461,
+								"endMs": 615,
+								"charOffset": 10
+							},
+							{
+								"display": "slide’s",
+								"spoken": "slide’s",
+								"startMs": 615,
+								"endMs": 923,
+								"charOffset": 15
+							},
+							{
+								"display": "settings",
+								"spoken": "settings",
+								"startMs": 923,
+								"endMs": 1230,
+								"charOffset": 23
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1230,
+								"endMs": 1384,
+								"charOffset": 32
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1384,
+								"endMs": 1560,
+								"charOffset": 36
+							}
+						],
+						"startMs": 0,
+						"endMs": 1849,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1849
+			}
+		},
+		{
+			"key": "1158a8c560ec",
+			"text": "Choose the Notes tab.",
+			"file": "1158a8c560ec.mp3",
+			"bytes": 7488,
+			"speechMs": 1199,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Choose the Notes tab.",
+						"words": [
+							{
+								"display": "Choose",
+								"spoken": "Choose",
+								"startMs": 0,
+								"endMs": 171,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 171,
+								"endMs": 341,
+								"charOffset": 7
+							},
+							{
+								"display": "Notes",
+								"spoken": "Notes",
+								"startMs": 341,
+								"endMs": 683,
+								"charOffset": 11
+							},
+							{
+								"display": "tab.",
+								"spoken": "tab.",
+								"startMs": 683,
+								"endMs": 878,
+								"charOffset": 17
+							}
+						],
+						"startMs": 0,
+						"endMs": 1199,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1199
+			}
+		},
+		{
+			"key": "71e5953c1e0d",
+			"text": "Write what you want to remember here. It saves with the deck.",
+			"file": "71e5953c1e0d.mp3",
+			"bytes": 18144,
+			"speechMs": 2974,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Write what you want to remember here.",
+						"words": [
+							{
+								"display": "Write",
+								"spoken": "Write",
+								"startMs": 0,
+								"endMs": 150,
+								"charOffset": 0
+							},
+							{
+								"display": "what",
+								"spoken": "what",
+								"startMs": 150,
+								"endMs": 300,
+								"charOffset": 6
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 300,
+								"endMs": 449,
+								"charOffset": 11
+							},
+							{
+								"display": "want",
+								"spoken": "want",
+								"startMs": 449,
+								"endMs": 599,
+								"charOffset": 15
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 599,
+								"endMs": 749,
+								"charOffset": 20
+							},
+							{
+								"display": "remember",
+								"spoken": "remember",
+								"startMs": 749,
+								"endMs": 1198,
+								"charOffset": 23
+							},
+							{
+								"display": "here.",
+								"spoken": "here.",
+								"startMs": 1198,
+								"endMs": 1370,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 1651,
+						"charOffset": 0
+					},
+					{
+						"display": "It saves with the deck.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 1772,
+								"endMs": 1922,
+								"charOffset": 38
+							},
+							{
+								"display": "saves",
+								"spoken": "saves",
+								"startMs": 1922,
+								"endMs": 2221,
+								"charOffset": 41
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2221,
+								"endMs": 2371,
+								"charOffset": 47
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2371,
+								"endMs": 2521,
+								"charOffset": 52
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 2521,
+								"endMs": 2693,
+								"charOffset": 56
+							}
+						],
+						"startMs": 1772,
+						"endMs": 2974,
+						"charOffset": 38
+					}
+				],
+				"durationMs": 2974
+			}
+		},
+		{
+			"key": "e8a6e11e5097",
+			"text": "This slide’s notes are in the Notes tab of Slide settings.",
+			"file": "e8a6e11e5097.mp3",
+			"bytes": 18288,
+			"speechMs": 2977,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This slide’s notes are in the Notes tab of Slide settings.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 175,
+								"charOffset": 0
+							},
+							{
+								"display": "slide’s",
+								"spoken": "slide’s",
+								"startMs": 175,
+								"endMs": 525,
+								"charOffset": 5
+							},
+							{
+								"display": "notes",
+								"spoken": "notes",
+								"startMs": 525,
+								"endMs": 874,
+								"charOffset": 13
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 874,
+								"endMs": 1049,
+								"charOffset": 19
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1049,
+								"endMs": 1224,
+								"charOffset": 23
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1224,
+								"endMs": 1399,
+								"charOffset": 26
+							},
+							{
+								"display": "Notes",
+								"spoken": "Notes",
+								"startMs": 1399,
+								"endMs": 1749,
+								"charOffset": 30
+							},
+							{
+								"display": "tab",
+								"spoken": "tab",
+								"startMs": 1749,
+								"endMs": 1924,
+								"charOffset": 36
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 1924,
+								"endMs": 2098,
+								"charOffset": 40
+							},
+							{
+								"display": "Slide",
+								"spoken": "Slide",
+								"startMs": 2098,
+								"endMs": 2273,
+								"charOffset": 43
+							},
+							{
+								"display": "settings.",
+								"spoken": "settings.",
+								"startMs": 2273,
+								"endMs": 2649,
+								"charOffset": 49
+							}
+						],
+						"startMs": 0,
+						"endMs": 2977,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 2977
+			}
+		}
+	]
+}

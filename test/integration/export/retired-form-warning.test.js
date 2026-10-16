@@ -12,12 +12,12 @@
  * a successful exit code and no other sign. The linter says the same thing with
  * a fix, but the person whose deck changed shape is RENDERING it, not linting it
  * — the same argument the CLI's refused deck-wide `class:` notice already makes
- * a few lines above this one in `lattice-emulator.js`.
+ * a few lines above this one in `lattice.js`.
  *
  * ASSERTED ON THE REAL CLI (HARD RULE #23), not on the detector. The detector's
  * `shapeChange` flag is pinned in `test/unit/components/lint-deck.test.js`; what
  * this file guards is the WIRING, which a unit test cannot see. Deleting the
- * loop in `lattice-emulator.js` leaves every other test in the repo green.
+ * loop in `lattice.js` leaves every other test in the repo green.
  *
  * Both directions matter, so both are here: a deck that moved must warn, and a
  * deck carrying only INERT retired shapes must stay silent. A warning on a deck
@@ -33,7 +33,7 @@ const { spawnSync } = require('node:child_process');
 
 describe('retired-form-warning', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const TIMEOUT = 120000;
 
   const fixture = (name) => path.join(ROOT, 'test', 'fixtures', name);
@@ -62,18 +62,18 @@ describe('retired-form-warning', () => {
 
       // Each shape is named on its own line, because each is a separate edit the
       // author has to make.
-      assert.match(out, /`form: off` is retired/, 'the deck key');
-      assert.match(out, /this deck-wide class opted EVERY slide out/, 'the deck-wide class token');
-      assert.match(out, /a slide cannot opt out of Form/, 'the per-slide token');
+      assert.match(out, /`form: off` no longer works/, 'the deck key');
+      assert.match(out, /`no-form` no longer works; every slide now shows/, 'the deck-wide class token');
+      assert.match(out, /`no-form` no longer works; this slide now shows/, 'the per-slide token');
 
       // The consequence, not just the fact — this is what makes it actionable.
-      assert.match(out, /masthead band/);
+      assert.match(out, /title band and progress bar/);
       // And where to go for the fix.
       assert.match(out, /lattice lint/);
 
       // The per-slide finding carries its slide number; a bare list of identical
       // lines would not tell the author which slide to open.
-      assert.match(out, /warning: slide \d+: `no-form` is retired/);
+      assert.match(out, /warning: slide \d+: `no-form` no longer works/);
     });
 
   test('a deck carrying only INERT retired shapes is not nagged',

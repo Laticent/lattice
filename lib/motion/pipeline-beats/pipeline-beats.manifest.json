@@ -1,0 +1,10 @@
+{
+  "$schema": "../motion.schema.json",
+  "name": "pipeline-beats",
+  "type": "motion",
+  "format": 1,
+  "label": "Pipeline, beat by beat",
+  "description": "Three stages and two arrows, each drawing itself on its own beat.",
+  "engine": "anime",
+  "order": 2
+}

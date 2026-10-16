@@ -219,7 +219,8 @@ Built on the same branch as the pricing fix that surfaced the question (PR #2327
   `deck-markdown.ts`), and two tools carried one each (`build-component-docs.js`,
   `audit-capacity-basis.js`). Every one now builds from `MARKER_CLASS`, and
   `test/unit/core/state-marks.test.js` fails on a private copy anywhere under `lib/`,
-  `tools/` or `docs/src`.
+  `tools/` or `docs/src`. *(Since then, the editor's three moved onto the Segno list-text
+  grammar: `engineering/decisions/2026-09-28-segno-unified-inline-notation.md` § Phase 3 as built.)*
 - **matrix-grid is the one named exception.** Its `[x]` `[-]` `[ ]` are a POSITIONAL
   grammar (filled / reachable / not applicable) parsed by `lib/core/matrix-grid-cells.js`,
   not status answers. It keeps its own parser, and the guard test names it.
@@ -278,6 +279,10 @@ found these, and each is fixed on the branch with a test that fails without it:
   `\[!\]`.
 
 ### 10.2 The transition, for decks we do not ship
+
+*(Superseded 2026-10-06: the `moved-empty-box` lint, its render warning and its `--fix` rewrite
+were deleted. `[ ]` is a valid answer on every layout, so the rule flagged slides that rendered
+correctly. `guides/status/upgrading.md` now tells authors how to find the slides by hand.)*
 
 `lint:deck` alone was not enough. An author re-rendering an old deck gets a PDF that
 changed meaning with a successful exit code, and never runs the linter. Three layers:

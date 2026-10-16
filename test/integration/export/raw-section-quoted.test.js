@@ -35,7 +35,7 @@ const { pageCount } = require('../../helpers/pdf');
 
 describe('raw-section-quoted', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'raw-section-quoted.md');
   const TIMEOUT = 120000;
 

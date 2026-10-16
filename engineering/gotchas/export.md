@@ -1,7 +1,7 @@
 # Gotchas — Export (PDF, PPTX, the HTML player)
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## Chromium PDF output of CSS `mask-image` renders inconsistently across viewers
 
@@ -10,7 +10,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Mitigation:**
   - **Cropped `::before` bbox.** Size the `::before` to the shapes' bounding box, not the full slide. When the mask drops, the failure surfaces as a small tinted patch (degradation) rather than a slide-spanning panel of paint (slide-breaking artifact). This is what the orbit-pattern refactor in the treatments library does for the 8 mask-based marks.
   - **Box-shadow stack.** For marks whose geometry is "one shape repeated at evenly-spaced offsets" (e.g. `mark-ticks` — 5 ticks down the right margin), drop the mask entirely and paint via one `::before` plus N `box-shadow` copies. `border-radius` on the `::before` propagates to the shadows, so rounded shapes work (`mark-pills`).
-  - **Stacked radial gradients in a slot.** For marks whose geometry is "many small shapes scattered across multiple corners" (e.g. `mark-seeds` — 12 ellipses across all four corners), drop the mask and write to `--_bg-radial` as N stacked `radial-gradient(...)` values. Gradients are native rendering primitives with no mask to drop.
+  - **Stacked radial gradients.** For marks whose geometry is "many small shapes scattered across multiple corners" (e.g. `mark-seeds` — 12 ellipses across all four corners), drop the mask and paint N stacked `radial-gradient(...)` values on a full-slide `::before`. Gradients are native rendering primitives with no mask to drop.
 - **Triggered by:** Any `::before` (or `::after`) carrying `mask` / `mask-image` that the author opens in a PDF viewer. The browser preview never reveals this failure mode; only the rendered PDF does. The catalog rebuild on the treatments-rename branch was the forcing function.
 - **Removable when:** Apple PDFKit gains parity with Skia/PDFium for the soft-mask constructs Chromium emits. No timeline.
 - **Commits:** This branch (treatments rename; the cropped-bbox + box-shadow + gradient-slot escape hatches). See `engineering/treatments.md` → "Mark rendering" for the rendering-mechanism breakdown.
@@ -19,7 +19,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** A slide whose photo is an **SVG file** (`![bg](photo.svg)` or an inline `![](photo.svg)`) renders perfectly in poppler (CI rasterization, desktop viewers) but breaks in iOS Safari's built-in PDF viewer and other Quartz-based viewers: the image draws only partially (a top band) or the photo column is dropped entirely, showing bare canvas. Other SVG placements on the same device can draw fine — the failure is construct-specific (clipped/cropped placements), not SVG-wholesale. First observed on-device reviewing the full-coverage gallery (#690).
 - **Cause:** Chromium prints an SVG `<img>`/`background-image` into the vector PDF as shading patterns and transparency groups; the clipped/cover placements emit combinations Quartz mishandles (the same viewer-strictness family as the `mask-image` gotcha above). Poppler renders them correctly, which is why single-renderer verification never caught it.
-- **Mitigation:** Since #690 landed, **lattice-emulator rasterizes SVG `<img>`/`background-image` references at export time by default** — each unique SVG becomes a 2× PNG twin (a plain image XObject, the universally supported construct) swapped into the loaded page before `page.pdf()`. Inline `<svg>` (Mermaid, charts, logo marks) stays vector. Opt out with `--keep-vector-images` if you need the vector construct and control the viewers. For decks rendered by other paths (marp-cli), prefer raster assets (`.jpg`/`.png` twins), as the baseline gallery does (#681).
+- **Mitigation:** Since #690 landed, **lattice rasterizes SVG `<img>`/`background-image` references at export time by default** — each unique SVG becomes a 2× PNG twin (a plain image XObject, the universally supported construct) swapped into the loaded page before `page.pdf()`. Inline `<svg>` (Mermaid, charts, logo marks) stays vector. Opt out with `--keep-vector-images` if you need the vector construct and control the viewers. For decks rendered by other paths (marp-cli), prefer raster assets (`.jpg`/`.png` twins), as the baseline gallery does (#681).
 - **Triggered by:** Any deck embedding `.svg` images, opened on an iPhone/iPad or macOS Preview — which is exactly where a shared `/gallery.pdf` link gets opened first.
 - **Removable when:** Quartz gains parity with poppler/Skia for Chromium's SVG-image print constructs. No timeline; treat SVG-in-PDF as a portability hazard.
 - **Commits:** The pdf-export-portability branch (#690); the deck-side raster twins landed in #681.
@@ -162,7 +162,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   the `data-lp-scheme` attribute. That contract had a hole the width of an attribute:
   `themeDualMode` only ever read `<style>` BLOCKS, and two chart components write their
   gradient stops as an inline `style` ATTRIBUTE
-  (`lib/components/chart/_chart-family/chart-family.js`,
+  (`lib/plugins/chart-family/chart-family.dispatch.js`,
   the state chart's browser pass, now `lib/components/chart/state-chart/state-chart.layout.js`). Those shipped verbatim — 22
   of them in `examples/data-viz-gallery.md` — so the fill was decided by the element's
   `color-scheme` and the page by `data-lp-scheme`. The two agree only because the player's
@@ -348,7 +348,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   at the bottom of the shared file, so a deck that never had a note said `true` and only a
   stripped one said `false`: a one-bit answer to "were there notes here?". It now reads the
   materialized array, so both cases say `false`. Two writers, both changed —
-  `lattice-emulator.js` and `docs/src/components/studio/share-export.ts`.
+  `lattice.js` and `docs/src/components/studio/share-export.ts`.
 - **A third tell in the same class, now closed (#1985).** Stripping used to remove the comment
   NODE from already-rendered HTML and leave the whitespace around it, so re-rendering the deck's
   own embedded source and diffing showed a one-byte-per-slide residue naming WHICH slides
@@ -358,7 +358,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   two words in `a<!-- n -->\nb`. Instead `--strip-notes` scrubs the SOURCE and renders that —
   removing the comment before markdown-it ever sees it, which is how `directives.js` has always
   kept a consumed directive from leaving a trace. Costs one extra engine render on this flag's
-  path only. Both writers changed, so the two paths stay in step — `lattice-emulator.js`
+  path only. Both writers changed, so the two paths stay in step — `lattice.js`
   ("PASS 2") and the Studio's Webpage export, whose half of the measurement lives in
   `docs/src/components/studio/strip-notes-guard.ts` (loaded on demand from `share-export.ts`;
   it is off the studio route's eager bundle deliberately). Pinned by
@@ -537,7 +537,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `md` anyway was not. The fidelity guard never saw the attached document.
 - **Fix:** `notesCore.measureScrubBoundary` in `lib/authoring/notes-core.js`, three steps
   cheapest-first, because the expensive one is reached by no deck here. (`attachmentCut()` in
-  `lattice-emulator.js` is now just the call site that supplies the two documents and injects the
+  `lattice.js` is now just the call site that supplies the two documents and injects the
   scrub and the render — the decision moved into the kernel so its branches could be asserted
   against synthetic documents, which needs no deck whose pre-render moves a comment's own
   neighbors. No such deck was ever found.) (1) `md === rawMd` — the measurement is *of* this
@@ -571,3 +571,134 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   names), because over-stripping is the expensive failure: it eats a real note silently and
   the author has no way to tell what ate it. `lib/authoring/notes-core.js` ›
   `isLatticePragma`.
+
+## A Studio PDF drew a pill over the end of its caption
+
+- **Symptom:** in a Studio PDF export (not the CLI's), an inline pill after a caption draws
+  over the caption's last letters: kpi slide 4 of `examples/studio-present.md`, the `OPS` /
+  `GAP` pills over "…CHROME", "…QUARTER", "…HEAD", light and dark alike. The live preview and
+  the CLI PDF are right.
+- **Cause:** the shared writer (`lib/core/pdf-compose`) draws text as vectors where the LIVE
+  page measured it, and photographs everything else. The Studio's camera is html-to-image,
+  which re-lays the slide out in an SVG image after copying computed styles, and its copier
+  sets every `font-size` to `floor(px) - 0.1`: a 14.976px caption is photographed at 13.9px,
+  ends about 13px early, and a pill placed by the text flow moves left with it. The vector
+  caption stays put, so the photo's pill lands on it. Exact font sizes do not fix it: the
+  clone then WRAPS the caption, because a content-sized box is serialized a hair narrower than
+  its content, which is why html-to-image shrinks in the first place.
+- **Fix:** `read-slide.mjs` › `chipOf`: a box placed by the text flow (inline-level, or a flex
+  / grid item beside its parent's own text) whose content is only text the PDF draws gets its
+  fill and border drawn as vectors at its live box, and `hideDrawn` takes both out of the
+  photo. No camera's text metrics can move what the photo no longer carries. Anything the
+  chip test refuses (a shadow, a wrap, a cover, an undrawn word, a link underline) stays in the photo, counted
+  as `chip-<why>`. `test/integration/export/pdf-inline-chip.test.js` checks the photo, since
+  the CLI's camera never drifted and its page alone cannot tell the designs apart.
+
+## A 4K deck's PDF changes bytes from run to run when the machine is busy
+
+- **Symptom:** two CLI renders of one commit differ, by a few dozen bytes and a few thousand
+  pixels on one or a handful of pages, different pages each run. `tools/pixel-check.js diff`
+  reports a DIFF on `examples/system-design-foundations` (234 pages, `size: 4K`) with no code
+  change. Nothing is visible: every differing pixel matches within 5% color tolerance (one
+  pixel of 18,194 on the worst page measured). Seen only on 4K decks, and only under CPU load:
+  three concurrent renders of `gallery-jargon` (58 pages, 4K) gave three different PDFs, while
+  three of `split-envelope` (52 pages, portrait) were byte-identical.
+- **Cause:** the PDF writer photographs what it does not draw as vectors (pipeline.md § 4a0),
+  and caps a photo at 2560 px on the long edge. On a 4K slide the CLI's camera
+  (`lattice.js`, the `__latticePdfPhoto` binding) gets there by setting Chrome's
+  `deviceScaleFactor` to 0.667 and taking a screenshot. A screenshot at that fractional scale
+  is not deterministic when the machine is busy: content streams, fonts and vectors are
+  identical across runs, and only the page's photo XObject differs, in the anti-aliasing of
+  small separately painted pieces (a callout's mono label, a dashed rule, mask-drawn marks).
+  Waiting two animation frames after the scale change did not fix it (four distinct outputs in
+  six renders); waiting 150 ms only made it rarer (three in six).
+- **What pins it, measured (six renders, three at a time, all byte-identical):** take the photo
+  at `deviceScaleFactor` 1 instead. Kept at 3840 px, that costs +10% to +18% render time and
+  +73% to +83% file size (system-design-foundations 11.7 MB → 20.3 MB). Downsampled to 2560 px
+  in the page (`createImageBitmap` with `resizeQuality: 'high'`, the 1x photo taken with the fast
+  PNG encoder) it keeps today's file size and costs +63% to +73% render time (gallery-jargon
+  18.1 s → 31.4 s, system-design-foundations 80 s → 130.5 s). Either changes the bytes of every
+  4K export, and the owner chose neither (2026-10-06, PR #2563): the drift is invisible, and the
+  cost lands on every 4K export to fix what only a pixel gate sees. So run a pixel gate on a 4K
+  deck on an idle machine, and read a 4K DIFF whose pixels all vanish at `compare -fuzz 5%` as
+  this, not as a regression.
+
+## A Studio export saves as a UUID (`76f752a8-….html`) in Firefox
+
+**Symptom** — An export lands named like `76f752a8-f837-4922-a860-7cda2b89453a.html`: the
+right extension, a UUID for a name. The owner hit it on an **iPhone 15 Pro in Firefox for
+iOS**, for every format. Desktop Firefox shows the same shape whenever a browser drops the
+`download` hint, and its PDF viewer titled the Print panel's 2-up/4-up/handout tab
+`… - <uuid>` and saved it as `document.pdf`.
+
+**Cause** — A `blob:` URL ends in a UUID, and the exports named the file only through the
+anchor's `download` attribute. Two separate paths lose it:
+
+- **Firefox (and Chrome, Edge, …) on iOS.** Every iOS browser is Safari's engine, and the
+  non-Safari ones save a page's download with their own script. Firefox for iOS's
+  `DownloadHelper.js` (mozilla-mobile/firefox-ios) intercepts the click and, for a `blob:`
+  URL, takes the name from a `Content-Disposition` header or else
+  `url.split("/").pop()` — the UUID. Its click handler passes `event.target.download`, but
+  the function never reads that argument. **No page-side name survives this path**: a
+  `File`-backed URL did not help on the owner's iPhone.
+- **Desktop Firefox, whenever the hint is dropped.** Measured in a plain Firefox 142 writing
+  to its own download folder: hint dropped + `Blob` URL → `tmueBFT2.pptx`; hint dropped +
+  `File` URL → the File's name. Its PDF viewer reads the same name for the tab title and Save.
+
+**Mitigation** — Every save goes through `docs/src/components/studio/download.js`:
+
+- It builds the URL from a `File` named like the download (`namedFileUrl`), keeps the
+  `download` attribute, and revokes the URL a minute later rather than in the click's tick.
+- On an iPhone or iPad — **every iOS browser, Safari included** (the owner's call: one native
+  iOS save) — it loads `download-ios.js`, which clicks no link: it raises one
+  "<name> is ready · Save" toast, and the tap opens the share sheet with the named `File`
+  (files only — a `title` becomes a second "text" item in Save to Files); "Save to Files" keeps
+  the name. Two taps, because iOS opens the sheet only inside a tap and an export finishes
+  seconds after its tap — the same shape iOS Print uses. The Share sheet skips its own
+  "ready." toast there, and retires the Save toast when the author changes format or closes it.
+- The toaster sets `pointer-events: auto`: a Radix modal sets `pointer-events: none` on
+  `<body>`, so a toast over the Share sheet showed and ignored every tap.
+- A phone panel answers to the keyboard (`--kb` lift, `--vvh` height) only while a text field
+  in it has focus (`panel.tsx`). Before, a visual viewport that shrank with nothing focused
+  shrank and lifted the Share sheet to half height over the Studio after a Webpage export on
+  the owner's iPhone. The e2e spec fakes that report with nothing focused and requires a
+  full-height sheet.
+- `download-ios.js` raises its toast through `notify.ts`'s `NOTIFY_ACTION_EVENT`, never by
+  importing `notify`: a lazy chunk that imports `notify` splits it into a first-paint chunk of
+  its own (measured +1,239 B gz on the Studio, +460 B on the Playground).
+- `download.test.ts` pins both paths against real iOS user agents, and two censuses fail if
+  any other file under `docs/src` names a download or makes a `blob:` URL outside the known
+  Worker/CSS sites. The bug lived in five hand-rolled copies of the anchor click.
+
+**Triggered by** — Share → any export; Library and workspace-backup downloads; the Print
+panel's Download button and its 2-up / 4-up / Notes tab.
+
+**Removable when** — never by default: the share sheet is the deliberate iOS save, not only a
+workaround. The `File` naming costs nothing. `docs/e2e/export-filenames.spec.ts` drives both
+paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome user agents).
+
+**Commits** — the commit that added this entry.
+
+## A Studio export numbered every step, agenda line and tag `0`
+
+- **Symptom:** in a Studio image export (PDF, PowerPoint, LibreOffice, Images), every number
+  a slide draws with a CSS counter reads `0` or `00`: timeline discs, agenda and step numbers,
+  card tags, and lettered milestones (`MILESTONE 0` where the slide says `MILESTONE A`). The
+  live preview and every CLI export are right. On `examples/gallery-jargon.md`, 15 of 56 pages.
+- **Cause:** html-to-image copies a node's computed style by walking the property names the
+  browser LISTS for it, and Chrome's list of 384 leaves out `counter-reset`,
+  `counter-increment` and `counter-set`. Its clone carried `content: counter(x)` with no
+  counter ever reset or incremented, so each one read 0. It was never `content` being copied
+  as a string.
+- **Fix:** `lib/core/capture-style-properties.mjs` › `captureStyleProperties` passes
+  html-to-image the browser's list plus the three counter properties, as
+  `includeStyleProperties`, on every capture: the Studio's (`deck-export.js` › `captureOptions`),
+  the Calco demo's (`/libraries/calco/`), and the composed PDF's html-to-image camera (`pdf-compose/compose.mjs`).
+  html-to-image keeps the list from its FIRST call for the whole page, so every capture must
+  pass the same one: route a new capture through that helper, never a bare `toPng`/`toCanvas`.
+  Native list markers (`<ol start="3">`) are unaffected, measured.
+- **Engines:** the fix holds outside Chromium. On 2026-10-07 the built Studio exported
+  `examples/card-tags.md` in Firefox 142 and WebKit 26 (Playwright, the driver in
+  `tools/bench-pdf-export.mjs`): the PDF and the picture `.pptx` draw the corner tags 1–4,
+  `STEP 01`–`04` and an `agenda progress-2` list as 01, →, 03, 04, and the editable `.odp`
+  carries the same shapes as Chromium's. WebKit does not need a separate code path.

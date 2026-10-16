@@ -224,7 +224,7 @@ export const THEME_EVERGREEN = `/* @theme evergreen
   /* Code — the syntax colors, each readable on --code-bg. Twelve in a real
    * file; the tour covers why comments and punctuation are not exempt. */
   --code-text:    light-dark(#EAF3F0, #EAF3F0);
-  --hljs-comment: light-dark(#7FA79E, #7FA79E);
+  --syntax-comment: light-dark(#7FA79E, #7FA79E);
 
   /* Sequential ramp anchor — mid-range on BOTH canvases, or the nine stops
    * the engine derives from it bunch against one end. */

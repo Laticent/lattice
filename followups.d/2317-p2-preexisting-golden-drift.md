@@ -2,6 +2,9 @@
 origin: 2317
 priority: P2
 recorded: 2026-09-24
+area: infra
+severity: high
+swimlane: engineering/decisions/2026-08-24-golden-corpus-re-bless.md
 source: https://github.com/Laticent/lattice/issues/2317
 ---
 

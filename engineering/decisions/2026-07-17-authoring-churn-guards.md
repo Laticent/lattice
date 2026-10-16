@@ -12,7 +12,9 @@ summary: >
   fixed a latent invisible-hero in examples/accessible-descriptions.md. The
   `new:component` scaffold checklist gained the two CSS footguns it doesn't stop
   (unlayered CSS; base-modifier bleed) and the enumerative roster tests a new
-  component is designed to trip.
+  component is designed to trip. (Superseded 2026-10-06: `bookend-finish-contrast` was
+  deleted; the wash-out is fixed in the engine, and the note flagged slides that rendered
+  correctly.)
 companion:
   - ./2026-07-17-skill-recertification.md
 ---
@@ -57,7 +59,9 @@ runs (`lint:deck:all`).
   `examples/accessible-descriptions.md` (`# 100%` rendered blank); fixed in place
   (HARD RULE #18).
 
-- **`bookend-finish-contrast`.** A deck-wide `finish:` paints its backdrop over
+- **`bookend-finish-contrast`.** *(Superseded 2026-10-06: this rule was deleted — the wash-out
+  is fixed in the engine (#1656) and the presets put a finish behind the title on purpose.)*
+  A deck-wide `finish:` paints its backdrop over
   every slide, including the `title`/`closing` bookends — whose inverse surface +
   display-white text it covers, washing the text out on a light canvas. The house
   pattern (see `examples/finish-backdrops.md`) is `finish-none` on bookends. The

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, shareExport, test } from './studio-fixture';
+import JSZip from 'jszip';
+import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, shareExport, slideCount, test } from './studio-fixture';
 
 // ── A deck that does not load a plugin draws none of it in the real Studio ─────────────
 //
@@ -138,4 +139,164 @@ test('a slide rendered alone takes the whole deck\'s admission (defaults: [])', 
 		await page.screenshot({ path: path.join(EVIDENCE, 'studio-preview-slice-deck-wide.png') });
 	}
 	await setDefaults(page, null);
+});
+
+// THE STUDIO'S OWN READERS follow the deck (followups.d/2509-p3, spec/LPM.md §3.2.1). The rail and the
+// editor↔preview mapping read the boundary parser, not the engine; with math not loaded, a `---`
+// inside `$$` is a slide break in the engine, so it must be one in the rail too — and a deck that
+// lists math keeps the block whole. The Export-to-Marp bundle carries what the deck left off.
+const MATH_DECK = (listed: boolean) => `---
+color-mode: light${listed ? '\nplugins: [math]' : ''}
+---
+
+# Rail ${listed ? 'listed' : 'unlisted'}
+
+$$
+x
+
+---
+
+y
+$$
+
+---
+
+# Last
+`;
+
+// @gecko: the admission switch is browser-agnostic JavaScript, so this one also runs on Firefox.
+test('under defaults: [] the rail splits a `$$` block as the engine does; the Marp bundle records it @gecko', async ({ page }) => {
+	test.setTimeout(EVIDENCE ? 300_000 : 180_000);
+	await gotoStudio(page);
+	await setDefaults(page, []);
+	await setEditorContent(page, MATH_DECK(false));
+	await expect.poll(() => persistedSource(page)).toContain('# Rail unlisted');
+	// The engine, under the same host, renders three slides; the rail agrees.
+	const engineSlides = await page.evaluate((src) => {
+		const w = window as unknown as { LatticePlayground: { render: (s: string, t?: string, o?: { pluginDefaults?: string[] }) => { html: string }; pluginAdmission: (d: string) => string[] } };
+		const pg = w.LatticePlayground;
+		return (pg.render(src, 'indaco', { pluginDefaults: pg.pluginAdmission(src) }).html.match(/<section[\s>]/g) || []).length;
+	}, MATH_DECK(false));
+	expect(engineSlides).toBe(3);
+	await expect.poll(() => slideCount(page), { timeout: 30_000 }).toBe(3);
+	// The host changes its defaults with NO edit (the playground bundle loads late, so a real host
+	// narrows after the deck is up): the rail follows anyway.
+	await setDefaults(page, null);
+	await expect.poll(() => slideCount(page), { timeout: 30_000 }).toBe(2);
+	await setDefaults(page, []);
+	await expect.poll(() => slideCount(page), { timeout: 30_000 }).toBe(3);
+
+	// The Marp bundle's settings block names every plugin the deck did not load.
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const download = page.waitForEvent('download', { timeout: 180_000 });
+	await shareExport(page, 'marp');
+	const zipPath = await (await download).path();
+	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath as string));
+	const md = await Object.values(zip.files).find((f) => /\.md$/.test(f.name) && !/README|AGENTS/i.test(f.name))!.async('string');
+	expect(md).toContain('"pluginsOff":["anima","avatars","chart-family","function-plot","icons","math","mermaid"]');
+	// Marp typesets math itself, so the bundle's own config turns it off for this deck.
+	const cfg = await Object.values(zip.files).find((f) => /marp\.config\.cjs$/.test(f.name))!.async('string');
+	expect(cfg).toContain('options: { math: false }');
+	await page.keyboard.press('Escape');
+
+	// Listed, math loads: the `$$` block is whole again in the rail.
+	await setEditorContent(page, MATH_DECK(true));
+	await expect.poll(() => persistedSource(page)).toContain('# Rail listed');
+	await expect.poll(() => slideCount(page), { timeout: 30_000 }).toBe(2);
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		fs.writeFileSync(path.join(EVIDENCE, 'studio-marp-bundle.md'), md);
+		await page.screenshot({ path: path.join(EVIDENCE, 'studio-rail-math-listed.png') });
+	}
+	await setDefaults(page, null);
+});
+
+// THE PLAYGROUND PAGE'S OWN LINT (`docs/src/playground/editor.js`), which loads the lint bundle
+// lazily and so is not reached by the Studio's plugin-admission.ts. A crowded pill written inside
+// a `$$` block is inert while math loads (the block is a display equation), and a finding once the
+// host leaves math off — on slide 2, because with math off the `---` inside `$$` is a slide break,
+// as in the engine. Driven by the host's door with no edit (the editor re-lints on the event), and
+// in both directions, so neither the finding nor its absence is vacuous.
+const PILL_DECK = `---
+color-mode: light
+---
+
+# One
+
+$$
+x
+
+---
+
+\`{ABCDEFG, circle}\` y
+$$
+
+---
+
+# Two
+`;
+
+test('the Playground page lint follows the host\'s admission: a pill inside `$$` is linted only with math off', async ({ page }) => {
+	test.setTimeout(EVIDENCE ? 300_000 : 120_000);
+	await page.addInitScript(
+		([k, s]) => {
+			try {
+				localStorage.setItem(k as string, s as string);
+			} catch {
+				/* a blocked store just means the draft does not seed */
+			}
+		},
+		['lattice-docs-pg-source', PILL_DECK],
+	);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.cm-content').first()).toContainText('ABCDEFG', { timeout: 40_000 });
+	const crowded = page.locator('.cm-lintRange');
+	await setDefaults(page, []);
+	await expect(crowded).toHaveCount(1, { timeout: 30_000 });
+	// The underline is on the pill, in the slide the engine renders it on.
+	await expect(crowded.first()).toContainText('{ABCDEFG, circle}');
+	const slides = await page.evaluate((src) => {
+		const pg = (window as unknown as { LatticePlayground: { render: (s: string, t?: string, o?: { pluginDefaults?: string[] }) => { html: string }; pluginAdmission: (d: string) => string[] } }).LatticePlayground;
+		return (pg.render(src, 'indaco', { pluginDefaults: pg.pluginAdmission(src) }).html.match(/<section[\s>]/g) || []).length;
+	}, PILL_DECK);
+	expect(slides).toBe(3);
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		await page.screenshot({ path: path.join(EVIDENCE, 'playground-lint-math-off.png') });
+	}
+	await setDefaults(page, null);
+	await expect(crowded).toHaveCount(0, { timeout: 30_000 });
+	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-lint-math-on.png') });
+	await setDefaults(page, []);
+	await expect(crowded).toHaveCount(1, { timeout: 30_000 });
+	await setDefaults(page, null);
+});
+
+test('the Playground page PREVIEW follows the host\'s admission too: a defaults change re-renders with no edit', async ({ page }) => {
+	// The editor re-lints on `lattice:plugin-defaults` (the case above); the preview kept the render
+	// made under the old defaults until the next keystroke. PILL_DECK renders 3 slides with math
+	// off (the `---` inside `$$` is a slide break) and 2 with it on.
+	test.setTimeout(EVIDENCE ? 300_000 : 120_000);
+	await page.addInitScript(
+		([k, s]) => {
+			try {
+				localStorage.setItem(k as string, s as string);
+			} catch {
+				/* a blocked store just means the draft does not seed */
+			}
+		},
+		['lattice-docs-pg-source', PILL_DECK],
+	);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	const slides = page.frameLocator('#preview').locator('.lattice > section, .lattice > div[data-lv-ph]');
+	await expect(slides).toHaveCount(2, { timeout: 40_000 });
+	await setDefaults(page, []);
+	await expect(slides).toHaveCount(3, { timeout: 30_000 });
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-off.png') });
+	}
+	await setDefaults(page, null);
+	await expect(slides).toHaveCount(2, { timeout: 30_000 });
+	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-on.png') });
 });

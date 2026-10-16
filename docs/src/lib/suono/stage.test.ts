@@ -404,3 +404,170 @@ describe('createStage — keep-alive route-warmer (Bluetooth / CarPlay anti-chop
 		expect(oscillators[0].stopped).toBe(false);
 	});
 });
+
+describe('createStage — meter (live stream level)', () => {
+	it('measures a stream on the owned context without routing it to the speakers, and stops cleanly', () => {
+		const connect = vi.fn();
+		const disconnect = vi.fn();
+		let samples = new Float32Array(512).fill(0.5);
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			createMediaStreamSource = () => ({ connect, disconnect });
+			createAnalyser = () => ({ fftSize: 0, getFloatTimeDomainData: (b: Float32Array) => b.set(samples.subarray(0, b.length)) });
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		const m = stage.meter({} as MediaStream);
+		expect(m).not.toBeNull();
+		expect(m?.level()).toBeCloseTo(0.5);
+		samples = new Float32Array(512);
+		expect(m?.level()).toBe(0);
+		// Connected to the analyser only — never to the destination.
+		expect(connect).toHaveBeenCalledTimes(1);
+		expect(connect.mock.calls[0][0]).not.toHaveProperty('connect');
+		m?.stop();
+		m?.stop();
+		expect(disconnect).toHaveBeenCalledTimes(1);
+		expect(m?.level()).toBe(0);
+	});
+	it('returns null where Web Audio is missing', () => {
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().meter({} as MediaStream)).toBeNull();
+	});
+});
+
+describe('createStage — amplify (live stream with a gain)', () => {
+	function install(withGain = true) {
+		const gain = { value: 1 };
+		const calls = { sourceDisconnect: vi.fn(), gainDisconnect: vi.fn(), sourceTo: [] as unknown[], gainTo: [] as unknown[] };
+		const dest = { dest: true };
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = dest;
+			createMediaStreamSource = () => ({ connect: (n: unknown) => calls.sourceTo.push(n), disconnect: calls.sourceDisconnect });
+			createGain = withGain ? () => ({ gain, connect: (n: unknown) => calls.gainTo.push(n), disconnect: calls.gainDisconnect }) : undefined;
+			resume = () => Promise.resolve();
+		};
+		return { gain, calls, dest };
+	}
+	it('plays the stream through a gain node to the speakers, and the gain can change', () => {
+		const { gain, calls, dest } = install();
+		const a = createStage({ keepAlive: false }).amplify({} as MediaStream, 2);
+		expect(a).not.toBeNull();
+		expect(gain.value).toBe(2);
+		expect(calls.gainTo).toEqual([dest]);
+		a?.setGain(1.5);
+		expect(gain.value).toBe(1.5);
+		a?.setGain(99);
+		expect(gain.value).toBe(4);
+		a?.setGain(Number.NaN);
+		expect(gain.value).toBe(1);
+	});
+	it('stops cleanly and ignores later changes', () => {
+		const { gain, calls } = install();
+		const a = createStage({ keepAlive: false }).amplify({} as MediaStream, 2);
+		a?.stop();
+		a?.stop();
+		expect(calls.sourceDisconnect).toHaveBeenCalledTimes(1);
+		a?.setGain(3);
+		expect(gain.value).toBe(2);
+	});
+	it('returns null where Web Audio or its gain node is missing', () => {
+		install(false);
+		expect(createStage().amplify({} as MediaStream, 2)).toBeNull();
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().amplify({} as MediaStream, 2)).toBeNull();
+	});
+});
+
+describe('createStage — gainStream (a live stream shaped before it is sent)', () => {
+	function install(withDest = true) {
+		const gain = { value: 1 };
+		const stopped: boolean[] = [];
+		const track = { stop: () => stopped.push(true) };
+		const out = { getTracks: () => [track] } as unknown as MediaStream;
+		const calls = { sourceTo: [] as unknown[], gainTo: [] as unknown[], sourceDisconnect: vi.fn() };
+		const dest = { stream: out };
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			createMediaStreamSource = () => ({ connect: (n: unknown) => calls.sourceTo.push(n), disconnect: calls.sourceDisconnect });
+			createGain = () => ({ gain, connect: (n: unknown) => calls.gainTo.push(n), disconnect: () => {} });
+			createMediaStreamDestination = withDest ? () => dest : undefined;
+			resume = () => Promise.resolve();
+		};
+		return { gain, stopped, out, dest, calls };
+	}
+	it('routes the stream through a gain into a NEW stream, which is what the caller sends', () => {
+		const { gain, out, dest, calls } = install();
+		const g = createStage({ keepAlive: false }).gainStream({} as MediaStream, 1.5);
+		expect(g?.stream).toBe(out);
+		expect(gain.value).toBe(1.5);
+		expect(calls.gainTo).toEqual([dest]); // the gain feeds the stream destination, never the speakers
+		g?.setGain(9);
+		expect(gain.value).toBe(4);
+		g?.setGain(Number.NaN);
+		expect(gain.value).toBe(1);
+	});
+	it('stops cleanly: disconnects, ends the shaped track, ignores later changes', () => {
+		const { gain, stopped, calls } = install();
+		const g = createStage({ keepAlive: false }).gainStream({} as MediaStream, 2);
+		g?.stop();
+		g?.stop();
+		expect(calls.sourceDisconnect).toHaveBeenCalledTimes(1);
+		expect(stopped).toEqual([true]);
+		g?.setGain(3);
+		expect(gain.value).toBe(2);
+	});
+	it('returns null where Web Audio or a stream destination is missing', () => {
+		install(false);
+		expect(createStage().gainStream({} as MediaStream, 1)).toBeNull();
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().gainStream({} as MediaStream, 1)).toBeNull();
+	});
+});
+
+describe('createStage — audioState', () => {
+	it('reports the owned context state, and null before there is one or without Web Audio', () => {
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'suspended';
+			destination = {};
+			createMediaStreamSource = () => ({ connect: () => {}, disconnect: () => {} });
+			createAnalyser = () => ({ fftSize: 0, getFloatTimeDomainData: () => {} });
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		expect(stage.audioState()).toBeNull(); // the context is made on first use
+		stage.meter({} as MediaStream);
+		expect(stage.audioState()).toBe('suspended');
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().audioState()).toBeNull();
+	});
+});
+
+describe('createStage — output device', () => {
+	it('points the owned context at an output device where the browser allows it, and says no where it does not', async () => {
+		const set = vi.fn(async () => {});
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			setSinkId = set;
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		expect(stage.canSetSink()).toBe(true);
+		expect(await stage.setSink('usb-1')).toBe(true);
+		expect(set).toHaveBeenCalledWith('usb-1');
+		set.mockRejectedValueOnce(new Error('gone'));
+		expect(await stage.setSink('missing')).toBe(false);
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			resume = () => Promise.resolve();
+		};
+		const safari = createStage({ keepAlive: false });
+		expect(safari.canSetSink()).toBe(false);
+		expect(await safari.setSink('x')).toBe(false);
+	});
+});

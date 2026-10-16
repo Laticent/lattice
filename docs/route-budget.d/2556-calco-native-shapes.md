@@ -1,0 +1,2 @@
+studio: +16
+No eager code grows. Native shapes live in Calco (the reader's shape pass, `shapes.ts`, the writers' shape and group code), which the Studio loads through a dynamic `import('@/lib/calco')`, and in `deck-export.js`, also a lazy chunk, which now asks the reader for shapes. Any change on the Studio's eager JS is gzip variation from the lazy chunks' changed hashes, as #2587 measured (+3 B). Declared +16 to leave room for that variation.

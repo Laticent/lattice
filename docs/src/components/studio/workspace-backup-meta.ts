@@ -48,6 +48,10 @@ export function isEvictionProneBrowser(): boolean {
 	}
 }
 
+/** Trigger a client-side download of the backup zip — through the Studio's one download
+ *  helper, which names the file on the URL itself (see download.js). */
+export { downloadBlob } from './download';
+
 /**
  * What a restore could not bring back, carried across the reload that follows it. The restore
  * reloads (the one honest way to re-derive every view), and a notice raised before the reload

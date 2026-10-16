@@ -2,6 +2,9 @@
 origin: 2523
 priority: P3
 recorded: 2026-10-05
+area: infra
+severity: low
+swimlane: engineering/development.md
 source: https://github.com/Laticent/lattice/pull/2523
 ---
 

@@ -6,7 +6,7 @@
  *
  * It builds a graded calibration deck — one slide per word-density step, each
  * carrying the component's `capacity.sweet` elements filled to N body words —
- * renders it through the real engine (lattice-emulator.js), and reads the SAME
+ * renders it through the real engine (lattice.js), and reads the SAME
  * cell-aware overflow probe the runtime/export use (the "⚠ OVERFLOW … pages X,
  * Y" line). The first step that overflows is the break point; `hard` is set just
  * BELOW it. The `soft` target stays expert-seeded (a label, not a sentence) —

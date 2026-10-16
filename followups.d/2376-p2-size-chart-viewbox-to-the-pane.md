@@ -2,6 +2,9 @@
 origin: 2376
 priority: P2
 recorded: 2026-09-25
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-25-panes-two-components-one-slide.md
 source: https://github.com/Laticent/lattice/pull/2376
 ---
 
@@ -85,7 +88,7 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               export's "Text too small" tag, so the change alters exported PDFs: an owner sign-off
               (QUALITY BAR export rule), and those decks' committed PDFs rebuild with it.
 where     — lib/integrations/mermaid/ (the render width, and a way to size foreignObject labels
-            for the probe), the radar kernel, the HTML chart kernels, chart-family.js,
+            for the probe), the radar kernel, the HTML chart kernels, chart-family.dispatch.js,
             tools/calibrate-capacity.js --pane.
 done when — a Mermaid pane's labels read at least the type floor and the probe can say so; and the calibration
             measures the rest of the charts' pane ceilings, so their budgets turn `measured`.

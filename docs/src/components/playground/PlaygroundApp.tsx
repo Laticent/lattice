@@ -52,24 +52,24 @@ import {
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
+import { createCollageOverlay } from '@/playground/collage-host.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
 import { adoptBake } from '@/playground/newcomer-bake';
-import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
+import { captureFirstSectionFromFrame, MAX_UNITS, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
-import { GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
+import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { WalkBar } from './WalkBar';
 
 export type PlaygroundData = {
 	catalog: Catalog;
 	components: CatalogItem[];
 	lenses: Lens[];
-	gallerySources: Record<string, string>;
 	galleryGroups: GalleryGroup[];
 	themeBase: string;
 	runtimeUrl: string;
@@ -92,6 +92,10 @@ export type PlaygroundData = {
 	// Optional so the test harness (and any host without staged assets) degrades
 	// to the editor-only playground.
 	plansBase?: string;
+	// Base URL of the staged galleries/ folder: `index.json` (every examples/*.md deck's id, title
+	// and slide count) and `<id>.md` (one deck). Fetched on demand, never inlined. Optional like
+	// `plansBase`: a host without staged assets simply has no "All examples" list.
+	galleriesBase?: string;
 };
 
 // The Explore surface's walk position: a component's gallery plan (stable step
@@ -285,7 +289,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
+	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -485,6 +489,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// `ChartDetailLayer` (below in the tree); this ref drives its rebind() after each paint.
 	const chartDetailRef = React.useRef<ChartDetailHandle | null>(null);
 	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
+	const collageOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	// Parent-hosted Anima scene hydration — brings a `scene` slide's poster to life on the
 	// live preview (Stage 6). Created on mount, re-bound after each render (a srcdoc rewrite
 	// replaces the iframe doc). Export untouched (poster still).
@@ -648,6 +653,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		applyDebug(frameRef.current, { force: forceRef.current });
 		chartDetailRef.current?.rebind();
 		videoOverlayRef.current?.rebind();
+		collageOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
 	}, []);
 	/** Mount the slides around section `index` before scrolling to it, so the reader lands on a
@@ -692,6 +698,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (frameRef.current) window.LatticeDeckPreview?.attachVirtual?.(frameRef.current, () => previewStateRef.current, onVirtualChange);
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
+		collageOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
 		// Close the expand-during-srcdoc-load race: an expand that fired before the
 		// fresh document defined __latticeFit would silently no-op; the loaded doc
@@ -919,6 +926,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				chartDetailRef.current?.rebind();
 				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
 				videoOverlayRef.current?.rebind();
+				collageOverlayRef.current?.rebind();
 				// Re-hydrate Anima scenes on the (possibly new) frame document.
 				animaScenesRef.current?.rebind();
 				// Re-apply the debug overlay: a section PATCH keeps the doc live but swaps
@@ -987,7 +995,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// A slide it could not capture is worth another try; one captured but too large to
 			// store is not (it will be as large next time).
 			if (!snap) return 'the capture refused the slide (unfitted, a placeholder, or no CSS)';
-			savePlaygroundSnapshot(snap);
+			// Too large to store is not retried, but it is SAID: the next CSS change that pushes the
+			// default deck past the cap otherwise shows up only as a first-paint test timing out.
+			if (!savePlaygroundSnapshot(snap)) console.warn(`[playground] first-slide snapshot not stored (${JSON.stringify(snap).length} units, cap MAX_UNITS ${MAX_UNITS}; or storage refused it) — snapshot-cache.js`);
 			return true;
 		} catch (e) {
 			/* best-effort — a failed capture just means the next visit uses the skeleton */
@@ -1162,6 +1172,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
 		const vo = createVideoOverlay({ getFrame: () => frameRef.current ?? frame });
 		videoOverlayRef.current = vo;
+		// Parent-hosted collage lightbox: a click on a collage tile enlarges the photo over the preview.
+		const co = createCollageOverlay({ getFrame: () => frameRef.current ?? frame });
+		collageOverlayRef.current = co;
 		// Parent-hosted Anima scene hydration (Stage 6): mount the backend + run the loop
 		// over the scene poster in the live preview.
 		// Pass the deck-level `motion:` default (read live from the editor) so a class-less chart
@@ -1187,6 +1200,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		return () => {
 			vo.destroy();
 			videoOverlayRef.current = null;
+			co.destroy();
+			collageOverlayRef.current = null;
 			as.destroy();
 			animaScenesRef.current = null;
 		};
@@ -1420,13 +1435,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		[catalog, split.expand],
 	);
 
-	const onLoadGallery = React.useCallback(
-		(id: string) => {
-			const src = gallerySources[id];
-			if (src == null) {
-				setStatusLine('Gallery unavailable.', true);
-				return;
-			}
+	// Open a deck's source in Explore. Shared by the curated decks (looked up in the page's props)
+	// and the examples (fetched on demand), so both land the same way.
+	const openGalleryDeck = React.useCallback(
+		(id: string, src: string) => {
 			// A gallery is a deck to explore — walk it in place (slide-index
 			// positions; no plan exists for authored decks). Always land in Explore,
 			// so loading one from Edit flips to the rendered view and the mode/pane
@@ -1451,8 +1463,60 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			freshRender();
 			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[gallerySources, setStatusLine, freshRender, split.expand],
+		[freshRender, split.expand],
 	);
+
+	// Bumped by EVERY pick that replaces the explored deck (curated deck, example, component), so a
+	// slow example fetch that resolves after a later pick cannot replace what the reader chose next.
+	const deckPickSeqRef = React.useRef(0);
+	// A curated deck and an example are both static files under `galleriesBase`, fetched when chosen
+	// (`loadDeck`, below); the route's props carry only their id, label and slide count.
+
+	// The "All examples" list: the index is fetched once (the sheet asks when it first opens), a
+	// deck when it is chosen. A failed fetch says "Gallery unavailable." like a missing curated
+	// deck. `exampleSeqRef` makes the LAST pick win if two fetches overlap on a slow link.
+	const exampleIndexRef = React.useRef<Promise<ExampleDeck[] | null> | null>(null);
+	const loadExampleIndex = React.useCallback((): Promise<ExampleDeck[] | null> => {
+		if (!galleriesBase) return Promise.resolve(null);
+		if (!exampleIndexRef.current) {
+			exampleIndexRef.current = fetch(`${galleriesBase}index.json`)
+				.then((res) => (res.ok ? (res.json() as Promise<ExampleDeck[]>) : null))
+				.catch(() => null)
+				.then((list) => {
+					// Do not cache a failure: reopening the sheet retries.
+					if (!list) exampleIndexRef.current = null;
+					return list;
+				});
+		}
+		return exampleIndexRef.current;
+	}, [galleriesBase]);
+	const loadDeck = React.useCallback(
+		async (id: string, path: string) => {
+			const seq = ++deckPickSeqRef.current;
+			const viewAtPick = viewRef.current;
+			// The same stale-tab path a plan fetch has: a 404 means a deploy replaced the staged tree
+			// while this tab sat open, and retrying can never succeed.
+			const stale = () => notifySticky('This page is out of date — the site was updated while it sat open.', { label: 'Reload', onClick: () => window.location.reload() });
+			try {
+				const res = await fetch(`${galleriesBase}${path}.md`);
+				if (!res.ok) {
+					if (res.status === 404 && seq === deckPickSeqRef.current) stale();
+					else if (seq === deckPickSeqRef.current) setStatusLine('Gallery unavailable.', true);
+					return;
+				}
+				const src = await res.text();
+				// Drop the result if the reader picked something else, or left Explore for Edit,
+				// while it was in flight.
+				if (seq !== deckPickSeqRef.current || (viewAtPick === 'read' && viewRef.current !== 'read')) return;
+				openGalleryDeck(id, src);
+			} catch {
+				if (seq === deckPickSeqRef.current) setStatusLine('Gallery unavailable.', true);
+			}
+		},
+		[galleriesBase, setStatusLine, openGalleryDeck],
+	);
+	const onLoadGallery = React.useCallback((id: string) => loadDeck(id, `curated/${encodeURIComponent(id)}`), [loadDeck]);
+	const onLoadExample = React.useCallback((slug: string) => loadDeck(slug, encodeURIComponent(slug)), [loadDeck]);
 
 	// Reset reads the DRAFT's component at click time; when the draft holds none
 	// (exactly the state the honest clear case creates) it falls back to the
@@ -1749,6 +1813,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * title; 'LAST' → the closing slide, for walking backwards across components). */
 	const startWalk = React.useCallback(
 		async (name: string, step: string | null): Promise<boolean> => {
+			deckPickSeqRef.current++;
 			const plan = await fetchPlan(name);
 			if (!plan) {
 				// The designed 404 path: the staged tree was rewritten by a deploy while
@@ -2519,6 +2584,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		return () => obs.disconnect();
 	}, [scheduleRender]);
 
+	// ── Re-render when the host changes its plugin defaults ─────────────────────
+	// `LatticePlayground.setPluginDefaults` changes what the same source renders (a deck that
+	// relied on a default plugin loses it) with no edit, and fires PLUGIN_DEFAULTS_EVENT. The
+	// editor re-lints on it (editor.js); the preview kept the render made under the old defaults
+	// until the next keystroke. Through the same scheduler as an edit, for the in-flight guard above;
+	// the defaults are part of every render-cache key, so the render it schedules is a real one.
+	// The event's NAME, not an import of `@/lib/plugin-admission` (PLUGIN_DEFAULTS_EVENT): that module
+	// statically imports the lint bundle, which this page loads lazily, and importing it for one
+	// string made the bundle eager (+110 KB gzip, the route budget's ceiling). editor.js does the same.
+	React.useEffect(() => {
+		window.addEventListener('lattice:plugin-defaults', scheduleRender);
+		return () => window.removeEventListener('lattice:plugin-defaults', scheduleRender);
+	}, [scheduleRender]);
+
 	// Trigger the on-demand engine load once the chrome has mounted/painted. The
 	// preview is core to the playground, so load it promptly (on idle / next
 	// tick) — but NOT eagerly in <head>, so the toolbar + editor host paint
@@ -2739,6 +2818,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						resetTarget={resetTarget && catalog[resetTarget] ? resetTarget : ''}
 						resetArm={!draftIsPristine()}
 						onLoadGallery={onLoadGallery}
+						loadExampleIndex={galleriesBase ? loadExampleIndex : undefined}
+						onLoadExample={onLoadExample}
 						onResetExample={onResetExample}
 					/>
 				</div>

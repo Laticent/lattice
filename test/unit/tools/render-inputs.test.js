@@ -36,7 +36,7 @@ describe('render-inputs: isRenderInput', () => {
     for (const p of [
       'lib/base/base.tokens.css',
       'lib/components/statement/split-panel/split-panel.styles.css',
-      'themes/indaco.css',
+      'themes/indaco/indaco.css',
       'dist/lattice.css',
     ]) assert.equal(isRenderInput(p), true, `${p} should count`);
   });
@@ -46,13 +46,13 @@ describe('render-inputs: isRenderInput', () => {
       'lib/integrations/markdown-it/plugins.js',
       'lib/core/present-transport.mjs',
       'lib/transformers/index.js',
-      'lattice-emulator.js',
+      'lattice.js',
     ]) assert.equal(isRenderInput(p), true, `${p} should count`);
   });
 
   test('ignores files that change without changing a pixel', () => {
     for (const p of [
-      'themes/indaco.manifest.json',
+      'themes/indaco/indaco.manifest.json',
       'themes/palette-audit.pdf',
       'lib/base/base.docs.md',
       'lib/components/evidence/kpi/kpi.docs.md',
@@ -82,7 +82,7 @@ describe('render-inputs: git query', () => {
   });
 
   test('the changed set is NOT scoped to the render-input roots', () => {
-    // The git query used to carry `-- lib/ themes/ dist/ lattice-emulator.js`, which made
+    // The git query used to carry `-- lib/ themes/ dist/ lattice.js`, which made
     // `paths` unable to hold an artifact that lives anywhere else. That broke
     // `stalenessAgainstInputs`' "this PDF was already rebuilt in this tree" arm for the
     // showcase gallery, whose PDFs render into `examples/`: the arm could never fire, so

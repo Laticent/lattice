@@ -80,7 +80,7 @@ async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs =
   // that patches a first diagram into a live document.
   const later = laterDeck ? engine.render(laterDeck, 'indaco', { preview: true }).html : '';
   const css = composeCss({
-    themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8'),
+    themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8'),
     baseLatticeCss: fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'),
     sizeName: out.sizeName,
   });

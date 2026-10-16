@@ -2,6 +2,9 @@
 origin: 2354
 priority: P6
 recorded: 2026-10-16
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-24-lattice-studio-desktop.md §The Ubuntu test run (2026-10-16)
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 

@@ -57,6 +57,24 @@ describe('lattice packages', () => {
     assert.equal(JSON.parse(back['probe-brand.manifest.json']).name, 'probe-brand');
   });
 
+  test('the shipped motion library lists, and a shipped scene exports and re-checks as itself (phase 5)', async () => {
+    const store = tmp('store');
+    const listed = await run(['list', '--type', 'motion', '--packages', store]);
+    assert.equal(listed.code, 0, listed.text);
+    for (const name of fs.readdirSync(path.join(ROOT, 'lib/motion')).filter((n) => !n.includes('.') && !n.startsWith('_'))) {
+      assert.match(listed.text, new RegExp(`motion\\s+${name}\\s+shipped`));
+    }
+    assert.doesNotMatch(listed.text, /^theme|^component/m, 'the --type filter holds');
+    const out = path.join(tmp('out'), 'rotor.zip');
+    assert.equal((await run(['export', 'motion/rotor', '-o', out, '--packages', store])).code, 0);
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((p) => !zip.files[p].dir).sort();
+    assert.deepEqual(names, ['rotor/rotor.manifest.json', 'rotor/rotor.poster.svg', 'rotor/rotor.scene.json']);
+    const checked = await run(['check', out, '--packages', store]);
+    assert.equal(checked.code, 0, checked.text);
+    assert.match(checked.text, /ok\s+motion\/rotor-custom/);
+  });
+
   test('a shipped name installs as <name>-custom, its @theme rewritten', async () => {
     const store = tmp('store');
     const r = await run(['add', await zipOf('indaco', theme('indaco')), '--packages', store]);
@@ -323,7 +341,7 @@ describe('the render path', () => {
   test('a deck naming a theme that is neither shipped nor installed fails with its name and the install command', () => {
     const dir = tmp('deck');
     fs.writeFileSync(path.join(dir, 'deck.md'), '---\ntheme: probe-missing\n---\n\n# Hi\n');
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'deck.md'), path.join(dir, 'out.pdf'), '--packages', tmp('store')], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'deck.md'), path.join(dir, 'out.pdf'), '--packages', tmp('store')], { encoding: 'utf8' });
     assert.equal(r.status, 1);
     assert.match(r.stderr, /palette not found: probe-missing/);
     assert.match(r.stderr, /lattice packages add probe-missing\.lattice-theme\.zip/);
@@ -341,12 +359,12 @@ describe('the render path', () => {
     const deck = path.join(tmp('deck'), 'deck.md');
     fs.writeFileSync(deck, '---\ntheme: indaco\n---\n\n# Hi\n');
     // A browser that isn't there ends the run right after the theme is resolved.
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), deck, deck.replace(/md$/, 'pdf'), '--packages', store], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: '/nonexistent/chrome', PUPPETEER_EXECUTABLE_PATH: '/nonexistent/chrome' } });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, deck.replace(/md$/, 'pdf'), '--packages', store], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: '/nonexistent/chrome', PUPPETEER_EXECUTABLE_PATH: '/nonexistent/chrome' } });
     assert.match(r.stderr, /warning: "indaco" is a theme Lattice ships, so the installed package of that name is not used/);
   });
 
   test('`lattice packages` is dispatched before the render arguments are parsed', () => {
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), 'packages', 'list', '--type', 'finish', '--packages', tmp('store')], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), 'packages', 'list', '--type', 'finish', '--packages', tmp('store')], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /finish\s+halo\s+shipped/);
   });

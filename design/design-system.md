@@ -239,7 +239,7 @@ the engine's only plugin point.
 |---------------|---------------------------------------------|-----------------------------------------------------|
 | **prose**     | Headings, paragraphs, inline emphasis       | Marp markdown → semantic HTML; CSS does everything  |
 | **structure** | Headings + nested lists with conventions    | `lib/*.js` post-processor rewrites lists into purpose-built DOM |
-| **series**    | Tabular DSL (axes + datapoints as bullets)  | `lib/components/chart/_chart-family/chart-family.js` + per-chart kernel |
+| **series**    | Tabular DSL (axes + datapoints as bullets)  | `lib/plugins/chart-family/chart-family.dispatch.js` + per-chart kernel |
 | **graph**     | External graph language (Mermaid today)     | External tool (mmdc) → SVG, palette injected        |
 
 **Substance is about the AUTHOR, not about SVG.** The table used to carry an
@@ -288,7 +288,7 @@ knowing one tells you nothing about the others.
 |---|---|---|
 | **`substance`** | manifest, §5 above | What the AUTHOR writes — a table of numbers (`series`), a network (`graph`), a hierarchy (`structure`), prose |
 | **`bucket`** | manifest + the folder path | Which directory the files sit in. **Nothing else.** |
-| **chart-family membership** | the `kernel` block in each chart's manifest (frozen into `_chart-family/chart-registry.generated.js`) | Whether the dispatcher wraps it in `.chart-frame` — the shared eyebrow / subtitle / caption / status skeleton |
+| **chart-family membership** | the `kernel` block in each chart's manifest (frozen into `lib/plugins/chart-family/shared/chart-registry.generated.js`) | Whether the dispatcher wraps it in `.chart-frame` — the shared eyebrow / subtitle / caption / status skeleton |
 | **`render`** | manifest, gated | What the picture is DRAWN with — `svg`, `html`, or `hybrid` |
 
 Read out loud, for the components where they disagree:
@@ -693,8 +693,8 @@ AI agents authoring decks get a discovery surface and a validation loop:
   how many elements (along the `item`/`row`/`col`/`cell`/`line` axis it's built
   on) it holds: `sweet` is ideal, past `soft` it crowds, past `hard` it
   overflows. **Count the content first, then filter by capacity**; over `hard`,
-  take an `escalateTo` target or split across slides. `lint:deck` warns
-  (`capacity-crowd` / `capacity-overflow`) as a backstop. See
+  take an `escalateTo` target or split across slides. `lint:deck` flags it
+  (`capacity-crowd` suggests, `capacity-overflow` warns) as a backstop. See
   `engineering/decisions/2026-06-17-content-capacity-contract.md`.
 - **Code panes budget WIDTH too.** Counting elements says nothing about a fenced
   line that runs off the right edge: the code panes in `code` and `compare-code`
@@ -751,7 +751,7 @@ they always have. Nothing breaks. Nothing changes.
 
 ### 8.2 Theme designers — Finish ownership
 
-Unchanged. Edit `themes/<name>.css`. Stay palette-blind: roles, not
+Unchanged. Edit `themes/<name>/<name>.css`. Stay palette-blind: roles, not
 colors. See `design.md` §1.3 and `design/theming.md`.
 
 ### 8.3 Layout designers — adding a new component
@@ -777,12 +777,12 @@ The engine has exactly four plugin points, one per substance.
 `transformSection(html, ctx)` — parse the list, return SVG sized to the
 chart-frame — and a manifest carrying a `kernel` block (`figureClass`, the class
 on the figure root the kernel emits). `npm run build` freezes it into the dispatch
-registry; `chart-family.js` is not edited. Add CSS, docs, demo deck — and the
+registry; `chart-family.dispatch.js` is not edited. Add CSS, docs, demo deck — and the
 hand-maintained rosters in `design/skills/chart-component.md` step 9, which the
 manifest does not yet drive.
 
 **Adding a new graph language (substance = graph).** Detect the fence
-in the shared kernel and the two render surfaces — `lattice-emulator.js`
+in the shared kernel and the two render surfaces — `lattice.js`
 and `lattice-runtime.js` (the owned engine, `lib/engine/`, composes the
 same plugins; `marp.config.js` is retired). Resolve palette tokens. Inject
 into the language's theming API. Invoke the external CLI. Inline the SVG.
@@ -1078,7 +1078,7 @@ discovery story that markdown alone can't provide.
 - `design/design-system.gallery.md` — the slide-rendered demo of this doc.
 - Test scope rename — `test/unit/layouts/` → `test/unit/components/`, with `tools/affected-tests.js` updated to route changes under `lib/components/<name>/` to `test:components`.
 - `cards-side` CSS extraction — split out of `cards-grid/styles.css` into its own `lib/components/cards-side/styles.css`. Validated by same-sandbox before/after PDF byte-compare on all five decks using either component (0–1 byte drift = pixel-identical).
-- Per-component transform location — every component whose transform exists is now at `lib/components/<bucket>/<name>/<name>.transform.js`. The chart-family dispatcher itself lives at `lib/components/chart/_chart-family/chart-family.js` (underscore-prefixed so the component loader and bucket-wide CSS walker both skip it) — bucket-scoped shared infrastructure colocated with the bucket it serves.
+- Per-component transform location — every component whose transform exists is now at `lib/components/<bucket>/<name>/<name>.transform.js`. The chart-family dispatcher itself lives at `lib/plugins/chart-family/chart-family.dispatch.js` (underscore-prefixed so the component loader and bucket-wide CSS walker both skip it) — bucket-scoped shared infrastructure colocated with the bucket it serves.
 - **`lib/_legacy.css` fully retired.** The 5,938-line monolith was split across 7 phases into 8 new source files (`_root.css`, `_base.css`, `_modifiers.css`, `_syntax-highlight.css`, `_chart-family.css`, `_backgrounds.css`, `_semi-universal.css`, `_diagram-overrides.css`) + 17 component folders. Bundle position of every block preserved to maintain cascade outcomes. See `engineering/decisions/2026-05-16-post-foundation-followups.md` for the open follow-ups (specificity-bump hacks introduced during extraction, @layer activation as the principled retirement path).
 - **`tools/pixel-check.js`** — same-sandbox before/after PDF byte-compare with pdftoppm + ImageMagick pixel-diff fallback for mmdc non-determinism. Built mid-branch; got us through the 30+ extraction commits without a single false-positive regression slipping through.
 

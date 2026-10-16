@@ -1,0 +1,1 @@
+- A control character (U+0001 and the like) in a deck title, a speaker note or a slide description no longer makes a PowerPoint export unreadable. The picture `.pptx` (CLI and Studio) and the editable one now drop the characters XML forbids, as the `.odp` already did.

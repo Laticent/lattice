@@ -184,12 +184,15 @@ measured table, the arm that proves the thing can fail.*
 Run the emulator directly — no npm script is added per feature:
 
 ```bash
-node lattice-emulator.js examples/<feature-slug>.md examples/<feature-slug>.pdf
+node lattice.js examples/<feature-slug>.md .scratch/<feature-slug>.pdf
 ```
 
-Commit `examples/<feature-slug>.md` and `examples/<feature-slug>.pdf`
-together. If you push without the rebuilt PDF the reviewer's link
-404s — that is the bug the convention prevents.
+That render is for your own look, so it goes to `.scratch/`, which git ignores. **Commit the `.md` only, never the PDF:**
+the `lint` job fails a pull request that adds or changes a PDF
+(`tools/check-no-pdf-in-pr.mjs`). CI's golden-diff job renders the new
+deck and links its PDF in the PR comment, and the nightly bless bot
+commits it to `main` after the merge
+(`decisions/2026-10-06-goldens-bot-blessed.md` §2.3).
 
 ### Iteration cycle
 
@@ -241,25 +244,22 @@ that rebuilds on save and opens the PDF in the default viewer (which
 auto-reloads). For VS Code users, the marp-vscode preview pane is the
 fastest inner loop — no preview tool needed.
 
-**Pre-commit auto-rebuild.** Lefthook's `pdf-rebuild` job
-(`tools/build-staged-pdfs.js`) regenerates and re-stages the PDF for
-every staged deck markdown — incrementally, only the decks whose source
-changed (examples decks, the baseline deck, per-component and bucket
-gallery markdown). It supersedes the old `check-pdf-freshness.sh` gate:
-rather than failing when a PDF is stale and making you rebuild by hand,
-it rebuilds for you. Scope is markdown-only — component CSS, shared CSS,
-themes, and the engine affect many decks at once (a full rebuild is
-~30 min), so those stay in CI via the integration page-count tests and
-`build:galleries:check`. Bypassable via `git commit --no-verify` only
-as last resort.
+**No PDF in a pull request.** The nightly bless bot
+(`.github/workflows/golden-bless.yml`) is the one writer of committed
+PDFs: it re-renders every golden that drifted on `main`, renders the
+first PDF of a deck or gallery merged without one, and opens one PR a
+person merges. A pull request shows its visual change through
+golden-diff's rendered before/after, and links the PDF of any new deck.
+The pre-commit hook that used to render and stage PDFs is gone; for a
+local look, `node tools/build-staged-pdfs.js <deck.md>` renders without
+staging, and `npm run preview` shows the slides. Put any PDF it writes
+back (`git checkout -- '*.pdf'`) before committing.
 
-**At PR end, paste the raw URL** on its own line, plain text, last
-paragraph of the reply — for external reviewers who don't have the
-`SendUserFile` deliverable in their feed:
-
-```
-https://raw.githubusercontent.com/Laticent/lattice/<branch>/examples/<slug>.pdf
-```
+**At PR end, paste the link to the rendered PDF** on its own line, plain
+text, last paragraph of the reply — for external reviewers who don't have
+the `SendUserFile` deliverable in their feed. It is the "New on this PR,
+rendered by CI" link in the PR's golden-diff comment (the PDF is not on
+the branch: pull requests do not commit PDFs).
 
 Use `raw.githubusercontent.com`, never `github.com/.../blob/...`
 (lower-fidelity web preview) or `github.com/.../raw/...`
@@ -321,9 +321,8 @@ graduates from "new" to "documented". Treat them like
 
 - Small, focused units. One logical change per commit.
 - Message format: `area(scope): short summary` — follow `git log` for the established pattern.
-- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, then run `npm run gotchas:index` — `engineering/gotchas.md` is GENERATED and anything written into it is deleted on the next regeneration. **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes both `npm run gotchas:index` and `build:check` refuse and name the entry. Put the detail in the entry body, where nobody pays for it until they open the topic file.
-- Gallery edits: rebuild the PDF (`npm run preview -- <deck>` during dev; include the rebuilt PDF in the PR's final commit).
-- Feature decks: rebuild `examples/<slug>.pdf` and include it in the same commit as the `.md` change.
+- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, and nothing else: the symptom index is generated into `dist/engineering/gotchas.md` on install, and `engineering/gotchas.md` is the hand-written guide, where an entry would never be listed (`gotchas:index:check` refuses one). **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes `npm run gotchas:index:check`, and so `build:check`, refuse and name the entry (the plain write only warns). Put the detail in the entry body, where nobody pays for it until they open the topic file.
+- Gallery edits and feature decks: look at the render locally (`npm run preview -- <deck>`), and commit only the markdown. CI shows the before/after on the PR, and the nightly bless commits the PDFs to `main`.
 
 ## Changelog entries — one file per PR (`changelog.d/`)
 
@@ -393,9 +392,10 @@ strictly worse.
      § Changelog entries below). If you still hit one — an older branch, or a
      `changelog.d/` file two branches genuinely named the same — resolve by
      **keeping both** entries, never picking a side.
-   - Binary `examples/*.pdf` conflicts: resolve the `.md` first, re-render
-     with the owned engine (`node dist/lattice-emulator.js <deck> <out.pdf>`,
-     with `CHROME_PATH` set), `git add` both, continue.
+   - A PDF conflict should not happen any more: pull requests do not commit
+     PDFs, and only the nightly bless writes them. If an older branch still
+     carries one, take `main`'s copy (`git checkout origin/main -- <file>`)
+     or drop it from the branch; the bless re-renders it after the merge.
 
    Force-push the rebased branch with `git push --force-with-lease` — never
    plain `--force`.
@@ -529,7 +529,7 @@ expensive for anything scheduled to pass it:
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
-| `--cli` | whole `lattice-emulator.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
+| `--cli` | whole `lattice.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
 
 The **flowchart layout tier** replays every `graphLayoutKernel().layout()` call one
 Chromium render of `examples/flowchart.md` made (`test/benchmark/fixtures/flowchart-deck-layouts.json`),
@@ -679,6 +679,13 @@ run was the only signal (#1743). The shape to copy: `tee` the run into a report 
 STEP green so later steps run, carry the verdict in an output, put the step timeout BELOW the
 job's (a job-level timeout kills every later step, including one guarded by `always()`), and gate
 the issue step on `always() && (outputs.failed == 'true' || outcome != 'success')`.
+
+**A green step must not leave a green JOB.** The shape above keeps the run step green so the
+artifact and issue steps fire, and that also left the run reading green: three Guide specs sat red
+on `main` for days while every Studio E2E run passed, and a `spec:` dispatch files no issue, so
+nothing said red at all. `studio-e2e-nightly.yml`'s `e2e` and `security` jobs therefore end with
+one more step, `if: always() && steps.<id>.outputs.failed == 'true'` → `exit 1`, placed LAST so
+every report and issue step has already run (owner's pick, 2026-10-08).
 
 **And an alarm that cannot STAND ITSELF DOWN is a ratchet, not a signal.** Filing was only half
 the mechanism. Until 2026-09-01 five of the six nightly workflows could open a rolling issue and
@@ -869,8 +876,9 @@ is believed to block script execution (`engineering/gotchas.md` § "Does the
 marp-vscode webview execute `<script>`?"), but the claim has never been tested here and a field report
 contradicts it. Don't plan a mirror around the preview either way.
 Two further requirements are easy to miss and were silently unmet until
-#1256: raw HTML must be enabled (`html: true` for marp-cli,
-`markdown.marp.enableHtml` for the extension) or the runtime `<script>` tags
+#1256: raw HTML must be enabled (for marp-cli, the bundle's `marp.config.cjs`
+allowlist or the kit's `html: true`; `markdown.marp.enableHtml` for the
+extension) or the runtime `<script>` tags
 are ESCAPED into visible text, and a rule whose selector LEADS with
 `:is(section…)` is dead in any Marp render — see the same doc's two entries.
 
@@ -907,11 +915,12 @@ it alone.
    ```
    `tools/queue-precheck.sh` fetches `main` and merges in memory (`git merge-tree`;
    nothing on disk changes) **on GitHub's terms**: it switches off the merge
-   drivers in `.gitattributes`, because GitHub does not apply them. That matters
-   for `engineering/decisions/README.md`, which is marked `merge=union`: a local
-   rebase merges two PRs' new index rows without a prompt, but GitHub reports the
-   same PR as `mergeable_state: dirty`, runs no `pull_request` CI on it, and the
-   queue will not take it. The script exits **0** clean, **1** on a conflict, and
+   drivers in `.gitattributes`, because GitHub does not apply them. That mattered
+   most for the decision index's old `merge=union` driver: a local rebase merged two
+   PRs' new index rows without a prompt, while GitHub reported the same PR as
+   `mergeable_state: dirty`, ran no `pull_request` CI on it, and the queue would not
+   take it. The index is no longer committed and the driver is gone, but the check
+   still ignores drivers, so no future one can fool it. The script exits **0** clean, **1** on a conflict, and
    **3** when it cannot check (the fetch failed, there is no `origin/main`, the
    clone is shallow and lacks the merge base, or git is too old for
    `--attr-source`). The Stop
@@ -1204,7 +1213,7 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 | `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
 | `check_response_timeout_minutes` | 60 | A `ci` run that has not reported in 60 minutes fails the entry |
 | Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
-| `strict_required_status_checks_policy` | `true` (the owner planned to turn it off) | "Require branches to be up to date". It does **not** stop a behind PR entering the queue: 12 of the last 15 queue entries up to 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only makes GitHub label behind PRs "out-of-date". **Ignore that label either way** |
+| `strict_required_status_checks_policy` | `false` (turned off by the owner 2026-10-06; it was `true` when read on 2026-09-28) | "Require branches to be up to date". Even when it was on, it did **not** stop a behind PR entering the queue: 12 of the last 15 queue entries up to 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only made GitHub label behind PRs "out-of-date". The queue tests every PR against current `main`, so the setting added nothing. **Ignore an "out-of-date" label if it ever comes back** |
 
 **What the queue does.** It creates a temporary `gh-readonly-queue/main/pr-<N>-*`
 branch holding current `main`, every non-failing PR ahead of yours, and your PR.
@@ -1219,13 +1228,19 @@ it passes, that exact tree becomes `main`.
 - **Another PR merging does not turn yours red.** Your PR's own `ci` result stays
   what it was. If the PR page shows red after a merge, it is either a real conflict
   (`mergeable_state: dirty` — rebase) or a check that is not `ci`.
+- **A Claude Code hook warns before a needless catch-up.**
+  `.claude/hooks/warn-needless-catchup.sh` fires before an agent's
+  `git rebase|merge|pull … main` when the branch merges cleanly with `main`. It only
+  warns. A rebase is still right on a real conflict, when you need a specific commit
+  from `main` (name it in the commit message), or after a queue ejection. GitHub's
+  "Update branch" costs the same CI run.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a
-  rebase. `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md` tracks removing
-  those files from the conflict path. The decision index is no longer one of them: its rows
-  sort by topic slug, so two PRs adding a note merge cleanly on GitHub
-  (`decisions/2026-09-29-decision-index-rows-scatter.md`).
+  rebase. Most of those files are now off the conflict path: pull requests no longer commit
+  PDFs, the indexes are not committed, and the route budget takes a per-PR file. Committed
+  generated JS under `lib/` is the one class left, deferred by the owner. The per-file list
+  is `decisions/2026-10-06-conflict-reduction.md` §5.
 - **An ejection clears auto-merge.** Re-arm it after the fix (§Merging, above).
 - **`golden-diff` and `studio-smoke` run only on `pull_request`, never in the
   queue.** On a behind PR their before/after images compare against the base of
@@ -1252,7 +1267,10 @@ the queue land it. Three workflows do this today — `sync-backlog.yml`,
 `release.yml` and `dependabot-auto-merge.yml` — and what makes them feel
 automatic is not a shortcut past the queue, it is that they also switch
 **auto-merge** on, so the queue merges the PR the moment `ci` is green. Same
-gate, no human.
+gate, no human. A fourth, `golden-bless.yml`, pushes and opens its PR the same
+way but leaves auto-merge OFF while it is in its dry run: it only comments
+whether its four merge rules hold, and a person merges or closes it
+(`decisions/2026-10-06-goldens-bot-blessed.md` §2.1).
 
 ### The one thing that makes it possible: `AUTOMATION_PAT`
 
@@ -1358,8 +1376,8 @@ Two rules for that environment:
 ### What this costs, and why the mirror is nightly
 
 Each backlog sync is now a real PR through the real queue. On the PR itself
-`ci`'s `changes` filter skips almost everything (`BACKLOG.md` matches neither
-`code` nor `docs`, so only `lint` runs), but the **merge-queue run deliberately
+`ci`'s `changes` filter skips almost everything (`backlog.d/` matches neither
+`code` nor `docs`, so only the always-on `lint` and `unit` jobs run), but the **merge-queue run deliberately
 skips nothing** — `changes` forces `code` and `docs` true on `merge_group`,
 because that is the final pre-merge gate. So a backlog sync costs roughly one
 full CI run, and adds one more merge every open PR's queue run is tested on top of.
@@ -1543,8 +1561,10 @@ Six rules make it work:
    `[followups.d/<file>]`. The brief lives in a PR comment and a chat transcript,
    which no session reads by default: 79 `[no ticket]` items piled up that way in
    two months. The file needs no issue, carries the same five fields and is
-   deleted by the PR that finishes it. Contract: `followups.d/README.md`; the
-   shape is gated by `checkFollowups`.
+   deleted by the PR that finishes it. Its front matter also carries `area`,
+   `severity` (high | medium | low) and `swimlane` (the governing doc's path), so
+   the item can be picked without opening this PR. Contract:
+   `followups.d/README.md`; the shape is gated by `checkFollowups`.
 3. **Prioritized by downstream impact**, P1 first, and each item says in one
    phrase what it unblocks. Order is an instruction, not a suggestion: the next
    session works the list top-down.
@@ -1671,6 +1691,8 @@ ordering that makes it work.
    closed the card with a fifth item, added by comment, silently unaddressed.
 4. **Only off-path findings go in.** On-path defects get fixed in the change that
    found them (#18). A handoff issue is not a place to park a window you created.
+   "On the path" includes the surface the change teaches or lints and anything the
+   owner hits while testing the PR; when unsure, it is on the path (#18).
 5. **Name the base — the sha, the branch, AND any open PR the work sits on.** The
    sha alone is not enough, and this is the rule a live cold-start test broke
    hardest against. If the work the card describes is on an unmerged PR, say so
@@ -1854,7 +1876,8 @@ path filed it (bar the one bot caveat below). The gate **detects and flags**; it
 can't *prevent* creation (GitHub has no pre-receive hook for issues), so the
 guarantee is "an unlabelled card is auto-flagged within seconds and surfaced
 until fixed," not "an unlabelled card can't exist." The flag is also **pushed**
-into `BACKLOG.md` (a ⚠️ banner lists every `needs:triage` card), so it can't hide
+into the mirror (each card's file in `backlog.d/` carries `flags: needs:triage`, and
+`npm run backlog` ends with a ⚠ line listing every such card), so it can't hide
 behind a board filter no one opened. The decision logic is pure and unit-tested
 (`.github/scripts/triage.js`); the YAML is just the wiring.
 
@@ -1913,9 +1936,9 @@ this asks for substance, not a template.
   which would have handed every Studio bug reporter a demand for a governing
   decision doc — so the three are pinned together by test.
 
-The flag is pushed into `BACKLOG.md` as its own 📐 banner, for the same reason
+The flag is pushed into the mirror as its own 📐 line in `npm run backlog`, for the same reason
 `needs:triage` is: a flag behind a board filter nobody opened is not surfaced.
-The two stay **separate** banners — they answer different questions ("which column
+The two stay **separate** lines — they answer different questions ("which column
 does this belong in" vs "can anyone work it"), and one merged count would mean
 neither.
 
@@ -2003,14 +2026,22 @@ it. Across all 64 cards the live gate's verdict matched the local parser's
 exactly, with no card labeled that the parser rejects and none rejected that it
 accepts.
 
-### BACKLOG.md — the one-way mirror
+### backlog.d/ — the one-way mirror
 
-`BACKLOG.md` is a committed, read-only snapshot of open issues grouped by column,
-regenerated by `tools/sync-backlog.js` (the **Sync backlog mirror** workflow runs
-it **nightly**, and on demand via dispatch). The render is pure, so a night with
-no queue movement produces nothing. Issues own *status*; decision docs own
-*design*; the mirror never feeds back. If we ever leave GitHub, the repo still
-carries the queue.
+`backlog.d/` is a committed, read-only snapshot of the open issues, **one file per
+issue** (`backlog.d/<number>.md`), regenerated by `tools/sync-backlog.js` (the **Sync
+backlog mirror** workflow runs it **nightly**, and on demand via dispatch). Each file
+carries the issue's column, its four taxonomy axes, its `needs:` flags, and its two
+Definition of Ready fields (swimlane and acceptance check), read with the triage gate's
+own `parseForm`. The render is pure, so a night with no queue movement produces nothing.
+Issues own *status*; decision docs own *design*; the mirror never feeds back. If we ever
+leave GitHub, the repo still carries the queue.
+
+**Read it with `npm run backlog`**, which lists these issues and every `followups.d/` item
+in one view, grouped by area and sorted by severity (`--area`, `--min`, `--issues`,
+`--followups`). It replaced the single `BACKLOG.md` on 2026-10-07: that file was ~16.5k
+tokens with a 331-line Backlog column, so a session paid for the whole queue to find one
+card. Contract: `backlog.d/README.md`.
 
 **Expect it to trail by up to a day, by design** — it is the lock-in snapshot,
 not the board. For current status, read the issues. Why nightly rather than

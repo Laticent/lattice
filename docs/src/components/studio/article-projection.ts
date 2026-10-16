@@ -39,7 +39,7 @@ import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts 
 // `docs/e2e/studio-warm-offline.spec.ts` is the check.
 const loadDeckExport = () => import('./export/deck-export.js');
 const loadRemoteRef = () => import('../../../../lib/core/remote-ref.js');
-const loadAuthoringCore = () => import('@/playground/authoring-core.generated.js');
+const loadAuthoringCore = () => import('@/playground/authoring-door.js').then((door) => door.loadAuthoring());
 const loadPlayerPrune = () => import('@/playground/player-prune.generated.js');
 const loadPlayerCore = () => import('@/playground/player-core.generated.js');
 const loadSanitizeStyle = () => import('../../../../lib/core/sanitize-style-text.mjs');
@@ -234,7 +234,8 @@ export async function projectDeckArticle(
 	// the reader chose. Rewritten three times: the render before the bake, the flat CSS the page
 	// takes in, and the projected article after it (a baked Mermaid diagram can add an image).
 	const { default: remoteRef } = (await loadRemoteRef()) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
-	const allowed = options.webOrigins ?? [];
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const allowed = remoteRef.withOwnOrigin(options.webOrigins ?? []);
 	const render: DeckRender = {
 		...built,
 		html: remoteRef.blockWebImages(built.html, allowed).html,

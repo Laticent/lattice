@@ -8,7 +8,7 @@ milliseconds — plus a pure **cursor** that maps any clock time to the word act
 right now. It **owns no audio and no DOM**: it emits a timeline and reads a clock you
 inject; playback, highlighting, and *deciding what to say* are the caller's job.
 
-One dependency, [`@laticent/ltt`](../ltt/) — the timing-track format, which defines the
+One dependency, [`@laticent/ltt`](https://github.com/Laticent/lattice/blob/main/docs/src/lib/ltt/) — the timing-track format, which defines the
 `Word` / `Cue` / `CaptionTrack` types Cadenza produces (re-exported here) — and otherwise
 framework-free, with `node:`-and-relative imports only (an import-boundary gate enforces
 both) — designed to spin off as its own library. **Not yet on npm:** no workflow publishes the
@@ -17,7 +17,13 @@ because Cadenza's published types import `ltt`'s
 (`followups.d/2360-p3-publish-workspace-libraries.md`). Each library's packed types are checked
 in a `nodenext` consumer by `test/unit/tools/package-nodenext-types.test.js`. The
 full design contract is
-[`engineering/decisions/2026-07-07-cadenza-caption-timeline.md`](../../../../engineering/decisions/2026-07-07-cadenza-caption-timeline.md).
+[`engineering/decisions/2026-07-07-cadenza-caption-timeline.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-07-07-cadenza-caption-timeline.md).
+
+## Install
+
+```sh
+npm i @laticent/cadenza
+```
 
 ## 60-second start
 
@@ -127,3 +133,7 @@ index.ts      the public surface
 Every module is pure and unit-tested (`*.test.ts`, run with `vitest`). The core
 stays self-contained by a build gate (`checkCadenzaBoundary` in
 `tools/check-ownership.js`): a non-relative, non-`node:` import fails the build.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

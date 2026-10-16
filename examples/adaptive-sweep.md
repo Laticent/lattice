@@ -33,14 +33,14 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ## 400+ teams run board prep on Lattice.
 
-- ![Acme](../lib/components/inventory/logo-wall/acme.svg)
-- ![Globex](../lib/components/inventory/logo-wall/globex.svg)
-- ![Initech](../lib/components/inventory/logo-wall/initech.svg)
-- ![Umbra](../lib/components/inventory/logo-wall/umbra.svg)
-- ![Vantage](../lib/components/inventory/logo-wall/vantage.svg)
-- ![Meridian](../lib/components/inventory/logo-wall/meridian.svg)
-- ![Helios](../lib/components/inventory/logo-wall/helios.svg)
-- ![Lumen](../lib/components/inventory/logo-wall/lumen.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Lumen](sample:logo-lumen.svg)
 
 ---
 

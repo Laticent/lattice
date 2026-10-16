@@ -52,8 +52,9 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
-const { discoverPackages, listFlatPackages } = require('../lib/packages/fs.js');
+const { discoverPackages, listFolderPackages } = require('../lib/packages/fs.js');
 
 // ── A WORKING TREE IS NOT A FROZEN TREE ───────────────────────────────────────
 //
@@ -229,6 +230,8 @@ const SINGLETON_TAGS = new Set([
   'definition', // glossary — term definitions
   'states',     // state-chart — state machine states
   'section-break', // divider — section-boundary idiom (was shared with subtopic, merged into divider.light 2026-06-07)
+  'masonry',    // collage — the word authors search for a mixed-shape photo wall (the layout is justified, not staggered)
+  'mood-board', // collage — the art-director name for the same slide
 ]);
 
 // Core token contract every base palette must define directly. These are
@@ -567,7 +570,7 @@ function parseThemeTokens(css) {
 
 // ── Theme manifests: the ONE scope declaration ─────────────────────────────
 //
-// `themes/<name>.manifest.json` declares a palette's IDENTITY and ROLE — never a
+// `themes/<name>/<name>.manifest.json` declares a palette's IDENTITY and ROLE — never a
 // token name and never a token value. That split is the whole design: the manifest
 // owns SCOPE (which themes a rule applies to), the code owns CONTRACT (what the
 // rule requires). A manifest that listed tokens would be a second copy of the CSS,
@@ -588,20 +591,20 @@ function listThemeManifests(themesDir = THEMES_DIR) {
   const out = new Map();
   // The package spine owns the enumeration (lib/packages/fs.js), so the theme walks
   // share one idea of what a theme's files are.
-  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
+  for (const [stem, names] of listFolderPackages('theme', themesDir)) {
     const file = `${stem}.manifest.json`;
     if (!names.includes(file)) continue;
-    const p = path.join(themesDir, file);
+    const p = path.join(themesDir, stem, file);
     let m;
     try {
       m = JSON.parse(fs.readFileSync(p, 'utf8'));
     } catch (e) {
-      throw new Error(`themes/${file} is not valid JSON: ${e.message}`);
+      throw new Error(`themes/${stem}/${file} is not valid JSON: ${e.message}`);
     }
     // `null`, an array, or a scalar all parse fine and then blow up as a raw TypeError
     // in whichever gate touches them first. Fail here, where the message names the file.
     if (m === null || typeof m !== 'object' || Array.isArray(m)) {
-      throw new Error(`themes/${file} must be a JSON object (got ${Array.isArray(m) ? 'an array' : String(m === null ? 'null' : typeof m)}).`);
+      throw new Error(`themes/${stem}/${file} must be a JSON object (got ${Array.isArray(m) ? 'an array' : String(m === null ? 'null' : typeof m)}).`);
     }
     out.set(file.replace(/\.manifest\.json$/, ''), m);
   }
@@ -611,8 +614,8 @@ function listThemeManifests(themesDir = THEMES_DIR) {
 /** Theme CSS files on disk, by name. */
 function listThemeFiles(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
-    if (names.includes(`${stem}.css`)) out.set(stem, fs.readFileSync(path.join(themesDir, `${stem}.css`), 'utf8'));
+  for (const [stem, names] of listFolderPackages('theme', themesDir)) {
+    if (names.includes(`${stem}.css`)) out.set(stem, fs.readFileSync(path.join(themesDir, stem, `${stem}.css`), 'utf8'));
   }
   return out;
 }
@@ -654,7 +657,7 @@ const FACE_TOKENS = ['bg', 'bg-alt', 'text-body', 'text-heading', 'border', 'acc
  *
  * A pin narrows the palette to one face. A default does not — carbone ships a `dark`
  * default and is dark-only for a different reason: it declares FLAT surface hexes and
- * opts out of `light-dark()` switching entirely (`themes/carbone.css` says so in its
+ * opts out of `light-dark()` switching entirely (`themes/carbone/carbone.css` says so in its
  * own header), so there is no second face to resolve.
  */
 function themeRootScheme(cssText) {
@@ -738,20 +741,20 @@ function checkThemeManifestCoverage(errors, themesDir = THEMES_DIR) {
   for (const name of files.keys()) {
     if (!manifests.has(name)) {
       errors.push(
-        `themes/${name}.css has no manifest. Every theme declares its identity and role in ` +
-        `themes/${name}.manifest.json (schema: themes/theme.schema.json) — that declaration is ` +
+        `themes/${name}/${name}.css has no manifest. Every theme declares its identity and role in ` +
+        `themes/${name}/${name}.manifest.json (schema: themes/theme.schema.json) — that declaration is ` +
         'what every theme gate reads its scope from, so an undeclared palette is an ungated one.',
       );
     }
   }
   for (const [name, m] of manifests) {
     if (!files.has(name)) {
-      errors.push(`themes/${name}.manifest.json has no themes/${name}.css. Delete the stale manifest or add the palette.`);
+      errors.push(`themes/${name}/${name}.manifest.json has no themes/${name}/${name}.css. Delete the stale manifest or add the palette.`);
       continue;
     }
     if (m.name !== name) {
       errors.push(
-        `themes/${name}.manifest.json declares name "${m.name}" but its filename says "${name}". ` +
+        `themes/${name}/${name}.manifest.json declares name "${m.name}" but its filename says "${name}". ` +
         'The name IS the identifier a deck\'s `theme:` resolves to, so the two cannot disagree.',
       );
     }
@@ -765,7 +768,7 @@ function checkThemeManifestCoverage(errors, themesDir = THEMES_DIR) {
  * decoration: nothing in the repo runs a JSON-Schema validator, so a manifest could
  * omit a required field, misspell an enum value, or carry an unknown key and every gate
  * stayed green. That is not a wash against the hand-maintained lists this replaced — it
- * is worse. Deleting `tier` from `themes/indaco.manifest.json` drops the DEFAULT palette
+ * is worse. Deleting `tier` from `themes/indaco/indaco.manifest.json` drops the DEFAULT palette
  * out of `CURATED`, out of `BUILTIN_PALETTES`, out of the picker, and `StudioShell` then
  * resets every visitor sitting on it — all from one absent JSON field, where the old
  * breakage needed a visible name deleted from an array in a reviewed diff.
@@ -899,7 +902,7 @@ function checkThemeRoles(errors, themesDir = THEMES_DIR) {
 // A palette's name exists in three places — the manifest's `name` field, the
 // filename, and the `@theme` directive in the CSS — and until 2026-08-16 NOTHING
 // bound them. `checkThemeRoles` keys by filename and never reads `@theme` at all,
-// so `themes/foo.css` declaring `@theme bar` would pass every gate and register
+// so `themes/foo/foo.css` declaring `@theme bar` would pass every gate and register
 // under a name nobody expects. All 32 palettes agreed by discipline alone, and
 // design/skills/theme.md already told authors the directive "MUST match the
 // filename" — a promise the machine did not keep.
@@ -924,7 +927,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     const declared = THEME_DIRECTIVE_RE.exec(cssText)?.[1];
     if (!declared) {
       errors.push(
-        `themes/${fileName}.css declares no \`@theme\`. The file is a published export ` +
+        `themes/${fileName}/${fileName}.css declares no \`@theme\`. The file is a published export ` +
         `(\`@laticent/lattice/themes/${fileName}.css\`) that README.md calls a Marp theme file, and ` +
         `Marp throws without the directive. Add \`/* @theme ${fileName} */\` as the first line.`,
       );
@@ -932,7 +935,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     }
     if (declared !== fileName) {
       errors.push(
-        `themes/${fileName}.css declares \`@theme ${declared}\` — the filename says "${fileName}". ` +
+        `themes/${fileName}/${fileName}.css declares \`@theme ${declared}\` — the filename says "${fileName}". ` +
         `A theme registers under the name in the directive, so these disagreeing means the palette ` +
         `loads under a name no picker, manifest, or \`@import\` refers to. Make them match.`,
       );
@@ -940,7 +943,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     const m = manifests.get(fileName);
     if (m && m.name !== undefined && m.name !== fileName) {
       errors.push(
-        `themes/${fileName}.manifest.json declares \`"name": "${m.name}"\` — the filename says ` +
+        `themes/${fileName}/${fileName}.manifest.json declares \`"name": "${m.name}"\` — the filename says ` +
         `"${fileName}". The manifest OWNS the theme's name; the filename and \`@theme\` are ` +
         `projections of it, so all three have to agree.`,
       );
@@ -1055,7 +1058,7 @@ function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
 // skip: the sanction list already had a staleness check while the root list did
 // not, so a renamed directory would have quietly dropped coverage to zero while
 // the gate kept reporting OK — the asymmetry exactly backwards.
-const THEME_REG_ROOTS = ['lib', 'docs/src', 'tools', 'lattice-emulator.js'];
+const THEME_REG_ROOTS = ['lib', 'docs/src', 'tools', 'lattice.js'];
 // `test/**` is deliberately OUT of scope: ~30 suites construct engines with bare
 // CSS to exercise the legacy path itself, and gating them would mean rewriting the
 // tests that PROVE the legacy path still works. Stated here because the omission is
@@ -1072,7 +1075,7 @@ const SANCTIONED_UNNAMED_THEME_REGISTRATIONS = [
        + 'bare-CSS shape working for external consumers.',
   },
   {
-    file: 'lattice-emulator.js',
+    file: 'lattice.js',
     why: 'ONLY under the `--css` / positional layout-CSS override, where the caller substitutes '
        + 'their own engine stylesheet and its identity is genuinely whatever it declares. The '
        + 'DEFAULT path constructs `dist/lattice.css` itself and now passes `{ name: \'lattice\' }`.',
@@ -1196,7 +1199,7 @@ function producesNamedEntryArray(node, ts) {
 // --test` runs files concurrently, so a probe present for one test is walked by every other
 // check scanning the same roots, and a `finally` that a SIGINT skips leaves a file behind.
 // Both happened — a leaked probe was picked up by the docs generator and committed into
-// `engineering/capabilities.md` as a real tool row (#2117).
+// `dist/engineering/capabilities.md` as a real tool row (#2117).
 function checkThemeRegistrationCallSites(
   errors,
   root = ROOT,
@@ -1355,7 +1358,7 @@ function checkThemeModes(errors, themesDir = THEMES_DIR) {
       if (got !== expected) {
         errors.push(
           `theme "${name}" declares darkCounterpart ${got === null ? 'null' : `"${got}"`} but ` +
-          `${expected === null ? `themes/${name}-dark.css does not exist` : `themes/${expected}.css does`}. ` +
+          `${expected === null ? `themes/${name}-dark/${name}-dark.css does not exist` : `themes/${expected}/${expected}.css does`}. ` +
           'The counterpart is declared rather than inferred from the filename so this cannot drift.',
         );
       }
@@ -1495,8 +1498,20 @@ function checkComponentCss(manifests, errors) {
 }
 
 // Recursively list every .css file under a directory.
+/**
+ * A plugin's `vendor/` folder: a third-party library the plugin OWNS a committed copy of
+ * (`payload.vendored`, lib/plugins/payload-path.js — Mermaid's minified build). It is not our
+ * source, so no source gate reads it, exactly as none read the repo-root copy it replaced: its
+ * integrity is held instead by the SHA-256 the plugin resolver checks against the manifest.
+ */
+function isVendoredLibraryDir(dir, entry) {
+  return entry.isDirectory() && entry.name === 'vendor'
+    && path.basename(path.dirname(dir)) === 'plugins' && path.basename(path.dirname(path.dirname(dir))) === 'lib';
+}
+
 function listCssFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listCssFiles(p, out);
@@ -1646,8 +1661,8 @@ function rootDeclSites(css) {
 // and certified the gate instead of exercising it.
 function checkPackedRootReach(errors, dir = path.join(ROOT, 'themes')) {
   if (!fs.existsSync(dir)) return;
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.css')).sort()) {
-    const { plain, overSpecific } = rootDeclSites(fs.readFileSync(path.join(dir, f), 'utf8'));
+  for (const f of themeEntries(dir).filter((x) => x.endsWith('.css')).sort()) {
+    const { plain, overSpecific } = rootDeclSites(fs.readFileSync(themePath(dir, f), 'utf8'));
     for (const [tok, sel] of overSpecific) {
       if (plain.has(tok)) {
         errors.push(
@@ -1806,13 +1821,14 @@ const SANCTIONED_MONO_FONTS = [
        + 'them are label voice and route through --font-label.',
   },
   {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
-    selector: 'code.hljs',
-    count: 1,
-    why: 'the highlighted code block.',
+    file: 'lib/plugins/code/code.styles.css',
+    selector: 'section :where(pre).lat-code',
+    count: 2,
+    why: 'the code panel every fenced block sits on, on any slide, and its `@code{title=…}` bar: a '
+       + 'file name is text a reader transcribes, so it stays in the code voice.',
   },
   {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
+    file: 'lib/plugins/mermaid/mermaid.styles.css',
     selector: 'mermaid-error',
     count: 3,
     why: 'the three mermaid-error parts (label, message, detail). An error surface quotes the '
@@ -2023,7 +2039,7 @@ const SANCTIONED_MARGINS = [
 // then pins onto the section — the engine scaffold as `article.lattice > section`
 // (lib/engine/css.js), the PDF/HTML export as
 // `section[data-lattice-slide] { width/height !important }`
-// (lattice-emulator.js), the live preview via its own frame CSS. A component
+// (lattice.js), the live preview via its own frame CSS. A component
 // that also sizes the section element is a second, competing source of truth
 // for a value the deck already decided, and the paths do NOT agree on who wins.
 //
@@ -2066,6 +2082,9 @@ const SECTION_BOX_ROOTS = [
   path.join(LIB_DIR, 'components'),
   path.join(LIB_DIR, 'base'),
   path.join(LIB_DIR, 'forms'),
+  // A plugin's stylesheet is bundled with the rest: the chart frame (the chart family plugin's
+  // `styles`) holds 70 `section.chart-frame` rules.
+  path.join(LIB_DIR, 'plugins'),
   path.join(ROOT, 'themes'),
 ];
 
@@ -2209,7 +2228,7 @@ function checkSectionBoxOwnership(errors) {
       `${o.file}: \`${o.selector}\` sets \`${o.decl}\` on the SECTION element. The slide box belongs ` +
       `to the deck — the \`size:\` directive resolves to a named \`@size\` and each render path pins ` +
       `it onto the section itself. A component-level box is a competing source of truth, and the paths ` +
-      `disagree on who wins: the export survives only because lattice-emulator.js uses \`!important\`, ` +
+      `disagree on who wins: the export survives only because lattice.js uses \`!important\`, ` +
       `while in the live Playground a percentage resolves against \`article.lattice\` — whose height is the ` +
       `whole FILMSTRIP — so the slide silently stops clipping and the runtime then mis-stamps ` +
       `data-orientation from the wrong aspect (#1207). Invisible to golden-diff, which only compares ` +
@@ -2785,6 +2804,7 @@ const SANCTIONED_READING_ROLE = [
   { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
   { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
   { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
+  { file: 'lib/plugins/code/code.styles.css', role: 'body-compact', count: 1, why: 'the code panel every fence sits on reads at the code layout\'s own step: a code line cannot wrap (owner, 2026-09-29), and a block should read the same size on any slide (code-plugin note §5)' },
   { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
   { file: 'lib/components/comparison/pricing/pricing.styles.css', role: 'message', count: 1, why: 'the tier name, a card title (features read at --fs-body)' },
   { file: 'lib/components/comparison/table/table.styles.css', role: 'body-compact', count: 1, why: 'the field label in a table split into cards (label chrome)' },
@@ -3168,7 +3188,7 @@ const SANCTIONED_STAGE_INSETS = [
   // time the entry is correct rather than incidental: it is a seam, and a seam that
   // provably cannot be spelled any other way.
   {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
+    file: 'lib/plugins/mermaid/mermaid.styles.css',
     prop: 'padding-bottom',
     value: 'var(--sp-sm) (on `[data-lattice-figure]:has(+ .mermaid-error)`)',
     why: 'The gap between a failed diagram and the parser-error block beneath it. It '
@@ -3303,7 +3323,7 @@ function offendingBodyPadding(css) {
         // The exits are unchanged and are the whole of the exception: a body that
         // PAINTS a surface (`.canvas`) or has no stage to own anything (the
         // Read·Article `figure` projection) earns its own padding. See the
-        // `--chart-panel-y` note in chart-family.css.
+        // `--chart-panel-y` note in chart-family.styles.css.
         if (/^\s*padding(?:-(?:inline|block|top|right|bottom|left))?(?:-(?:start|end))?\s*$/.test(prop)
           && value && !/^0(?:px|em|rem|%)?$/.test(value)) {
           out.push({ prop: prop.trim(), value: `${value} (on \`${selector}\`)` });
@@ -3951,17 +3971,22 @@ function checkHexLiterals(errors) {
 // checkTypedGlyphs is the remaining consumer.
 
 const US_TEXT_EXTS = new Set(['.md', '.js', '.mjs', '.ts', '.tsx', '.css', '.json', '.yml', '.yaml', '.html', '.astro']);
-const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scratch']);
+// backlog.d/ is the generated mirror of the issue queue (tools/sync-backlog.js): its words are
+// issue text, an EXTERNAL string under HARD RULE #21, and no one in a PR can edit them. Walking
+// it would let one British spelling in an issue body turn the nightly sync PR red, and a red
+// sync PR is exactly how the mirror froze for three weeks in August (sync-backlog.yml).
+const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scratch', 'backlog.d']);
 
 // Repo-wide text files. Walks from ROOT, skips
 // generated/vendor trees and the dated engineering/decisions/ records.
 function listRepoTextFiles(dir = ROOT, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     const rel = path.relative(ROOT, p);
     // The emulator writes an .html sibling beside every PDF it renders
-    // (lattice-emulator.js:2752, unconditional — no flag suppresses it), and
+    // (lattice.js:2752, unconditional — no flag suppresses it), and
     // examples/**/*.html is gitignored (.gitignore:56-57). Same local-only
     // false-red class as playground/v below: a clean checkout and CI never have
     // these; any tree that previewed an example deck does, at ~375 hits for one
@@ -4009,6 +4034,11 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // are third-party keywords no migration here could rename. (The US-English
       // ratchet that once counted them is gone; the walk now serves HARD RULE #29.)
       if (rel === path.join('docs', 'public', 'playground', 'hljs')) continue;
+      // And `playground/fmt/`: the code formatter's browser build
+      // (tools/build-code-format.js), gitignored, minified Prettier/ruff/sql-formatter
+      // chunks. Their words are third-party identifiers (a formatter's own option
+      // names, a DOM property), which no one here can rename.
+      if (rel === path.join('docs', 'public', 'playground', 'fmt')) continue;
       // Same class, different producer: `release/` is the gitignored output of
       // a release run (tools/release.js). `notes-v<x.y.z>.md` is a verbatim
       // copy of a CHANGELOG section, so counting it double-charges a source that is
@@ -4038,7 +4068,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       !/\.gallery\.(light|dark)\.html$/.test(e.name) &&
       // Deck render sidecars more broadly — the emulator writes <name>.html next to
       // EVERY <name>.pdf it renders (examples/, baseline-decks/, exemplars/), and the
-      // pre-commit pdf-rebuild regenerates them; the committed artifact is the .pdf.
+      // nightly bless (and any local render) regenerates them; the committed artifact is the .pdf.
       // Skip any .html that has a sibling .md of the same basename (a deck render
       // sidecar, never house prose) — same transient-flicker reason as galleries.
       !(path.extname(e.name) === '.html' && fs.existsSync(p.replace(/\.html$/, '.md')))
@@ -4144,7 +4174,7 @@ const SANCTIONED_GLYPH_DECKS = Object.freeze([
 // Each entry names the file and the measurement that settled it.
 const SANCTIONED_GLYPH_CHROME = Object.freeze([
   {
-    file: 'themes/a11y-base.css',
+    file: 'themes/a11y-base/a11y-base.css',
     why: 'The GRAYSCALE-SAFE SHAPE CHANNEL for color-blind readers, and a mask cannot ' +
       'carry it. Three measured properties are load-bearing and all three are lost by a ' +
       'background-image: (1) `content: <string> / <alt>` with an EMPTY alt is the only ' +
@@ -4388,7 +4418,7 @@ function checkThemeTokenParity(errors) {
     if (missing.length) {
       errors.push(
         `theme "${p.name}" is missing ${missing.length} core token(s): ${missing.join(', ')}. ` +
-        `Every base palette must define the core surface tokens directly — define them in themes/${p.name}.css.`,
+        `Every base palette must define the core surface tokens directly — define them in themes/${p.name}/${p.name}.css.`,
       );
     }
   }
@@ -4589,7 +4619,7 @@ function ruleRanges(css, from = 0, out = [], depth = 0) {
 
 /**
  * True for a `:root` block the EXPORT PATH actually parses. `parsePaletteVars`
- * (lattice-emulator.js) matches `/:root\s*\{/`, so `:root` must sit immediately
+ * (lattice.js) matches `/:root\s*\{/`, so `:root` must sit immediately
  * before the brace: `:root {` and `:root:root {` qualify, `:root, section {` and
  * `:where(:root) {` do NOT — the reader never sees them. The gate used to treat all
  * four as equivalent, which is MORE PERMISSIVE THAN THE READER IT MODELS: 12 tokens
@@ -4879,8 +4909,8 @@ function fallbackOnlyTokens({ themeTokens, rootDefaults, slideDefaults, mapDefau
 function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB_DIR } = {}) {
   const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
   const themeFiles = declared
-    ? [...declared.keys()].sort().map((n) => path.join(themesDir, `${n}.css`)).filter((f) => fs.existsSync(f))
-    : fs.readdirSync(themesDir).filter((f) => f.endsWith('.css')).sort().map((f) => path.join(themesDir, f));
+    ? [...declared.keys()].sort().map((n) => path.join(themesDir, n, `${n}.css`)).filter((f) => fs.existsSync(f))
+    : themeEntries(themesDir).filter((f) => f.endsWith('.css')).sort().map((f) => themePath(themesDir, f));
   if (!themeFiles.length) {
     errors.push('checkNoSafeDefaultTokens found no palettes to read the theme token vocabulary from — the contract is unverifiable.');
     return;
@@ -5090,7 +5120,7 @@ function checkAdaptDeclarations(manifests, errors) {
   // maker-checker caught). Union it in for chart-bucket components, the way
   // checkVariantDeclaration unions base.modifiers.
   const chartFamilyCss = (() => {
-    const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+    const p = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
   })();
   for (const m of manifests) {
@@ -5167,7 +5197,7 @@ function checkAdaptDeclarations(manifests, errors) {
     const mermaidReflow = /```\s*mermaid/i.test(`${m.skeleton || ''}\n${m.sample || ''}`);
     // A carousel RESHAPE recipe is the fourth mechanism, and it is box-conditional by
     // construction: auto-split is skipped outright on a landscape @size
-    // (lattice-emulator.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
+    // (lattice.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
     // square/tall/strip. `table` is the case — a wide read-across table cannot
     // paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a
     // card with the column headers as labeled fields. That is "the box is
@@ -5324,18 +5354,23 @@ function checkRenderNature(manifests, errors) {
 // that, and the arm below fails loudly if one starts, which is the right way to
 // find out.
 //
-// It also enforces the two conventions the `kernel` block stopped declaring once
-// `module`/`entry` were dropped as redundant: the kernel is at
-// `<name>/<name>.transform.js` and exports `transformSection`.
+// It also enforces the two facts the `kernel` block does not declare: the kernel is at
+// `<name>/<name>.transform.js` and exports `transformSection`. Since phase F the plugin that
+// offers the slot declares both, once, for every filler (its `role` and `entry`).
 // engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md.
-const KERNEL_BUCKETS_GATED = new Set(['chart']);
+// The bucket, the module role and the entrypoint are the chart family plugin's `kernel` slot
+// (lib/plugins/chart-family, plugin-system §5 phase F), read from the plugin registry's data —
+// never a second hand-kept bucket list beside the loader's.
+const KERNEL_SLOT = require('../lib/plugins/extension-points.generated.json').kernel || null;
+const KERNEL_BUCKETS_GATED = new Set(KERNEL_SLOT ? [KERNEL_SLOT.bucket] : []);
+const kernelModuleRel = (bucket, name) => path.join('lib', 'components', bucket, name, `${name}.${KERNEL_SLOT.role}.js`);
 
 function checkChartKernels(manifests, errors) {
   for (const m of manifests) {
     if (!m.kernel) continue;
     const bucket = manifestBucket(m);
     if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;  // the loader already rejected it
-    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const rel = kernelModuleRel(bucket, m.name);
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs)) {
       errors.push(
@@ -5349,11 +5384,12 @@ function checkChartKernels(manifests, errors) {
     // — a shorthand or keyed entry inside `module.exports = { … }`, or a direct
     // `exports.transformSection =`.
     const exportsBlock = src.match(/module\.exports\s*=\s*\{[\s\S]*?\}\s*;/);
-    const exported = /\bexports\.transformSection\s*=/.test(src)
-      || (exportsBlock && /(^|[{,\s])transformSection\s*(?:[,:}]|$)/m.test(exportsBlock[0]));
+    const entry = KERNEL_SLOT.entry;
+    const exported = new RegExp(`\\bexports\\.${entry}\\s*=`).test(src)
+      || (exportsBlock && new RegExp(`(^|[{,\\s])${entry}\\s*(?:[,:}]|$)`, 'm').test(exportsBlock[0]));
     if (!exported) {
       errors.push(
-        `${rel}: does not export \`transformSection\` — the family's one entrypoint. ` +
+        `${rel}: does not export \`${entry}\` — the family's one entrypoint. ` +
         `The generated registry would put \`undefined\` in the dispatch table and every ` +
         `${m.name} slide would throw at render time.`);
     }
@@ -5483,7 +5519,7 @@ function checkChartMarks(manifests, errors) {
     if (!m.kernel || !Array.isArray(m.kernel.marks)) continue;  // the loader reports a missing block
     const bucket = manifestBucket(m);
     if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;
-    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const rel = kernelModuleRel(bucket, m.name);
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs)) continue;  // checkChartKernels reports the missing kernel
     const src = fs.readFileSync(abs, 'utf8');
@@ -5608,7 +5644,7 @@ const SANCTIONED_MARK_IDENTITY = [
   // built with a raw substring search and carried three rows that were COMMENTS —
   // `_chart-family/label-drops.js`, `_chart-family/svg-label.js` and `word-cloud.transform.js`
   // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
-  // the same way — `_chart-family/chart-family.js` writes `data-label-drops`, `journey.transform.js`
+  // the same way — `lib/plugins/chart-family/chart-family.dispatch.js` writes `data-label-drops`, `journey.transform.js`
   // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
   // attribute name, so none can come back. Thirteen files wrote a mark identity then, not
   // eighteen. (`word-cloud.transform.js` has since started writing one for real — its words
@@ -5616,6 +5652,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // Twenty rows as of the 2026-09-24 accessibility pass, which gave every chart's marks a name;
   // twenty-four after its second round, which named the marks the rewritten narrations of line,
   // journey, roadmap `horizons` and matrix-grid open their sentences with.
+  // collage names each tile by its photo's alt text, so a narrated sentence that opens with the alt
+  // lands the Present Guide's pointer on that photo (projection: lib/transformers/prose-projection.mjs
+  // `speakCollage`). It declares no value.
+  ['components/imagery/collage/collage.transform.js', true, false],
   ['components/chart/bar/bar.transform.js', true, true],
   ['components/chart/bullet/bullet.transform.js', true, true],
   // The shared category-axis emitter: a category's label names the column or row a data-series
@@ -5659,7 +5699,9 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/flowchart/flowchart.layout.js', true, false],
   ['components/chart/timeline-list/timeline-list.transform.js', true, false],
   ['components/chart/waterfall/waterfall.transform.js', true, true],
-  ['components/chart/word-cloud/word-cloud.transform.js', true, false],
+  // A word with detail (a `>` description or nested bullets, #2690) also carries its weight as
+  // `data-value`, so the reveal popover shows the number beside the word as on every other chart.
+  ['components/chart/word-cloud/word-cloud.transform.js', true, true],
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
@@ -5833,7 +5875,7 @@ const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
 // HTML document a human then opens. A root is a directory or a single file.
 //
 // It shipped as `docs/src` alone, and that was half the class: the CLI export pipeline
-// assembles the same document from the same caller CSS (`lattice-emulator.js`'s `htmlDoc`
+// assembles the same document from the same caller CSS (`lattice.js`'s `htmlDoc`
 // scaffold takes a `--css` layout sheet and a theme file, both caller-supplied by
 // construction) and was not scanned at ALL, so the same breakout could recur there in
 // silence. Measured over the repo, the marker selects 2 files outside `docs/src` under
@@ -5852,7 +5894,7 @@ const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
 //
 // Widening this set widens HARD RULE #22. Its test pins the set by value, so it cannot
 // move without saying so out loud.
-const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice-emulator.js'];
+const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice.js'];
 // A document assembler that legitimately does not call the sanitizer, with the reason.
 // Same anti-rot shape as the other allowlists: a stale entry fails.
 //
@@ -5901,6 +5943,18 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // new adapter is a new provenance to write down here (2026-09-27-trama-graph-chart-library.md).
 const RUNTIME_MARKUP_EXTRA_FILES = [
   'docs/src/lib/trama/pipeline.ts',
+  // The collage lightbox copies a photo's source and alt text into the parent document, or into the
+  // exported player. Both files write text, attributes and an image source only, and the core
+  // allowlists the source (http, https, blob, data:image/). Listed so a later `innerHTML` is caught
+  // (spec 2026-10-11-collage-component.md §5.4a).
+  'docs/src/playground/collage-host.js',
+  'lib/core/collage-lightbox.mjs',
+  // The code block's copy buttons are drawn into a slide after the preview builder sanitized it, and
+  // copy the block's text as HTML. Both files build elements with createElement and read the copied
+  // HTML back with `outerHTML`; nothing is parsed from a string. Listed so a later `innerHTML` is
+  // caught (engineering/decisions/2026-10-15-code-plugin.md §9.7).
+  'docs/src/playground/code-copy-host.js',
+  'lib/core/code-copy.mjs',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
@@ -5915,8 +5969,15 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'can FORGE either attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so ' +
       'neither adapter trusts any of it: its sanitizeModel rebuilds every structural field from a closed set ' +
       'or an integer range and drops the rest, and every author string is escaped where it is painted. ' +
-      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup" and ' +
-      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary".',
+      'A node\'s ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js) is read back out of the ' +
+      'HARNESS, which a deck can forge as well: Trama\'s `drawing` rebuilds it from six shape elements and ' +
+      'their geometry attributes, each value checked against the characters geometry is written in and ' +
+      'every number in it bounded at 1e4, inside a wrapper that clips two units past the icon grid, and ' +
+      'keeps nothing else (no other element, style, href, event or paint). ' +
+      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup", ' +
+      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary" ' +
+      'and test/unit/components/graph-icons.test.js "a forged harness cannot inject markup" and ' +
+      '"the cases the red team probed are pinned".',
   },
   // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
   // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
@@ -5952,8 +6013,9 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 2,
     provenance:
       'THIRD PARTY (1 of 2) — the SVG mermaid.render() returns, written into `#container` of the CLI ' +
-      "bake's OWN headless Chromium page: mermaid-cli's own dist/index.html (its bundle, with KaTeX and " +
-      'FontAwesome faces) plus the Mermaid library, given one diagram definition and an init config of ' +
+      "bake's OWN headless Chromium page: mermaid-cli's render page (the plugin's copy, vendor/mermaid-cli/" +
+      "index.html: its bundle, with KaTeX and FontAwesome faces) plus the Mermaid library, " +
+      'given one diagram definition and an init config of ' +
       'palette-derived theme variables, so it can read the drawn SVG back out. It never runs in the ' +
       'preview frame or any document a reader opens; the SVG it reads out reaches the deck as the ' +
       "bake's output, which the export path's HARD RULE #22 arms already cover. Contained by " +
@@ -5991,6 +6053,7 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name === 'dist') continue;
     // Any DOT-prefixed entry, generalizing the `.astro` special case this replaces. Hidden
     // directories in a source tree are caches and staging areas, never source: `.astro`,
@@ -6032,6 +6095,38 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
+       + 'point behind it (#2648 P1). Present\'s window listener would open the chart-detail card on '
+       + 'the same keydown if the lightbox\'s capture-phase swallow failed, and there is no signal '
+       + 'for a card that must not open; a poll of the unchanged DOM goes green on its first tick. '
+       + '400ms covers the key dispatch, the chart-detail reveal and the popover mount; the same '
+       + 'file\'s POSITIVE arm shows that card mounts inside 1s once Escape closes the lightbox.',
+  },
+  {
+    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 600, count: 1,
+    why: 'AN ABSENCE ASSERTION: a click on a photo inside Present opens no lightbox, because the slide '
+       + 'card is pointer-events-none (PresentOverlay.tsx). There is no signal for an open that must '
+       + 'not happen. 600ms covers the click dispatch and the 400ms open glide the other arms wait '
+       + 'out, so a lightbox that was going to open would already be mounted.',
+  },
+  {
+    file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
+       + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
+       + 'for an import that must not happen; a poll of the unchanged source goes green on its first '
+       + 'tick, before the lazy deck-import chunk could even load. 1000ms covers that chunk, the PDF '
+       + 'read and the debounced source save that a wrong import would cause; the same file\'s '
+       + 'POSITIVE arms show those all land inside it (a real import there is polled, and passes).',
+  },
+  {
+    file: 'docs/e2e/segno-playground.spec.ts', ms: 250, count: 1,
+    why: 'THE CADENCE IS THE INPUT, not a wait for an outcome: step 13 reproduces #2573\'s finding 3, '
+       + 'where every keystroke re-armed the 1.5 s build timer and typing kept a runaway build alive '
+       + '(6.5 s). The spec types one character every 250 ms during the runaway and asserts the timer '
+       + 'still stops it inside 4 s; a keystroke polled on a signal would not be the user typing.',
+  },
+  {
     file: 'docs/e2e/print-preview-documents.spec.ts', ms: 1500, count: 1,
     why: 'AN ABSENCE ASSERTION: the Share sheet keeps the Print drawer mounted but FROZEN while '
        + 'closed, and the claim is that editing the deck then re-renders nothing in it. A '
@@ -6042,15 +6137,26 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'fixed wait, so the window measures the edit alone.',
   },
   {
-    file: 'docs/e2e/code-packages.spec.ts', ms: 2500, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS, and they are the claim the spec exists to prove: a hostile code '
-       + 'package (unapproved, then approved), and a package that reads only `slide.facts` and tries '
-       + 'to send them out (contract note §11), send NOTHING to a loopback HTTP server or a UDP '
+    file: 'docs/e2e/code-packages.spec.ts', ms: 2500, count: 4,
+    why: 'FOUR ABSENCE ASSERTIONS, and they are the claim the spec exists to prove: a hostile code '
+       + 'package (unapproved, then approved), a package that reads only `slide.facts` and tries '
+       + 'to send them out (contract note §11), and a package holding a dynamic import() that the '
+       + 'Library import refuses, so that no sandbox frame opens for it (contract note §10), send NOTHING to a loopback HTTP server or a UDP '
        + 'socket (contract note 2026-09-24 §9). There is no signal for a request that must not '
        + 'arrive; a poll of an empty log goes green on its first tick. 2500ms covers the package\'s '
        + 'own load-time and per-slide attempts (fetch, WebSocket, WebRTC ICE gathering, which is '
        + 'the slowest) after the slide has visibly rendered; the same file\'s CONTROLS then show '
        + 'the page reaching both listeners within a bounded poll.',
+  },
+  {
+    file: 'docs/e2e/plugin-fence.spec.ts', ms: 2500, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS, the claim the spec exists to prove (plugin-system §9 decisions 10 to 14): '
+       + 'a hostile zip plugin (listed but unapproved, then approved, then run again by Share to PDF) sends '
+       + 'NOTHING to a loopback HTTP server or a UDP socket. There is no signal for a request that must not '
+       + 'arrive; a poll of an empty log goes green on its first tick. 2500ms is the same window '
+       + 'code-packages.spec.ts holds, covering the renderer\'s load-time and per-fence attempts (fetch, '
+       + 'WebSocket, WebRTC ICE gathering, the slowest) after the fence has visibly drawn; the same test\'s '
+       + 'CONTROLS then show the page reaching both listeners within a bounded poll.',
   },
   {
     file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
@@ -6928,7 +7034,7 @@ function checkFrontMatterReaders(errors) {
   ];
   const files = [
     ...roots.flatMap((d) => listClassAttrFiles(d)),
-    ...[path.join(ROOT, 'lattice-emulator.js')].filter((f) => fs.existsSync(f)),
+    ...[path.join(ROOT, 'lattice.js')].filter((f) => fs.existsSync(f)),
   ];
   for (const file of files) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
@@ -7076,7 +7182,7 @@ const EOL_UTF8_READ = /readFileSync\s*\([^)]*['"]utf-?8['"]|\.text\(\)|readFile\
 const EOL_STRICT_FM_ANCHOR = /\/\^---\\n|startsWith\(\s*['"`]---\\n/g;
 
 const EOL_BOUNDARY_ROOTS = ['lib', 'tools', 'docs/src', 'docs/scripts'];
-const EOL_BOUNDARY_FILES = ['lattice-emulator.js'];
+const EOL_BOUNDARY_FILES = ['lattice.js'];
 
 /**
  * The authoritative boundary list. `expect` defaults to the full ingest idiom — BOM strip AND
@@ -7102,7 +7208,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pinned because a door added later would inherit the old bug silently.',
   },
   {
-    file: 'lattice-emulator.js',
+    file: 'lattice.js',
     why: 'readFileOrDie — the CLI\'s only door for author text, and the one that actually fixes '
        + '#1349. The emulator calls resolve-palette on raw file text OUTSIDE the engine\'s '
        + 'render(), so nothing downstream could rescue it.',
@@ -7136,6 +7242,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'than the identical content in LF, and the tool exists to publish figures that other '
        + 'documents quote. A measurement instrument that reports differently by encoding is '
        + 'worse than no instrument.',
+  },
+  {
+    file: 'lib/authoring/code-format/fmt-cli.mjs',
+    why: 'formatDeck — `lattice fmt` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
+       + 'the planner reads it as the engine does, then puts both back on write: a formatter must not '
+       + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
     file: 'tools/export-marp.js',
@@ -7214,6 +7326,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/build-capabilities.js',
+    why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '
+       + 'for a locally CRLF-saved file; nothing downstream of it decides a palette or a slide '
+       + 'count. Same shape as the decisions and gotchas indexes below.',
+  },
   {
     file: 'tools/build-decisions-index.js',
     why: 'reads REPO-COMMITTED notes, not author text. `.gitattributes` (`* text=auto eol=lf`, '
@@ -7469,6 +7588,7 @@ const CLASS_ATTR_EXTS = /\.(?:js|ts|tsx|mjs|cjs|astro)$/;
 function listClassAttrFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
@@ -7488,7 +7608,7 @@ function classAttrOffenses(dirs = {}) {
   // The root emulator only — there is no root `lattice-runtime.js` (the runtime's source is
   // `lib/runtime/**`, already covered by the `lib` root), and naming a file that does not
   // exist reads as a coverage claim the gate does not honor.
-  const extra = dirs.files || [path.join(ROOT, 'lattice-emulator.js')];
+  const extra = dirs.files || [path.join(ROOT, 'lattice.js')];
   const files = [...roots.flatMap((d) => listClassAttrFiles(d)), ...extra.filter((f) => fs.existsSync(f))];
   const out = [];
   for (const file of files) {
@@ -7595,7 +7715,7 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
 function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, root = ROOT) {
   const excused = new Map(exempt.map((e) => [e.file, e]));
   const seen = new Set();
-  // A root is a directory to walk or a single file to read; `lattice-emulator.js` is the
+  // A root is a directory to walk or a single file to read; `lattice.js` is the
   // latter, and resolving it by `listSourceFiles` would silently scan nothing.
   const files = [];
   for (const r of DOC_STYLE_SINK_ROOTS) {
@@ -7652,7 +7772,7 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
  *
  * So whatever guarded the document upstream is undone at the re-wrap, and the re-wrap owes
  * the call itself. There are two such sites and they are twins: the CLI's
- * (`lattice-emulator.js`) and the browser's (`player-prune-browser.ts`, whose output
+ * (`lattice.js`) and the browser's (`player-prune-browser.ts`, whose output
  * `share-export.ts` mounts in a same-origin frame and then hands to a recipient). The
  * first cut of this work guarded one of the two, and a red-team pass drove the other to a
  * real cross-origin fetch from the shipped artifact — which is exactly the kind of
@@ -7740,7 +7860,7 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
       const body = m[1];
       // A literal body (no interpolation, no concatenation) is our own static CSS.
       if (!/\$\{|['"`]\s*\+|\+\s*['"`]/.test(body)) continue;
-      // Only elements built out of PRUNED CSS are this check's business. `lattice-emulator.js`'s
+      // Only elements built out of PRUNED CSS are this check's business. `lattice.js`'s
       // base64 font block is a fixed manifest in the same file and must stay out.
       if (!mentionsTaint(body)) continue;
       found = true;
@@ -7848,7 +7968,7 @@ function pluginMigrationCounts(root = ROOT) {
   const FENCE_OVERRIDE = /(?:\.\s*fence|\[\s*(['"`])fence\1\s*\])\s*=(?!=)/g;
   const fenceFiles = [];
   for (const dir of ['lib', 'docs/src']) listSourceFiles(path.join(root, dir), fenceFiles);
-  fenceFiles.push(path.join(root, 'lattice-emulator.js'));
+  fenceFiles.push(path.join(root, 'lattice.js'));
   let fenceWrappers = 0;
   for (const file of fenceFiles) {
     const rel = path.relative(root, file).split(path.sep).join('/');
@@ -7871,7 +7991,7 @@ function pluginMigrationCounts(root = ROOT) {
     const re = new RegExp(`\\b(?:${tokens.join('|')})\\b`, 'g');
     const files = [];
     for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -7889,7 +8009,7 @@ function pluginMigrationCounts(root = ROOT) {
     const re = new RegExp(`\\blanguage-(?:${drawn.join('|')})(?![\\w-])`, 'g');
     const files = [];
     for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -7914,7 +8034,7 @@ function pluginMigrationCounts(root = ROOT) {
     const stateRe = new RegExp(`data-(?:${drawnPlugins.join('|')})-(?:state|final)\\b|\\b(?:${drawnPlugins.map(camel).join('|')})(?:State|Final)\\b`, 'g');
     const files = [];
     for (const dir of ['lib', 'tools', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css'], files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -7962,7 +8082,7 @@ function pluginMigrationCounts(root = ROOT) {
     // unrelated `searchParams.get('math')` never trips it. A tripwire for this one idiom: a
     // `.get(name)` through a variable, or a `.find()` over the values, is not counted.
     const re = new RegExp(`\\b\\w*contexts\\s*\\.get\\(\\s*(['"\`])(?:${allNames.map(reEscape).join('|')})\\1\\s*\\)`, 'gi');
-    const files = [path.join(root, 'lattice-emulator.js')];
+    const files = [path.join(root, 'lattice.js')];
     for (const dir of ['lib', 'tools']) listSourceFiles(path.join(root, dir), files);
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
@@ -7988,7 +8108,7 @@ function pluginMigrationCounts(root = ROOT) {
     ].join('|'), 'gm');
     const files = [];
     for (const dir of ['lib', 'tools', 'themes', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css', '.json'], files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -8312,7 +8432,9 @@ const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
 // The ONLY paths allowed to spend our key — on-demand, opt-in, cost-printing (rule #24).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs'];
+// tools/probe-picture-tokens.mjs: measures what one picture costs per vision model (the Studio chat's budget gate table);
+// opt-in (OPENROUTER_ALLOW_SPEND=1), prints its planned call count first, --limit and --cap bound it; ~$1.4 for the whole catalog.
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
 // unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
@@ -8526,8 +8648,9 @@ const VETRINA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'vetrina');
 // it to the host and breaks the "standalone, zero host deps" promise (§13). The
 // one sanctioned outside dep is `react`/`react-dom` in the thin adapter, which
 // §13 designates the peer-dep seam — keyed to that filename so nothing else can
-// launder a host import through it.
-const VETRINA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+// launder a host import through it. Every import shape counts — static, side-effect, dynamic
+// `import()` and `require()` — so the gate reads `SUONO_SPEC_PATTERNS`, as the Suono, Lente and Segno
+// gates do (followup 2462-p3: a `from`-only pattern let `import './../x'` walk around it).
 const VETRINA_ADAPTER = 'react.ts'; // the sole file allowed to import the peer framework
 const VETRINA_ADAPTER_DEPS = new Set(['react', 'react-dom']);
 // ONE sanctioned dependency for every file, by exact name: `@laticent/ltt`, the timing-track format.
@@ -8538,6 +8661,15 @@ const VETRINA_ADAPTER_DEPS = new Set(['react', 'react-dom']);
 // relative `../ltt/` escape still fails.
 const VETRINA_SANCTIONED_DEP = '@laticent/ltt';
 
+// Is `spec`, imported from `file`, a relative path that stays inside `dir`? `./../x` starts with
+// `./` and lands outside, so a prefix test is not enough: resolve it and look at where it lands.
+// Shared by the Vetrina, Suono, Lente and Segno gates; the strict package walker below has its own.
+function staysInFolder(dir, file, spec) {
+  if (!spec.startsWith('./')) return false;
+  const rel = path.relative(dir, path.resolve(path.dirname(file), spec));
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
 // `dir` defaults to the real library; the unit test points it at a scratch folder to prove the
 // gate bites.
 function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
@@ -8547,17 +8679,19 @@ function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev test runner (a devDep, not host coupling)
     const isAdapter = base === VETRINA_ADAPTER;
-    const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(VETRINA_IMPORT)) {
-      const spec = m[1];
-      if (spec.startsWith('./')) continue; // in-folder relative — fine
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const spec of SUONO_SPEC_PATTERNS.flatMap((pattern) => [...src.matchAll(pattern)].map((m) => m[1]))) {
+      if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
       if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
       if (isAdapter && VETRINA_ADAPTER_DEPS.has(spec)) continue; // the sanctioned peer-dep seam
       if (spec === VETRINA_SANCTIONED_DEP) continue; // the LTT format — its one dependency (see above)
+      if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
+      seen.add(spec);
       errors.push(
         `${rel} imports '${spec}', which escapes the Vetrina folder. The walkthrough library is ` +
         `open-sourceable and MUST stay self-contained (design doc §13): imports resolve inside ` +
-        `docs/src/lib/vetrina/ (\`./x\`) only. The exceptions are '${VETRINA_SANCTIONED_DEP}' by that exact name, and ` +
+        `docs/src/lib/vetrina/ (\`./x\`) only, whatever the shape (static, side-effect, dynamic \`import()\`, \`require()\`). The exceptions are '${VETRINA_SANCTIONED_DEP}' by that exact name, and ` +
         `react/react-dom in the ${VETRINA_ADAPTER} adapter (the peer-dep seam). Move shared code into the folder, or route host glue through the adapter.`,
       );
     }
@@ -8579,6 +8713,7 @@ const TEST_FILE = /\.test\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
 function listPackageSources(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.dist.tmp-')) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listPackageSources(p, out);
@@ -8774,6 +8909,101 @@ function checkTramaBoundary(errors, dir = TRAMA_DIR) {
   });
 }
 
+// ── Calco (docs/src/lib/calco) — the office-export library ──────────────────
+// Calco's reader ships into a headless page as `fn.toString()` source, so a value import
+// would be a free variable inside the shipped function. Like Trama it has NO dependencies,
+// not even `node:`: JSZip, PptxGenJS and the font pinner arrive as arguments, and type-only
+// imports are erased (2026-10-06-calco-office-export-library.md).
+const CALCO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'calco');
+function checkCalcoBoundary(errors, dir = CALCO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Calco folder. Calco ships its reader as ` +
+      `serialized source and takes JSZip, PptxGenJS and the font pinner as arguments, so ` +
+      `every import must resolve inside docs/src/lib/calco/ ` +
+      `(engineering/decisions/2026-10-06-calco-office-export-library.md).`,
+  });
+}
+
+// ── Tavola (docs/src/lib/tavola) — the live-collaboration engine ────────────
+// Tavola knows peers and bytes; the Studio knows screens. The transport and the document are
+// passed in, the way Trama takes dagre, so the core imports nothing outside its folder
+// (engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1). ONE sanctioned third-party
+// import, by exact name and exact file: the Trystero adapter's `trystero/nostr`. Anywhere else in the
+// folder that specifier is a violation too, or the core would quietly grow a network dependency.
+const TAVOLA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'tavola');
+const TAVOLA_ADAPTER = path.join(TAVOLA_DIR, 'adapters', 'trystero.ts');
+const TAVOLA_SANCTIONED_BARE = 'trystero/nostr';
+function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapter = TAVOLA_ADAPTER) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set([TAVOLA_SANCTIONED_BARE]),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Tavola folder. Tavola takes its transport and ` +
+      `document as arguments, so every import must resolve inside docs/src/lib/tavola/ ` +
+      `(engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        if (m[1] !== TAVOLA_SANCTIONED_BARE) continue;
+        errors.push(
+          `${path.relative(ROOT, file)} imports '${TAVOLA_SANCTIONED_BARE}'. Only ` +
+          `${path.relative(ROOT, adapter)} may: the Tavola core stays transport-free, and the adapter ` +
+          `is the one sanctioned exception (2026-10-06-studio-live-collaboration.md §7.1).`,
+        );
+      }
+    }
+  }
+}
+
+// ── Fuoco (docs/src/lib/fuoco) — the focus hub ──────────────────────────────
+// Fuoco keeps every view of a document in step, and knows nothing about what the document is:
+// the host passes its document model in as an outliner (2026-10-15-fuoco-focus-sync.md §12).
+// Lattice's own slide outliner lives OUTSIDE the folder (docs/src/lib/deck-outline) for exactly
+// that reason. So the core imports nothing outside its folder, not even `node:`; ONE sanctioned
+// bare import, by exact name and exact file: `react` in the React adapter.
+const FUOCO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'fuoco');
+const FUOCO_ADAPTER = path.join(FUOCO_DIR, 'react.ts');
+function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(['react']),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Fuoco folder. Fuoco takes the document model ` +
+      `as an outliner, so every import must resolve inside docs/src/lib/fuoco/; a host's own ` +
+      `outliner (Lattice's is docs/src/lib/deck-outline) lives outside it ` +
+      `(engineering/decisions/2026-10-15-fuoco-focus-sync.md §12).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${path.relative(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Fuoco core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/fuoco/.`,
+      );
+    }
+    const src = stripJsComments(raw);
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        if (m[1] !== 'react') continue;
+        errors.push(
+          `${path.relative(ROOT, file)} imports 'react'. Only ${path.relative(ROOT, adapter)} may: ` +
+          `the Fuoco core is framework-free, and the React adapter is the one sanctioned exception.`,
+        );
+      }
+    }
+  }
+}
+
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -8853,9 +9083,9 @@ const SUONO_SPEC_PATTERNS = [
   /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
 ];
 
-function checkSuonoBoundary(errors) {
-  if (!fs.existsSync(SUONO_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(SUONO_DIR)) {
+function checkSuonoBoundary(errors, dir = SUONO_DIR) {
+  if (!fs.existsSync(dir)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
@@ -8864,7 +9094,7 @@ function checkSuonoBoundary(errors) {
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
         if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
         if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
         seen.add(spec);
@@ -9028,9 +9258,9 @@ function checkAjvBoundary(errors, dirs = [LIB_DIR, path.join(ROOT, 'docs', 'src'
   }
 }
 
-function checkLenteBoundary(errors) {
-  if (!fs.existsSync(LENTE_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(LENTE_DIR)) {
+function checkLenteBoundary(errors, dir = LENTE_DIR) {
+  if (!fs.existsSync(dir)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
@@ -9039,7 +9269,7 @@ function checkLenteBoundary(errors) {
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
         if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
         if (seen.has(spec)) continue;
         seen.add(spec);
@@ -9064,9 +9294,9 @@ function checkLenteBoundary(errors) {
 // way the engine does today.
 const SEGNO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'segno');
 
-function checkSegnoBoundary(errors) {
-  if (!fs.existsSync(SEGNO_DIR)) return;
-  for (const file of listSourceFiles(SEGNO_DIR)) {
+function checkSegnoBoundary(errors, dir = SEGNO_DIR) {
+  if (!fs.existsSync(dir)) return;
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue;
@@ -9075,8 +9305,7 @@ function checkSegnoBoundary(errors) {
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        // `./x` stays in the folder; `./../x` starts with `./` and does not, so resolve it.
-        if (spec.startsWith('./') && !path.relative(SEGNO_DIR, path.resolve(path.dirname(file), spec)).startsWith('..')) continue;
+        if (staysInFolder(dir, file, spec)) continue; // `./x` stays; `./../x` does not
         if (seen.has(spec)) continue;
         seen.add(spec);
         errors.push(
@@ -9282,6 +9511,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   video: 'figural — poster + QR, not prose (heading/caption are universal budgets)',
   scene: 'figural — an Anima poster still (inline svg), not prose (heading/caption are universal budgets)',
   'logo-wall': 'figural — logos',
+  collage: 'figural — photos, not prose (the description paragraph is covered by the universal body budget)',
   // connect — QR cards; fields are credentials/identity values (ssid, email), not prose.
   wifi: 'connect — Wi-Fi credentials, not prose',
   contact: 'connect — vCard identity fields, not prose',
@@ -9346,11 +9576,11 @@ function checkDensityCoverage(manifests, errors) {
 // those are ungated and stay on human review. Green ≠ "the whole categorical canon
 // is fresh"; it means the gated skill facts are.
 // Count the categorical chart-hue slots the chart family actually declares
-// (`--chart-cat-N-hue:` declarations in chart-family.css). This is the source of
+// (`--chart-cat-N-hue:` declarations in chart-family.styles.css). This is the source of
 // chart-component.md's "`--chart-cat1..8`" claim. Returns null on a structural
 // change so the caller can fail closed rather than silently miscount.
 function chartCatSlotCount() {
-  const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+  const p = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
   if (!fs.existsSync(p)) return null;
   const css = fs.readFileSync(p, 'utf8');
   const slots = new Set();
@@ -9438,7 +9668,7 @@ function skillFreshnessAssertions() {
       marker: /--chart-cat1\.\.(\d+)/,
       actual: chartCats,
       what: 'chart categorical slot count',
-      source: '--chart-cat-N-hue declarations (chart-family.css)',
+      source: '--chart-cat-N-hue declarations (chart-family.styles.css)',
     },
   ];
 }
@@ -9562,7 +9792,7 @@ function catPaletteSource(name, seen = new Set(), themesDir = THEMES_DIR) {
   if (seen.has(name)) return '';
   seen.add(name);
   if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
-  const file = path.join(themesDir, `${name}.css`);
+  const file = path.join(themesDir, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -9632,10 +9862,10 @@ function checkCatInkDeclared(errors, themesDir = THEMES_DIR) {
   const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
   const files = declared
     ? [...declared.keys()].sort().map((n) => `${n}.css`)
-    : fs.readdirSync(themesDir).filter((f) => f.endsWith('.css')).sort();
+    : themeEntries(themesDir).filter((f) => f.endsWith('.css')).sort();
   for (const file of files) {
     const name = file.replace(/\.css$/, '');
-    const full = path.join(themesDir, file);
+    const full = themePath(themesDir, file);
     if (!fs.existsSync(full)) continue; // G1 reports a manifest with no CSS
     const own = catStripComments(fs.readFileSync(full, 'utf8'));
     if (!/--cat-1-mark\s*:/.test(own)) continue; // inherits its cycle, and its ink with it
@@ -9721,11 +9951,12 @@ function catInkCollapsePairs(inks, marks) {
 }
 
 /**
- * The twelve `--hljs-*` syntax colors, against the code panel they are painted on.
+ * The twelve `--syntax-*` syntax colors, against the code panel they are painted on.
+ * (These were the `--hljs-*` tokens until 2026-10-15; the history told here uses today's names.)
  *
  * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
  * the one large token family the categorical gate above does not reach. That gap
- * hid a real defect: `cuoio`'s `--hljs-literal` sat at 4.05:1 on its own `--code-bg`,
+ * hid a real defect: `cuoio`'s `--syntax-constant` sat at 4.05:1 on its own `--code-bg`,
  * under the AA floor for code text. Nobody saw it because the export bundle then
  * concatenated the theme BEFORE the base, so the base's `#ff5874` painted instead of
  * the theme's value — which is exactly why #1527's concat flip needed this gate to land
@@ -9743,16 +9974,16 @@ function catInkCollapsePairs(inks, marks) {
  * same resolver the categorical arms use, so the two cannot disagree about what a
  * token resolves to (HARD RULE #15).
  */
-const HLJS_TOKENS = Object.freeze([
-  'built_in', 'comment', 'keyword', 'literal', 'number', 'params',
-  'punctuation', 'string', 'tag', 'title', 'type', 'variable',
-].map((t) => `--hljs-${t}`));
+const SYNTAX_TOKENS = Object.freeze([
+  'builtin', 'comment', 'constant', 'deleted', 'entity', 'inserted', 'keyword', 'markup',
+  'number', 'parameter', 'punctuation', 'string', 'type', 'variable',
+].map((t) => `--syntax-${t}`));
 
 /**
  * NO EXEMPTIONS. All twelve tokens are held to the floor, including the two that
  * are deliberately quiet.
  *
- * The first cut of this gate exempted `--hljs-comment` and `--hljs-punctuation`,
+ * The first cut of this gate exempted `--syntax-comment` and `--syntax-punctuation`,
  * on the argument that de-emphasis IS the design and that holding them to 4.5:1
  * would make a comment as loud as the statement it annotates. The measurement
  * behind it was real — 64 comment and 46 punctuation values under the floor,
@@ -9769,7 +10000,7 @@ const HLJS_TOKENS = Object.freeze([
  * theme-modes, no token that carries CODE sits below the repaired comment. Say it
  * that way and not "the comment is the quietest thing in the panel" — the looser
  * sentence shipped in the first cut and was false in 26 of 66 theme-modes, because
- * `--hljs-punctuation` is lifted to the same floor and lands a few hundredths
+ * `--syntax-punctuation` is lifted to the same floor and lands a few hundredths
  * either side. Comment and punctuation are peers at the bottom by design; what
  * must never invert is comment against the code.
  *
@@ -9777,11 +10008,13 @@ const HLJS_TOKENS = Object.freeze([
  * is the shape of a defect being counted rather than fixed.
  */
 
-function checkHljsContrast(errors, themesDir = THEMES_DIR) {
+function checkSyntaxContrast(errors, themesDir = THEMES_DIR) {
   const failures = [];
   let evaluated = 0;
   let themesScanned = 0;
   const unreadable = [];
+  // (These were the `--hljs-*` tokens until 2026-10-15; the history told here uses today's names.)
+  //
   // THE BASE IS SCANNED FIRST, and it is not optional. `lattice` is the palette
   // `dist/lattice.css` ships — what a deck renders with before any theme is picked,
   // and what `regression-gate.mjs` itself renders every golden with — so it is the
@@ -9790,12 +10023,12 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // The first cut of this gate skipped it, on the reasoning quoted in the loop
   // below: a theme with no syntax colors of its own "inherits the base's, which the
   // base is responsible for". Nothing made the base responsible. It shipped
-  // `--hljs-comment: #637777` — Night Owl's value, tuned for Night Owl's #011627 —
+  // `--syntax-comment: #637777` — Night Owl's value, tuned for Night Owl's #011627 —
   // at 3.63:1 on the base's darker #001d33, and no gate could say so. It was found
   // by asking why a full 340-render regression sweep showed no drift after fourteen
   // themes changed color: the sweep renders with `dist/lattice.css`, whose comment
   // color the theme edits never touched.
-  const scan = ['lattice', ...fs.readdirSync(themesDir).sort()
+  const scan = ['lattice', ...themeEntries(themesDir).sort()
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace(/\.css$/, ''))];
   const maps = new Map(scan.map((n) => [n, catParseTokens(catPaletteSource(n, new Set(), themesDir))]));
@@ -9804,10 +10037,10 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // the thing this gate has been wrong about twice.
   //
   // Before #1527 the export concatenated `paletteCSS + layoutCSS`, so the base loaded
-  // AFTER the theme and its `--hljs-*` won on EVERY panel; a theme's own syntax ramp
+  // AFTER the theme and its `--syntax-*` won on EVERY panel; a theme's own syntax ramp
   // never painted there. Pairing base-with-base and theme-with-theme modeled a world
   // that did not exist yet and left the shipping one unmeasured — the hole that hid
-  // indaco rendering `--hljs-literal` at 3.71:1 and `--hljs-comment` at 3.06:1 while
+  // indaco rendering `--syntax-constant` at 3.71:1 and `--syntax-comment` at 3.06:1 while
   // this gate reported clean and a "Fixed" changelog entry shipped.
   //
   // The flip landed, so the base no longer wins anywhere: its value is the FALLBACK
@@ -9828,7 +10061,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       if (!bg) continue;
       if (!panels.has(bg)) panels.set(bg, `${name}/${mode}`);
       if (name === 'lattice') continue;
-      for (const token of HLJS_TOKENS) {
+      for (const token of SYNTAX_TOKENS) {
         if (map.has(token)) continue;
         if (!inheritedPanels.has(token)) inheritedPanels.set(token, new Map());
         if (!inheritedPanels.get(token).has(bg)) inheritedPanels.get(token).set(bg, `${name}/${mode}`);
@@ -9840,7 +10073,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
     const map = maps.get(name);
     // A theme that declares no syntax colors of its own inherits the base's, which
     // is now checked above rather than assumed — nothing further here.
-    if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
+    if (!SYNTAX_TOKENS.some((t) => map.has(t))) continue;
     themesScanned += 1;
     for (const mode of ['light', 'dark']) {
       const own = catResolve(map, '--code-bg', mode);
@@ -9849,7 +10082,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       // token; a theme only against its own, because a theme's value cannot paint on
       // another theme's panel.
       const inheritedFor = (token) => [...(inheritedPanels.get(token)?.keys() ?? [])];
-      for (const token of HLJS_TOKENS) {
+      for (const token of SYNTAX_TOKENS) {
         if (!map.has(token)) continue;
         const fg = catResolve(map, token, mode);
         if (!fg) {
@@ -9875,13 +10108,13 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       // eight palettes (concrete reached OKLab dE 0.0030, 1.01:1 against each
       // other) — legible, and indistinguishable, which is a different defect from
       // the one the lift fixed. Judged against the repo's own collapse floor.
-      const cmt = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
-      const pun = map.has('--hljs-punctuation') && catResolve(map, '--hljs-punctuation', mode);
+      const cmt = map.has('--syntax-comment') && catResolve(map, '--syntax-comment', mode);
+      const pun = map.has('--syntax-punctuation') && catResolve(map, '--syntax-punctuation', mode);
       if (cmt && pun) {
         const dist = oklabDistance(cmt, pun);
         if (dist < CAT_INK_COLLAPSE_DIST) {
           failures.push(
-            `${name}/${mode} --hljs-comment ${cmt} and --hljs-punctuation ${pun} collapse — ` +
+            `${name}/${mode} --syntax-comment ${cmt} and --syntax-punctuation ${pun} collapse — ` +
             `OKLab dE ${dist.toFixed(4)} < ${CAT_INK_COLLAPSE_DIST}`,
           );
         }
@@ -9890,7 +10123,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   }
   if (unreadable.length) {
     errors.push(
-      `${unreadable.length} \`--hljs-*\` value(s) are in a notation catResolve cannot read, so they were never ` +
+      `${unreadable.length} \`--syntax-*\` value(s) are in a notation catResolve cannot read, so they were never ` +
       `measured: ${unreadable.slice(0, 6).join('; ')}${unreadable.length > 6 ? `, +${unreadable.length - 6} more` : ''}. ` +
       'Write the value as a hex literal (or a light-dark()/var()/color-mix() of hex literals) so the floor applies. ' +
       'An unreadable value is an UNCHECKED value, not a passing one.',
@@ -9900,14 +10133,14 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // curated palettes is hundreds of pairs; a near-zero count means the scan broke.
   if (evaluated < 100) {
     errors.push(
-      `checkHljsContrast evaluated only ${evaluated} token-mode pairs across ${themesScanned} theme(s) — ` +
+      `checkSyntaxContrast evaluated only ${evaluated} token-mode pairs across ${themesScanned} theme(s) — ` +
       'the curated palettes declare twelve syntax colors each, so this is a broken scan, not a clean tree.',
     );
     return;
   }
   if (failures.length) {
     errors.push(
-      `${failures.length} \`--hljs-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
+      `${failures.length} \`--syntax-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
       `--code-bg: ${failures.slice(0, 8).join('; ')}${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. ` +
       'Lift the value in OKLCH holding hue and chroma (the move derive-cat-ink makes for the ink tier) rather ' +
       'than picking a new color by eye — the palette author chose the hue. Since #1527 the export loads ' +
@@ -9917,17 +10150,68 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   }
 }
 
+/**
+ * A RECEDED CODE LINE STAYS READABLE (HARD RULE #3's contrast half, for the code plugin). A line a
+ * `focus=` record or a slide's `_focus: line` recedes drops to one color, `--code-text` mixed toward
+ * `--code-bg` by `--code-recede` (lib/plugins/code/code.styles.css). The spotlight's opacity used to
+ * do this and left a receded comment at 1.23:1, which reads as blank. This holds the mix at
+ * CODE_RECEDE_FLOOR on every palette's panel, in both modes, reading the percentage from the
+ * stylesheet itself so the two cannot drift. 3:1 is the floor for context, not reading text: the
+ * focused lines keep the 4.5:1 checkSyntaxContrast holds.
+ */
+const CODE_RECEDE_FLOOR = 3;
+function checkCodeRecede(errors, themesDir = THEMES_DIR, cssFile = path.join(ROOT, 'lib', 'plugins', 'code', 'code.styles.css')) {
+  const css = fs.readFileSync(cssFile, 'utf8');
+  const m = /--code-recede:\s*(\d+(?:\.\d+)?)%/.exec(css);
+  if (!m) {
+    errors.push(`checkCodeRecede: no \`--code-recede: N%\` in ${path.relative(ROOT, cssFile)} — the receded-line mix this gate measures is gone; restore it or retire this gate with its reason.`);
+    return;
+  }
+  const a = Number(m[1]) / 100;
+  const mix = (fg, bg) => `#${[0, 2, 4].map((i) => {
+    const f = parseInt(fg.slice(1 + i, 3 + i), 16);
+    const b = parseInt(bg.slice(1 + i, 3 + i), 16);
+    return Math.round(f * a + b * (1 - a)).toString(16).padStart(2, '0');
+  }).join('')}`;
+  const names = ['lattice', ...themeEntries(themesDir).filter((f) => f.endsWith('.css')).map((f) => f.replace(/\.css$/, ''))];
+  const failures = [];
+  let evaluated = 0;
+  for (const name of names) {
+    const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--code-bg', mode);
+      const fg = catResolve(map, '--code-text', mode);
+      if (!bg || !fg) continue;
+      evaluated += 1;
+      const ratio = catContrast(mix(fg, bg), bg);
+      if (ratio < CODE_RECEDE_FLOOR) failures.push(`${name}/${mode} ${ratio.toFixed(2)}:1`);
+    }
+  }
+  if (!evaluated) {
+    errors.push('checkCodeRecede: resolved no --code-text/--code-bg pair in any palette — the gate measured nothing.');
+    return;
+  }
+  if (failures.length) {
+    errors.push(
+      `${failures.length} palette(s) leave a receded code line under ${CODE_RECEDE_FLOOR}:1 on the panel at ` +
+      `--code-recede ${m[1]}% (lib/plugins/code/code.styles.css): ${failures.slice(0, 8).join('; ')}. ` +
+      'Raise --code-recede, or lift that palette\'s --code-text against its --code-bg.',
+    );
+  }
+}
+
 function checkCatContrast(errors) {
   checkCatInkDeclared(errors);
   checkCatInkFallback(errors);
-  checkHljsContrast(errors);
+  checkSyntaxContrast(errors);
+  checkCodeRecede(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
   let inkScanned = 0;
   const inkScannedNames = new Set();
   let inkEvaluated = 0; // ④ slot×mode×surface pairs — its own metric, since its scope is wider
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+  for (const file of themeEntries(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
     const map = catParseTokens(catPaletteSource(name));
@@ -10109,7 +10393,7 @@ function checkCatContrast(errors) {
   // inkScanned and inkEvaluated shrink together, so `inkEvaluated < inkScanned * K`
   // stays satisfied and the gate reports nothing. Name every palette file that
   // failed to get scanned instead — that is unfixable by proportional shrinkage.
-  const inkExpected = fs.readdirSync(THEMES_DIR)
+  const inkExpected = themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.css') && !f.includes('audit'))
     .map((f) => f.replace(/\.css$/, ''));
   const inkMissed = inkExpected.filter((t) => !inkScannedNames.has(t));
@@ -10924,7 +11208,7 @@ const PDF_OWNERSHIP = [
       && !/-gallery\.(light|dark)\.pdf$/.test(f) && !f.startsWith('examples/chart-theme-gallery/')
       && hasSourceDeck(f),
     what: 'per-feature demo decks (HARD RULE #9) and the token-contrast set',
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     // `overflow:check` alone used to be named here and it OVERSTATED the claim: it
     // re-renders the markdown to a scratch dir and deletes it, so it never opens the
     // committed artifact. `regress --scope decks` does (#1379).
@@ -10933,25 +11217,25 @@ const PDF_OWNERSHIP = [
   {
     test: (f) => /^exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the worked boardroom exemplars',
-    producer: 'tools/build-exemplar-pdfs.js · tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'tools/build-exemplar-pdfs.js · the nightly bless (tools/golden-bless.mjs)',
     watcher: 'npm run regress (pixel, --scope decks) · test:integration:exemplars · overflow:check',
   },
   {
     test: (f) => /^design\/[a-z][a-z0-9-]*\.gallery\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'design-system demo decks (they live with their owner, not under examples/)',
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     watcher: 'npm run regress (pixel, --scope decks) · overflow:check',
   },
   {
     test: (f) => /^test\/integration\/baseline-decks\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the CI baseline deck',
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     watcher: 'npm run regress (pixel, --scope decks) · test:integration (page-count assertions) · overflow:check',
   },
   {
     test: (f) => f === 'themes/palette-audit.pdf' && hasSourceDeck(f),
     what: "the theme designer's palette audit",
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     // Still outside the OVERFLOW corpus on purpose — a designer's sweep, not a shipped
     // deck — but it has a sibling deck and a committed PDF, so the pixel gate reaches it
     // like any other deck golden. That is the point of deriving that corpus from
@@ -10966,18 +11250,23 @@ const PDF_OWNERSHIP = [
     // what a recipient's marp-cli produces, so regenerating it with our engine would
     // quietly replace the artifact with one made by the engine it is being compared to.
     watcher: null,
+    // The nightly bless does not write it (tools/check-no-pdf-in-pr.mjs reads this flag):
+    // a pull request still commits it, by hand.
+    prCommitted: true,
   },
   {
     test: (f) => f.startsWith('examples/chart-theme-gallery/'),
     what: 'the chart bucket rendered under three curated chart palettes',
     producer: 'by hand: lib/components/chart/chart.gallery.md re-rendered per theme (see that folder README)',
     watcher: null, // Its own README: "reviewer deliverables, not regression baselines."
+    prCommitted: true,
   },
   {
     test: (f) => /^engineering\/decisions\/\d{4}-\d{2}-\d{2}-.+\.pdf$/.test(f),
     what: 'evidence attached to a dated decision record',
     producer: 'none — a frozen artifact of the decision it sits beside',
     watcher: null, // A dated record is a snapshot; rebuilding it would destroy the evidence.
+    prCommitted: true,
   },
 ];
 
@@ -11033,7 +11322,7 @@ function auditPdfOwnership(files) {
 // comment claimed until #1780: the whole tree is gitignored, so `git ls-files`
 // never returns a path under it and the gate has never once looked there. Nothing
 // is hiding — `dist/` was scanned directly and is clean, because esbuild
-// re-serializes a separator as an escape on its own (`dist/lattice-emulator.js`
+// re-serializes a separator as an escape on its own (`dist/lattice.js`
 // carries `var BACK_SEP = "\0";`) — but a sentence claiming coverage that does
 // not exist is how a generator emitting one would go unnoticed.
 //
@@ -11094,6 +11383,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.peggy',
   // The desktop app (desktop/src-tauri): Rust source, and Cargo.lock, which is TOML.
   '.rs', '.lock',
+  // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
+  '.license',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
@@ -11368,6 +11659,7 @@ function fallbackHops(libDir = LIB_DIR) {
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
+      if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!/\.(css|js|mjs)$/.test(e.name)) continue;
@@ -11594,7 +11886,7 @@ const MUTED_MARK_FLOOR = 3.0;
 const MUTED_SEPARATION_FLOOR = 0.030;
 
 function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
-  const themes = fs.readdirSync(themesDir)
+  const themes = themeEntries(themesDir)
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace(/\.css$/, ''));
   let measured = 0;
@@ -11619,7 +11911,7 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
     // `--text-muted` is a palette that owns this tier and must author both halves.
     // The `-dark` wrappers and the a11y family declare neither and resolve through
     // their import chain, which is correct and stays silent.
-    const own = fs.readFileSync(path.join(themesDir, `${name}.css`), 'utf8');
+    const own = fs.readFileSync(path.join(themesDir, name, `${name}.css`), 'utf8');
     for (const [text, mark] of [
       ['--text-muted', '--muted-mark'],
       ['--scheme-dark-text-muted', '--scheme-dark-muted-mark'],
@@ -11628,7 +11920,7 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
       const declaresMark = new RegExp(`^\\s*${mark}\\s*:`, 'm').test(own);
       if (declaresText && !declaresMark) {
         errors.push(
-          `themes/${name}.css declares ${text} but not ${mark}. A palette that authors the `
+          `themes/${name}/${name}.css declares ${text} but not ${mark}. A palette that authors the `
           + 'muted TEXT tier owns the muted DECORATION tier too — without it, every engine read '
           + `of ${mark} is invalid at computed-value time on this palette and the rules, `
           + 'hairlines, grid lines and skipped marks it paints disappear (#1715).');
@@ -11769,14 +12061,14 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
 
 // ─── a11y syntax separation UNDER the condition (#1715) ────────────────────
 //
-// `checkHljsContrast` holds every `--hljs-*` to AA against `--code-bg`, and on the
+// `checkSyntaxContrast` holds every `--syntax-*` to AA against `--code-bg`, and on the
 // four `a11y-*` palettes it PASSED the whole time — every inherited value cleared
 // the floor comfortably. Contrast was never what was wrong there.
 //
 // What was wrong is that two colors can both clear contrast and still be the SAME
 // COLOR to the reader the palette exists for. Until #1715 the four declared no
 // syntax family at all, so `a11y-base`'s import of `onyx` gave them onyx's:
-// `--hljs-string` green at hue 144° beside `--hljs-keyword` red at 17° — the
+// `--syntax-string` green at hue 144° beside `--syntax-keyword` red at 17° — the
 // red-green axis `a11y-deuteranopia` and `a11y-protanopia` are named for. Measured
 // through the simulation, 17 of 55 role pairs on deuteranopia were distinct to a
 // normal-sighted reader and collapsed under the condition; 19 of 55 on
@@ -11792,10 +12084,15 @@ const A11Y_SYNTAX_CONDITIONS = Object.freeze([
   { theme: 'a11y-achromatopsia', condition: 'achromatopsia' },
 ]);
 
-/** The twelve roles a palette declares. `.hljs-meta` and `.hljs-name` are not
- *  separate tokens — highlight-js.css routes them to `--hljs-type` / `--hljs-tag`. */
-const HLJS_ROLES = Object.freeze(['comment', 'keyword', 'built_in', 'number', 'literal',
-  'string', 'title', 'type', 'variable', 'params', 'tag', 'punctuation']);
+/** The twelve roles that share a code panel line by line. highlight.js's class names never
+ *  reach a theme: the code plugin's stylesheet (lib/plugins/code/code.styles.css) routes each
+ *  `.hljs-*` class to one of these roles — `.hljs-meta` to `type`, `.hljs-name` to `markup`.
+ *  The two DIFF roles, `inserted` and `deleted`, are held apart from each other instead
+ *  (SYNTAX_DIFF_PAIR): they color whole diff lines, which already carry a `+` or `-`, and meet
+ *  no other role on that line. */
+const SYNTAX_ROLES = Object.freeze(['comment', 'keyword', 'builtin', 'number', 'constant',
+  'string', 'entity', 'type', 'variable', 'parameter', 'markup', 'punctuation']);
+const SYNTAX_DIFF_PAIR = Object.freeze(['inserted', 'deleted']);
 
 /**
  * PINNED LITERALS, not imported from whatever produced the values — a floor that
@@ -11817,33 +12114,33 @@ const HLJS_ROLES = Object.freeze(['comment', 'keyword', 'built_in', 'number', 'l
  * CATEGORICAL distinctness, which is a bar for large flat areas of color rather
  * than for small text carrying italics and language structure as well.
  */
-const HLJS_SEP_FLOOR_DICHROMACY = 0.11;
-const HLJS_SEP_FLOOR_MONOCHROMACY = 0.048;
+const SYNTAX_SEP_FLOOR_DICHROMACY = 0.11;
+const SYNTAX_SEP_FLOOR_MONOCHROMACY = 0.048;
 
 /**
  * comment and punctuation are BOTH quiet by design, so holding them to the floor
  * above would be asking the palette to make its two de-emphasis roles shout at
- * each other. They are not exempt, though: `checkHljsContrast` polices exactly
+ * each other. They are not exempt, though: `checkSyntaxContrast` polices exactly
  * that pair by name against the repo's 0.010 collapse floor, after an earlier
  * change lifted both to the same AA target and merged them into one gray in eight
  * palettes. That gate owns the pair; this one steps aside rather than duplicating
  * it with a second, different number (HARD RULE #15).
  */
-const HLJS_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
+const SYNTAX_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
 
-function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
+function checkSyntaxSeparation(errors, themesDir = THEMES_DIR) {
   const { simulate } = require('../lib/theme/cvd.js');
   const { oklabDistance } = require('../lib/theme/color.js');
   let compared = 0;
 
   for (const { theme, condition } of A11Y_SYNTAX_CONDITIONS) {
-    const file = path.join(themesDir, `${theme}.css`);
+    const file = path.join(themesDir, theme, `${theme}.css`);
     if (!fs.existsSync(file)) {
-      errors.push(`checkHljsSeparation: themes/${theme}.css is missing — the gate cannot run.`);
+      errors.push(`checkSyntaxSeparation: themes/${theme}/${theme}.css is missing — the gate cannot run.`);
       continue;
     }
     // The EMITTED file, flattened through its @import chain — the same reader
-    // checkHljsContrast uses, so the two cannot disagree about what a palette says.
+    // checkSyntaxContrast uses, so the two cannot disagree about what a palette says.
     const map = catParseTokens(catPaletteSource(theme, new Set(), themesDir));
     // These palettes are mode-invariant (a11y-base pins color-scheme: light), so
     // 'light' is the only mode that renders. Asking for it explicitly rather than
@@ -11854,10 +12151,10 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     // through the a11y-base -> onyx import, which is exactly the defect; so a role
     // that is not declared in this palette's OWN file is an error, not an inherit.
     const own = fs.readFileSync(file, 'utf8');
-    const missing = HLJS_ROLES.filter((r) => !new RegExp(`--hljs-${r}\\s*:`).test(own));
+    const missing = [...SYNTAX_ROLES, ...SYNTAX_DIFF_PAIR].filter((r) => !new RegExp(`--syntax-${r}\\s*:`).test(own));
     if (missing.length) {
       errors.push(
-        `themes/${theme}.css declares no --hljs-${missing.join(', --hljs-')} of its own, so it `
+        `themes/${theme}/${theme}.css declares no --syntax-${missing.join(', --syntax-')} of its own, so it `
         + "inherits onyx's syntax family through a11y-base — the red-green pair this palette "
         + 'exists to avoid (#1715).');
       continue;
@@ -11873,25 +12170,25 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     // measuring nothing — the shape #1720 had to repair in checkSyntaxInkContrast.
     if (!bg || !codeText) {
       errors.push(
-        `checkHljsSeparation: ${theme} — could not resolve `
+        `checkSyntaxSeparation: ${theme} — could not resolve `
         + `${!bg ? '--code-bg' : '--code-text'} to a hex, so nothing can be measured against it.`);
       continue;
     }
 
     const vals = new Map([['code-text', codeText]]);
     let unresolved = null;
-    for (const role of HLJS_ROLES) {
-      const hex = catResolve(map, `--hljs-${role}`, mode);
+    for (const role of SYNTAX_ROLES) {
+      const hex = catResolve(map, `--syntax-${role}`, mode);
       if (!hex) { unresolved = role; break; }
       vals.set(role, hex);
     }
     if (unresolved) {
-      errors.push(`checkHljsSeparation: ${theme} — --hljs-${unresolved} does not resolve to a hex.`);
+      errors.push(`checkSyntaxSeparation: ${theme} — --syntax-${unresolved} does not resolve to a hex.`);
       continue;
     }
 
     const floor = condition === 'achromatopsia'
-      ? HLJS_SEP_FLOOR_MONOCHROMACY : HLJS_SEP_FLOOR_DICHROMACY;
+      ? SYNTAX_SEP_FLOOR_MONOCHROMACY : SYNTAX_SEP_FLOOR_DICHROMACY;
     const entries = [...vals];
 
     // HOW MUCH COLLAPSE IS "DESIGN"? The pair-skip below treats byte-identical roles as
@@ -11905,10 +12202,10 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     // The design is SIX groups, so six distinct values. Floored at five to leave one group
     // free to merge without a gate edit, which is a design call; going below that is not.
     const DISTINCT_MIN = 5;
-    const distinct = new Set(HLJS_ROLES.map((r) => String(vals.get(r)).toLowerCase()));
+    const distinct = new Set(SYNTAX_ROLES.map((r) => String(vals.get(r)).toLowerCase()));
     if (distinct.size < DISTINCT_MIN) {
       errors.push(
-        `${theme}: its twelve --hljs-* roles resolve to only ${distinct.size} distinct color(s), `
+        `${theme}: its twelve --syntax-* roles resolve to only ${distinct.size} distinct color(s), `
         + `under the ${DISTINCT_MIN} this palette's six-group design emits. Roles made `
         + 'DELIBERATELY identical are skipped by the separation arm below, so a wholesale '
         + 'collapse would otherwise pass every check while erasing syntax highlighting on the '
@@ -11922,14 +12219,14 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
         // are the design (a twelve-way color distinction does not survive a
         // dichromacy). Only pairs the palette claims are different are measured.
         if (ha.toLowerCase() === hb.toLowerCase()) continue;
-        // The two quiet roles are checkHljsContrast's to police; see HLJS_QUIET_PAIR.
-        if (HLJS_QUIET_PAIR.includes(na) && HLJS_QUIET_PAIR.includes(nb)) continue;
+        // The two quiet roles are checkSyntaxContrast's to police; see SYNTAX_QUIET_PAIR.
+        if (SYNTAX_QUIET_PAIR.includes(na) && SYNTAX_QUIET_PAIR.includes(nb)) continue;
         compared++;
         const d = oklabDistance(simulate(ha, condition), simulate(hb, condition));
         if (!(d >= floor)) {
-          // `--code-text` is in the set but is NOT an --hljs-* token, so it gets its
-          // own name in the message rather than a fabricated `--hljs-code-text`.
-          const nameOf = (n) => (n === 'code-text' ? '--code-text' : `--hljs-${n}`);
+          // `--code-text` is in the set but is NOT an --syntax-* token, so it gets its
+          // own name in the message rather than a fabricated `--syntax-code-text`.
+          const nameOf = (n) => (n === 'code-text' ? '--code-text' : `--syntax-${n}`);
           errors.push(
             `${theme}: ${nameOf(na)} (${ha}) and ${nameOf(nb)} (${hb}) are different colors that `
             + `render ΔE ${d.toFixed(4)} apart UNDER ${condition} — below the ${floor} floor. `
@@ -11938,6 +12235,22 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
         }
       }
     }
+
+    // THE DIFF PAIR, against each other only (SYNTAX_DIFF_PAIR): an inserted line and a deleted
+    // line must not read as the same color to this palette's reader, and they meet no other role.
+    const [ins, del] = SYNTAX_DIFF_PAIR.map((r) => catResolve(map, `--syntax-${r}`, mode));
+    if (!ins || !del) {
+      errors.push(`checkSyntaxSeparation: ${theme} — --syntax-${!ins ? 'inserted' : 'deleted'} does not resolve to a hex.`);
+      continue;
+    }
+    compared++;
+    const dDiff = oklabDistance(simulate(ins, condition), simulate(del, condition));
+    if (!(dDiff >= floor)) {
+      errors.push(
+        `${theme}: --syntax-inserted (${ins}) and --syntax-deleted (${del}) render ΔE ${dDiff.toFixed(4)} `
+        + `apart UNDER ${condition} — below the ${floor} floor, so a diff's added and removed lines `
+        + 'read as one color to the reader this palette is for.');
+    }
   }
 
   // ANTI-VACUOUS. Every arm above `continue`s on a problem it reports, so a broken
@@ -11945,7 +12258,7 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
   // is a failure whatever else it said.
   if (compared < 20) {
     errors.push(
-      `checkHljsSeparation made only ${compared} comparison(s) across `
+      `checkSyntaxSeparation made only ${compared} comparison(s) across `
       + `${A11Y_SYNTAX_CONDITIONS.length} palettes — it should make dozens, so the scan is broken.`);
   }
 }
@@ -12263,6 +12576,44 @@ function checkFollowups(errors) {
   for (const problem of followupProblems()) errors.push(problem);
 }
 
+// ─── Every spec declares its four parts (spec audit §2, §6 step 5) ───────────────
+// A spec is a document, a schema, a reference implementation and shared test cases
+// (engineering/decisions/2026-10-08-spec-audit.md §2). Each spec/*.md says where its other three
+// live in one HTML comment under its title, invisible on the site:
+//
+//   <!-- spec-parts
+//   schema: themes/theme.schema.json
+//   reference: lib/theme/gate.js lib/theme/derive.js
+//   tests: spec/conformance/theme/
+//   -->
+//
+// Paths are repo-relative and space-separated, and each must exist. `schema` alone may instead
+// say `none: <why>` (a shape stated in the document itself). A part that cannot be found fails
+// here, inside build:check, so the category cannot quietly lose a part or keep a rotted path.
+const SPEC_PARTS = ['schema', 'reference', 'tests'];
+
+/** The problems with one spec's parts block, as messages. Pure over its inputs. */
+function specPartProblems(file, text, exists) {
+  const block = /<!--\s*spec-parts\s*\n([\s\S]*?)-->/.exec(text);
+  if (!block) return [`${file}: no <!-- spec-parts --> block naming its schema, reference implementation and tests (spec audit §2)`];
+  const parts = Object.fromEntries(block[1].split('\n').map((l) => /^\s*([a-z]+):\s*(.*?)\s*$/.exec(l)).filter(Boolean).map((m) => [m[1], m[2]]));
+  const out = [];
+  for (const part of SPEC_PARTS) {
+    const value = parts[part];
+    if (!value) { out.push(`${file}: the spec-parts block names no ${part}`); continue; }
+    if (part === 'schema' && /^none:\s*\S/.test(value)) continue;
+    for (const p of value.split(/\s+/)) if (!exists(p)) out.push(`${file}: its ${part} path ${p} does not exist`);
+  }
+  return out;
+}
+
+function checkSpecParts(errors, root = ROOT) {
+  const dir = path.join(root, 'spec');
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.md') && n !== 'README.md').sort()) {
+    for (const problem of specPartProblems(`spec/${f}`, fs.readFileSync(path.join(dir, f), 'utf8'), (p) => fs.existsSync(path.join(root, p)))) errors.push(problem);
+  }
+}
+
 // ─── dist/ verbatim copies ────────────────────────────────────────────────────
 // A file that dist/ COPIES from a committed source must still equal it. A copy is the one
 // class of generated artifact with a second, silently drifting original: everything else in
@@ -12279,7 +12630,7 @@ function checkFollowups(errors) {
 //
 // SO WHAT THIS ARM BUYS is two things, and neither of them is "catching it at all":
 //   - TIMING. It moves the signal out of a ~108s unit suite and into the 13s gate that was
-//     making the false claim -- which at pre-push (lefthook.yml) is the difference between
+//     making the false claim -- which, when the suite runs locally, is the difference between
 //     a developer learning their dist/ is behind and a developer reading two unrelated
 //     unit failures as a defect in their own diff.
 //   - REACH. 18 of the 49 were pinned by nothing: dist/fonts' 17 embedded faces, and the
@@ -12356,9 +12707,10 @@ const DIST_VERBATIM_COPIES = Object.freeze([
   { copy: 'dist/marp-kit/LICENSE', source: 'LICENSE', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/LICENSE-EXCEPTIONS', source: 'LICENSE-EXCEPTIONS', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/Sample-Deck.md', source: 'kit/Sample-Deck.md', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio.css', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'mermaid-v11-min.js', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio/cuoio.css', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
+  // The kit's Mermaid is the mermaid plugin's own copy (payload.vendored), shipped under the kit's name.
+  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'lib/plugins/mermaid/vendor/mermaid.min.js', builder: 'tools/build-marp-kit.js' },
 ]);
 
 /** One entry's problems. Split out so the unit suite can drive a synthetic table. */
@@ -12798,6 +13150,7 @@ function stripCodeComments(src) {
 function listFilesByExt(dir, exts, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
     if (isTransientProbe(e.name)) continue;
     const p = path.join(dir, e.name);
@@ -13006,11 +13359,11 @@ function checkAnimaColorVocabulary(errors) {
  * The Studio editor's derived SYNTAX INK tier must be legible on the editor canvas and
  * tellable apart from the colors the same editor paints from other tokens.
  *
- * WHY A SECOND GATE AND NOT `checkHljsContrast`. That gate holds `--hljs-*` to AA against
+ * WHY A SECOND GATE AND NOT `checkSyntaxContrast`. That gate holds `--syntax-*` to AA against
  * `--code-bg`, the slide's dark code PANEL. This tier is the same hues on a different
  * surface — the Studio editor's `--bg` / `--bg-alt` — and the two answers are not related:
- * 21 of 36 palette-modes put a raw `--hljs-*` below AA on the editor canvas while passing
- * the panel gate, worst 1.01:1. Extending `checkHljsContrast` to a second surface would
+ * 21 of 36 palette-modes put a raw `--syntax-*` below AA on the editor canvas while passing
+ * the panel gate, worst 1.01:1. Extending `checkSyntaxContrast` to a second surface would
  * make it fail on values that are correct for the panel they are tuned for, so the tier
  * gets its own floor against its own surface.
  *
@@ -13243,6 +13596,9 @@ function run() {
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkTramaBoundary(errors);
+  checkCalcoBoundary(errors);
+  checkTavolaBoundary(errors);
+  checkFuocoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -13263,6 +13619,7 @@ function run() {
   checkNulBytes(errors);
   checkChangelogFragments(errors);
   checkFollowups(errors);
+  checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
   checkLockfileOptionalPeers(errors);
   checkDanglingTokenReads(errors);
@@ -13271,7 +13628,7 @@ function run() {
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
-  checkHljsSeparation(errors);
+  checkSyntaxSeparation(errors);
   checkMutedTierFloors(errors);
   return {
     errors,
@@ -13305,6 +13662,10 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkSpecParts,
+  specPartProblems,
+  checkTavolaBoundary,
+  checkFuocoBoundary,
   checkReadingRole,
   readingRoleCountsIn,
   readingRoleFindings,
@@ -13363,10 +13724,10 @@ module.exports = {
   ledgerContractProblems,
   fallbackHops,
   checkPhantomTokenReads,
-  checkHljsSeparation,
+  checkSyntaxSeparation,
   checkMutedTierFloors,
   A11Y_SYNTAX_CONDITIONS,
-  HLJS_ROLES,
+  SYNTAX_ROLES,
   engineDeclaredTokens,
   runtimeWrittenTokens,
   AUTHOR_SET_ENGINE_TOKENS,
@@ -13506,6 +13867,7 @@ module.exports = {
   SINGLETON_TAGS,
   checkVetrinaBoundary,
   checkCadenzaBoundary,
+  checkCalcoBoundary,
   checkAnimaBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
@@ -13532,6 +13894,8 @@ module.exports = {
   checkCatContrast,
   catResolve,
   catContrast,
+  checkCodeRecede,
+  CODE_RECEDE_FLOOR,
   checkCatInkDeclared,
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
@@ -13539,8 +13903,8 @@ module.exports = {
   CAT_INK_COLLAPSE_DIST,
   catInkCollapsePairs,
   checkCatInkFallback,
-  checkHljsContrast,
-  HLJS_TOKENS,
+  checkSyntaxContrast,
+  SYNTAX_TOKENS,
   checkNoSafeDefaultTokens,
   noSafeDefaultTokens,
   fallbackOnlyTokens,
@@ -13558,5 +13922,4 @@ module.exports = {
   mermaidMapTokenReads,
   VETRINA_DIR,
   VETRINA_ADAPTER,
-  VETRINA_IMPORT,
 };

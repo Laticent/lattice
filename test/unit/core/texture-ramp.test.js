@@ -23,6 +23,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -59,7 +60,7 @@ function fillRamp(themeFile, seen = new Set()) {
     let imported = '';
     for (const m of c.matchAll(/@import\s+["']?([A-Za-z0-9_-]+)["']?\s*;/g)) {
       if (m[1] === 'lattice') continue;
-      const p = path.join(THEMES, `${m[1]}.css`);
+      const p = path.join(THEMES, m[1], `${m[1]}.css`);
       if (fs.existsSync(p)) imported += `${read(p)}\n`;
     }
     return imported + c;
@@ -79,7 +80,7 @@ function fillRamp(themeFile, seen = new Set()) {
   return { light, dark: dark.every(Boolean) ? dark : null };
 }
 
-const THEME_FILES = fs.readdirSync(THEMES).filter((f) => f.endsWith('.css')).sort();
+const THEME_FILES = themeEntries(THEMES).filter((f) => f.endsWith('.css')).sort();
 
 describe('texture-ramp — the pieces', () => {
   test('meanLightness averages in OKLCH, not sRGB', () => {
@@ -243,7 +244,7 @@ describe('texture-ramp — every shipped theme derives a usable set', () => {
   const BAND = { light: [1.0, 4.0], dark: [2.5, 13.0] };
 
   const derived = THEME_FILES.map((f) => {
-    const ramp = fillRamp(path.join(THEMES, f));
+    const ramp = fillRamp(themePath(THEMES, f));
     return { name: f.replace(/\.css$/, ''), ramp };
   });
 

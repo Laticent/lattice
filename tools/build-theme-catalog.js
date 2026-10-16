@@ -4,7 +4,7 @@
  * name groups and swatches, derived from the theme manifests.
  *
  * WHY THIS IS GENERATED
- * `themes/<name>.manifest.json` is the single declaration of which palettes exist and
+ * `themes/<name>/<name>.manifest.json` is the single declaration of which palettes exist and
  * what each one is (`role`, `family`, `tier`, `swatch`). The docs bundle can't
  * `fs`-load 32 JSON files at runtime — the same constraint that forces
  * build-stage-catalog.js — so the declaration is baked here at build time.

@@ -282,8 +282,16 @@ export const RELEASE_GRACE = 600;
  * One pool per grid rather than one per app, deliberately: two grids open at once (the picker
  * and its looks panel) have different coordinate spaces, and a pool's positions are only
  * meaningful inside one of them.
+ *
+ * `baseSlots` is the floor of the cap (`BASE_SLOTS`, 10, for a gallery that shows a dozen tiles).
+ * A surface that shows one or two at a time passes less: the chat transcript passes 4, because the
+ * cap still grows to cover whatever is on screen and a frame it never needs is memory it never
+ * spends (engineering/decisions/2026-10-12-chat-figures-bakeoff.md).
  */
-export function PreviewPool({ children, className }: { children: React.ReactNode; className?: string }) {
+export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { children: React.ReactNode; className?: string; baseSlots?: number }) {
+	// Read by the assignment pass, which outlives a render: a ref, so a changed prop reaches it.
+	const baseSlotsRef = React.useRef(baseSlots);
+	baseSlotsRef.current = baseSlots;
 	const layerRef = React.useRef<HTMLDivElement>(null);
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
@@ -429,7 +437,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			const rank = (x: { t: Tile; on: boolean }) => (x.on ? 0 : x.t.inBand ? 1 : 2);
 			// THE CAP COVERS EVERYTHING ON SCREEN, so the sort decides who waits a beat, never who is
 			// left staring at an empty card.
-			const cap = Math.min(HARD_MAX_SLOTS, Math.max(BASE_SLOTS, ranked.filter((x) => x.on).length));
+			const cap = Math.min(HARD_MAX_SLOTS, Math.max(baseSlotsRef.current, ranked.filter((x) => x.on).length));
 			const want = ranked
 				.sort((a, b) => (rank(a) === rank(b) ? b.t.seq - a.t.seq : rank(a) - rank(b)))
 				.slice(0, cap)
@@ -643,7 +651,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
 								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} active className="size-full" aria-hidden /> : null}
+									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden /> : null}
 								</div>
 							</div>
 						);

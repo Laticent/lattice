@@ -1,0 +1,2 @@
+- `stamp-mark` is a faint diagonal watermark again, not an opaque slab over the slide. Its word now shrinks to fit, so CONFIDENTIAL stays on the slide.
+- `stamp-bar` now prints its state (DRAFT, CONFIDENTIAL…) on the bar instead of showing a blank dark rectangle.

@@ -1,0 +1,17 @@
+{
+  "title": "A dark variant names the theme it extends",
+  "spec": "THEME-1.0",
+  "section": "5",
+  "manifest": {
+    "name": "specimen-dark",
+    "role": "variant-dark",
+    "extends": "specimen",
+    "family": "brand",
+    "modes": [
+      "dark"
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

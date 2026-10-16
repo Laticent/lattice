@@ -12,6 +12,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -24,7 +25,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 // Stub themes keyed by @theme name — enough for the structural HTML contract
 // (real palettes @import 'lattice'; the page/bundler resolves that, not the
 // engine). One per palette so the `theme:` directive resolves in both engines.
-const THEME_NAMES = ['lattice', ...fs.readdirSync(path.join(ROOT, 'themes'))
+const THEME_NAMES = ['lattice', ...themeEntries(path.join(ROOT, 'themes'))
   .filter((f) => f.endsWith('.css'))
   .map((f) => f.replace(/\.css$/, ''))];
 const THEME_CSS = THEME_NAMES.map((n) => `/* @theme ${n} */\nsection{}`);
@@ -384,18 +385,30 @@ describe('lattice-engine: css emission (P1.1)', () => {
     const body = src.slice(src.indexOf('function injectOrientationStyle'));
     const block = body.slice(0, body.indexOf('\n  }\n'));
     // Mirror the runtime's literals; fail loudly if they diverge from css.js.
+    // Square vs portrait comes from the shared classifier, as in the runtime.
+    const { orientationFor: deckOrientation } = require('../../../lib/adaptive/families');
     const runtimeScale = (aspect) => {
       if (aspect > 1.05) return 1;
-      return aspect >= 0.95 ? 1.65 : Math.min(2.4, Math.round((1.75 + (1 - aspect) * 1.0) * 100) / 100);
+      return deckOrientation(aspect) === 'square'
+        ? 1.65
+        : Math.min(2.4, Math.round((1.75 + (1 - aspect) * 1.0) * 100) / 100);
     };
-    for (const [w, h] of [[1280, 720], [1080, 1080], [1080, 1350], [1080, 1920], [1080, 2340]]) {
+    // 920x1000 (aspect 0.92) sits in the old 0.9–0.95 seam: square to the engine.
+    for (const [w, h] of [[1280, 720], [1080, 1080], [920, 1000], [1080, 1350], [1080, 1920], [1080, 2340]]) {
       const expected = orientationFor({ width: w, height: h }).scale;
       assert.equal(runtimeScale(w / h), expected, `runtime scale diverged at ${w}x${h}`);
     }
     // And assert the runtime source actually carries the ramp formula + cap +
     // thresholds, so editing css.js without the runtime trips this test.
     assert.match(block, /aspect > 1\.05/);
-    assert.match(block, /aspect >= 0\.95/);
+    // Square is the shared classifier's call, never a literal of its own: a private
+    // 0.95 split here once gave a 0.92 deck portrait scale in the browser and square
+    // scale in the export.
+    assert.match(block, /deckOrientation\(aspect\) === 'square'/);
+    assert.doesNotMatch(block, /0\.95/);
+    // Nor any other private split: the only aspect literal allowed is the landscape
+    // early return, which the classifier agrees with at exactly 1.05.
+    assert.deepEqual(block.match(/aspect\s*[<>]=?\s*\d*\.\d+/g), ['aspect > 1.05']);
     assert.match(block, /1\.75 \+ \(1 - aspect\) \* 1\.0/);
     assert.match(block, /Math\.min\(2\.4/);
   });
@@ -410,8 +423,8 @@ describe('lattice-engine: css emission (P1.1)', () => {
   test('every real *-dark theme resolves its base import to a full sheet', () => {
     const eng = createEngine();
     const themeDir = path.join(ROOT, 'themes');
-    const files = fs.readdirSync(themeDir).filter((f) => f.endsWith('.css'));
-    for (const f of files) eng.addThemes([fs.readFileSync(path.join(themeDir, f), 'utf8')]);
+    const files = themeEntries(themeDir).filter((f) => f.endsWith('.css'));
+    for (const f of files) eng.addThemes([fs.readFileSync(themePath(themeDir, f), 'utf8')]);
     eng.addThemes([fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8')]);
     const darks = files.map((f) => f.replace(/\.css$/, '')).filter((n) => n.endsWith('-dark'));
     assert.ok(darks.length >= 10, `expected the dark-wrapper set, got ${darks.length}`);
@@ -509,7 +522,7 @@ describe('lattice-engine: css emission (P1.1)', () => {
 // so the assertions stand on their own.)
 describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
   const LATTICE = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
-  const PALETTE = fs.readFileSync(path.join(ROOT, 'themes/indaco.css'), 'utf8');
+  const PALETTE = fs.readFileSync(path.join(ROOT, 'themes/indaco/indaco.css'), 'utf8');
   const enginePack = composeCss({ themeCss: PALETTE, baseLatticeCss: LATTICE });
   const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
   // The selector block that declares the first match of `re` (e.g. a token).

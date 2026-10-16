@@ -79,12 +79,12 @@ describe('preview scope detector', () => {
   });
 
   test('theme change → L3', () => {
-    assert.equal(detectScope(['themes/indaco.css']).level, 'L3');
+    assert.equal(detectScope(['themes/indaco/indaco.css']).level, 'L3');
   });
 
   test('renderer (engine) change → L3', () => {
-    assert.equal(detectScope(['lattice-emulator.js']).level, 'L3');
-    assert.equal(detectScope(['lib/components/chart/_chart-family/chart-family.js']).level, 'L3');
+    assert.equal(detectScope(['lattice.js']).level, 'L3');
+    assert.equal(detectScope(['lib/plugins/chart-family/chart-family.dispatch.js']).level, 'L3');
   });
 
   test('explicit deck override → L1 with that deck', () => {

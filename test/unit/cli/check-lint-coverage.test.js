@@ -75,7 +75,7 @@ test('trackedLintable keeps only watched extensions', () => {
 	const got = gate.trackedLintable([
 		'lib/a.js',
 		'docs/b.tsx',
-		'themes/c.css',
+		'themes/c/c.css',
 		'README.md',
 		'biome.jsonc',
 		'assets/d.woff2',

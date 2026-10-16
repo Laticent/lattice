@@ -90,11 +90,11 @@ before(async () => {
   fs.writeFileSync(DECK, DECK_SRC);
   // Render through the REAL emulator so the DOM under test is the one an export
   // produces — form composition, cell tree, marker berth and all.
-  execFileSync('node', [path.join(ROOT, 'lattice-emulator.js'), DECK, PAGE, 'indaco', '-q'],
+  execFileSync('node', [path.join(ROOT, 'lattice.js'), DECK, PAGE, 'indaco', '-q'],
     { cwd: ROOT, stdio: 'ignore' });
   const shipped = fs.readFileSync(path.join(ROOT, 'examples', 'overflow-fix-me.md'), 'utf8');
   fs.writeFileSync(CORPUS, shipped.replace(/^theme:.*$/m, (m) => `${m}\nguards: strict`));
-  execFileSync('node', [path.join(ROOT, 'lattice-emulator.js'), CORPUS, CORPUS_PAGE, 'indaco', '-q'],
+  execFileSync('node', [path.join(ROOT, 'lattice.js'), CORPUS, CORPUS_PAGE, 'indaco', '-q'],
     { cwd: ROOT, stdio: 'ignore' });
   puppeteer = require('puppeteer');
   browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });

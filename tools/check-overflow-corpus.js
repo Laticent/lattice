@@ -49,7 +49,7 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const BASELINE = path.join(ROOT, 'test', 'integration', 'overflow-baseline.json');
 // PER-RUN scratch dir. Two concurrent invocations (a `--bless` while CI runs a
 // check, or two agents sweeping at once) previously derived the SAME output path

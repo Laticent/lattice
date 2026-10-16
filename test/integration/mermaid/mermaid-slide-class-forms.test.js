@@ -48,7 +48,7 @@ const { spawnSync } = require('child_process');
 
 describe('mermaid-slide-class-forms', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'mermaid-slide-class-forms.md');
 
   const TIMEOUT = 180000;
@@ -63,7 +63,7 @@ describe('mermaid-slide-class-forms', () => {
 
   before(() => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mmd-forms-'));
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, path.join(dir, 'deck.pdf'), '--quiet'], {
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, path.join(dir, 'deck.pdf'), '--quiet', '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

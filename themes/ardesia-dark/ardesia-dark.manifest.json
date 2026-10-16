@@ -1,0 +1,12 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "ardesia-dark",
+  "type": "theme",
+  "format": 1,
+  "role": "variant-dark",
+  "extends": "ardesia",
+  "family": "brand",
+  "modes": [
+    "dark"
+  ]
+}

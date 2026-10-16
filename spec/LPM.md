@@ -1,6 +1,12 @@
 # LPM — the Lattice Plugin Model
 
-**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-05 · **Host API:** `api: 1`
+<!-- spec-parts
+schema: lib/plugins/plugin.schema.json
+reference: lib/plugins/
+tests: test/unit/plugins/conformance.test.js
+-->
+
+**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-06 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -9,9 +15,10 @@ design, and the reasons behind each rule, are
 [`engineering/decisions/2026-09-27-plugin-system.md`](../engineering/decisions/2026-09-27-plugin-system.md);
 the working guide is [`lib/plugins/README.md`](../lib/plugins/README.md).
 
-**It stays a draft (0.x) until Mermaid and the chart family run on it** (the note's phases D and
-F). Freezing it after two easy plugins would freeze a contract two easy cases shaped. Until then a
-field may change in a minor version, and every change is recorded in §12.
+**It stays a draft (0.x) until the npm door** (the note's phase G). Freezing it after two easy
+plugins would have frozen a contract two easy cases shaped, so it waited for Mermaid and the chart
+family to run on it (phases D and F, both done); 1.0 comes with the door that lets a plugin ship
+outside the tree. Until then a field may change in a minor version, and every change is recorded in §12.
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -44,9 +51,15 @@ lib/plugins/<name>/
   <name>.hydrate.js       optional  the browser half: hydrate(el, ctx), or createPass(ctx) (§4.3)
   <name>.bake.js          optional  the CLI half: bake(source, ctx), Node-side (§4.5)
   <name>.highlight.js     optional  a highlight.js grammar for its code fences (§4.6)
+  <name>.dispatch.js      optional  IN-TREE ONLY in api 1: the module that calls an extension
+                                    point's fillers, present exactly when the plugin offers one
+                                    (§3.3). The host never loads it by role and api 1 fixes no
+                                    exports: a first-party section transform requires it
   <name>.styles.css       optional  token-only CSS (§4.4)
   shared/                 optional  IN-TREE ONLY: the plugin's own shared modules (.js/.cjs/.mjs
                                     and a README.md), imported by its role modules
+  vendor/                 optional  IN-TREE ONLY: the third-party libraries the plugin owns a
+                                    copy of (its `payload.vendored` and `vendor`, §3.4)
 ```
 
 - `<name>` MUST match `^[a-z][a-z0-9-]*$`, MUST equal the folder name and the manifest's `name`,
@@ -74,6 +87,7 @@ at every level: an unknown field is an error.
 | `name` | yes | the plugin's identity (§2) |
 | `api` | yes | `1` — the host API this plugin is written for (§5). An unknown value is a build error |
 | `title`, `description` | yes | one line each, for people |
+| `icon` | no | the plugin's mark, as data: `{ "viewBox": "0 0 W H", "paths": [{ "ink", "d", "width"? }] }`, no other keys. `W` and `H` are 1–9999; 1–24 paths. `ink` is `line` (stroked in the heading ink), `accent` (stroked in the accent) or `fill` (filled with the accent); `d` is SVG path data and nothing else, 2–2000 characters of commands and plain numbers (no exponent); `width` a stroke width, 0.5–16, default 6. The host draws it and colors each ink from the active theme, so a mark can carry no color, element, script or style of its own, and holds its contrast on every palette. A plugin with none is shown by its name |
 
 ### 3.2 Dependencies
 
@@ -94,7 +108,7 @@ Every plugin is loaded EXPLICITLY, by one of three routes, and nothing else admi
 |---|---|
 | default | the host's default set — every shipped plugin, unless the host narrows it |
 | listed | the deck's front-matter `plugins:` import list (`plugins: [math, mermaid]`) |
-| component | a slide class the deck uses, whose component manifest declares `plugins.requires` |
+| component | a slide class the deck uses, whose component manifest declares `plugins.requires` — or FILLS one of the plugin's extension points (§3.3): filling a slot is requiring the plugin |
 
 A loaded plugin loads what it `requires`, transitively; `optional` loads nothing. The list only
 adds: listing a default plugin changes nothing, there is no removal syntax, and a name no plugin
@@ -108,18 +122,51 @@ that no route loaded (`plugin/used-not-loaded`).
 code block whether or not its plugin is admitted, so the engine marks the `<pre>` of a fence whose
 plugin is NOT admitted: `<pre data-lattice-off="<plugin>">`. Only then, so a render in which every
 plugin is admitted carries no marker. A pass MUST NOT tag, draw, wait on or hide a fence whose
-`<pre>` carries `data-lattice-off` (§6), and a host's drawn-fence probes count none. The marker
-travels with the slide's markup, so every surface that shows the ENGINE's render (preview, export,
+`<pre>` carries `data-lattice-off` (§6), and a host's drawn-fence probes count none. Inline code is
+marked the same way: a span the engine leaves literal only because a plugin is not admitted (its
+`inline` row would draw it, or a host row needs its `services` to, as an icon-only pill does) is
+`<code data-lattice-off="<plugin>">`, and a pass MUST NOT draw it. The marker travels with the slide's markup, so every surface that shows the ENGINE's render (preview, export,
 `--fluid`, `--player`) honors the deck's admission with no knob of its own. Admission is
 DECK-WIDE: a host that renders one slide alone admits on the whole deck and passes the answer to
 that render (the engine's `render(…, { pluginDefaults })`), or a plain fence beside a slide class
 that loads its plugin would differ between the preview and the export. The Export-to-Marp bundle
-does not run the engine, so it does not carry the marker. The CLI admits once per run and hands the
+does not run the engine, so the PRODUCER records the plugins its admission left off in the bundle's
+export-settings block (`pluginsOff`), and the bundled runtime writes the marker from that list
+before any pass runs — on the `<pre>` of a drawn fence and on an extension-point filler's
+`<section>` — and, because Marp typesets math itself, the bundle's Marp config turns Marp's math
+off when the math plugin is off — so Marp's render honors the deck's admission as the engine's does. The CLI admits once per run and hands the
 result to the engine, the `bake` and its boundary parser (whose block rules follow `off`, so a
 plugin's block body is opaque only where the engine admits it). The `highlight` grammars stay
 registered for every installed plugin, on purpose: an unadmitted plugin's fence is exactly the one
 that stays code, and it should read as code. A Studio's own source-side readers (its lint, its
-slide mapping) still read the default set's grammar and have no door for a narrowed one yet.
+slide mapping) point their boundary parser at the deck's `off` set before they parse (every bundle
+holds its own copy, and each is switched), so they split where the engine splits.
+
+**An author's raw HTML cannot speak the host's channel.** The engine reads every raw-HTML token an
+author wrote, before any engine rule adds markup of its own, and (a) renames every host figure
+marker NAME it spells — `data-lattice-hydrate`, `-config`, `-settle`, `-final`, `-off` become
+`data-author-lattice-…`, wherever they appear — so a deck cannot forge a pending figure or mark a
+fence off (other `data-lattice-*` attributes are author vocabulary and are kept; so is
+`data-lattice-figure`, because a `bake` writes it into the Markdown the engine reads, and a forged
+one only makes the author's own markup count as drawn); and (b) when a
+plugin that draws a fence from its code block is not admitted, renames its `language-<fence>` to
+`language-off-<fence>`, so no pass or probe reads an author's raw `<pre><code>` as that fence. By
+name rather than by tag, because an attribute selector matches a name exactly: no tokenizer
+disagreement can smuggle one through. On the default set (b) never fires, and (a) changes no
+tracked deck. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
+(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
+(`refuseAuthorMarkupInSource`): it parses the deck as Marp does (markdown-it, `html: true`) and
+renames on the lines of every raw-HTML token, leaving code fences their bytes; and it refuses the
+front matter and every HTML comment whole, after undoing YAML's double-quoted escapes, because
+Marpit decodes those as YAML and renders `header:` and `footer:`. The bundled runtime marks a
+left-off plugin's fences by the substring its pass reads them by (`code[class*="language-<fence>"]`,
+lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
+(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
+it parses the deck as Marp does (markdown-it, `html: true`) and renames on the lines of every
+raw-HTML token, leaving code fences their bytes (`refuseAuthorMarkupInSource`); and the bundled
+runtime marks a left-off plugin's fences by the substring its pass reads them by
+(`code[class*="language-<fence>"]`, lib/plugins/mark-off.mjs), so a `language-<fence>-source` block
+is marked too.
 
 ### 3.3 Contributions — `contributes`
 
@@ -127,17 +174,20 @@ slide mapping) still read the default set's grammar and have no door for a narro
 |---|---|---|
 | `syntax` | markdown-it rules, keyed by the TOKEN TYPE each emits: `{ kind: "inline" \| "block", anchor: { before \| after: <host rule> }, triggers: [<char>…], opaque? }` | a rule export per key in `syntax.mjs`, `detect`, and a renderer per key in `render.js` `renderers` |
 | `fences` | fenced blocks, keyed by NAME: `{ body: "json" \| "tex" \| "text" \| "mermaid", aliases?: [{ name, deprecated? }], as?: "code" }` | a renderer per name in `render.js` `fences` — except a fence `as: "code"`, which the engine renders as the highlighted code block every other fence becomes, and which has no renderer and no aliases (the plugin draws it later: by `bake`, or by its hydrate pass in a browser) |
+| `inline` | inline-code KINDS, keyed by NAME (the zip half is PROVISIONAL, outside the 1.0 freeze; §12): an author calls one as `` `@name{…}` `` (2026-10-14-plugin-inline-door.md). In-tree: `{ sigil }`, a one-character alias (`^{…}` is `@icon{…}`). Zip: `{ slot?, placeholder?: { size }, title? }`, never a `sigil` — `slot` is a Segno slot spec the host reads each span's record with, bounded, compiled at import, and pinned in the approval. A kind Lattice draws itself, or one two listed plugins claim, is not drawn; the rest of the plugin is | in-tree: `inline.js` exporting `inline` with a `{ resolve, html, element, diagnose }` per key. Zip: the one `render.js`, handed `{ type: "inline", kind, text, record, fields, id }` in the sandbox; its output MUST be phrasing content (no block, no `<a>`, no `<code>`), and the host strips bidi controls and any style that moves it out of its line |
 | `bake` | `true` — the plugin draws its figures into the deck's Markdown on the CLI, before the engine renders | `bake.js` exporting `bake`, and `render.exec.bake` |
 | `hydrate` | a browser half: `{ budgetMs? }` — an integer 100–30000, default 4000 (ignored by a pass) | `hydrate.js` exporting `hydrate` — or, with `render.exec.hydrate: "pass"`, exporting `createPass` |
 | `highlight` | `true` — a highlight.js grammar for the plugin's code fences | `highlight.js` exporting `highlight`, and at least one fence `as: "code"` |
 | `styles` | `true` | `styles.css` |
+| `extensionPoints` | slots the plugin OFFERS and components FILL, keyed by the plugin's own slot name: `{ block?, bucket, role, entry, description }`. At most one slot per plugin in api 1. A component fills a slot by declaring its BLOCK (`block`, default the slot name: the chart family's `kernel`), which MUST be an object block the component manifest schema defines, and which only one plugin reads. Every component in `bucket` that declares the block fills the slot: it ships `<name>.<role>.js` exporting `entry`, called with the signature the offering plugin's `api` fixes, and by filling it REQUIRES the plugin (§3.2.1), with no `plugins` block. Not running, the plugin passes every filler's section through as authored and marks it (and a pane of it) `data-lattice-off="<plugin>"`, which a browser pass MUST skip as it skips a marked fence. In api 1 a slot is filled only by in-tree components; a slot filled by PLUGINS (data, such as an icon pack) is reserved for a later version as an additive field | `<name>.dispatch.js`, the plugin's own module that calls the fillers (§2; in-tree only, no host contract in api 1); the registry records the slot in `extension-points.generated.json`, keyed by block |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. **In api 1 only the HOST reports**, and only `<name>/deprecated-alias` (a deprecated fence alias was used); a plugin module has no `ctx.report` yet | — |
 
 ### 3.4 `payload`, `tokens`, `render`
 
 | Field | Value |
 |---|---|
-| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6) |
+| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no copy names (the source gates skip that folder, so it holds only declared copies) |
+| `vendor` | `{ <key>: { from, file, version, sha256 } }` — IN-TREE ONLY: every OTHER third-party library the plugin owns a copy of, the ones no browser surface loads as the payload: a renderer's library (the math plugin's KaTeX, with its stylesheet and fonts) or the bake's (Mermaid's ZenUML and mermaid-cli's render page). Held to the same rules as `payload.vendored`: every surface reads the copy (`vendorPath`, lib/plugins/payload-path.js), `package.json` pins `from`'s package at exactly `version`, and the build fails a copy that does not match `sha256`. A copy is one file, a whole directory (`from` and `file` end in `/`), or one directory's files of one extension (`from` ends in `/*.<ext>`, `file` in `/`); a directory's `sha256` hashes one `<path> <sha256>` line per file, sorted. Each source package's `LICENSE` is a `vendor` copy too (`from` ends in `/LICENSE`), so the notice an MIT library requires travels with every copy we ship |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
@@ -239,7 +289,7 @@ names one figure), `keptWhy` / `keptFix` / `failedWhy` (the warnings' plugin-spe
 attribute carrying each one's index), `bakedBand(idx)`, and `render(idx, { band, palette })` →
 `{ markup, kept }` (the figure re-rendered, its element carrying `data-look-idx`; `kept` when
 author-fixed colors survive), `{ kept: true }`, `{ failed: true }` or null. Mermaid's bake publishes
-one; the chart family (phase F) is its expected second user.
+one; the chart family (phase F) shipped without needing it.
 
 On the CLI a bake that throws or returns a non-string FAILS THE EXPORT, naming the plugin (§8).
 
@@ -350,7 +400,10 @@ plugin, when:
 - two plugins' payload files share a file name, or one is a file the runtime host serves;
 - a diagnostic ID is outside the plugin's `<name>/` namespace;
 - a component `requires` a plugin that does not exist, or its gallery uses a plugin's syntax or
-  fence without declaring it.
+  fence without declaring it;
+- two plugins read one extension-point block, two slots claim one bucket, a slot's block is not
+  an object block the component manifest schema defines, or a component declares a slot's block
+  outside the slot's bucket.
 
 ## 8. Fail-soft
 
@@ -379,7 +432,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code only through the code-package door (consent pinned to the code's hash, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake` or `payload` — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
@@ -398,11 +451,65 @@ highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
 
+- **0.6-draft, the plugin's icon (2026-10-15).** §3.1 gains an optional `icon`: path data
+  tagged by ink, drawn by the host (`lib/plugins/plugin-icon.mjs`) in the theme's colors. Data
+  rather than an SVG file, so it travels on every channel (§10), a zip included, with nothing
+  to sanitize. The website's Plugins hub is its only reader so far; no Studio or zip-channel
+  surface draws it yet.
+
+- **0.6-draft, inline kinds and the `@name{…}` form (2026-10-14).** §3.3 gains `inline`: every
+  inline kind is called `@name{…}`, an in-tree kind keeps its one-character `sigil` as an alias,
+  and a zip plugin may declare kinds that its one renderer draws through the code-package door
+  (§10), handed `{ type, kind, text, record, fields, id }`; a fence's input gains `type: "fence"`.
+  The zip half of `inline` is PROVISIONAL: it is outside LPM 1.0's freeze until the record reader it
+  hands `fields` from settles (2026-10-14-plugin-inline-door.md §10).
+
+- **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
+  one render the engine does not do: the Export-to-Marp producer refuses forged markers and an
+  off plugin's raw drawn fence in the deck's source, directives included, and the bundled runtime
+  marks an off fence by substring, as its pass reads it.
+
+- **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
+  one render the engine does not do: the Export-to-Marp producer refuses forged markers and an
+  off plugin's raw drawn fence in the deck's source, and the bundled runtime marks an off fence by
+  substring, as its pass reads it.
+
+- **0.5-draft, every library owned (2026-10-07).** `vendor` (§3.4): the libraries a plugin needs
+  that are not its browser payload get the same owned, pinned, hashed copy, and a copy may be a
+  directory. function-plot vendors its payload; the math plugin owns KaTeX (library, stylesheet,
+  fonts); Mermaid owns its bake's ZenUML and mermaid-cli render page. No surface reads a plugin
+  library from `node_modules`.
+
+- **0.5-draft, vendored payloads (2026-10-06).** `payload.vendored` (§3.4) and the in-tree
+  `vendor/` folder (§2): a plugin owns a committed copy of its library, checked by SHA-256, and
+  every surface reads it. Mermaid's is the first; its repo-root copy is retired.
+
+- **0.5-draft, author raw HTML (2026-10-06).** The host's figure marker names in an author's raw
+  HTML are renamed, and an unadmitted drawn fence's `language-<fence>` class in raw HTML is defanged
+  (§3.2.1). The Playground page's own lint follows the deck's admission, as the Studio's does.
+
+- **0.5-draft, the dispatch role (2026-10-06).** `<name>.dispatch.js` (§2, §3.3): a plugin that
+  offers an extension point ships the module that calls its fillers, and only such a plugin ships
+  one. In-tree only, and a build check rather than a host contract: the host loads no role module
+  by this name, and api 1 fixes none of its exports. The chart family's section dispatch and chart frame moved into it, and the chart frame's
+  stylesheet became the family's `styles` contribution.
+
+- **0.5-draft, admission on Export-to-Marp and the Studio's readers (2026-10-05).** An exported
+  Marp bundle carries `pluginsOff` and its runtime marks from it (§3.2.1); the Studio's lint and
+  slide mapping parse under the deck's admission.
+
+- **0.5-draft, extension points (2026-10-05).** `contributes.extensionPoints` (§3.3): a slot a
+  plugin offers and components fill. The chart family offers `kernel`, filled by every chart in the
+  `chart` bucket; filling a slot is requiring the plugin (§3.2.1), and a switched-off slot plugin
+  marks each filler's section `data-lattice-off`.
+
 - **0.5-draft, `shared/` (2026-10-05).** A shipped plugin may carry an in-tree-only `shared/`
   folder of modules (§2); Mermaid's five shared kernels moved there from `lib/integrations/mermaid/`.
 
 - **0.5-draft, admission on the browser half (2026-10-05).** `data-lattice-off="<plugin>"` (§3.2.1,
   §6): the engine's marker on an unadmitted plugin's code fence, which every pass and probe skips.
+  The same marker on inline code left literal because a plugin is not admitted (`^{…}`, and an
+  icon-only pill, with icons not loaded).
   The CLI's boundary parser follows the run's admission. A host may now narrow the default set.
 
 - **0.5-draft, phase D's last consumers (2026-10-05).** `render.figureClasses` and the host's

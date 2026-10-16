@@ -72,7 +72,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - Ree A., Head of Ops at Northwind `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 ```
 
 ### `gallery` — gallery
@@ -86,7 +86,7 @@ A contained, matted exhibit.
 
 - https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 ```
 
 ### `qr` — qr
@@ -102,7 +102,7 @@ The full 90-second tour — scan to open it on your phone.
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - Scan to watch `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 ```
 
 ## Universal modifiers

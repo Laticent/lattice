@@ -2,6 +2,9 @@
 origin: 2424
 priority: P3
 recorded: 2026-09-28
+area: chart
+severity: low
+swimlane: engineering/decisions/2026-09-27-trama-graph-chart-library.md
 ---
 
 # A live preview with no worker still redraws from the remembered fit

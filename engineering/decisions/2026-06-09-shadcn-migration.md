@@ -201,7 +201,7 @@ Two things make a component framework worth the migration cost now:
    are real apps (editors, chat, settings, dialogs) — shadcn's sweet spot,
    not a marketing-site over-reach.
 2. **A second consumer amortizes the cost.** We are building a Tauri
-   desktop app (Laticent) that already embeds the same engine. A Tauri
+   desktop app (Laticent) that already embeds the same engine. *(Corrected 2026-10-06: there is no separate desktop repo — the app will live in this repository and is not built yet, so it embeds nothing today. See `2026-05-10-tauri-exploration.md` §Repository structure.)* A Tauri
    shell is a React webview; if the website and the desktop app share one
    component library and one token system, we build the authoring UI
    **once for both**. That flips the ROI on the riskiest surface (the

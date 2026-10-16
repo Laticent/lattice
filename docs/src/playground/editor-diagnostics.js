@@ -11,6 +11,21 @@
 // objects, returns plain diagnostic objects) so it unit-tests without a DOM and
 // without the authoring-core bundle.
 
+// THE PLUGINS A DECK LEAVES OFF, from a host's admission (`LatticePlayground.pluginAdmission`, the
+// plugins a whole deck loads under the host's defaults; null on the shipped default set) and every
+// installed plugin's name. Sorted, so a caller can key a cache on it. The one copy: the Studio's
+// readers (docs/src/lib/plugin-admission.ts) and the Playground editor's lint both call it.
+/**
+ * @param {string} deck
+ * @param {((deck: string) => string[] | null) | undefined} admission
+ * @param {readonly string[]} names
+ * @returns {string[]}
+ */
+export function deckPluginsOffFor(deck, admission, names) {
+	const active = typeof admission === 'function' ? admission(deck) : null;
+	return active ? names.filter((n) => !active.includes(n)).sort() : [];
+}
+
 // 1-based source line where each REAL slide begins, indexed by the HUMAN slide
 // number (front matter skipped) — so `starts[slide]` maps a finding to its line,
 // matching lint-core / review-core's numbering. `starts[0]` = 1 (deck top) for
@@ -48,13 +63,48 @@ export function chunkStartLines(src) {
  * @typedef {Object} VocabSets
  * @property {Set<string>} names
  * @property {Set<string>} modifiers
+ * @property {string[]} [externalPlugins] — zip plugins the host holds; a deck that lists one is not told it is unknown
  * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
  * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
- *   (`guardsNames`, `cardsNames`, …); only the ones a caller reads by name are declared
+ *   (`fitNames`, `cardsNames`, …); only the ones a caller reads by name are declared
  * @property {string[]} [modeNames]
  * @property {string[]} [splitNames]
  * @property {Record<string, { axis: string; hard: number }>} [capacity]
  */
+
+// The names of the zip plugins the Studio holds (plugin-library.ts), shared by every vocabulary this builder
+// makes, by reference: the editor builds its vocabulary once, and a plugin imported later must still be known.
+/** @type {string[]} */
+const EXTERNAL_PLUGINS = [];
+/** @type {Record<string, string>} plugin name -> the fence it owns */
+const EXTERNAL_FENCE_OF = {};
+/** @type {Record<string, string[]>} plugin name -> the inline kinds it draws (`@kind{…}`, 2026-10-14-plugin-inline-door.md) */
+const EXTERNAL_INLINE_KINDS = {};
+
+/** Every zip plugin's inline kinds, for the editor's `@` menu: `{ name, plugin }`, listed or not (lint says which a deck may call). */
+export function externalInlineKinds() {
+	return Object.entries(EXTERNAL_INLINE_KINDS).flatMap(([plugin, kinds]) => kinds.map((name) => ({ name, plugin })));
+}
+
+/**
+ * Tell the linter which plugins the host holds that are not in the shipped registry, and the fence each owns.
+ * @param {Iterable<string>} names
+ * @param {Iterable<string>} [fences]  parallel to `names`
+ * @param {Iterable<string[]>} [kinds]  parallel to `names`: each plugin's inline kinds
+ */
+export function setExternalPlugins(names, fences = [], kinds = []) {
+	const list = [...names];
+	const owned = [...fences];
+	const drawn = [...kinds];
+	EXTERNAL_PLUGINS.length = 0;
+	EXTERNAL_PLUGINS.push(...list);
+	for (const k of Object.keys(EXTERNAL_FENCE_OF)) delete EXTERNAL_FENCE_OF[k];
+	for (const k of Object.keys(EXTERNAL_INLINE_KINDS)) delete EXTERNAL_INLINE_KINDS[k];
+	list.forEach((n, i) => {
+		if (owned[i]) EXTERNAL_FENCE_OF[n] = owned[i];
+		if (Array.isArray(drawn[i]) && drawn[i].length) EXTERNAL_INLINE_KINDS[n] = [...drawn[i]];
+	});
+}
 
 /** @returns {VocabSets} */
 export function buildVocabSets(vocab) {
@@ -63,6 +113,9 @@ export function buildVocabSets(vocab) {
 	const sets = {
 		names: new Set(v.names || []),
 		modifiers: new Set(v.modifiers || []),
+		externalPlugins: EXTERNAL_PLUGINS,
+		externalFenceOf: EXTERNAL_FENCE_OF,
+		externalInlineKinds: EXTERNAL_INLINE_KINDS,
 	};
 	// Map region/group vocabulary — { us, world }, each { valid, names }.
 	if (v.mapRegions) {
@@ -71,9 +124,9 @@ export function buildVocabSets(vocab) {
 			sets.mapRegions[which] = { valid: new Set(mv.valid || []), names: mv.names || [] };
 		}
 	}
-	// EVERY register value list (`finishNames`, `guardsNames`, `cardsNames`, the spectrum
+	// EVERY register value list (`finishNames`, `fitNames`, `cardsNames`, the spectrum
 	// family, …), by suffix rather than by name: each gates one `findUnknown*` rule in
-	// lint-core (`if (vocab.guardsNames) …`), so a list this builder drops turns that rule
+	// lint-core (`if (vocab.fitNames) …`), so a list this builder drops turns that rule
 	// off in the Studio while `lint:deck` still fires it. A hand-kept six of these once
 	// left fifteen rules dead in the editor and the Coach while the editor COMPLETED their
 	// values. Forwarding by suffix means a new register's list reaches the browser linter

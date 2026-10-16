@@ -26,12 +26,23 @@
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
+import { ensureCharts } from './ensure-charts';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
+import { ensurePluginData } from './ensure-plugin-data';
 import type { LatticePlaygroundEngine } from './playground-global';
 
 export type RenderMarkdownOpts = {
 	baseUrl?: string;
+	/** Where `sample:<name>` images resolve — the staged lib/samples/ (./samples-base.ts). */
+	samplesUrl?: string;
+	/** Where `asset:<name>` Library photos resolve: name → URL (a `blob:` object URL in the Studio).
+	 *  Left unset, the Studio's render-options hook fills it when the source names an `asset:`
+	 *  reference (components/studio/asset-render-hook.ts); every other surface passes nothing. */
+	assetUrls?: Record<string, string>;
+	/** `asset:<name>` → the photo's description. The engine fills an EMPTY alt from it; an alt the author wrote
+	 *  stays. Filled by the same hook as `assetUrls`, and by an export beside its data-URI map. */
+	assetAlts?: Record<string, string>;
 	stats?: boolean;
 	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
 	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the
@@ -56,6 +67,17 @@ export type RenderMarkdownOpts = {
 	 *  rendered alone passes the whole deck's admission (`PG.pluginAdmission`): it is deck-wide. */
 	pluginDefaults?: string[];
 };
+/**
+ * A host's chance to add options to a render, given the source about to be rendered. The Studio
+ * registers one (components/studio/asset-render-hook.ts) to hand the engine its Library-photo map.
+ * It lives behind a hook, not in this file, because this module is on the home page's and the
+ * Playground's startup path and neither has a Library: the code for it ships only to the Studio.
+ */
+export type RenderOptsHook = (source: string, opts: RenderMarkdownOpts | undefined) => Promise<RenderMarkdownOpts | undefined>;
+let optsHook: RenderOptsHook | null = null;
+export function setRenderOptsHook(hook: RenderOptsHook | null): void {
+	optsHook = hook;
+}
 export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 
 /**
@@ -75,11 +97,10 @@ export type RenderMarkdownResult = { html: string; css: string; flatCss?: string
  * KaTeX does: `PG.render` is synchronous BY DESIGN (lib/engine/README.md), so
  * anything that must be fetched before a render has to be awaited above it — and
  * this is the one chokepoint every docs render surface passes through. The engine
- * bundle carries highlight.js's 36-language `common` build; a deck reaching past it
- * (`powershell`, `dockerfile`, `elixir`) previously rendered those fences in plain
- * monospace here while the CLI export colored them. `ensureFenceLanguages` fetches
- * just the grammars this deck names — median 1.9 KB each — and never rejects, so a
- * grammar that will not load costs its fence the color it already lacked.
+ * bundle carries highlight.js core and Lattice's shell grammar only
+ * (engineering/decisions/2026-10-15-code-plugin.md), so `ensureFenceLanguages` fetches
+ * the grammars this deck names, and the ones those embed — median 2.1 KB each — and
+ * never rejects: a grammar that will not load costs its fence its color, not its text.
  */
 export async function renderMarkdown(
 	PG: LatticePlaygroundEngine,
@@ -96,14 +117,39 @@ export async function renderMarkdown(
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
-	// Returns before touching the network on the common case: `missingLanguages` is
-	// empty for any deck whose fences are all in `common`. It is not allocation-free
+	// Returns before touching the network for a deck with no code, or whose grammars
+	// arrived on an earlier render: `missingLanguages` is then empty. It is not allocation-free
 	// once a deck HAS a fence — `scanFences` splits the source and builds a Set — but
 	// a fence-less deck short-circuits on an `indexOf` before allocating anything.
 	await ensureFenceLanguages(rendered).catch(() => []);
+	// A plugin's DATA (the icons plugin's drawings) is split out of the engine bundle the way KaTeX
+	// is, so a deck that writes an icon fetches it here, once, before it renders (ensure-plugin-data.ts).
+	await ensurePluginData(rendered);
+	// CHART KERNELS (ensure-charts.ts): the ESM engine carries none, so the ones this deck's directives
+	// name load here, before the synchronous render. The single-file engine answers none needed.
+	// A load that fails REJECTS (a ChunkLoadError): a chart drawn as its source list would be wrong.
+	await ensureCharts(PG.chartsNeeded?.(rendered) ?? []);
 	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
 	// and every export runs them the same way.
-	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, opts);
+	// A host's added options (the Studio's Library-photo map). A deck that needs none gets `opts`
+	// back untouched. A hook that throws must never fail a render, so it falls back to `opts`.
+	let withHook = opts;
+	if (optsHook) {
+		try {
+			withHook = await optsHook(rendered, opts);
+		} catch {
+			withHook = opts;
+		}
+	}
+	const out = await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	// The scan reads directive comments, and over every tracked deck it has never missed a chart the
+	// render drew. Should one ever slip past it, the dispatch recorded it: load it and render once more.
+	// The record is engine-wide, so a miss from a concurrent render can land here too; that costs one
+	// extra render, never a wrong one, which is why nothing clears the record before rendering.
+	const missed = PG.takeMissingCharts?.() ?? [];
+	if (!missed.length) return out;
+	await ensureCharts(missed);
+	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
 }

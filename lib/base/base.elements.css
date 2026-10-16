@@ -133,7 +133,7 @@ section em { font-style:italic; }
  * cascade wraps inline code; block code keeps its newlines via the reset below. */
 section code { font-family:var(--font-mono); font-size:0.85em; color:var(--code-inline-fg, var(--accent)); background:var(--code-inline-bg, color-mix(in srgb, currentColor 10%, transparent)); padding:0.15625cqi 0.46875cqi; border-radius:0.3125cqi; border:1px solid var(--code-inline-border, color-mix(in srgb, currentColor 22%, transparent)); }
 /* Reset inline-code chip styling for code that's inside a fenced block.
- * Covers both `<pre>` (lattice-emulator output, where mermaid is pre-rendered
+ * Covers both `<pre>` (lattice output, where mermaid is pre-rendered
  * to SVG) and `<marp-pre>` (Marp Preview's custom element, where mermaid
  * source remains in the DOM until lattice-runtime.js upgrades it). Without
  * the marp-pre branch, mermaid source blocks render briefly as inline-code

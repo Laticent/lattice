@@ -92,6 +92,51 @@ section.flowchart .fc-node {
   border-radius: var(--chart-mark-radius);
 }
 
+/* A shape with an ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js): the
+ * drawing sits before the name, or above it when the chart is pinned `tb` (the icons note
+ * § 11 q1), and the measured box holds both. `icon-only` keeps the name in the harness for its
+ * words but out of the box, so the tile is the icon's. Sized from the shape's own type. */
+section.flowchart .fc-node[data-icon] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+}
+section.flowchart .flowchart-figure[data-fc-dir="tb"] .fc-node[data-icon] {
+  flex-direction: column;
+  gap: 0.25em;
+}
+section.flowchart .fc-node .graph-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: 1.3em;
+  height: 1.3em;
+  line-height: 0;
+}
+section.flowchart .fc-node .graph-icon > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+section.flowchart .fc-node[data-icon-only] .graph-icon {
+  width: 2.2em;
+  height: 2.2em;
+}
+section.flowchart .fc-node[data-icon-only] .fc-name {
+  position: absolute;
+  width: 1px; /* sanctioned: the name kept for its words, clipped out of the icon-only tile's measured box */
+  height: 1px; /* sanctioned: the name kept for its words, clipped out of the icon-only tile's measured box */
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Labels and titles are measured, never shown as HTML: out of flow and
  * invisible, but laid out, so they have a box to read. */
 section.flowchart :is(.fc-elabels, .fc-gtitles) {
@@ -218,6 +263,26 @@ section.flowchart .fc-shape[data-border="5"] { stroke: var(--chart-cat-5-ink); }
 section.flowchart .fc-shape[data-border="6"] { stroke: var(--chart-cat-6-ink); }
 section.flowchart .fc-shape[data-border="7"] { stroke: var(--chart-cat-7-ink); }
 section.flowchart .fc-shape[data-border="8"] { stroke: var(--chart-cat-8-ink); }
+/* A painted icon draws bare in the name's ink (the icons note § 6: inside a chart, the chart
+ * decides the frame), at the drawing's own stroke on its 24-unit grid; a deck's `icon:` look
+ * thins or thickens it as it does every icon. */
+section.flowchart .fc-icon {
+  color: var(--fc-ink);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+section.icon-etching .flowchart-svg .fc-icon { stroke-width: 1.5; }
+section.flowchart .fc-node-group[data-text="1"] .fc-icon { color: var(--chart-cat-1-ink); }
+section.flowchart .fc-node-group[data-text="2"] .fc-icon { color: var(--chart-cat-2-ink); }
+section.flowchart .fc-node-group[data-text="3"] .fc-icon { color: var(--chart-cat-3-ink); }
+section.flowchart .fc-node-group[data-text="4"] .fc-icon { color: var(--chart-cat-4-ink); }
+section.flowchart .fc-node-group[data-text="5"] .fc-icon { color: var(--chart-cat-5-ink); }
+section.flowchart .fc-node-group[data-text="6"] .fc-icon { color: var(--chart-cat-6-ink); }
+section.flowchart .fc-node-group[data-text="7"] .fc-icon { color: var(--chart-cat-7-ink); }
+section.flowchart .fc-node-group[data-text="8"] .fc-icon { color: var(--chart-cat-8-ink); }
 section.flowchart .fc-node-group[data-text="1"] .fc-name { fill: var(--chart-cat-1-ink); }
 section.flowchart .fc-node-group[data-text="2"] .fc-name { fill: var(--chart-cat-2-ink); }
 section.flowchart .fc-node-group[data-text="3"] .fc-name { fill: var(--chart-cat-3-ink); }

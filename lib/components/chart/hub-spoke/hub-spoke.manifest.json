@@ -1,6 +1,11 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "hub-spoke",
+  "plugins": {
+    "optional": [
+      "icons"
+    ]
+  },
   "focusAxes": [
     "mark"
   ],
@@ -105,12 +110,12 @@
     "hub": {
       "selector": "ul > li",
       "required": true,
-      "description": "Exactly ONE top-level item: the hub. Its name prints inside the hub disc; an optional value pill (`$48M`, `12,000`) prints under it. A second top-level item is not drawn (lint `hub-spoke-extra-hub`), and a status pill on the hub is ignored (lint `hub-spoke-hub-status`)."
+      "description": "Exactly ONE top-level item: the hub. Its name prints inside the hub disc; an optional value pill (`$48M`, `12,000`) prints under it. A second top-level item is not drawn (lint `hub-spoke-extra-hub`), and a status pill on the hub is ignored (lint `hub-spoke-hub-status`). An icon record (`{icon=warehouse}`) draws the icon inside the hub disc above its name; `{icon=warehouse, icon-only}` draws it in place of the name, which stays the disc's title and its accessible name."
     },
     "satellites": {
       "selector": "li > ul > li",
       "required": true,
-      "description": "The hub's nested items, one per satellite, drawn clockwise from about one o'clock (at most 12; `tiered`: at most 6 branches). Pills after the name, in any order: at most ONE value (`$18M`, `62%`, `3,600` — the family value test), a status word (`at-risk`, `blocked`, `on-track`, `live`…) that marks that spoke only, `flow:in` / `flow:out` / `flow:both` for that spoke's arrowhead, and any other word as the satellite's GROUP (up to 6 groups get a hue and a key)."
+      "description": "The hub's nested items, one per satellite, drawn clockwise from about one o'clock (at most 12; `tiered`: at most 6 branches). Pills after the name, in any order: at most ONE value (`$18M`, `62%`, `3,600` — the family value test), a status word (`at-risk`, `blocked`, `on-track`, `live`…) that marks that spoke only, `flow:in` / `flow:out` / `flow:both` for that spoke's arrowhead, and any other word as the satellite's GROUP (up to 6 groups get a hue and a key). One icon record per item, `{icon=database}`, draws that icon inside the satellite's disc (a branch's or a leaf's under `tiered`), and `{icon=database, icon-only}` drops the label beside the disc: the name stays its hover title and what the chart's description reads. The record takes `icon=` and `icon-only` only; the value, status and group stay their own pills."
     },
     "detail": {
       "selector": "li > ul > li > ul",
@@ -283,5 +288,25 @@
   },
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "segno": {
+    "style": {
+      "label": "a hub-spoke icon record",
+      "sits": "list-rows",
+      "rowDepth": {
+        "default": 2,
+        "tiered": 3
+      },
+      "params": {
+        "icon": {
+          "type": "text",
+          "named": true
+        },
+        "icon-only": {
+          "type": "flag",
+          "word": "icon-only"
+        }
+      }
+    }
   }
 }

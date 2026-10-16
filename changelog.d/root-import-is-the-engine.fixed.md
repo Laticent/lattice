@@ -1,0 +1,1 @@
+- `require('@laticent/lattice')` and `import '@laticent/lattice'` now load the render engine (the same module as `@laticent/lattice/engine`) instead of running the CLI, which exited the program that imported it. The CLI is still the `lattice` command; `@laticent/lattice/min` is no longer an import path.

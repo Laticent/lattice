@@ -2,6 +2,9 @@
 origin: 2243
 priority: P4
 recorded: 2026-09-22
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-20-narration-audit.md
 source: https://github.com/Laticent/lattice/pull/2243#issuecomment-5757375213
 ---
 

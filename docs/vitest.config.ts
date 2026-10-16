@@ -8,18 +8,21 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
 	plugins: [react()],
 	resolve: {
-		alias: {
-			'@': fileURLToPath(new URL('./src', import.meta.url)),
+		alias: [
+			// The lint core loads from esm/lint.js beside the engine in the browser; Node has no engine
+			// directory, so tests load the Node build of the same entry (lint-core-source.vitest.js).
+			{ find: /^\.\/lint-core-source\.js$/, replacement: fileURLToPath(new URL('./src/playground/lint-core-source.vitest.js', import.meta.url)) },
+			{ find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
 			// Cadenza imports the LTT format by its package name (its one dependency, and the name
 			// its npm consumers resolve). The docs read every library as SOURCE, so the name maps to
 			// the source here as `@/lib/*` does — never to the package's built dist/.
-			'@laticent/ltt': fileURLToPath(new URL('./src/lib/ltt/index.ts', import.meta.url)),
+			{ find: '@laticent/ltt', replacement: fileURLToPath(new URL('./src/lib/ltt/index.ts', import.meta.url)) },
 			// react-resizable-panels hijacks document pointerdown to hit-test dividers;
 			// in jsdom (all rects 0×0 at 0,0) that swallows every click and breaks Radix
 			// menus. Resize is verified in the Playwright e2e; unit tests use a plain-div
 			// stub. See src/test/react-resizable-panels.stub.tsx.
-			'react-resizable-panels': fileURLToPath(new URL('./src/test/react-resizable-panels.stub.tsx', import.meta.url)),
-		},
+			{ find: 'react-resizable-panels', replacement: fileURLToPath(new URL('./src/test/react-resizable-panels.stub.tsx', import.meta.url)) },
+		],
 		// The narration encoder lives in lib/core (the CLI voices a deck with it too), and a bare
 		// import from there would otherwise reach the ROOT node_modules copy of the MP3 encoder while
 		// a test's `vi.mock` names this project's. One copy, resolved from here, for every importer.

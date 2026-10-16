@@ -2,6 +2,9 @@
 origin: 2341
 priority: P2
 recorded: 2026-09-24
+area: website
+severity: low
+swimlane: engineering/decisions/2026-06-25-runtime-autosplit-eventual-consistency.md
 source: https://github.com/Laticent/lattice/pull/2341
 ---
 # A Playground tour step over a split slide has no browser test

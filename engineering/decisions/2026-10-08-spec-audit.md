@@ -1,0 +1,201 @@
+---
+status: in-progress
+summary: Audit of every spec in the repo — what counts as one, the four parts each owes (document, schema, reference implementation, shared test cases), where each stands, two measured drifts, and a proposed order of work.
+---
+
+# Spec audit (2026-10-08)
+
+**The answer.** Lattice has **at least thirteen** contracts that another program could implement
+or produce, and only **three** live in `spec/`. **None has all four parts** a spec owes: a
+versioned document, a schema, a reference implementation, and shared test cases that any
+implementation must pass. Two come close. **LTT** has the schema, the implementation and the test
+cases, but its document sits outside `spec/` with no status or change log, and it is filed as a
+library. **LPM** has all four but names no owner. The two most important specs have drifted from
+the code with nothing to catch it:
+
+- **The Diagnostic Protocol** registers **13** rule IDs and calls the list frozen. The linter
+  emits **at least 157**, so at least 144 rule IDs (over 90%) exist only in code.
+- **LFM 1.0** says its two front-matter keys (`finish:` and `logo:`) are "the complete
+  LFM-added front-matter surface". The engine reads about two dozen deck-wide settings
+  (`lib/base/base.registers.docs.md`). The spec does not mention the inline notation (pills,
+  sparks, icons) or the `_lens` tag either.
+
+This note proposes treating specs as their own category, beside libraries, with one contract
+for all of them, and an order of work. The owner asked for it on 2026-10-08, after the library
+audit (`2026-10-08-library-audit.md`) showed LTT to be a spec, not a library.
+
+## 1. What counts as a spec
+
+A **spec** is a contract written so that someone else could build a second implementation
+without reading our code. It defines a file format, a syntax, or a protocol between two
+programs. A **library** is code. The two often travel together: `@laticent/ltt` is the code
+that implements the LTT spec. The difference matters because they owe different things. A
+library owes a working, tested package. A spec owes a document a stranger can follow, and a way
+to prove an implementation follows it.
+
+The test for this audit: **would another program ever read or write this, or be read by us?** A
+deck file, a plugin, a theme, an exported timing track: yes. An internal data structure that
+never leaves one process: no.
+
+## 2. The four parts a spec owes
+
+| # | Part | What it is | Why |
+|---|---|---|---|
+| 1 | **A versioned document** | Prose in `spec/`, with a version, a status (draft / ratified), an owner, and a change log | It is what a second implementer reads. A decision note explains *why*; the spec says *what* |
+| 2 | **A schema**, where the spec defines data | A JSON Schema, generated from the types where it can be | A machine can check a file without our code |
+| 3 | **A reference implementation** | The code we name as correct, with its path | Disagreements between the document and the code get settled one way, on record |
+| 4 | **Shared test cases** | Input files plus expected results, which every implementation, ours included, must pass | This is the only part that catches drift. Without it, the document and the code diverge quietly, as §4 shows |
+
+Plus one gate: **a check that fails when the parts disagree.** LTT already has one: `npm run
+build:check` fails when `ltt.schema.json` differs from the types it is generated from.
+
+## 3. The inventory
+
+Measured on `main` at `f3ad9f5c`. "Tests" means tests aimed at the contract itself, not tests
+that merely use it.
+
+| Spec | Defines | 1. Document | 2. Schema | 3. Implementation | 4. Shared test cases |
+|---|---|---|---|---|---|
+| **LFM** (Lattice-Flavored Markdown) | The deck format | `spec/LFM-1.0.md`, "1.0-draft (pre-ratification)" since 2026-06-13; published at `/spec/lfm/` | `dist/docs/grammar.json`, generated per component | the engine | ✗ none; `build-grammar.test.js` checks the generated grammar, not documents against the spec |
+| **Diagnostic Protocol** | The shape of a lint finding, and the rule registry | `spec/diagnostics.md`, draft 1.0; published at `/spec/diagnostics/` | ✗ | `lib/authoring/lint-core.js` | ✗; nothing compares the registry with the linter (§4) |
+| **LPM** (Lattice Plugin Model) | How a plugin and the host talk | `spec/LPM.md`, 0.5-draft, with a status and a change log (§12); not published while a draft; no owner named | `lib/plugins/plugin.schema.json` | the plugin host | ✓ §9 makes `<name>.fixtures.md` required, and `test/unit/plugins/conformance.test.js` runs all six plugins' cases; manifests are also schema-validated |
+| **LTT** (Lattice Timing Track) | Word-timing files | `engineering/ltt.md`, outside `spec/`, with a version and an owner but no status or change log; not published on the site | `ltt.schema.json`, generated, gated | `@laticent/ltt` | ✓ `docs/src/lib/ltt/conformance/*.json` |
+| **Theme contract** | The tokens a palette must supply | `design/theming.md`, prose, no version | `themes/theme.schema.json` | build + engine | partial: contract tests such as `accent-contract.test.js` |
+| **Component manifest** | What a component declares | `design/design-system.md`, prose | `lib/components/manifest.schema.json` | build | our own manifests are validated in `build:check` |
+| **Finish and motion manifests** | Data files for a finish or a motion | ✗ | `finish.schema.json`, `motion.schema.json` | engine | our own manifests are validated (`tools/manifest-schemas.js`) |
+| **Forms** (frame / cell / tile) | How a slide is composed | `design/forms.md` | `lib/forms/schema/*.schema.json` | engine | `frame-conformance.test.js` (integration) |
+| **Portable package shape** | One folder shape for themes, components, finishes, motion | a decision note only (`2026-09-23-portable-packages.md`) | per type, via the manifests above | build, CLI, Studio | ✗ |
+| **`.lattice` project file** and **asset bundle** (since 2026-09 the package-folder zip; the old `lattice-asset/1` envelope is import-only, and nothing writes it) | What the Studio saves and reopens | decision notes only (`2026-06-16-lattice-export-format.md`, `2026-06-29-lattice-asset-share.md`) | ✗ | Studio (`lattice-file.ts`, `asset-bundle.ts`) and `lib/core/reopenable.js`, shared with the CLI | `lattice-file.test.ts`, `asset-bundle.test.ts`, `test/unit/core/reopenable.test.js` |
+| **Workspace backup** (`lattice-workspace/1`) | A zip of every deck in a Studio | a decision note only (`2026-07-02-workspace-backup.md`) | ✗ | Studio (`workspace-backup.ts`) | Studio unit tests |
+| **Re-openable export** | A PDF attachment `deck.lattice` (`application/vnd.lattice+zip`) and a PPTX part `lattice/deck.lattice` that carry the source, so an export opens back in Lattice | a decision note only (`2026-10-05-reopenable-exports.md`) | ✗ | `lib/core/reopenable.js`, used by the CLI's `--reopenable` and the Studio | `test/unit/core/reopenable.test.js` |
+| **Segno inline notation** | What an author types inside backticks: pills, sparks, icons, values | Segno's README and `2026-09-28-segno-unified-inline-notation.md` | the grammar is data in Segno | `@laticent/segno` | Segno's own tests, including a fuzz test |
+
+Three observations:
+
+- **The site already has a "Specification" section** (`/spec/lfm/`, `/spec/diagnostics/`),
+  generated from `spec/` by `tools/build-spec-docs.js`, and `docs:spec:check` fails CI when the
+  pages drift (it runs in CI as a step inside `build:check`). So the projection pipeline exists. LTT just never joined it.
+- **`spec/*.md` is licensed CC-BY-4.0** (`tools/build-spec-docs.js` header), apart from the
+  code. A spec moved into `spec/` takes that license with it, which is the right license for a
+  document we want others to implement.
+- **Schema `$id`s use three domains**: `laticent.io/schema/…` for themes,
+  `laticent.github.io/lattice/schemas/…` for LTT, and `lattice.laticent.io/…` for the rest. This
+  audit could not check whether any of them resolves (the sandbox's network policy refuses the
+  host).
+- **Two more files arguably qualify**: `dist/docs/components.json` and `grammar.json`, which the
+  `dist-kits` branch publishes "for tools". They are left out of the count because they are
+  generated catalogs, not formats anyone writes.
+
+## 4. Two drifts, measured
+
+### 4.1 The Diagnostic Protocol's "frozen" registry
+
+`spec/diagnostics.md` §3 says the rule IDs are "frozen for LFM 1.x", that "new rules are added in
+minor versions", and that "a rule is never silently removed". The registry lists **13** IDs. The
+linter emits **at least 157** distinct ones:
+
+| Source | Distinct rule IDs |
+|---|---|
+| written in `lib/authoring/lint-core.js` | 107 |
+| from `lib/core/flowchart-grammar.js`, mapped in by `lint-core` | 19 |
+| from `lib/core/hub-spoke-model.js`, mapped in by `lint-core` | 31 |
+| **total, written as literals** | **157** |
+
+Families built at runtime come on top: `unknown-spark`, one `unknown-<register>` per plugin
+register, and `<plugin kind>-literal` such as `icon-literal`. The review pass
+(`lib/authoring/review-core.js`, which `lint:deck` runs by default on named files and skips under
+`--all` or `--no-review`) adds 18 more suggestion-tier IDs
+plus a `verbose-*` family, and the CLI adds `narration-acronyms` and `narration-passthrough`.
+
+All 13 registered IDs are still emitted, so nothing was removed. But at least 144 IDs were added
+without a minor version, and nothing checks the registry against the code. A tool that relied on
+the registry, as §3 invites, would not know that over 90% of the findings exist. The severities
+drifted too: the spec says v1 has only `error` and `warning`, and `lint-core.js` also emits
+`info` (9 sites, 6 of them conditional) and `suggestion` (6 sites, 1 of them conditional).
+
+### 4.2 LFM's front-matter surface
+
+`spec/LFM-1.0.md` §2.3 lists `finish:` and `logo:` and says: "These two keys are the complete
+LFM-added front-matter surface in 1.0." `lib/base/base.registers.docs.md` documents about two
+dozen deck-wide settings an author can write today: `plugins:`, `preset:`, `mode:`, `fit:`,
+`backdrop:`, `split:`, `stamp:` / `tone:`, `spectrum:`, `rule:`, `inline-code:`, `eyebrow:`,
+`headline:`, `lift:`, `venue:`, `chart-finish:`, `cards:`, `tag:`, `spark:`, `corners:`,
+`delivery:`, and `greeting:` / `closing:`. (LFM §2.3 itself names one more, `pace:`, as a
+delivery setting 1.0 does not define; see `lib/core/resolve-pace.mjs`.) The spec says nothing
+about pills, sparks, icons, the `_lens` tag or plugins. (§3.2 does cover state marks inside
+inline code, so the inline notation is covered in part.) A second implementer following
+LFM 1.0 today would render a fraction of a real deck.
+
+Neither drift is anyone's mistake in one PR. They are what happens to a spec with no shared test
+cases: every feature lands in the code with tests of its own, and nothing asks the document to
+keep up.
+
+## 5. Recommendation
+
+1. **Specs become a category beside libraries,** with the four parts in §2 as the bar, an owner
+   per spec (LTT already names one), and the site's existing Specification section as their
+   public home.
+2. **Not every contract needs to be a public spec.** Proposed split, for the owner to confirm:
+   - **Public specs** (an outside party implements them; they get CC-BY-4.0, a version and
+     shared test cases): LFM, the Diagnostic Protocol, LPM, LTT.
+   - **Internal contracts** (only our code reads them; a schema and our own tests are enough):
+     the theme contract, the component, finish, motion and form manifests, the package shape,
+     the `.lattice` file, the asset bundle, the workspace backup and the re-openable export.
+   - **Folded into LFM**: Segno's inline notation and the `_lens` tag. They are things an
+     author writes in a deck, so they are LFM, with Segno as their reference implementation.
+3. **LTT moves its document to `spec/LTT-1.0.md`** and joins the site's Specification section.
+   `@laticent/ltt` stays as its reference implementation, and stays a published package because
+   Cadenza and Vetrina import it. On the home page, its card moves from Libraries to a Specs
+   group.
+
+## 6. Proposed order of work
+
+Each step is one PR (HARD RULE #17). They are ordered by what each one unblocks.
+
+| # | Step | Why this order | Done when |
+|---|---|---|---|
+| 1 | **Close the registry drift.** A test that fails when `lint-core` emits a rule ID the registry does not list, or the registry lists one it no longer emits; then register the rest (at least 144 IDs, plus the `info` and `suggestion` severities) in a Diagnostic Protocol 1.1 | Smallest step, and it adds the first spec-level gate outside LTT | the test exists, its failing arm fails, and the registry matches |
+| 2 | **Move LTT into `spec/`** with a status and a change log, and project it onto the site; the home page gets a Specs group | Gives the category its home, using the spec closest to complete that is not yet in `spec/` | `/spec/ltt/` is live, and `docs:spec:check` covers it |
+| 3 | **Start LFM's shared test cases**: a folder of small decks, each with its expected structure (for example, the slide classes and slots it produces), run against the engine | LFM cannot be brought up to date safely until there is something to check the update against | a first set covers §2–§3 of the current spec |
+| 4 | **LFM 1.1**: document the front-matter settings, the inline notation and the `_lens` tag, each with test cases | The big rewrite, made safe by step 3 | every documented setting has a test case |
+| 5 | **A spec gate**: `spec/` entries declare their four parts in a header, and a check fails when one is missing or a path rots | Keeps the category honest once it exists | the check runs in `build:check` |
+
+Step 5 adds a check to an existing gate (`build:check`), not a new CI job, so under CLAUDE.md's
+second filter it does not change the CI contract. Steps 1 and 3 add tests. None of the five
+needs a new workflow.
+
+## 7. Open decisions for the owner
+
+1. **The public / internal split** in §5.2. In particular: should the theme contract be public?
+   It would let outside tools make Lattice palettes, but it would freeze token names that still
+   move today.
+2. **LFM's version.** LFM is still "1.0-draft (pre-ratification)". The options: ratify 1.0 as
+   the small core it describes and add the rest as 1.1, or keep 1.0 a draft until it covers the
+   real surface. Recommendation: the first, because a draft that never ratifies gives an outside
+   implementer nothing stable.
+3. **Who owns each spec.** LTT names the owner. LFM, the Diagnostic Protocol and LPM name
+   nobody (LFM §12 names "the Laticent project" as steward, not a person).
+4. **The re-openable export and the workspace backup** are formats other copies of Lattice
+   read. Proposed: internal contracts, like the `.lattice` file, unless a third-party tool should
+   ever open them.
+
+## 8. Owner rulings (2026-10-08)
+
+1. **Six public specs:** LFM, the Diagnostic Protocol, LPM, LTT, **the theme contract** and
+   **the `.lattice` file**. The owner chose to make the last two public as well, which goes
+   further than §5.2 recommended. Each gets a versioned document in `spec/`, CC-BY-4.0, and
+   shared test cases. The cost is the one §7.1 named for the theme, and the same for the `.lattice` file:
+   the theme's token names, and the shape of the `.lattice` file, become things we change only
+   with a version bump. The manifests, the
+   package shape, the asset bundle, the workspace backup and the re-openable export stay internal
+   contracts.
+2. **LFM ratifies 1.0 as the small core it describes today,** and the front-matter settings, the
+   inline notation and the `_lens` tag arrive as 1.1, each with test cases.
+3. **The owner (@saden1) owns every public spec,** as with LTT: each spec carries an owner line,
+   and a change to its meaning needs the owner's sign-off.
+4. **Step 1 of §6 starts now,** on its own branch.
+5. **LTT is presented as a spec.** Asked how LTT should be presented on the site, the owner
+   answered: "we need to start thinking about specs as their own thing and having a place in our
+   thinking. specs need documentation and implementation and a test harness." This note reads
+   that as settling the question `2026-10-08-library-audit.md` §6.2 left open: LTT's card moves
+   from the Libraries group to a Specs group (§5.3), which is step 2 of §6.

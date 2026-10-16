@@ -481,6 +481,120 @@ section [data-lattice-painting="done"]::after {
   }
 }
 
+/* A PLUGIN'S FENCE THE DECK DID NOT LIST (plugin-system §9 decision 11; lib/packages/code-door-fence.mjs
+ * `fencePlaceholder`). The Studio holds a zip plugin that owns this fence, and the deck's `plugins:` line
+ * does not name it, so nothing ran: a placeholder stands where the block is, drawn in the house Nacre
+ * atmosphere (the underpainting above, held still: an export capture must not move) so it reads as "a
+ * plugin goes here" and not as a missing picture. Every paint is a deck token, so it follows the theme
+ * and the mode; the mark is the `--shape-spark` mask in the element's own ink, never a typed glyph. */
+section :is(div, span)[data-lattice-plugin-off] {
+  --lp-a: var(--accent);
+  --lp-b: color-mix(in oklab, var(--accent) 70%, var(--text-heading));
+  --lp-c: color-mix(in oklab, var(--accent) 60%, var(--bg-alt, var(--bg)));
+  display:flex;
+  align-items:center;
+  gap:0.9em;
+  box-sizing:border-box;
+  /* How much room it takes is geometry the engine already has, picked by `data-placement` (the plugin's manifest says
+   * which; plugin.schema.json `placeholder`): `stage` fills the stage as a Mermaid diagram or a chart does, `figure`
+   * takes the content width (within the stage's height) at a ratio as an image does, `chip` is a small square in the avatar size scale. */
+  flex:none;
+  padding:0.9em 1.2em;
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  border:1px solid var(--border);
+  border-radius:0.6em;
+  color:var(--text-body);
+  font-family:var(--font-label);
+  font-size:var(--fs-body);
+  line-height:1.25;
+  background-color:var(--bg-alt, var(--bg));
+  background-image:
+    radial-gradient(60% 140% at 12% 20%, color-mix(in oklab, var(--lp-a) 34%, transparent), transparent 70%),
+    radial-gradient(55% 150% at 58% 110%, color-mix(in oklab, var(--lp-b) 30%, transparent), transparent 70%),
+    radial-gradient(50% 140% at 100% 10%, color-mix(in oklab, var(--lp-c) 36%, transparent), transparent 72%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 1px, transparent 1px 5px);
+}
+@supports (color: oklch(from red l c h)) {
+  section :is(div, span)[data-lattice-plugin-off] {
+    --lp-b: oklch(from var(--accent) l c calc(h + 34));
+    --lp-c: oklch(from var(--accent) l c calc(h - 28));
+  }
+}
+/* figure (the default): the content width at the plugin's own proportions (remembered from its last drawn output, else
+ * the manifest's `aspect`, else 16 / 9: the web-image placeholder's), never taller than a slide's stage can hold. */
+section :is(div, span)[data-lattice-plugin-off][data-placement="figure"] {
+  /* Height at most 30cqi (the slide's own container unit, as the type tokens use), the width following it, so a 16:9
+   * figure fits the stage instead of running past the foot of the slide; a wide one still fills the row. */
+  width:min(100%, calc(30cqi * var(--lp-w, 16) / var(--lp-h, 9)));
+  aspect-ratio:var(--lp-w, 16) / var(--lp-h, 9);
+  min-height:3.4em;
+}
+/* stage: the stage box itself, the way `section.diagram > .cell-stage > .mermaid` fills it. */
+section :is(div, span)[data-lattice-plugin-off][data-placement="stage"] {
+  flex:1 1 auto;
+  width:100%;
+  min-height:8em;
+}
+/* chip: a square in the avatar size scale (avatars.styles.css `--avatar-size`: 1.1, 1.45, 2.4, 4em), mark only; the
+ * name rides in its title and accessible name. */
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] {
+  --lp-chip:1.45em;
+  width:var(--lp-chip);
+  height:var(--lp-chip);
+  padding:0.2em;
+  justify-content:center;
+  border-radius:0.35em;
+}
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="sm"] { --lp-chip:1.1em; }
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
+/* A zip plugin's DRAWN inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md): the root is ours, and it keeps
+ * what the plugin draws inside the word it stands for. `unicode-bidi: isolate` stops a direction change in its text
+ * from reordering the author's sentence; an inline-block with contained paint, no wider than its line and no taller
+ * than the largest chip (4em, the avatar scale's xl), holds anything a style the door's filter missed could paint
+ * (the red team, 2026-10-14). The door also strips bidi controls and moving styles (door-attr.mjs `doorFinishInline`). */
+section span[data-lattice-plugin][data-kind] {
+  display:inline-block;
+  unicode-bidi:isolate;
+  contain:paint;
+  max-width:100%;
+  max-height:4em;
+}
+/* An INLINE kind's chip (`@kind{…}` of an unlisted plugin, 2026-10-14-plugin-inline-door.md): a `<span>` that stands
+ * where a word stood, so it sits in the line, on the text's baseline, and takes no more room than the size it asked for. */
+section span[data-lattice-plugin-off][data-inline] {
+  display:inline-flex;
+  vertical-align:-0.2em;
+}
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-mark {
+  flex:none;
+  width:1.9em;
+  height:1.9em;
+  background-color:var(--accent);
+  -webkit-mask:var(--shape-spark) center / contain no-repeat;
+          mask:var(--shape-spark) center / contain no-repeat;
+}
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-words {
+  display:flex;
+  flex-direction:column;
+  gap:0.15em;
+  min-width:0;
+}
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-words strong {
+  color:var(--text-heading);
+  font-size:var(--fs-body);
+  font-weight:600;
+  overflow-wrap:anywhere;
+}
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-words span {
+  /* Body ink, not muted: the Nacre tones sit behind it, and the muted ink read at 2:1 on a dark deck. */
+  color:var(--text-body);
+  font-size:var(--fs-meta);
+}
+
 /* Marp Core converts unicode emoji in source markdown to twemoji <img class="emoji">.
    They must render inline at text size and not pick up the block image styling
    above; otherwise a stray "Hello 👋 there" puts the wave on its own line.
@@ -1000,18 +1114,22 @@ section.print {
    * darkest, string/comment/punctuation lighter — legible and B&W-safe. */
   --code-bg: var(--print-bg-alt);
   --code-text: var(--print-text-body);
-  --hljs-comment: var(--print-text-muted);
-  --hljs-keyword: var(--print-text-heading);
-  --hljs-built_in: var(--print-text-body);
-  --hljs-number: var(--print-text-body);
-  --hljs-literal: var(--print-text-body);
-  --hljs-string: var(--print-text-secondary);
-  --hljs-title: var(--print-text-heading);
-  --hljs-type: var(--print-text-body);
-  --hljs-variable: var(--print-text-body);
-  --hljs-params: var(--print-text-body);
-  --hljs-tag: var(--print-text-body);
-  --hljs-punctuation: var(--print-text-secondary);
+  --syntax-comment:     var(--print-text-muted);
+  --syntax-keyword:     var(--print-text-heading);
+  --syntax-builtin:     var(--print-text-body);
+  --syntax-number:      var(--print-text-body);
+  --syntax-constant:    var(--print-text-body);
+  --syntax-string:      var(--print-text-secondary);
+  --syntax-entity:      var(--print-text-heading);
+  --syntax-type:        var(--print-text-body);
+  --syntax-variable:    var(--print-text-body);
+  --syntax-parameter:   var(--print-text-body);
+  --syntax-markup:      var(--print-text-body);
+  --syntax-punctuation: var(--print-text-secondary);
+  /* In print the +/- marker that starts every diff line carries the difference, so the two roles
+   * take the hierarchy's two ends (heading and muted) rather than two mid grays a printer merges. */
+  --syntax-inserted:    var(--print-text-heading);
+  --syntax-deleted:     var(--print-text-muted);
   --spectrum: var(--print-border);  /* the rainbow ribbon → a flat gray rule (code panel edge, etc.) */
   /* Paper is a LIGHT canvas, so the mark takes the light-canvas treatment even on a
    * `dark print` slide. `initial` makes a custom property the guaranteed-invalid value,
@@ -1425,7 +1543,7 @@ section .below-note.is-annotation > p::before {
 
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -1446,7 +1564,7 @@ section:is(
 
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -1481,7 +1599,7 @@ section:is(
  * gradient hairline, label size, and the drawn spark. */
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -1496,7 +1614,7 @@ section:is(
 
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -2264,7 +2382,7 @@ section.divider.numbered :is(h1, h2)[data-lat-section]::after { content: attr(da
  * no `!important` is needed and the finish frame's ordinary cascade survives.
  *
  * The `off` arm is load-bearing for a different reason: a `--fluid` export carries
- * lattice-emulator.js's OWN inline watcher, which knows nothing about the register
+ * lattice.js's OWN inline watcher, which knows nothing about the register
  * and re-stamps `.overflow` on font-settle and on every resize. A one-shot JS sweep
  * cannot win that race, so `off` has to be enforced in CSS — otherwise a deck that
  * asked for silence rendered the LOUDEST marker there is. */
@@ -2608,7 +2726,7 @@ section.illegible > .marker-rail > .illegible-tab {
    * THE BOUND IS THE MARKER LEVEL, NOT "NEVER EXPORTED", and the distinction is one this
    * comment got wrong first time round. The tab is gated on `overflow-marker: author` — but
    * `author` is a level an EXPORT can be run at (`--overflow-marker=author`), and at that
-   * level lattice-emulator.js deliberately keeps it: its strip is `lvl !== 'author'`, and its
+   * level lattice.js deliberately keeps it: its strip is `lvl !== 'author'`, and its
    * own stderr line says "The export carries the amber ring and its tag." So an author-level
    * PDF / --html / --player carries this strip, by design. What is actually true is narrower
    * and still enough: nothing a READER receives has it, because `reader` and `off` — the
@@ -2794,7 +2912,7 @@ section.lattice-exporting .fit-culprit,
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.
  * Implementation: applyDeckLogoToHtml (lib/integrations/markdown-it/plugins.js),
- * which lattice-emulator.js `require`s rather than re-implementing — this note used
+ * which lattice.js `require`s rather than re-implementing — this note used
  * to claim an "inline copy" there and there has not been one; plus
  * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
  * implementation, which must mirror deckLogoVars.
@@ -4216,7 +4334,20 @@ section > .slide-edge[data-lattice-berth] {
  * at `:sm`. That is whole-pixel rounding, so no single offset is exact at every size.
  * Extra top padding, taken back from the bottom so the height holds, was swept from
  * 0.02em to 0.08em against the PDF. 0.05em gives the smallest worst case: 1.47px → 0.68px,
- * mean 0.92px → 0.30px. At 0.06em and above, `:lg` flips a whole pixel low. */
+ * mean 0.92px → 0.30px. At 0.06em and above, `:lg` flips a whole pixel low.
+ *
+ * NOT ON A LARGE PILL. Measured again in the exported PDF (2026-10-06, Outfit), the shift pushes a
+ * large pill LOW: an `h1` pill up to 2.25px, an `h2` pill 1.38px. Unshifted, every pill measured
+ * at 18.67px and up sits within 0.63px (h1 at 27–38px, h2 at 18.7–22.4px). Below that the sizes
+ * split both ways (an `h3` pill at 15.3px and a body `:sm` center better unshifted, others do
+ * not), so the shift is left exactly as it was there. `clamp()` turns `(18.5px − 1em)` into the
+ * full 0.05em below 18.5px and into 0 above it. The cut sits in the gap between the sizes that
+ * exist today (18.4px, an `h3 :lg`, and 18.67px, an `h2`); a change to the heading scale or the
+ * pill sizes can move a size across it, and it is in CSS px on the 1280×720 slide. No Outfit pill
+ * measured got worse. Each pill's place in its line still moves it by about ±0.4px.
+ *
+ * NOT ON A SKETCH SLIDE. The sketch face sits differently: under the size rule its `h2` pill moved
+ * from 0.13px to 0.88px off, so sketch keeps the old shift at every size. */
 @supports (text-box: trim-both cap alphabetic) {
   .lat-pill[data-shape] {
     text-box:trim-both cap alphabetic;
@@ -4226,9 +4357,11 @@ section > .slide-edge[data-lattice-berth] {
 }
 @supports not (text-box: trim-both cap alphabetic) {
   .lat-pill[data-shape] {
-    --lat-pill-pt:calc(var(--pill-pad-y) + 0.05em);
-    --lat-pill-pb:calc(var(--pill-pad-y) - 0.05em);
+    --lat-pill-shift:clamp(0px, (18.5px - 1em) * 1000, 0.05em);
+    --lat-pill-pt:calc(var(--pill-pad-y) + var(--lat-pill-shift));
+    --lat-pill-pb:calc(var(--pill-pad-y) - var(--lat-pill-shift));
   }
+  section.sketch .lat-pill[data-shape] { --lat-pill-shift:0.05em; }
 }
 
 /* Geometry per shape. `pill` is the default and needs no rule — it inherits the

@@ -1,0 +1,483 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 90144,
+	"lines": [
+		{
+			"key": "5d3ed5b388e3",
+			"text": "Coach reads your whole deck and lists what could be better, most important first.",
+			"file": "5d3ed5b388e3.mp3",
+			"bytes": 25776,
+			"speechMs": 4233,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Coach reads your whole deck and lists what could be better, most important first.",
+						"words": [
+							{
+								"display": "Coach",
+								"spoken": "Coach",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "reads",
+								"spoken": "reads",
+								"startMs": 210,
+								"endMs": 420,
+								"charOffset": 6
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 420,
+								"endMs": 630,
+								"charOffset": 12
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 630,
+								"endMs": 840,
+								"charOffset": 17
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 840,
+								"endMs": 1051,
+								"charOffset": 23
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1051,
+								"endMs": 1261,
+								"charOffset": 28
+							},
+							{
+								"display": "lists",
+								"spoken": "lists",
+								"startMs": 1261,
+								"endMs": 1471,
+								"charOffset": 32
+							},
+							{
+								"display": "what",
+								"spoken": "what",
+								"startMs": 1471,
+								"endMs": 1681,
+								"charOffset": 38
+							},
+							{
+								"display": "could",
+								"spoken": "could",
+								"startMs": 1681,
+								"endMs": 1891,
+								"charOffset": 43
+							},
+							{
+								"display": "be",
+								"spoken": "be",
+								"startMs": 1891,
+								"endMs": 2101,
+								"charOffset": 49
+							},
+							{
+								"display": "better,",
+								"spoken": "better,",
+								"startMs": 2101,
+								"endMs": 2552,
+								"charOffset": 52
+							},
+							{
+								"display": "most",
+								"spoken": "most",
+								"startMs": 2757,
+								"endMs": 2967,
+								"charOffset": 60
+							},
+							{
+								"display": "important",
+								"spoken": "important",
+								"startMs": 2967,
+								"endMs": 3598,
+								"charOffset": 65
+							},
+							{
+								"display": "first.",
+								"spoken": "first.",
+								"startMs": 3598,
+								"endMs": 3838,
+								"charOffset": 75
+							}
+						],
+						"startMs": 0,
+						"endMs": 4233,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4233
+			}
+		},
+		{
+			"key": "9a2842affe6e",
+			"text": "Click Coach.",
+			"file": "9a2842affe6e.mp3",
+			"bytes": 5184,
+			"speechMs": 811,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click Coach.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 202,
+								"charOffset": 0
+							},
+							{
+								"display": "Coach.",
+								"spoken": "Coach.",
+								"startMs": 202,
+								"endMs": 433,
+								"charOffset": 6
+							}
+						],
+						"startMs": 0,
+						"endMs": 811,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 811
+			}
+		},
+		{
+			"key": "db0aa8b7faca",
+			"text": "I’ll open Coach for you.",
+			"file": "db0aa8b7faca.mp3",
+			"bytes": 8496,
+			"speechMs": 1350,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open Coach for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 168,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 168,
+								"endMs": 505,
+								"charOffset": 5
+							},
+							{
+								"display": "Coach",
+								"spoken": "Coach",
+								"startMs": 505,
+								"endMs": 673,
+								"charOffset": 10
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 673,
+								"endMs": 841,
+								"charOffset": 16
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 841,
+								"endMs": 1034,
+								"charOffset": 20
+							}
+						],
+						"startMs": 0,
+						"endMs": 1350,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1350
+			}
+		},
+		{
+			"key": "805633d396ab",
+			"text": "These scores sum up the deck. Each finding below names its slide; click one to jump there.",
+			"file": "805633d396ab.mp3",
+			"bytes": 31392,
+			"speechMs": 5181,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "These scores sum up the deck.",
+						"words": [
+							{
+								"display": "These",
+								"spoken": "These",
+								"startMs": 0,
+								"endMs": 187,
+								"charOffset": 0
+							},
+							{
+								"display": "scores",
+								"spoken": "scores",
+								"startMs": 187,
+								"endMs": 561,
+								"charOffset": 6
+							},
+							{
+								"display": "sum",
+								"spoken": "sum",
+								"startMs": 561,
+								"endMs": 748,
+								"charOffset": 13
+							},
+							{
+								"display": "up",
+								"spoken": "up",
+								"startMs": 748,
+								"endMs": 935,
+								"charOffset": 17
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 935,
+								"endMs": 1122,
+								"charOffset": 20
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 1122,
+								"endMs": 1336,
+								"charOffset": 24
+							}
+						],
+						"startMs": 0,
+						"endMs": 1687,
+						"charOffset": 0
+					},
+					{
+						"display": "Each finding below names its slide; click one to jump there.",
+						"words": [
+							{
+								"display": "Each",
+								"spoken": "Each",
+								"startMs": 1838,
+								"endMs": 2025,
+								"charOffset": 30
+							},
+							{
+								"display": "finding",
+								"spoken": "finding",
+								"startMs": 2025,
+								"endMs": 2399,
+								"charOffset": 35
+							},
+							{
+								"display": "below",
+								"spoken": "below",
+								"startMs": 2399,
+								"endMs": 2773,
+								"charOffset": 43
+							},
+							{
+								"display": "names",
+								"spoken": "names",
+								"startMs": 2773,
+								"endMs": 3147,
+								"charOffset": 49
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 3147,
+								"endMs": 3334,
+								"charOffset": 55
+							},
+							{
+								"display": "slide;",
+								"spoken": "slide,",
+								"startMs": 3334,
+								"endMs": 3548,
+								"charOffset": 59
+							},
+							{
+								"display": "click",
+								"spoken": "click",
+								"startMs": 3868,
+								"endMs": 4054,
+								"charOffset": 66
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 4054,
+								"endMs": 4241,
+								"charOffset": 72
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4241,
+								"endMs": 4428,
+								"charOffset": 76
+							},
+							{
+								"display": "jump",
+								"spoken": "jump",
+								"startMs": 4428,
+								"endMs": 4615,
+								"charOffset": 79
+							},
+							{
+								"display": "there.",
+								"spoken": "there.",
+								"startMs": 4615,
+								"endMs": 4830,
+								"charOffset": 84
+							}
+						],
+						"startMs": 1838,
+						"endMs": 5181,
+						"charOffset": 30
+					}
+				],
+				"durationMs": 5181
+			}
+		},
+		{
+			"key": "147130987ac6",
+			"text": "Search “fix” to learn how Coach can fix some of these for you.",
+			"file": "147130987ac6.mp3",
+			"bytes": 19296,
+			"speechMs": 3147,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Search “fix” to learn how Coach can fix some of these for you.",
+						"words": [
+							{
+								"display": "Search",
+								"spoken": "Search",
+								"startMs": 0,
+								"endMs": 209,
+								"charOffset": 0
+							},
+							{
+								"display": "“fix”",
+								"spoken": "fix",
+								"startMs": 209,
+								"endMs": 419,
+								"charOffset": 7
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 419,
+								"endMs": 628,
+								"charOffset": 13
+							},
+							{
+								"display": "learn",
+								"spoken": "learn",
+								"startMs": 628,
+								"endMs": 838,
+								"charOffset": 16
+							},
+							{
+								"display": "how",
+								"spoken": "how",
+								"startMs": 838,
+								"endMs": 1047,
+								"charOffset": 22
+							},
+							{
+								"display": "Coach",
+								"spoken": "Coach",
+								"startMs": 1047,
+								"endMs": 1257,
+								"charOffset": 26
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 1257,
+								"endMs": 1466,
+								"charOffset": 32
+							},
+							{
+								"display": "fix",
+								"spoken": "fix",
+								"startMs": 1466,
+								"endMs": 1676,
+								"charOffset": 36
+							},
+							{
+								"display": "some",
+								"spoken": "some",
+								"startMs": 1676,
+								"endMs": 1885,
+								"charOffset": 40
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 1885,
+								"endMs": 2095,
+								"charOffset": 45
+							},
+							{
+								"display": "these",
+								"spoken": "these",
+								"startMs": 2095,
+								"endMs": 2304,
+								"charOffset": 48
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 2304,
+								"endMs": 2514,
+								"charOffset": 54
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 2514,
+								"endMs": 2754,
+								"charOffset": 58
+							}
+						],
+						"startMs": 0,
+						"endMs": 3147,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3147
+			}
+		}
+	]
+}

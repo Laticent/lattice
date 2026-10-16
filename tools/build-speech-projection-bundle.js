@@ -12,7 +12,7 @@
  * packaging reason as tools/build-anima-player.js — a browser bundle the Node side
  * only ever hands across CDP.
  *
- * WHY IT EXISTS AT ALL. `lattice-emulator.js`'s `projectDeckSpeechFromHtml` used to
+ * WHY IT EXISTS AT ALL. `lattice.js`'s `projectDeckSpeechFromHtml` used to
  * build THREE jsdom windows — one to host DOMPurify, one to parse the whole rendered
  * document, and one more per slide to re-parse each sanitized section — while a
  * puppeteer page sat open in the same process. Measured on `examples/read-along-captions.md`

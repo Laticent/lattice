@@ -2,6 +2,9 @@
 origin: 2388
 priority: P2
 recorded: 2026-09-26
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-26-backdrop-register.md
 source: https://github.com/Laticent/lattice/pull/2388
 ---
 
@@ -27,6 +30,6 @@ Found while verifying #2388 through the Studio's image export; not caused by it.
        evidence  — control on #2388's branch, NO backdrop key or token: one slide
                    `_class: finish-graph` with the finish-graph rules in a <style> block;
                    live-preview probe `styles: 0, bg: none, none`; preview and raster blank;
-                   `node lattice-emulator.js` on the same source draws the grid.
+                   `node lattice.js` on the same source draws the grid.
        verify    — tier: Studio e2e (preview frame probe + Images export) on the built site.
 ```

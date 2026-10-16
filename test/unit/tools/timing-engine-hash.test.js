@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const { OUT, engineSources, engineHashModule, timingEngineHash } = require('../../../tools/lib/timing-engine-hash.js');
 
 // `inputs.engine` is how an LTT reader tells an estimate built by an older engine from one built by
-// this one (engineering/ltt.md §Staleness). A stale constant would stamp new files with the old
+// this one (spec/LTT-1.0.md §Staleness). A stale constant would stamp new files with the old
 // engine's hash, and every reader would trust an estimate it should rebuild.
 test('the committed engine hash matches the Cadenza and ltt sources', () => {
 	assert.equal(

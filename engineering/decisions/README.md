@@ -14,9 +14,9 @@ later, it lives here.
   summary. The index renders the filename TWICE per row (link text + link
   target), so it is the one part of a row's cost the author controls, and it
   is paid on every read forever. A row over `ROW_CAP` (285 characters, in
-  `tools/build-decisions-index.js`) makes `npm run decisions:index` refuse to
-  run and name the note; the summary side is already capped by `GIST_CAP`, so
-  the filename is the lever. Today's longest is 69 characters and clears the
+  `tools/build-decisions-index.js`) fails `npm run decisions:index:check` (and so
+  `build:check`) and names the note; the summary side is already capped by
+  `GIST_CAP`, so the filename is the lever. Today's longest is 69 characters and clears the
   cap only because its gist is short.
 - One root cause or one decision per file. Don't merge unrelated
   investigations.
@@ -32,8 +32,8 @@ later, it lives here.
 ### Status lifecycle — a closed vocabulary the index reads
 
 Every note carries a YAML front-matter block so its lifecycle is
-machine-readable (and so the "Current notes" list below can be
-**generated**, not hand-maintained — hand-maintained indexes drift):
+machine-readable (and so the index can be **generated**, not
+hand-maintained — hand-maintained indexes drift):
 
 ```yaml
 ---
@@ -63,46 +63,41 @@ under the title (overall status + a stats line) and a per-section
 `**Status:**` line, so each partition tracks itself. The banner's stats are a
 human roll-up of the section statuses.
 
-**The index is generated.** `npm run decisions:index` reads every note's
-front-matter and regenerates the "Current notes" list below (grouped Active /
-Shipped / Historical); `npm run decisions:index:check` is the
-freshness gate (same pattern as `docs:portal:check`). Don't hand-edit the
-generated list — edit a note's front-matter and regenerate. `shipped` and
-`superseded` notes are candidates for the "absorb-then-delete" rule above; the
-grouping makes the ~70% that are historical skippable at a glance. See
-`2026-06-17-workflow-efficiency-review.md` §A.
+**The index is generated, and it is not committed.** `npm run decisions:index`
+reads every note's front-matter and writes **`dist/engineering/decisions.md`**,
+grouped Active / Shipped / Historical. `npm install`, the SessionStart hook and
+`npm run build` all write it, so it is there in any working checkout; on GitHub
+it is published to the `dist-kits` branch. `npm run decisions:index:check` is the
+gate: it validates every note's front-matter and row length, and runs inside
+`build:check`. Never edit the index — edit a note's front-matter. Why it is not
+committed: it is built from every note, so a committed copy was a file every
+note-adding PR rewrote, 12 of the 50 commits to 2026-10-09
+(`2026-10-09-generated-indexes-uncommitted.md`). `shipped` and `superseded` notes
+are candidates for the "absorb-then-delete" rule above; the grouping makes the
+historical majority skippable at a glance.
 
 **A row is a GIST, not the summary.** Each entry renders the first sentence of
 `summary:`, capped at 140 characters, with a `…` marking any cut. Write the
 front-matter summary at whatever length the note deserves — but put the
 identifying claim FIRST, because the first sentence is what the index shows.
 
-**That cuts both ways, so read a row as an OPENING, not a verdict.** 205 of 425
-rows are truncated, and a `…` means only "there is more" — it cannot tell you that
-the sense *flips* after it. A note that opens by quoting the bug report it goes on
-to refute will advertise the refuted claim. Two such rows were found by an
-adversarial pass and fixed at the source (the summaries were reordered to lead with
-the finding); nothing gates the rest, so when a row sounds like a claim you would
+**That cuts both ways, so read a row as an OPENING, not a verdict.** A `…` means
+only "there is more" — it cannot tell you that the sense *flips* after it. A note
+that opens by quoting the bug report it goes on to refute will advertise the
+refuted claim. Nothing gates that, so when a row sounds like a claim you would
 act on, open the note before acting.
 
-**Grepping this index is not grepping the corpus.** A row carries a gist, so most of
-each summary's vocabulary is no longer here: `grep -c touch` on this file surfaced 32
-notes before the change and 3 after, `export` 92 and 22. When a term isn't in the
-gists, search the notes themselves — `grep -rln <term> engineering/decisions/` — which
-costs the same, because you pay for the hits, not the haystack.
+**Grepping the index is not grepping the corpus.** A row carries a gist, so most of
+each summary's vocabulary is not in it. When a term isn't in the gists, search the
+notes themselves — `grep -rln <term> engineering/decisions/` — which costs the same,
+because you pay for the hits, not the haystack.
 
-This index is a **pick-list**: it exists to get you to the right note, and the
-note is where the record lives. Rendering every summary in full made this file
-395 KB (96k tokens) — more expensive to read than the handful of notes anyone
-actually wanted, so the corpus went unfound. At one line per note it is 98 KB
-(27.1k tokens) and, more usefully, **greppable**: `grep -i mermaid` returns 9
-rows for ~560 tokens rather than nine paragraphs. Start there, then open the
-two or three notes it names.
-
-**Grep is the access mode, and it is what this file is budgeted against.** The
-whole-file total is not the number that matters — a row is
-(`2026-08-17-context-index-tiering.md` §"Amendment", which restated the index
-budget after this file missed its first form of it by 2.5x).
+The index is a **pick-list**: it exists to get you to the right note, and the note
+is where the record lives. At one line per note it is **greppable**:
+`grep -i mermaid dist/engineering/decisions.md` returns a handful of rows rather
+than paragraphs. Start there, then open the two or three notes it names. Grep is
+the access mode, and it is what the index is budgeted against — per row, not per
+file (`2026-08-17-context-index-tiering.md` §"Amendment").
 
 ## What does **not** belong here
 
@@ -125,7 +120,7 @@ it is load-bearing.
 - Run `npm run clean:scratch` to delete `.scratch/` entries older than
   14 days. The script is opt-in — it never runs automatically.
 
-## Current notes
+## Finding a note
 
 Rows sort A–Z by topic slug (the filename after its date) inside each group, not by
 date. Date order put every new note at the top of its group, so two PRs that each
@@ -772,3 +767,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 _Generated by `npm run decisions:index` from each note's front-matter — edit the front-matter, not this list. Each row is a one-line GIST (first sentence, capped); the full summary is in the note's own front-matter. No totals here on purpose: an aggregate over every note is the one line two concurrent decision-doc PRs cannot both get right (#1547)._
 
 <!-- decisions-index:end -->
+- **By topic:** `grep -i <topic> dist/engineering/decisions.md`, then open the
+  notes it names. No `dist/`? Run `npm run decisions:index` (or `npm install`).
+- **By a word in the body:** `grep -rln <term> engineering/decisions/`.
+- **The newest:** `ls engineering/decisions/20*.md | tail`.

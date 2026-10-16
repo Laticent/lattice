@@ -46,7 +46,7 @@ if (!decks.length) {
 const eng = latticeEngine.createEngine();
 eng.addThemes([
   { name: 'lattice', css: readFileSync(join(ROOT, 'dist/lattice.css'), 'utf8') },
-  { name: palette, css: readFileSync(join(ROOT, `themes/${palette}.css`), 'utf8') },
+  { name: palette, css: readFileSync(join(ROOT, `themes/${palette}/${palette}.css`), 'utf8') },
 ]);
 
 // Top-level slide sections — sections not nested inside another section. jsdom so
@@ -65,7 +65,7 @@ function structure(section) {
 function emulatorSlides(deck) {
   const dir = mkdtempSync(join(tmpdir(), 'p2-parity-'));
   try {
-    execFileSync('node', [join(ROOT, 'lattice-emulator.js'), deck, join(dir, 'o.pdf'), palette, '--quiet'], {
+    execFileSync('node', [join(ROOT, 'lattice.js'), deck, join(dir, 'o.pdf'), palette, '--quiet', '--keep-html'], {
       cwd: ROOT,
       stdio: 'pipe',
       env: process.env,

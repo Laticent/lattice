@@ -95,9 +95,9 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
   - First import `{who=user, mood=3}`
 - Activate
   - First report `{who=user, mood=5}`

@@ -537,3 +537,35 @@ workspace link) because a full checkout has the root deps. Fixed by installing r
 the docs build in both workflows. So the original "reload shows blank" report was NOT merely a
 stale deploy — it was a genuine, long-standing deploy breakage the silent `catch` had hidden,
 exactly the failure mode the loud-log + gate were added to surface.
+
+## Follow-up (2026-10-06) — the Playground snapshot had 176 units of headroom
+
+The Playground's first-paint snapshot (front A) stores the first slide's HTML and the CSS it uses,
+and stores nothing past `MAX_UNITS` (245,760 UTF-16 units). #2558 crossed it by 215 units: four
+first-paint specs timed out in `studio-smoke`, nowhere near the two CSS rules that caused it.
+Measured on `npm run build:e2e` + `/playground/?view=edit` before this change, the default Edit
+deck's snapshot was **245,584 units**, 176 under the cap.
+
+**Cause.** `collectRules` keeps a rule when a PROBE (the selector with its pseudo-classes
+stripped) matches the captured slide, and keeps it "conservatively" when the probe cannot be
+evaluated. The strip was a regex, `not\([^)]*\)`, which stops at the first `)`, so every nested
+`:not(:is(a, b))` left a stray `)` behind, the probe threw, and the rule rode along whether the
+slide could use it or not. The finish arms and pane arms had each been carved out for this
+reason; the rest of the bundle's nested selectors never were.
+
+**Fix.** `stripPseudo` (`docs/src/playground/snapshot-cache.js`) strips with balanced
+parentheses and stands a `*` in for an emptied compound, so `a > :is(b) c` probes as `a > * c`.
+Stripping only widens a selector, so a probe that matches nothing still proves its rule matches
+nothing. After: **55,829 units**, 189,931 under the cap. `MAX_UNITS` did not change.
+
+**Verified on the real surface.** All 30 `playground-paint` and `playground-first-paint` specs
+pass on the rebuilt site, including the one that replays a snapshot exactly onto the live slide.
+The replayed shell (engine script blocked, service worker bypassed) is pixel-identical to the
+shell from the old stripper: 0 of 334,400 pixels differ in the slide's box. Both shells sit 9,512
+pixels from the live slide in that box, the heading's face before the engine loads; that gap is
+the same before and after, so it is not this change.
+
+**Pinned.** `docs/e2e/playground-paint.spec.ts` asserts the default Edit deck's snapshot stays
+under HALF the cap and says the number when it does not, and the Playground now logs
+`first-slide snapshot not stored: N units` when one is too large, instead of storing nothing in
+silence.

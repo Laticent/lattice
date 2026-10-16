@@ -71,7 +71,7 @@ describe('the schema and validateLtt agree', () => {
     'a fractional time': (l) => { l.segments[0].track.cues[0].startMs = 0.5; },
     'an unknown segment kind': (l) => { l.segments[1].kind = 'pause'; },
     'an unknown basis': (l) => { l.segments[0].basis = 'guessed'; },
-    'the wrong version': (l) => { l.version = '1.1'; },
+    'a new major version': (l) => { l.version = '2.0'; },
     'a negative voice speed': (l) => { l.segments[0].audio = { voice: { model: 'm', voice: 'v', speed: -1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H }] }; },
     'a slide without its tail breath': (l) => { delete l.segments[0].tailMs; },
   };
@@ -83,6 +83,13 @@ describe('the schema and validateLtt agree', () => {
       assert.ok(validateLtt(l).length > 0, 'validateLtt accepted it');
     });
   }
+
+  test('both accept a later minor version — a 1.x reader reads every 1.y file (spec §Versions)', () => {
+    const l = deck();
+    l.version = '1.1';
+    assert.ok(validate(l), JSON.stringify(validate.errors));
+    assert.deepEqual(validateLtt(l), []);
+  });
 
   test('both accept a layer neither has heard of — a reader skips it', () => {
     const l = deck();

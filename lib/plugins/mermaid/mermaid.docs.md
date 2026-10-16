@@ -38,6 +38,21 @@ inside an HTML comment — a speaker note, a commented-out draft — is not a di
 | PDF, PNG, PPTX, an `.html` export, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
 | Export to Marp | the diagram | Mermaid in the recipient's browser (the bundle ships the library) |
 
+**The library is the plugin's own copy.** `vendor/mermaid.min.js` (Mermaid 11.14.0, recorded with
+its SHA-256 in the manifest's `payload.vendored`) is what every row above uses — the pages stage it
+beside the runtime, the CLI bake draws with it, the Marp kit and the Export-to-Marp bundle carry it as
+`mermaid-v11-min.js`. Nobody downloads Mermaid, and `npm install` cannot change it: `package.json`
+pins the exact version and `node_modules` is only the source of `npm run vendor:plugins`. To
+upgrade: bump the pin, `npm install`, `npm run vendor:plugins`, look at the diagram gallery, commit.
+
+The bake's two other inputs are the plugin's own copies too, recorded in the manifest's `vendor`:
+`vendor/mermaid-zenuml.min.js` (`@mermaid-js/mermaid-zenuml` 0.2.2, which registers the `zenuml`
+diagram type) and `vendor/mermaid-cli/`, the render page of `@mermaid-js/mermaid-cli` 11.12.0 —
+its `index.html` and the bundle beside it that carries elk layouts and the KaTeX and FontAwesome
+faces a diagram label can use. The render worker loads all three from the plugin folder, so it no
+longer hunts `node_modules` for the page under every install layout. Each package's `LICENSE` sits
+beside its copy (`vendor/*.LICENSE`), recorded the same way.
+
 Each diagram is drawn for the band of **its own slide** — light, dark or print — and in the
 slide's look (a `mode: sketch` deck draws hand-drawn nodes). A portrait deck, or a tall pane,
 turns a left-to-right flowchart top-to-bottom.

@@ -2,6 +2,9 @@
 origin: 2524
 priority: P1
 recorded: 2026-10-05
+area: infra
+severity: medium
+swimlane: engineering/workflow.md
 source: https://github.com/Laticent/lattice/actions/runs/37368507308
 ---
 

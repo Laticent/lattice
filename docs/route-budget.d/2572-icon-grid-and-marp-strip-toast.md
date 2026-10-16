@@ -1,0 +1,2 @@
+studio: +600
+The Studio's command palette gains "Insert an icon…" with its lazy loader (the grid itself, IconGrid.tsx, and the icon drawings load only when it opens), the editor gains `insertAtCaret`, and the Share sheet's Marp row says what the bundle left out of the deck. Measured +448 bytes gzipped against `main` on #2572's first docs build; the number above leaves room for the few dozen bytes the measurement moves as `main` moves.

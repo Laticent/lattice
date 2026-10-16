@@ -2,6 +2,9 @@
 origin: 2385
 priority: P3
 recorded: 2026-09-26
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-25-flowchart-authoring.md
 ---
 
 # Point-and-click editing of inline-code spans in Compose

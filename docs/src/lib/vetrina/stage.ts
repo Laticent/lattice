@@ -274,6 +274,9 @@ const TOKEN_DEFAULTS: Record<string, string> = {
 	'--vt-tick-halo': 'rgba(255,255,255,.70)',
 	'--vt-exit-bg': 'rgba(255,255,255,.14)',
 	'--vt-exit-ink': '#ffffff',
+	// The caption's type size for every boxed style (`scrim` sets its own, larger). A phone raises
+	// it in `ensureDefaultTokens`; a host that sets it un-layered wins at every width.
+	'--vt-caption-size': '13.5px',
 };
 const A = 'var(--vt-accent)';
 // Cue rings pair the accent with a white co-stroke + accent bloom so they read on ANY
@@ -536,7 +539,15 @@ function ensureDefaultTokens(doc: Document): void {
 	const decls = Object.entries(TOKEN_DEFAULTS)
 		.map(([k, v]) => `${k}:${v}`)
 		.join(';');
-	style.textContent = `@layer vetrina-defaults{:root{${decls}}}`;
+	// THE PHONE FLOOR (≤699px, the Studio's phone breakpoint): 15px caption text, and an Exit that
+	// takes a press anywhere in a 44px square. Measured 2026-10-06 at 390px: Exit was 27-32px and
+	// the text 13.5px in every style. The circle keeps its drawn size, so the bar does not grow;
+	// the larger hit area is an invisible `::before`, which the browser hit-tests as the button.
+	// Exit is never smaller than its circle, so `max()` keeps a bigger one as it is.
+	const phone =
+		'@media (max-width:699px){:root{--vt-caption-size:15px}' +
+		".vetrina-exit::before{content:'';position:absolute;left:50%;top:50%;width:max(44px,100%);height:max(44px,100%);transform:translate(-50%,-50%)}}";
+	style.textContent = `@layer vetrina-defaults{:root{${decls}}${phone}}`;
 	doc.head.appendChild(style);
 }
 
@@ -715,8 +726,10 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		e.stopPropagation();
 		onExit();
 	});
+	// `position:relative` anchors the phone's 44px hit area (`ensureDefaultTokens`); the corner
+	// styles append `position:absolute`, which anchors it just as well.
 	const exitCircle = (px: number, bg = 'var(--vt-exit-bg)') =>
-		`flex:none;pointer-events:auto;cursor:pointer;border:0;display:grid;place-items:center;width:${px}px;height:${px}px;` +
+		`flex:none;position:relative;pointer-events:auto;cursor:pointer;border:0;display:grid;place-items:center;width:${px}px;height:${px}px;` +
 		`border-radius:50%;color:var(--vt-exit-ink);background:${bg};`;
 
 	const dock = doc.createElement('div');
@@ -801,7 +814,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			// out before acting, and two copies of a number that must agree is a comment away from
 			// being wrong.
 			`opacity:0;transition:opacity ${CAPTION_FADE_MS}ms ease;will-change:opacity;`;
-		narration.style.cssText = 'display:block;min-width:0;line-height:1.4;text-align:left;font-size:13.5px;';
+		narration.style.cssText = 'display:block;min-width:0;line-height:1.4;text-align:left;font-size:var(--vt-caption-size,13.5px);';
 		bubble.appendChild(narration);
 		dock.append(bubble, exit);
 
@@ -859,7 +872,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			cap.style.cssText =
 				`position:absolute;left:50%;transform:translateX(-50%);${top ? 'top:14px' : 'bottom:78px'};` +
 				`max-width:min(84%,560px);padding:9px 18px;border-radius:var(--vt-caption-radius);${glass}`;
-			narration.style.cssText = 'display:block;min-width:0;line-height:1.4;text-align:center;font-size:13.5px;transition:opacity .18s ease;';
+			narration.style.cssText = 'display:block;min-width:0;line-height:1.4;text-align:center;font-size:var(--vt-caption-size,13.5px);transition:opacity .18s ease;';
 			cap.appendChild(narration);
 			dock.append(cap, exit);
 			occludes = () => rectOf(cap);
@@ -935,7 +948,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			label.style.cssText = 'font:800 8px/1 system-ui,sans-serif;color:var(--vt-caption-ink);letter-spacing:.02em;';
 			hole.appendChild(label);
 			ring.appendChild(hole);
-			narration.style.cssText = 'flex:1 1 auto;min-width:0;line-height:1.35;text-align:center;font-size:13.5px;transition:opacity .18s ease;';
+			narration.style.cssText = 'flex:1 1 auto;min-width:0;line-height:1.35;text-align:center;font-size:var(--vt-caption-size,13.5px);transition:opacity .18s ease;';
 			dock.append(ring, narration, exit);
 			exit.style.cssText += exitCircle(26);
 			setProgress = (c, t) => {
@@ -958,7 +971,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			const dot = doc.createElement('span');
 			dot.setAttribute('aria-hidden', 'true');
 			dot.style.cssText = `flex:none;width:9px;height:9px;border-radius:50%;background:${A};box-shadow:0 0 0 0 ${A};animation:vetrinaPulse 1.8s ease-out infinite;`;
-			narration.style.cssText = 'flex:1 1 auto;min-width:0;line-height:1.35;text-align:left;font-size:13.5px;transition:opacity .18s ease;';
+			narration.style.cssText = 'flex:1 1 auto;min-width:0;line-height:1.35;text-align:left;font-size:var(--vt-caption-size,13.5px);transition:opacity .18s ease;';
 			dock.append(dot, narration, exit);
 			exit.style.cssText += exitCircle(27);
 			layout = (bounds, layerRect) => {
@@ -1030,6 +1043,11 @@ export function createStage(opts: StageOptions): Stage {
 	// Layer host — one fixed, full-viewport, click-through container.
 	const layer = doc.createElement('div');
 	layer.className = 'vetrina-stage';
+	// The stage sits above everything, a host's modal included, and its Exit must work there too
+	// (I4). A host modal that inerts the rest of the page skips an element carrying this marker
+	// (the docs site's `PersistentSurface` does); without it, Exit drew over an open sheet and took
+	// no clicks.
+	layer.setAttribute('data-modal-exempt', '');
 	// The layer is NOT aria-hidden: the Exit button must reach the a11y tree — it's the only
 	// escape from the demo for an assistive-tech user, and the narration caption is a live
 	// region. The purely decorative nodes (cursor, effect rings) are aria-hidden individually.

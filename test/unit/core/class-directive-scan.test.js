@@ -62,6 +62,7 @@ const writtenClass = (chunk) => {
  * Required lazily so the cheap grammar tests above do not pay for loading it.
  */
 const sectionCount = (src) => (require('../../../lib/engine').render(src).html.match(/<section\b/g) || []).length;
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 const at = (src, lineNo) => {
   const lines = src.split('\n');
@@ -162,7 +163,7 @@ describe('classDirectiveAt — the editor entry point', () => {
 describe('class-directive scan ≡ the engine, over the committed corpus', () => {
   // Every committed DECK — a `.md` whose front matter names `marp`/`theme`/`split`
   // — that carries a class directive at all.
-  const decks = execSync('git ls-files "*.md"', { cwd: ROOT, encoding: 'utf8' })
+  const decks = execSync(`git ls-files "*.md" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT, encoding: 'utf8' })
     .trim().split('\n')
     .map((rel) => {
       let src;
@@ -400,7 +401,7 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
 
   test('every committed deck keeps the two in lockstep', () => {
     // A synthetic case proves the mechanism; the corpus proves nobody has drifted.
-    const files = execSync('git ls-files "*.md"', { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 })
+    const files = execSync(`git ls-files "*.md" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 })
       .split('\n').filter(Boolean);
     assert.ok(files.length > 500, `expected the full corpus, got ${files.length}`);
     const bad = [];

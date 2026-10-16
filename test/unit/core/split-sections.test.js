@@ -61,7 +61,7 @@ describe('splitSections — a tag-shaped string is not a tag', () => {
 
   // A comment that never closes swallows the rest of the document in a real
   // parser, and this walk used to agree — both reported nothing. That parity
-  // DELETED the deck in the export: `lattice-emulator.js` keeps only the section
+  // DELETED the deck in the export: `lattice.js` keeps only the section
   // pieces, so everything after the comment left the file, where the browser
   // would merely have hidden it. The walk now reads an unterminated `<!--` as
   // text, the trade `scanTags` already makes for an unclosed `<style>`, and

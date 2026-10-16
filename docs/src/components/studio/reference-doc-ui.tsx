@@ -7,6 +7,11 @@
 // search box so it scales past a handful of files (#651 — a flat dropdown didn't). Pick
 // a saved doc to reuse it, or trash it; an optional "Manage in Library" link opens the
 // full manager. The chip shows the active doc + an honest "billed each run" note.
+//
+// The deck CHAT does not use the paperclip below: it takes photos and videos as well as documents, so it has its own
+// two-path control (`ChatAttach.tsx`: from this device, or from the Library) and uses this hook only for the document
+// state it returns (`docs`, `saved`, `toggleSaved`, `addFiles`) and the `chip`. The paperclip stays for the surfaces that
+// ground generation in a document and nothing else (Fabricate).
 import { Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -54,9 +59,9 @@ export function useReferenceDoc(onManage?: () => void) {
 
 	const capReached = () => { if (docs.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return true; } return false; };
 
-	const onFile = async (file?: File | null) => {
-		if (!file) return;
-		if (capReached()) return;
+	/** Read, save to the shared library and attach one file. Resolves its name, or null after saying why it could not. */
+	const addOne = async (file: File): Promise<string | null> => {
+		if (capReached()) return null;
 		try {
 			const d = await readReferenceDoc(file);
 			const rec = await saveRefDoc(d, Date.now()); // persist to the shared library
@@ -64,26 +69,65 @@ export function useReferenceDoc(onManage?: () => void) {
 			// The cap is re-checked INSIDE the updater so concurrent adds can't race past it.
 			setDocs((cur) => (cur.some((x) => x.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, { ...d, id: rec.id }]));
 			refresh();
-			notify(`Attached “${d.name}” — saved to your library and grounding the next generation (billed each run).`);
+			return d.name;
 		} catch (e) {
 			notify((e as Error)?.message || 'Could not read that file.');
+			return null;
 		}
+	};
+
+	const onFile = async (file?: File | null) => {
+		if (!file) return;
+		const name = await addOne(file);
+		if (name) notify(`Attached “${name}” — saved to your library and grounding the next generation (billed each run).`);
 		if (inputRef.current) inputRef.current.value = ''; // allow re-picking the same file
+	};
+
+	/** Several files at once (the chat's device picker), one notice for the batch. */
+	const addFiles = async (files: File[]) => {
+		const names: string[] = [];
+		for (const f of files) {
+			const name = await addOne(f);
+			if (name) names.push(name);
+		}
+		if (names.length) notify(`Attached ${names.length === 1 ? `“${names[0]}”` : `${names.length} files`} — saved to your library and grounding the reply (billed each run).`);
 	};
 
 	// Toggle a saved doc in/out of the grounding set; the popover stays open so you
 	// can pick several.
-	const toggleSaved = (rec: RefDocRecord) => {
-		setDocs((cur) => {
-			if (cur.some((d) => d.id === rec.id)) return cur.filter((d) => d.id !== rec.id);
-			if (cur.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return cur; }
-			return [...cur, recordToDoc(rec)];
-		});
+	const toggling = React.useRef(new Set<string>());
+	const removedWhileLoading = React.useRef(new Set<string>());
+	const toggleSaved = async (rec: RefDocRecord) => {
+		// Building a saved PDF's base64 takes a moment; a second tap on the same row while it runs is ignored,
+		// not read as "off" against a list that has not changed yet.
+		if (toggling.current.has(rec.id)) return;
+		if (docs.some((d) => d.id === rec.id)) {
+			setDocs((cur) => cur.filter((d) => d.id !== rec.id));
+			return;
+		}
+		if (docs.length >= MAX_GROUND_DOCS) {
+			notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`);
+			return;
+		}
+		// A saved PDF is binary at rest; its base64 text is made here, for the one doc being attached.
+		toggling.current.add(rec.id);
+		try {
+			const doc = await recordToDoc(rec).catch(() => null);
+			if (removedWhileLoading.current.delete(rec.id)) return; // deleted from the library while its text was being built
+			if (!doc) {
+				notify('Could not read that doc.');
+				return;
+			}
+			setDocs((cur) => (cur.some((d) => d.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, doc]));
+		} finally {
+			toggling.current.delete(rec.id);
+		}
 	};
 
 	const removeSaved = async (rec: RefDocRecord, e: React.MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
+		if (toggling.current.has(rec.id)) removedWhileLoading.current.add(rec.id);
 		await deleteRefDoc(rec.id);
 		refresh();
 		setDocs((cur) => cur.filter((d) => d.id !== rec.id)); // also drop from the active set
@@ -185,5 +229,5 @@ export function useReferenceDoc(onManage?: () => void) {
 		</div>
 	) : null;
 
-	return { docs, clear: () => setDocs([]), attachButton, chip };
+	return { docs, clear: () => setDocs([]), attachButton, chip, saved, refresh, toggleSaved, addFiles };
 }

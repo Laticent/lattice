@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 // The print-sheet kernel is ESM (shared with the browser Print drawer); Node 22 `require`
-// loads it directly, the same way lattice-emulator.js consumes it for `--paper` export.
+// loads it directly, the same way lattice.js consumes it for `--paper` export.
 const { resolvePrintSheet, fitSlideOnSheet, nUpCells, nUpGrid, handoutRegions, buildPrintCss, PRINT_SAFE_PX } = require('../../../lib/core/print-sheet.mjs');
 
 // This is the ONE source of truth for how a deck maps onto paper (HARD RULE #1). The docs

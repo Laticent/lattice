@@ -1,0 +1,2 @@
+- **A chart slide's class words keep a literal `&` as one `&amp;`.** The chart family re-escaped the class attribute it had read already escaped, so `x&y` came out as `x&amp;amp;y`.
+- **The CLI's `--size` writes the size as typed.** Rewriting a deck's `size:` line used a string replacement, so a `--size` holding `$&` wrote `size: size: …`.

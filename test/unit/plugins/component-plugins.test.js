@@ -73,4 +73,23 @@ describe('components depend on plugins', () => {
     assert.equal(componentPluginDiagnostics(html, ['math']).length, 1);
     assert.deepEqual(componentPluginDiagnostics(html, []), []);
   });
+
+  test('the chart family switched off: every chart slide shows its list, marked, and says why (phase F)', () => {
+    const { JSDOM } = require('jsdom');
+    const chartFamily = require('../../../lib/transformers/chart-family');
+    const BAR = '<!-- _class: bar -->\n\n## Revenue\n\n- North `42`\n- South `30`\n';
+    const on = createEngine().render(BAR);
+    assert.match(on.html, /class="bar-figure"/);
+    assert.ok(!on.html.includes('data-lattice-off'), 'a default render marks nothing');
+    assert.equal('diagnostics' in on, false);
+    const off = createEngine({ plugins: { disabled: ['chart-family'] } }).render(BAR);
+    assert.ok(!off.html.includes('bar-figure') && !off.html.includes('chart-frame'), 'no figure, no frame');
+    assert.match(off.html, /<section data-lattice-off="chart-family"[^>]*class="bar /);
+    assert.match(off.html, /<li[^>]*>North <code>42<\/code><\/li>/, 'the authored list stands');
+    assert.deepEqual(off.diagnostics.map((d) => [d.id, d.component, d.plugin]), [['plugin/component-needs-plugin', 'bar', 'chart-family']]);
+    // The browser runtime's pass leaves the marked section alone — it would otherwise build it.
+    const doc = new JSDOM(`<!doctype html><body>${off.html}</body>`).window.document;
+    chartFamily.applyToDom(doc);
+    assert.equal(doc.querySelector('.bar-figure'), null, 'applyToDom drew a chart the engine left off');
+  });
 });

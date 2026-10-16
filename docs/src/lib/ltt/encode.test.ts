@@ -129,3 +129,11 @@ describe('a real track from buildTrack', () => {
 		expect(gz(track) / gz(packTrack(track))).toBeGreaterThanOrEqual(2.5);
 	});
 });
+
+describe('unpack refuses a malformed packed file with a message that names the part', () => {
+	it('names a missing segments list and a bad track', () => {
+		expect(() => unpack({ encoding: 'packed' } as unknown as PackedLtt)).toThrow(/segments is not an array/);
+		expect(() => unpack({ encoding: 'packed', segments: [{ track: null }] } as unknown as PackedLtt)).toThrow(/segments\[0\]\.track is not a packed track/);
+		expect(() => unpack({ encoding: 'packed', segments: [null] } as unknown as PackedLtt)).toThrow(/segments\[0\] is not an object/);
+	});
+});

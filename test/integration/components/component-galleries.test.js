@@ -22,6 +22,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { pendingBless } = require('../../helpers/golden-pending');
 const path = require('node:path');
 const fs = require('node:fs');
 const { loadAll } = require('../../../lib/components');
@@ -69,7 +70,7 @@ describe('component-galleries', () => {
     test(
       `${m.name}: dark gallery page count matches light`,
       { timeout: 180000, skip: enriched ? false : 'not yet migrated (no enriched prose fields)' },
-      () => {
+      (t) => {
         const lightPdfPath = path.join(
           path.dirname(targetPaths(m).gallery),
           `${m.name}.gallery.light.pdf`,
@@ -78,13 +79,20 @@ describe('component-galleries', () => {
           path.dirname(targetPaths(m).gallery),
           `${m.name}.gallery.dark.pdf`,
         );
+        // Both PDFs come from the same bless; a gallery merged without them (goldens step 3)
+        // has none until the nightly bless renders them.
+        const pending = pendingBless(lightPdfPath, [targetPaths(m).gallery]);
+        if (pending && !(fs.existsSync(lightPdfPath) && fs.existsSync(darkPdfPath))) {
+          t.skip(`${m.name}: ${pending}`);
+          return;
+        }
         assert.ok(
           fs.existsSync(lightPdfPath),
-          `light PDF missing: ${path.relative(process.cwd(), lightPdfPath)} — run \`npm run build:galleries\``,
+          `light PDF missing: ${path.relative(process.cwd(), lightPdfPath)} — the nightly bless renders it; check that its PR merged`,
         );
         assert.ok(
           fs.existsSync(darkPdfPath),
-          `dark PDF missing: ${path.relative(process.cwd(), darkPdfPath)} — run \`npm run build:galleries\``,
+          `dark PDF missing: ${path.relative(process.cwd(), darkPdfPath)} — the nightly bless renders it; check that its PR merged`,
         );
         assert.equal(
           pageCount(darkPdfPath),

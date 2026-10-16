@@ -1,0 +1,1 @@
+- The nightly golden bless no longer crashes after its full check: it reads the regression gate's `report.json` instead of the gate's piped stdout, which arrived cut off at 146,176 bytes. `regression-gate.mjs --json` now drains its output before exiting, so any caller piping it gets the whole report.

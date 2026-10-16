@@ -63,9 +63,18 @@
 // import (183KB gz of 260KB on home). It deliberately does not follow dynamic `import()`
 // (that is the whole point of a lazy boundary), so code a page loads with `import()` at
 // startup is only counted when inject-modulepreload.mjs lists it. It cannot see a script
-// served from outside `/_astro/` (`docs/public/playground/lattice-playground.js` is 971KB and
-// invisible here), inline scripts except as HTML bytes, or CSS. So this is a deterministic
-// watch on the EAGER JS path, not a payload total. Bytes are a proxy for parse+hydrate,
+// served from outside `/_astro/` except the engine (below), inline scripts except as HTML
+// bytes, or CSS. So this is a deterministic watch on the EAGER JS path, not a payload total.
+//
+// THE ENGINE, `engineJsGz` (2026-10-14). The engine (`lattice-playground.js`) and the preview
+// runtime (`lattice-runtime.js`) are served from `/playground/v/<hash>/`, not `/_astro/`, so
+// `eagerJsGz` never saw them. Unwatched, the runtime grew from 163KB gz (2026-08-17 audit) to
+// 383KB gz by 2026-10-14. `engineJsGz` counts the boot entries a route names (the ESM engine
+// `esm/engine.js` since the same day, or the single-file `lattice-playground.js` before it, and
+// the runtime), plus every file they import statically; the lazy providers beside them (KaTeX,
+// dagre, Mermaid, the `esm/chart-*.js` kernels) load on demand and are not counted, for the same
+// reason `import()` is not — and since 2026-10-15 two metrics of their own watch them, on the
+// Studio only: `chartKernelGz`, `chartKernelsGz` and `lintCoreGz` (see LAZY_BUDGET_ROUTE). Bytes are a proxy for parse+hydrate,
 // which — because the service worker serves /_astro/ cache-first — is the cost that
 // actually RECURS per launch.
 //
@@ -112,7 +121,7 @@ export const CEILING_PCT = 0.1;
 // were under it (the two over were +2,220 and +5,202 bytes).
 export const PR_ALLOWANCE_BYTES = 2048;
 
-export const METRICS = ['eagerJsGz', 'htmlRaw'];
+export const METRICS = ['eagerJsGz', 'engineJsGz', 'htmlRaw', 'chartKernelGz', 'chartKernelsGz', 'lintCoreGz'];
 
 const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
 export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
@@ -122,36 +131,129 @@ export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
 const STATIC_IMPORT = /(?<![\w$.])(?:import|export)\s*(?:[^'"()]*?\bfrom\s*)?["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
 
 /**
- * A route's EAGER JS: every `/_astro/*.js` referenced in its HTML and, transitively, every
- * chunk those import statically — all of which the browser fetches before the route is
- * interactive. It does NOT follow dynamic `import()`, which is the whole point of a lazy
- * boundary.
+ * Walk a module graph from `entries` (paths relative to `dist`), following static imports
+ * only, and return the gzip total of every file reached that is not in `exclude`, plus the
+ * set reached. A file the graph names that is not on disk is a BROKEN BUILD, and skipping it
+ * would under-count, which this gate would then report as "STALE, ratchet it down",
+ * laundering the breakage into a smaller committed budget. So it throws instead.
  */
-function measure(routeHtml, dist = DIST) {
-	const html = fs.readFileSync(path.join(dist, routeHtml), 'utf8');
-	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || []).map((r) => r.slice('/_astro/'.length)))];
-	const seen = new Set(direct);
-	const queue = [...direct];
-	let eagerJsGz = 0;
+function closure(entries, dist, exclude = new Set(), owner = 'the route') {
+	const seen = new Set(entries);
+	const queue = [...entries];
+	let gz = 0;
 	while (queue.length) {
-		const name = queue.pop();
-		const file = path.join(dist, '_astro', name);
-		// A referenced chunk that is not on disk is a BROKEN BUILD, and skipping it would
-		// under-count — which this gate would then report as "STALE, ratchet it down",
-		// laundering the breakage into a smaller committed budget. Fail loudly instead.
+		const rel = queue.pop();
+		const file = path.join(dist, rel);
 		if (!fs.existsSync(file)) {
-			throw new Error(`check-route-budget: ${routeHtml} needs /_astro/${name}, which is not in dist/ — the build is broken, not smaller.`);
+			throw new Error(`check-route-budget: ${owner} needs /${rel}, which is not in dist/ — the build is broken, not smaller.`);
 		}
 		const src = fs.readFileSync(file);
-		eagerJsGz += zlib.gzipSync(src, { level: 6 }).length;
+		if (!exclude.has(rel)) gz += zlib.gzipSync(src, { level: 6 }).length;
 		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
-			if (!seen.has(m[1])) {
-				seen.add(m[1]);
-				queue.push(m[1]);
+			const next = path.posix.join(path.posix.dirname(rel), m[1]);
+			if (!seen.has(next)) {
+				seen.add(next);
+				queue.push(next);
 			}
 		}
 	}
-	return { eagerJsGz, htmlRaw: Buffer.byteLength(html), chunks: seen.size };
+	return { gz, seen };
+}
+
+/**
+ * A route's EAGER JS: every `/_astro/*.js` referenced in its HTML and, transitively, every
+ * chunk those import statically — all of which the browser fetches before the route is
+ * interactive. It does NOT follow dynamic `import()`, which is the whole point of a lazy
+ * boundary. The two lazy metrics are measured for LAZY_BUDGET_ROUTE only (see there).
+ */
+export function measure(route, routeHtml, dist = DIST) {
+	const html = fs.readFileSync(path.join(dist, routeHtml), 'utf8');
+	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || []).map((r) => r.slice(1)))];
+	const eager = closure(direct, dist, new Set(), routeHtml);
+	const engine = measureEngine(html, dist);
+	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size };
+	if (route === LAZY_BUDGET_ROUTE) {
+		Object.assign(out, measureCharts(engine, dist), measureLintCore(engine, dist));
+	}
+	return out;
+}
+
+// The engine's boot entries. Everything else under /playground/v/<hash>/ is a lazy provider.
+const ENGINE_ENTRY = /\/playground\/v\/[a-f0-9]+\/(?:esm\/engine|lattice-playground|lattice-runtime)\.js/g;
+
+/** The engine a route names: its boot entries plus their static imports, gzipped. */
+function measureEngine(html, dist = DIST) {
+	const entries = [...new Set(html.match(ENGINE_ENTRY) || [])].map((u) => u.slice(1));
+	return { entries, ...closure(entries, dist, new Set(), 'the route\'s engine') };
+}
+
+// ── The code that loads with import() (2026-10-15) ─────────────────────────────────────────
+//
+// eagerJsGz and engineJsGz stop at import(), on purpose, so two lazy payloads grew where no
+// gate looked: a chart kernel (map is ~78KB gz beyond the engine) and the lint core. These two
+// metrics watch them. Both count only the bytes BEYOND the engine the route already loaded,
+// because that is what the lazy load costs a visitor. (Since 2026-10-15 the lint core is an entry
+// of the ESM engine build, esm/lint.js, so it shares the engine's chunks; the door that loads it
+// is a few hundred bytes in /_astro/ and is not counted.)
+//
+// They are measured on ONE route. The chart kernels are the same files on every route that
+// loads the ESM engine, so a per-route copy would be the same number five times, and every
+// reset would write five rows for one change. The Studio is the route that loads both.
+export const LAZY_BUDGET_ROUTE = 'studio';
+
+/**
+ * chartKernelGz: the LARGEST closure of one `esm/chart-<layout>.js` beyond the engine. A deck
+ * pays for the kernels it names, so the largest is the worst a single chart costs. Also
+ * returns which kernel that is, for the report.
+ *
+ * chartKernelsGz: the UNION of every kernel's closure beyond the engine, each shared chunk
+ * counted once. The largest alone cannot see a smaller kernel grow while it stays under the
+ * largest (hub-spoke had 36KB of room on 2026-10-15); the union moves with growth in ANY
+ * kernel or in the chunks they share. The owner picked it on 2026-10-15 (engine-spine note §11).
+ */
+function measureCharts(engine, dist) {
+	const esm = engine.entries.find((e) => e.endsWith('/esm/engine.js'));
+	// Without the ESM engine there are no kernels to find, and returning nothing would let the
+	// metric drop out of the gate unseen, so stop instead.
+	if (!esm) throw new Error('check-route-budget: the studio route no longer names esm/engine.js, so chartKernelGz has no kernels to measure. Teach measureCharts where the kernels live now.');
+	const dir = path.posix.dirname(esm);
+	const kernels = fs.readdirSync(path.join(dist, dir)).filter((f) => /^chart-[a-z0-9-]+\.js$/.test(f));
+	if (!kernels.length) {
+		throw new Error(`check-route-budget: /${dir}/ has no chart-*.js kernels — the build is broken, not smaller.`);
+	}
+	// A kernel the engine imports statically is counted as engine, so it would vanish from both
+	// chart metrics and the gate would bank that as a win. It is the opposite: it is on startup.
+	const eager = kernels.filter((k) => engine.seen.has(`${dir}/${k}`));
+	if (eager.length) {
+		throw new Error(`check-route-budget: the engine imports ${eager.join(', ')} statically, so that chart kernel is back on startup. Kernels load on demand by design (engine-spine note §11).`);
+	}
+	let chartKernelGz = 0;
+	let chartKernel = '';
+	for (const k of kernels.sort()) {
+		const { gz } = closure([`${dir}/${k}`], dist, engine.seen, `/${dir}/${k}`);
+		if (gz > chartKernelGz) [chartKernelGz, chartKernel] = [gz, k];
+	}
+	const chartKernelsGz = closure(kernels.map((k) => `${dir}/${k}`), dist, engine.seen, `/${dir}/chart-*.js`).gz;
+	return { chartKernelGz, chartKernelsGz, chartKernel };
+}
+
+/**
+ * lintCoreGz: the lint core, `esm/lint.js` beside the engine (engine-spine note §10), plus its static
+ * imports, beyond the engine's own closure: the chunks they share are already loaded.
+ */
+function measureLintCore(engine, dist) {
+	const esm = engine.entries.find((e) => e.endsWith('/esm/engine.js'));
+	if (!esm) throw new Error('check-route-budget: the studio route no longer names esm/engine.js, so lintCoreGz has no lint core to find beside it.');
+	const lint = `${path.posix.dirname(esm)}/lint.js`;
+	if (!fs.existsSync(path.join(dist, lint))) {
+		throw new Error(`check-route-budget: /${lint} is missing. The lint core moved; teach measureLintCore where it lives now, or this metric measures nothing.`);
+	}
+	// An engine that imports the lint core statically would measure as ~0 beyond the engine, and the
+	// gate would call that a win to bank. It is the opposite: the lint core is back on startup.
+	if (engine.seen.has(lint)) {
+		throw new Error('check-route-budget: the engine imports esm/lint.js statically, so the lint core is back on startup. It loads after first paint by design (engine-spine note §5).');
+	}
+	return { lintCoreGz: closure([lint], dist, engine.seen, `/${lint}`).gz };
 }
 
 /**
@@ -266,14 +368,18 @@ function pendingFragments() {
  * `raise` (the owner's OK), and never past the ceiling unless `ceiling` (also the owner's
  * OK) moves the ceiling to CEILING_PCT above the new soft target.
  */
-export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT, raise = false, ceiling = false } = {}) {
+export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT, raise = false, ceiling = false, metrics = METRICS } = {}) {
 	const changes = [];
 	const refused = [];
 	for (const [route, budget] of Object.entries(ledgerRoutes)) {
-		for (const metric of METRICS) {
-			const { soft, hard } = budget[metric] ?? {};
+		for (const metric of metrics) {
 			const got = measured[route]?.[metric];
-			if (typeof soft !== 'number' || typeof got !== 'number') continue;
+			if (typeof got !== 'number') continue;
+			// A metric the route has no budget for yet is adopted at its measurement: a raise
+			// from 0, so it needs --raise --ceiling like any other. A route that ships none of
+			// it (engineJsGz on a page with no engine) is not given a budget of zero.
+			if (!budget[metric] && got === 0) continue;
+			const { soft = 0, hard = 0 } = budget[metric] ?? {};
 			const change = { route, metric, from: soft, to: got, hardFrom: hard, hardTo: hard };
 			if (got > soft) {
 				if (!raise) refused.push({ ...change, why: 'a raise needs the owner\'s OK, then --raise' });
@@ -294,7 +400,7 @@ export function newestHistory(history) {
 	const end = history.indexOf('\n## ', at);
 	const section = history.slice(at, end === -1 ? undefined : end);
 	const out = {};
-	for (const m of section.matchAll(/^\| ([a-z][a-z0-9-]*) \| (eagerJsGz|htmlRaw) \| \d+ \| (\d+) \| [^|]+ \| (\d+) \|$/gm)) {
+	for (const m of section.matchAll(/^\| ([a-z][a-z0-9-]*) \| ([A-Za-z]+) \| \d+ \| (\d+) \| [^|]+ \| (\d+) \|$/gm)) {
 		const key = `${m[1]}.${m[2]}`;
 		if (!(key in out)) out[key] = { soft: Number(m[3]), hard: Number(m[4]) };
 	}
@@ -364,7 +470,8 @@ function ledgerRaises(baseSha, ledger) {
 	for (const [route, b] of Object.entries(ledger.routes)) {
 		for (const metric of METRICS) {
 			for (const key of ['soft', 'hard']) {
-				const was = base.routes?.[route]?.[metric]?.[key];
+				// A metric the base ledger lacks is a raise from 0: adopting one needs the OK too.
+				const was = base.routes?.[route] ? (base.routes[route][metric]?.[key] ?? 0) : undefined;
 				const now = b[metric]?.[key];
 				if (typeof was === 'number' && typeof now === 'number' && now > was) out.push(`${route} ${metric} ${key} ${was} -> ${now}`);
 			}
@@ -387,7 +494,7 @@ function main() {
 		const dist = path.resolve(args[1] || DIST);
 		const out = {};
 		for (const [route, budget] of Object.entries(ledger.routes)) {
-			if (fs.existsSync(path.join(dist, budget.html))) out[route] = measure(budget.html, dist);
+			if (fs.existsSync(path.join(dist, budget.html))) out[route] = measure(route, budget.html, dist);
 		}
 		process.stdout.write(JSON.stringify(out, null, 2) + '\n');
 		return;
@@ -398,7 +505,7 @@ function main() {
 		process.exit(1);
 	}
 	const measured = {};
-	for (const [route, budget] of Object.entries(ledger.routes)) measured[route] = measure(budget.html);
+	for (const [route, budget] of Object.entries(ledger.routes)) measured[route] = measure(route, budget.html);
 
 	if (args.includes('--rebaseline')) {
 		const i = args.indexOf('--reason');
@@ -411,7 +518,15 @@ function main() {
 			process.stderr.write('route-budget:rebaseline: this branch is behind origin/main, so its numbers are stale. Rebase first.\n');
 			process.exit(1);
 		}
-		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling') });
+		// `--metric <name>[,<name>]` resets those metrics only, e.g. adopting new ones without
+		// touching the rest.
+		const m = args.indexOf('--metric');
+		const metrics = m === -1 ? METRICS : String(args[m + 1] || '').split(',');
+		if (!metrics.every((x) => METRICS.includes(x))) {
+			process.stderr.write(`route-budget:rebaseline: --metric must be one of ${METRICS.join(', ')}.\n`);
+			process.exit(1);
+		}
+		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling'), metrics });
 		for (const c of refused) process.stdout.write(`  NOT changed: ${c.route} ${c.metric} ${c.from} -> ${c.to}: ${c.why}.\n`);
 		if (!changes.length) {
 			const waiting = pendingFragments().length;
@@ -426,7 +541,7 @@ function main() {
 
 	const problems = [];
 	const warnings = [];
-	const lines = [`  ${'route'.padEnd(16)} ${'metric'.padEnd(10)} ${'measured'.padStart(9)} ${'soft'.padStart(9)} ${'ceiling'.padStart(9)}`];
+	const lines = [`  ${'route'.padEnd(16)} ${'metric'.padEnd(14)} ${'measured'.padStart(9)} ${'soft'.padStart(9)} ${'ceiling'.padStart(9)}`];
 	for (const [route, budget] of Object.entries(ledger.routes)) {
 		const actual = measured[route];
 		const r = evaluateRoute(route, actual, budget);
@@ -435,9 +550,10 @@ function main() {
 		for (const metric of METRICS) {
 			const { soft, hard } = budget[metric] ?? {};
 			if (typeof soft !== 'number') continue;
-			lines.push(`  ${route.padEnd(16)} ${metric.padEnd(10)} ${kb(actual[metric]).padStart(9)} ${kb(soft).padStart(9)} ${kb(hard).padStart(9)}`);
+			lines.push(`  ${route.padEnd(16)} ${metric.padEnd(14)} ${kb(actual[metric]).padStart(9)} ${kb(soft).padStart(9)} ${kb(hard).padStart(9)}`);
 		}
-		lines.push(`  ${route.padEnd(16)} ${'chunks'.padEnd(10)} ${String(actual.chunks).padStart(9)}`);
+		lines.push(`  ${route.padEnd(16)} ${'chunks'.padEnd(14)} ${String(actual.chunks).padStart(9)}`);
+		if (actual.chartKernel) lines.push(`  ${route.padEnd(16)} ${'kernel'.padEnd(14)} ${actual.chartKernel.padStart(9)}`);
 	}
 
 	// The per-PR allowance needs main's numbers, which exist only when something built main

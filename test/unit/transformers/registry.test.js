@@ -3,7 +3,7 @@
  *
  * The registry is the central plugin list behind the engine's two HTML-stage
  * consumers: `applyToHtml` (lib/engine — serves both the CLI/PDF path,
- * lattice-emulator.js, and the browser playground, which shares the same
+ * lattice.js, and the browser playground, which shares the same
  * call) and `applyToDom` (lattice-runtime.js, the VS Code preview runtime).
  * These tests pin the registry's shape contract and assert that the
  * currently-registered transformers each conform to it.
@@ -19,7 +19,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const registry = require('../../../lib/transformers/registry');
 const splitEngine = require('../../../lib/core/split-panels');
-const chartEngine = require('../../../lib/components/chart/_chart-family/chart-family');
+const chartEngine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 
 describe('transformer registry', () => {
   test('TRANSFORMERS is a non-empty array', () => {

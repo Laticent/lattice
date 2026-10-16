@@ -1,0 +1,1 @@
+- `lint:deck` warns (`bracket-list-closed-early`) when a stray `]` right after a quoted name closes a bracketed axis or key list early, as in `["Cost, excluding tax"]], Value]`. The notation cannot read such a span, so the axis silently showed as plain text. The fix line gives the list the author meant.

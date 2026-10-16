@@ -19,7 +19,7 @@ else is an option you add after the two file names.
 
 ## Before you start
 
-You need **Node 22.12 or newer**. Install Lattice into your project:
+You need **Node 22.13 or newer**. Install Lattice into your project:
 
 ```sh
 npm install @laticent/lattice
@@ -37,11 +37,40 @@ npm install
 Either way, `npm install` downloads the headless Chromium that Lattice renders
 with. The render itself needs no network and no account.
 
+Every command on this page runs the copy installed in your project, which is
+what `npx lattice` finds. Outside a project, use `npx @laticent/lattice` (or
+install it globally with `npm install -g @laticent/lattice` and type `lattice`):
+the unscoped `lattice` package on npm belongs to someone else, so a bare
+`npx lattice` in an empty folder downloads that package instead.
+
 To check it works, ask for the version:
 
 ```sh
 npx lattice --version
 ```
+
+`npx lattice --help` prints one screen: the output formats and the options most
+decks need. `npx lattice --help all` prints every option, the same list as the
+[CLI reference](/reference/cli/).
+
+### Turn on Tab completion
+
+With `lattice` on your `PATH` (a global install, or `npx lattice` replaced by a
+shell alias), one line makes Tab complete subcommands, every option, the values
+an option takes (palettes, `--size` canvases, `--paper` sheets, plugin names)
+and the packages you installed:
+
+| Shell | Add this line |
+|---|---|
+| bash (3.2 or newer) | `eval "$(lattice completion bash)"` in `~/.bashrc` |
+| zsh | `source <(lattice completion zsh)` in `~/.zshrc`, after `compinit` |
+| fish | run `mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish` once |
+| PowerShell | `lattice completion powershell \| Out-String \| Invoke-Expression` in your `$PROFILE` |
+
+`lattice completion <shell>` only prints a script; it never edits a file. Paths
+still complete as before, narrowed to the files that fit: `.md` for the deck,
+the output formats for the output. Open a new shell after you reinstall
+Lattice somewhere else, so the script finds the new copy.
 
 ## Everyday tasks
 
@@ -101,6 +130,32 @@ npx lattice deck.md deck.pptx
 
 Each slide becomes one full-bleed image, so the PowerPoint looks exactly like
 the PDF. The trade-off is that the text is not editable in PowerPoint.
+
+To edit the text, add `--editable`. Every paragraph becomes a real text box in
+the deck's font, over a picture of the slide with the text removed:
+
+```sh
+npx lattice deck.md deck.pptx --editable
+```
+
+Charts, diagrams and equations stay part of the picture. The `.pptx` carries the
+deck's fonts, but an app that ignores embedded fonts (LibreOffice, Keynote, Google
+Slides) shows the deck's fonts only where they are installed. Without them every
+word is measured in a substitute font, so lines run wider or narrower than the
+slide's picture, and a small picture set inside a sentence (an icon, a spark or an
+avatar) can sit off its words. Install the deck's fonts, or use the picture
+`.pptx` or the PDF when the layout must hold exactly.
+
+### Make a LibreOffice deck
+
+```sh
+npx lattice deck.md deck.odp             # one picture per slide
+npx lattice deck.md deck.odp --editable  # real text boxes, fonts embedded
+```
+
+Lattice writes the `.odp` itself, so you do not need LibreOffice to export. The
+editable `.odp` carries the deck's fonts, so it looks the same on any machine
+with LibreOffice Impress.
 
 ### Export slides as images
 
@@ -165,6 +220,11 @@ Slides and Read Article.
 npx lattice deck.md deck.html --player
 ```
 
+Send the player, not a plain `.html`. A plain `.html` (and the one written
+beside every PDF) keeps any `<script>` or `onerror=` in your deck live, so it
+runs in whoever opens it, and the CLI warns when a deck has any. The player
+drops both.
+
 Your speaker notes travel with the player so that you can present from it. If
 you are sending it to someone else, strip them first:
 
@@ -215,6 +275,28 @@ with `--strip-notes` if the notes are private:
 ```sh
 npx lattice deck.md deck.pdf --embed-source
 npx lattice deck.md deck.pdf --embed-source --strip-notes
+```
+
+### Send a PDF or PowerPoint someone can edit
+
+`--reopenable` puts the whole deck inside a `.pdf` or `.pptx` as a `.lattice`
+project. Whoever you send it to opens the Studio, picks **Import deck…** in the
+deck switcher, and gets the deck back to edit, exactly as you wrote it. It is
+the same file the Studio's "Re-openable in Lattice" switch writes, so the two
+tools' exports open the same way.
+
+Review comments never go in. Hidden slides do, and so do speaker notes unless
+you add `--strip-notes`. A theme or component you installed with
+`lattice packages add` travels with the deck.
+
+The deck travels as written, so its theme is the one in its front matter.
+If you theme the export with `-p` instead, the PDF shows that theme but the
+deck re-opens in its own, and the CLI warns you. Put `theme: <name>` in the
+deck to make the theme travel.
+
+```sh
+npx lattice deck.md deck.pdf --reopenable --strip-notes
+npx lattice deck.md deck.pptx --reopenable
 ```
 
 ## Speaker notes and captions
@@ -368,6 +450,11 @@ To share a package, export it to a zip. This works for shipped packages too:
 npx lattice packages export theme/brand -o brand.zip
 ```
 
+Lattice ships a small motion library: `npx lattice packages list --type motion`
+names the scenes. A deck never names a motion package. The Studio's Library
+lists the shipped scenes on its Motion tab, and Insert copies one into the deck,
+so the deck still renders on a machine without it.
+
 Packages live in `~/.lattice/packages`. Set `LATTICE_HOME` to move the store,
 or pass `--packages <folder>` to use a different store for one run, renders
 included:
@@ -392,9 +479,20 @@ If the code changes, Lattice asks again. Run without a terminal, `packages add`
 cannot ask, so it installs the package unapproved; approve it afterward with
 `trust`.
 
-If Lattice runs as root, as it often does in a container, the render warns
-that Chromium's OS sandbox is off for that code. To turn the sandbox on, set
-`CHROME_PATH` to a Chromium that an unprivileged user can run.
+When Chromium's OS sandbox is off for that code, the approval prompt says so,
+with the reason and the fix, and every render repeats that it is off. If
+Lattice runs as root, as it often does in a container, the fix is to set
+`CHROME_PATH` to a Chromium that an unprivileged user can run. On Ubuntu 23.10
+and later, AppArmor stops the sandbox of a browser it has no profile for, such
+as the Chrome that puppeteer downloads, even for an ordinary user. There the
+fix is an AppArmor profile that lets the browser create user namespaces, or
+setting the `kernel.apparmor_restrict_unprivileged_userns` sysctl to 0. Inside a
+Docker container, Docker's default seccomp profile is what blocks the sandbox,
+whatever the host's AppArmor says: start the container with a seccomp profile
+that allows user namespaces.
+
+To write a component that carries code, see
+[Writing a code package](/guides/code-packages/).
 
 ### Start a plugin
 
@@ -450,6 +548,22 @@ npx lattice video talk.html talk.mp4 --lead-in 2000 --outro 3000
 
 Video needs a Chrome that can encode H.264, such as Chrome for Testing. Point
 `CHROME_PATH` at it if Lattice picks the wrong browser.
+
+### Format the code in a deck
+
+`lattice fmt` pretty-prints a deck's fenced code blocks in place, with
+Prettier, ruff (Python) or sql-formatter (SQL), whichever reads the block's
+language:
+
+```sh
+npx lattice fmt deck.md
+npx lattice fmt deck.md --check    # exit 1 if a block would change, for CI
+```
+
+A block whose `@code{…}` record says `format=off` keeps its text, and
+`width=48` in a record sets that block's line width. The formatters are
+optional dependencies; if one is missing, `lattice fmt` names the package to
+install.
 
 ### Allow web images
 
@@ -509,7 +623,7 @@ check.
 | What you see | What to do |
 |---|---|
 | `error: palette not found: brand` | Check the spelling against `npx lattice packages list --type theme`, or install the theme with `packages add` |
-| `error: unsupported output extension` | Use `.pdf`, `.pptx`, `.png`, `.zip` or `.html`. For JPEG or WebP, use a `.zip` with `--image-format` |
+| `error: unsupported output extension` | Use `.pdf`, `.pptx`, `.odp`, `.png`, `.zip` or `.html`. For JPEG or WebP, use a `.zip` with `--image-format` |
 | `error: unknown option` | Check the flag in the [CLI reference](/reference/cli/). Flags that take a value accept `--flag value` and `--flag=value` |
 | The render says it cannot find a browser | Set `CHROME_PATH` to a Chrome or Chromium on your machine |
 | A web image shows as a placeholder | Add `--allow-remote` |

@@ -1,0 +1,16 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "magnolia",
+  "type": "theme",
+  "format": 1,
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "magnolia-dark",
+  "order": 10,
+  "swatch": "#A04A55"
+}

@@ -348,3 +348,27 @@ quadrant, diagram, code). The 30 sheets were captured in the Studio's Present, d
 one still per sentence under each delivery. They are review artifacts, not committed. The Mermaid
 diagram slide narrates only its heading, so no delivery has a walk to play on it; that and the
 other unbound components are `followups.d/2415-p2-scene-gaps.md`.
+
+## 13. One act per part, and two e2e specs brought up to §7 (2026-10-07, #2557-p3)
+
+Three Studio e2e specs had been red on `main` since prose binding landed (§7, step 4). One was a
+regression; two pinned behavior §7 changed on purpose.
+
+- **The regression.** `playScene` (`docs/src/components/studio/guide-conductor.ts`) replayed the
+  act on every sentence. A paragraph is one ref over all of its sentences, so under `expressive` a
+  four-sentence paragraph drew four underlines under the same line
+  (`present-guide.spec.ts` "one gesture per BLOCK"). The text path has always rested on the same
+  element; the scene path now does the same by ref (`scene.last`), and a pause resets it so playing
+  again restores the part, as does a stage rebuilt or a delivery changed mid-part (tier 1 checker).
+  Pinned in `guide-conductor.test.ts` (mutation-proved) and by the spec. Left as it was, and noted:
+  a resume on the scene path replays the part's stroke, where the text path restores the focus
+  without one; the scene path always did, and making the two agree is a design call, not a fix.
+- **Stale, rewritten to §7.** "somber focuses the figure" expected the `$48.6M` bullet, salience's
+  pick; §7 made the prose key the list's first item, which the conductor's unit suite already
+  pinned. "the vocabulary varies" asked three TEXT shapes for two verbs; §7 has expressive underline
+  words and tap or circle marks, so the spec now reads a paragraph and a bar chart and asks for the
+  underline on words and another stroke on the marks.
+
+The nightly job showed green throughout because its step records the verdict and files a rolling
+issue on `main` instead of failing; whether it should also end red is a CI-contract question for
+the owner (`followups.d/2557-p3-studio-e2e-job-red-on-failure.md`).

@@ -1,0 +1,9 @@
+- A chart no longer reads a mistyped value as a different number. Before this, `--5` plotted as -5, `(-5)` as +5, `(5` and `5)` as 5, `$(1,234)` as +1,234, `1,2,3` as 1.2 and `1.2.3.4x` as 1,234, with no warning. Now none of them is a number:
+  - A bar, line or other point chart draws no mark for the row.
+  - A pie wedge or funnel stage reads as zero.
+  - A bullet row keeps the value in its actual slot and prints it as typed, instead of promoting its target to the actual.
+  - The narration says the value as typed and binds it to no mark.
+  - The new lint warning `chart-value-malformed` names each one and why.
+- A minus sign (U+2212) after a currency, as in `$−5`, now reads as negative; it read +5. A look-alike where a sign goes (an en dash `–5`, a fullwidth `－5` or `＋5`, the emoji minus `➖5`, the katakana `ー5` a Japanese IME types) is refused and named, instead of reading +5 or as an unsigned 5.
+- Well-formed numbers in every spelling read as before. None of the 427 shipped decks renders or narrates differently.
+- Segno's `@laticent/segno/values` adds `malformedNumber`, which says why a string shaped like a number is not one.

@@ -1,7 +1,7 @@
 # Gotchas — Mermaid
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## Mermaid labels are clipped on a plain slide ("Order pl…")
 
@@ -129,7 +129,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   result.
 - **Cause:** Mermaid's kanban renderer internally lightens the cScale
   inputs by ~10-15 lightness points before painting swimlane headers.
-- **Mitigation:** The cat-* tokens in [themes/indaco.css:286-294](../themes/indaco.css#L286-L294)
+- **Mitigation:** The cat-* tokens in [themes/indaco/indaco.css:286-294](../themes/indaco/indaco.css#L286-L294)
   are pinned at L≈60 specifically so kanban's lighten step lands at
   L≈70 (where dark text reads cleanly). Mindmap and other diagrams
   that read cScale directly get a CSS override in the per-diagram
@@ -218,7 +218,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Cause:** Mermaid requires the frontmatter (`---\n…\n---\n`) to be
   the very first thing in the diagram source. Naive prepending of a
   `%%{init}%%` directive breaks frontmatter detection.
-- **Mitigation:** `lattice-emulator.js:renderMermaid` detects an opening
+- **Mitigation:** `lattice.js:renderMermaid` detects an opening
   frontmatter block and injects the `%%{init}%%` AFTER the closing
   `---\n` rather than at the top.
 - **Triggered by:** Mermaid sources that include a `title:` or
@@ -366,7 +366,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Puppeteer has known startup races, especially under contention
   (parallel CI, tight resource limits) and when fetching CDN-hosted
   icon sets for architecture/c4 diagrams.
-- **Mitigation:** [lattice-emulator.js:683-707](../lattice-emulator.js#L683-L707)
+- **Mitigation:** [lattice.js:683-707](../lattice.js#L683-L707)
   retries up to 3 times with a 1s backoff between attempts. Each
   attempt is fully isolated (stale outputs deleted between tries).
 - **Triggered by:** Cold builds, slow networks, contended hosts.
@@ -399,7 +399,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Mitigation:** Add `<div class="mermaid-svg">…</div>` to the skip
   pattern in `extractMath` so math extraction does not reach inside
   inlined SVG. See
-  [lattice-emulator.js extractMath](../lattice-emulator.js).
+  [lattice.js extractMath](../lattice.js).
 - **Triggered by:** Any deck containing both a `$…$` candidate AND a
   Mermaid diagram with a CSS attribute selector using `$`. Latent
   since main's KaTeX-for-math feature landed; only surfaces visually

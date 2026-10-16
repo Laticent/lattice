@@ -21,12 +21,13 @@ import PreviewFidelityOverlay from '../components/studio/PreviewFidelityOverlay.
 import SkipLink from '../components/SkipLink.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
+import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 // The webfont files the PRE-PAINT SHELL's top bar paints with, imported with `?url` so
 import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
-import { assetBase } from '../playground/asset-version.mjs';
+import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from '../components/studio/preview-rect';
@@ -43,7 +44,7 @@ const pg = assetBase();
 const options = {
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
-	engineUrl: url(pg + 'lattice-playground.js'),
+	engineUrl: url(engineAsset()),
 	// No Mermaid URL: the diagram library is the Mermaid plugin's payload, staged beside
 	// the runtime, and the runtime's plugin host loads it from there — our own origin,
 	// never a CDN (offline / strict-CSP safe).
@@ -463,6 +464,9 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the inline
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
+		{/* Before any module preload: a page served from a stale cache after a deploy names
+		    chunks that no longer exist, and the island would never mount. */}
+		<StaleDeployRecovery island="StudioIsland" />
 		<ResourceHints />
 		{/* The font preloads are NOT here any more: `font-display: optional` made them decide
 		    whether a page gets its typeface at all, not just when, so they moved to

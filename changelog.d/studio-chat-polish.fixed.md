@@ -1,0 +1,2 @@
+- **Studio chat:** a reply in progress now always says what it is doing. A status line under the Architect's text names the phase on every turn ("Thinking…", "Reading slides…", "Drafting the edit…", "Writing…") and admits a long silence, replacing the bouncing dots that showed only on the first turn and the pulsing bar that looked stuck.
+- **Studio chat:** replies render Markdown tables (scrolling sideways on a phone), keep numbered lists numbered across blank lines and nested items, and render quotes and rules.

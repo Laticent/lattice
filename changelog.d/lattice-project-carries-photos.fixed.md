@@ -1,0 +1,1 @@
+- A `.lattice` project file now carries the Library photos the deck names, so it looks the same when opened on another device. "Lattice project" in the Share sheet opens an options step with an "Include photos" switch, on by default. Opening a `.lattice` adds its photos to your Library without overwriting a different photo that already has the same name.

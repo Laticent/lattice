@@ -1,0 +1,1 @@
+- A semantic `tone-edge` on `split-panel` and `split-compare` no longer draws a second top bar. The tone border sat above the frame's own ribbon (measured on indaco at 2560 wide: a tone bar, then the 6px ribbon beneath it, in light and dark). The tone color now recolors the supporting-zone ribbon, as `accent` does, and the frame keeps one bar.

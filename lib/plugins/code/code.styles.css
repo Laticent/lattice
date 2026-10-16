@@ -1,0 +1,231 @@
+/* lib/plugins/code/code.styles.css — the code plugin's stylesheet: the panel every code block sits
+ * on, and the ONE place highlight.js's class names meet a theme.
+ *
+ * ROLES, NOT CLASSES. A theme declares `--syntax-*` roles (spec/THEME-1.0.md §4.1); this file maps
+ * each `.hljs-*` class highlight.js emits onto one of them. So a theme never names highlight.js, and
+ * a different highlighter would change this file and nothing else
+ * (engineering/decisions/2026-10-15-code-plugin.md §5).
+ *
+ * THE PANEL. The plugin marks every block it colors `<pre class="lat-code">` (code.render.js), on
+ * any slide, so code on a plain content slide sits on the same `--code-bg` panel the `code` slide
+ * uses. The syntax roles are tuned and gated (checkSyntaxContrast) against that panel; before the
+ * plugin, a fence on a plain slide painted them straight onto the slide's own background, where
+ * the pale ones were unreadable. The `pre` is wrapped in `:where()` so a layout that styles its
+ * own `pre` (`code`, `compare-code`) wins by specificity and keeps its composition.
+ *
+ * WHY `section :where(pre)` AND NEVER `:where(section) pre`. Both weigh the same, (0,0,1) before
+ * the classes, but only the first survives scoping. Every browser host (the engine's packer,
+ * lib/engine/css.js `packSelector`) and Marp both prefix the slide path to a selector that does
+ * not START with `section`, so `:where(section) pre` became `… > section :where(section) pre`:
+ * a section inside a section, which never exists. Every rule written that way matched nothing in
+ * the live, scoped preview (the Studio's and the Playground's slide, the site's specimens), while
+ * the flat sheet the CLI and the exported players read drew them. The same trap took out the base
+ * tokens once (base.tokens.css, above its `:root`). It applies to any leading filter that matches
+ * the SLIDE: the spotlight below is `section[data-focus-style]`, because `_focus: line` stamps the
+ * section itself.
+ *
+ * THE SAME PANEL IN A MARP RENDER. Export to Marp ships this file, but Marp renders fences itself:
+ * a bare `<pre>` (marp-cli) or `<marp-pre>` (VS Code's preview), with no `lat-code` class, so a
+ * plain-slide fence there painted its colors onto the slide again. The second selector is that
+ * shape: a `<pre>` holding a `<code>` that no plugin draws (a drawn fence carries
+ * `data-lattice-hydrate` from the engine, or `data-lattice-settle` from the bundled runtime the
+ * moment it starts). Everything after `section` is wrapped in `:where()`, so it weighs no more than
+ * the engine's own `pre.lat-code` match, and the layouts keep the specificity they were written
+ * against.
+ *
+ * Palette-blind: every color is a token (HARD RULE #3).
+ */
+
+section :where(pre).lat-code,
+section :where(:is(pre, marp-pre):not(.lat-code, [data-lattice-hydrate], [data-lattice-settle]):has(> code)) {
+  background-color: var(--code-bg);
+  box-shadow: inset 0 0 0 1px var(--code-edge);
+  color: var(--code-text);
+  border-radius: var(--radius-md);
+  padding: var(--sp-sm) var(--sp-md);
+  box-sizing: border-box;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  /* The `code` layout's own type step (code.styles.css explains the role), so a block reads the
+   * same size on a content slide as on a code slide. */
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-base);
+}
+
+/* ── highlight.js class → syntax role ─────────────────────────────────────── */
+section .hljs-comment, section .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+section .hljs-keyword, section .hljs-template-tag,
+section .hljs-selector-pseudo, section .hljs-selector-attr,
+section .hljs-variable.language_ { color: var(--syntax-keyword); font-style: italic; }
+section .hljs-selector-tag, section .hljs-formula { color: var(--syntax-keyword); }
+section .hljs-built_in, section .hljs-builtin-name { color: var(--syntax-builtin); font-style: italic; }
+section .hljs-variable, section .hljs-template-variable,
+section .hljs-selector-class, section .hljs-bullet { color: var(--syntax-variable); }
+section .hljs-number, section .hljs-selector-id { color: var(--syntax-number); }
+section .hljs-literal, section .hljs-subst { color: var(--syntax-constant); }
+section .hljs-string, section .hljs-meta-string, section .hljs-regexp,
+section .hljs-link, section .hljs-char.escape_ { color: var(--syntax-string); }
+section .hljs-title, section .hljs-title.function_,
+section .hljs-function, section .hljs-section { color: var(--syntax-entity); font-style: italic; }
+section .hljs-title.class_, section .hljs-title.class_.inherited__,
+section .hljs-class { color: var(--syntax-entity); }
+section .hljs-type, section .hljs-symbol,
+section .hljs-meta, section .hljs-meta-keyword { color: var(--syntax-type); }
+section .hljs-params { color: var(--syntax-parameter); }
+section .hljs-tag, section .hljs-name, section .hljs-attr,
+section .hljs-attribute, section .hljs-doctag, section .hljs-code { color: var(--syntax-markup); }
+section .hljs-punctuation, section .hljs-operator { color: var(--syntax-punctuation); }
+section .hljs-emphasis { font-style: italic; }
+section .hljs-strong { font-weight: 700; }
+
+/* A diff's added and removed lines. The tint is the role's own color at low strength, so the band
+ * follows the theme; the +/- that starts the line carries the meaning without color. Each band runs
+ * the panel's full width (an inline-block as wide as the line box), so a short line does not leave
+ * a ragged edge. highlight.js wraps exactly one line's text in each span, never the newline. */
+section .hljs-addition, section .hljs-deletion { display: inline-block; min-width: 100%; }
+section .hljs-addition {
+  color: var(--syntax-inserted);
+  background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent);
+}
+section .hljs-deletion {
+  color: var(--syntax-deleted);
+  background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent);
+}
+
+/* ── What an `@code{…}` record adds (code.render.js) ──────────────────────── */
+
+/* title= : a file name or caption above the code, inside the panel. A hairline under it, then the
+ * code, spaced by padding (HARD RULE #20). */
+section :where(pre).lat-code > .lat-code-title {
+  display: block;
+  padding-bottom: var(--sp-xs);
+  border-bottom: 1px solid var(--code-edge);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  color: var(--syntax-comment);
+  font-style: normal;
+}
+section :where(pre).lat-code > .lat-code-title + code { display: block; padding-top: var(--sp-xs); }
+
+/* numbers : drawn from `data-n`, never part of the text, so a copy of the code is the code. The
+ * column fits the widest number the block shows (`data-digits`, set from `start=` and the count). */
+section :where(pre).lat-code-numbers { --ln-digits: 2ch; }
+section :where(pre).lat-code-numbers[data-digits="3"] { --ln-digits: 3ch; }
+section :where(pre).lat-code-numbers[data-digits="4"] { --ln-digits: 4ch; }
+section :where(pre).lat-code-numbers[data-digits="5"] { --ln-digits: 5ch; }
+section :where(pre).lat-code-numbers[data-digits="6"] { --ln-digits: 6ch; }
+section :where(pre).lat-code-numbers .ln::before {
+  content: attr(data-n);
+  display: inline-block;
+  min-width: var(--ln-digits);
+  padding-inline-end: 1.5ch;
+  text-align: end;
+  color: var(--syntax-comment);
+  font-style: normal;
+  font-weight: 400;
+  user-select: none;
+}
+
+/* mark= and diff : a line-wide band. The line becomes an inline-block as wide as the panel, as the
+ * `diff` grammar's own spans do above. */
+section :where(pre).lat-code .ln:is(.lat-mark, [data-diff]) { display: inline-block; min-width: 100%; }
+section :where(pre).lat-code .ln.lat-mark {
+  background-color: color-mix(in srgb, var(--code-text) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+section :where(pre).lat-code .ln[data-diff="ins"] { background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent); }
+section :where(pre).lat-code .ln[data-diff="del"] { background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent); }
+section :where(pre).lat-code .lat-diff-mark { display: inline-block; width: 2ch; }
+section :where(pre).lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
+section :where(pre).lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
+
+/* focus= (and a slide's `_focus: line` on a code block) : a receded line drops its syntax colors to
+ * one quiet color, `--code-text` mixed toward the panel, instead of the spotlight's opacity. Opacity
+ * multiplies down roles that are already quiet: at the spotlight's 0.24 a receded comment measured
+ * 1.23:1 on its panel, and plain code 1.53:1, which reads as blank. The mix is held at 3:1 or better
+ * on every panel by checkCodeRecede (tools/check-ownership.js), well under the 4.5:1 the focused
+ * lines keep, and the lost color is itself the cue that a line is context. The selector outranks
+ * base.focus.css's opacity rule, and the span rule outranks each `section .hljs-*` role. */
+section[data-focus-style="spotlight"] pre .ln.lat-recede,
+pre[data-focus-style="spotlight"] .ln.lat-recede {
+  opacity: 1;
+  color: color-mix(in srgb, var(--code-text) var(--code-recede), var(--code-bg));
+}
+section[data-focus-style="spotlight"] pre .ln.lat-recede span,
+section[data-focus-style="spotlight"] pre .ln.lat-recede::before,
+pre[data-focus-style="spotlight"] .ln.lat-recede span,
+pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
+section { --code-recede: 55%; }
+
+/* wrap : long lines wrap inside the panel, and a wrapped line's continuation hangs two columns in,
+ * so it does not read as a new line of code. With numbers it hangs under its own text, not under
+ * the number column. */
+section :where(pre).lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
+section :where(pre).lat-code-wrap .ln {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline-start: 2ch;
+  text-indent: -2ch;
+}
+section :where(pre).lat-code-wrap.lat-code-numbers .ln {
+  padding-inline-start: calc(var(--ln-digits) + 1.5ch);
+  text-indent: calc(-1 * (var(--ln-digits) + 1.5ch));
+}
+
+/* copy : two buttons at the panel's top right, "Copy code" and "Copy as HTML", drawn by
+ * lib/core/code-copy.mjs on a block marked `data-copy`, and only on a surface a person reads in a
+ * browser. Quiet until the block is pointed at or a button has focus, so they never compete with
+ * the code; the tooltip is the button's own label, in the panel's colors reversed. */
+section :where(pre)[data-copy] { position: relative; }
+section :where(pre) .lat-code-copy {
+  position: absolute;
+  top: var(--sp-xs);
+  right: var(--sp-xs);
+  z-index: 1;
+  display: flex;
+  gap: var(--sp-2xs);
+  opacity: 0.6;
+  transition: opacity 120ms ease;
+}
+section :where(pre):hover .lat-code-copy,
+section :where(pre) .lat-code-copy:focus-within { opacity: 1; }
+section :where(pre) .lat-code-copy-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 1.9em;
+  block-size: 1.9em;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--code-text) 12%, var(--code-bg));
+  box-shadow: inset 0 0 0 1px var(--code-edge);
+  color: var(--code-text);
+  cursor: pointer;
+}
+section :where(pre) .lat-code-copy-btn:hover { background-color: color-mix(in srgb, var(--code-text) 22%, var(--code-bg)); }
+section :where(pre) .lat-code-copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section :where(pre) .lat-code-copy-btn[data-copied="yes"] { color: var(--syntax-inserted); }
+section :where(pre) .lat-code-copy-btn svg { inline-size: 1.1em; block-size: 1.1em; }
+section :where(pre) .lat-code-copy-btn::after {
+  content: attr(aria-label);
+  position: absolute;
+  top: calc(100% + var(--sp-2xs));
+  right: 0;
+  padding: var(--sp-2xs) var(--sp-xs);
+  border-radius: var(--radius-sm);
+  background-color: var(--code-text);
+  color: var(--code-bg);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-base);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+section :where(pre) .lat-code-copy-btn:is(:hover, :focus-visible, [data-copied])::after { opacity: 1; }
+/* Backstops: the buttons are drawn only on reading surfaces, but a printed page or a section being
+ * captured must never show one. */
+@media print { section :where(pre) .lat-code-copy { display: none; } }
+section.lattice-exporting pre .lat-code-copy { display: none; }

@@ -111,6 +111,14 @@ describe('bookends on the timeline', () => {
 		},
 	};
 
+	it('looks a greeting variant up on the file only, never its prototype', () => {
+		// A plain-JS caller can pass any string. 'constructor' used to reach Object.prototype and
+		// throw reading `durationMs`; now it is an unknown variant, which lays out no greeting.
+		const tl = timeline(ltt, { greeting: 'constructor' as never });
+		expect(tl.greeting).toBeUndefined();
+		expect(tl.segments.map((s) => s.startMs)).toEqual(timeline(f.ltt).segments.map((s) => s.startMs));
+	});
+
 	it('lays a bookend out as a slide: hold, cues, tail', () => {
 		const p = positionAt(ltt.bookends?.closing as never, 0);
 		expect(p.waitMs).toBe(600);

@@ -69,6 +69,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
+const { npxSync } = require('../../helpers/npx-lock');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
@@ -176,7 +177,7 @@ function marpEnv() {
  * marp-cli does not read.
  */
 function runMarp(args, cwd, timeout = TIMEOUT) {
-	return spawnSync('npx', ['-y', MARP_PKG, ...args], {
+	return npxSync(['-y', MARP_PKG, ...args], {
 		cwd,
 		encoding: 'utf8',
 		env: marpEnv(),
@@ -243,6 +244,8 @@ const FIXTURES = [
 	{
 		slug: 'kit',
 		label: 'dist/marp-kit — the copy-and-go kit',
+		// The kit leaves math to Marp: its decks are the author's own, so MathJax typesets them.
+		display: 'mjx-container[display="true"]',
 		stage(dir) {
 			// A COPY. The committed kit is a build artifact behind the ownership gate
 			// (HARD RULE #2) and `build:check` byte-compares it — writing renders into
@@ -254,6 +257,8 @@ const FIXTURES = [
 	{
 		slug: 'bundle',
 		label: 'Export-to-Marp bundle — tools/export-marp.js',
+		// The bundle carries its math typeset at export (KaTeX) with Marp's MathJax off (§ 15).
+		display: '.katex-display',
 		stage(dir) {
 			const out = path.join(dir, 'export');
 			const r = spawnSync(process.execPath, [EXPORT_CLI, SOURCE_DECK, out, 'cuoio'], {
@@ -453,16 +458,20 @@ for (const fixture of FIXTURES) {
 		});
 
 		/**
-		 * Cross-renderer math. Lattice typesets with KaTeX; marp-core uses MathJax.
-		 * The layouts style both, and this is the only place that claim is tested
-		 * against a real MathJax render — that the display equation exists, has a real
-		 * box, and sits INSIDE its slide rather than overflowing it.
+		 * Cross-renderer math. The kit lets Marp typeset with MathJax; the bundle carries its
+		 * equations typeset at export with the engine's KaTeX, and Marp's MathJax is off
+		 * (engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 15). The layouts
+		 * style both. This checks, on a real marp-cli render, that the display equation exists
+		 * in the form its target ships, has a real box, and sits INSIDE its slide.
 		 */
-		test('the display equation is typeset by MathJax and laid out inside the math slide', { timeout: TIMEOUT }, async (t) => {
+		test('the display equation is typeset and laid out inside the math slide', { timeout: TIMEOUT }, async (t) => {
 			if (skipReason) return t.skip(skipReason);
 
-			const math = await page.evaluate(() => {
-				const el = document.querySelector('mjx-container[display="true"]');
+			if (fixture.slug === 'bundle') {
+				assert.equal(await page.evaluate(() => document.querySelectorAll('mjx-container').length), 0, 'Marp\'s MathJax typeset nothing in the bundle');
+			}
+			const math = await page.evaluate((sel) => {
+				const el = document.querySelector(sel);
 				if (!el) return null;
 				const sec = el.closest('section');
 				const stage = sec.querySelector(':scope > .cell-stage');
@@ -477,9 +486,9 @@ for (const fixture of FIXTURES) {
 					box: { w: m.width, h: m.height, top: m.top, bottom: m.bottom, left: m.left, right: m.right },
 					slide: { top: s.top, bottom: s.bottom, left: s.left, right: s.right },
 				};
-			});
+			}, fixture.display);
 
-			assert.ok(math, 'marp-core typeset the $$…$$ block into an mjx-container');
+			assert.ok(math, `the $$…$$ block reached the render as ${fixture.display}`);
 			assert.match(math.sectionClass, /\bmath\b/, 'it landed on the math slide');
 			// Not styling-in-general (the token test below covers that) — this is the
 			// COMPONENT-level rule reaching a Marp render, which is the #1256 defect

@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+Does every family-reflowing component's `[data-family]` tier actually FIRE, per (component x @size)? The tier probe above asserts that for THREE hand-picked components and the overflow oracle records only whether a slide CLIPS, so 30 of 33 components had no assertion that their family CSS does anything. This derives it: render one sweep per @size, then for each rule naming the component, remove the `data-family` stamp FROM THAT SAME RENDER and re-read the properties that rule declares — same element, same viewport, rule on vs rule off. Verdicts: fires / no-effect / no-baseline (not switchable off, so the pass is blind) / inert (the #1218 defect) / unexercised (the sweep slide does not carry what the rule targets). Frozen in test/oracle/family-conformance.json, compared EXACTLY in both directions. An on-demand diagnostic, not a CI gate.

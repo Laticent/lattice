@@ -4,50 +4,50 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 4.67,
-    "rmePct": 4.31
+    "ms": 4.78,
+    "rmePct": 2.62
   },
   "blessedOn": {
     "node": "v22",
     "platform": "linux/x64",
     "cpus": 4,
-    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz"
   },
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 22.09,
-      "ms": 103.12,
-      "slidesPerSec": 562,
-      "rmePct": 5.48
+      "index": 26.32,
+      "ms": 125.89,
+      "slidesPerSec": 461,
+      "rmePct": 14.33
     },
     "charts": {
       "slides": 25,
-      "index": 27.63,
-      "ms": 128.96,
-      "slidesPerSec": 194,
-      "rmePct": 2.89
+      "index": 31.09,
+      "ms": 148.71,
+      "slidesPerSec": 168,
+      "rmePct": 10.62
     },
     "math": {
       "slides": 17,
-      "index": 21.16,
-      "ms": 98.78,
-      "slidesPerSec": 172,
-      "rmePct": 7.77
+      "index": 22.12,
+      "ms": 105.78,
+      "slidesPerSec": 161,
+      "rmePct": 8.42
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 67.92,
-      "ms": 317.07,
-      "slidesPerSec": 1098,
-      "rmePct": 7.21
+      "index": 79.95,
+      "ms": 382.4,
+      "slidesPerSec": 910,
+      "rmePct": 14.92
     },
     "hub-spoke (gallery + tiered x3)": {
       "slides": 17,
-      "index": 27.64,
-      "ms": 129.04,
-      "slidesPerSec": 132,
-      "rmePct": 10.41
+      "index": 30.9,
+      "ms": 147.78,
+      "slidesPerSec": 115,
+      "rmePct": 11.38
     }
   },
   "printDatasets": {
@@ -101,28 +101,38 @@
   "cliDatasets": {
     "cli · portrait-roadmap (1 nav)": {
       "slides": 15,
-      "ms": 2414.4,
-      "rmePct": 11.76
+      "ms": 6964.32,
+      "rmePct": 2.55
     },
     "cli · auto-split (3 nav)": {
       "slides": 33,
-      "ms": 2377.13,
-      "rmePct": 7.01
+      "ms": 9441.93,
+      "rmePct": 9.69
     },
     "cli · cover-paginate (4 nav)": {
       "slides": 43,
-      "ms": 2706.26,
-      "rmePct": 8.24
+      "ms": 11616.01,
+      "rmePct": 5.76
     },
     "cli · imageset look-scratch (svg re-bake)": {
       "slides": 16,
-      "ms": 9074.17,
-      "rmePct": 2.62
+      "ms": 11855.61,
+      "rmePct": 2.61
     },
     "cli · captions (deck projection)": {
       "slides": 9,
-      "ms": 2214.79,
-      "rmePct": 2.81
+      "ms": 5389.27,
+      "rmePct": 4.18
+    },
+    "cli · cold engine, no fences (no browser)": {
+      "slides": 5,
+      "ms": 602.09,
+      "rmePct": 30.79
+    },
+    "cli · cold engine, six languages (no browser)": {
+      "slides": 10,
+      "ms": 562.85,
+      "rmePct": 10.49
     }
   },
   "exportDatasets": {
@@ -142,29 +152,29 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 44.16,
-      "burstMs": 491.36
+      "ms": 53.26,
+      "burstMs": 782.96
     },
     "edit · charts": {
       "slides": 25,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 42.3,
-      "burstMs": 450.96
+      "ms": 44.32,
+      "burstMs": 705.53
     },
     "edit · math": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 27.8,
-      "burstMs": 332.95
+      "ms": 21.35,
+      "burstMs": 408.3
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 59.48,
-      "burstMs": 691.56
+      "ms": 67.27,
+      "burstMs": 823.66
     }
   },
   "flowchartDatasets": {
@@ -173,28 +183,28 @@
       "routed": 12,
       "bounded": 41,
       "hits": 1,
-      "ms": 208.46
+      "ms": 216.13
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
       "bounded": 44,
       "hits": 0,
-      "ms": 193.86
+      "ms": 286.83
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
-      "routed": 18,
-      "bounded": 61,
+      "routed": 23,
+      "bounded": 70,
       "hits": 0,
-      "ms": 606.28
+      "ms": 951.99
     },
     "state chart · same calls, no cache": {
       "calls": 17,
-      "routed": 18,
-      "bounded": 61,
+      "routed": 23,
+      "bounded": 70,
       "hits": 0,
-      "ms": 660.57
+      "ms": 1079.38
     }
   }
 }

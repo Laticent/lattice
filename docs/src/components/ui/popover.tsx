@@ -19,10 +19,16 @@ function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
+  container,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  /** Where to portal to (default `<body>`). Inside a modal Sheet or Dialog, pass an element INSIDE it: the
+   *  modal's scroll lock blocks touch scrolling anywhere outside its own content, so a tall popover in
+   *  `<body>` shows but will not scroll on a phone. */
+  container?: HTMLElement | null
+}) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={container ?? undefined}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

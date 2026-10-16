@@ -1,0 +1,16 @@
+{
+  "title": "Ledger and numbered layouts use the ordered form of the card grammar",
+  "spec": "LFM-1.0",
+  "section": "3.1",
+  "L1": {
+    "slides": [
+      {
+        "component": "authority-chain",
+        "cards": [
+          { "title": "Board", "body": ["Approves the budget"] },
+          { "title": "CFO", "body": ["Releases the funds"] }
+        ]
+      }
+    ]
+  }
+}

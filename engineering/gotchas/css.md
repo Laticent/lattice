@@ -1,7 +1,7 @@
 # Gotchas — CSS
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## An ink passes every contrast gate and still renders sub-AA (own-hue band · element opacity)
 
@@ -636,8 +636,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Mitigation:** Wrap defaults in `:where(:root) { … }` to give them
   specificity (0,0,0), so any plain `:root` author override wins
   regardless of source order. Used in
-  [themes/cuoio.css:64](../themes/cuoio.css#L64) and
-  [themes/indaco.css:58](../themes/indaco.css#L58).
+  [themes/cuoio/cuoio.css:64](../themes/cuoio/cuoio.css#L64) and
+  [themes/indaco/indaco.css:58](../themes/indaco/indaco.css#L58).
 - **Triggered by:** Any author-overridable default.
 - **Removable when:** Never — this is the correct CSS pattern.
 
@@ -912,3 +912,23 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   to one color at computed time, so `max()` reads a plain color. `topic.styles.css`
   (THE LIFT'S FLOOR, `--_shelf-lift`) is the shipped instance. Never inline the origin
   back into the `oklch(from …)`.
+
+## An `accent` or `tone-edge` slide shows the spectrum bar after a Vite build — `border-image: none` minified to nothing
+
+- **Symptom:** in a page whose stylesheet a consumer built with Vite 8, an `accent` slide's top
+  bar shows the multi-color spectrum gradient instead of the solid accent line. The CLI and the
+  same CSS loaded unbundled draw it correctly. `tone-edge` slides carried the same declaration
+  (reasoned from it; only `accent` was measured failing).
+- **Cause:** lightningcss 1.32.0, Vite 8's default CSS minifier, rewrites a `border-image`
+  shorthand whose values are all defaults (`none`, or `none 100% / 1 / 0 stretch`) to
+  `border-image:` with no value. The browser drops that invalid declaration, so the base rule's
+  `border-image-source: var(--spectrum-bar)` survives. esbuild (`build.cssMinify: 'esbuild'`)
+  and an unminified build keep `none`. Measured 2026-10-07 on the packed palette candidate: 4 of
+  51 gallery slides per palette, all of them `accent`.
+- **Fix:** reset the longhand, `border-image-source: none`. With no image source, the other
+  border-image longhands draw nothing, so it renders the same, and lightningcss keeps it. Do not
+  "complete" the reset with all five longhands in one rule: lightningcss merges those back into
+  the same empty shorthand.
+  `test/unit/css/border-image-none-shorthand.test.js` fails on an all-default shorthand (or a
+  five-longhand rule) in `lib/` or `themes/`. `tools/palette-slide-parity.js --bundled` measures a bundler's output
+  against the CLI when a new minifier is suspected.

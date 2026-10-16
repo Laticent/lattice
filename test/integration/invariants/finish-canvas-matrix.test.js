@@ -49,7 +49,7 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
     browser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
     page = await browser.newPage();
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
+    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8');
     const cases = [];
     for (const c of COMPONENTS) for (const m of MODIFIERS) cases.push(m ? `${c} ${m}` : c);
     // Each section gets a PROBE painted `var(--fin-canvas)`. Comparing the probe's
@@ -687,7 +687,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
 
   before(async () => {
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
+    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8');
     const mods = deriveModifiers(bundle);
     assert.ok(mods.length > 20, `expected the bundle to yield a real modifier list, got ${mods.length}`);
 

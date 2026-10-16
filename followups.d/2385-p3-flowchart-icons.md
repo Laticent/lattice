@@ -2,6 +2,9 @@
 origin: 2385
 priority: P3
 recorded: 2026-09-26
+area: chart
+severity: low
+swimlane: engineering/decisions/2026-09-25-flowchart-authoring.md
 ---
 
 # Icons in flowchart shapes, including cloud provider services

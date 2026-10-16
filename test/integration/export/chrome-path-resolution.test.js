@@ -41,7 +41,7 @@ const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 describe('chrome-path-resolution', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');
   const TIMEOUT = 120000;
   const MISSING = '/nonexistent/chrome';

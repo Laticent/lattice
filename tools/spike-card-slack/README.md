@@ -35,7 +35,7 @@ node tools/spike-card-slack.mjs calibrate .scratch/card-slack/cards.json
 ```
 
 `tools/spike-card-slack.mjs` is the entry point and dispatches to the four stages
-here. It is top-level because `engineering/capabilities.md` is built from a
+here. It is top-level because `dist/engineering/capabilities.md` is built from a
 **non-recursive** scan of `tools/` (`tools/build-capabilities.js`), so a harness
 living only in a subdirectory is invisible to the index HARD RULE #15 tells the
 next agent to grep — which is how a tool gets rebuilt instead of reused.

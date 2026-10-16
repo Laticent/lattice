@@ -34,14 +34,14 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ## 400+ teams run board prep on Lattice.
 
-- ![Acme](../lib/components/inventory/logo-wall/acme.svg)
-- ![Globex](../lib/components/inventory/logo-wall/globex.svg)
-- ![Initech](../lib/components/inventory/logo-wall/initech.svg)
-- ![Umbra](../lib/components/inventory/logo-wall/umbra.svg)
-- ![Vantage](../lib/components/inventory/logo-wall/vantage.svg)
-- ![Meridian](../lib/components/inventory/logo-wall/meridian.svg)
-- ![Helios](../lib/components/inventory/logo-wall/helios.svg)
-- ![Northwind](../lib/components/inventory/logo-wall/northwind.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
 
 ---
 
@@ -51,28 +51,28 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ## When the mark needs a name, give it one.
 
-- ![Acme](../lib/components/inventory/logo-wall/acme.svg)
+- ![Acme](sample:logo-acme.svg)
   - Acme
   - `Series B`
-- ![Globex](../lib/components/inventory/logo-wall/globex.svg)
+- ![Globex](sample:logo-globex.svg)
   - Globex
   - `Enterprise`
-- ![Vantage](../lib/components/inventory/logo-wall/vantage.svg)
+- ![Vantage](sample:logo-vantage.svg)
   - Vantage
   - `Public`
-- ![Umbra](../lib/components/inventory/logo-wall/umbra.svg)
+- ![Umbra](sample:logo-umbra.svg)
   - Umbra
   - `Series C`
-- ![Meridian](../lib/components/inventory/logo-wall/meridian.svg)
+- ![Meridian](sample:logo-meridian.svg)
   - Meridian
   - `Seed`
-- ![Helios](../lib/components/inventory/logo-wall/helios.svg)
+- ![Helios](sample:logo-helios.svg)
   - Helios
   - `Public`
-- ![Northwind](../lib/components/inventory/logo-wall/northwind.svg)
+- ![Northwind](sample:logo-northwind.svg)
   - Northwind
   - `Anchor`
-- ![Cobalt](../lib/components/inventory/logo-wall/cobalt.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
   - `Series A`
 
@@ -84,18 +84,18 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ## Eighteen organizations backed this year's work.
 
-- ![Acme](../lib/components/inventory/logo-wall/acme.svg)
-- ![Globex](../lib/components/inventory/logo-wall/globex.svg)
-- ![Initech](../lib/components/inventory/logo-wall/initech.svg)
-- ![Umbra](../lib/components/inventory/logo-wall/umbra.svg)
-- ![Vantage](../lib/components/inventory/logo-wall/vantage.svg)
-- ![Meridian](../lib/components/inventory/logo-wall/meridian.svg)
-- ![Helios](../lib/components/inventory/logo-wall/helios.svg)
-- ![Northwind](../lib/components/inventory/logo-wall/northwind.svg)
-- ![Cobalt](../lib/components/inventory/logo-wall/cobalt.svg)
-- ![Sable](../lib/components/inventory/logo-wall/sable.svg)
-- ![Quanta](../lib/components/inventory/logo-wall/quanta.svg)
-- ![Lumen](../lib/components/inventory/logo-wall/lumen.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
+- ![Sable](sample:logo-sable.svg)
+- ![Quanta](sample:logo-quanta.svg)
+- ![Lumen](sample:logo-lumen.svg)
 
 ---
 
@@ -105,14 +105,14 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ## Twelve agencies stood up the joint program.
 
-- ![Acme](../lib/components/inventory/logo-wall/acme.svg)
-- ![Globex](../lib/components/inventory/logo-wall/globex.svg)
-- ![Initech](../lib/components/inventory/logo-wall/initech.svg)
-- ![Umbra](../lib/components/inventory/logo-wall/umbra.svg)
-- ![Vantage](../lib/components/inventory/logo-wall/vantage.svg)
-- ![Meridian](../lib/components/inventory/logo-wall/meridian.svg)
-- ![Helios](../lib/components/inventory/logo-wall/helios.svg)
-- ![Northwind](../lib/components/inventory/logo-wall/northwind.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
 
 ---
 
@@ -122,14 +122,14 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ## The same wall, dark-canvas.
 
-- ![Acme](../lib/components/inventory/logo-wall/acme.svg)
-- ![Globex](../lib/components/inventory/logo-wall/globex.svg)
-- ![Initech](../lib/components/inventory/logo-wall/initech.svg)
-- ![Umbra](../lib/components/inventory/logo-wall/umbra.svg)
-- ![Vantage](../lib/components/inventory/logo-wall/vantage.svg)
-- ![Meridian](../lib/components/inventory/logo-wall/meridian.svg)
-- ![Helios](../lib/components/inventory/logo-wall/helios.svg)
-- ![Northwind](../lib/components/inventory/logo-wall/northwind.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
 
 ---
 

@@ -63,7 +63,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 function render(src, out, extra, env = {}) {
 	return new Promise((resolve) => {
-		const p = spawn(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), src, out, '--quiet', ...extra], { cwd: ROOT, env: { ...process.env, ...env } });
+		const p = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), src, out, '--quiet', ...extra], { cwd: ROOT, env: { ...process.env, ...env } });
 		let err = '';
 		p.stderr.on('data', (d) => { err += d; });
 		p.on('close', (code) => resolve({ code, err }));
@@ -75,7 +75,9 @@ async function one(src) {
 	const mine = path.join(OUT, `${name}.writer.pdf`), chrome = path.join(OUT, `${name}.chrome.pdf`), rep = path.join(OUT, `${name}.report.json`);
 	const t0 = Date.now();
 	const [a, b] = await Promise.all([
-		render(src, mine, [], { LATTICE_PDF_REPORT: rep }),
+		// `--keep-html` only for the screen oracle, which reads the sidecar; it is deleted
+		// on success by default (P1).
+		render(src, mine, ORACLE === 'screen' ? ['--keep-html'] : [], { LATTICE_PDF_REPORT: rep }),
 		ORACLE === 'chrome' ? render(src, chrome, ['--chrome-pdf']) : Promise.resolve({ code: 0 }),
 	]);
 	if (a.code || b.code || !fs.existsSync(rep)) return { name, error: (a.err || b.err || 'the shared writer did not run (fell back to Chrome)').split('\n')[0] };

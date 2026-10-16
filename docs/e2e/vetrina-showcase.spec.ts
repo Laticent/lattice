@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-// The Vetrina SHOWCASE (docs/src/pages/vetrina.astro) — the only Vetrina page the site nav
+// The Vetrina SHOWCASE (docs/src/pages/libraries/vetrina/index.astro) — the only Vetrina page the site nav
 // links, and until this file the only one with no browser test at all. The three mechanisms
 // it gained are ones a unit tier structurally cannot see: the deictic strokes need real
 // layout to have any geometry, the beat log records the engine's own verbs against a real
@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 // interval is a bet the sample lands inside a stroke's window) and a beat's progress is read
 // off the page's own log.
 
-const PAGE = '/vetrina/';
+const PAGE = '/libraries/vetrina/';
 const STAGE = '.vetrina-stage';
 
 /** Watch for ink. The observer RECORDS the nodes as they are inserted; the reader MEASURES
@@ -108,6 +108,8 @@ test('a theme control changes what the engine does, and replays the beat', async
 	// `bar` is the default dock: a caption element exists and is not the cursor bubble.
 	await expect(page.locator('.vetrina-stage [class*="caption"]').first()).toBeVisible({ timeout: 15_000 });
 
+	// The look controls sit in a closed "Customize the look" pane, so a first-time visitor sees one Play button.
+	await page.locator('#lookPane > summary').click();
 	await page.locator('.seg[data-opt="pointer"] button', { hasText: 'ring' }).click();
 	// The control replays the beat, so the stage comes back up with the new theme applied.
 	await expect(page.locator(STAGE)).toBeVisible({ timeout: 15_000 });

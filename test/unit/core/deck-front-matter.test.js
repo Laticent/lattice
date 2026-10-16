@@ -184,6 +184,15 @@ describe('deck front matter — a producer that cannot carry local files', () =>
     }
   });
 
+  test('localAssets:false keeps a relative logo the producer bundled (bundledAssets)', () => {
+    // The in-browser producer fetches `sample:` art into assets/ (lib/core/marp-bundle.js
+    // withSampleAssets), so that one relative path is in the bundle and must survive.
+    const doc = (src, opts) => new JSDOM(`<section>${frontMatterBlock(src, opts)}</section>`).window.document;
+    const src = '---\nlogo: assets/logo-acme-mark.svg\n---\n# A\n';
+    assert.match(readBakedFrontMatter(doc(src, { localAssets: false, bundledAssets: ['assets/logo-acme-mark.svg'] })) || '', /logo: assets\/logo-acme-mark\.svg/);
+    assert.doesNotMatch(readBakedFrontMatter(doc(src, { localAssets: false, bundledAssets: ['assets/other.svg'] })) || '', /logo:/);
+  });
+
   test('withoutLocalAssetRefs leaves a front matter with no asset key alone', () => {
     assert.equal(withoutLocalAssetRefs('class: dark'), 'class: dark');
   });

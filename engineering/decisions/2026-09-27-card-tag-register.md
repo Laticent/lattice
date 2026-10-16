@@ -10,7 +10,8 @@ size axes, plus equal-size tags and the label budget) and phase 3's placement an
 are built. Phase 3 shipped **without** the new element (§3.1.1, an agent's call in the owner's
 absence, open for the owner to reverse). Phase 4 is built: `banner-tag` draws through the band
 rules and capsule's pill is the inline tag on the `--cat-N-mark` tier, both with an advisory
-`tag-alias` lint. Phase 5 is built: a Card tags group in deck settings and four Tag rows in slide settings. The owner settled the first
+`tag-alias` lint. *(Superseded 2026-10-06: the owner reversed the capsule hint — `capsule` is
+a documented current modifier, so only the `banner-tag` hint remains.)* Phase 5 is built: a Card tags group in deck settings and four Tag rows in slide settings. The owner settled the first
 six questions on 2026-09-27 and three more on 2026-09-28 (§7).
 
 ## 1. The problem in one example
@@ -307,7 +308,8 @@ one short item at conference and hall, re-measured with `tools/calibrate-capacit
   and `lib/runtime/index.js` (next to the slot-label lift), and the measure pass.
 - **CSS:** `lib/base/base.card-tag.css`. The copies in cards-grid, cards-stack,
   compare-prose, decision, split-compare and list-steps are deleted.
-- **Lint:** `unknown-tag`, and the alias hints for `banner-tag` and `capsule`.
+- **Lint:** `unknown-tag`, and the alias hints for `banner-tag` and `capsule`. *(Superseded 2026-10-06:
+  the owner reversed the `capsule` hint; only `banner-tag` keeps one.)*
 - **Docs:** `lib/base/base.registers.docs.md` gains a `tag:` section. The Labeled Corner
   Tag and Auto-Numbered sections of `lib/base/base.docs.md` merge into one Card tag
   section. Each affected component's `.docs.md` names its native default.

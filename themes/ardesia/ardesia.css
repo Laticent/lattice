@@ -1,0 +1,373 @@
+/* @theme ardesia
+ *
+ * Lattice · Ardesia palette — achromatic neutral slate
+ * ────────────────────────────────────────────────────────────────────────
+ * Conservative business, finance, law. Maximum readability, minimum
+ * chroma. The deck reads as ink-on-paper without taking a brand stance.
+ *
+ * Design contract
+ * ───────────────
+ *   1. Single text-heading color on every light surface (#0A0A0A near-
+ *      black). Dark mode flips to #FFFFFF on deep-graphite canvas. Every
+ *      contrast clears AAA on this palette — chroma is gone, only luminance
+ *      separates surfaces.
+ *
+ *   2. Two lightness bands for fills:
+ *        Pale band (L≈92) — primary mermaid surfaces, accent-soft, card
+ *                           fills. Dark text reads at AAA.
+ *        Dark band        — accent, text-label, near-black (#1F1F1F light,
+ *                           #E0E0DE dark — high-contrast monochrome).
+ *
+ *   3. Saturation reserved for one purpose only: alarm signals
+ *      (--fail #991B1B) and pass (--pass #2D6A3F). The deck has no
+ *      brand hue.
+ *
+ *   4. Every text-bearing token clears WCAG AAA (7:1) against the surface
+ *      it appears on, in both light and dark mode.
+ *
+ * Mechanism (mirrors indaco)
+ * ──────────────────────────
+ *   • Surfaces, ink, accent, and on-accent tokens use light-dark() so a
+ *     single `color-scheme: dark` declaration flips every descendant
+ *     lookup automatically.
+ *   • Default scheme is light at zero specificity; author overrides via
+ *     `style:` directive, `<!-- _class: dark -->`, or the ardesia-dark
+ *     variant theme always win the cascade.
+ *   • Semantic signals (--pass/--fail/--warn) are self-curated as
+ *     light-dark() pairs (the variable contract), AA on both canvases;
+ *     -bg tints derive from them.
+ */
+
+@import 'lattice';
+
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* ── Ardesia brand axis (achromatic — only luminance) ─────────────── */
+  --brand-accent:    #1F1F1F;  /* deep slate accent                   */
+
+  /* ── Surfaces ──────────────────────────────────────────────────────── */
+  --bg:       light-dark(#FAFAF9, var(--scheme-dark-bg));
+  --bg-alt:   light-dark(#ECECEB, var(--scheme-dark-bg-alt));
+  --surface-inverse:  #1A1A1A;
+  --border:   light-dark(#878786, var(--scheme-dark-border));
+
+  /* ── Ink ramp ──────────────────────────────────────────────────────── */
+  --text-display: #FFFFFF;
+  --text-heading: light-dark(#0A0A0A, var(--scheme-dark-text-heading)); /* L:18.96:1 / D:19.17:1 AAA */
+  --text-body:    light-dark(#2A2A2A, var(--scheme-dark-text-body));                    /* L:13.74:1 / D:11.43:1 AAA */
+  --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label));    /* L:15.78:1 / D:9.33:1 AAA  */
+  --text-secondary: light-dark(#565656, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
+  --text-muted:   light-dark(#696967, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   light-dark(#757572, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
+
+  /* ── Brand accent ──────────────────────────────────────────────────── */
+  --accent:      light-dark(var(--brand-accent), #E0E0DE); /* L:15.78:1 / D:14.50:1 on bg AAA */
+  --accent-soft: light-dark(#E8E8E7, var(--bg-warm-mid)); /* accent reads L:13.44:1 / D:14.50:1 */
+  /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
+   * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
+  --code-inline-fg: var(--accent); /* deep slate accent — chip AAA (L:12.96/11.56 · D:11.74/8.34 on chip) */
+  --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));    /* L:16.48:1 / D:14.50:1 */
+
+  /* ── Semantic signals — derived backgrounds only ───────────────────
+   * --pass/--warn/--fail are defined as light-dark() pairs in
+   * lattice.css :root (universal status palette). Each theme self-curates its own trio (above), per the
+   * variable contract — AA on both canvases. The -bg soft tints stay theme-local so
+   * each palette can pick its own alpha. */
+  /* Self-curated semantic trio — cool green/amber/red, AA>=4.5 on
+   * both canvases (light value vs --bg, dark value vs --scheme-dark-bg).
+   * The light --pass is solved against the COMPOSED surface, not the canvas:
+   * `redline` inks `<ins>` on --pass-bg, a 12% tint OF --pass, so the background
+   * moves with the value and the bar is met at a lower lightness than a
+   * canvas-only reading suggests (#1640, tools/composed-contrast.js). */
+  /* The LIGHT arms are re-solved JOINTLY (#1698). `kpi`'s status pill and
+   * `policy-recommendation`'s stance badge ink the trio on a 10-12% tint OF THE
+   * SAME token, so the band moves with the value and a canvas-only reading
+   * overstates it. Solved along the OKLab lightness axis, hue kept, all three
+   * arms at once: moving --warn alone closes its deficiency separation from
+   * --pass and --fail, and lightness is the only channel a deficiency preserves
+   * (tools/composed-contrast.js, test/unit/palette/cvd-trio-floor.test.js). */
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1183 light /
+   * 0.1194 dark, from 0.0730 / 0.0032. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#00472b, #b4ffd1);
+  --warn: light-dark(#805401, #f4bf63);
+  --fail: light-dark(#47000f, #f07f92);
+  --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
+  --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
+
+  /* The ramp anchor — a pair, solved ARM BY ARM against the derived stops.
+   * The light arm rides var(--brand-accent) by reference, the same source --accent's
+   * light arm reads, so re-tuning the brand hue moves the ramp with it and no
+   * literal here can go stale. The dark arm is curated, and deliberately is NOT
+   * --accent's #E0E0DE: that value sits high on a near-black canvas, and with
+   * canvas-relative poles (#1697) --seq-600..900 climb toward WHITE there, so an
+   * anchor parked up near the pole has nowhere left to travel — it left --seq-700
+   * 1.14:1 from --seq-500, and `word-cloud spectrum` paints those as two of its
+   * four ramp tiers. #989896 is that same hue and chroma at OKLab L 0.68, the
+   * mid-range where every painted stop clears 3:1 on the canvas AND the tiers stay
+   * apart from each other. The set spans 1.08-1.90:1 pre-fix; base.tokens.css
+   * § Sequential ramp carries the range and the reasoning. */
+  --seq-500: light-dark(var(--brand-accent), #989896);
+
+  /* Tag uses --chart-2 (warm gold) — the only chromatic break ardesia
+   * permits, mirroring Boardroom's Graphite gold-tag move. */
+
+  /* ── Dark-panel ramp ───────────────────────────────────────────────── */
+  --bg-warm-mid:   #0F0F0F;
+  --code-text:     #C8C8C5;
+
+  /* ── Spectrum — black → graphite → silver ──────────────────────────── */
+  --spectrum: linear-gradient(90deg, #0A0A0A 0%, #555555 55%, #B5B5B3 100%);
+  --spectrum-vertical: linear-gradient(180deg, #0A0A0A 0%, #555555 55%, #B5B5B3 100%);
+  --spectrum-end: #B5B5B3; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
+
+  /* ── Dark-variant tokens (referenced by light-dark() above) ───────── */
+  --scheme-dark-bg:           #0F0F0F;
+  --scheme-dark-bg-alt:       #2A2A2A;
+  --scheme-dark-border:       #737373;
+  --scheme-dark-text-heading: #FFFFFF;
+  --scheme-dark-text-body:    #C8C8C5;
+  --scheme-dark-text-muted:   #93938F;
+  --scheme-dark-muted-mark:   #757572;
+  --scheme-dark-text-secondary: #9B9B99;
+  --scheme-dark-text-label:   #B5B5B3;
+  --scheme-dark-text-display: #FFFFFF;
+
+  /* ── Mermaid extensions kept on-theme ──────────────────────────────── */
+  --diagram-stroke:          #777777;
+  /* Warm-gold pop — the deliberate "coolness break" on second curve.
+   * Same trick Boardroom's Graphite uses to give an achromatic palette
+   * one chromatic axis without compromising the neutral identity. */
+  --diagram-accent-warm:     #C8B89A;
+  /* cScale / gitgraph — warm achromatic with one warm-gold pop */
+}
+/* Completion tokens — band-text pairs, line, gantt state, note, error.
+ * References earlier palette tokens so this block stays a single
+ * source of truth per palette. */
+:root {
+
+  --diagram-line:                  var(--text-heading);
+}
+
+/* ── highlight.js syntax tokens ────────────────────────────────────────── */
+:root {
+  --syntax-comment:     #708596;  /* slate mist — muted cool gray               */
+  --syntax-keyword:     #7EA8C8;  /* steel blue — control flow, italic          */
+  --syntax-builtin:     #6ABCB0;  /* sage teal — functions, italic              */
+  --syntax-number:      #C4A882;  /* warm sand — numeric literals               */
+  --syntax-constant:    #A89EC8;  /* muted lavender — booleans/null             */
+  --syntax-string:      #9EC89A;  /* muted sage — strings                       */
+  --syntax-entity:      #8EC0DC;  /* sky blue — function names, italic          */
+  --syntax-type:        #C4B882;  /* warm gold — types/annotations              */
+  --syntax-variable:    #8CBCB8;  /* teal — variables                           */
+  --syntax-parameter:   #B8AC90;  /* warm taupe — parameters                    */
+  --syntax-markup:      #C49090;  /* muted rose — HTML tags                     */
+  --syntax-punctuation: #7890A0;  /* slate — operators, punctuation             */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
+}
+
+:root {
+  --cat-1-fill:  light-dark(#eab8b8, #A52B22);
+  --cat-1-mark:  light-dark(#921c1c, #e4c3c3);
+  --cat-2-fill:  light-dark(#b8eaea, #066060);
+  --cat-2-mark:  light-dark(#008282, #c3e4e4);
+  --cat-3-fill:  light-dark(#d1b8ea, #623CA4);
+  --cat-3-mark:  light-dark(#571c92, #d4c3e4);
+  --cat-4-fill:  light-dark(#d1eab8, #336006);
+  --cat-4-mark:  light-dark(#4a8400, #d4e4c3);
+  --cat-5-fill:  light-dark(#b8b8ea, #1A3898);
+  --cat-5-mark:  light-dark(#1c1c92, #c3c3e4);
+  --cat-6-fill:  light-dark(#ead1b8, #864709);
+  --cat-6-mark:  light-dark(#92571c, #e4d4c3);
+  --cat-7-fill:  light-dark(#b8eab8, #076507);
+  --cat-7-mark:  light-dark(#07890c, #c3e4c3);
+  --cat-8-fill:  light-dark(#eab8d1, #A12A5D);
+  --cat-8-mark:  light-dark(#921c57, #e4c3d4);
+  --cat-9-fill:  light-dark(#eab8ea, #8F378E);
+  --cat-9-mark:  light-dark(#921c92, #e4c3e4);
+  --cat-10-fill:  light-dark(#eaeab8, #5b5b06);
+  --cat-10-mark:  light-dark(#7a7900, #e4e4c3);
+  --cat-11-fill:  light-dark(#b8ead1, #076536);
+  --cat-11-mark:  light-dark(#01874d, #c3e4d4);
+  --cat-12-fill:  light-dark(#b8d2ea, #0b58a3);
+  --cat-12-mark:  light-dark(#1c5892, #c3d4e4);
+
+  /* ── CATEGORICAL ON-CANVAS INK — generated by tools/derive-cat-ink.js ──
+   * The categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue and
+   * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
+   * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
+   * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
+  --cat-1-ink:   light-dark(#921C1C, #E4C3C3);
+  --cat-2-ink:   light-dark(#007575, #C3E4E4);
+  --cat-3-ink:   light-dark(#571C92, #D4C3E4);
+  --cat-4-ink:   light-dark(#417600, #D4E4C3);
+  --cat-5-ink:   light-dark(#1C1C92, #C3C3E4);
+  --cat-6-ink:   light-dark(#92571C, #E4D4C3);
+  --cat-7-ink:   light-dark(#007A05, #C3E4C3);
+  --cat-8-ink:   light-dark(#921C57, #E4C3D4);
+  --cat-9-ink:   light-dark(#921C92, #E4C3E4);
+  --cat-10-ink:  light-dark(#6D6C00, #E4E4C3);
+  --cat-11-ink:  light-dark(#007944, #C3E4D4);
+  --cat-12-ink:  light-dark(#1C5892, #C3D4E4);
+  /* ── end categorical on-canvas ink ── */
+
+  --cat-on-fill: var(--text-heading);
+  --cat-on-mark:  light-dark(#FFFFFF, #0A0A0A);
+
+  /* Semantic palette — 5 roles, each a flipping fill. Curated per
+   * theme: hue nudged toward the brand within its meaning band,
+   * AA-verified both canvas modes, chroma-capped for restraint.
+   * The -dark companions are strokes → universal --diagram-stroke. */
+  --diagram-active:  light-dark(#9E9E9E, #585858);
+  --diagram-active-mark:   var(--diagram-stroke);
+  --diagram-done:  light-dark(#D1D1D1, #636363);
+  --diagram-done-mark:   var(--diagram-stroke);
+  --diagram-critical:       light-dark(#7A7A7A, #525252);
+  --diagram-critical-mark:  var(--diagram-stroke);
+  --diagram-today:        light-dark(#8A8A8A, #676767);
+  --diagram-note:        light-dark(#E4E4E4, #696969);
+
+  /* Containment tier — two nested structural surfaces. A monotonic
+   * luminance ladder away from the canvas: light deck steps down,
+   * dark deck steps up, one step per nesting level. Brand-hue-tinted
+   * at a barely-there chroma — surfaces, not accents; they never
+   * compete with the --cN fills that sit on them.
+   *   --c-container     flowchart cluster, sankey area, kanban column
+   *   --c-subcontainer  kanban ticket, a box nested in a cluster */
+  --c-container:     light-dark(#E9E9E9, #212121);
+  --c-subcontainer:  light-dark(#DADADA, #323232);
+
+  /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
+   * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
+   * outlined in --diagram-stroke, which does not flip with color-scheme and so
+   * went dark-on-dark — no edge of a dark cluster reached 3:1 in 12 of 14 themes.
+   * Curated per theme from this palette's own stroke hue, lightened only as far
+   * as 3:1 demands. Gated by test/unit/palette/containment-contrast.test.js:
+   * ink >= 4.5:1 on its surface (AA text), edge >= 3:1 on the fill it outlines
+   * (WCAG 1.4.11 — the box carries the grouping semantic). */
+  --c-container-edge:     light-dark(#2A2A2A, #6F6F6F);
+  --c-subcontainer-edge:  light-dark(#2A2A2A, #818181);
+  --c-on-container:       light-dark(#141414, #E8E8E8);
+  --c-on-subcontainer:    light-dark(#141414, #E8E8E8);
+}
+
+/* ── Chart-family palette ───────────────────────────────────────────────
+ * Ardesia's curation of the chart-family's two color spectrums (defined in
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
+ * canvas-aware Apple-hue default; untuned themes inherit it. Ardesia overrides
+ * both spectrums with its audited Brand-triad pigments — slate, terracotta,
+ * olive, blue, teal, brown, violet, and rose — each low-chroma, so charts read
+ * native to the "ink-on-paper" identity rather than borrowing the cool system
+ * palette.
+ *
+ * Each hook is the `light-dark(lightCanvasVivid, darkCanvasVivid)` shape the
+ * chart-family expects: on the light canvas the value is the audited pigment
+ * (drives the wedge/bar border at full strength and a 24% tint for the fill);
+ * on the dark canvas it lifts via color-mix(in oklab, pigment, white 30%) so
+ * the hue stays true and vivid on graphite. See design/theming.md (chart
+ * palette) and chart-family.styles.css for the full token contract. */
+:root {
+  /* Categorical spectrum — ardesia's audited Brand-triad pigments, low-chroma
+   * slate/muted hues ordered most-distinct-first by hue and value. These are
+   * ardesia's own --cN pigment cousins so charts share the theme's visual
+   * language. Light side = audited pigment; dark side = same hue lifted 30%
+   * toward white in OKLab so it stays legible on graphite canvas. */
+  --chart-cat1: light-dark(#406175, color-mix(in oklab, #406175, white 30%));  /* slate-blue    */
+  --chart-cat2: light-dark(#6B4A4A, color-mix(in oklab, #6B4A4A, white 30%));  /* terracotta    */
+  --chart-cat3: light-dark(#6B6B4D, color-mix(in oklab, #6B6B4D, white 30%));  /* olive         */
+  --chart-cat4: light-dark(#4D4C6A, color-mix(in oklab, #4D4C6A, white 30%));  /* periwinkle    */
+  --chart-cat5: light-dark(#436D70, color-mix(in oklab, #436D70, white 30%));  /* slate-teal    */
+  --chart-cat6: light-dark(#775748, color-mix(in oklab, #775748, white 30%));  /* warm-brown    */
+  --chart-cat7: light-dark(#5C4F69, color-mix(in oklab, #5C4F69, white 30%));  /* muted-violet  */
+  --chart-cat8: light-dark(#694F5C, color-mix(in oklab, #694F5C, white 30%));  /* dusty-rose    */
+
+  /* ── CHART CATEGORICAL INK — generated by tools/derive-chart-cat-ink.js ──
+   * The chart categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue
+   * and chroma as --chart-catN; lightness solved until it clears AA on both slide
+   * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
+   * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
+   * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
+  --chart-cat1-ink: light-dark(#406175, #859EAD);
+  --chart-cat2-ink: light-dark(#6B4A4A, #C3A8A7);
+  --chart-cat3-ink: light-dark(#6A6A4D, #9B9B85);
+  --chart-cat4-ink: light-dark(#4D4C6A, #9E9EB6);
+  --chart-cat5-ink: light-dark(#436D70, #7A999B);
+  --chart-cat6-ink: light-dark(#775748, #B99F94);
+  --chart-cat7-ink: light-dark(#5C4F69, #ABA1B6);
+  --chart-cat8-ink: light-dark(#694F5C, #C0ABB6);
+  /* ── end chart categorical ink ── */
+
+  /* ── HEATMAP RAMP — generated by tools/derive-chart-cat-ink.js ──
+   * The heatmap prints a value INSIDE each cell, which is text on a colored fill —
+   * the one placement the chart family does not otherwise guarantee contrast for.
+   * It can here because the ramp is QUANTIZED: five chosen stops rather than a
+   * continuum, so each stop carries an ink solved against the fill that actually
+   * appears under it. A stop sits at its even position unless the fill there is one
+   * no ink can reach, in which case it is nudged (at most 2% in the shipped set).
+   * The positions are plain numbers because they serve BOTH canvases; only the ink
+   * is a light-dark() pair. Do not hand-edit: `npm run build` regenerates over it.
+   * Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
+  --heatmap-step1: 18%;
+  --heatmap-step1-ink: light-dark(#2A2A2A, #C8C8C5);
+  --heatmap-step2: 36.5%;
+  --heatmap-step2-ink: light-dark(#2A2A2A, #C8C8C5);
+  --heatmap-step3: 55%;
+  --heatmap-step3-ink: light-dark(#2A2A2A, #CFCFCB);
+  --heatmap-step4: 73.5%;
+  --heatmap-step4-ink: light-dark(#111111, #F1F1ED);
+  --heatmap-step5: 92%;
+  --heatmap-step5-ink: light-dark(#E9E9E9, #161513);
+  /* ── end heatmap ramp ── */
+
+  /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
+   * status pills, state-chart, timeline). pass/warn/fail reuse ardesia's own
+   * inherited status trio so a gantt at-risk bar matches a --warn chip; info
+   * takes a deeper, more saturated slate-blue clearly distinct from cat1
+   * (#4B5C6C); mute derives from --text-muted's warm neutral. */
+  --chart-state-pass: var(--pass);                  /* inherited green  */
+  --chart-state-warn: var(--warn);                  /* inherited amber  */
+  --chart-state-fail: var(--fail);                  /* inherited red    */
+  --chart-state-info: light-dark(#3E6A9E, #79A6D6); /* deep slate-blue  */
+  --chart-state-mute: light-dark(#6F6354, #A69882); /* warm taupe       */
+}
+
+/* ── Panel edge mark ─────────────────────────────────────────────────────────
+ * `--panel-edge-mark` colors the top-edge rule the split frames paint over their
+ * featured panel. Its engine default is `--accent`, which on THIS palette is the
+ * panel fill itself (`--surface-inverse`): measured 1.00:1 on onyx — the panel half
+ * ships with no visible top edge at all. The curated spectrum endpoint is this
+ * palette's own distinctive hue and clears the floor.
+ *
+ * PAIRED, not flat: only the LIGHT arm is broken. On the dark arm `--accent` flips to
+ * a bright value against the same panel (onyx measures 21:1 there), so forcing the
+ * endpoint on both arms would replace a correct color with a worse one — the flat-
+ * override defect paired-token-parity.test.js exists to catch.
+ *
+ * Plain `:root`, and the specificity bump it used to carry is gone. This was
+ * `:root:root` (0,2,0) because the export path concatenated base.tokens.css AFTER the
+ * palette, so a plain `:root` override lost on source order in the rendered PDF. That
+ * bought the export path and cost the PACKED ones: Marpit's rewrite leaves the second
+ * `:root` literally on the <section>, where it can never match, so the Studio, the
+ * docs Playground and export-to-Marp all fell back to base's `var(--accent)` — on this
+ * palette the panel fill itself, the 1.00:1 edge this block exists to fix (#1797).
+ * #1527 flipped the concat (2026-08-24-palette-cascade-flip.md): the engine sheet loads
+ * FIRST now, so plain `:root` wins on source order in the export AND packs onto the
+ * slide everywhere else. One declaration, all four paths. Gated: composed-contrast
+ * surface `split-panel/edge-mark` (floor 1.5:1), and `checkPackedRootReach` refuses a
+ * theme token declared ONLY above plain `:root`.
+ * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+:root { --panel-edge-mark: light-dark(var(--spectrum-end), var(--accent)); }
+
+/* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
+ * retired the `:root:root` duplicate that used to reach the CLI export.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */

@@ -30,7 +30,7 @@ model, see `design/concepts.md`.
 | [`mode:`](#the-mode-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-clean | `boardroom` |
 | [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
-| [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `---` rules |
+| [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
 | [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
 | [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
 | [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
@@ -186,8 +186,8 @@ cause overflow are largely the ones it refuses to touch. See
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
 but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as `unknown-guards` (`unknown-fit` for the new key),
-including one carrying a trailing `#` comment.
+caught by `npm run lint:deck` as a `guards-renamed` warning (`unknown-fit` for the new
+key), including one carrying a trailing `#` comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole
@@ -260,9 +260,8 @@ paint `var(--accent)` as their field, so the accent would vanish there. Those co
 set `--field-accent: var(--on-accent)`, and a `cat-N` tinted cover sets
 `var(--cat-on-fill)`. A saved Studio finish reads the same slot, with `var(--accent)`
 as its fallback. `test/integration/invariants/finish-ink-matrix.test.js` holds every
-cover shape × mode × theme at 3:1 or better. `lint:deck`'s `bookend-finish-contrast`
-advice is a house preference for a bookend (`title`/`closing`/`divider`), not a split
-cover. Add `finish-none` to the authored slide to keep its whole run clean.
+cover shape × mode × theme at 3:1 or better. Add `finish-none` to the authored slide to
+keep its whole run clean.
 
 **Glyph-marks (the ghost monogram / numeral) are author-personalized and never
 appear by default.** A finish's `mark` layer carries the layer *type* (so the
@@ -935,9 +934,9 @@ shape:
 | Shape | Reads | Examples |
 |---|---|---|
 | **Row** — a wrapped flex row | `align-content: var(--cards-align)`; the row sets `flex-wrap: wrap`, its zero-basis cards still share one line, and each carries `min-width: 0` | `cards-grid`, `verdict-grid`, `decision`, `pricing`, `statute-stack`, `compare-prose`, `cards-stack horizontal`, the `list-steps` row, `team-profile` |
-| **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
+| **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `compare-code` (its pair of panels; both stay equal height), `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
 | **Two-by-two** | as a row, but each cell is exactly half the list under `stretch` and its content otherwise (`min-height`/`max-height` keyed on `--cards-grow`); `q-and-a grid` draws its dividing cross only under `stretch` | `matrix-2x2`, `q-and-a grid` |
-| **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
+| **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the `code` panel, the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
 | **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `agenda cards`, `citation-card` (default form) |
 | **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--cards-grow` lifts the ceiling | `list` (every register) |
 
@@ -997,7 +996,7 @@ layout. A placement class on the same slide wins over it (`decision banner-tag t
 foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`tag: corner`
 leaves a `banner-tag` slide as a band). The list-steps `capsule` pill is the `inline` tag,
 centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `tag:` words
-restyle it too. `lint:deck` names the register words for both (`tag-alias`, advisory).
+restyle it too. `lint:deck` suggests `tag-band` in place of `banner-tag` (`tag-alias`, advisory).
 
 `large` costs room: every tagged card reserves the bigger tag's height above its body, and the
 capacity figures in each component's docs assume the regular size. On a dense slide at a large

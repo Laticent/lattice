@@ -24,7 +24,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = process.argv[2] || path.join(ROOT, 'test', 'fixtures', 'responsive-charts.md');
 
 // Selectors measured + the size names (front-matter `size:`) and their widths.
@@ -44,10 +44,11 @@ function renderHtml(sizeName) {
   // masthead band around the chart that is irrelevant to (and would perturb) the
   // scale-ratio measurement. Keep the fixture chrome-free so it tests the SVG, not Form.
   fs.writeFileSync(md, `---\nmarp: true\ntheme: indaco\nsize: ${sizeName}\nform: off\n---\n\n${body}`);
-  execFileSync(process.execPath, [EMULATOR, md, pdf, 'indaco', '-q'], {
+  execFileSync(process.execPath, [EMULATOR, md, pdf, 'indaco', '-q', '--keep-html'], {
     cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
   });
-  return pdf.replace(/\.pdf$/, '.html'); // the emulator drops the HTML sidecar here
+  // `--keep-html`: the sidecar is deleted on success by default (P1); this gate reads it.
+  return pdf.replace(/\.pdf$/, '.html');
 }
 
 async function main() {

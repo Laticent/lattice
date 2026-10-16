@@ -2,6 +2,9 @@
 origin: 2356
 priority: P3
 recorded: 2026-09-25
+area: chart
+severity: medium
+swimlane: lib/components/chart/journey/journey.docs.md
 source: https://github.com/Laticent/lattice/pull/2356
 ---
 

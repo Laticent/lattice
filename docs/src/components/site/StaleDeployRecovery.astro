@@ -1,0 +1,15 @@
+---
+// Swaps an app page that booted from a stale copy of its own HTML onto the fresh one, once.
+// Mount it high in <head>, before the page's module preloads, so it is listening when they
+// fail. Why and how: src/lib/stale-deploy-recovery.js.
+import { installStaleDeployRecovery } from '../../lib/stale-deploy-recovery.js';
+
+interface Props {
+	/** The island component's name as it appears in its `component-url`, e.g. `StudioIsland`. */
+	island: string;
+}
+const { island } = Astro.props;
+const source = `(${installStaleDeployRecovery.toString()})(window, ${JSON.stringify({ island })});`;
+---
+
+<script is:inline set:html={source} />

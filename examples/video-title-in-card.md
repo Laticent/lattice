@@ -29,7 +29,7 @@ The running header and this slide's footer stay on the slide. The rebuild used t
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - Ree A., Head of Ops at Northwind `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -43,7 +43,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - The full 90-second tour `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -55,7 +55,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 - https://vimeo.com/1084537
 - The masthead band no longer claims this title, so the clip is no longer inside the band. `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -67,7 +67,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 - https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -81,7 +81,7 @@ The default composition keeps the title and the framing paragraph above the post
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - A guided walkthrough `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -95,7 +95,7 @@ Nothing about the fix depends on the palette. The card and its cells carry throu
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - Ree A., Head of Ops at Northwind `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 

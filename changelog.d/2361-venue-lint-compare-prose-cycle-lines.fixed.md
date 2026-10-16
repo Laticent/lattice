@@ -1,0 +1,5 @@
+- `lint:deck` now warns about more of the slides a `venue:` deck clips, with no new false warning on the 348 committed decks. Scored on five real decks forced to each room, right / false / missed goes from 25 / 1 / 23 to 28 / 1 / 20 at huddle, from 61 / 3 / 55 to 75 / 3 / 41 at conference, and from 114 / 0 / 50 to 119 / 0 / 45 at hall:
+  - `compare-prose` is judged by the lines its cards wrap to, closing note included, instead of by a count that said two cards always fit. Its corner-tag titles cost nothing, because the card reserves their line.
+  - `cycle` is judged by its lines too, against a budget that counts the ring's reserved arc and the ↻ mark the centered ring hangs below it.
+  - On a 4k deck, where the export forgives a third as much, `glossary` under an eyebrow reads a row measured at that size: six one-line terms clip at conference there, and lint now says so. A 720-high deck keeps its row.
+- `calibrate-capacity <component> --rows` measures `compare-prose` and `cycle`.

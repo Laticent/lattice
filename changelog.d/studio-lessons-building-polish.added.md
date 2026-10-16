@@ -1,0 +1,2 @@
+- Nine new Studio lessons, all voiced: adding a chart, a table, a comparison and an image; speaker notes; checking a deck with Coach; Fix all; changing a slide's layout with Reshape; and switching light or dark. Search finds each one by the question or by words like "graph", "notes" or "dark".
+- The command palette gains four rows: "Coach — check this deck", "Fix all issues" (shown while there is something to fix), "Switch light / dark mode" and "Slide settings — look, notes".

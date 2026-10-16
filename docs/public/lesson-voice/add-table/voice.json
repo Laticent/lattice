@@ -1,0 +1,539 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 94896,
+	"lines": [
+		{
+			"key": "27a53fc9c558",
+			"text": "A table slide lays out rows and columns for you, with the house style already applied.",
+			"file": "27a53fc9c558.mp3",
+			"bytes": 30096,
+			"speechMs": 4956,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A table slide lays out rows and columns for you, with the house style already applied.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 205,
+								"charOffset": 0
+							},
+							{
+								"display": "table",
+								"spoken": "table",
+								"startMs": 205,
+								"endMs": 616,
+								"charOffset": 2
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 616,
+								"endMs": 821,
+								"charOffset": 8
+							},
+							{
+								"display": "lays",
+								"spoken": "lays",
+								"startMs": 821,
+								"endMs": 1026,
+								"charOffset": 14
+							},
+							{
+								"display": "out",
+								"spoken": "out",
+								"startMs": 1026,
+								"endMs": 1231,
+								"charOffset": 19
+							},
+							{
+								"display": "rows",
+								"spoken": "rows",
+								"startMs": 1231,
+								"endMs": 1437,
+								"charOffset": 23
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1437,
+								"endMs": 1642,
+								"charOffset": 28
+							},
+							{
+								"display": "columns",
+								"spoken": "columns",
+								"startMs": 1642,
+								"endMs": 2052,
+								"charOffset": 32
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 2052,
+								"endMs": 2258,
+								"charOffset": 40
+							},
+							{
+								"display": "you,",
+								"spoken": "you,",
+								"startMs": 2258,
+								"endMs": 2493,
+								"charOffset": 44
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2693,
+								"endMs": 2899,
+								"charOffset": 49
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2899,
+								"endMs": 3104,
+								"charOffset": 54
+							},
+							{
+								"display": "house",
+								"spoken": "house",
+								"startMs": 3104,
+								"endMs": 3309,
+								"charOffset": 58
+							},
+							{
+								"display": "style",
+								"spoken": "style",
+								"startMs": 3309,
+								"endMs": 3514,
+								"charOffset": 64
+							},
+							{
+								"display": "already",
+								"spoken": "already",
+								"startMs": 3514,
+								"endMs": 4130,
+								"charOffset": 70
+							},
+							{
+								"display": "applied.",
+								"spoken": "applied.",
+								"startMs": 4130,
+								"endMs": 4571,
+								"charOffset": 78
+							}
+						],
+						"startMs": 0,
+						"endMs": 4956,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4956
+			}
+		},
+		{
+			"key": "dd4adc973399",
+			"text": "Click Add slide.",
+			"file": "dd4adc973399.mp3",
+			"bytes": 6336,
+			"speechMs": 1006,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click Add slide.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 200,
+								"charOffset": 0
+							},
+							{
+								"display": "Add",
+								"spoken": "Add",
+								"startMs": 200,
+								"endMs": 400,
+								"charOffset": 6
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 400,
+								"endMs": 630,
+								"charOffset": 10
+							}
+						],
+						"startMs": 0,
+						"endMs": 1006,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1006
+			}
+		},
+		{
+			"key": "d7aede9b9439",
+			"text": "I’ll open the slide gallery for you.",
+			"file": "d7aede9b9439.mp3",
+			"bytes": 11520,
+			"speechMs": 1858,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open the slide gallery for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 155,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 155,
+								"endMs": 464,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 464,
+								"endMs": 618,
+								"charOffset": 10
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 618,
+								"endMs": 773,
+								"charOffset": 14
+							},
+							{
+								"display": "gallery",
+								"spoken": "gallery",
+								"startMs": 773,
+								"endMs": 1236,
+								"charOffset": 20
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1236,
+								"endMs": 1391,
+								"charOffset": 28
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1391,
+								"endMs": 1568,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 1858,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1858
+			}
+		},
+		{
+			"key": "7d21b9d6ae3a",
+			"text": "I’ll type table in the search box.",
+			"file": "7d21b9d6ae3a.mp3",
+			"bytes": 11376,
+			"speechMs": 1841,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll type table in the search box.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 184,
+								"charOffset": 0
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 184,
+								"endMs": 367,
+								"charOffset": 5
+							},
+							{
+								"display": "table",
+								"spoken": "table",
+								"startMs": 367,
+								"endMs": 735,
+								"charOffset": 10
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 735,
+								"endMs": 918,
+								"charOffset": 16
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 918,
+								"endMs": 1102,
+								"charOffset": 19
+							},
+							{
+								"display": "search",
+								"spoken": "search",
+								"startMs": 1102,
+								"endMs": 1286,
+								"charOffset": 23
+							},
+							{
+								"display": "box.",
+								"spoken": "box.",
+								"startMs": 1286,
+								"endMs": 1496,
+								"charOffset": 30
+							}
+						],
+						"startMs": 0,
+						"endMs": 1841,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1841
+			}
+		},
+		{
+			"key": "7e75a9c2bf7b",
+			"text": "Pick the table.",
+			"file": "7e75a9c2bf7b.mp3",
+			"bytes": 5616,
+			"speechMs": 870,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Pick the table.",
+						"words": [
+							{
+								"display": "Pick",
+								"spoken": "Pick",
+								"startMs": 0,
+								"endMs": 144,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 144,
+								"endMs": 289,
+								"charOffset": 5
+							},
+							{
+								"display": "table.",
+								"spoken": "table.",
+								"startMs": 289,
+								"endMs": 599,
+								"charOffset": 9
+							}
+						],
+						"startMs": 0,
+						"endMs": 870,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 870
+			}
+		},
+		{
+			"key": "6b3d9af221da",
+			"text": "Each row is a line of text, with a bar between the cells. Add a line to add a row.",
+			"file": "6b3d9af221da.mp3",
+			"bytes": 29952,
+			"speechMs": 4925,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Each row is a line of text, with a bar between the cells.",
+						"words": [
+							{
+								"display": "Each",
+								"spoken": "Each",
+								"startMs": 0,
+								"endMs": 183,
+								"charOffset": 0
+							},
+							{
+								"display": "row",
+								"spoken": "row",
+								"startMs": 183,
+								"endMs": 365,
+								"charOffset": 5
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 365,
+								"endMs": 548,
+								"charOffset": 9
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 548,
+								"endMs": 730,
+								"charOffset": 12
+							},
+							{
+								"display": "line",
+								"spoken": "line",
+								"startMs": 730,
+								"endMs": 913,
+								"charOffset": 14
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 913,
+								"endMs": 1095,
+								"charOffset": 19
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 1095,
+								"endMs": 1305,
+								"charOffset": 22
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 1483,
+								"endMs": 1665,
+								"charOffset": 28
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 1665,
+								"endMs": 1848,
+								"charOffset": 33
+							},
+							{
+								"display": "bar",
+								"spoken": "bar",
+								"startMs": 1848,
+								"endMs": 2031,
+								"charOffset": 35
+							},
+							{
+								"display": "between",
+								"spoken": "between",
+								"startMs": 2031,
+								"endMs": 2396,
+								"charOffset": 39
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2396,
+								"endMs": 2578,
+								"charOffset": 47
+							},
+							{
+								"display": "cells.",
+								"spoken": "cells.",
+								"startMs": 2578,
+								"endMs": 2788,
+								"charOffset": 51
+							}
+						],
+						"startMs": 0,
+						"endMs": 3130,
+						"charOffset": 0
+					},
+					{
+						"display": "Add a line to add a row.",
+						"words": [
+							{
+								"display": "Add",
+								"spoken": "Add",
+								"startMs": 3277,
+								"endMs": 3460,
+								"charOffset": 58
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3460,
+								"endMs": 3643,
+								"charOffset": 62
+							},
+							{
+								"display": "line",
+								"spoken": "line",
+								"startMs": 3643,
+								"endMs": 3825,
+								"charOffset": 64
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 3825,
+								"endMs": 4008,
+								"charOffset": 69
+							},
+							{
+								"display": "add",
+								"spoken": "add",
+								"startMs": 4008,
+								"endMs": 4190,
+								"charOffset": 72
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4190,
+								"endMs": 4373,
+								"charOffset": 76
+							},
+							{
+								"display": "row.",
+								"spoken": "row.",
+								"startMs": 4373,
+								"endMs": 4582,
+								"charOffset": 78
+							}
+						],
+						"startMs": 3277,
+						"endMs": 4925,
+						"charOffset": 58
+					}
+				],
+				"durationMs": 4925
+			}
+		}
+	]
+}

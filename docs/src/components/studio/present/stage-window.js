@@ -82,7 +82,8 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
 export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en', webOrigins = /** @type {string[]} */ ([]) }) {
 	// Web images the reader has not allowed become the drawn placeholder (trio follow-up 11),
 	// BEFORE the sanitizer, so it sees the final markup; the policy below refuses the rest.
-	const web = remoteRef.blockWebImages(html, webOrigins);
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const web = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin(webOrigins));
 	html = sanitizeSlideHtml(web.html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
@@ -332,7 +333,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// this value lands in an attribute.
 		// `data-lattice-live-media`: the audience watches this live, so a picture still loading shows
 		// the Underpainting (lib/core/image-painting.js) rather than an empty panel.
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media><head><meta charset="utf-8">' +
+		// `data-lattice-chromeless`: the audience watches, nobody acts on the slide, so the runtime
+		// draws no reader chrome (a code block's copy buttons, lib/core/code-copy.mjs).
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) +

@@ -9,7 +9,7 @@ Each is short enough to read in a sitting.
 
 | Layer | What it decides | The file you write |
 |---|---|---|
-| **Theme** | Every color in the deck | `themes/<name>.css` — a list of colors |
+| **Theme** | Every color in the deck | `themes/<name>/<name>.css` — a list of colors |
 | **Component** | How one slide is arranged | `<name>.styles.css` — about twenty lines of CSS |
 | **Finish** | The texture or glow behind the words | One block in `base.finish.css` |
 

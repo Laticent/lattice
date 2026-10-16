@@ -195,3 +195,44 @@ test('filterAttr drops, rewrites or keeps each attribute in the same pass, and o
 	// An attribute the allowlist already removed never reaches the filter to be kept.
 	assert.doesNotMatch(mod.createSlideSanitizer(DOMPurify, new JSDOM('').window, { filterAttr: () => true })('<img src=x onerror=alert(1)>'), /onerror/);
 });
+
+// A Library photo is a `blob:` object URL the Studio minted (docs/.../media-urls.ts). DOMPurify's
+// default policy refuses `blob:`, so without this allowance the engine's resolved `src` was
+// stripped and the slide showed a pictureless <img>. The allowance is deliberately one shape.
+test('a same-origin blob: object URL survives as an <img> src, and as nothing else', async () => {
+  const DOMPurify = (await import('dompurify')).default;
+  const { JSDOM } = await import('jsdom');
+  const win = new JSDOM('', { url: 'https://site.test/studio/' }).window;
+  const s = mod.createSlideSanitizer(DOMPurify, win);
+  const U = 'blob:https://site.test/3f2b8c1e-9d4a-4e6b-8a7c-1b2d3e4f5a6b';
+
+  assert.match(s(`<img alt="a" src="${U}">`), new RegExp(`src="${U}"`), 'the picture this page minted');
+  assert.match(s(`<video src="${U}"></video>`), new RegExp(`src="${U}"`), 'media elements only fetch and paint');
+
+  // What stays refused — each is a way a deck could aim a blob somewhere it should not go.
+  assert.doesNotMatch(s(`<a href="${U}">x</a>`), /blob:/, 'an anchor navigates, and a blob can be a page');
+  assert.doesNotMatch(s('<img src="blob:https://evil.test/3f2b8c1e-9d4a-4e6b-8a7c-1b2d3e4f5a6b">'), /blob:/, 'another origin');
+  assert.doesNotMatch(s('<img src="blob:https://site.test/guess-me">'), /blob:/, 'not a minted UUID');
+  assert.doesNotMatch(s(`<img src="${U}/../x">`), /blob:/, 'a path, not a bare UUID');
+  assert.doesNotMatch(s(`<img src=" ${U}x">`), /blob:/, 'trailing junk');
+  assert.doesNotMatch(s(`<img data-x="${U}" srcset="${U} 2x">`), /srcset="blob:/, 'srcset is not src');
+  assert.equal(s(`<iframe src="${U}"></iframe><p>ok</p>`), '<p>ok</p>', 'frames stay forbidden');
+  assert.doesNotMatch(s(`<img src="${U}" onerror="alert(1)">`), /onerror/i, 'event handlers still die beside an allowed src');
+});
+
+test('the blob: allowance fails closed without a usable origin (a jsdom about:blank, the export host)', () => {
+  const U = 'blob:null/3f2b8c1e-9d4a-4e6b-8a7c-1b2d3e4f5a6b';
+  assert.doesNotMatch(sani(`<img src="${U}">`), /blob:/);
+  assert.doesNotMatch(sani('<img src="blob:https://site.test/3f2b8c1e-9d4a-4e6b-8a7c-1b2d3e4f5a6b">'), /blob:/);
+});
+
+test('the blob: allowance does not widen what filterAttr can veto', async () => {
+  const DOMPurify = (await import('dompurify')).default;
+  const { JSDOM } = await import('jsdom');
+  const win = new JSDOM('', { url: 'https://site.test/' }).window;
+  const U = 'blob:https://site.test/3f2b8c1e-9d4a-4e6b-8a7c-1b2d3e4f5a6b';
+  const vetoed = mod.createSlideSanitizer(DOMPurify, win, { filterAttr: (tag, name) => !(tag === 'img' && name === 'src') });
+  assert.doesNotMatch(vetoed(`<img src="${U}">`), /blob:/, 'a caller that drops src still drops it');
+  const rewritten = mod.createSlideSanitizer(DOMPurify, win, { filterAttr: (tag, name) => (tag === 'img' && name === 'src' ? 'https://x.test/y.png' : true) });
+  assert.doesNotMatch(rewritten(`<img src="${U}">`), /blob:/, 'a rewritten value is not overridden by the allowance');
+});

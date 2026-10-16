@@ -42,6 +42,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -60,7 +61,7 @@ function paletteSource(name, seen = new Set()) {
   if (seen.has(name)) return '';
   seen.add(name);
   if (name === 'lattice') return fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.tokens.css'), 'utf8');
-  const file = path.join(THEMES_DIR, `${name}.css`);
+  const file = path.join(THEMES_DIR, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -122,7 +123,7 @@ function flatten(inkExpr, vars, dark, backdropHex) {
   return resolve(vars, inkExpr, dark);
 }
 
-const PALETTES = fs.readdirSync(THEMES_DIR).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4));
+const PALETTES = themeEntries(THEMES_DIR).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4));
 
 /** Read a declaration out of a real rule block, so the test tracks the stylesheet. */
 function decl(block, prop) {

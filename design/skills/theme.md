@@ -1,11 +1,11 @@
 # Skill — Create a theme
 
-> Author a new palette (`themes/<name>.css`) that recolors every deck, holds WCAG
+> Author a new palette (`themes/<name>/<name>.css`) that recolors every deck, holds WCAG
 > AA everywhere text bears, and reads like ink on paper — not a rainbow.
 
 **Read this when** you are asked to create a brand palette, a color scheme, or a
-new theme. **You'll produce** two files: `themes/<name>.css` (the palette) and
-`themes/<name>-dark.css` (a 3-line dark wrapper).
+new theme. **You'll produce** two files: `themes/<name>/<name>.css` (the palette) and
+`themes/<name>-dark/<name>-dark.css` (a 3-line dark wrapper).
 
 ---
 
@@ -63,11 +63,11 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 
 ## Where it lives
 
-- **Files**: `themes/<name>.css` + `themes/<name>-dark.css`.
+- **Files**: `themes/<name>/<name>.css` + `themes/<name>-dark/<name>-dark.css`.
 - **The engine token layer** you inherit from: `lib/base/base.tokens.css` (the one
   `*.tokens.css` file — the sanctioned home for `--token:#hex`).
-- **The reference themes** to copy from: `themes/indaco.css` (cool default) and
-  `themes/cuoio.css` (warm) — their `--cat-*` **values** are the current three-layer
+- **The reference themes** to copy from: `themes/indaco/indaco.css` (cool default) and
+  `themes/cuoio/cuoio.css` (warm) — their `--cat-*` **values** are the current three-layer
   cycle, so copy them freely.
 - **⚠️ Two stale neighbors — trust this skill's model over them.** `indaco.css`'s own
   header comment and the `TODO(palette)` checklist the scaffold stamps still describe
@@ -81,10 +81,10 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
   - `npm run new:theme <name>` — copies `indaco.css` (a correct three-layer block),
     rewrites `@theme`, stamps a `TODO(palette):` checklist (see the warning above about
     its stale prose), and stamps the `<name>-dark.css` wrapper.
-  - `node lattice-emulator.js test/integration/baseline-decks/gallery.md /tmp/x.pdf
+  - `npx lattice test/integration/baseline-decks/gallery.md /tmp/x.pdf
     -p <name>` — render a broad component gallery in your palette (`-p`/`--palette`
     overrides the deck's `theme:`).
-  - `node lattice-emulator.js examples/diagram-narration.md /tmp/x.pdf -p <name>` —
+  - `npx lattice examples/diagram-narration.md /tmp/x.pdf -p <name>` —
     verify Mermaid diagram colors.
   - `node tools/contrast-audit.js`, `node tools/cvd-audit.js` — contrast tooling.
 
@@ -142,7 +142,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 
 ## The contract / skeleton
 
-A base palette's spine (from `themes/indaco.css`):
+A base palette's spine (from `themes/indaco/indaco.css`):
 
 ```css
 /* @theme verdigris */          /* MUST match the filename — and it is the ONLY
@@ -235,9 +235,9 @@ the full 98-token contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
-the 11 core tokens, define: all 12 `--hljs-*` code-syntax colors — each of which
+the 11 core tokens, define: all 12 `--syntax-*` code-syntax colors — each of which
 must clear **4.5:1 against your `--code-bg`**, comments and punctuation included
-(`checkHljsContrast`, via `build:check`). Syntax highlighting is small text a human
+(`checkSyntaxContrast`, via `build:check`). Syntax highlighting is small text a human
 reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption for
 "deliberately quiet" tokens was tried and removed, because de-emphasis is about
 where a token sits *relative to the code* and the floor is about whether it can be
@@ -330,7 +330,7 @@ The **dark variant in full** — this is the whole file:
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
 - [ ] Full 98-token contract defined directly (not just the 11 core) — all 12
-      `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`, `--seq-500`.
+      `--cat-*` pairs, all `--syntax-*`, `--chart-*`, `--diagram-*`, `--seq-500`.
 - [ ] `--seq-500`'s DARK arm re-anchored at OKLab L 0.68 in your own hue (not the
       dark `--accent`, which is near-white by design and leaves the derived stops
       1.08-1.90:1 apart) — `node tools/composed-contrast.js <name>` green.

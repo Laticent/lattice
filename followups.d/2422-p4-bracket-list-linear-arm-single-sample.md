@@ -2,6 +2,9 @@
 origin: 2422
 priority: P4
 recorded: 2026-09-27
+area: infra
+severity: low
+swimlane: engineering/development.md
 ---
 
 # `bracket-list` linear-growth arm compares single mean timings with no noise guard

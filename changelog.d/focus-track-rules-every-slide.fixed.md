@@ -1,0 +1,2 @@
+- `lint:deck` now checks `_focus`, `_focusStyle`, `_focusSteps` and `track:` on every slide, including a slide with no `_class`. A bare deck-wide `<!-- track: A | [B] -->` on such a slide used to pass silently.
+- A mistyped `_focusStyle` now lists all five styles, including `blur` and `pop`.

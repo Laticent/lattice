@@ -6,6 +6,16 @@
   "api": 1,
   "title": "Mermaid diagrams",
   "description": "Flowcharts, sequence, state, class, Gantt and the rest of Mermaid's diagram types from a fence. The engine emits the highlighted source; the plugin's diagram pass draws it in a browser, and its bake draws it to a static SVG on the CLI before the engine renders.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {"ink": "line", "d": "M14 48H32A6 6 0 0 1 38 54V72A6 6 0 0 1 32 78H14A6 6 0 0 1 8 72V54A6 6 0 0 1 14 48Z", "width": 7},
+      {"ink": "accent", "d": "M64 40L88 63L64 86L40 63Z", "width": 7},
+      {"ink": "line", "d": "M100 22H114A6 6 0 0 1 120 28V40A6 6 0 0 1 114 46H100A6 6 0 0 1 94 40V28A6 6 0 0 1 100 22Z", "width": 7},
+      {"ink": "line", "d": "M100 82H114A6 6 0 0 1 120 88V100A6 6 0 0 1 114 106H100A6 6 0 0 1 94 100V88A6 6 0 0 1 100 82Z", "width": 7},
+      {"ink": "line", "d": "M76 52L94 34M76 74L94 94", "width": 6}
+    ]
+  },
   "contributes": {
     "fences": {
       "mermaid": { "body": "mermaid", "as": "code" }
@@ -16,18 +26,31 @@
     "styles": true
   },
   "tokens": [
-    "--accent", "--bg", "--bg-alt", "--c-on-container", "--c-on-subcontainer", "--c-subcontainer",
-    "--c-subcontainer-edge", "--cat-1-fill", "--cat-1-mark", "--cat-1-texture", "--cat-10-fill", "--cat-10-texture",
-    "--cat-11-fill", "--cat-11-texture", "--cat-12-fill", "--cat-12-texture", "--cat-2-fill", "--cat-2-mark",
-    "--cat-2-texture", "--cat-3-fill", "--cat-3-mark", "--cat-3-texture", "--cat-4-fill", "--cat-4-mark",
-    "--cat-4-texture", "--cat-5-fill", "--cat-5-mark", "--cat-5-texture", "--cat-6-fill", "--cat-6-mark",
-    "--cat-6-texture", "--cat-7-fill", "--cat-7-mark", "--cat-7-texture", "--cat-8-fill", "--cat-8-mark",
-    "--cat-8-texture", "--cat-9-fill", "--cat-9-texture", "--cat-on-fill", "--diagram-cluster-radius", "--diagram-line",
-    "--diagram-stroke", "--font-body", "--font-mono", "--fs-meta", "--lh-base", "--on-accent",
-    "--radius-md", "--text-heading"
+    "--accent", "--bg", "--bg-alt", "--border", "--c-on-container", "--c-on-subcontainer",
+    "--c-subcontainer", "--c-subcontainer-edge", "--cat-1-fill", "--cat-1-mark", "--cat-1-texture", "--cat-10-fill",
+    "--cat-10-texture", "--cat-11-fill", "--cat-11-texture", "--cat-12-fill", "--cat-12-texture", "--cat-2-fill",
+    "--cat-2-mark", "--cat-2-texture", "--cat-3-fill", "--cat-3-mark", "--cat-3-texture", "--cat-4-fill",
+    "--cat-4-mark", "--cat-4-texture", "--cat-5-fill", "--cat-5-mark", "--cat-5-texture", "--cat-6-fill",
+    "--cat-6-mark", "--cat-6-texture", "--cat-7-fill", "--cat-7-mark", "--cat-7-texture", "--cat-8-fill",
+    "--cat-8-mark", "--cat-8-texture", "--cat-9-fill", "--cat-9-texture", "--cat-on-fill", "--diagram-cluster-radius",
+    "--diagram-line", "--diagram-stroke", "--fail", "--font-body", "--font-mono", "--fs-meta",
+    "--lh-base", "--lh-snug", "--on-accent", "--radius-md", "--radius-sm", "--sp-md",
+    "--sp-sm", "--sp-xs", "--text-body", "--text-heading", "--text-muted"
   ],
   "payload": {
-    "mermaid": { "from": "npm:mermaid/dist/mermaid.min.js", "global": "mermaid", "when": "used" }
+    "mermaid": {
+      "from": "npm:mermaid/dist/mermaid.min.js",
+      "vendored": { "file": "vendor/mermaid.min.js", "version": "11.14.0", "sha256": "217b66ef4279c33c141b4afe22effad10a91c02558dc70917be2c0981e78ed87" },
+      "global": "mermaid",
+      "when": "used"
+    }
+  },
+  "vendor": {
+    "license": { "from": "npm:mermaid/LICENSE", "file": "vendor/mermaid.LICENSE", "version": "11.14.0", "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80" },
+    "zenuml-license": { "from": "npm:@mermaid-js/mermaid-zenuml/LICENSE", "file": "vendor/mermaid-zenuml.LICENSE", "version": "0.2.2", "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80" },
+    "render-page-license": { "from": "npm:@mermaid-js/mermaid-cli/LICENSE", "file": "vendor/mermaid-cli.LICENSE", "version": "11.12.0", "sha256": "adc6d4dd1e02dbcd5606931c9bb46e2d3b0491d1b2d2e812b35b1b06c8561aab" },
+    "zenuml": { "from": "npm:@mermaid-js/mermaid-zenuml/dist/mermaid-zenuml.min.js", "file": "vendor/mermaid-zenuml.min.js", "version": "0.2.2", "sha256": "39143c3cb4e7a1dc53938de0c85e5fd2aee1533ec4e07d7d95a6ef639956ff1f" },
+    "render-page": { "from": "npm:@mermaid-js/mermaid-cli/dist/", "file": "vendor/mermaid-cli/", "version": "11.12.0", "sha256": "55df40085a4590f3de7acd28621ab40635ff7dec202a6351add329842da64f09" }
   },
   "render": {
     "exec": { "hydrate": "pass", "bake": "subprocess" },

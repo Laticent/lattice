@@ -33,7 +33,7 @@ The dark half shipped first. Every other mode carried the same mismatch, and the
 
 That matte is `var(--bg-alt)`, not the deck ground — so this wash used to mix toward white over a surface two steps away from it.
 
-![bg](assets/sample-photo-square.svg)
+![bg](sample:photo-square.svg)
 
 ---
 

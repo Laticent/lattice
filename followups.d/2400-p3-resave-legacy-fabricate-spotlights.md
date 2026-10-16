@@ -2,6 +2,9 @@
 origin: 2400
 priority: P3
 recorded: 2026-09-27
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-26-backdrop-register.md
 source: https://github.com/Laticent/lattice/pull/2400
 ---
 

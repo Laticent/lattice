@@ -199,4 +199,21 @@ describe('PersistentSurface', () => {
 		expect(other.hasAttribute('inert'), 'the rest of that island stayed reachable').toBe(true);
 		island.remove();
 	});
+
+	it('leaves a data-modal-exempt overlay whole: a walkthrough’s Exit beside its live caption stays usable', () => {
+		// The shape of Vetrina's stage: a live narration with the Exit button as its sibling. The
+		// live-region walk used to descend into it and mark Exit inert (2026-10-06).
+		const stage = document.body.appendChild(document.createElement('div'));
+		stage.setAttribute('data-modal-exempt', '');
+		const caption = stage.appendChild(document.createElement('div'));
+		const live = caption.appendChild(document.createElement('span'));
+		live.setAttribute('aria-live', 'polite');
+		const exit = caption.appendChild(document.createElement('button'));
+		const plain = document.body.appendChild(document.createElement('div'));
+		render(<Harness initial />);
+		expect(exit.closest('[inert]'), 'Exit went inert under the open surface').toBeNull();
+		expect(plain.hasAttribute('inert'), 'an unmarked sibling stayed reachable').toBe(true);
+		stage.remove();
+		plain.remove();
+	});
 });

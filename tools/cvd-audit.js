@@ -12,7 +12,7 @@
  * under a condition score near 0 and are flagged.
  *
  * THE ACHROMATOPSIA ARM (#1715 §9). `lib/theme/cvd.js` gained the primitive when
- * `checkHljsSeparation` needed it, and this CLI — the one a human runs — could not
+ * `checkSyntaxSeparation` needed it, and this CLI — the one a human runs — could not
  * reach it. It loops `SIMULATED_TYPES` now, not `CVD_TYPES`; `CVD_TYPES` stays the
  * three Machado matrices, because achromatopsia is a monochromacy, not a dichromacy,
  * and a unit test pins that list at exactly three.
@@ -42,6 +42,7 @@
  */
 
 const fs   = require('fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('path');
 
 const { resolveVars } = require('../lib/theme/contrast.js');
@@ -98,12 +99,12 @@ const COLLAPSE = 0.15;
  * find, certified clean by the arm.
  *
  * TWO FLOORS, EACH RATCHETED FROM WHAT THE PURPOSE-BUILT PALETTE ACHIEVES — the method
- * `checkHljsSeparation` used (tools/check-ownership.js, #1715), applied per population:
+ * `checkSyntaxSeparation` used (tools/check-ownership.js, #1715), applied per population:
  *
  *   CROWDED GROUPS -> 0.065. `a11y-achromatopsia` cannot calibrate these: its cycle is a
  *   monotone value ramp, so the simulation is the identity on it and NO pair is induced
  *   at any floor. The number instead transposes the ratio this repo already measured and
- *   shipped one tier down — `checkHljsSeparation` holds twelve small-text syntax roles to
+ *   shipped one tier down — `checkSyntaxSeparation` holds twelve small-text syntax roles to
  *   0.11 under a dichromacy and 0.048 under monochromacy, 0.436x — onto this tool's 0.15:
  *   0.15 x 0.436 = 0.0655. Legitimate here precisely BECAUSE the hljs family is also a
  *   crowded twelve-way set boxed into a narrow band, so the crowding the ratio encodes is
@@ -184,7 +185,7 @@ function floorOverrides(type) {
 
 function paletteChainCss(theme) {
   return themeChain(theme, THEME_EDGES)
-    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .map((n) => themePath(THEMES_DIR, `${n}.css`))
     .filter((f) => fs.existsSync(f))
     .map((f) => fs.readFileSync(f, 'utf8'))
     .join('\n');
@@ -223,7 +224,7 @@ function tokenGroups() {
     { label: 'categorical fills', tokens: fills },
     { label: 'categorical marks', tokens: marks },
     // The chart-family spectrum override hooks (design/theming.md). Untuned
-    // brand themes inherit these from chart-family.css and so resolve to
+    // brand themes inherit these from chart-family.styles.css and so resolve to
     // nothing here (group skipped); a curated palette — including the a11y
     // palettes — declares them and is measured.
     { label: 'chart spectrum', tokens: chart },
@@ -305,7 +306,7 @@ if (typeIdx >= 0) {
 const themeArgs = args.filter((a, i) =>
   !a.startsWith('-') && args[i - 1] !== '--type' && args[i - 1] !== '--themes-dir');
 
-const allThemes = fs.readdirSync(THEMES_DIR)
+const allThemes = themeEntries(THEMES_DIR)
   .filter(f => f.endsWith('.css'))
   .map(f => f.replace('.css', ''))
   .sort();
@@ -328,7 +329,7 @@ console.log(`  collapse under the condition: ${types.map((t) => {
 console.log('');
 
 for (const theme of themes) {
-  const cssFile = path.join(THEMES_DIR, `${theme}.css`);
+  const cssFile = themePath(THEMES_DIR, `${theme}.css`);
   if (!fs.existsSync(cssFile)) {
     console.log(`  [skip] ${theme} — file not found`);
     uncovered.push(theme);

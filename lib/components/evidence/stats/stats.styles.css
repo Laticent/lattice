@@ -218,7 +218,7 @@ section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.la
    `wide` is the ABSENCE of the family stamp (lib/adaptive/families.js).
 
    THE `wide` ARM IS INERT TODAY, AND DELIBERATELY KEPT. Autosplit does not run
-   at the wide family at all — `AUTOSPLIT_APPLIES` in lattice-emulator.js is
+   at the wide family at all — `AUTOSPLIT_APPLIES` in lattice.js is
    `AUTOSPLIT && familyFor(...) !== 'wide'` — so `.lat-split-native` can never
    appear on a wide slide and this arm cannot match. It is here because the
    reason it would be needed is structural rather than incidental: wide is a row

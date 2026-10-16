@@ -2,6 +2,9 @@
 origin: 2328
 priority: P1
 recorded: 2026-09-24
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-09-22-chart-axis-grammar.md
 source: https://github.com/Laticent/lattice/pull/2328
 ---
 

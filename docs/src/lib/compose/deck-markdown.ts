@@ -9,11 +9,10 @@ import {
 } from 'prosemirror-markdown';
 import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
-// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-import stateMarks from '../../../../lib/core/state-marks.js';
+import { unescapeLeadingMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 import { commentBlockRule, commentNodeSpec } from './comment-block';
+import { inlineObjectSpec, serializeInlineObject } from './inline-object';
 
-const { MARKER_CLASS } = stateMarks;
 
 // The deck-model library core — Lattice slide prose ⟷ ProseMirror document,
 // LOSSLESS. This is the foundation the Compose editor (Option B, one true
@@ -112,11 +111,30 @@ export function fenceFor(marker: string, body: string): string {
 	return char.repeat(len);
 }
 
+/** A list node spec whose `tight` attribute defaults to true. */
+function withTightDefault(spec: NodeSpec): NodeSpec {
+	return { ...spec, attrs: { ...spec.attrs, tight: { default: true } } };
+}
+
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
- *  authoring-comment atom. `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
+ *  authoring-comment atom and the inline-object atom (`inline-object.ts`). `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
 export const proseSchema = new Schema({
-	nodes: mdSchema.spec.nodes.update('code_block', codeBlockSpec).append(composeTableNodes).addToEnd('comment', commentNodeSpec),
+	nodes: mdSchema.spec.nodes
+		.update('code_block', codeBlockSpec)
+		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
+		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
+		// paragraph of its own on write. A heading takes the object too.
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object)*' })
+		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
+		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
+		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
+		// from Markdown still takes the tightness it was written with.
+		.update('bullet_list', withTightDefault(mdSchema.spec.nodes.get('bullet_list') as NodeSpec))
+		.update('ordered_list', withTightDefault(mdSchema.spec.nodes.get('ordered_list') as NodeSpec))
+		.append(composeTableNodes)
+		.addToEnd('comment', commentNodeSpec)
+		.addToEnd('inline_object', inlineObjectSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -160,10 +178,6 @@ const SubState = MarkdownSerializerState as unknown as new (
 	options: SerializerState,
 ) => { renderInline(n: PMNode): void; out: string };
 
-// A leading state marker whose brackets the serializer escaped (`\[x\]`), built from the
-// engine's marker class so every one of the six markers round-trips verbatim.
-const ESCAPED_LEADING_MARKER_RE = new RegExp(`^\\\\\\[(${MARKER_CLASS})\\\\\\]`);
-
 /** Serialize one cell's inline content to a single GFM-safe line. */
 function serializeCell(state: SerializerState, cell: PMNode): string {
 	// A throwaway sub-state renders just this cell's inline content to a string
@@ -171,11 +185,11 @@ function serializeCell(state: SerializerState, cell: PMNode): string {
 	const sub = new SubState(state.nodes, state.marks, state.options);
 	sub.renderInline(cell);
 	let out = sub.out.replace(/\n+/g, ' ').trim();
-	// Un-escape ONLY a leading LFM state marker's brackets — the engine's exact marker
-	// shape (lib/core/state-marks.js MARKER_CLASS) — so all six markers survive verbatim. Every OTHER escaped
-	// bracket stays escaped: a user's `\[literal\]` or an escaped `\[text\](url)` must NOT
+	// Un-escape ONLY a leading LFM state marker's brackets — one of the six, read by the engine's
+	// list-text grammar (lib/core/cell-marker-edit.mjs) — so all six markers survive verbatim. Every
+	// OTHER escaped bracket stays escaped: a user's `\[literal\]` or an escaped `\[text\](url)` must NOT
 	// silently become a live link/image (checker Bug 2).
-	out = out.replace(ESCAPED_LEADING_MARKER_RE, '[$1]');
+	out = unescapeLeadingMarker(out);
 	// GFM: a raw pipe splits cells, so escape every literal pipe. Match any run of backslashes
 	// BEFORE the pipe and carry them through, so the escape covers the whole escape sequence — a
 	// bare `replace(/\|/g, …)` would be an INCOMPLETE escape (it ignores a preceding backslash, so
@@ -213,13 +227,71 @@ function serializeTable(state: SerializerState, node: PMNode) {
 	state.closeBlock(node);
 }
 
+/**
+ * A TIGHT list that follows a paragraph INSIDE a quote (`> Note` / `> - we`) follows it with no
+ * blank line, as written. A tight list after a top-level paragraph keeps its blank line: that is
+ * how every deck is written, and changing it would rewrite every list a Compose edit touches.
+ */
+function tightAfterParagraph(state: SerializerState, node: PMNode) {
+	// biome-ignore lint/suspicious/noExplicitAny: `closed`, `delim` and `flushClose` are serializer internals.
+	const st = state as any;
+	if (st.closed?.type?.name !== 'paragraph' || !/\S/.test(st.delim ?? '')) return;
+	// A list that cannot interrupt the paragraph keeps its blank line even inside a tight row,
+	// where the serializer would otherwise close every block with a single newline.
+	if (!interruptsParagraph(node)) st.flushClose(2);
+	else if (node.attrs.tight) st.flushClose(1);
+}
+
+/**
+ * The code plugin's `@code{…}` record (lib/plugins/code/code.syntax.mjs) sits on the line right
+ * above the fence it configures, and stays there: the serializer would otherwise close the record's
+ * paragraph with a blank line, so every Compose edit rewrote `` `@code{numbers}` `` + fence into two
+ * blocks. The record still applied across the blank line, but the author's source changed under them.
+ */
+function recordHugsFence(state: SerializerState) {
+	// biome-ignore lint/suspicious/noExplicitAny: `closed` and `flushClose` are serializer internals.
+	const st = state as any;
+	const prev = st.closed;
+	if (prev?.type?.name !== 'paragraph' || prev.childCount !== 1) return;
+	const only = prev.firstChild;
+	if (!only?.marks?.some((m: { type: { name: string } }) => m.type.name === 'code')) return;
+	if (/^@code\{[^`\n]*\}$/.test(only.text ?? '')) st.flushClose(1);
+}
+
+/**
+ * Can this list start right under a paragraph line? CommonMark lets a list interrupt a paragraph
+ * only when its first item has content and, for an ordered list, when it starts at 1. Any other
+ * list keeps its blank line, or a re-read folds it into the paragraph: `> Note` / `> 2. x` is the
+ * paragraph "Note 2. x" (the checker's and the red team's repro on #2690).
+ */
+function interruptsParagraph(node: PMNode): boolean {
+	if (!node.firstChild?.textContent.trim()) return false;
+	return node.type.name !== 'ordered_list' || Number(node.attrs.order ?? 1) === 1;
+}
+
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)
 	bullet_list(state: SerializerState, node: PMNode) {
+		tightAfterParagraph(state, node);
 		state.renderList(node, '  ', () => `${(node.attrs.bullet as string) || '-'} `);
+	},
+	ordered_list(state: SerializerState, node: PMNode) {
+		tightAfterParagraph(state, node);
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
+		(defaultMarkdownSerializer.nodes.ordered_list as any)(state, node);
+	},
+	// A quote INSIDE a tight list item (a chart row's `>` description) follows the item's text with
+	// no blank line: a blank there makes the whole list loose, so every row renders as a paragraph,
+	// and it is not what the author wrote.
+	blockquote(state: SerializerState, node: PMNode) {
+		// biome-ignore lint/suspicious/noExplicitAny: `inTightList` and `flushClose` are serializer internals.
+		const st = state as any;
+		if (st.inTightList && st.closed) st.flushClose(1);
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
+		(defaultMarkdownSerializer.nodes.blockquote as any)(state, node);
 	},
 	// A thematic break serializes as `***`, never the default `---` — but the REASON given
 	// here was wrong, and correcting it matters more than the choice it justified.
@@ -247,9 +319,12 @@ const latticeNodes = {
 		state.write(node.attrs.text as string);
 		state.closeBlock(node);
 	},
+	// An inline object (a pill, a spark, an avatar) writes back the code span it came from.
+	inline_object: serializeInlineObject,
 	// A fence the author wrote comes back with the marker they wrote (see `codeBlockSpec`).
 	// With no marker it is the upstream serializer, byte for byte.
 	code_block(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		recordHugsFence(state);
 		const marker = node.attrs.marker as string;
 		if (!marker) return defaultMarkdownSerializer.nodes.code_block(state, node, parent, index);
 		const fence = fenceFor(marker, node.textContent);

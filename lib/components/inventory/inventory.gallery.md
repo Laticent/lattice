@@ -150,28 +150,28 @@ Inventory — parallel sets of related items.
 
 ## The logo wall seats the marks with captions.
 
-- ![Acme](logo-wall/acme.svg)
+- ![Acme](sample:logo-acme.svg)
   - Acme
   - `Series B`
-- ![Globex](logo-wall/globex.svg)
+- ![Globex](sample:logo-globex.svg)
   - Globex
   - `Enterprise`
-- ![Vantage](logo-wall/vantage.svg)
+- ![Vantage](sample:logo-vantage.svg)
   - Vantage
   - `Public`
-- ![Umbra](logo-wall/umbra.svg)
+- ![Umbra](sample:logo-umbra.svg)
   - Umbra
   - `Series C`
-- ![Meridian](logo-wall/meridian.svg)
+- ![Meridian](sample:logo-meridian.svg)
   - Meridian
   - `Seed`
-- ![Helios](logo-wall/helios.svg)
+- ![Helios](sample:logo-helios.svg)
   - Helios
   - `Public`
-- ![Northwind](logo-wall/northwind.svg)
+- ![Northwind](sample:logo-northwind.svg)
   - Northwind
   - `Anchor`
-- ![Cobalt](logo-wall/cobalt.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
   - `Series A`
 
@@ -201,26 +201,26 @@ Inventory — parallel sets of related items.
 ## The team profile seats each face over a name, a role, and one line.
 
 - Ada Okafor
-  - ![](team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods; holds the dates.
 - Tomas Lindqvist
-  - ![](team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](team-profile/nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](team-profile/jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.

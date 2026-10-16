@@ -142,6 +142,26 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
+/** A Library photo the editor can offer: the part of a record completion needs, no bytes. */
+export type AssetChoice = { name: string; scope: string; width: number; height: number; sourceName: string };
+
+/** `team-photo` → `Team photo`: a starting alt text the author is expected to replace (it is selected on insert). */
+export function altFromAssetName(name: string): string {
+	const words = name.replace(/[-_]+/g, ' ').trim();
+	return words ? words[0].toUpperCase() + words.slice(1) : 'Photo';
+}
+
+/** Is the slide the cursor line sits on a `collage`? Reads upward to the slide's `---` (or the top) for
+ *  its `_class:` directive. A collage's body is a list of photos, so a bare list item there is a photo. */
+export function inCollageSlide(lineText: (n: number) => string, lineNumber: number): boolean {
+	for (let n = lineNumber - 1; n >= 1; n--) {
+		const t = lineText(n);
+		if (/^---\s*$/.test(t)) return false;
+		if (/<!--\s*_class:[^>]*\bcollage\b/.test(t)) return true;
+	}
+	return false;
+}
+
 /** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
 export type InlineNext = { next: string; words: { label: string; axis: string; info: string }[] };
 
@@ -170,13 +190,36 @@ const WORD = /^[\w-]*$/;
 export function inlineCodeCompletion(
 	before: string,
 	next: ((span: string) => InlineNext | null) | null,
-): { typed: string; options: Completion[]; validFor: (text: string) => boolean } | null {
+): { typed: string; options: Completion[]; validFor: (text: string) => boolean; filter?: false } | null {
 	if (((before.match(/`/g) || []).length & 1) === 0) return null;
 	const inside = before.slice(before.lastIndexOf('`') + 1);
 	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES, validFor: (t) => /^~\{?[^`]*$/.test(t) };
+	// The named form (2026-10-14-plugin-inline-door.md): `@` then a kind's name lists every kind the deck can
+	// call, each with its alias; `@spark{` offers the starter sparks in the named spelling.
+	if (/^@spark\{$/.test(inside)) {
+		const named = SPARK_TEMPLATES.map((o) => ({ ...o, label: `@spark${o.label.slice(1)}` }));
+		return { typed: inside, options: named, validFor: (t) => /^@spark\{[^`]*$/.test(t) };
+	}
+	if (/^@[a-z0-9-]*$/.test(inside)) {
+		const got = next ? next(inside) : null;
+		if (!got) return null;
+		const options = got.words.map((w, i): Completion => ({ label: w.label, type: 'keyword', detail: 'kind', info: w.info || undefined, boost: 99 - i }));
+		return { typed: inside, options, validFor: (t) => /^@[a-z0-9-]*$/.test(t) };
+	}
+	// An icon NAME: `^{da`, or `icon=da` inside a pill or a chart record. The lint core answers
+	// with the names that START with what is typed (aliases too: `db` offers `database`), so the
+	// menu is that list exactly (`filter: false`) and is asked again on every keystroke. Each row
+	// is `detail: 'icon'`, which the editor's picker (icon-preview.ts) draws.
+	if (/^(?:\^|@icon)\{[\w-]*$/.test(inside) || /^(?:@pill)?\{(?:[^{}`]*,)?\s*icon\s*=\s*[\w-]*$/.test(inside)) {
+		const got = next ? next(inside) : null;
+		if (!got) return null;
+		const typed = /[\w-]*$/.exec(inside)?.[0] ?? '';
+		const options = got.words.map((w, i): Completion => ({ label: w.label, type: 'keyword', detail: 'icon', info: w.info || undefined, boost: 99 - Math.min(i, 198) }));
+		return { typed, options, validFor: () => false, filter: false };
+	}
 	// The record so far, up to the last comma: its first item, then complete words. The kernel
 	// is asked about that record CLOSED (`{LIVE, tag}`), which is what it can judge.
-	const m = /^(~?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
+	const m = /^((?:~|@spark|@pill)?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
 	const got = m && next ? next(`${m[1]}}`) : null;
 	if (!m || !got) return null;
 	const typed = m[2];
@@ -254,7 +297,7 @@ export function makeStudioCompletion(
 
 		// 0. Inside a spark (`` `~{12 14 17, bar, lg` ``) or a pill (`` `{LIVE, tag, c4` ``).
 		const inline = inlineCodeCompletion(before, opts.inlineNext ?? null);
-		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor };
+		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor, ...(inline.filter === false ? { filter: false } : {}) };
 
 		// 1. A `_class:` directive token, completed by POSITION like a shell command
 		// line: the first word is a component, and every later word is only what THAT
@@ -344,6 +387,55 @@ export function makeStudioCompletion(
 			};
 		}
 
+		return null;
+	};
+}
+
+/**
+ * A CompletionSource for Library photos, run beside `makeStudioCompletion` (CodeMirror merges the sources, and
+ * the two never apply to the same spot). `loadAssets` reads the shelf on demand, so the editor pays nothing
+ * until the first image reference is typed.
+ *   - Inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item): `asset:<name>` for
+ *     each photo this deck can see. A reference already written as a URL (`https:`, `sample:`) is left alone.
+ *   - On a collage slide, a bare list item is a photo: each whole `![Alt](asset:name)` line, alt text selected.
+ */
+export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | AssetChoice[]) {
+	const photoOption = (a: AssetChoice, kind: 'ref' | 'line'): Completion => {
+		const detail = `${a.width}×${a.height}${a.scope === 'library' ? '' : ' · this deck'}`;
+		if (kind === 'ref') return { label: `asset:${a.name}`, type: 'constant', detail, info: a.sourceName };
+		return {
+			label: a.name,
+			type: 'constant',
+			detail: `photo · ${detail}`,
+			info: a.sourceName,
+			// A whole collage line, with the alt text selected: it is the screen-reader label and the caption of the
+			// enlarged view, and a name like `img-0042` is a poor one.
+			apply: (view, _c, from, to) => {
+				const alt = altFromAssetName(a.name);
+				view.dispatch({ changes: { from, to, insert: `![${alt}](asset:${a.name})` }, selection: { anchor: from + 2, head: from + 2 + alt.length } });
+			},
+		};
+	};
+
+	return function assetComplete(context: CompletionContext): Promise<CompletionResult | null> | null {
+		const line = context.state.doc.lineAt(context.pos);
+		const before = line.text.slice(0, context.pos - line.from);
+		// 00. A Library photo: inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item),
+		// offer `asset:<name>` for each photo this deck can see. A reference already written as a URL
+		// (`https:`, `sample:`) is left alone: the typed prefix must be a prefix of `asset:`, or `asset:` plus a name.
+		// Only the end of the line is read: a 250 KB line of `![a](` repeats would otherwise cost seconds per keystroke.
+		const ref = /!\[[^\]\n]*\]\(([^)\s]*)$/.exec(before.slice(-300));
+		if (ref && ('asset:'.startsWith(ref[1].toLowerCase()) || /^asset:/i.test(ref[1]))) {
+			const from = context.pos - ref[1].length;
+			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'ref')), validFor: /^[\w:.-]*$/ } : null)).catch(() => null);
+		}
+		// A bare list item on a collage slide is a photo: offer each whole line. Only once something is typed (or on
+		// Ctrl-Space), so an Enter on an empty bullet stays a newline.
+		const item = /^[ \t]*[-*][ \t]+([\w-]*)$/.exec(before);
+		if (item && (item[1] || context.explicit) && inCollageSlide((n) => context.state.doc.line(n).text, line.number)) {
+			const from = context.pos - item[1].length;
+			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'line')), validFor: /^[\w-]*$/ } : null)).catch(() => null);
+		}
 		return null;
 	};
 }

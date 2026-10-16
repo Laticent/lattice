@@ -4,7 +4,7 @@ theme: indaco
 finish: atrium
 paginate: true
 header: "Lattice · finishes"
-logo: ../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-on: title
 logo-x: 50
 logo-y: 82

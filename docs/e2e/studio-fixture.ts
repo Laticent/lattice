@@ -117,6 +117,8 @@ export const CHROME = {
 	coach: 'Toggle Coach',
 	/** Activity-bar toggle for the Chat (AI conversation) panel — a separate peer of the Coach. */
 	chat: 'Toggle Chat',
+	/** Activity-bar toggle for the Live panel — invite, people, session chat (2026-10-06-studio-live-collaboration.md). */
+	live: 'Toggle Live',
 	/** Activity-bar toggle for the Reader views panel — a first-class peer of the Architect.
 	 *  Renamed from "Toggle Reader views" in #1211: the panel it opens is titled "Reader views",
 	 *  as is the drawer row, so the launcher agreed with neither. "Lenses" survives only as
@@ -279,8 +281,11 @@ export const CHROME = {
 export const SHARE_EXPORTS = {
 	/** Options step "Export PDF" (sticky-notes + re-openable toggles). → `.pdf` */
 	pdf: { row: /^PDF/, confirm: /^Download PDF/ },
-	/** Options step "Export PowerPoint" (re-openable toggle). → `.pptx` */
+	/** Options step "Export PowerPoint" (editable-text + re-openable toggles). → `.pptx` */
 	pptx: { row: /^PowerPoint/, confirm: /^Download PowerPoint/ },
+	/** Options step "Export LibreOffice" (editable-text toggle). → `.odp`. Driven on the real
+	 *  Share sheet at 1440/820/390 for the Calco PR; pinned by no spec yet. */
+	odp: { row: /^LibreOffice/, confirm: /^Download LibreOffice/ },
 	/** Options step "Export images" (format/size/thumbnails/SVGs). → `.zip`
 	 *  NOTE its color-mode segment has a button literally labeled "Print" —
 	 *  a loose /^(Download|Print)/ confirm locator grabs that, not the export. */
@@ -290,8 +295,8 @@ export const SHARE_EXPORTS = {
 	/** One click. → `<deck>-captions.zip` — a ZIP of tracks, NOT a bare `.vtt`
 	 *  despite the row's label; a spec asserting /\.vtt$/ on it would fail. */
 	captions: { row: /^Captions \(\.vtt\)/, confirm: null },
-	/** One click. → `.lattice` */
-	lattice: { row: /^Lattice project/, confirm: null },
+	/** Options step "Export Lattice project" (include photos, on by default). → `.lattice` */
+	lattice: { row: /^Lattice project/, confirm: /^Download project/ },
 	/** One click. → `.md`. The `^` anchor matters: the "Print source" row's
 	 *  description also contains the word "Markdown". */
 	markdown: { row: /^Markdown/, confirm: null },
@@ -834,6 +839,18 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 export async function openArchitect(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.coach }).click();
 	await expect(page.getByText('Deck read')).toBeVisible();
+}
+
+/** Open the Chat panel at ANY studio width. Its launcher moves with the tier: a rail button on
+ *  desktop and in the phone's bottom bar, a row in the ⋯ menu between them. */
+export async function openChatAtWidth(page: Page, width: number): Promise<void> {
+	if (width >= 700 && width < 1100) {
+		await page.getByRole('button', { name: CHROME.searchOverflow, exact: true }).first().click();
+		await page.getByRole('menuitem', { name: /^Chat/ }).click();
+	} else {
+		await page.getByRole('button', { name: CHROME.chat, exact: true }).first().click();
+	}
+	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
 }
 
 /** Open the Chat panel — a separate launcher peer of the Coach. */

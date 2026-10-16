@@ -26,6 +26,9 @@ export type ExportOptions = {
 	 *  (embedded-source.ts). Opt-in: the source holds speaker notes and hidden slides.
 	 *  Comments never ride in it, whatever `commentsInPdf` says. */
 	embedSource: boolean;
+	/** Office formats: every paragraph becomes a real text box (Calco), over a picture of
+	 *  the slide with its text removed. Off: one picture per slide. */
+	editable: boolean;
 };
 
 // The re-openable switch is remembered PER DECK: a deck you share with collaborators keeps

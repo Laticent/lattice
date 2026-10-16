@@ -2,6 +2,9 @@
 origin: 2230
 priority: P2
 recorded: 2026-09-22
+area: engine
+severity: low
+swimlane: engineering/cascade.md
 source: https://github.com/Laticent/lattice/pull/2230#issuecomment-5679323232
 ---
 

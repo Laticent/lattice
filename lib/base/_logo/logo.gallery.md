@@ -4,7 +4,7 @@ theme: indaco
 size: hd
 paginate: true
 header: "Lattice · custom logo"
-logo: ./acme-logo.svg
+logo: sample:logo-acme-mark.svg
 ---
 
 <!-- _class: title silent -->
@@ -34,7 +34,7 @@ CSS desaturates the injected image to a faint grayscale watermark and inverts th
 A build-stage rewriter injects an `img` element with class `deck-logo` as the first child of every selected section — same shape Marp uses for `header` and `footer`. CSS positions it absolutely top-right and applies the filter chain. A real DOM element rather than a `::before` pseudo is what lets the logo compose with `::before`-based chrome like the SVG-mark backgrounds.
 
 ```yaml
-logo: ./acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-style: auto | brand          # optional, default `auto`
 logo-on: all | title              # optional, default `all`
 ```

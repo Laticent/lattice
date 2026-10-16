@@ -29,7 +29,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = ['indaco', 'cuoio', 'onyx'];
 // REGISTER THE REAL SHEETS FIRST. With no theme registered the engine renders every name with
 // empty CSS and no stamp, which is how the original measurement fooled itself.
-addThemes(THEMES.map((name) => ({ name, css: fs.readFileSync(path.join(ROOT, 'themes', `${name}.css`), 'utf8') })));
+addThemes(THEMES.map((name) => ({ name, css: fs.readFileSync(path.join(ROOT, 'themes', name, `${name}.css`), 'utf8') })));
 
 const DECKS = [
 	'test/integration/baseline-decks/gallery.md',

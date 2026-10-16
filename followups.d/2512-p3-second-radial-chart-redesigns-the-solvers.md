@@ -2,6 +2,9 @@
 origin: 2512
 priority: P3
 recorded: 2026-10-05
+area: chart
+severity: low
+swimlane: engineering/decisions/2026-10-05-trama-radial-layout.md
 source: engineering/decisions/2026-10-05-trama-radial-layout.md
 ---
 

@@ -2,6 +2,9 @@
 origin: 2383
 priority: P2
 recorded: 2026-09-26
+area: infra
+severity: high
+swimlane: engineering/decisions/2026-09-25-fit-policy.md
 ---
 
 # Six Studio e2e specs fail on main, deterministically, and pass in no CI job

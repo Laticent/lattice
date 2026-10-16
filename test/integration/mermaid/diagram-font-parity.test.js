@@ -39,7 +39,7 @@ const { spawnSync } = require('node:child_process');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const CHROME = resolveChrome();
 const TIMEOUT = 180000;
 
@@ -58,7 +58,7 @@ async function facesFor(source) {
   try {
     const md = path.join(dir, 'deck.md');
     fs.writeFileSync(md, source);
-    const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf')],
+    const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf'), '--keep-html'],
       { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 

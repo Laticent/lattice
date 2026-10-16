@@ -2,6 +2,9 @@
 origin: 2238
 priority: P1
 recorded: 2026-09-22
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-20-heatmap-table-authoring-label-sets.md
 source: https://github.com/Laticent/lattice/pull/2238#issuecomment-5752514215
 ---
 

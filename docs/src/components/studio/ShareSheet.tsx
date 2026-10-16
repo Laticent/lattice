@@ -6,15 +6,17 @@ import { deckColorMode } from '@/lib/deck-theme';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
+import { dismissPendingSave, iosNeedsShareSheet } from './download';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
+import { LatticeOptionsPanel } from './LatticeOptionsPanel';
 import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
-import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
+import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, shareOffice, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { SHARE_HEADER, SHARE_MENU, ShareRow, type ShareRowId } from './share-menu';
 import { loadSettings, type OverflowMarker } from './studio-store';
 import { DEGRADED_TOAST_MS } from './toast-duration';
@@ -25,7 +27,12 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; initialView?: 'menu' | 'pdf' | 'print' }) {
+// Exports that never name a photo's picture and have nothing to note about one — plus the `.lattice`,
+// Markdown and Marp, whose exporters write their own note: each knows whether photos went in, were switched
+// off or were over the cap.
+const NO_PHOTO_NOTE = new Set(['printsrc', 'captions', 'lattice', 'md', 'marp']);
+
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' | 'print' }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes; re-openable),
@@ -43,7 +50,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// reset in the render that OPENS the sheet (or that changes `initialView` while it is open), so
 	// the kept sheet never shows the last view for a frame; the other options steps are dropped
 	// once the sheet has slid out, as they were when the sheet unmounted on close.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'odp' | 'html' | 'print' | 'imageset' | 'marp' | 'lattice'>(initialView);
 	const shows = useShowCount(open);
 	const [seen, setSeen] = React.useState({ shows, initialView });
 	if (seen.shows !== shows || (open && seen.initialView !== initialView)) {
@@ -52,9 +59,21 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	}
 	React.useEffect(() => {
 		if (open) return;
-		const t = window.setTimeout(() => setView('menu'), SHEET_EXIT_MS + 100);
+		// The iOS Save toast belongs to the export it offers, so it goes when the sheet does —
+		// after the slide-out, not on the close itself: tapping the toast is what closes a modal
+		// sheet, and retiring it in that same instant would swallow the tap.
+		const t = window.setTimeout(() => {
+			setView('menu');
+			dismissPendingSave();
+		}, SHEET_EXIT_MS + 100);
 		return () => window.clearTimeout(t);
 	}, [open]);
+	// …and when the author moves to another format, or back to the list (the owner's iPhone kept
+	// the PDF's Save toast up over the PowerPoint step).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `view` is the trigger, not an input.
+	React.useEffect(() => {
+		dismissPendingSave();
+	}, [view]);
 	const bodyRef = React.useRef<HTMLDivElement>(null);
 	// The Print drawer, once shown, stays mounted beside whichever view is up: hidden, and FROZEN,
 	// so a keystroke in the editor does not re-render a deck nobody can see. It catches up in the
@@ -131,7 +150,27 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				});
 				// A degradation names a path to go and fix, so it stays up long enough to read.
 				// The plain "ready." stays transient — there is nothing in it to act on.
-				notify(degraded ? `${label} ready — but ${degraded}.` : `${label} ready.`, degraded ? { duration: DEGRADED_TOAST_MS } : undefined);
+				// On iOS every browser gets a "<file> is ready · Save" toast from download.js
+				// instead of a download, so a plain "ready." beside it is a second toast saying the
+				// same thing (the owner's iPhone showed both). A degradation still speaks.
+				// A photo the deck names that this browser cannot show (deleted, in another deck, or unreadable just now)
+				// is drawn as the missing-image stand-in; say so, so the stand-in in the file is never a surprise.
+				// The source exports (.lattice, Markdown, Marp) carry the pictures themselves and write their own note
+				// (NO_PHOTO_NOTE). The registry loads only when the deck names a photo.
+				if (!degraded && !NO_PHOTO_NOTE.has(key) && /\basset:[a-z0-9]/i.test(source)) {
+					const names = (list: string[]) => `${list.slice(0, 3).map((n) => `“${n}”`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more` : ''}`;
+					const m = await import('./media-urls').catch(() => null);
+					if (!m) {
+						degraded = "its photos could not be checked against this browser's Library, so any that are missing appear as stand-ins";
+					} else {
+						const gone = await m.missingAssetNames(source).catch(() => null);
+						// A shelf that cannot be read means EVERY photo in the file may be a stand-in: say so rather than say nothing.
+						if (!gone) degraded = "this browser's Library could not be read, so the photos appear as stand-ins";
+						else if (gone.length) degraded = `${gone.length === 1 ? 'the photo' : 'photos'} ${names(gone)} could not be shown (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it appears' : 'they appear'} as a missing-image stand-in`;
+					}
+				}
+				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
+				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);
 			} catch (e) {
 				// Every share row funnels through here, and each one lazy-imports its exporter.
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
@@ -145,7 +184,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				setProgress(null);
 			}
 		},
-		[busy],
+		[busy, source],
 	);
 
 	const name = deckFilename(deckTitle).replace(/\.md$/, '');
@@ -165,20 +204,34 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		// what is missing from it, because the progress line it was announced on is gone
 		// by then.
 		run('pdf', 'PDF', async (onStatus, onDegraded) => {
-			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, await embedPayload(opts));
-			if (reason) onDegraded(reason);
+			const embed = await embedPayload(opts);
+			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, embed?.bytes);
+			const both = [reason, embed?.note].filter(Boolean).join('; ');
+			if (both) onDegraded(both);
 		});
 	};
 	// PowerPoint from its options step — re-openable is its only choice (no sticky notes).
 	const exportPptx = (opts: ExportOptions) => {
 		run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
-			const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, await embedPayload(opts));
+			// Editable goes through Calco; the plain picture deck keeps its own exporter.
+			const embed = await embedPayload(opts);
+			const reason = opts.editable
+				? await shareOffice('pptx', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, true, embed?.bytes)
+				: await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, embed?.bytes);
+			const both = [reason, embed?.note].filter(Boolean).join('; ');
+			if (both) onDegraded(both);
+		});
+	};
+	// LibreOffice (.odp) from its options step: editable text is its one choice.
+	const exportOdp = (opts: ExportOptions) => {
+		run('odp', 'LibreOffice', async (onStatus, onDegraded) => {
+			const reason = await shareOffice('odp', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, opts.editable);
 			if (reason) onDegraded(reason);
 		});
 	};
 	// The `.lattice` a re-openable export carries: the author's `source` (never the artifact
 	// copy with a finish baked in) and the saved packages it uses — and no comments, ever.
-	const embedPayload = (opts: ExportOptions) => (opts.embedSource ? embeddableLattice(source, deckTitle, Date.now(), deckPackages) : Promise.resolve(undefined));
+	const embedPayload = (opts: ExportOptions) => (opts.embedSource ? embeddableLattice(source, deckTitle, Date.now(), deckPackages, deckId) : Promise.resolve(undefined));
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
@@ -214,6 +267,13 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 			}
 		});
 	};
+	// The `.lattice` project from its options step: the photos the deck names ride inside it unless switched off.
+	const exportLattice = (includePhotos: boolean) => {
+		run('lattice', 'Lattice project', async (_onStatus, onDegraded) => {
+			const reason = await shareLattice(source, name, deckTitle, deckId, Date.now(), deckPackages, includePhotos);
+			if (reason) onDegraded(reason);
+		});
+	};
 	// Image set (.zip) export from its options step: format / resolution / thumbnails /
 	// SVG extraction — the shared kernel fills perfect-fidelity defaults.
 	const exportImages = (imageOpts: ImageSetOptions) => {
@@ -228,7 +288,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// browser runtime inside marp-cli, which is why the choice has to travel with
 	// the artifact at all (engineering/decisions/2026-07-30-overflow-marker-register.md).
 	const exportMarpBundle = (overflowMarker: OverflowMarker) => {
-		run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents));
+		// Resolves to a reason when the bundle dropped the deck's own script (marp-cli would run it).
+		run('marp', 'Marp bundle', async (_onStatus, onDegraded) => {
+			const reason = await shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents, deckId);
+			if (reason) onDegraded(reason);
+		});
 	};
 	// The export defaults to the deck's authored `color-mode:` when it has one (so a
 	// system/inherited deck's panel reflects that), else the current preview mode.
@@ -243,15 +307,20 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// a spinner while its export runs, and `progress` also swaps the description for the export's
 	// status line. A row with neither opens a sub-view or leaves the sheet.
 	const act: Record<ShareRowId, { onClick: () => void; busy?: boolean; progress?: boolean }> = {
+		live: { onClick: () => { close(); onCollaborate?.(); } },
 		present: { onClick: () => { close(); onPresent(); } },
 		pdf: { busy: busy === 'pdf', progress: true, onClick: () => setView('pdf') },
 		pptx: { busy: busy === 'pptx', progress: true, onClick: () => setView('pptx') },
+		odp: { busy: busy === 'odp', progress: true, onClick: () => setView('odp') },
 		images: { busy: busy === 'images', progress: true, onClick: () => setView('imageset') },
 		print: { onClick: () => setView('print') },
 		html: { busy: busy === 'html', progress: true, onClick: () => setView('html') },
 		captions: { busy: busy === 'captions', progress: true, onClick: () => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus)) },
-		lattice: { busy: busy === 'lattice', onClick: () => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now(), deckPackages)) },
-		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents)) },
+		lattice: { busy: busy === 'lattice', progress: true, onClick: () => setView('lattice') },
+		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', async (_onStatus, onDegraded) => {
+			const reason = await shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents, deckId);
+			if (reason) onDegraded(reason);
+		}) },
 		marp: { onClick: () => setView('marp') },
 		printsrc: { onClick: () => run('printsrc', 'Print source', () => sharePrintSource(source, name)) },
 	};
@@ -272,6 +341,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'pptx' ? (
 						<ExportOptionsPanel format="pptx" deckId={deckId} slideCount={slideCount} busy={busy === 'pptx'} status={progress} onBack={() => setView('menu')} onExport={exportPptx} />
+					) : view === 'odp' ? (
+						<ExportOptionsPanel format="odp" deckId={deckId} slideCount={slideCount} busy={busy === 'odp'} status={progress} onBack={() => setView('menu')} onExport={exportOdp} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
 							busy={busy === 'html'}
@@ -286,6 +357,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						/>
 					) : view === 'imageset' ? (
 						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
+					) : view === 'lattice' ? (
+						<LatticeOptionsPanel busy={busy === 'lattice'} status={progress} source={source} deckId={deckId} onBack={() => setView('menu')} onExport={exportLattice} />
 					) : view === 'marp' ? (
 						<MarpOptionsPanel busy={busy === 'marp'} status={progress} defaultMarker={loadSettings().overflowMarker} onBack={() => setView('menu')} onExport={exportMarpBundle} />
 					) : (

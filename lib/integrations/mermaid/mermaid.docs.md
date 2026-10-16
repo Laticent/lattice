@@ -24,7 +24,7 @@ history and its theme bridge.
 
 A `\`\`\`mermaid` fenced block is processed in this order:
 
-1. **At build time** (`lattice-emulator.js`):
+1. **At build time** (`lattice.js`):
    - Mermaid source is extracted from the fence.
    - `mmdc` (the Mermaid CLI binary that ships with the npm package) is
      invoked with the source + a theme-variables JSON object derived
@@ -38,7 +38,7 @@ A `\`\`\`mermaid` fenced block is processed in this order:
    - Same theme-variables object derived from CSS custom properties.
    - Same wrapper + override CSS.
 
-3. **At build time (raw fallback)** (`lattice-emulator.js`):
+3. **At build time (raw fallback)** (`lattice.js`):
    - If `mmdc` isn't available OR Mermaid source fails to parse, the
      raw source is shown as a syntax-highlighted code block.
    - Highlighting is provided by `mermaid.highlight.js`, our custom
@@ -50,7 +50,7 @@ A `\`\`\`mermaid` fenced block is processed in this order:
 
 Lattice's palette tokens (`--accent`, `--text-body`, `--bg`, etc.) are
 mapped to Mermaid's `themeVariables` object at render time. The mapping
-lives in `lattice-emulator.js` and `lattice-runtime.js` (mirrored —
+lives in `lattice.js` and `lattice-runtime.js` (mirrored —
 must stay in lockstep). When you swap palettes, Mermaid diagrams
 recolor without re-rendering.
 
@@ -79,11 +79,11 @@ avoids mode-stacks that depend on knowing which diagram type a fence
 is. Trade-off: some precision lost (`section` is treated uniformly
 across gantt/journey/timeline) for a smaller grammar.
 
-The file lives **in the plugin** (`lib/plugins/mermaid/`) rather than in
-`lib/integrations/highlight-js/` because the SUBJECT is Mermaid (this is
-"Lattice's syntax highlighting for Mermaid"): it is the plugin's `highlight`
-contribution, registered by the plugin host under the plugin's code fence.
-The hljs integration doc lists it as a registered custom language.
+The file lives **in the plugin** (`lib/plugins/mermaid/`) rather than in the
+code plugin because the SUBJECT is Mermaid (this is "Lattice's syntax
+highlighting for Mermaid"): it is the plugin's `highlight` contribution, which
+the plugin host registers on the code plugin's highlight.js under the plugin's
+code fence. The code plugin's docs list it as a registered custom language.
 
 ---
 
@@ -109,6 +109,6 @@ visual parity.
   mapping + per-diagram-type override catalog.
 - `engineering/mermaid.md` — Mermaid-specific authoring conventions
   used in shipped decks.
-- `lib/integrations/highlight-js/highlight-js.docs.md` — the hljs
-  integration that lists `mermaid.highlight.js` as a custom language.
+- `lib/plugins/code/code.docs.md` — the code plugin, which colors every
+  fence and lists `mermaid.highlight.js` as a custom language.
 - `lib/plugins/mermaid/mermaid.docs.md` — the plugin: what it contributes, and where it draws.

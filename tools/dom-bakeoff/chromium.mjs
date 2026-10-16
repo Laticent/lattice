@@ -4,7 +4,7 @@
  * `lib/core/dom-provider.js` notes that the browser branch gets the native
  * `DOMParser` because it is "fast AND correct", and treats that as a property of
  * the browser environment. But the CLI export runs a real Chromium too — and
- * `lattice-emulator.js` used to build THREE jsdom windows for its caption
+ * `lattice.js` used to build THREE jsdom windows for its caption
  * projection. So the fastest correct parser in the repo may already be running,
  * unused, next to the slowest one.
  *

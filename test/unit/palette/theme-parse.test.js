@@ -9,7 +9,7 @@
  *
  * THE POINT OF THE CORPUS SWEEP is that it fails on a naive implementation. A
  * flat token map keyed on `REQUIRED_TOKENS` deletes 48 distinct custom
- * properties across 19 of the 33 shipped themes, turns `themes/ardesia-dark.css`
+ * properties across 19 of the 33 shipped themes, turns `themes/ardesia-dark/ardesia-dark.css`
  * from a dark theme into a light one (`color-scheme` is not a token), and loses
  * the `@import` that carries the entire content of 13 files. Each of those has
  * its own test below, so a regression names its defect instead of just moving a
@@ -26,6 +26,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -41,8 +42,8 @@ const { serializeTheme, extraNames } = require('../../../lib/theme/serialize.js'
 const { STARTERS } = require('../../../lib/theme/starters.js');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
-const THEME_FILES = fs.readdirSync(THEMES_DIR).filter((f) => f.endsWith('.css')).sort();
-const readTheme = (f) => fs.readFileSync(path.join(THEMES_DIR, f), 'utf8');
+const THEME_FILES = themeEntries(THEMES_DIR).filter((f) => f.endsWith('.css')).sort();
+const readTheme = (f) => fs.readFileSync(themePath(THEMES_DIR, f), 'utf8');
 
 /**
  * An INDEPENDENT census of every selector, at-rule and declaration, via css-tree.
@@ -150,7 +151,7 @@ describe('theme-parse — the shipped corpus', () => {
     }
     // Named rather than merely counted: these are the families whose loss is a
     // rendering defect, not a thinner file.
-    for (const name of ['cat-1-texture', 'cat-12-texture', 'chart-cat1-ink', 'hljs-params', 'hljs-tag']) {
+    for (const name of ['cat-1-texture', 'cat-12-texture', 'chart-cat1-ink', 'syntax-parameter', 'syntax-markup']) {
       assert.ok(survivors.has(name), `--${name} is not in the corpus any more — re-check the extras claim`);
       assert.ok(!required.has(name), `--${name} joined REQUIRED_TOKENS; it is no longer an "extra"`);
     }
@@ -250,10 +251,13 @@ describe('theme-parse — the generator half', () => {
   });
 
   test('serializeTheme emits names outside the contract', () => {
-    const extras = { 'cat-1-texture': 'url(#t1)', 'brand-navy': '#1F4A6E', 'hljs-tag': '#8250df' };
+    const extras = { 'cat-1-texture': 'url(#t1)', 'brand-navy': '#1F4A6E', 'chart-cat1-ink': '#8250df' };
     const css = serializeTheme({ ...map, ...extras }, { name: 'probe', label: 'Probe' });
     const view = themeRecordView(parseTheme(css));
-    assert.deepEqual(view.tokens.filter((t) => !t.contract).map((t) => t.name), Object.keys(extras));
+    // The optional syntax roles derivation also solves (derive.js OPTIONAL_TOKENS) are outside the
+    // required contract too, and written in the syntax block, ahead of the extras.
+    const { OPTIONAL_TOKENS } = require('../../../lib/theme/derive.js');
+    assert.deepEqual(view.tokens.filter((t) => !t.contract).map((t) => t.name), [...OPTIONAL_TOKENS.syntax, ...Object.keys(extras)]);
     assert.equal(view.tokens.length, Object.keys(map).length + Object.keys(extras).length);
   });
 
@@ -541,6 +545,14 @@ describe('theme-parse — hazards', () => {
       assert.equal(themeTokenMap(parseTheme(':where(:root), :root{--accent:red}\n:where(:root){--accent:blue}')).accent, 'red');
     });
 
+    test('a "/*" inside an attribute string is not a comment opener', () => {
+      // The naive /\/\*[\s\S]*?\*\// pairs the quoted "/*" with the next real
+      // closer and swallows `:root:root` with it, scoring the list 1 instead of 2.
+      assert.equal(rootSpecificity(':root[data-x="/*"], :root:root /* note */'), 2);
+      // A real comment still reads as whitespace, never as part of a selector.
+      assert.equal(rootSpecificity(':root/* :root */'), 1);
+    });
+
     test('within one selector it IS source order — that half is unchanged', () => {
       assert.equal(themeTokenMap(parseTheme(':root{--accent:#111;--accent:#999}')).accent, '#999');
     });
@@ -588,7 +600,7 @@ describe('theme-parse — hazards', () => {
 
     test('a composing theme flattens to what it DECLARES, not to what it renders', () => {
       // Stated so nobody reads a `missing` row off a wrapper as a defect: the record
-      // is one file. `themes/ardesia-dark.css` declares zero tokens and is correct.
+      // is one file. `themes/ardesia-dark/ardesia-dark.css` declares zero tokens and is correct.
       assert.deepEqual(themeTokenMap(parseTheme(readTheme('ardesia-dark.css'))), {});
     });
   });

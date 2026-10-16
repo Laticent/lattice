@@ -1,0 +1,484 @@
+/* @theme concrete
+ *
+ * Lattice · Concrete palette — brutalist gray canvas
+ * ────────────────────────────────────────────────────────────────────────
+ * Architectural reveal, brutalist editorial, infrastructure decks. The
+ * lone theme with a non-white, non-cream, non-dark canvas: poured-
+ * concrete gray (#B8B8B5). Cards lift LIGHTER than the canvas instead
+ * of darker, an inversion of the usual paper metaphor. Black ink reads
+ * crisply on the gray; oxblood is the deliberate chromatic break.
+ *
+ * Design contract
+ * ───────────────
+ *   1. Mid-gray canvas (#B8B8B5). Every other surface in the system goes
+ *      lighter (cards) or much darker (title/divider). This is the
+ *      defining choice; do not change it.
+ *
+ *   2. Card surfaces go LIGHTER than canvas — concrete logic. --bg-alt
+ *      (#D5D5D2) is the lifted surface; --bg-warm-mid is a slightly
+ *      darker fill for secondary surfaces. The usual
+ *      paper-card metaphor is inverted.
+ *
+ *   3. Black ink on gray canvas — pure black (#0F0F0E) reads at 9:1+,
+ *      well into AAA. The achromatic palette commits fully; oxblood is
+ *      the only chromatic axis.
+ *
+ *   4. Saturation reserved for the oxblood pop on second mermaid curve
+ *      (#A82828 light → #E85858 dark) via mermaid-accent-warm.
+ *
+ *   5. Every text-bearing token clears WCAG AA (4.5:1) against the
+ *      surface it appears on, in both light and dark mode.
+ *
+ * Mechanism (mirrors indaco)
+ * ──────────────────────────
+ *   • Surfaces, ink, accent, and on-accent tokens use light-dark() so a
+ *     single `color-scheme: dark` declaration flips every descendant
+ *     lookup automatically.
+ *   • Default scheme is light at zero specificity; author overrides via
+ *     `style:` directive, `<!-- _class: dark -->`, or the concrete-dark
+ *     variant theme always win the cascade.
+ *   • Semantic signals (--pass/--fail/--warn) are self-curated as
+ *     light-dark() pairs (the variable contract), AA on both canvases;
+ *     -bg tints derive from them.
+ */
+
+@import 'lattice';
+
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* ── Concrete brand axis — gray canvas + oxblood pop ──────────────── */
+  --brand-canvas:         #0F0F0E;
+  --brand-alt:     #A82828;  /* mermaid-accent-warm (light)           */
+
+  /* ── Surfaces ──────────────────────────────────────────────────────── */
+  --bg:       light-dark(#B8B8B5, var(--scheme-dark-bg));
+  --bg-alt:   light-dark(#D5D5D2, var(--scheme-dark-bg-alt));   /* lifted lighter */
+  --surface-inverse:  #1A1A18;
+  --border:   light-dark(#63635F, var(--scheme-dark-border));   /* mid-gray rule  */
+
+  /* ── Ink ramp ──────────────────────────────────────────────────────── */
+  --text-display: #ECECE8;
+  --text-heading: light-dark(var(--brand-canvas), var(--scheme-dark-text-heading)); /* L:9.27:1 / D:14.96:1 AAA */
+  --text-body:    light-dark(#2A2A28, var(--scheme-dark-text-body));             /* L:7.42:1 / D:9.31:1 AAA  */
+  --text-label:   light-dark(#1F1F1F, var(--scheme-dark-text-label));            /* L:8.43:1 / D:8.84:1 AAA  */
+  --text-secondary: light-dark(#3D3D3B, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
+  --text-muted:   light-dark(#484745, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   light-dark(#4F4F4C, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
+
+  /* ── Brand accent — pure black on gray, bone on dark ──────────────── */
+  --accent:      light-dark(var(--brand-canvas), #ECECE8); /* L:9.27:1 / D:14.96:1 on bg AAA */
+  --accent-soft: light-dark(#D5D5D2, #28282A);
+  /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
+   * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
+  --code-inline-fg: var(--accent); /* canvas-toned accent — chip AAA (L:7.95/10.63 · D:11.33/7.47) */
+  --on-accent:   light-dark(#ECECE8, var(--surface-inverse));    /* L:8.96:1 / D:14.96:1 */
+
+  /* ── Semantic signals — derived backgrounds only ───────────────────
+   * --pass/--warn/--fail are defined as light-dark() pairs in
+   * lattice.css :root (universal status palette). Each theme self-curates its own trio (above), per the
+   * variable contract — AA on both canvases. The -bg soft tints stay theme-local so
+   * each palette can pick its own alpha. */
+  /* Self-curated semantic trio — neutral green/amber/red, AA>=4.5 on
+   * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1190 light /
+   * 0.1203 dark, from 0.0000 / 0.0095. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#000f01, #caffcd);
+  --warn: light-dark(#3b2000, #f5c266);
+  --fail: light-dark(#8d0812, #ee8787);
+  --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
+  --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
+
+  /* The ramp anchor. Both arms are solved against `word-cloud spectrum`, the
+     only surface that paints the derived stops. On concrete's mid-gray LIGHT
+     canvas the --seq-400 stop has to start dark enough not to wash into it, so
+     #393937 stands. The dark arm does NOT: it was solved when the derivation was
+     canvas-blind (600-900 shaded toward BLACK either way), where a near-white
+     anchor was the only way to keep --seq-700 above 3:1. The poles follow the
+     canvas now (#1697) and that stop climbs toward WHITE instead, which left
+     #EDEDE9 just 1.08:1 from --seq-700 — the tightest tier collapse in the set,
+     three word weights painted in two distinguishable colors. #989895 is the same
+     neutral at OKLab L 0.68. #1640, #1697. */
+  --seq-500: light-dark(#393937, #989895);
+
+  /* Tag uses --chart-2 (oxblood) — Concrete's signature accent break. */
+
+  /* ── Dark-panel ramp ───────────────────────────────────────────────── */
+  --bg-warm-mid:   #0F0F0F;
+  --code-text:     #D5D5D2;
+
+  /* ── Spectrum — jet → mid-gray → oxblood pop ───────────────────────
+   * The mid stop is concrete's brand gray. It used to equal --seq-500 by
+   * coincidence, not by contract; #1640 re-solved the ramp anchor against
+   * `word-cloud spectrum` and the two are independent now. Decorative chrome —
+   * do not re-link them. */
+  --spectrum: linear-gradient(90deg, #0F0F0F 0%, #585855 55%, var(--brand-alt) 100%);
+  --spectrum-vertical: linear-gradient(180deg, #0F0F0F 0%, #585855 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt);
+  --spectrum-solid: var(--spectrum-end); /* distinctive solid — accent is near-black; use the red pop */ /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
+
+  /* ── Dark-variant tokens ──────────────────────────────────────────── */
+  --scheme-dark-bg:           #1A1A18;
+  --scheme-dark-bg-alt:       #38383A;
+  --scheme-dark-border:       #828280;
+  --scheme-dark-text-heading: #ECECE8;
+  --scheme-dark-text-body:    #BFBFBC;
+  --scheme-dark-text-muted:   #A4A49F;
+  --scheme-dark-muted-mark:   #84847F;
+  --scheme-dark-text-secondary: #A3A3A1;
+  --scheme-dark-text-label:   #ECECE8;
+  --scheme-dark-text-display: #ECECE8;
+
+  /* ── Mermaid extensions — oxblood pop on second curve ──────────────── */
+  --diagram-stroke:          light-dark(#2A2A28, #777775);
+  --diagram-accent-warm:     var(--brand-alt);
+  /* cScale / gitgraph — warm gray with one oxblood pop */
+}
+/* Completion tokens — band-text pairs, line, gantt state, note, error.
+ * References earlier palette tokens so this block stays a single
+ * source of truth per palette. */
+:root {
+
+  --diagram-line:                  var(--text-heading);
+}
+
+/* ── highlight.js syntax tokens ────────────────────────────────────────── */
+:root {
+  --syntax-comment:     #85837b;  /* warm gray — muted                          */
+  --syntax-keyword:     #C07878;  /* muted oxblood — control flow, italic       */
+  --syntax-builtin:     #78B8B0;  /* industrial teal — functions, italic        */
+  --syntax-number:      #C8B880;  /* warm tan — numeric literals                */
+  --syntax-constant:    #A89898;  /* dusty rose — booleans/null                 */
+  --syntax-string:      #98C090;  /* sage — strings                             */
+  --syntax-entity:      #D08888;  /* oxblood rose — function names, italic      */
+  --syntax-type:        #B0C8C8;  /* pale teal — types/annotations              */
+  --syntax-variable:    #90B0B0;  /* industrial teal — variables                */
+  --syntax-parameter:   #B0A890;  /* warm taupe — parameters                    */
+  --syntax-markup:      #C89880;  /* terracotta — HTML tags                     */
+  --syntax-punctuation: #8d8d85;  /* warm gray — operators                      */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
+}
+
+:root {
+  --cat-1-fill:  light-dark(#DFDDDD, #6A4E4E);
+  --cat-1-mark:  light-dark(#6A4E4E, #DFDDDD);
+  --cat-2-fill:  light-dark(#DDDFDE, #4F685C);
+  --cat-2-mark:  light-dark(#4b6257, #DDDFDE);
+  --cat-3-fill:  light-dark(#DDDEDF, #4F5C68);
+  --cat-3-mark:  light-dark(#4F5C68, #DDDEDF);
+  --cat-4-fill:  light-dark(#DFDEDD, #685C4F);
+  --cat-4-mark:  light-dark(#685C4F, #DFDEDD);
+  --cat-5-fill:  light-dark(#DFDDDE, #684F5C);
+  --cat-5-mark:  light-dark(#684F5C, #DFDDDE);
+  --cat-6-fill:  light-dark(#DDDFDF, #4F6868);
+  --cat-6-mark:  light-dark(#4b6262, #DDDFDF);
+  --cat-7-fill:  light-dark(#DFDFDD, #676751);
+  --cat-7-mark:  light-dark(#5e5e4a, #DFDFDD);
+  --cat-8-fill:  light-dark(#DDDFDD, #516751);
+  --cat-8-mark:  light-dark(#4e634e, #DDDFDD);
+  --cat-9-fill:  light-dark(#DDDDDF, #515167);
+  --cat-9-mark:  light-dark(#515167, #DDDDDF);
+  --cat-10-fill:  light-dark(#DFDDDF, #675167);
+  --cat-10-mark:  light-dark(#675167, #DFDDDF);
+  --cat-11-fill:  light-dark(#DEDFDD, #5C6751);
+  --cat-11-mark:  light-dark(#57614d, #DEDFDD);
+  --cat-12-fill:  light-dark(#DEDDDF, #5C5167);
+  --cat-12-mark:  light-dark(#5C5167, #DEDDDF);
+
+  /* ── CATEGORICAL ON-CANVAS INK — generated by tools/derive-cat-ink.js ──
+   * The categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue and
+   * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
+   * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
+   * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
+  --cat-1-ink:   light-dark(#593E3E, #DFDDDD);
+  --cat-2-ink:   light-dark(#283E33, #DDDFDE);
+  --cat-3-ink:   light-dark(#313D48, #DDDEDF);
+  --cat-4-ink:   light-dark(#493E31, #DFDEDD);
+  --cat-5-ink:   light-dark(#58404C, #DFDDDE);
+  --cat-6-ink:   light-dark(#273D3D, #DDDFDF);
+  --cat-7-ink:   light-dark(#3F3F2C, #DFDFDD);
+  --cat-8-ink:   light-dark(#293D29, #DDDFDD);
+  --cat-9-ink:   light-dark(#404055, #DDDDDF);
+  --cat-10-ink:  light-dark(#564056, #DFDDDF);
+  --cat-11-ink:  light-dark(#363F2C, #DEDFDD);
+  --cat-12-ink:  light-dark(#4B4056, #DEDDDF);
+  /* ── end categorical on-canvas ink ── */
+
+  --cat-on-fill: var(--text-heading);
+  --cat-on-mark:  light-dark(#FFFFFF, #0F0F0E);
+
+  /* Semantic palette — 5 roles, each a flipping fill. Curated per
+   * theme: hue nudged toward the brand within its meaning band,
+   * AA-verified both canvas modes, chroma-capped for restraint.
+   * The -dark companions are strokes → universal --diagram-stroke. */
+  --diagram-active:  light-dark(#9E9E9E, #585858);
+  --diagram-active-mark:   var(--diagram-stroke);
+  --diagram-done:  light-dark(#D1D1D1, #636363);
+  --diagram-done-mark:   var(--diagram-stroke);
+  --diagram-critical:       light-dark(#7C7C7C, #525252);
+  --diagram-critical-mark:  var(--diagram-stroke);
+  --diagram-today:        light-dark(#5D5D5D, #6D6D6D);
+  --diagram-note:        light-dark(#E4E4E4, #696969);
+
+  /* Containment tier — two nested structural surfaces. A monotonic
+   * luminance ladder away from the canvas: light deck steps down,
+   * dark deck steps up, one step per nesting level. Brand-hue-tinted
+   * at a barely-there chroma — surfaces, not accents; they never
+   * compete with the --cN fills that sit on them.
+   *   --c-container     flowchart cluster, sankey area, kanban column
+   *   --c-subcontainer  kanban ticket, a box nested in a cluster */
+  --c-container:     light-dark(#A8A8A8, #2D2D2D);
+  --c-subcontainer:  light-dark(#9A9A9A, #3F3F3F);
+
+  /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
+   * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
+   * outlined in --diagram-stroke, which does not flip with color-scheme and so
+   * went dark-on-dark — no edge of a dark cluster reached 3:1 in 12 of 14 themes.
+   * Curated per theme from this palette's own stroke hue, lightened only as far
+   * as 3:1 demands. Gated by test/unit/palette/containment-contrast.test.js:
+   * ink >= 4.5:1 on its surface (AA text), edge >= 3:1 on the fill it outlines
+   * (WCAG 1.4.11 — the box carries the grouping semantic). */
+  --c-container-edge:     light-dark(#2A2A28, #7B7B75);
+  --c-subcontainer-edge:  light-dark(#2A2A28, #8F8F8A);
+  --c-on-container:       light-dark(#0F0F0E, #EAEAEA);
+  --c-on-subcontainer:    light-dark(#0F0F0E, #EAEAEA);
+}
+
+/* ── Chart-family palette ───────────────────────────────────────────────
+ * Concrete's curation of the chart-family's two color spectrums (defined in
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
+ * canvas-aware Apple-hue default; untuned themes inherit it. Concrete overrides
+ * both spectrums with its own low-chroma greige pigments so charts read native
+ * to the "poured concrete" brand instead of borrowing the cool system palette.
+ *
+ * Each hook is the `light-dark(lightCanvasVivid, darkCanvasVivid)` shape the
+ * chart-family expects: on the gray canvas the value is a low-chroma earth
+ * pigment (it drives the wedge/bar border at full strength and a 24% tint for
+ * the fill); on the dark canvas it lifts to a brighter same-hue sibling via
+ * color-mix(in oklab, …, white 30%). See design/theming.md (chart palette) and
+ * the chart-family.styles.css token block for the contract. */
+:root {
+  /* Categorical spectrum — concrete's audited Brand-triad pigments.
+   * Eight low-chroma greige hues, separated by hue + value so categories
+   * stay distinguishable on both the mid-gray light canvas and the near-
+   * black dark canvas. Light side = the audited pigment (drives the border
+   * at full strength + a 24% tint for the fill); dark side = the same hue
+   * lifted toward white so it stays vivid on the dark canvas. */
+  --chart-cat1: light-dark(#6E3D50, color-mix(in oklab, #6E3D50, white 30%));  /* dusty rose    */
+  --chart-cat2: light-dark(#1D6F48, color-mix(in oklab, #1D6F48, white 30%));  /* sage green    */
+  --chart-cat3: light-dark(#474479, color-mix(in oklab, #474479, white 30%));  /* steel blue    */
+  --chart-cat4: light-dark(#636632, color-mix(in oklab, #636632, white 30%));  /* warm taupe    */
+  --chart-cat5: light-dark(#722E5E, color-mix(in oklab, #722E5E, white 30%));  /* mauve         */
+  --chart-cat6: light-dark(#3E6B59, color-mix(in oklab, #3E6B59, white 30%));  /* slate teal    */
+  --chart-cat7: light-dark(#635F4F, color-mix(in oklab, #635F4F, white 30%));  /* khaki olive   */
+  --chart-cat8: light-dark(#4E664F, color-mix(in oklab, #4E664F, white 30%));  /* muted green   */
+
+  /* ── CHART CATEGORICAL INK — generated by tools/derive-chart-cat-ink.js ──
+   * The chart categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue
+   * and chroma as --chart-catN; lightness solved until it clears AA on both slide
+   * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
+   * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
+   * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
+  --chart-cat1-ink: light-dark(#69384B, #C299A8);
+  --chart-cat2-ink: light-dark(#004A2B, #7CAF90);
+  --chart-cat3-ink: light-dark(#454176, #A1A2CC);
+  --chart-cat4-ink: light-dark(#484A15, #A7AA84);
+  --chart-cat5-ink: light-dark(#722E5E, #CC96BA);
+  --chart-cat6-ink: light-dark(#1F4D3C, #8CAC9E);
+  --chart-cat7-ink: light-dark(#4B4738, #A9A69A);
+  --chart-cat8-ink: light-dark(#354D37, #98A998);
+  /* ── end chart categorical ink ── */
+
+  /* ── HEATMAP RAMP — generated by tools/derive-chart-cat-ink.js ──
+   * The heatmap prints a value INSIDE each cell, which is text on a colored fill —
+   * the one placement the chart family does not otherwise guarantee contrast for.
+   * It can here because the ramp is QUANTIZED: five chosen stops rather than a
+   * continuum, so each stop carries an ink solved against the fill that actually
+   * appears under it. A stop sits at its even position unless the fill there is one
+   * no ink can reach, in which case it is nudged (at most 2% in the shipped set).
+   * The positions are plain numbers because they serve BOTH canvases; only the ink
+   * is a light-dark() pair. Do not hand-edit: `npm run build` regenerates over it.
+   * Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
+  --heatmap-step1: 18%;
+  --heatmap-step1-ink: light-dark(#2A2A28, #BFBFBC);
+  --heatmap-step2: 36.5%;
+  --heatmap-step2-ink: light-dark(#1A1A19, #BFBFBC);
+  --heatmap-step3: 55%;
+  --heatmap-step3-ink: light-dark(#FDFDFA, #CDCDC9);
+  --heatmap-step4: 73.5%;
+  --heatmap-step4-ink: light-dark(#E1E2DF, #E7E7E3);
+  --heatmap-step5: 90%;
+  --heatmap-step5-ink: light-dark(#CCCCC9, #FFFFFB);
+  /* ── end heatmap ramp ── */
+
+  /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
+   * status pills, state-chart, timeline). pass/fail reuse concrete's
+   * inherited status trio; warn and info are DEEPENED on the light side
+   * because concrete's canvas is an unusually dark greige (#B8B8B5) — the
+   * universal amber/slate only reach ~2.5–2.8:1 there, so a richer burnt
+   * ochre + deep slate clear the 3:1 mark with authority while keeping the
+   * same blue-info / amber-warn role language as the curated trio. Dark
+   * sides lift to clear the espresso-gray canvas. mute is the system greige. */
+  --chart-state-pass: var(--pass);                  /* status green   */
+  --chart-state-warn: light-dark(#854608, #E89030); /* burnt ochre    */
+  --chart-state-fail: var(--fail);                  /* status red     */
+  --chart-state-info: light-dark(#2F567F, #79A6D6); /* deep slate     */
+  --chart-state-mute: light-dark(#68675B, #A69882); /* warm greige    */
+
+  /* ── The fill WASH, flattened for this canvas ─────────────────────────────
+   * chart-family.styles.css builds every mark fill as a two-stop wash between the hue
+   * and the canvas, and states the contract that wash exists to keep: "the wash
+   * only tints, so --text-heading labels clear it on both canvases." On the
+   * family's percentages concrete is the one theme where that is false, for the
+   * same reason its warn and info hues are deepened ten lines above: its canvas
+   * is an unusually dark greige (#B8B8B5), so the same mix lands far closer to
+   * the heading ink than it does on a near-white page.
+   *
+   * Measured on the rendered gallery, each glyph against the pixels actually
+   * behind it: gantt's in-bar caption and state-chart's node label came in at
+   * 4.14:1 light and 3.49:1 dark against a 4.5 floor.
+   *
+   * THE INK SIDE IS EXHAUSTED — this is why the wash moves and not the label.
+   * concrete's `--text-heading` already resolves to 15,15,14 on light, and pure
+   * black on the 38% stop reaches only 4.20:1; on dark, pure white reaches
+   * 3.72:1. No ink clears this fill, so the fill is what has to change.
+   * Flattening it is also the lever with the smallest reach: one theme, the
+   * family's recipe untouched, every other palette untouched. It costs depth in
+   * the gradient and nothing else — the mark's visibility rides its ink edge,
+   * which is unchanged.
+   *
+   *   stop            family   here
+   *   top,    light     20%     14%
+   *   bottom, light     38%     28%
+   *   top,    dark      48%     38%
+   *   bottom, dark      64%     50%
+   *
+   * Re-derive with: node tools/chart-contrast-solve.js <rendered.html> screen */
+  --palette-fill-top-l: 14%;     --palette-fill-top-d: 38%;
+  --palette-fill-bottom-l: 28%;  --palette-fill-bottom-d: 50%;
+
+  /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
+   * concrete is near-monochrome (light chips all ~#DDD). Opt into its BESPOKE
+   * raw-concrete texture set (board-form / tie-holes / fluted / … in
+   * lib/core/accessibility-textures.js): the canonical mermaid.css / chart rules
+   * paint var(--cat-N-texture, …), so these tokens texture every categorical
+   * diagram at once — no per-selector wiring. Scheme-flipping (near-white chips +
+   * dark ink ⟷ muted-tint chips + light ink). See
+   * engineering/decisions/2026-07-16-universal-texture-channel.md. */
+  --cat-1-texture: url(#latt-concrete-tex-1);
+  --cat-2-texture: url(#latt-concrete-tex-2);
+  --cat-3-texture: url(#latt-concrete-tex-3);
+  --cat-4-texture: url(#latt-concrete-tex-4);
+  --cat-5-texture: url(#latt-concrete-tex-5);
+  --cat-6-texture: url(#latt-concrete-tex-6);
+  --cat-7-texture: url(#latt-concrete-tex-7);
+  --cat-8-texture: url(#latt-concrete-tex-8);
+  --cat-9-texture: url(#latt-concrete-tex-9);
+  --cat-10-texture: url(#latt-concrete-tex-10);
+  --cat-11-texture: url(#latt-concrete-tex-11);
+  --cat-12-texture: url(#latt-concrete-tex-12);
+}
+
+/* ── TEXTURE POLARITY UNDER A PINNED SCHEME ──
+ * The :root textures above are scheme-AWARE, but they resolve color-scheme at
+ * :root — a per-slide pin (`_class: dark` / `light`, or deck-wide
+ * `color-mode: light`) sets it on the SECTION, which those patterns cannot see.
+ * One <pattern> paints identically wherever referenced, so the fix is to point the
+ * texture channel at a set with the polarity BAKED in — the same move
+ * `section.print` makes in lib/base/base.print-textures.css. Left un-pinned,
+ * a dark slide kept light chips under light ink and its node labels vanished
+ * (#1323). `:not(.print)` so print's B&W-safe override stays authoritative on a
+ * deck that is both printed and per-slide dark. `color-system`/`inherited` are
+ * deliberately absent: their polarity is only known at view time, so they keep the
+ * scheme-aware set.
+ * PRINT GUARD: both render paths BAKE each Mermaid diagram's label ink for the band
+ * being rendered — dark tokens for a dark slide, the B&W print band under `--print`.
+ * CSS repaints the chip but never that baked ink, so a pin is only correct when it
+ * agrees with what was baked. `:not(.print)` is the whole guard, and it is sufficient
+ * because `print` reaches EVERY section: a per-slide `_class: dark` used to evict the
+ * deck's `print`, leaving a section that kept `dark`, lost `print`, and still carried
+ * a print-BAKED diagram — dark print ink on a pinned dark chip at ~2.7:1. Print is a
+ * render target rather than a scheme, so it is no longer droppable
+ * (lib/core/color-mode.js slidePinEvictsDeckToken) and the CSS agrees with the bake by
+ * construction. That is what let `data-lattice-slide-bake` be deleted (#1332 step 4)
+ * rather than replaced with yet another marker.
+ *
+ * The guard is a `:not()` on the SECTION COMPOUND, not an ancestor gate, and that is
+ * load-bearing. packTheme (and marp-core) scope every theme rule off its LEFTMOST
+ * compound: a literal leading `section` is the slide, anything else is rewritten as a
+ * slide DESCENDANT. Written `html:not([data-lattice-print]) section.dark`, these pins
+ * packed to `article.lattice > section html:not(…) section.dark` — an <html> inside a
+ * <section> — and were silently DEAD on the Studio and Export-to-Marp paths while
+ * passing on the emulator's unpacked CSS. See engineering/gotchas.md, "A theme rule
+ * gated on :root[…] silently does nothing in a Marp render". */
+section.dark:not(.print) {
+  --cat-1-texture: url(#latt-concrete-tex-dark-1);
+  --cat-2-texture: url(#latt-concrete-tex-dark-2);
+  --cat-3-texture: url(#latt-concrete-tex-dark-3);
+  --cat-4-texture: url(#latt-concrete-tex-dark-4);
+  --cat-5-texture: url(#latt-concrete-tex-dark-5);
+  --cat-6-texture: url(#latt-concrete-tex-dark-6);
+  --cat-7-texture: url(#latt-concrete-tex-dark-7);
+  --cat-8-texture: url(#latt-concrete-tex-dark-8);
+  --cat-9-texture: url(#latt-concrete-tex-dark-9);
+  --cat-10-texture: url(#latt-concrete-tex-dark-10);
+  --cat-11-texture: url(#latt-concrete-tex-dark-11);
+  --cat-12-texture: url(#latt-concrete-tex-dark-12);
+}
+
+section.light:not(.print),
+section.color-light:not(.print) {
+  --cat-1-texture: url(#latt-concrete-tex-light-1);
+  --cat-2-texture: url(#latt-concrete-tex-light-2);
+  --cat-3-texture: url(#latt-concrete-tex-light-3);
+  --cat-4-texture: url(#latt-concrete-tex-light-4);
+  --cat-5-texture: url(#latt-concrete-tex-light-5);
+  --cat-6-texture: url(#latt-concrete-tex-light-6);
+  --cat-7-texture: url(#latt-concrete-tex-light-7);
+  --cat-8-texture: url(#latt-concrete-tex-light-8);
+  --cat-9-texture: url(#latt-concrete-tex-light-9);
+  --cat-10-texture: url(#latt-concrete-tex-light-10);
+  --cat-11-texture: url(#latt-concrete-tex-light-11);
+  --cat-12-texture: url(#latt-concrete-tex-light-12);
+}
+
+/* ── Panel edge mark ─────────────────────────────────────────────────────────
+ * `--panel-edge-mark` colors the top-edge rule the split frames paint over their
+ * featured panel. Its engine default is `--accent`, which on THIS palette is the
+ * panel fill itself (`--surface-inverse`): measured 1.00:1 on onyx — the panel half
+ * ships with no visible top edge at all. The curated spectrum endpoint is this
+ * palette's own distinctive hue and clears the floor.
+ *
+ * PAIRED, not flat: only the LIGHT arm is broken. On the dark arm `--accent` flips to
+ * a bright value against the same panel (onyx measures 21:1 there), so forcing the
+ * endpoint on both arms would replace a correct color with a worse one — the flat-
+ * override defect paired-token-parity.test.js exists to catch.
+ *
+ * Plain `:root`, and the specificity bump it used to carry is gone. This was
+ * `:root:root` (0,2,0) because the export path concatenated base.tokens.css AFTER the
+ * palette, so a plain `:root` override lost on source order in the rendered PDF. That
+ * bought the export path and cost the PACKED ones: Marpit's rewrite leaves the second
+ * `:root` literally on the <section>, where it can never match, so the Studio, the
+ * docs Playground and export-to-Marp all fell back to base's `var(--accent)` — on this
+ * palette the panel fill itself, the 1.00:1 edge this block exists to fix (#1797).
+ * #1527 flipped the concat (2026-08-24-palette-cascade-flip.md): the engine sheet loads
+ * FIRST now, so plain `:root` wins on source order in the export AND packs onto the
+ * slide everywhere else. One declaration, all four paths. Gated: composed-contrast
+ * surface `split-panel/edge-mark` (floor 1.5:1), and `checkPackedRootReach` refuses a
+ * theme token declared ONLY above plain `:root`.
+ * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+:root { --panel-edge-mark: light-dark(var(--spectrum-end), var(--accent)); }
+
+/* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
+ * retired the `:root:root` duplicate that used to reach the CLI export.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */

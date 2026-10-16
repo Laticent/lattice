@@ -1,0 +1,1 @@
+- **Studio chat:** a reply's ` ```mermaid `, ` ```math `, ` ```functionplot ` and ` ```lattice ` fences (a diagram, an equation, a plot, one slide) are now drawn in the bubble, in the open deck's theme, instead of printed as source. Each has a Source toggle. Figures share a small pool of frames, so a long conversation does not grow in memory with its figure count.

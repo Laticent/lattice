@@ -32,6 +32,15 @@
  * Usage:
  *   node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette]
  *                             [--no-agent] [--overflow-marker=author|reader|off]
+ *                             [--default-plugins=a,b|none] [--disable-plugin=a,b]
+ *
+ * `--default-plugins` / `--disable-plugin` are the render CLI's plugin knobs (lattice.js),
+ * in the `=` form only (a bare value would read as a positional argument):
+ * the deck is admitted under them (lib/plugins/host-grammar.mjs `admitPlugins`) and the plugins left
+ * off ride in the bundle's settings block (`pluginsOff`), which the bundled runtime reads before it
+ * draws anything — Marp renders the deck, so the engine's own marker is never written. MATH is
+ * typeset at export (lib/core/marp-bundle-math.js) and Marp's own typesetter is always off in the
+ * bundle's marp.config.cjs; with the math plugin off, the TeX is left as written.
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
  * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
@@ -46,10 +55,11 @@
  * render paths strip the block so a bundle-derived deck cannot inherit it either.
  *
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
- * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
- * marp-core escapes the deck's trailing runtime <script> tags into visible text
- * and the runtime never loads, so Mermaid and every JS-driven structural
- * component (split panels, the chart family) come out as bare markdown. WITH it,
+ * in ANY Marp tool. The generated marp.config.cjs sets `html` to an allowlist of the
+ * tags a deck may write, and an `engine:` plugin passes the deck's trailing runtime
+ * <script> tags (lib/core/marp-bundle-html.js) — without them marp-core escapes the
+ * tags into visible text and the runtime never loads, so Mermaid and every JS-driven
+ * structural component (split panels, the chart family) come out as bare markdown. WITH it,
  * marp-cli's own headless browser runs the runtime while rendering, so `npm run
  * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
  * Mermaid — with the exceptions `lib/core/marp-fidelity.js` enumerates (printed
@@ -66,11 +76,14 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image');
+const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
+const { formatRefusedHtml } = require('../lib/core/marp-bundle-html');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
+  mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -123,7 +136,10 @@ function localizeOne(url, deckDir, destDir, copied) {
   // half-written bundle behind. An undecodable ref is treated as authored.
   let decoded;
   try { decoded = decodeURI(url); } catch (_e) { decoded = url; }
-  const abs = path.resolve(deckDir, decoded);
+  // `sample:<name>` is Lattice's own sample art (lib/samples/), wherever the deck sits.
+  // Marp cannot read the prefix, so the file is copied in like any other local picture.
+  const sample = sampleName(url);
+  const abs = sample ? path.join(ROOT, 'lib', 'samples', sample) : path.resolve(deckDir, decoded);
   // `isFile` rather than `existsSync`: `logo: .` resolved to a DIRECTORY and
   // `copyFileSync` threw EISDIR, same half-written-bundle outcome.
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return null;
@@ -157,10 +173,7 @@ function localizeOne(url, deckDir, destDir, copied) {
  * (http/https/data:) untouched. Copies each unique local file into <dest>/assets.
  */
 function localizeAssets(body, deckDir, destDir, copied = new Map()) {
-  const out = body.replace(/(!\[[^\]]*\]\()([^)\s]+)(\s*(?:"[^"]*")?\))/g, (full, pre, url, post) => {
-    const rel = localizeOne(url, deckDir, destDir, copied);
-    return rel ? `${pre}${rel}${post}` : full;
-  });
+  const out = mapImageRefs(body, (url) => localizeOne(url, deckDir, destDir, copied));
   return { body: out, count: copied.size };
 }
 
@@ -174,17 +187,9 @@ function localizeAssets(body, deckDir, destDir, copied = new Map()) {
  * file has to come along too.
  */
 function localizeFrontMatter(fm, deckDir, destDir, copied) {
-  // The bound here must not be TIGHTER than the readers', or the exporter skips a
-  // ref the runtime then resolves — a 404 logo on every slide. Both
-  // lib/runtime/index.js and the engine's `readDeckLogoFrontMatter` read
-  // `^[ \t]*logo:[ \t]*["']?(.*?)["']?[ \t]*$`, so this matches the same shape,
-  // including a value the reader would take verbatim (a trailing `# comment` is
-  // part of the value to both, so it is left alone here too — and then simply
-  // doesn't resolve, exactly as it doesn't for the reader).
-  return fm.replace(/^([ \t]*logo:[ \t]*["']?)([^"'\r\n]+?)(["']?[ \t]*)$/m, (full, pre, url, post) => {
-    const rel = localizeOne(url.trim(), deckDir, destDir, copied);
-    return rel ? `${pre}${rel}${post}` : full;
-  });
+  // `mapFrontMatterLogo` (lib/core/marp-bundle.js) matches the same shape the runtime and
+  // the engine read, so the exporter never skips a ref the reader then resolves.
+  return mapFrontMatterLogo(fm, (url) => localizeOne(url, deckDir, destDir, copied));
 }
 
 function copyInto(srcAbs, destAbs) {
@@ -210,7 +215,7 @@ function copyCssInto(srcAbs, destAbs) {
  * WHY A DISCLOSURE AND NOT A MEASUREMENT. export-marp never renders: it bakes
  * source transforms and copies files, which is why it finishes in about a second.
  * Measuring overflow needs a real layout in a real browser, and the tool that
- * does that already exists — `lattice-emulator.js` prints the
+ * does that already exists — `lattice.js` prints the
  * "⚠ OVERFLOW — N slides … CLIPPED … pages X, Y" line from the same probe
  * (lib/core/overflow-probe.js) the runtime uses. So this line states what the
  * export KNOWS (the policy it just wrote) and names the command that knows the
@@ -233,7 +238,7 @@ function printOverflowPolicy(marker, source, deckPath) {
   // Quoted: an unquoted `Q3 Board Review.md` printed a command that fails on its
   // first argument — the exact bug lib/core/marp-bundle.js's `safeName` records.
   console.log(`    export-marp does not render, so it cannot measure overflow. To check: `
-    + `\`node lattice-emulator.js "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
+    + `\`npx lattice "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }
 
 function main(argv) {
@@ -250,6 +255,25 @@ function main(argv) {
   const markerFlag = markerArgs.length
     ? markerArgs[0].slice('--overflow-marker'.length).replace(/^=/, '')
     : null;
+  // The plugin knobs, `=` form only (a bare value would read as a positional argument).
+  const listFlag = (flag) => {
+    const hits = argv.filter((a) => a === flag || a.startsWith(`${flag}=`));
+    if (hits.some((a) => !a.startsWith(`${flag}=`))) die(`${flag} takes its value after '=' (${flag}=a,b)`);
+    if (!hits.length) return undefined;
+    return hits.flatMap((a) => a.slice(flag.length + 1).split(',')).map((n) => n.trim()).filter(Boolean);
+  };
+  const { PLUGIN_NAMES } = require('../lib/plugins/blocks.generated.mjs');
+  const disabledPlugins = listFlag('--disable-plugin') || [];
+  const rawDefaults = listFlag('--default-plugins');
+  // As the render CLI: an empty list is a mistake, `none` is the empty set.
+  if (rawDefaults && !rawDefaults.length) die("--default-plugins needs plugin names or 'none'");
+  const defaultPlugins = rawDefaults && (rawDefaults.length === 1 && rawDefaults[0] === 'none' ? [] : rawDefaults);
+  for (const n of disabledPlugins) {
+    if (!PLUGIN_NAMES.includes(n)) die(`--disable-plugin: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')})`);
+  }
+  for (const n of defaultPlugins || []) {
+    if (!PLUGIN_NAMES.includes(n)) die(`--default-plugins: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')}; or none)`);
+  }
   const [deckPath, outArg, paletteArg] = argv.filter((a) => !a.startsWith('--'));
   if (!deckPath || !outArg) {
     die('usage: node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette] [--no-agent] '
@@ -290,6 +314,11 @@ function main(argv) {
   }
 
   const src = readDeckSource(deckPath);
+  // THE DECK'S ADMISSION under this run's knobs, decided once on the source as authored, as the
+  // render CLI decides it. Its `off` set configures the boundary parser BEFORE the split bake below
+  // (with math off, a `---` inside `$$` splits there as in the engine) and rides into the bundle.
+  const admission = require('../lib/plugins/host-grammar.mjs').admitPlugins(src, { defaults: defaultPlugins, disabled: disabledPlugins });
+  require('../lib/core/boundary-parser.mjs').setBoundaryPluginsOff(admission.off);
   const palette = (paletteArg || readTheme(src) || 'indaco').toLowerCase();
   const name = path.basename(deckPath).replace(/\.md$/i, '');
   // Every PATH in the bundle — the directory, the deck file, and the commands the
@@ -345,10 +374,26 @@ function main(argv) {
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(
-    path.join(dest, `${file}.md`),
-    withRuntimeScripts(fm + bakedBody, { overflowMarker: marker }),
-  );
+  const bundled = withRuntimeScriptsReport(fm + bakedBody, {
+    overflowMarker: marker,
+    pluginsOff: admission.off,
+  });
+  fs.writeFileSync(path.join(dest, `${file}.md`), bundled.markdown);
+  // The bundle drops the deck's own executable HTML (lib/core/live-author-html.js), so say what
+  // went: an author whose widget script vanished deserves to hear why.
+  const { removed } = bundled;
+  if (removed.scripts + removed.handlers + removed.urls) {
+    console.log(`  removed the deck's own executable HTML (${removed.scripts} <script>, ${removed.handlers} on… handler, ${removed.urls} URL/frame/redirect):`
+      + ' marp-cli would run it on the recipient\'s machine. Your source .md keeps it.');
+  }
+  if (bundled.math.failed) {
+    console.log(`  ${bundled.math.failed} equation${bundled.math.failed === 1 ? '' : 's'} could not be typeset into the bundle and show${bundled.math.failed === 1 ? 's' : ''} as TeX (marp-bundle-math.js).`);
+  }
+  const refusedLine = formatRefusedHtml(bundled.refused);
+  if (refusedLine) console.log(refusedLine);
+  if (bundled.escaped) {
+    console.log('  the deck\'s HTML could not be separated from what runs, so the bundle shows ALL of it as text. Remove the raw HTML and export again.');
+  }
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.
@@ -387,7 +432,7 @@ function main(argv) {
   // 5) generated text files (from the shared bundle spec): marp-cli config,
   //    package.json, .vscode/settings.json (Marp VS Code theme registration),
   //    and the README.
-  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), MARP_CONFIG_CJS);
+  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs());
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));

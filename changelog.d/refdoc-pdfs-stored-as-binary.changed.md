@@ -1,0 +1,1 @@
+- Reference PDFs in the Library are now stored as the file's own bytes instead of base64 text, a third smaller on disk, and the Library no longer loads every PDF into memory as a string when it opens. PDFs saved before this change are converted the next time you open the Library. Backups still carry PDFs as text, so a backup restores in any version.

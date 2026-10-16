@@ -84,8 +84,14 @@ const {
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
+  checkSuonoBoundary,
+  checkLenteBoundary,
+  checkSegnoBoundary,
   checkAnimaBoundary,
   checkCadenzaBoundary,
+  checkCalcoBoundary,
+  checkFuocoBoundary,
+  checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
@@ -104,7 +110,6 @@ const {
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
   VETRINA_DIR,
-  VETRINA_IMPORT,
   checkAgentModelPinning,
   declaredModel,
   agentCallPins,
@@ -1556,6 +1561,7 @@ describe('check-ownership', () => {
         'tools/component-gen-eval.mjs',
         'tools/generate-voice-samples.mjs',
         'tools/intent-bakeoff/judge-eval.mjs',
+        'tools/probe-picture-tokens.mjs', // measures per-model picture cost for the Studio chat's budget gate; opt-in, capped, prints its call count first
       ]);
       for (const rel of SANCTIONED_OPENROUTER_SPENDERS) assert.ok(fs.existsSync(path.join(REPO, rel)), `${rel} is sanctioned but missing`);
       // A sanctioned spender must actually CARRY the opt-in guard, not merely be listed.
@@ -1755,7 +1761,7 @@ describe('check-ownership', () => {
   // The Vetrina walkthrough library's two structural antibodies
   // (engineering/decisions/2026-07-05-vetrina-walkthrough-library.md §13, §6.1).
   describe('Vetrina import-boundary gate (§13 — open-sourceable, zero host deps)', () => {
-    const scan = (src) => [...src.matchAll(new RegExp(VETRINA_IMPORT.source, 'g'))].map((m) => m[1]);
+    const scan = (src) => SUONO_SPEC_PATTERNS.flatMap((p) => [...stripJsComments(src).matchAll(new RegExp(p.source, 'g'))].map((m) => m[1]));
 
     test('the live tree is clean — the core imports nothing outside the folder', () => {
       const errors = [];
@@ -1798,11 +1804,53 @@ describe('check-ownership', () => {
       }
     });
 
+    // Followup 2462-p3: the gate once read only `… from '…'`, so these two shapes walked around it.
+    test('the gate bites: a side-effect and a dynamic import that escape are both reported', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vetrina-gate-'));
+      try {
+        const gate = (src) => {
+          fs.writeFileSync(path.join(dir, 'x.ts'), src);
+          const errors = [];
+          checkVetrinaBoundary(errors, dir);
+          return errors.length;
+        };
+        assert.equal(gate("import './../x';\n"), 1, 'side-effect import');
+        assert.equal(gate("const m = await import('./../x');\n"), 1, 'dynamic import()');
+        assert.equal(gate("const m = require('lodash');\n"), 1, 'require()');
+        assert.equal(gate("import './x';\nconst m = import('./y');\n// import('../z')\n"), 0, 'in-folder shapes and a comment pass');
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
     test('the gate bites: a bare npm specifier (e.g. lodash) is caught', () => {
       const specs = scan("import _ from 'lodash';");
       assert.deepEqual(specs, ['lodash']);
       assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
     });
+  });
+
+  // `./../x` starts with `./` and lands outside the folder. Every library gate resolves the path
+  // rather than trusting the prefix (followup 2462-p3, first fixed in the Segno gate).
+  describe('library boundary gates resolve a `./` path before admitting it', () => {
+    const gates = { checkVetrinaBoundary, checkSuonoBoundary, checkLenteBoundary, checkSegnoBoundary };
+    for (const [name, gate] of Object.entries(gates)) {
+      test(`${name} reports \`./../x\` and \`./a/../../x\`, and admits \`./x\` and \`./a/../x\``, () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boundary-gate-'));
+        try {
+          const run = (spec) => {
+            fs.writeFileSync(path.join(dir, 'x.ts'), `import y from '${spec}';\n`);
+            const errors = [];
+            gate(errors, dir);
+            return errors.length;
+          };
+          for (const spec of ['./../y', './a/../../y', './..']) assert.equal(run(spec), 1, spec);
+          for (const spec of ['./y', './a/../y', './a/b']) assert.equal(run(spec), 0, spec);
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      });
+    }
   });
 
   // The LTT format package imports nothing, and Cadenza's one sanctioned dependency is that
@@ -1938,6 +1986,22 @@ describe('check-ownership', () => {
       assert.doesNotMatch(stripJsComments("export {};\n/** import x from 'y' */"), /import x/);
     });
 
+    test('Calco admits no dependency at all: JSZip and PptxGenJS are passed in', () => {
+      const live = [];
+      checkCalcoBoundary(live);
+      assert.deepEqual(live, [], live.join('\n'));
+      assert.deepEqual(run(checkCalcoBoundary, "import type { Deck } from './types';\nexport { readSlide } from './reader';"), []);
+      for (const src of [
+        "import JSZip from 'jszip';",
+        "import PptxGenJS from 'pptxgenjs';",
+        "import fs from 'node:fs';",
+        "import { x } from '@laticent/trama';",
+        "import { TEXT_FACES } from '../../../../lib/fonts/text-faces.js';",
+      ]) {
+        assert.equal(run(checkCalcoBoundary, src).length, 1, `not caught: ${src}`);
+      }
+    });
+
     test('Cadenza admits @laticent/ltt by exact name, and no subpath or sibling reach', () => {
       assert.deepEqual(run(checkCadenzaBoundary, "import type { Word } from '@laticent/ltt';"), []);
       assert.deepEqual(run(checkCadenzaBoundary, "export { validateTrack } from '@laticent/ltt';"), []);
@@ -1949,6 +2013,68 @@ describe('check-ownership', () => {
       ]) {
         assert.equal(run(checkCadenzaBoundary, src).length, 1, `not caught: ${src}`);
       }
+    });
+
+    // Tavola: the core takes its transport and document as arguments, and ONE file — the Trystero
+    // adapter — may import `trystero/nostr` (2026-10-06-studio-live-collaboration.md §7.1).
+    const tavola = (errors, dir) => checkTavolaBoundary(errors, dir, path.join(dir, 'adapters', 'trystero.ts'));
+
+    test('Tavola: the live tree is clean', () => {
+      const errors = [];
+      checkTavolaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('Tavola admits trystero/nostr in the adapter only, and nothing else anywhere', () => {
+      assert.deepEqual(run(tavola, { 'adapters/trystero.ts': "import { joinRoom } from 'trystero/nostr';", 'session.ts': "import { frame } from './protocol';" }), []);
+      assert.equal(run(tavola, { 'session.ts': "import { joinRoom } from 'trystero/nostr';" }).length, 1, 'the core may not import the transport');
+      for (const src of ["import * as Y from 'yjs';", "import { x } from '../vetrina';", "import 'trystero';", "const t = await import('trystero/torrent');", "import { readFileSync } from 'node:fs';"]) {
+        assert.equal(run(tavola, { 'session.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      // A test file may use its runner and Yjs.
+      assert.deepEqual(run(tavola, { 'session.test.ts': "import * as Y from 'yjs';\nimport { it } from 'vitest';" }), []);
+    });
+  });
+
+  // Fuoco: the core takes its document model as an outliner, and ONE file — the React adapter —
+  // may import `react` (2026-10-15-fuoco-focus-sync.md §12).
+  describe('Fuoco import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fuoco-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkFuocoBoundary(errors, dir, path.join(dir, 'react.ts'));
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkFuocoBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('react in the adapter only; nothing from Lattice anywhere', () => {
+      assert.deepEqual(run({ 'react.ts': "import * as React from 'react';", 'hub.ts': "import { x } from './outline.js';" }), []);
+      assert.equal(run({ 'hub.ts': "import * as React from 'react';" }).length, 1, 'the core may not import react');
+      for (const src of [
+        "import { buildDeckIndex } from '../deck-outline';",
+        "import { parseSlideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';",
+        "import { frontMatterBlock } from '@/components/studio/front-matter';",
+        "import fs from 'node:fs';",
+        "const m = await import('markdown-it');",
+      ]) {
+        assert.equal(run({ 'hub.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'hub.test.ts': "import { it } from 'vitest';" }), []);
+    });
+    test('a triple-slash reference is an ambient dependency, and is caught', () => {
+      assert.equal(run({ 'hub.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
+      assert.deepEqual(run({ 'hub.ts': '// a plain comment about <reference types="node" />\nexport const x = 1;' }), []);
     });
   });
 
@@ -2450,8 +2576,11 @@ describe('check-ownership: checkCommittedPdfs (#1279)', () => {
 describe('theme manifest gates', () => {
   const fixture = (files) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'theme-manifest-'));
+    // One folder per theme, as themes/ is laid out (themes/<name>/<name>.css).
     for (const [name, body] of Object.entries(files)) {
-      fs.writeFileSync(path.join(dir, name), typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`);
+      const folder = path.join(dir, name.replace(/\.(?:manifest\.json|css)$/, ''));
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, name), typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`);
     }
     return dir;
   };
@@ -2469,7 +2598,7 @@ describe('theme manifest gates', () => {
       checkThemeManifestCoverage(errors, dir);
       assert.equal(errors.length, 2);
       assert.ok(errors.some((e) => /probe\.css has no manifest/.test(e)));
-      assert.ok(errors.some((e) => /ghost\.manifest\.json has no themes\/ghost\.css/.test(e)));
+      assert.ok(errors.some((e) => /ghost\.manifest\.json has no themes\/ghost\/ghost\.css/.test(e)));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -2558,7 +2687,7 @@ describe('theme manifest gates', () => {
     try {
       const errors = [];
       checkThemeModes(errors, phantom);
-      assert.ok(errors.some((e) => /themes\/probe-dark\.css does not exist/.test(e)));
+      assert.ok(errors.some((e) => /themes\/probe-dark\/probe-dark\.css does not exist/.test(e)));
     } finally { fs.rmSync(phantom, { recursive: true, force: true }); }
   });
 
@@ -2781,7 +2910,7 @@ describe('no-safe-default token gate (#1457)', () => {
     // contract — the --cat-N-ink defect. `var(--x, color-mix(… var(--text-heading)))` has no
     // hop: the fallback is the value, written at the read, with no second token to drift
     // onto. Requiring a ledger row for the second would tax the safest form of the pattern.
-    // Live example of the second: --chart-catN-ink (chart-family.css).
+    // Live example of the second: --chart-catN-ink (chart-family.styles.css).
     test('an inline-EXPRESSION fallback with no token hop is not ledger population', () => {
       const expr = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
       assert.deepEqual(fallbackOnlyTokens(inputs({ bareReads: expr })), [],
@@ -3617,7 +3746,7 @@ describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)',
     // mode swaps to a `-dark` theme the a11y palettes do not have.
     const { overSpecific } = rootDeclSites(':root:root { color-scheme: light; }');
     assert.deepEqual([...overSpecific.keys()], [], 'the gate must not judge color-scheme');
-    const src = fsx.readFileSync(pathx.join(__dirname, '..', '..', '..', 'themes', 'a11y-base.css'), 'utf8');
+    const src = fsx.readFileSync(pathx.join(__dirname, '..', '..', '..', 'themes', 'a11y-base', 'a11y-base.css'), 'utf8');
     assert.match(src, /^:root \{ color-scheme: light; \}$/m,
       'the PLAIN half is what reaches a packed render — without it the a11y palettes follow the dark toggle');
     assert.match(src, /^:root:root \{ color-scheme: light; \}$/m,

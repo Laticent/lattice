@@ -97,7 +97,14 @@ respect that budget:
 
 **State — `stamp-*` (13):** `tab` (default), `notch`, `pill`, `bracket`, `seal`,
 `ribbon`, `flag`, `underline`, `dot`, `mark` (watermark), `veil` (overlay+corner
-label), `bar` (redaction bar — label-hidden), `pin` (drop pin — label-hidden).
+label), `bar` (redaction bar — label shown on the bar since 2026-10-08), `pin` (drop pin — label-hidden).
+
+*2026-10-08:* `mark` had stopped being a watermark. The shared tab rule fills every state
+marker's pseudo with `--stamp-color`, and `mark` never cleared it, so its full-slide box
+printed as an opaque rotated slab over the content (in Chrome's own print too). It now sets
+`background: none` and sizes its word to fit (`--stamp-len`, each state's letter count), so
+CONFIDENTIAL stays on the slide. `bar` hid its label, which left an unexplained dark
+rectangle; it now prints the state on the bar. Demo: `examples/stamp-mark-and-bar.pdf`.
 **Boardroom subset (drawer surfaces first):** `tab`, `notch`, `bracket`, `seal`, `pill`.
 
 **Tone — `tone-<style>` (3 in v1):** `rail` (default), `edge`, `glow`.
@@ -187,6 +194,15 @@ so `divider confidential` erased one of the two. Fixed by moving the divider rai
 section **background** (a left gradient strip), which frees `::before` for the stamp.
 box-shadow can't carry the rainbow gradient, so background (not box-shadow) is the right
 layer — this also sidesteps any interaction with the tone rail's box-shadow composition.
+
+**Under a `spectrum: solid|duo|mono` register (2026-10-11).** The slide's own bar wins. The
+register rule painted at (0,3,1) over `accent` and `tone-edge` (0,2,1), so a styled-spectrum
+deck silently turned both off while a default-rainbow deck honored them. The register now
+excludes `accent` (minus the split frames, which `accent` itself skips) and a semantic
+`tone-edge`, in `:where()` so its specificity is unchanged. A bare `tone-edge` with no tone keeps
+the deck's style. Reason: `tone-edge` is status, which a gradient cannot carry, and `accent` is
+an explicit per-slide choice; the spectrum stays the default on every other slide.
+Test: `test/unit/css/spectrum-register-yields-to-slide-bar.test.js`.
 
 ## 8. Do-not-regress
 

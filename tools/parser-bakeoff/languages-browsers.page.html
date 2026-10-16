@@ -1,0 +1,174 @@
+<title>Segno Parser Race</title>
+<style>
+/* Layout: one column, a lab-bench readout. A run button, then one row per language, then the raw record. */
+:root {
+  --bg: #f6f7f4; --panel: #ffffff; --fg: #1d2420; --muted: #5d6a62; --rule: #d9ded7;
+  --accent: #2f6b4f; --accent-fg: #ffffff; --good: #2f6b4f; --bad: #a33a2a;
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --panel: #1a201d; --fg: #e4ebe6; --muted: #98a69d; --rule: #2c3530;
+  --accent: #7cc4a0; --accent-fg: #0f1a14; --good: #7cc4a0; --bad: #f08b78; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121614; --panel: #1a201d; --fg: #e4ebe6; --muted: #98a69d; --rule: #2c3530;
+  --accent: #7cc4a0; --accent-fg: #0f1a14; --good: #7cc4a0; --bad: #f08b78; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 46rem; margin: 0 auto; padding-inline: 16px; padding-block: 28px 48px; display: grid; gap: 22px; }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 65ch; }
+.lede { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+button { font: inherit; font-weight: 700; border: 0; border-radius: 8px; padding: 10px 18px; background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+button:disabled { opacity: .55; cursor: default; }
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.status { font-family: var(--font-data); font-size: .85rem; color: var(--muted); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-family: var(--font-data); font-size: .9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-family: var(--font-body); font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.up { color: var(--good); font-weight: 700; }
+.down { color: var(--bad); font-weight: 700; }
+.label { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+pre { margin: 0; font-family: var(--font-data); font-size: .78rem; white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+
+<main class="wrap">
+  <header style="display:grid;gap:8px">
+    <span class="label">Segno · generated parsers · before and after</span>
+    <h1>Is the faster generator faster in this browser too?</h1>
+    <p class="lede">This page carries Segno's CSS, HTML and Markdown parsers twice: generated before the speed work (<span id="base-ref"></span>) and after it (<span id="head-ref"></span>). Run it to read the same files with both, in this browser's own JavaScript engine. Keep the tab in front while it runs, about half a minute.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="run-h">
+    <span class="label" id="run-h">Run</span>
+    <div class="row">
+      <button id="run" type="button">Run the race</button>
+      <span class="status" id="status">Ready. Nothing has been timed yet.</span>
+    </div>
+    <p class="status" id="engine"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="res-h">
+    <span class="label" id="res-h">Results, MB/s (best of nine samples)</span>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Language</th><th>Corpus</th><th>Before</th><th>After</th><th>Change</th><th>Same trees</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="6" style="text-align:left;color:var(--muted)">Results appear here after a run.</td></tr></tbody>
+      </table>
+    </div>
+    <p class="status" id="saved"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="raw-h">
+    <div class="row" style="justify-content:space-between">
+      <span class="label" id="raw-h">Raw record</span>
+      <button id="copy" class="ghost" type="button" disabled>Copy</button>
+    </div>
+    <pre id="raw">No run yet.</pre>
+  </section>
+</main>
+
+<script>
+/*__PARSERS__*/
+</script>
+<script id="corpus" type="application/json">/*__CORPUS__*/</script>
+<script>
+(() => {
+  const META = /*__META__*/;
+  const LANGS = ['css', 'html', 'md'];
+  const C = JSON.parse(document.getElementById('corpus').textContent);
+  const $ = (id) => document.getElementById(id);
+  $('base-ref').textContent = META.base;
+  $('head-ref').textContent = META.head;
+  $('engine').textContent = navigator.userAgent;
+  const MB = Object.fromEntries(LANGS.map((l) => [l, C[l].reduce((a, s) => a + s.length, 0) / 1e6]));
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  let record = null;
+
+  // The same race as the Playwright arm (languages-browsers.mjs race()), yielding between samples
+  // so the page stays responsive: agree on every file, calibrate a sample to 100 ms or more, then
+  // 18 alternating rounds, best of each.
+  async function race() {
+    const out = { agree: {}, ms: {} };
+    for (const l of LANGS) {
+      const base = globalThis['base_' + l].parse; const head = globalThis['head_' + l].parse;
+      $('status').textContent = 'Checking ' + l + ': before and after must build the same trees…';
+      await tick();
+      out.agree[l] = C[l].every((s) => {
+        const a = base(s); const b = head(s);
+        return a.ok === b.ok && (a.ok ? a.tree.top : a.error.at) === (b.ok ? b.tree.top : b.error.at);
+      });
+      const fn = { base, head };
+      let reps = 1;
+      for (;;) {
+        const t = performance.now();
+        for (let p = 0; p < reps; p++) for (const k of ['base', 'head']) for (const s of C[l]) fn[k](s);
+        if (performance.now() - t >= 200) break;
+        reps *= 2;
+      }
+      const best = { base: Infinity, head: Infinity };
+      for (let r = 0; r < 18; r++) {
+        for (const k of r % 2 ? ['head', 'base'] : ['base', 'head']) {
+          $('status').textContent = 'Timing ' + l + ', round ' + (r + 1) + ' of 18…';
+          await tick();
+          const t = performance.now();
+          for (let p = 0; p < reps; p++) for (const s of C[l]) fn[k](s);
+          best[k] = Math.min(best[k], (performance.now() - t) / reps);
+        }
+      }
+      out.ms[l] = best;
+    }
+    return out;
+  }
+
+  function render(rec) {
+    $('rows').innerHTML = '';
+    for (const l of LANGS) {
+      const m = rec.MBps[l]; const x = m.head / m.base;
+      const tr = document.createElement('tr');
+      const cells = [l.toUpperCase(), rec.MB[l] + ' MB', m.base.toFixed(1), m.head.toFixed(1), x.toFixed(2) + 'x', rec.agree[l] ? 'yes' : 'NO'];
+      cells.forEach((v, i) => { const td = document.createElement('td'); td.textContent = v; if (i === 4) td.className = x >= 1 ? 'up' : 'down'; if (i === 5 && !rec.agree[l]) td.className = 'down'; tr.appendChild(td); });
+      $('rows').appendChild(tr);
+    }
+    $('raw').textContent = JSON.stringify(rec, null, 2);
+    $('copy').disabled = false;
+  }
+
+  $('run').addEventListener('click', async () => {
+    $('run').disabled = true; $('saved').textContent = '';
+    try {
+      const r = await race();
+      record = {
+        at: new Date().toISOString(), userAgent: navigator.userAgent, base: META.base, head: META.head,
+        MB: Object.fromEntries(LANGS.map((l) => [l, +MB[l].toFixed(2)])), agree: r.agree,
+        MBps: Object.fromEntries(LANGS.map((l) => [l, { base: +(MB[l] / (r.ms[l].base / 1e3)).toFixed(1), head: +(MB[l] / (r.ms[l].head / 1e3)).toFixed(1) }])),
+      };
+      render(record);
+      $('status').textContent = 'Done.';
+      globalThis.__raceRecord = record; // read by the Playwright driver
+      // Inside a claude.ai artifact, keep the run so the session that published the page can read it.
+      const db = globalThis.claude?.use ? await globalThis.claude.use('db') : null;
+      if (db) {
+        try {
+          await db.collection('runs').doc(record.at.replace(/[^0-9]/g, '') + '-' + Math.random().toString(36).slice(2, 8)).set(record);
+          $('saved').textContent = 'Saved. Claude can read this run now.';
+        } catch (e) { $('saved').textContent = 'Not saved (' + (e && e.code || 'error') + '). Copy the raw record instead.'; }
+      }
+    } catch (e) {
+      $('status').textContent = 'The run failed: ' + (e && e.message || e);
+    } finally { $('run').disabled = false; }
+  });
+
+  $('copy').addEventListener('click', () => {
+    const text = $('raw').textContent;
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents($('raw')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    try { navigator.clipboard.writeText(text).then(() => { $('copy').textContent = 'Copied'; }, fallback); } catch { fallback(); }
+  });
+})();
+</script>

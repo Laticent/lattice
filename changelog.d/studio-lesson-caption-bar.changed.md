@@ -1,0 +1,1 @@
+- On a phone, a lesson's caption is now a compact bar instead of a dark gradient across the bottom of the screen. The gradient covered the very button some lessons ask you to press.

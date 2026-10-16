@@ -32,7 +32,7 @@ const require = createRequire(path.join(ROOT, 'package.json'));
 // generated (`npm run build`, and by `prepare` on install), the same undeclared
 // prerequisite the fidelity test and three parity specs already carry.
 const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');
-const SHEETS = [path.join(ROOT, 'dist', 'lattice.css'), path.join(ROOT, 'themes', 'indaco.css')];
+const SHEETS = [path.join(ROOT, 'dist', 'lattice.css'), path.join(ROOT, 'themes', 'indaco', 'indaco.css')];
 
 const BODY = [
 	'## Pills',

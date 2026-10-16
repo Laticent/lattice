@@ -1555,6 +1555,22 @@ describe('StudioShell — slide navigation parity', () => {
 	// the path a real finger or wheel takes.
 	const previewSurface = () => screen.getAllByTestId('deck-preview')[0];
 
+	// The checker's catch on the Fuoco change: the save effect ran before the boot navigation and
+	// wrote slide 0 over the slide it was about to restore.
+	it('boots on the slide you left on, and does not overwrite it on the way', () => {
+		seedStop('craft');
+		const first = render(<StudioShell options={options} />);
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewedSlide()).toBe(3);
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-active') ?? 'null');
+		expect(saved?.slideIndex).toBe(2);
+		first.unmount();
+		render(<StudioShell options={options} />);
+		expect(viewedSlide()).toBe(3);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-active') ?? 'null')?.slideIndex).toBe(2);
+	});
+
 	for (const stop of ['read', 'write', 'craft'] as const) {
 		it(`arrow keys turn the deck at the ${stop} stop`, () => {
 			seedStop(stop);

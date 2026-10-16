@@ -125,6 +125,34 @@ How a draft moves from author to publication.
 
 ---
 
+<!-- _class: state-chart rearrange -->
+<!-- _footer: "Rearrange · state-chart rearrange — States may leave their written order when that draws a cleaner chart." -->
+
+## rearrange lets a side state sit beside the state it leaves.
+
+- Intake `start`
+  - -triage-> Triage
+- Triage
+  - -start-> In Progress
+- In Progress `live`
+  - -review-> Code Review
+  - -block-> Blocked
+- Code Review
+  - -approve-> QA
+- QA `on-track`
+  - -stage-> Staging
+  - -fail-> In Progress
+- Staging
+  - -release-> Released
+- Released `done`
+  - -close-> Closed
+- Blocked `blocked`
+  - -unblock-> In Progress
+- Closed `end`
+
+
+---
+
 <!-- _class: state-chart -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · state-chart — A dense machine of states." -->

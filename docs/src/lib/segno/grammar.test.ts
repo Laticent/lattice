@@ -3,7 +3,7 @@
 // that compiles parses in linear time. Every refusal below is a shape the parser bake-off
 // measured going quadratic or worse in a library (engineering/decisions/2026-09-28-parser-library-bakeoff.md).
 import { describe, expect, it } from 'vitest';
-import { alt, any, compile, GrammarError, lint, many, many1, node, noneOf, oneOf, opt, range, ref, seq } from './grammar';
+import { alt, any, compile, type Expr, GrammarError, lint, many, many1, node, noneOf, oneOf, opt, range, ref, seq } from './grammar';
 
 const digit = oneOf('0123456789', 'a digit');
 
@@ -168,4 +168,36 @@ describe('analysis cost on long rule chains', () => {
       expect(compile(chain(40, bottomUp)).parse(`${'a'.repeat(40)}x`).ok).toBe(true);
     });
   }
+});
+
+describe('a piece reused at every level costs once, not once per path', () => {
+  // Each level uses the level below twice, as one JS object. Walked as a tree, that is 2^depth:
+  // compile() took 473 ms and generate() 921 ms at depth 22, doubling per level. Walked as a
+  // graph, a few milliseconds at any depth.
+  it('compile() and generate() at depth 24', async () => {
+    const { generate } = await import('./codegen');
+    let e = seq('x');
+    for (let k = 0; k < 24; k++) e = seq(seq('a', many(oneOf('bcd')), 'e'), alt(seq('y', e), seq('z', e)));
+    const spec = { start: 's', rules: { s: e } };
+    const t = performance.now();
+    const g = compile(spec);
+    generate(spec);
+    expect(performance.now() - t).toBeLessThan(500); // about 5.2 s before
+    expect(g.parse(`abey${'aez'.repeat(23)}x`).ok).toBe(true);
+  });
+  // From the checker: the left-recursion check (leadingRefs) and the "expected …" text
+  // (expectedAt) walked a reused nullable prefix once per path too.
+  it('the left-recursion check and the error text, at depth 24', () => {
+    let lead: Expr = ref('t');
+    for (let k = 0; k < 24; k++) lead = seq(opt(lead), opt(lead), String.fromCharCode(97 + (k % 26)));
+    let t = performance.now();
+    lint({ start: 's', rules: { s: lead, t: seq('t') } });
+    expect(performance.now() - t).toBeLessThan(500); // about 2.5 s before
+    let n: Expr = opt(oneOf(''));
+    for (let k = 0; k < 24; k++) n = seq(node('p', n), node('q', n));
+    t = performance.now();
+    const r = compile({ start: 's', rules: { s: alt(seq(n, 'a'), seq(n, 'b')) } }).parse('c');
+    expect(performance.now() - t).toBeLessThan(500);
+    expect(r.ok ? '' : r.error.expected).toMatch(/"a" or "b"/);
+  });
 });

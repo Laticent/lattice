@@ -1,0 +1,1 @@
+- Live: a session now keeps the screen awake while it is live, and lets it sleep again when you leave or it ends, because a locked phone suspends the page and drops out of the room.

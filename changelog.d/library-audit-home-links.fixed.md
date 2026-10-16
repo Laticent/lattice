@@ -1,0 +1,1 @@
+- The website's home page now has a Libraries section with a card for each of the nine libraries, and the footer links to it. The header's Libraries menu now lists LTT and Tavola, which it had left out.

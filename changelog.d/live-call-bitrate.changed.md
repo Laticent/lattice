@@ -1,0 +1,1 @@
+- **Live calls sound clearer.** Each person's voice is now sent at 64 kbit/s instead of the browser's 32 kbit/s default, which keeps more of the high end. Tavola's `session.setMedia(stream, { maxBitrate })` takes the cap.

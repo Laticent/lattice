@@ -45,7 +45,7 @@
 // and — with --verify — a per-page digest match. The digest resolves each page's
 // content stream to the image it draws, so a transposed page fails it; page count
 // alone does not. Exit code 1 if the pages differ.
-import { execSync, spawn } from 'node:child_process';
+import { execSync, spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -135,11 +135,26 @@ async function pageDigests(file) {
 	});
 }
 
+// Astro runs the preview server as a daemon of its own, so killing `npx` left it on 4321
+// and the next run could not start one. `astro preview stop` is Astro's way to end it.
 const preview = spawn('npx', ['astro', 'preview', '--port', '4321'], { cwd: join(ROOT, 'docs'), stdio: ['ignore', 'pipe', 'pipe'] });
+// Stop only the server this run started: when one was already running, ours never came up,
+// and `astro preview stop` would end somebody else's.
+let previewStarted = false;
+let previewStopped = false;
+const stopPreview = () => {
+	if (previewStopped || !previewStarted) return;
+	previewStopped = true;
+	preview.kill();
+	spawnSync('npx', ['astro', 'preview', 'stop'], { cwd: join(ROOT, 'docs'), stdio: 'ignore' });
+};
+process.on('exit', stopPreview);
+process.on('SIGINT', () => process.exit(130));
 await new Promise((resolve, reject) => {
-	const timer = setTimeout(() => reject(new Error('astro preview never came up — is docs/dist built?')), 90_000);
+	const timer = setTimeout(() => reject(new Error('astro preview never came up — is docs/dist built, or is a server already on 4321?')), 90_000);
 	preview.stdout.on('data', (chunk) => {
 		if (String(chunk).includes('localhost:4321')) {
+			previewStarted = true;
 			clearTimeout(timer);
 			setTimeout(resolve, 500);
 		}
@@ -194,14 +209,14 @@ async function run(browser) {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.waitFor({ state: 'visible', timeout: 30_000 });
-	// The PDF row opens an options step with its own Download button; PowerPoint exports
-	// straight off the row.
-	if (ARTIFACT === 'pdf') await dialog.getByRole('button', { name: /^PDF/ }).click();
+	// Each row opens an options step with its own Download button. PowerPoint's step
+	// defaults to pictures (its "Editable text" switch off), the export this tool times.
+	await dialog.getByRole('button', { name: ARTIFACT === 'pdf' ? /^PDF/ : /^PowerPoint/ }).click();
 	const download = page.waitForEvent('download', { timeout: 900_000 });
 	const stopRss = sampleRss(PROCESS_MATCH[ENGINE]);
 	await page.evaluate(() => { window.__frameGaps.length = 0; });
 	const started = Date.now();
-	await dialog.getByRole('button', { name: ARTIFACT === 'pdf' ? /^Download PDF/ : /^PowerPoint/ }).click();
+	await dialog.getByRole('button', { name: ARTIFACT === 'pdf' ? /^Download PDF/ : /^Download PowerPoint/ }).click();
 	const file = await download;
 	const wall = Date.now() - started;
 	const peakRss = stopRss();
@@ -246,5 +261,5 @@ try {
 	}
 } finally {
 	await browser.close();
-	preview.kill();
+	stopPreview();
 }

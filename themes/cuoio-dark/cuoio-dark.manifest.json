@@ -1,0 +1,12 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "cuoio-dark",
+  "type": "theme",
+  "format": 1,
+  "role": "variant-dark",
+  "extends": "cuoio",
+  "family": "brand",
+  "modes": [
+    "dark"
+  ]
+}

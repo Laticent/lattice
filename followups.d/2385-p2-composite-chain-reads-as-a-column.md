@@ -2,6 +2,9 @@
 origin: 2385
 priority: P2
 recorded: 2026-09-27
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-25-flowchart-authoring.md
 ---
 
 # A long machine with a composite state lays out as one unreadable column

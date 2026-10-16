@@ -91,7 +91,7 @@ theme: indaco
 paginate: true
 header: "Running Header"
 footer: "Footer Text"
-logo: ../../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-on: all
 finish: atrium
 ---
@@ -136,7 +136,7 @@ footer: "Footer Text"
 
 <!-- _class: image -->
 
-![bg](../../lib/base/_logo/acme-logo.svg)
+![bg](sample:logo-acme-mark.svg)
 
 ## A photo panel, a scrim and a prose panel
 

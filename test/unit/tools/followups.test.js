@@ -16,6 +16,9 @@ const GOOD = `---
 origin: 42
 priority: P1
 recorded: 2026-09-22
+area: engine
+severity: medium
+swimlane: followups.d/README.md §The contract
 ---
 
 # Fix the thing
@@ -73,4 +76,29 @@ test('a backfilled item is exempt from the `done when` line', () => {
 test('a heading inside a code fence is not the title', () => {
   const body = GOOD.replace('# Fix the thing\n', '```text\n# not a title\n```\n');
   assert.ok(followupProblems(folder({ '42-p1-x.md': body })).some((p) => /heading/.test(p)));
+});
+
+test('area must be an area:* label from .github/labels.json', () => {
+  assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('area: engine', 'area: backend') })).some((p) => /area:/.test(p)));
+  assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('area: engine\n', '') })).some((p) => /area:/.test(p)));
+});
+
+test('severity is high, medium or low — critical is sent to an issue', () => {
+  assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('severity: medium', 'severity: P1') })).some((p) => /severity:/.test(p)));
+  const [p] = followupProblems(folder({ '42-p1-x.md': GOOD.replace('severity: medium', 'severity: critical') }));
+  assert.match(p, /belongs on an issue/);
+});
+
+test('swimlane must name a path that exists', () => {
+  assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('swimlane: followups.d/README.md §The contract\n', '') })).some((p) => /swimlane/.test(p)));
+  const [p] = followupProblems(folder({ '42-p1-x.md': GOOD.replace('followups.d/README.md', 'engineering/no-such-note.md') }));
+  assert.match(p, /not a file in the repo/);
+  for (const bad of ['engineering/decisions', '../outside.md']) {
+    assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('followups.d/README.md', bad) })).some((q) => /not a file/.test(q)), bad);
+  }
+});
+
+test('the listing carries area, severity and swimlane', () => {
+  const [i] = listFollowups(folder({ '42-p1-x.md': GOOD }));
+  assert.deepEqual([i.area, i.severity, i.swimlane], ['engine', 'medium', 'followups.d/README.md §The contract']);
 });

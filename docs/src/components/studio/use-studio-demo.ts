@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { notify } from '@/lib/notify';
 import type { StopReason } from '../../lib/vetrina';
-import { useWalkthrough } from '../../lib/vetrina/react';
+import { useLazyWalkthrough } from '../../lib/vetrina/react';
 import { buildTypeOps } from './demo-typing';
 import type { StudioActions } from './studio-actions';
-import { buildTour, DEFAULT_TOUR } from './tours';
+import { DEFAULT_TOUR, loadTours } from './tours';
+import type { buildTour as BuildTour } from './tours/build';
 
 // useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
 // Studio. StudioShell has no ref/context (all state is closure-local), so the demo is
@@ -37,25 +38,18 @@ export type StudioDemoBindings = {
 	goToSlide: (index: number) => void;
 	setView: (view: 'compose' | 'fabricate') => void;
 	setArchitectOpen: (open: boolean) => void;
-	setArchitectTab: (tab: 'coach' | 'chat') => void;
 	setInspectorOpen: (open: boolean) => void;
-	/** Point the (real) Inspector at a scope — 'slide' for per-slide settings,
-	 *  'deck' for deck-wide. The demo drives the SAME panel the author uses. */
-	setInspectorScope: (scope: 'slide' | 'deck') => void;
 	applyPalette: (name: string) => void;
 	toggleMode: () => void;
 	setPresentOpen: (open: boolean) => void;
 	setShareOpen: (open: boolean) => void;
 	/** Open/close the deck switcher dropdown (the "create a new deck" opener). */
 	setDeckMenuOpen: (open: boolean) => void;
-	/** The slide scope's commit funnel — apply a pure transform to the active slide. */
-	mutateSlide: (fn: (chunk: string) => string) => void;
 	/** Swap the phone's single Edit/Preview pane (mobile only). */
 	setMobilePane: (pane: 'edit' | 'preview') => void;
 	/** True on a phone (≤699px). Selects the phone-native single-pane storyboard, and starts
 	 *  the run on the Preview pane so the fresh deck's editor is minted blank on first swap. */
 	mobile: boolean;
-	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
 	setFocus: (on: boolean) => void;
 	/** Set the persisted posture. The tour runs on the full surface (Craft), where the
@@ -85,7 +79,11 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 	// The generic run lifecycle (single-flight start, stop, active state, unmount teardown)
 	// lives in the shared `useWalkthrough` adapter. This hook supplies only the Studio-specific
 	// configuration — snapshot the global look, clear the shell, bind the setters — at start().
-	const demo = useWalkthrough<StudioActions>(rootRef, () => {
+	// The scripts' builder, set by the engine load below before `configure` runs.
+	const buildRef = React.useRef<typeof BuildTour | null>(null);
+	const demo = useLazyWalkthrough<StudioActions>(rootRef, () => {
+		const buildTour = buildRef.current;
+		if (!buildTour) return null;
 		const b = bindRef.current;
 
 		// Snapshot only the GLOBAL look the demo flourishes with — palette (from state, so
@@ -115,24 +113,6 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
 			createFirstDeck: () => bindRef.current.createFirstDeck(),
 			gotoSlide: (i) => bindRef.current.goToSlide(i),
-			// The reskin beat is deck-wide — point the real Inspector at deck scope.
-			openInspector: (o) => {
-				if (o) bindRef.current.setInspectorScope('deck');
-				bindRef.current.setInspectorOpen(o);
-			},
-			setPalette: (n) => bindRef.current.applyPalette(n),
-			toggleMode: () => bindRef.current.toggleMode(),
-			openArchitect: (o) => bindRef.current.setArchitectOpen(o),
-			setArchitectTab: (t) => bindRef.current.setArchitectTab(t),
-			openPresent: (o) => bindRef.current.setPresentOpen(o),
-			openShare: (o) => bindRef.current.setShareOpen(o),
-			// "Every slide has its own controls" — the SAME right-hand panel the author
-			// uses, at slide scope. No separate modal drawer; the demo drives the real UI.
-			openSlideSettings: (o) => {
-				if (o) bindRef.current.setInspectorScope('slide');
-				bindRef.current.setInspectorOpen(o);
-			},
-			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
 			setMobilePane: (pane) => bindRef.current.setMobilePane(pane),
 		};
 
@@ -202,7 +182,14 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				notify(reason === 'complete' ? 'Demo complete — the deck is yours to edit.' : 'Demo ended — the deck is yours to edit.');
 			},
 		};
-	});
+	}, () =>
+		// The engine and the tour scripts load together on the first start (route budget: neither
+		// is in the Studio's startup bundle).
+		Promise.all([import('../../lib/vetrina/index.js'), loadTours()]).then(([engine, tours]) => {
+			buildRef.current = tours.buildTour;
+			return engine;
+		}),
+	);
 
 	// startDemo(id) records the tour, THEN starts — the run's configure closure reads the ref.
 	const startDemo = React.useCallback(
@@ -210,7 +197,9 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			// Coerce defensively: some entry points wire startDemo straight to onClick/onSelect,
 			// which would pass a DOM event — anything non-string means "the default tour."
 			tourIdRef.current = typeof tourId === 'string' ? tourId : DEFAULT_TOUR;
-			demo.start();
+			// A refused start (a lesson already holds Vetrina's one run) or a failed chunk load leaves
+			// the Studio as it was; the hook has already unlatched `active`.
+			demo.start().catch(() => notify('The tour could not start. If a lesson is running, finish or close it first.'));
 		},
 		[demo.start],
 	);

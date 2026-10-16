@@ -102,7 +102,7 @@ const SURFACES = [
   { id: 'seq-ramp @ indaco', deck: path.join(ROOT, 'examples/seq-ramp-canvas-aware.md'), palette: 'indaco', minRows: 60 },
 ];
 
-// The decorative-exemption predicates are shared with `palette-sweep.test.js`; the
+// The decorative-exemption predicates are shared with `palette-sweep.suite.js`; the
 // per-surface `counts` pinned below belong to THIS gate's SURFACES. See that module.
 const { SANCTIONED_CONTRAST_EXEMPTIONS } = require('../../../tools/contrast-exemptions.js');
 
@@ -171,7 +171,7 @@ const PREEXISTING_CONTRAST_BACKLOG = [
  * share cap. Measured: **841 of 3888 runs (21.6%) are excluded this way.**
  *
  * An adversarial review turned that into a working attack. Softening `--text-muted` in
- * `themes/indaco.css` by one line drove **297 runs to 1.17:1** — wifi field labels and
+ * `themes/indaco/indaco.css` by one line drove **297 runs to 1.17:1** — wifi field labels and
  * logo-wall captions visibly gone from the render — and `npm test`, `build:check`, the
  * palette suite and this gate all stayed green. The tool printed "(+297 in the
  * WCAG-exempt decorative tier, not counted)" and exited 0.

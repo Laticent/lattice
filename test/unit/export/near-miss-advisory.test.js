@@ -29,7 +29,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const SRC = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+const SRC = fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8');
 const CORPUS = fs.readFileSync(path.join(ROOT, 'tools', 'check-overflow-corpus.js'), 'utf8');
 const { FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('../../../lib/core/overflow-probe');
 
@@ -86,9 +86,9 @@ describe('the near-miss advisory (#2252)', () => {
     // wording, they would police a string nobody prints — the vacuous shape this test
     // has now been caught in twice.
     assert.match(SRC, /for \(const line of formatNearMissAdvisory\(quiet\)\) console\.warn\(line\);/,
-      'lattice-emulator.js must print the kernel formatter output');
+      'lattice.js must print the kernel formatter output');
     assert.equal(/INSIDE THE FIT TOLERANCE/.test(SRC), false,
-      'the advisory text must not be re-inlined in lattice-emulator.js');
+      'the advisory text must not be re-inlined in lattice.js');
   });
 
   test('and prints NOTHING ELSE from that block', () => {
@@ -105,7 +105,7 @@ describe('the near-miss advisory (#2252)', () => {
     //
     // So the block is pinned as a whole: exactly one call, and it is the loop.
     const start = SRC.indexOf('if (nearMiss.length)');
-    assert.notEqual(start, -1, 'the #2252 advisory block must still be in lattice-emulator.js');
+    assert.notEqual(start, -1, 'the #2252 advisory block must still be in lattice.js');
     const block = SRC.slice(start, SRC.indexOf('\n  }\n', start));
     const warns = [...block.matchAll(/console\.warn\(/g)];
     assert.equal(warns.length, 1,
@@ -149,7 +149,7 @@ describe('the near-miss advisory (#2252)', () => {
       'the advisory band must be a real band — a floor at or above the tolerance reports nothing');
     // HARD RULE #1: one source. A bare `12` back in any of the four places it used to
     // live would re-open the drift this consolidated.
-    assert.equal(/const TOL = 12;/.test(SRC), false, 'lattice-emulator.js must read FRAME_TOLERANCE');
+    assert.equal(/const TOL = 12;/.test(SRC), false, 'lattice.js must read FRAME_TOLERANCE');
     const RUNTIME = fs.readFileSync(path.join(ROOT, 'lib', 'runtime', 'index.js'), 'utf8');
     assert.equal(/const TOL = 12;/.test(RUNTIME), false, 'lib/runtime/index.js must read FRAME_TOLERANCE');
   });

@@ -208,7 +208,14 @@ describe('every hydrator behaves the same on both surfaces, over its own fixture
 
 describe('the host, against markup it did not write', () => {
   test('an author element marked pending is not a figure: no capture waits on it, nothing erases it', async () => {
-    const win = page(`<p data-lattice-settle="pending">Author text.</p>\n\n${PLOT}`);
+    // Injected into the page, not rendered: the ENGINE drops an author's host markers
+    // (lib/plugins/author-markup.js), so this is markup from a page the engine did not render —
+    // an Export-to-Marp bundle (followups.d/2509-p4-marp-bundle-author-markers.md).
+    const win = page(PLOT);
+    const forged = win.document.createElement('p');
+    forged.setAttribute('data-lattice-settle', 'pending');
+    forged.textContent = 'Author text.';
+    win.document.body.prepend(forged);
     fakeLibrary(win);
     SURFACES.runtime(win)();
     assert.equal(await win.eval(settleBarrierScript(1000)), 0);

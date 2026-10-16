@@ -117,16 +117,31 @@ concurrency:
 # This mattered more than a red PR: until the same change, the `ci` gate accepted a
 # `cancelled` tier on merge_group too, and in the 39 completed queue runs from
 # 2026-09-29 to 2026-10-05, 11 merged with integration cut off mid-suite.
+#
+# SHARDED 2026-10-09: the job above is now four legs, `integration (node 22, shard
+# K/4)`, each capped at 25 min. The 41-run sample here describes the ONE-job suite,
+# so its numbers are history now, not the per-leg cap's basis. Merge-queue run
+# 37865229530 put that one job's test step at 25.4 min against ~10 min for every
+# other tier; the integration job's own comment has the per-leg measurement and the
+# balance. Re-sample the legs, not the sum, before moving the cap again.
+#
+# RE-SAMPLED 2026-10-12 (five green merge-queue runs after #2629; test step per leg,
+# slowest leg / mean): 1.08x, 1.12x, 1.24x, 1.20x, 1.08x (mean 1.14x). The slow leg moved
+# between runs (shard 4, 1, 2, 2, 2), so there is no file-balance signal to re-bless on; the
+# 1.24x run also had a slow `npm ci` and build on that leg's runner. The slowest whole job in
+# the five runs took 9:34, so the 25m cap is 2.6x that, inside the ~3x norm above. The owner
+# kept the weights and the cap (2026-10-12).
 
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
   # Splits a change into two independent tiers:
-  #   code  — affects rendering or the test suite → unit + integration
+  #   code  — affects rendering or the test suite → integration (+ golden-diff)
   #   docs  — affects the docs site (Astro) → docs-build
-  # An allowlist of roots, NOT "everything that isn't prose": a docs-site-only
-  # change (docs/**) no longer drags the whole engine unit+integration
-  # pipeline, and prose (README, design/, engineering/, *.md) runs only the
-  # always-on lint. Decks count as code (they affect rendering) and live inside
+  # `lint` and `unit` are always on (see the note above `unit` for why unit
+  # left this filter). An allowlist of roots, NOT "everything that isn't
+  # prose": a docs-site-only change (docs/**) no longer drags the engine
+  # integration pipeline, and prose (README, design/, engineering/, *.md) runs
+  # only the always-on lint and unit. Decks count as code (they affect rendering) and live inside
   # the listed roots — examples/, plus the gallery/baseline .md under lib/ and
   # test/. An engine change (lib/, themes/, dist/, …) sets BOTH, because the
   # docs build also reads the engine (loadAll + staged dist/ + themes/).
@@ -144,10 +159,12 @@ jobs:
       # that surface, read from the group's own diff (the `mq` step).
       player: ${{ steps.filter.outputs.player == 'true' || steps.mq.outputs.player == 'true' }}
     steps:
+      # One commit on every event. The merge group's diff needs its base commit too, and the `mq`
+      # step fetches that one commit shallow: `fetch-depth: 0` pulled the whole history and took a
+      # median 1:32 (1:01-2:38 over five queue runs, 2026-10-12) before any gated job could start.
       - uses: actions/checkout@v4
         with:
-          # The merge group's diff needs its base commit; a PR run needs one commit.
-          fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}
+          fetch-depth: 1
       - name: Player files in the merge group
         id: mq
         if: github.event_name == 'merge_group'
@@ -155,6 +172,9 @@ jobs:
           BASE: ${{ github.event.merge_group.base_sha }}
           HEAD: ${{ github.event.merge_group.head_sha }}
         run: |
+          git fetch --no-tags --depth=1 origin "$BASE"
+          # Fail loudly if the base is still missing: a diff error inside the `if` below would read as "no player files".
+          git cat-file -e "$BASE^{commit}"
           if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$)'; then
             echo "player=true" >> "$GITHUB_OUTPUT"
           else
@@ -188,8 +208,7 @@ jobs:
               # it — build:check would catch the resulting dist staleness, but
               # only after the render tier had been skipped.
               - 'kit/**'
-              - 'lattice-emulator.js'
-              - 'mermaid-v11-min.js'
+              - 'lattice.js'
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
@@ -220,6 +239,9 @@ jobs:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The no-PDF check below diffs GitHub's test merge against its first parent.
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -227,22 +249,29 @@ jobs:
       - run: npm ci
       - name: Lint
         run: npm run lint
+      # Pull requests do not commit PDFs: the nightly bless bot is their one writer
+      # (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.3; inside this job by
+      # the owner's decision of 2026-10-07). About a second.
+      - name: No committed PDF in this PR
+        if: github.event_name == 'pull_request'
+        env:
+          PR_FROM_SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: node tools/check-no-pdf-in-pr.mjs
       - name: Lint decks
         # Author-facing footgun checks across every deck (--strict): both
         # errors (card-style inline-title, ordered-list bold) and warnings
         # (unknown _class tokens) fail.
         run: npm run lint:deck:all
       # ── Artifact freshness — ALWAYS runs, on EVERY PR ──────────────────────
-      # build:check regenerates EVERY committed generated artifact (dist bundles,
-      # spec docs, the capability + DECISION indexes, dist README) and byte-diffs.
-      # ONE exception, deliberately: the decision index is checked for CONTENT rather
-      # than bytes — every note has its own correct entry — because a byte-diff there
-      # cannot be satisfied by two decision-doc PRs sharing the queue, and ejected one
-      # of them (#1547, decisions/2026-08-10-decisions-index-merge-queue-race.md).
+      # build:check regenerates EVERY committed generated artifact (spec docs, component
+      # docs, catalogs) and byte-diffs, and runs the SOURCE validators of the three
+      # generated indexes (capabilities, decisions, gotchas), which are built into
+      # dist/engineering/ and never committed
+      # (decisions/2026-10-09-generated-indexes-uncommitted.md).
       # It lives in this ALWAYS-ON job, deliberately NOT behind the code/docs paths
       # filter, because some of its inputs match NEITHER filter — e.g. a new
-      # engineering/decisions/*.md stales engineering/decisions/README.md, and
-      # engineering/** is in no filter. Gating it let a stale generated file pass a
+      # engineering/decisions/*.md with malformed front-matter fails the decision-index
+      # validator, and engineering/** is in no filter. Gating it let a stale generated file pass a
       # docs/prose-only PR's green checks and then FAIL in the merge queue (which
       # forces the full suite on merge_group), ejecting the PR *silently* — the exact
       # trap this closes. Render-free + deterministic (a pure byte-diff), so it's
@@ -266,7 +295,7 @@ jobs:
       - name: Artifact freshness gate (committed artifacts, no render)
         run: npm run build:check
 
-  # ── Unit — code changes only ────────────────────────────────────────────
+  # ── Unit — every PR, whatever it touches ────────────────────────────────
   # The engines claim is `>=22`. The FULL unit suite runs on 22; on 24 a
   # representative engine smoke subset (core/engine/parsing/
   # transformers) confirms cross-version compat without paying 2× the whole
@@ -276,9 +305,17 @@ jobs:
   # `code`; it moved to the ALWAYS-ON `lint` job so a stale generated file can't
   # slip past a docs/prose-only PR and then eject it from the merge queue (see the
   # lint job + engineering/decisions/2026-07-22-freshness-gate-always-on.md).
+  # NOT gated on the `code` filter, unlike `integration`. Unit tests read far
+  # more than code: the US-English audit walks every .md, changelog-fragments
+  # reads changelog.d/, workflows-meta reads .github/, ~84 files read docs/src.
+  # Gated on `code`, a prose/docs/config-only PR (10 of 42 PR branches,
+  # 2026-09-30..10-06) first ran these tests in the merge queue, where a failure
+  # ejects the PR and re-tests its whole group. Pre-push used to cover that gap
+  # until PR #2554 dropped `npm test` from it (390s per push). Running here
+  # costs ~12 runner-minutes per run on those PRs (whole jobs incl. install and
+  # build, measured on PR #2554: node 22 457s + node 24 260s), and a prose-only
+  # PR now waits ~7.5 min for `ci` instead of ~1 min.
   unit:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -322,13 +359,11 @@ jobs:
       #
       # WHAT IT DOES NOT CATCH, and this is deliberate, not a gap to close. The
       # step delegates to each generator's --check, and those semantics differ ON
-      # PURPOSE (build.js's own note above the STEPS table): build-decisions-index
-      # verifies that every note has exactly one correctly-formatted row, NOT that
-      # the file equals a regeneration, so two decision-doc PRs can share the merge
-      # queue without ejecting each other (#1547). Demonstrated consequences —
-      # reversing that index's sort, or appending to an AUTHORED *.gallery.md
-      # (build-component-docs checks those for existence only), both leave this
-      # step green. Anything wanting a true byte-diff has to say so in its own
+      # PURPOSE (build.js's own note above the STEPS table): the three index
+      # generators validate their SOURCES and never read their (uncommitted) output.
+      # Demonstrated consequence — appending to an AUTHORED *.gallery.md
+      # (build-component-docs checks those for existence only) leaves this step
+      # green. Anything wanting a true byte-diff has to say so in its own
       # generator; do not "fix" it here, because rebuilding and git-diffing the
       # tree is exactly what re-opened #1547 once already.
       #
@@ -384,14 +419,54 @@ jobs:
   # runner-minute is cheaper than a person waiting. The saved minutes on a red run are
   # the price; the aggregate `ci` gate below still requires BOTH, so nothing merges on
   # a red unit tier.
+  #
+  # SHARDED FOUR WAYS (2026-10-09). As one job the PR slice took 25.4 min of test step
+  # on one 4-vCPU runner (merge_group run 37865229530), and every other tier was done
+  # by ~10 min, so it alone set the length of every CI run, twice per PR (once on the
+  # PR, once in the queue). Each leg runs every fourth file: `node --test
+  # --test-shard=K/N` keeps the files whose index is K-1 mod N. That is by FILE COUNT,
+  # not time: the first real runs took 9:43 / 5:42 / 7:05 / 3:51 (slowest leg 1.49x the
+  # mean). `tools/shard-tests.js` replaced it on 2026-10-11: it deals the files out
+  # slowest-first into the lightest leg, using per-file seconds committed in
+  # `test/integration/shard-weights.json`. Modelled on the weights, the four legs
+  # plan to 1032s each (max/mean 1.00; the old split models at 1.49). A leg still
+  # cannot finish before its slowest file does (export-formats and html-player,
+  # about 330-340s alone), so the palette sweep stays one file per deck.
+  #
+  # The shard rides in the SHARD env var; unset, the script runs every file, so
+  # `npm run test:integration:shard` is the unsharded run locally. A file with no
+  # weight gets the median, so a new test is placed roughly until the next re-bless
+  # (`tools/shard-tests.js --bless`, see engineering/development.md). The glob list
+  # lives in package.json, in step with `test:integration:pr`.
+  #
+  # The aggregate `ci` gate still reads ONE `needs.integration.result` for all four
+  # legs: `success` only when every leg succeeded, `failure` when any failed, and
+  # `cancelled` when one was cut off and none failed — the same three values the
+  # single job produced, so the Verify gate below needed no change.
+  # `fail-fast: false` so a red leg does not cancel the other three: one run then
+  # names every failing file, instead of one fix-and-rerun round per leg.
   integration:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # Raised 25 -> 45 on 2026-10-05: the suite outgrew 25 (the INTEGRATION RE-SAMPLE
-    # note at the top of this file has the numbers).
-    timeout-minutes: 45
-    name: integration (node 22)
+    # PER LEG. Raised 25 -> 45 on 2026-10-05 when the unsharded suite outgrew 25 (the
+    # INTEGRATION RE-SAMPLE note at the top of this file has the numbers); cut to
+    # 25 on 2026-10-09 with the four-way shard.
+    # Measured on a 4-vCPU sandbox, each leg run alone (2026-10-09): test step
+    # 535s / 343s / 502s / 230s, summing to 27 min, about the unsharded CI step. The
+    # 1.75x slow-runner factor the re-sample found makes the worst leg ~16 min of
+    # tests plus ~2 min of install and build, so 25 is ~1.4x that and ~2.3x a normal
+    # leg. Re-derive it from real runs once the matrix has a week of history.
+    # BALANCED BY WEIGHT since 2026-10-11 (tools/shard-tests.js). Before that, legs 1
+    # and 3 drew three of the slowest files each and leg 4 none, so the critical path was
+    # leg 1. Re-check the spread from real runs: the legs should land within ~1.2x of
+    # their mean. If they drift, re-bless the weights.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    name: integration (node 22, shard ${{ matrix.shard }}/4)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -399,6 +474,8 @@ jobs:
           node-version: 22
           cache: npm
       - name: Cache Puppeteer browser
+        # All four legs share this key. On a cold key each leg downloads Chromium and
+        # one of them saves it; the others log "unable to reserve cache" and go on.
         uses: actions/cache@v4
         with:
           path: ~/.cache/puppeteer
@@ -420,8 +497,12 @@ jobs:
       # `--check` after it passes vacuously and stops being a gate at all.
       - name: Build the generated bundles
         run: npm run build
-      - name: Integration tests (PR slice)
-        run: npm run test:integration:pr
+      - name: Integration tests (PR slice, one shard)
+        env:
+          # `strategy.job-total` rather than a literal 4, so resizing the matrix
+          # cannot leave a file in no leg or in two.
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: npm run test:integration:shard
       - name: Upload Marp renders on failure
         # The marp-kit render gate exists because every defect it guards was
         # VISIBLE ON THE FIRST PAGE OF A PDF. A red run that leaves nothing to look
@@ -430,7 +511,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: marp-renders
+          # One name per leg: upload-artifact@v4 refuses a second artifact with
+          # the same name in one run, so two red legs would lose the second upload.
+          name: marp-renders-shard-${{ matrix.shard }}
           path: .scratch/marp-render/
           if-no-files-found: ignore
           retention-days: 7
@@ -464,25 +547,29 @@ jobs:
   # ── Golden before/after — post the intended visual change on the PR ────────
   # Informational, NON-gating (the integration tier's semantic-invariant suite is
   # the visual-correctness blocker). Diffs
-  # THIS PR's committed goldens against the base branch, rasterizes only the slides
-  # that VISUALLY changed (pixel-diff filters out PDF byte-churn from a rebuild),
-  # and posts/updates a sticky PR comment ("N slides changed in {galleries}") with
-  # the before │ after │ overlay montages embedded INLINE. Inline images need a
-  # URL GitHub will serve, so the PNGs are hosted on the orphan `ci-drift-images`
+  # THIS PR's committed goldens against the base branch AND, with --render-affected,
+  # renders the goldens the PR's sources can move and diffs those too (so it needs
+  # Chromium). It rasterizes only the slides that VISUALLY changed (pixel-diff filters
+  # out PDF byte-churn from a rebuild), and posts/updates a sticky PR comment ("N slides
+  # changed in {galleries}") with the before │ after │ overlay montages embedded INLINE.
+  # The comment also carries a `golden-diff-changed` marker naming every golden it
+  # showed, which the nightly bless reads (golden-bless.yml, rule 4). Inline images need
+  # a URL GitHub will serve, so the PNGs are hosted on the orphan `ci-drift-images`
   # branch (a pure image store, never merged) and the comment links raw URLs; the
-  # full set also uploads as the `golden-diff-changes` artifact. No rendering → no
-  # Chromium; just poppler + ImageMagick over the committed PDFs. See
-  # tools/golden-diff.mjs.
+  # full set also uploads as the `golden-diff-changes` artifact. See
+  # tools/golden-diff.mjs and engineering/decisions/2026-10-06-goldens-bot-blessed.md.
   golden-diff:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    # Pinned to the image golden-bless.yml blesses on: what a PR is shown must be what the
+    # bot will commit. Move both together, in one PR.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: write # push before/after PNGs to the orphan ci-drift-images branch
       pull-requests: write
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: '1'
+    # No PUPPETEER_SKIP_DOWNLOAD: --render-affected renders goldens, so `npm ci` fetches
+    # Chromium, cached on the same key as the integration job's.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -501,8 +588,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install poppler-utils + ImageMagick
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install poppler-utils + ImageMagick + color emoji font
+        # The emoji font for the same reason as the integration job: the renders must
+        # match the ones that blessed the goldens.
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the montage PDF)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
@@ -516,7 +610,11 @@ jobs:
       - name: Build the generated bundles
         run: npm run build
       - name: Compute golden before/after
-        run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }}
+        # --render-affected renders the goldens this PR's sources can move and diffs them
+        # against base, so a PR shows its visual change without committing a PDF
+        # (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.2). Capped at 40
+        # renders; a shared change measured ~5m40s for the full cap in the sandbox.
+        run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }} --render-affected
       - name: Upload montage artifact
         uses: actions/upload-artifact@v4
         with:
@@ -531,9 +629,11 @@ jobs:
         # store, never merged) and the comment embeds raw.githubusercontent.com
         # URLs. Same-repo PRs only — a fork PR's GITHUB_TOKEN is read-only and
         # can't push; those fall back to the table + downloadable artifact.
+        # Also the rendered PDF of a deck or gallery new on this PR (goldens step 3: PRs
+        # no longer commit PDFs, so this link is how a reviewer opens the new deck).
         if: >-
           github.event.pull_request.head.repo.full_name == github.repository &&
-          hashFiles('.scratch/golden-diff/montages/*.png') != ''
+          (hashFiles('.scratch/golden-diff/montages/*.png') != '' || hashFiles('.scratch/golden-diff/montages/*.pdf') != '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
@@ -554,7 +654,9 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           rm -rf "pr-${PR}" # keep only this PR's latest commit → bound branch growth
           mkdir -p "$DEST"
-          cp "$GITHUB_WORKSPACE"/.scratch/golden-diff/montages/*.png "$DEST"/
+          for f in "$GITHUB_WORKSPACE"/.scratch/golden-diff/montages/*.png "$GITHUB_WORKSPACE"/.scratch/golden-diff/montages/*.pdf; do
+            if [ -e "$f" ]; then cp "$f" "$DEST"/; fi
+          done
           git add -A
           git commit -q -m "ci(golden-diff): #${PR} @ ${SHA:0:7} before/after montages" \
             || echo "no image delta (tree already matches branch tip)"
@@ -607,6 +709,22 @@ jobs:
                 : '';
               const n = imgs.length, of = report.inlineCapped ? ` (of ${report.montages.length})` : '';
               body += `\n<details><summary>🖼️ before │ after │ overlay — ${n} slide${n === 1 ? '' : 's'}${of}</summary>\n\n${blocks}${more}\n\n</details>\n`;
+            }
+
+            // Link the rendered PDF of every golden new on this PR. The nightly bless commits
+            // it to main after the merge; until then this is the PDF a reviewer opens.
+            const pdfs = report.addedPdfs || [];
+            if (process.env.PUBLISHED === 'true' && pdfs.length) {
+              const sha = context.payload.pull_request.head.sha;
+              const raw = `https://raw.githubusercontent.com/${context.payload.repository.full_name}/ci-drift-images/pr-${context.issue.number}/${sha}`;
+              body += '\n**📄 New on this PR, rendered by CI** (the nightly bless commits them after the merge):\n\n' +
+                pdfs.map((p) => `- [\`${p.name}\`${p.kind === 'gallery' ? ` · ${p.mood}` : ''}](${raw}/${p.file})`).join('\n') + '\n';
+            } else if (pdfs.length) {
+              // Nothing was published, so no one could open these PDFs: take them out of the
+              // `golden-diff-changed` marker, or the bless's rule 4 would count them as shown.
+              const unseen = new Set(pdfs.map((p) => p.relPath));
+              body = body.replace(/<!-- golden-diff-changed: ([^>]*) -->/, (_m, list) =>
+                `<!-- golden-diff-changed: ${list.split(',').filter((g) => g && !unseen.has(g)).join(',')} -->`);
             }
 
             body += '\n' + marker;
@@ -851,7 +969,7 @@ jobs:
         run: |
           echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
-          # tier that didn't apply — e.g. docs-only skips unit/integration); or
+          # tier that didn't apply — e.g. docs-only skips integration); or
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
           # (check-run conclusion / needs.<job>.result), not house prose, so HARD
           # RULE #21 does not reach it — a US-English sweep here makes both
@@ -955,7 +1073,9 @@ jobs:
             // this SHA — CodeQL, the advisory jobs, other workflows — is OUTSIDE the
             // claim, which is the whole point of the snapshot below.
             const COVERED = new Set(['changes', 'ci', 'lint', 'unit', 'integration', 'docs-build']);
-            const isCovered = (n) => COVERED.has(n) || /^(unit|integration) \(node \d+\)$/.test(n);
+            // `integration` runs as four legs named `integration (node 22, shard K/4)`.
+            const isCovered = (n) => COVERED.has(n)
+              || /^(unit|integration) \(node \d+(, shard \d+\/\d+)?\)$/.test(n);
 
             let failed = [];
             let pending = [];

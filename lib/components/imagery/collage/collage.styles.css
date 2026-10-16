@@ -1,0 +1,285 @@
+/* collage — imagery · canvas · structure
+ *
+ * Four to six photos packed edge to edge into one frame. The packer
+ * (lib/core/collage-pack.js) decides the grid at build time and the transform stamps it as
+ * inline `grid-template-*` and one `grid-area` per tile, so the PDF needs no JavaScript.
+ * See engineering/decisions/2026-10-11-collage-component.md.
+ *
+ * Palette-blind: every color goes through var(--token). No hex literals. No margin, only
+ * padding and gap (HARD RULE #20; a bare `margin: 0` reset is allowed). Unlayered (HARD RULE
+ * #26). Type comes from the slide frame's own masthead and body styles, never set here.
+ *
+ * Composition:
+ *   collage           text beside the photos (landscape decks). The slide frame's masthead and
+ *                     stage cells become a two-column grid; portrait and square decks stack.
+ *   collage above     text above the photos
+ *   collage bleed     the photos fill the slide; the text rides a solid card
+ *   collage mirror    text on the other side
+ * Fit (set by the packer, read here as --collage-snap):
+ *   tight (default)   no crop; leftover space is matte
+ *   fill              up to 8% crop closes the empty space
+ */
+
+section.collage {
+	--collage-gap-ratio: 0.012; /* must equal DEFAULT_GAP in lib/core/collage-pack.js */
+	--collage-snap: 0;
+	--collage-radius: var(--radius-sm);
+	--collage-text-w: 30%;
+	--collage-pop: 1.02;
+	--collage-recede: 0.45;
+}
+section.collage.fill {
+	--collage-snap: 0.08;
+}
+
+/* ── the fit cell: a size container the packed grid is fitted to ───────────────────── */
+section.collage .collage-fit {
+	flex: 1 1 0;
+	min-width: 0;
+	min-height: 0;
+	container-type: size;
+	display: grid;
+	place-items: center;
+}
+
+section.collage .collage-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	/* The box keeps the grid's own aspect (--collage-ar, stamped by the packer), widened or
+	 * narrowed by at most --collage-snap, and is as large as the cell allows. A wrong estimate
+	 * of the stage costs a little matte; it can never overflow. */
+	--collage-h: min(100cqh, 100cqw / (var(--collage-ar, 1.4) * (1 - var(--collage-snap))));
+	--collage-w: min(100cqw, 100cqh * var(--collage-ar, 1.4) * (1 + var(--collage-snap)));
+	width: var(--collage-w);
+	height: var(--collage-h);
+	gap: calc(var(--collage-h) * var(--collage-gap-ratio));
+}
+/* Unstamped (a surface that serves the engine's HTML without the build step or the runtime): an
+ * even grid, so the photos are never a stack of full-width pictures or an empty box. The packer's
+ * inline `grid-template-*` replaces it the moment a grid is stamped. */
+section.collage .collage-list {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+section.collage .collage-list:is([data-collage-n="5"], [data-collage-n="6"]) {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* the live preview is measuring the photos: hold the space, show nothing until it packs */
+section.collage .collage-list[data-collage="measuring"] {
+	visibility: hidden;
+}
+
+section.collage .collage-list > li {
+	list-style: none;
+	min-width: 0;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	border-radius: var(--collage-radius);
+	background: var(--bg-alt);
+	transition: opacity 0.18s ease, transform 0.18s ease;
+}
+section.collage .collage-list > li::before,
+section.collage .collage-list > li::marker {
+	content: none;
+	display: none;
+}
+section.collage .collage-list > li > img {
+	/* the tile owns the rounding; the base image radius would round the photo inside it again */
+	border-radius: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: var(--collage-focal, 50% 50%);
+}
+/* the photo is the keyboard button (the host stamps `tabindex`); its ring is drawn inside the tile,
+ * because the tile clips anything outside its box */
+section.collage .collage-list > li > img:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -4px;
+}
+/* a hint span that did not parse stays a pill; keep it out of the photo */
+section.collage .collage-list > li > code {
+	display: none;
+}
+
+/* ── no page number ─────────────────────────────────────────────────────────────────────
+ * The owner asked for no page number on a collage: the photos own the slide. The two arms below
+ * are the `no-paginate` pair from base.variants.css, written for this component so the author
+ * does not have to add `no-paginate`. The class is DOUBLED to reach (0,2,2) over the engine
+ * pagination pseudo (a single class changed zero pixels in image.styles.css). The header and
+ * footer stay; only `silent` removes those. Pinned by a pixel test. */
+section.collage.collage::after {
+	content: none;
+}
+section.collage.collage > .lat-pagination {
+	display: none;
+}
+
+/* ── hover and keyboard focus ──────────────────────────────────────────────────────── */
+/* Opacity only, so product colors stay true. Hover decides how a state LOOKS; the host
+ * (Playground, Studio, player) owns what a click does. `.is-hot` is how a host marks the
+ * tile its focus proxy holds. */
+@media (hover: hover) {
+	section.collage .collage-list:has(> li:hover) > li:not(:hover) {
+		opacity: var(--collage-recede);
+	}
+	section.collage .collage-list > li:hover {
+		transform: scale(var(--collage-pop));
+		transform-origin: var(--collage-origin, 50% 50%);
+		z-index: 1;
+	}
+}
+section.collage .collage-list:has(> li.is-hot) > li:not(.is-hot) {
+	opacity: var(--collage-recede);
+}
+section.collage .collage-list > li.is-hot {
+	transform: scale(var(--collage-pop));
+	transform-origin: var(--collage-origin, 50% 50%);
+	z-index: 1;
+}
+/* `_focus: item N` dims the others more softly on photos than on text cards */
+section.collage[data-focus-resolved] {
+	--focus-dim: 0.42;
+}
+@media (prefers-reduced-motion: reduce) {
+	section.collage .collage-list > li {
+		transition: none;
+	}
+}
+@media print {
+	section.collage .collage-list > li {
+		transition: none;
+	}
+}
+
+/* ── composition ───────────────────────────────────────────────────────────────────────
+ * `stage: "canvas"` means the frame does not wrap the body in a `.cell-stage`: the section's
+ * children are the header, the `.cell-masthead` (eyebrow, title, subtitle), the description
+ * paragraph, the `.collage-fit`, then the footer and page number, which sit on the frame's own
+ * bands. */
+
+/* text beside (default, landscape decks) */
+section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) {
+	display: grid;
+	grid-template-columns: minmax(0, var(--collage-text-w)) minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+	column-gap: var(--sp-xl);
+}
+section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > .cell-masthead {
+	grid-column: 1;
+	grid-row: 1;
+}
+section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > p {
+	grid-column: 1;
+	grid-row: 2;
+	align-self: start;
+}
+section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > .collage-fit {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+}
+/* a trailing paragraph after the photos becomes the frame's below-note: it spans both columns */
+section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > .cell-coda {
+	grid-column: 1 / -1;
+}
+/* mirror: the photos on the left, the text on the right */
+section.collage.mirror:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) {
+	grid-template-columns: minmax(0, 1fr) minmax(0, var(--collage-text-w));
+}
+section.collage.mirror:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > .cell-masthead,
+section.collage.mirror:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > p {
+	grid-column: 2;
+}
+section.collage.mirror:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > .collage-fit {
+	grid-column: 1;
+}
+
+/* The description is a plain paragraph straight under the header: the masthead's own rule (the
+ * `rule:` register styles it) is the only line, so there is no second hairline above the
+ * paragraph and no gap beneath the rule. The shared below-note rule (base.modifiers.css) draws
+ * a hairline on any paragraph that follows a block; the coda after the photos keeps it, and
+ * this paragraph, which follows the masthead, does not. The tripled class beats that rule's
+ * specificity without an `!important`. */
+section.collage.collage.collage > .cell-masthead + p {
+	padding-top: var(--sp-xs);
+}
+section.collage.collage.collage > .cell-masthead + p::before {
+	content: none;
+}
+
+/* above, and the stacked fallback for portrait and square decks: the frame's own column flow
+ * (masthead, description) with the photos filling what is left */
+section.collage:is(.above, [data-orientation="portrait"], [data-orientation="square"]) {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-md);
+}
+section.collage:is(.above, [data-orientation="portrait"], [data-orientation="square"]) > .cell-masthead,
+section.collage:is(.above, [data-orientation="portrait"], [data-orientation="square"]) > p {
+	flex: 0 0 auto;
+}
+
+/* bleed: the photos fill the whole slide, edge to edge. The header, footer and page number step
+ * aside (nothing is drawn over the photos but the title card), and the grid is stretched to the
+ * slide instead of keeping its own shape, so there are no bands above or below it. The packer
+ * solved the layout for the slide's own aspect, but a layout rarely matches it exactly, so the stretch
+ * crops each photo by the layout's `empty` share, which the packer's bleed weights keep to about 4% on
+ * average and a sixth for an awkward set (measured in engineering/decisions/2026-10-11-collage-component.md §11). */
+section.collage.bleed {
+	/* the gap stays at the packer's ratio; the tiles are stretched to the slide. The packer is given the
+	 * slide's real aspect (the CLI from the deck's size, the live path from the section's box) */
+	--collage-radius: 0;
+}
+section.collage.bleed > .collage-fit {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 0;
+}
+section.collage.bleed .collage-list {
+	--collage-h: 100cqh;
+	--collage-w: 100cqw;
+}
+section.collage.bleed > header,
+section.collage.bleed > footer {
+	display: none;
+}
+/* The text card rides over the photos at the top edge, at the frame's left inset. The section
+ * becomes a one-column grid for it: the title block and the description are two stacked items that
+ * share one column width and one translucent background, so they read as a single card with the
+ * header rule between them. The photos are out of flow (absolute), so the grid holds only the text.
+ * The card is translucent so the photo behind still shows. */
+section.collage.bleed {
+	display: grid;
+	grid-template-columns: fit-content(50%);
+	grid-template-rows: auto auto;
+	row-gap: 0;
+	align-content: start;
+	justify-content: start;
+	padding: 0 0 0 var(--frame-x);
+}
+section.collage.bleed > .cell-masthead,
+section.collage.bleed > p {
+	position: relative;
+	z-index: 2;
+	background: color-mix(in srgb, var(--bg) 84%, transparent);
+	padding-inline: var(--sp-lg);
+}
+section.collage.bleed > .cell-masthead {
+	grid-row: 1;
+	padding-top: var(--sp-md);
+}
+/* a description with no title block above it is the whole card: give it the card's own padding */
+section.collage.bleed > p {
+	padding-block: var(--sp-md);
+}
+section.collage.bleed.bleed.bleed > .cell-masthead + p {
+	grid-row: 2;
+	padding-top: var(--sp-xs);
+	padding-bottom: var(--sp-md);
+}

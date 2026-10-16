@@ -6,6 +6,13 @@
   "api": 1,
   "title": "Function plots",
   "description": "Plot y = f(x), parametric and polar curves from a JSON config fence, drawn in the browser by function-plot.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {"ink": "line", "d": "M18 14V110H118", "width": 7},
+      {"ink": "accent", "d": "M22 100C52 100 54 96 66 62C78 28 82 26 114 26", "width": 8}
+    ]
+  },
   "contributes": {
     "fences": {
       "functionplot": { "aliases": [{ "name": "latticeplot", "deprecated": true }], "body": "json" }
@@ -17,7 +24,15 @@
     }
   },
   "payload": {
-    "function-plot": { "from": "npm:function-plot/dist/function-plot.js", "global": "functionPlot", "when": "used" }
+    "function-plot": {
+      "from": "npm:function-plot/dist/function-plot.js",
+      "vendored": { "file": "vendor/function-plot.js", "version": "1.25.4", "sha256": "4e3cc6d8015e517b0356178bc6409405db2b31385ac655b657aaad7120b802d1" },
+      "global": "functionPlot",
+      "when": "used"
+    }
+  },
+  "vendor": {
+    "license": { "from": "npm:function-plot/LICENSE", "file": "vendor/function-plot.LICENSE", "version": "1.25.4", "sha256": "86afcfc89ecd82fcf71e87e1f7486cecefa878c73dd6f164445347f7d856d0f4" }
   },
   "tokens": [
     "--accent",

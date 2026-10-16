@@ -40,7 +40,7 @@
   specificity is equal.
 - **Changed: the 32-palette rendered sweep now sweeps two decks, not one.**
   `examples/gallery-jargon.md` joins `test/integration/baseline-decks/gallery.md`
-  in `test/integration/invariants/palette-sweep.test.js`; the ceiling table, the
+  in `test/integration/invariants/palette-sweep.suite.js`; the ceiling table, the
   drop-set pins and the provenance-sheet count are per-deck. It found a run on
   its first pass that no gate could see, because `gallery.md` does not write the
   markup that reaches it: a `kanban` card with a STATUS sub-bullet takes a

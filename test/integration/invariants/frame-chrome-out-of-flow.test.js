@@ -86,7 +86,7 @@ marp: true
 theme: indaco
 header: "Running Header"
 footer: "Footer Text"
-logo: ../../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-on: all
 logo-x: 50
 logo-y: 82
@@ -272,12 +272,12 @@ theme: indaco
 header: "Sweep"
 footer: "Sweep"
 paginate: true
-logo: ../../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-on: all
 ---
 
 ${['image clean', 'image spotlight', 'image statement', 'image gallery', 'image split']
-  .map((cls) => `<!-- _class: ${cls} -->\n\n![bg](../../lib/base/_logo/acme-logo.svg)\n\n## ${cls}\n\nProse over the photo.\n`)
+  .map((cls) => `<!-- _class: ${cls} -->\n\n![bg](sample:logo-acme-mark.svg)\n\n## ${cls}\n\nProse over the photo.\n`)
   .join('\n---\n\n')}
 ---
 

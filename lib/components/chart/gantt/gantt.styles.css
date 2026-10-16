@@ -13,7 +13,7 @@
  * chartToScene reads the first <svg> in the section, and a gantt had none, so
  * `motion-on` skipped the entire chart. The kernel now emits one <svg> whose
  * bars, milestones, ticks and key are all addressable nodes in a single
- * viewBox (chart-family.js buildGanttChart / GANTT_GEOM).
+ * viewBox (gantt.transform.js buildGanttChart / GANTT_GEOM).
  *
  * What that moves here: geometry is gone (the kernel owns x/y/width/height in
  * user units), and this file is purely PAINT — fills, strokes, ink, weight.
@@ -118,7 +118,7 @@
    * come from a static per-character advance in _chart-family/svg-label.js, and a
    * static advance cannot describe two faces. So the builder selects the constant
    * from the slide's `sketch` class (ADVANCE_MONO_TRACKED / ADVANCE_HAND_TRACKED,
-   * chart-family.js §gantt axis) — if you re-point this rule at another face, that
+   * gantt.transform.js §gantt axis) — if you re-point this rule at another face, that
    * selection is the other half of the change, or the math and the painted glyphs
    * desync. See 2026-08-13-sketch-mermaid-hand-drawn.md.
    *

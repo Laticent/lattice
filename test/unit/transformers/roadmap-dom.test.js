@@ -4,7 +4,7 @@
  *
  * roadmap is a chart-frame member: the chart-family transformer's applyToDom
  * dispatches to roadmap.transformRoadmapSection (the same HTML-string kernel
- * lattice-emulator.js (via lib/engine) uses) — tagging the table's cells and,
+ * lattice.js (via lib/engine) uses) — tagging the table's cells and,
  * under the `horizons` variant, transposing the table into phase cards — then
  * wraps the figure in .roadmap-figure inside the chart-frame skeleton. These
  * tests run in jsdom (the lattice-runtime.js path) and assert the framed DOM.

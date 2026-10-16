@@ -11,8 +11,10 @@
 
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
 	CEILING_PCT,
@@ -20,6 +22,9 @@ import {
 	evaluateAllowance,
 	evaluateRoute,
 	freeBytes,
+	LAZY_BUDGET_ROUTE,
+	METRICS,
+	measure,
 	newestHistory,
 	PR_ALLOWANCE_BYTES,
 	parseDeclarations,
@@ -139,6 +144,94 @@ describe('rebaseline', () => {
 		const { changes } = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true });
 		expect(changes).toEqual([{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 710_000, hardFrom: 700_000, hardTo: ceilingFor(710_000) }]);
 	});
+
+	it('adopts a metric the route has no budget for as a raise from 0, and skips one it does not ship', () => {
+		const measured = { studio: { eagerJsGz: 660_000, engineJsGz: 900_000, htmlRaw: 192_000 }, home: { eagerJsGz: 80_000, engineJsGz: 0, htmlRaw: 100_000 } };
+		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT }).refused.map((c) => `${c.route}.${c.metric}`)).toEqual(['studio.engineJsGz']);
+		const { changes } = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true });
+		expect(changes).toEqual([{ route: 'studio', metric: 'engineJsGz', from: 0, to: 900_000, hardFrom: 0, hardTo: ceilingFor(900_000) }]);
+		expect(routes.studio.engineJsGz, 'rebaseline stays pure').toBeUndefined();
+	});
+});
+
+// The lazy metrics on a fixture dist: small, built here, no real build needed.
+describe('the lazy metrics', () => {
+	const gz = (s) => zlib.gzipSync(Buffer.from(s), { level: 6 }).length;
+	function fixture({ lint = true, kernels = true } = {}) {
+		const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-'));
+		const put = (rel, text) => {
+			fs.mkdirSync(path.dirname(path.join(dist, rel)), { recursive: true });
+			fs.writeFileSync(path.join(dist, rel), text);
+		};
+		const esm = 'playground/v/abc123/esm';
+		put('studio/index.html', `<script type="module" src="/_astro/app.x.js"></script><script src="/${esm}/engine.js"></script>`);
+		put('_astro/app.x.js', 'import"./shared.x.js";');
+		put('_astro/shared.x.js', 'export const s="shared";');
+
+		put(`${esm}/engine.js`, 'import"./chunk-core.js";');
+		put(`${esm}/chunk-core.js`, 'export const core="engine";');
+		if (lint) put(`${esm}/lint.js`, 'import"./chunk-core.js";import"./chunk-md.js";export const lint=1;');
+		put(`${esm}/chunk-md.js`, 'export const md="only the lint core loads me";');
+		if (kernels) {
+			put(`${esm}/chart-small.js`, 'import"./chunk-core.js";export const k=1;');
+			put(`${esm}/chart-big.js`, 'import"./chunk-core.js";import"./chunk-big.js";export const k=2;');
+			// Random, so gzip cannot shrink it: chart-big stays the largest when chart-small grows.
+			put(`${esm}/chunk-big.js`, `export const big=${JSON.stringify(Array.from({ length: 40 }, () => Math.random().toString(36).slice(2)).join(''))};`);
+		}
+		return dist;
+	}
+
+	it('counts the largest kernel and the lint core beyond what the route already loaded', () => {
+		const dist = fixture();
+		const m = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
+		const read = (rel) => fs.readFileSync(path.join(dist, rel), 'utf8');
+		const esm = 'playground/v/abc123/esm';
+		expect(m.chartKernel).toBe('chart-big.js');
+		expect(m.chartKernelGz).toBe(gz(read(`${esm}/chart-big.js`)) + gz(read(`${esm}/chunk-big.js`)));
+		expect(m.lintCoreGz).toBe(gz(read(`${esm}/lint.js`)) + gz(read(`${esm}/chunk-md.js`)));
+		// The union counts every kernel and every chunk beyond the engine once; chunk-core is the engine's.
+		expect(m.chartKernelsGz).toBe(gz(read(`${esm}/chart-big.js`)) + gz(read(`${esm}/chunk-big.js`)) + gz(read(`${esm}/chart-small.js`)));
+	});
+
+	it('fails the union when a kernel that is NOT the largest grows, which the largest alone cannot see', () => {
+		// The mutation note §11 names: grow chart-small by a chunk of its own, still well under
+		// chart-big. chartKernelGz does not move; chartKernelsGz does, and past a 10% ceiling.
+		const dist = fixture();
+		const esm = 'playground/v/abc123/esm';
+		const before = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
+		const ledger = { chartKernelGz: { soft: before.chartKernelGz, hard: ceilingFor(before.chartKernelGz) }, chartKernelsGz: { soft: before.chartKernelsGz, hard: ceilingFor(before.chartKernelsGz) } };
+		fs.writeFileSync(path.join(dist, `${esm}/chart-small.js`), 'import"./chunk-core.js";import"./chunk-grow.js";export const k=1;');
+		// Incompressible and well past 10% of the union, so a zlib change cannot move the verdict.
+		fs.writeFileSync(path.join(dist, `${esm}/chunk-grow.js`), `export const g=${JSON.stringify(Array.from({ length: 20 }, () => Math.random().toString(36).slice(2)).join(''))};`);
+		const after = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
+		expect(after.chartKernel).toBe('chart-big.js');
+		expect(after.chartKernelGz).toBe(before.chartKernelGz);
+		const { problems } = evaluateRoute(LAZY_BUDGET_ROUTE, after, ledger);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatch(/chartKernelsGz.*EXCEEDS its ceiling/);
+	});
+
+	it('measures them on the lazy budget route only', () => {
+		const m = measure('home', 'studio/index.html', fixture());
+		for (const metric of ['chartKernelGz', 'chartKernelsGz', 'lintCoreGz']) expect(m).not.toHaveProperty(metric);
+	});
+
+	it('throws, rather than reporting zero, when the lint core or the kernels are gone', () => {
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ lint: false }))).toThrow(/lint\.js is missing/);
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ kernels: false }))).toThrow(/no chart-\*\.js kernels/);
+	});
+
+	it('throws when the engine imports a chart kernel statically, rather than banking a fake win', () => {
+		const dist = fixture();
+		fs.writeFileSync(path.join(dist, 'playground/v/abc123/esm/engine.js'), 'import"./chunk-core.js";import"./chart-small.js";');
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).toThrow(/chart-small\.js statically.*back on startup/);
+	});
+
+	it('throws when the engine imports the lint core statically, rather than banking a fake win', () => {
+		const dist = fixture();
+		fs.writeFileSync(path.join(dist, 'playground/v/abc123/esm/engine.js'), 'import"./chunk-core.js";import"./lint.js";');
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).toThrow(/back on startup/);
+	});
 });
 
 describe('route-budget.json', () => {
@@ -147,8 +240,10 @@ describe('route-budget.json', () => {
 
 	it('holds a soft target and a ceiling per metric, and nothing else', () => {
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'html', 'htmlRaw']);
-			for (const metric of ['eagerJsGz', 'htmlRaw']) {
+			// The lazy metrics live on LAZY_BUDGET_ROUTE alone (check-route-budget.mjs says why).
+			const lazy = name === LAZY_BUDGET_ROUTE ? ['chartKernelGz', 'chartKernelsGz', 'lintCoreGz'] : [];
+			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'engineJsGz', 'html', 'htmlRaw', ...lazy].sort());
+			for (const metric of METRICS.filter((m) => m in r)) {
 				expect(Object.keys(r[metric]).sort(), `${name}.${metric}`).toEqual(['hard', 'soft']);
 				expect(r[metric].hard, `${name}.${metric} ceiling`).toBeGreaterThanOrEqual(r[metric].soft);
 			}
@@ -161,7 +256,7 @@ describe('route-budget.json', () => {
 		// newest row that `route-budget:rebaseline` wrote.
 		const newest = newestHistory(history);
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			for (const metric of ['eagerJsGz', 'htmlRaw']) {
+			for (const metric of METRICS.filter((m) => m in r)) {
 				expect(r[metric], `${name}.${metric} vs route-budget.history.md`).toEqual(newest[`${name}.${metric}`]);
 			}
 		}

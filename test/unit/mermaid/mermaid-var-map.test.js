@@ -7,7 +7,7 @@
  * palette doesn't define, Mermaid silently falls back to its own defaults and
  * the diagram drifts off-brand.
  *
- * The map used to live inside lattice-emulator.js, which is a top-level CLI that
+ * The map used to live inside lattice.js, which is a top-level CLI that
  * renders on `require`, so this file had to reach it by regex over the source
  * text. Now that the map is a plain module the token list comes from
  * `diagramThemeTokens()` — an actual read of the actual object, so a map entry
@@ -20,6 +20,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
@@ -45,14 +46,14 @@ describe('mermaid-var-map', () => {
   // really are shims, so one quietly growing into a standalone palette does not
   // slip out of the sweep unnoticed.
   const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
-  const ALL_THEMES = fs.readdirSync(THEMES_DIR)
+  const ALL_THEMES = themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.css') && !f.includes('audit'))
     .map((f) => f.replace(/\.css$/, ''))
     .sort();
   // Every theme `@import 'lattice'` for the universal defaults; a SHIM is one
   // that additionally imports a sibling PALETTE (`@import 'indaco'`).
   const importsAnotherTheme = (name) => {
-    const src = fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8');
+    const src = fs.readFileSync(path.join(THEMES_DIR, name, `${name}.css`), 'utf8');
     return [...src.matchAll(/@import\s+['"]([^'"]+)['"]/g)]
       .some((m) => m[1] !== name && ALL_THEMES.includes(m[1]));
   };
@@ -61,21 +62,21 @@ describe('mermaid-var-map', () => {
   test('the sweep covers every self-declaring palette, and the rest are shims', () => {
     assert.ok(THEMES.length >= 13, `expected the full base-palette set, got ${THEMES.length}`);
     for (const n of ['indaco', 'cuoio', 'onyx', 'concrete', 'carbone']) {
-      assert.ok(THEMES.includes(n), `themes/${n}.css must be in the sweep`);
+      assert.ok(THEMES.includes(n), `themes/${n}/${n}.css must be in the sweep`);
     }
     // Everything excluded must be excluded BECAUSE it imports a base — never
     // because it was forgotten.
     for (const n of ALL_THEMES.filter((x) => !THEMES.includes(x))) {
-      assert.ok(importsAnotherTheme(n), `themes/${n}.css is not in the sweep and does not import a base`);
+      assert.ok(importsAnotherTheme(n), `themes/${n}/${n}.css is not in the sweep and does not import a base`);
     }
   });
 
   for (const name of THEMES) {
-    test(`mermaid-var-map: every required var is defined in themes/${name}.css`, () => {
+    test(`mermaid-var-map: every required var is defined in themes/${name}/${name}.css`, () => {
       const p = loadPalette(name);
       const missing = required.filter(v => !p.vars[v]);
       assert.deepEqual(missing, [],
-        `themes/${name}.css does not define: ${missing.join(', ')}\n` +
+        `themes/${name}/${name}.css does not define: ${missing.join(', ')}\n` +
         `MERMAID_VAR_MAP references these but the palette is silent. ` +
         `Either define the variable in the palette or change the map entry.`);
     });
@@ -97,8 +98,8 @@ describe('mermaid-var-map', () => {
   test('neither render path defines a private map — the #511 drift is unrepresentable', () => {
     const root = path.join(__dirname, '..', '..', '..');
     // The emulator's diagram walk is the mermaid plugin's bake since plugin-system phase D.
-    assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice-emulator.js'), 'utf8')), false,
-      'lattice-emulator.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
+    assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice.js'), 'utf8')), false,
+      'lattice.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
     for (const rel of [path.join('lib', 'plugins', 'mermaid', 'mermaid.bake.js'), path.join('lib', 'plugins', 'mermaid', 'mermaid.hydrate.js')]) {
       const src = fs.readFileSync(path.join(root, rel), 'utf8');
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false,

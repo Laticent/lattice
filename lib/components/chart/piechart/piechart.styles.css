@@ -96,7 +96,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   paint-order: stroke;
 }
 /* SVG-native legend TYPE is now shared across the four keyed charts — see the
-   `.chart-key-*` rules in _chart-family/chart-family.css (the geometry is emitted
+   `.chart-key-*` rules in lib/plugins/chart-family/chart-family.styles.css (the geometry is emitted
    by svg-legend.js). The pie no longer owns per-chart key text rules. */
 
 /* Categorical wedge / swatch palette — six-rotation on the shared chart

@@ -51,7 +51,7 @@ describe('a moved --html / --fluid export still draws its plots', () => {
     const label = flags.length ? flags.join(' ') : 'plain --html';
     test(`${label}: every plot draws with nothing outside the page's own directory reachable`, { timeout: TIMEOUT }, async () => {
       const out = path.join(dir, `out${flags.join('')}.html`);
-      const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'deck.md'), out, ...flags, '--quiet'], {
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'deck.md'), out, ...flags, '--quiet'], {
         cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT,
       });
       assert.equal(r.status, 0, `export failed:\n${r.stderr}`);
@@ -115,7 +115,7 @@ describe('a moved --html / --fluid / --read export still sets its math in KaTeX'
     const label = flags.length ? flags.join(' ') : 'plain --html';
     test(`${label}: every KaTeX face loads with nothing outside the page's own directory reachable`, { timeout: TIMEOUT }, async () => {
       const out = path.join(dir, `math${flags.join('')}.html`);
-      const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'math.md'), out, ...flags, '--quiet'], {
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'math.md'), out, ...flags, '--quiet'], {
         cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT,
       });
       assert.equal(r.status, 0, `export failed:\n${r.stderr}`);
@@ -158,7 +158,7 @@ describe('a moved --html / --fluid / --read export still sets its math in KaTeX'
   test('a deck without math carries no KaTeX stylesheet at all', { timeout: TIMEOUT }, () => {
     fs.writeFileSync(path.join(dir, 'plain.md'), '---\ntheme: indaco\n---\n\n# No math here\n');
     const out = path.join(dir, 'plain.html');
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'plain.md'), out, '--quiet'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'plain.md'), out, '--quiet'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
     assert.equal(r.status, 0, r.stderr);
     const html = fs.readFileSync(out, 'utf8');
     // (The engine sheet's KaTeX LAYOUT rules name the families, so the test is for a FACE.)

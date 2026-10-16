@@ -4,7 +4,7 @@
  * actually does, so it can be reviewed in PIXELS (not just structural numbers).
  *
  * Why this exists: a generated component (Studio "Describe a component", a shared
- * component) is not in `dist/lattice.css`, so the obvious `lattice-emulator.js
+ * component) is not in `dist/lattice.css`, so the obvious `lattice.js
  * <deck> <css> <out>` invocation is a TRAP — the positional CSS arg REPLACES the
  * bundled `lattice.css` rather than supplementing it, so the slide renders with
  * NO frame (no masthead, no `.cell-stage` box, broken pagination) and a perfectly
@@ -32,7 +32,7 @@ const { execFileSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const LATTICE_CSS = path.join(ROOT, 'dist', 'lattice.css');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 
 /** Faithful stylesheet: the bundled frame/tokens FIRST, then the component's scoped CSS. */
 function combineCss(latticeCss, componentCss) {

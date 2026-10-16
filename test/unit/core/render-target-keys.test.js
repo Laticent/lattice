@@ -19,6 +19,7 @@ const {
 	indentedKeyLines,
 } = require('../../../lib/core/render-target-keys');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 const REPO = join(__dirname, '..', '..', '..');
 const deck = (fm) => `---\n${fm}\n---\n\n# Slide\n\nBody.\n`;
@@ -422,10 +423,10 @@ test('a nested render-target key is warned about, deck-level and verbatim', () =
 	// (docs/e2e/editor-lint.spec.ts drives that on the real Studio).
 	assert.equal(f.line, '  fluid: "true"');
 	assert.ok(src.includes(f.line), 'the quoted line is not in the deck');
-	// The warning has to say what the EXPORT does — that half is always true — and put the
-	// YAML disagreement conditionally, because a uniformly indented block has no key above.
-	assert.match(f.message, /the export reads it as the deck's own/);
-	assert.match(f.message, /Wherever YAML reads this line/);
+	// The warning has to say what the EXPORT does — that half is always true; the fix covers
+	// the line that belongs to the block above (quote the key).
+	assert.match(f.message, /the export still reads it as the deck setting/);
+	assert.match(f.fix, /quote the key/);
 	assert.match(f.fix, /left margin/);
 });
 
@@ -511,7 +512,7 @@ test('THE COMMITTED CORPUS IS CLEAN — every tracked deck, through the shipped 
 	// sweep stayed green. So prove the rule is wired through the same call the sweep makes,
 	// on a deck that is not in the corpus.
 	assert.equal(findings(deck('a:\n  fluid: true')).length, 1, 'the rule is not reachable through the call this sweep makes');
-	const files = execSync('git ls-files "*.md"', { cwd: REPO, maxBuffer: 1 << 28 }).toString().trim().split('\n');
+	const files = execSync(`git ls-files "*.md" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: REPO, maxBuffer: 1 << 28 }).toString().trim().split('\n');
 	const offenders = [];
 	let withFrontMatter = 0;
 	for (const rel of files) {
@@ -535,7 +536,7 @@ test('THE COMMITTED CORPUS IS CLEAN — every tracked deck, through the shipped 
 // ---------------------------------------------------------------------------
 
 test('the emulator reads all three through the kernel, not its own regex', () => {
-	const src = readFileSync(join(REPO, 'lattice-emulator.js'), 'utf8');
+	const src = readFileSync(join(REPO, 'lattice.js'), 'utf8');
 	for (const key of RENDER_TARGET_KEY_NAMES) {
 		assert.match(src, new RegExp(`readRenderTargetKey\\(fm, '${key}'\\)`), `${key} is not read through the kernel`);
 		// The replaced shape must not come back beside it.

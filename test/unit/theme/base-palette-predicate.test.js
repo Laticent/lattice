@@ -26,6 +26,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -34,8 +35,7 @@ const { THEME_EDGES } = require('../../../lib/theme/edges.generated.mjs');
 const { listBasePalettes } = require('../../../tools/build-docs-portal');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
-const themeNames = fs
-  .readdirSync(THEMES_DIR)
+const themeNames = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.css'))
   .map((f) => f.replace(/\.css$/, ''))
   .sort();
@@ -48,7 +48,7 @@ describe('base-palette predicate', () => {
     assert.ok(themeNames.length >= 32, `expected the full palette set, saw ${themeNames.length}`);
     for (const n of themeNames) {
       assert.ok(
-        fs.existsSync(path.join(THEMES_DIR, `${n}.manifest.json`)),
+        fs.existsSync(path.join(THEMES_DIR, n, `${n}.manifest.json`)),
         `${n}.css has no manifest — the edge map cannot see it`,
       );
     }
@@ -59,7 +59,7 @@ describe('base-palette predicate', () => {
     // CROSS-ENCODING check, the same shape as `checkThemeRoles`, and it is only
     // worth anything if the two sides are computed independently.
     for (const n of themeNames) {
-      const css = fs.readFileSync(path.join(THEMES_DIR, `${n}.css`), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      const css = fs.readFileSync(path.join(THEMES_DIR, n, `${n}.css`), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
       const importsLattice = /@import\s*['"]lattice['"]/.test(css);
       assert.equal(
         isRoot(n, THEME_EDGES),
@@ -74,7 +74,7 @@ describe('base-palette predicate', () => {
     // map omits them. Same answer, or the docs picker is a coin flip on which
     // module happened to build the map.
     const manifests = themeNames.map((n) =>
-      JSON.parse(fs.readFileSync(path.join(THEMES_DIR, `${n}.manifest.json`), 'utf8')),
+      JSON.parse(fs.readFileSync(path.join(THEMES_DIR, n, `${n}.manifest.json`), 'utf8')),
     );
     const built = edgesFromManifests(manifests);
 

@@ -1,0 +1,24 @@
+{
+  "title": "A carried theme package comes back by name",
+  "spec": "LATTICE-FILE-1.0",
+  "section": "4",
+  "entries": {
+    "deck.md": "---\ntheme: indaco\n---\n\n# Q3 board review\n\n---\n\n## Revenue\n\nUp 12%.\n",
+    "manifest.json": {
+      "format": "lattice",
+      "version": 1,
+      "title": "Q3 board review",
+      "engine": "lattice",
+      "generatedAt": 0,
+      "comments": []
+    },
+    "packages/theme/probe-brand/probe-brand.css": "/* @theme probe-brand */\n@import 'lattice';\n:root { --accent: #2d4ed8; }\n",
+    "packages/theme/probe-brand/probe-brand.manifest.json": "{\"name\": \"probe-brand\", \"type\": \"theme\", \"format\": 1, \"label\": \"Probe\"}"
+  },
+  "expect": {
+    "ok": true,
+    "themes": [
+      "probe-brand"
+    ]
+  }
+}

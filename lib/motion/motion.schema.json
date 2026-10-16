@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lattice.laticent.io/motion.manifest.schema.json",
+  "title": "Lattice motion manifest",
+  "description": "A shipped motion PACKAGE (engineering/decisions/2026-09-23-portable-packages.md §3.3, §5). The manifest owns the name and the Library card's text; the sibling <name>.scene.json is the Anima scene, <name>.poster.svg the still a PDF freezes, and <name>.art.svg the drawing an `svg` scene animates. A deck never names a motion package: the Studio's Insert copies the poster and the scene into the deck, so removing a package never breaks a deck. tools/build-packages-index.js generates lib/motion/scenes.generated.js, the list the Studio's Library reads, from these files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "type", "format", "label", "description", "engine", "order"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "The package name. MUST equal the folder name and every file prefix (checkPackageIdentity)."
+    },
+    "type": { "const": "motion" },
+    "format": { "const": 1 },
+    "label": { "type": "string", "minLength": 1, "description": "The Library card's title, and the heading Insert writes on the slide." },
+    "description": { "type": "string", "minLength": 1, "description": "One sentence: what moves. Insert writes it into the poster's <desc>, so it is what a screen reader says." },
+    "engine": { "enum": ["zdog", "anime"], "description": "Which library plays the scene: `zdog` for a `built` scene, `anime` for an `svg` one. The Studio's export writes the same field." },
+    "order": { "type": "integer", "minimum": 1, "description": "Position in the Library's shipped list. Unique across motion packages." }
+  }
+}

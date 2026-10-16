@@ -153,7 +153,7 @@ describe('tagMermaidMotion — wired into every path that produces a diagram', (
     assert.equal((src.match(/target\.innerHTML = (?:cachedSvg|svg);\n\s*tagDiagramMotion\(target\);/g) || []).length, 2);
   });
   it('the CLI player capture tags the baked copy', () => {
-    const src = fs.readFileSync(path.join(root, 'lattice-emulator.js'), 'utf8');
+    const src = fs.readFileSync(path.join(root, 'lattice.js'), 'utf8');
     assert.match(src, /window\.__tagMermaidMotion\(flat\);/);
   });
 });

@@ -15,6 +15,14 @@
       "class": "not-code"
     },
     {
+      "path": "lib/core/flowchart-row.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "lib/core/list-text.generated.js",
+      "class": "generated"
+    },
+    {
       "path": "lib/export/anima-player-bundle.generated.mjs",
       "class": "generated"
     },
@@ -27,7 +35,23 @@
       "class": "generated"
     },
     {
-      "path": "mermaid-v11-min.js",
+      "path": "lib/plugins/function-plot/vendor/function-plot.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/math/vendor/katex/katex.min.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/mermaid-cli/assets/index-Bv5aVo5X.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/mermaid-zenuml.min.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/mermaid.min.js",
       "class": "vendor"
     },
     {

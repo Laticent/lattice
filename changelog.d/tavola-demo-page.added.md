@@ -1,0 +1,1 @@
+- Tavola has a demo page at `/tavola`: a host and a guest run in one tab over Tavola's in-memory network, so a visitor can knock, admit, edit from either side, make the guest view-only and remove them, without opening a second browser. The home page's Tavola card and the Libraries menu link to it.

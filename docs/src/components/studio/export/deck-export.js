@@ -32,6 +32,7 @@
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
+import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
@@ -39,10 +40,10 @@ import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.m
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
-import { saveFile } from '../../../lib/platform.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
+import { downloadBlob } from '../download.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 function safeName(name) {
@@ -99,13 +100,11 @@ function provenance(meta, slides) {
 	return { eng, summary, keywords };
 }
 
-// Every save goes through the platform seam (lib/platform.js), like download.ts. The toast
-// module is TypeScript, which the Node-run unit suite cannot load, so it is imported only
-// on the failure path.
-const download = (blob, filename) =>
-	void saveFile(filename, blob).then((result) => {
-		if (result === 'failed') void import('../download').then((m) => m.reportSaveFailure(filename));
-	});
+// Every export saves through the Studio's one download helper, which names the file on
+// the URL itself — see ../download.js for why a bare `download` attribute is not enough.
+function download(blob, filename) {
+	downloadBlob(filename, blob);
+}
 
 // ── Markdown ────────────────────────────────────────────────────────────────
 // Self-contained embed for a Workbench *library* theme (export bridge — see
@@ -153,10 +152,25 @@ export function embedThemeInMarkdown(source, theme) {
 // across all three engine paths (the component bridge; see
 // engineering/decisions/2026-06-12-workbench-component-bridge.md). Pairs with the
 // theme embed: theme first, then components, both self-contained.
-export function exportMarkdown(source, name, theme, components) {
+//
+// `files` maps a path inside the archive (`photos/team.jpg`) to bytes: the Library photos the deck
+// names, which the caller has already pointed the source's references at. With none, the download
+// is the bare `.md` it always was; with some it is a `.zip` holding the `.md` beside them, because a
+// Markdown file cannot hold a picture and a reference to a path the recipient lacks is a broken image.
+export async function exportMarkdown(source, name, theme, components, files = {}) {
 	let md = embedThemeInMarkdown(source, theme);
 	md = embedComponentsInMarkdown(md, components);
-	download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), safeName(name) + '.md');
+	const slug = safeName(name);
+	const paths = Object.keys(files);
+	if (!paths.length) {
+		download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), slug + '.md');
+		return;
+	}
+	const { default: JSZip } = await import('jszip');
+	const zip = new JSZip();
+	zip.file(`${slug}.md`, md);
+	for (const p of paths) zip.file(p, files[p]);
+	download(await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), slug + '.zip');
 }
 
 // The shipped parents a SAVED theme names with `@import '<name>'`, read by the one
@@ -186,9 +200,10 @@ export async function importedThemeNames(css) {
  * @param {string} palette theme name
  * @param {string} themeBase hashed `…/playground/v/<hash>/themes/` URL
  * @param {{includeAgent?: boolean, version?: string,
- *          overflowMarker?: 'author'|'reader'|'off',
+ *          overflowMarker?: 'author'|'reader'|'off', pluginsOff?: string[],
  *          extraTheme?: {name: string, css: string},
- *          components?: Array<{name: string, css: string}>}} [opts]
+ *          components?: Array<{name: string, css: string}>,
+ *          files?: Record<string, Uint8Array>}} [opts]
  *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
  *   who the overflow signal in the rendered bundle is addressed to. Typed
  *   explicitly rather than left to inference: the caller passes it from workspace
@@ -198,17 +213,42 @@ export async function importedThemeNames(css) {
  *   bundle writes its CSS directly. `components` are the saved components the deck
  *   uses, embedded as `<style>` blocks exactly as the Markdown export embeds them.
  */
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [] } = {}) {
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [], files = {} } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
 	const { default: JSZip } = await import('jszip');
 	const zip = new JSZip();
 	const dir = zip.folder(slug);
+
+	// assets/ — Lattice's own sample art. This producer has no filesystem, so it cannot copy
+	// a deck's own pictures the way tools/export-marp.js does, but every `sample:<name>` file
+	// is staged on this site (docs/src/lib/samples-base.ts). Each one is fetched into
+	// `assets/` and its reference rewritten, front-matter `logo:` included, because Marp
+	// cannot read the `sample:` prefix. A file that fails to fetch keeps its reference
+	// rather than name a path the bundle lacks.
+	// The URL is derived like `exportBase` below, the same rule as samplesBaseFor in
+	// samples-base.ts: a `.ts` import would break the node tests that load this file.
+	const samplePaths = new Map();
+	const samplesBase = themeBase.replace(/themes\/$/, 'samples/');
+	await Promise.all(sampleAssetNames(source).map(async (sample) => {
+		try {
+			const r = await fetch(samplesBase + sample);
+			if (!r.ok) return;
+			dir.file(`assets/${sample}`, await r.arrayBuffer());
+			samplePaths.set(sample, `assets/${sample}`);
+		} catch {
+			// A failed request or body read loses one picture, never the whole export.
+		}
+	}));
+	const localized = samplePaths.size ? withSampleAssets(source, samplePaths) : source;
+	// `files` — the Library photos the deck names, as bytes at the paths the caller already wrote into
+	// `source` (share-export.ts `bundlePhotos`). This producer has no filesystem, so the Studio hands them in.
+	for (const [path, bytes] of Object.entries(files)) dir.file(path, bytes);
 
 	// deck.md — the auto-glossary's generated slide baked in FIRST (it appends a
 	// whole slide and strips its own trigger), then splits baked to literal `---`,
@@ -220,26 +260,29 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `assets/` the way tools/export-marp.js does. Baking a front-matter `logo:`
 	// that points at a relative local path would therefore render a broken image
 	// where the register previously just never fired — so those keys are dropped
-	// here. A remote or `data:` logo resolves anywhere and is kept.
+	// here. A remote or `data:` logo resolves anywhere and is kept, and so is a
+	// sample logo fetched above (`bundledAssets`).
 	// The imagery bucket's `![bg]` → `.lattice-bg` panel, baked like the splits and
 	// the glossary. No baseDir, so the author's own URL survives verbatim — this
 	// producer cannot copy local files (hence `localAssets: false` below), so a
-	// remote or `data:` image works and a relative one was already unresolvable.
+	// remote, `data:` or sample image works and a relative one was already unresolvable.
 	// …and this export's overflow-marker level recorded in its own settings block.
 	// Passed explicitly rather than defaulted, because without it this producer
 	// shipped the runtime's AUTHORING fallback — a recipient of a Studio-exported
 	// deck got the red ring and the "FIX ME" overlays, the exact defect the setting
 	// exists to fix, on the export path a non-CLI user actually uses. The caller
 	// resolves it from the workspace setting (share-export.ts).
-	dir.file(
-		`${slug}.md`,
-		withRuntimeScripts(
+	// `withRuntimeScriptsReport` also drops the deck's own executable HTML (marp-cli would run it on the
+	// recipient's machine) and says what it dropped; this function returns that for the toast.
+	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
-			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
-			{ localAssets: false, overflowMarker },
-		),
-	);
+			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components)))), undefined),
+			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
+			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
+			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
+		);
+	dir.file(`${slug}.md`, bundled.markdown);
 
 	// palette CSS (+ dark), fetched from the staged theme dir — or, for a SAVED
 	// library theme, written from its own CSS, since the site has no file for it.
@@ -343,13 +386,15 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	// generated text files (the shared bundle spec).
 	const themesList = ['lattice.css', ...bundledThemes];
-	dir.file('marp.config.cjs', MARP_CONFIG_CJS);
+	// Marp's own math typesetter is always off: the deck's math is already typeset (marp-bundle-math.js).
+	dir.file('marp.config.cjs', marpConfigCjs());
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
 	dir.file('.vscode/settings.json', vscodeSettings(themesList));
 	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);
+	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused, math: bundled.math };
 }
 
 // ── Dedicated capture host ─────────────────────────────────────────────────────
@@ -435,7 +480,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');
-		CAPTURE_WEB_ORIGINS.set(doc, webOrigins || []);
+		// The site's own origin is not a web image: it serves the `sample:` art, and the frame
+		// already loads it (buildSrcdoc). The artifact carries PIXELS, never the URL, so nothing
+		// in the exported file can call back to the site (remote-ref.js withOwnOrigin).
+		CAPTURE_WEB_ORIGINS.set(doc, remoteRef.withOwnOrigin(webOrigins || []));
 		if (win?.__latticeFit) win.__latticeFit();
 		// Let fonts, layout, and any async diagrams (Mermaid) settle before capture.
 		try { if (doc.fonts?.ready) await withTimeout(doc.fonts.ready, 8000); } catch (_e) {}
@@ -554,6 +602,13 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 	return stranded.length;
 }
 
+// A figure that had not drawn when the frame was measured: still pending, or released to its
+// source text (`unavailable`) because its library had not arrived. Its slide was measured with
+// the source in the diagram's place, so its fit is unknown. On a slow link, a session's first
+// diagram can miss the 4 s wait while Mermaid downloads (decision note §11). `error` is not
+// here: a parse error draws its error box, which is what the author sees.
+const UNDRAWN_FIGURES = '[data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="hydrating"], [data-lattice-settle="unavailable"])';
+
 /**
  * Measure whether each slide of a rendered deck FITS — the verdict the Studio chat agent's
  * checker returns for its draft (2026-10-05-studio-chat-agent.md). The engine runtime in
@@ -567,8 +622,9 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
  * than it has slides, and the caller must not read row N as source slide N.
  *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
- * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean }[] | null>}
- *   one row per source slide, or null when the frame held no slides
+ * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean }[] | null>}
+ *   one row per source slide, or null when the frame held no slides. `undrawn` marks a slide
+ *   holding a figure that had not drawn when it was measured: its other flags are not a verdict.
  */
 export async function measureDeckFit(render) {
 	const { frame, dispose } = await createCaptureFrame(render);
@@ -585,10 +641,11 @@ export async function measureDeckFit(render) {
 		sections.forEach((sec, i) => {
 			// A continuation page is stamped `N.k` (auto-split.js); it belongs to slide N.
 			const n = Math.floor(Number.parseFloat(sec.getAttribute('data-lattice-slide') ?? '')) || i + 1;
-			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false };
+			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false, undrawn: false };
 			row.overflows ||= sec.classList.contains('overflow');
 			row.clipped ||= sec.classList.contains('clip-marked');
 			row.illegible ||= sec.classList.contains('illegible');
+			row.undrawn ||= !!sec.querySelector(UNDRAWN_FIGURES);
 			bySlide.set(n, row);
 		});
 		return [...bySlide.values()].sort((a, b) => a.slide - b.slide);
@@ -611,7 +668,7 @@ export async function measureDeckFit(render) {
  * @returns {Promise<{note: string|null, description: string|null, say: string|null}[]>}
  */
 async function slideChannelRecord(html) {
-	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-core.generated.js');
+	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
 	const sections = splitSectionsCore(String(html || ''))
 		.filter((p) => p.type === 'section')
 		.map((p) => `${p.openTag}${p.inner}</section>`);
@@ -632,7 +689,7 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * (state-chart, function-plot) come out as inert scripts. On the CLI both are
  * resolved before the player is assembled — `mmdc` substitutes an inline SVG for the
  * fence, and the emulator serializes the DOM after the browser has run the inflaters
- * ("Bake the player's DOM", lattice-emulator.js). The Studio had no equivalent step,
+ * ("Bake the player's DOM", lattice.js). The Studio had no equivalent step,
  * so its webpage export shipped the raw fence: the player strips every script, so the
  * diagram could never render afterwards, and Read·Article projected the fence as a
  * code block — a wall of Mermaid source where the diagram belonged.
@@ -1101,6 +1158,11 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 // handler resolves instead: the image is simply absent from the page, and the run
 // records the failure so the author is told rather than shipping a hole they did not
 // see. (A missing picture in a file you have beats a file you do not.)
+// The properties html-to-image copies onto its clone: the browser's list plus the counter
+// properties, which Chrome leaves out (every `counter()` exported as 0). One shared list for
+// every capture on the page: lib/core/capture-style-properties.mjs.
+export { captureStyleProperties };
+
 function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 	return {
 		width: w,
@@ -1108,6 +1170,7 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
+		includeStyleProperties: captureStyleProperties(),
 		onImageErrorHandler: (event) => {
 			if (log) log.count += 1;
 			// HIDE the failed `<img>` in the clone. Resolving alone is not "the picture is
@@ -1763,9 +1826,20 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		const strip = section.parentElement;
 		const clip = strip && { height: strip.style.height, overflow: strip.style.overflow };
 		if (strip) { strip.style.height = 'auto'; strip.style.overflow = 'visible'; }
+		// The camera's own fixups, applied for the read too (withCaptureFixups): no host keyline
+		// (`--slide-edge-k: 0`), and a PDF page squares a rounded corner. Read without them, a live
+		// keyline covered the slide's edge and a rounded clip refused it, so the reader left the
+		// spectrum bar and the dark hairline in the photo, soft at 4K (read-slide.mjs readSectionEdges).
+		const edgeK = section.style.getPropertyValue('--slide-edge-k');
+		section.style.setProperty('--slide-edge-k', '0');
+		const squared = section.classList.contains('corners-rounded') && !cornerSurvivesExport('pdf');
+		const radius = section.style.borderRadius;
+		if (squared) { section.classList.remove('corners-rounded'); section.style.borderRadius = '0'; }
 		try {
 			return fn();
 		} finally {
+			if (squared) { section.classList.add('corners-rounded'); section.style.borderRadius = radius; }
+			if (edgeK) section.style.setProperty('--slide-edge-k', edgeK); else section.style.removeProperty('--slide-edge-k');
 			if (strip) { strip.style.height = clip.height; strip.style.overflow = clip.overflow; }
 			section.style.transform = fit.transform;
 			section.style.transformOrigin = fit.origin;
@@ -1982,12 +2056,13 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 		}
 	}
-	const { default: PptxGenJS } = await import('pptxgenjs');
+	const [{ default: PptxGenJS }, { tidyPptxPackage, xmlSafe }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
 	const pptx = new PptxGenJS();
-	pptx.title = props.title;
-	pptx.subject = props.subject;
-	pptx.author = props.author;
-	pptx.company = props.company;
+	// Control characters would make an XML part unreadable; PptxGenJS escapes markup only.
+	pptx.title = xmlSafe(props.title).trim() || 'deck';
+	pptx.subject = xmlSafe(props.subject);
+	pptx.author = xmlSafe(props.author);
+	pptx.company = xmlSafe(props.company);
 	if (layout.custom) {
 		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
 		pptx.layout = 'LATTICE';
@@ -2007,7 +2082,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: altTextFor(i) });
+		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
@@ -2017,13 +2092,111 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	// re-openable step first, and both lanes then save the same way.
 	// Typed as a PowerPoint: pptxgenjs's `write` hands back JSZip's default `application/zip`,
 	// where `writeFile` used to wrap it in the presentation type before saving.
-	const built = new Blob([await pptx.write({ outputType: 'blob' })], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	// Calco's schema tidy, as the worker lane runs it (pptx-assemble-worker.js).
+	const tidy = await tidyPptxPackage(JSZip, new Uint8Array(await pptx.write({ outputType: 'arraybuffer' })), 'uint8array');
+	const built = new Blob([tidy], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a
 	// loud failure.
 	return missingImageReason(log);
 	} finally { dispose(); }
+}
+
+// ── Office through Calco: .odp (both modes) and the editable .pptx ─────────────
+// The browser sibling of the CLI's lib/export/office-export.js: the same library, the
+// same deck model, the same writers, so the two emit the same kind of file. Calco
+// (`@laticent/calco`, engineering/decisions/2026-10-06-calco-office-export-library.md)
+// reads each slide's paragraphs and hides them INSIDE the capture fixups — the one
+// moment the slide is laid out at its own size and visible, the same moment the PDF
+// text layer measures — so html-to-image photographs the slide without its text. The
+// plain `.pptx` stays on `exportPptx` above.
+
+const OFFICE = {
+	odp: { label: 'LibreOffice', ext: 'odp', mime: 'application/vnd.oasis.opendocument.presentation' },
+	pptx: { label: 'PowerPoint', ext: 'pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+};
+
+/**
+ * Export through Calco. `format` is 'odp' or 'pptx'; `opts.editable` turns every paragraph
+ * into a text box; `opts.embedSource` (PowerPoint only) carries the `.lattice`.
+ */
+export async function exportOffice(format, render, name, onStatus, meta, opts) {
+	const kind = OFFICE[format];
+	if (!kind) throw new Error(`Unknown office format: ${format}`);
+	const editable = !!opts?.editable;
+	if (onStatus) onStatus(`Preparing ${kind.label}…`);
+	const log = createImageFailureLog();
+	// Notes and descriptions come from the ENGINE render, before the capture frame
+	// sanitizes the comments they live in away (see exportPptx).
+	const record = await slideChannelRecord(render.html);
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		await recordUnreachableAssets(sections, log);
+		if (record.length !== sections.length) {
+			console.warn(`[deck-export] slide record/slide mismatch (${record.length} vs ${sections.length}); exporting without notes and descriptions rather than risk mis-binding them.`);
+			record.length = 0;
+		}
+		const [calco, { toCanvas }] = await Promise.all([import('@/lib/calco'), import('html-to-image')]);
+		const slides = [];
+		for (let i = 0; i < sections.length; i++) {
+			if (onStatus) onStatus(`Rendering slide ${i + 1} of ${sections.length}…`, { current: i, total: sections.length });
+			const section = sections[i];
+			let shot;
+			try {
+				shot = await withCaptureFixups(section, async (w, h, pixelRatio) => {
+					// A slide the reader cannot read still exports — as a picture. The picture is
+					// the deliverable; the text boxes are the improvement.
+					let frames = [];
+					let shapes = [];
+					if (editable) {
+						try {
+							// `shapes`: plain boxes and rules come out of the picture as native shapes too.
+							({ frames, shapes } = calco.readSlide(section, { hide: true, shapes: true }));
+						} catch (e) {
+							console.warn(`[deck-export] slide ${i + 1} exports as a picture: ${e?.message || e}`);
+							calco.restoreSlide(section);
+							frames = [];
+							shapes = [];
+						}
+					}
+					try {
+						const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+						const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames, shapes };
+					} finally {
+						calco.restoreSlide(section);
+					}
+				}, undefined, format);
+			} catch (e) {
+				throw captureError(e);
+			}
+			slides.push({ image: shot.bytes, frames: shot.frames, shapes: shot.shapes, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
+			// Yield so the progress paints and input stays live between slides.
+			await new Promise((r) => setTimeout(r));
+		}
+		const { eng, summary } = provenance(meta, sections.length);
+		const { w, h } = slideGeom(sections[0]);
+		const deck = { width: w, height: h, slides, title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
+		if (editable) {
+			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
+			const { calcoFontHost } = await import('./calco-font-host.js');
+			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost());
+		}
+		if (onStatus) onStatus(`Building .${kind.ext}…`, { current: sections.length, total: sections.length });
+		const bytes =
+			format === 'odp'
+				? await calco.writeOdp((await import('jszip')).default, deck, 'uint8array')
+				: await calco.writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
+		let blob = new Blob([bytes], { type: kind.mime });
+		// Re-openable is a PowerPoint feature (embedded-source.ts writes an OPC part).
+		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);
+		download(blob, `${safeName(name)}.${kind.ext}`);
+		return missingImageReason(log);
+	} finally {
+		dispose();
+	}
 }
 
 // ── Print (vector, selectable — the browser's own PDF engine) ─────────────────

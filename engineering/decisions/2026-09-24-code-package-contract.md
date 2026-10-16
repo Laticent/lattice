@@ -407,7 +407,62 @@ arm), and Lattice reported "on by the platform's default (not measured here)"; t
 system's own verdict: Activity Monitor's Sandbox column on macOS, and Process Explorer's integrity
 level on Windows. Those two need a person, and the tool asks for them when one runs it. On Ubuntu
 24.04 as the ordinary runner user, AppArmor stops Chrome's sandbox from starting, and Lattice
-reports OFF, truthfully.
+reports OFF, truthfully. Its remedy was wrong there: "set CHROME_PATH to a Chromium the unprivileged
+user can run" cannot help when AppArmor blocks user namespaces for every unprivileged program
+without a profile. So the layer now carries a `reason` (`os-sandbox.js` `offReason`), and the
+consent text maps each reason to its own remedy (`offRemedy`). The AppArmor case is read from the
+`kernel.apparmor_restrict_unprivileged_userns` sysctl, not from Chromium's message, whose "No
+usable sandbox!" text points at AppArmor as a general hint; its remedy names an AppArmor profile
+for the browser or that sysctl. `CHROME_PATH` stays the remedy only where it helps: root on Linux
+whose unprivileged user cannot run the browser even without the sandbox (checked FIRST, since a
+root container on an Ubuntu 24.04 host reads the host's sysctl as 1), and no browser path at all.
+Every render's warning carries the same remedy (`code-door.js` `sandboxNotice`); it used to repeat
+the CHROME_PATH sentence after the prompt had given the right fix, and it printed that sentence as
+a warning on macOS and Windows too, where the layer is the platform's default and not OFF (the
+checker). `test/unit/cli/code-door.test.js` drives `launchCodeSandbox` with a stub browser to pin
+which rung's failure becomes which reason.
+
+**Root in a Docker container on an Ubuntu 24.04 host** (2026-09-29, ubuntu-latest, `node:22-bookworm`,
+runs 36554214907 and 36554842708). The container reads the host's AppArmor sysctl as 1, and every
+process in it reads `Seccomp: 2` (Docker's default profile). With puppeteer's browser under `/root`,
+`nobody` cannot run it at all and the remedy is `CHROME_PATH`, as it should be. With the browser
+where `nobody` can run it, the sandboxed launch fails and the remedy first said AppArmor, which was
+wrong: `nobody` could not `unshare -U` under Docker's default seccomp profile with the AppArmor sysctl
+at 0, and could, with Chrome's sandbox measured on, under `--security-opt seccomp=unconfined` with the
+sysctl still at 1. So `offReason` checks for a container's seccomp filter before AppArmor, and names
+the container's seccomp profile (`container-seccomp`). A container is a filter on Lattice's own process
+AND on pid 1 (`processSeccompFiltered`): in Docker pid 1 read Seccomp 2 too, while a hardened systemd
+unit filters the service but not systemd, and there AppArmor may still be the obstacle (the checker).
+The same runs showed `tools/verify-code-sandbox` step 7 reading the container's Seccomp 2 on renderers
+started with `--no-sandbox` as a mismatch. Where the browser process itself is already filtered, step
+7 now counts `Seccomp_filters` instead: Chromium's sandbox stacks its own filter on each renderer, so a
+sandboxed renderer carries more than its browser process. After the fix all three container cases
+passed all eight steps with the right remedy and a measurement (run 36557162573): the browser under
+`/root` (`CHROME_PATH`; renderers 1 filter, browser 1), the browser outside it under Docker's default
+profile (`container-seccomp`; 1 vs 1), and `--security-opt seccomp=unconfined` ("on"; renderers 1
+filter, browser 0).
+
+**Every remedy, applied** (2026-10-06, after the rebase onto `main`; runs 37503507515, 37504450370,
+37504942480). A remedy is right only if following it turns the sandbox on, so each was applied:
+- **AppArmor** (a hardened systemd unit, `SystemCallFilter=~@reboot @swap …`, as the runner user):
+  Lattice's process reads Seccomp 2, pid 1 reads 0, so it is not called a container, and the remedy
+  names AppArmor. With the sysctl set to 0, the same unit's sandbox comes on: renderers 4 filters,
+  browser 3. (`SystemCallFilter=@system-service`, an allow-list, stops Chromium from starting at all,
+  with or without its sandbox; that is the unit's limit, not a remedy case.)
+- **Container seccomp** (Docker, root, browser outside `/root`): remedy `container-seccomp`; under
+  `--security-opt seccomp=unconfined` the sandbox comes on (1 filter vs 0).
+- **A container whose profile ALLOWS user namespaces** (rootless Podman 4, default profile): every
+  process reads Seccomp 2, Lattice reports "on", and the renderers carry 2 filters against the
+  browser's 1, so Chromium's own filter is there. That is the case `rendererSandboxed` reads by mode
+  alone, now measured true.
+- **CHROME_PATH** (Docker, root, browser under `/root`): remedy `CHROME_PATH`; the browser outside
+  `/root` is the case above.
+All 8 steps passed in every case, and on windows-, macos- and ubuntu-latest. Lattice's own "on" measurement
+(`rendererSandboxed`) still reads the mode alone, so in a filtered container it would read "on" from
+the container's filter. The OFF cases measured here never reach it (they launched with
+`--no-sandbox`), and a Chromium that starts without `--no-sandbox` has refused to run without a
+sandbox in every run here ("No usable sandbox!"); a filtered container whose profile allows user
+namespaces has not been measured.
 
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
@@ -470,6 +525,118 @@ Worker, SharedWorker, BroadcastChannel, and the cache and storage handles), non-
 bundle cannot put one back and has no other realm to take one from. The policy is still the first
 wall; this one does not depend on each engine inheriting it. All 29 conformance packages still match.
 
+**The wall's holes: a font load, and the prototypes (2026-10-06).** The fact-checker on the public
+guide found `FontFace` and `self.fonts` still in the worker, where `new FontFace(name, 'url(…)')
+.load()` is a fetch that only `font-src data:` stopped. Measured with a throwaway probe on GitHub's
+runners (a blob worker in a sandboxed frame, a loopback log server, each arm counted; the probe ran
+from `claude/sandbox-probe-run`), in four configurations per engine:
+
+| Engine | Policy + wall (shipped) | Policy alone | Wall alone | Neither (control) |
+|---|---|---|---|---|
+| Chromium | 0 | 0 | 1 (`import()`) | 8 of 8 arms |
+| Gecko | 0 | **3** (`FontFace`, `self.fonts`, `EventSource`) | 1 (`import()`) | 8 of 8 |
+| WebKit | 0 | 0 | 1 (`import()`) | 6 of 8 (its worker loads no font even unwalled) |
+
+So the policy did NOT hold for a font load in Playwright's Gecko build (Firefox 142.0.1), as it had
+not for `EventSource`: in that build, before this change, a package could send a slide out with a font
+address.
+
+Then the same frame in SHIPPING browsers, each through its own WebDriver (stock Chrome and Firefox on
+Ubuntu, Safari on macOS). The host page builds the frame exactly as the Studio's runner does
+(`docs/src/lib/code-packages/runner.ts`: `FRAME_BOOTSTRAP` allowed by hash, `sandboxCsp`, the
+`load`/`run` messages), and the package reports the wall and `kit.measure` from inside its worker.
+10 arms: the eight above minus `Function`, plus XMLHttpRequest, WebSocket and `importScripts`:
+
+| Browser | Shipped | Policy alone | Neither (control) |
+|---|---|---|---|
+| Chrome 154.0.8037.57 | 0 (`wall=none measure=yes`) | 0 | 10 of 10 |
+| Firefox 156.0 | 0 (`wall=none measure=yes`) | 0 | 10 of 10 |
+| Safari 26.6.2 | 0 (`wall=none measure=yes`) | 0 | 8 of 10 (no font load even unwalled) |
+
+Stock Firefox 156 held the policy for a font load and `EventSource` where Playwright's Firefox 142
+build did not. Whether the difference is the version or Playwright's patched build is not measured.
+The wall is written for exactly that gap: it removes the names whether or not a given Gecko applies
+the policy. `WORKER_NETWORK` now takes
+`FontFace`, `FontFaceSet` and `fonts` too. Measuring where each name lives found the second hole:
+Chromium defines `fetch`, `importScripts`, `indexedDB` and the `fonts` getter on
+`WorkerGlobalScope.prototype`, not on `self`, so the old wall only shadowed them and
+`WorkerGlobalScope.prototype.fetch.call(self, …)` walked around it (the policy still stopped it). The wall now redefines each name on
+every holder up the chain, takes `storage` and `storageBuckets` off the worker's `navigator` (a
+bucket's `caches.add(url)` fetches; an opaque origin hides both today, and the wall does not lean on
+that), then checks every holder and refuses to load the package if a name survives, rather than
+leaving it live in silence (the red team). `kit.measure` needs none of them: the Studio spec's package
+measures from inside its worker on all three engines, and reports the wall from there too
+(`data-wall="none"`, 0 requests at the log server per engine).
+
+What the wall cannot reach is syntax. `import()` is not a name on the global, so the "wall alone"
+column shows it on every engine; under the policy it reached nothing on all three. The policy
+has no `'unsafe-eval'`, and under it `eval` and `Function` reached nothing (the probe cannot tell a
+refused `eval` from a blocked fetch inside it); behind the wall alone they build code with no `fetch`
+left to call.
+
+**The syntax path, closed (2026-10-06, followup 2435-p3).** So `import()` was one engine policy bug
+away from a request, the shape of the Gecko `EventSource` gap. Two changes close it without leaning
+on the policy:
+- **A gate parses the code** (`lib/packages/code-syntax.mjs`, acorn) and refuses a package whose
+  code holds an `ImportExpression`, wherever it sits. It parses the exact script the worker runs
+  (`workerScript`'s output, a classic script), not the file as a module: a classic script reads
+  `<!--` and a line-leading `-->` as comments where a module does not, so a check that parsed the
+  module could be shown a different program than the one that runs. A script acorn cannot parse is
+  refused, not run unread. It runs where the shape check runs: `refusePackage` (`add`, `list`,
+  render), the Studio's import (`package-zip.ts`, which loads acorn only when a zip holds code), and
+  both runners (`checkedWorkerScript` in `code-sandbox.js` and `runner.ts`), so a Studio record
+  saved before the gate, or a folder placed by hand, is refused on the very text it would load.
+  acorn moved from a dev dependency to a dependency for it. It stays out of `code-shape.mjs`, which
+  is in the site's eager bundle.
+- **No string becomes code in the worker**, so code built at run time cannot write an `import()`
+  the gate never saw. The wall removes `ShadowRealm`, and makes `eval`, `Function` and the
+  `constructor` on each kind of function's prototype (plain, async, generator, async generator:
+  `(()=>{}).constructor` IS `Function`) into stubs that throw `EvalError`. Stubs, not `undefined`:
+  the first cut set them to `undefined`, and the inversion lens measured an esbuild bundle of
+  lodash-es `isPlainObject` failing to load, since library code reads `Function.prototype` and tests
+  `instanceof Function` without building code. Each stub keeps its kind's `prototype`, so those
+  still work. `setTimeout` and `setInterval` become guards that take a function and throw on a
+  string, calling the original through a `Reflect.apply` captured before the bundle runs. Each pin
+  is checked like the network names, and the package does not load if one survives. None of the 31
+  bundles `codePackages()` builds uses any of them, and all 29 conformance packages in
+  `code-package-parity.test.js` still match byte for byte.
+- **Cost.** A parse is 35 to 40 ms for a typical shipped bundle (1.1 to 1.5 s for all 31 on the
+  host). The verdict is remembered for the last 32 scripts in each process: the Studio parses a
+  package once per tab, and a record its runner refused is remembered by digest, not re-parsed on
+  each render. The CLI's gate and its runner live in different processes (`code-door.js` spawns
+  the runner), so a CLI render parses a used package twice, about 40 ms each. An `import()` in dead code a bundler left behind (a library's Node-only branch) is
+  refused too: harmless under the policy, but the gate cannot tell dead code from live, and the
+  refusal names the line and column so the author can drop it.
+- **What the red team tried and could not break** (Chromium and a single-realm V8 harness): the
+  Function constructor through any intrinsic's `constructor` chain (`Number.constructor`,
+  `({}).constructor.constructor`, a bound function's prototype), all of which reached the log
+  server with no wall and none with it; `import()` in dead code, a class field, a template, and a
+  body that closes the wrapper early (all refused); HTML comments, U+2028 and an escaped `import`
+  keyword, where acorn and V8 agreed. Not removed, on purpose: `WebAssembly`, which builds code from
+  bytes but has no network and no `import()` unless handed one.
+
+Measured with the same throwaway probe, extended to these arms (a literal `import()`, and `import()`
+built by indirect `eval`, `Function`, an arrow's and an async function's `constructor`, and a
+string `setTimeout`), plus the network arms above:
+
+| Browser | Shipped (policy + wall) | Wall alone | Policy alone | Neither (control) |
+|---|---|---|---|---|
+| Playwright Chromium 141.0.7390.37 | 0 | **0** | 0 | 13 of 13 |
+| Playwright Firefox 142.0.1 | 0 | **0** | 2 (`EventSource`, `FontFace`) | 13 of 13 |
+| Playwright WebKit 26.0 | 0 | **0** | 0 | 12 of 13 (no font load even unwalled) |
+| Chrome 154.0.8037.57 (WebDriver) | 0 | **0** | 0 | 13 of 13 |
+| Firefox 156.0 (WebDriver) | 0 | **0** | 0 | 13 of 13 |
+| Safari 26.6.2 (WebDriver) | 0 | **0** | 0 | 12 of 13 (no font load even unwalled) |
+
+The 13 arms are fetch, XMLHttpRequest, WebSocket, EventSource, `importScripts`, `FontFace`, a
+prototype's `fetch`, a literal `import()` (in the unwalled package only: the gate refuses the walled
+one before a worker exists, and the probe prints that refusal on every job), and `import()` built
+five ways. "Wall alone" now reads 0 on every engine, where it read 1 (`import()`) before. Two more
+arms checked the parse differential the red team could not test off Chromium: an `import()` behind
+`<!--` and one behind a line-leading `-->`, which acorn reads as comments and the gate passes. They
+reached nothing in any configuration on all six browsers, the control included, so each engine
+read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206).
+
 **The Studio's door** (`docs/src/lib/code-packages/`). Every Studio render goes through
 `renderMarkdown` (`docs/src/lib/render-engine.ts`), and it goes through `door.ts`:
 - **Import** (`asset-bundle.ts`, `package-zip.ts`, `library/import-parsed.ts`): a code component
@@ -531,7 +698,7 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   `chart-frame`, `logo` would add `logo-wall`), nor a runtime stem (`lat`, `lattice`, `mermaid`…):
   `codeNameRefusal`, at `add`, at the Studio's import and at render.
 - An `id` lives in the package's name or is one it was handed (a deck's `url(#id)` takes the first
-  element with it), and the runtime's markers (`data-mermaid-*`, `data-fp-*`, `data-img-*`,
+  element with it), and the runtime's markers (`data-mermaid-*`, `data-img-*`,
   `data-pane*`) survive only as handed.
 - The Studio's 4-million-character cap counts remembered output too, and a slide refused by the cap
   is not remembered as failed; a load that ran out of time is not retried within the same render;
@@ -539,8 +706,9 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   preview's render found unapproved.
 
 **Measured on the real Studio** (`docs/e2e/code-packages.spec.ts`, desktop Chromium): a hostile
-package imported through the Library tries fetch, WebSocket, `importScripts`, `import()`,
-EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
+package imported through the Library tries fetch, WebSocket, `importScripts`, `import()` built at
+run time (indirect `eval`, `Function`, a constructor, a string timer; since 2026-10-06 a literal
+`import()` is refused at the import, which a second test drives on the real Library), EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
 local server seven ways and forging a speaker note. Unapproved: the slide shows the author's content
 and the note, the notice offers the code with its SHA-256, and nothing reaches the HTTP server or
 the UDP socket. Approved: it draws, still nothing reaches either, the preview holds no reference to

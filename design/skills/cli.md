@@ -54,15 +54,19 @@ is not done.
 | What | Where |
 |---|---|
 | The command | `npx lattice` — the `bin` of `@laticent/lattice` (`npm install @laticent/lattice`) |
-| Its full option list | `npx lattice --help` |
+| Its full option list | `npx lattice --help all` (`--help` alone is one screen) |
 | Package store | `$LATTICE_HOME/packages`, else `~/.lattice/packages` |
 | The linter (clone only) | `npm run lint:deck -- <deck.md>` |
 | Layout skeletons (clone only) | `node tools/new-slide.js <layout>` · `--list` |
 | Marp hand-off (clone only) | `npm run export:marp -- <deck.md> <out.zip>` |
 | The agent kit's checker (no clone) | `node review/check.mjs deck.md` |
 
-Node 22.12 or newer. `npm install` downloads the Chromium the render uses. If a
+Node 22.13 or newer. `npm install` downloads the Chromium the render uses. If a
 render says it cannot find a browser, set `CHROME_PATH`.
+
+`npx lattice` runs the copy installed in the current project (or the clone). With no
+install, write `npx @laticent/lattice` instead: the unscoped `lattice` package on npm is
+an unrelated package, and a bare `npx lattice` in an empty folder downloads it and fails.
 
 ## Recipe
 
@@ -110,6 +114,7 @@ npx lattice deck.md deck.html --player --no-player-motion
 npx lattice deck.md article.html --read                 # the deck as a web article
 npx lattice deck.md deck.html --fluid                   # phone-friendly viewer
 npx lattice deck.md deck.pdf --embed-source --strip-notes
+npx lattice deck.md deck.pptx --reopenable --strip-notes  # the Studio's Import deck reopens it
 
 # Images
 npx lattice deck.md slides.zip                                  # PNG + thumbnails + chart SVGs
@@ -141,6 +146,10 @@ npx lattice packages remove theme/brand
 npx lattice packages trust component/org-chart
 npx lattice deck.md deck.pdf --packages ./team-packages
 npx lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
+
+# Pretty-print the code blocks (Prettier, ruff, sql-formatter; optional deps)
+npx lattice fmt deck.md
+npx lattice fmt deck.md --check                        # exit 1 if a block would change
 
 # Narrated video and voiced player (optional voice install, once:
 #   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7)
@@ -199,7 +208,7 @@ npx lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
 - [ ] The render printed no `OVERFLOW`, placeholder or palette warning.
 - [ ] The output format matches what the recipient will do with it.
 - [ ] Anything that leaves the author's hands carries `--strip-notes`.
-- [ ] `--embed-source` appears only when someone asked for the source.
+- [ ] `--embed-source` / `--reopenable` appear only when someone asked for the source or an editable file.
 - [ ] You opened the result and looked at it.
 - [ ] You told the person which file is the deliverable, and whether the `.html`
       sidecar matters.
@@ -221,7 +230,7 @@ npx lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
 
 ## Canonical sources
 
-- `npx lattice --help` — the command's own list, printed from the code that
+- `npx lattice --help all` — the command's own list, printed from the code that
   parses it. When this skill and the help disagree, the help wins.
 - The docs site: **Using the command line** (`/guides/cli/`) and **CLI
   reference** (`/reference/cli/`).

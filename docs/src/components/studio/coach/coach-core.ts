@@ -31,7 +31,7 @@ export type CoachComponent = { name: string; bucket?: string; density?: unknown 
 let coreMod: any = null;
 // biome-ignore lint/suspicious/noExplicitAny: authoring-core is an untyped generated bundle.
 async function core(): Promise<any> {
-	if (!coreMod) coreMod = await import('@/playground/authoring-core.generated.js');
+	if (!coreMod) coreMod = await import('@/playground/authoring-door.js').then((door) => door.loadAuthoring());
 	return coreMod;
 }
 

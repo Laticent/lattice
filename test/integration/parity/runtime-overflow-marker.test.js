@@ -141,7 +141,7 @@ const speakingTabs = (doc) => [...doc.querySelectorAll('.overflow-tab, .illegibl
 
 describe('overflow-marker — `off` clears what is already there and stays stamped', () => {
   // `off` returns before installing the probe, so the stamp has to happen on the
-  // way out. It is the half that survives lattice-emulator.js's own inline watcher,
+  // way out. It is the half that survives lattice.js's own inline watcher,
   // which re-adds `.overflow` on font-settle and on every resize — a race a
   // one-shot sweep loses, and the reason the suppression is also expressed in CSS.
   test('a pre-marked document is swept AND every slide is stamped off', async () => {

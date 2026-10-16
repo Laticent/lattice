@@ -21,6 +21,30 @@
     },
     "title": {"type": "string", "minLength": 1},
     "description": {"type": "string", "minLength": 1},
+    "icon": {
+      "type": "object",
+      "description": "The plugin's mark, as DATA rather than markup: a viewBox and a list of paths, each tagged with the ink it takes. The host draws it (lib/plugins/plugin-icon.mjs) and colors each ink from the active theme — `line` takes the heading ink; `accent` and `fill` take the palette's accent (`accent` stroked, `fill` filled) — so a mark holds its contrast on every palette and can never carry a fixed color, a script or a style. A path is SVG path data and nothing else (the pattern admits only path commands and numbers). Optional; a plugin with none is shown by its name.",
+      "additionalProperties": false,
+      "required": ["viewBox", "paths"],
+      "properties": {
+        "viewBox": {"type": "string", "pattern": "^0 0 [1-9][0-9]{0,3} [1-9][0-9]{0,3}$"},
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ink", "d"],
+            "properties": {
+              "ink": {"enum": ["line", "accent", "fill"], "description": "`line` and `accent` are stroked; `fill` is filled with the accent."},
+              "d": {"type": "string", "minLength": 2, "maxLength": 2000, "pattern": "^[MmLlHhVvCcSsQqTtAaZz0-9 ,.\\-]+$"},
+              "width": {"type": "number", "minimum": 0.5, "maximum": 16, "description": "Stroke width in viewBox units; default 6."}
+            }
+          }
+        }
+      }
+    },
     "requires": {
       "$ref": "#/$defs/pluginNames",
       "description": "Plugins this one cannot load without. A missing one, or a cycle, fails the build by name. Disabling a required plugin disables this one."
@@ -54,6 +78,10 @@
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
           "additionalProperties": {"$ref": "#/$defs/fence"}
         },
+        "codeRenderer": {
+          "const": true,
+          "description": "The plugin renders every fenced block no plugin claims: `<name>.render.js` exports `codeRenderer`, `{ highlighter, render(token, ctx, env, base) }`, where `base(highlight)` runs markdown-it's own fence rule with that `highlight` callback (null for plain text). A claimed fence never reaches it, so it cannot restyle a drawn figure. At most one plugin fills the role, and a second is a build error naming both. With none active, a fence renders as escaped plain code. In-tree only."
+        },
         "hydrate": {
           "type": "object",
           "additionalProperties": false,
@@ -74,6 +102,79 @@
         "highlight": {
           "const": true,
           "description": "`<name>.highlight.js` exports `highlight(hljs)`, a highlight.js language definition. The host registers it on the engine's highlight.js under each of the plugin's code fences (`as: \"code\"`), so the source a fence shows before it is drawn — or when it cannot be — is syntax-colored. Requires at least one code fence."
+        },
+        "extensionPoints": {
+          "type": "object",
+          "description": "Slots this plugin OFFERS and components FILL — the chart family's `kernel`. Keyed by the SLOT name, the plugin's own. A component fills a slot by declaring the slot's BLOCK in its manifest (`block`, default the slot name: a chart's `\"kernel\": { … }`), an object-typed block the component manifest schema already defines; one plugin reads a block. In api 1 a slot is filled only by IN-TREE COMPONENTS, with code: every component in `bucket` that declares the block fills it, and its `<component>.<role>.js` exports `entry`, called with the signature the offering plugin's `api` and `description` fix. Filling a slot is REQUIRING the plugin (it is loaded for a deck that uses the class, and a slide reports `plugin/component-needs-plugin` when it is not running), so the component writes no `plugins` block for it. A block two plugins read, a bucket two slots claim, or a block declared outside its slot's bucket fails the build by name. Reserved for a later version, as an additive field: a slot that PLUGINS fill (data, such as an icon pack) rather than components. In-tree only: neither offering nor filling a slot travels by zip (spec/LPM.md §10).",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-zA-Z0-9]*$"},
+          "additionalProperties": {"$ref": "#/$defs/extensionPoint"}
+        },
+        "inline": {
+          "type": "object",
+          "description": "Inline-code KINDS, keyed by the kind's name; an author calls one as `@kind{…}` (2026-10-14-plugin-inline-door.md). IN-TREE: a kind also has a one-character `sigil` alias (`^{database, c3}` is `@icon{database, c3}`), and the plugin's `<name>.inline.js` exports an `inline` object with the same keys, each `{ resolve, html, element, diagnose }`, which the host's dispatch table (lib/core/inline-code-directives.js) calls; it keeps the dispatch order and the backslash escape. `resolve(text, off, probe)` may return `true` instead of building its fields when `probe` is true, and `diagnose(text, off, explain)` may return `true` instead of the reason when `explain` is false. Bundled wherever the dispatcher is (the linter, the runtime), so the module must stay light. A sigil another row claims fails the build by name. ZIP: no sigil (refused); the plugin's one `render.js` draws the kind in the sandbox, handed `{ type: \"inline\", kind, text, record, fields, id }`, where `fields` is the record read by the kind's `slot`. A kind Lattice draws itself, or one two listed plugins claim, is not drawn.",
+          "minProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sigil": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1,
+                "description": "In-tree only, and required there: the tag character before `{`, one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts), the kind's short alias. A zip plugin's kind declares none."
+              },
+              "slot": {
+                "type": "object",
+                "description": "Zip: the kind's fields as a Segno slot spec (the shape a component's `segno` block uses, lib/core/segno-spec.js). The host reads each span's record with it and hands the renderer `fields`; lint, autocomplete and Compose read it without running code. A span whose record does not read is not drawn. Bounded (code-shape.mjs `slotRefusal`) and compiled at import; pinned in the plugin's approval."
+              },
+              "placeholder": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Zip: the inline chip that stands where a span is while the deck does not list the plugin.",
+                "properties": {"size": {"enum": ["sm", "md", "lg", "xl"], "description": "The avatar size scale; default `sm`, one line of text."}}
+              },
+              "title": {"type": "string", "description": "Zip: a short name for the kind, shown in the editor's `@` menu."}
+            }
+          }
+        },
+        "services": {
+          "type": "array",
+          "description": "Named functions other code may call through the host (lib/plugins/services.js `service(plugin, name)`), never by importing the plugin: with the plugin off, the caller gets null and renders without it. The plugin's `<name>.services.js` exports a `services` object with exactly these keys. Light, like `inline`. In-tree only.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"}
+        },
+        "registers": {
+          "type": "object",
+          "description": "Front-matter registers declared as DATA, keyed by the register's key and class prefix (`icon` → `icon: bare etching` and the `icon-bare` slide classes). The host's register factory (lib/core/register-factory.js) builds each one exactly as it builds `spark:`: one word per axis, a slide's word evicting the deck's on that axis only. A prefix a first-party register owns, or a word two axes share, fails the build.",
+          "minProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["axes"],
+            "properties": {
+              "axes": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "uniqueItems": true,
+                  "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                  "description": "The axis's words, its default first."
+                }
+              }
+            }
+          }
+        },
+        "data": {
+          "const": true,
+          "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through lib/plugins/plugin-data.js `pluginData(name)`, never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."
         },
         "styles": {
           "const": true,
@@ -131,6 +232,7 @@
     },
     "payload": {
       "type": "object",
+      "maxProperties": 1,
       "description": "Third-party files a browser surface loads for this plugin. `when: used` loads a file only for a deck that uses the plugin; the CLI export injects it, the runtime fetches it from beside itself by the file's basename.",
       "additionalProperties": {
         "type": "object",
@@ -140,7 +242,18 @@
           "from": {
             "type": "string",
             "pattern": "^npm:[@a-z0-9][a-z0-9._/@-]*\\.js$",
-            "description": "The file, as `npm:<package>/<path>` — the version package-lock.json locks, never a vendored copy."
+            "description": "Where the file comes from, as `npm:<package>/<path>`. With `vendored`, this is only the SOURCE the plugin's own copy is refreshed from (`npm run vendor:plugins`); without it, surfaces read the installed package."
+          },
+          "vendored": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "version", "sha256"],
+            "description": "The plugin OWNS a committed copy of the file, and every surface — the browser pages, the CLI bake, the Marp kit and the Export-to-Marp bundle — reads that copy, so no user ever fetches the library and an install cannot change what ships. The build fails when the copy stops matching `sha256`.",
+            "properties": {
+              "file": { "type": "string", "pattern": "^vendor/[a-z0-9][a-z0-9._-]*\\.js$", "description": "The copy, relative to the plugin folder." },
+              "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "The package version the copy was taken from." },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The copy's SHA-256, checked by the build." }
+            }
           },
           "global": {
             "type": "string",
@@ -151,6 +264,29 @@
             "enum": ["used"],
             "description": "Only `used` in v1: loaded when the deck uses the plugin."
           }
+        }
+      }
+    },
+    "vendor": {
+      "type": "object",
+      "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/plugins/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "file", "version", "sha256"],
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^npm:[@a-z0-9][a-zA-Z0-9._/@-]*(/|/\\*\\.[a-z0-9]+|\\.[a-z0-9]+|/LICENSE)$",
+            "description": "The SOURCE the copy is refreshed from, as `npm:<package>/<path>`: a file, a whole directory (ends in `/`), or one directory's files of one extension (ends in `/*.<ext>`), or the package's `LICENSE`, which every copy of an MIT library must travel with. Only `npm run vendor:plugins` reads it."
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^vendor/[a-z0-9][a-zA-Z0-9._/-]*$",
+            "description": "The copy, relative to the plugin folder: a file, or a directory ending in `/` when `from` names a directory."
+          },
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "The package version the copy was taken from; package.json pins exactly this." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "A file's SHA-256, or a directory's tree hash (payload-path.js `treeSha`), checked by the build." }
         }
       }
     },
@@ -194,7 +330,39 @@
         "opaque": {
           "type": "boolean",
           "description": "block only: the rule's body renders no inline Markdown, so lint-core skips it as it skips a code fence. (Every block rule, opaque or not, is also installed in the boundary parser, so the source-side slide splitter agrees with the render about where a slide starts.)"
+        },
+        "scansAhead": {
+          "oneOf": [{ "const": false }, { "type": "string", "minLength": 1 }],
+          "description": "block only, and REQUIRED for a block: whether the rule decides by reading lines PAST the block it would open, such as a closer it must find before it opens. false when it decides from its own lines, as every CommonMark block rule does. Otherwise a regular expression (multiline) matching every line that decision depends on, opener and closer alike: the Studio's incremental slide index (docs/src/lib/deck-outline/deck-outline.ts) re-parses only the region an edit touched, and rebuilds the whole deck when either version of that region holds such a line."
         }
+      }
+    },
+    "extensionPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "role", "entry", "description"],
+      "properties": {
+        "block": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$",
+          "description": "The component manifest block a filler declares. Default: the slot name. Name it when the slot's own name should not claim a block word for good."
+        },
+        "bucket": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The component bucket whose members fill the slot (`chart`). One slot per bucket."
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The role of the filler's module, by the spine's `<name>.<role>.js` rule (`transform` → `bar/bar.transform.js`)."
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "The function that module exports and the plugin calls (`transformSection`)."
+        },
+        "description": {"type": "string", "minLength": 1, "description": "What a filler supplies, the entry's signature, and what the plugin does with it."}
       }
     },
     "fence": {
@@ -215,6 +383,26 @@
                 "type": "boolean",
                 "description": "The alias still renders, and the render reports its replacement."
               }
+            }
+          }
+        },
+        "placeholder": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a block of this fence takes space, as DATA, for the placeholder a deck shows where the plugin has not been listed or approved and its code may not run (plugin-system §9 decision 11). Each `placement` maps to geometry the engine already has: `stage` fills the slide's stage box (as a Mermaid diagram or a chart does), `figure` takes the content width at a ratio (as an image does), `chip` is a small square in the avatar size scale. Once the plugin has drawn, the host remembers a `figure`'s real proportions and uses those instead of `aspect`. A zip plugin may declare it; a shipped plugin draws at once and has no use for one.",
+          "properties": {
+            "placement": {
+              "enum": ["stage", "figure", "chip"],
+              "description": "`figure` when absent."
+            },
+            "aspect": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,2}/[1-9][0-9]{0,2}$",
+              "description": "For `figure`: width over height of a drawn block, as `W/H` (`16/9`, `4/1`); `16/9` when absent."
+            },
+            "size": {
+              "enum": ["sm", "md", "lg", "xl"],
+              "description": "For `chip`: the avatar size scale (1.1em, 1.45em, 2.4em, 4em); `md` when absent."
             }
           }
         },

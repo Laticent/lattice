@@ -87,7 +87,7 @@
  *
  * Exits non-zero if any palette fails its canary. Sub-threshold RUNS are reported but do
  * not set the exit code here — policy belongs to the gate
- * (`test/integration/invariants/palette-sweep.test.js`), the same split
+ * (`test/integration/invariants/palette-sweep.suite.js`), the same split
  * `check-slide-contrast.js` and `slide-contrast.test.js` already use: the tool owns the
  * number, the test owns what is allowed.
  */
@@ -119,7 +119,7 @@ function listSweepThemes() {
 
 /**
  * One ThemeStore holding the default layout sheet and every shipped palette, built once —
- * the same registration `lattice-emulator.js` makes for a single deck, widened to the matrix.
+ * the same registration `lattice.js` makes for a single deck, widened to the matrix.
  */
 let _store = null;
 function sweepStore() {
@@ -127,7 +127,7 @@ function sweepStore() {
   const read = (f) => fs.readFileSync(f, 'utf8');
   _store = cliThemeStore(
     read(path.join(ROOT, 'dist', 'lattice.css')),
-    listAllThemes().map((name) => ({ name, css: read(path.join(ROOT, 'themes', `${name}.css`)) })),
+    listAllThemes().map((name) => ({ name, css: read(path.join(ROOT, 'themes', name, `${name}.css`)) })),
   );
   return _store;
 }
@@ -136,7 +136,7 @@ let _covered = null;
 function sweepCovered() {
   if (_covered) return _covered;
   let katex;
-  try { katex = require.resolve('katex/dist/katex.min.css'); } catch (_e) { /* none */ }
+  try { katex = require('../lib/plugins/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* none */ }
   _covered = coveredFamilies(ROOT, katex);
   return _covered;
 }
@@ -306,7 +306,7 @@ async function sweep(page, themes, panes = null) {
   const shipped = await page.evaluate(SHEET_TEXT, SHEET_START_MARK);
   const mark = readStartMark(shipped);
   if (!mark) {
-    throw new Error(`palette-sweep: no deck sheet marked ${SHEET_START_MARK} … ${SHEET_END_MARK} in this document — render it with lattice-emulator.js`);
+    throw new Error(`palette-sweep: no deck sheet marked ${SHEET_START_MARK} … ${SHEET_END_MARK} in this document — render it with lattice.js`);
   }
   // THE IDENTITY CHECK, before any swap: this tool's builder must reproduce the region the CLI
   // shipped, for the palette and size the mark names. A render made with a caller's `--css`

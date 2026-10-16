@@ -133,6 +133,26 @@
     },
     {
       "segment": "s1",
+      "localMs": 249,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 249,
+      "why": "one millisecond before the action's word, nothing is due",
+      "due": 0
+    },
+    {
+      "segment": "s1",
+      "localMs": 250,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 250,
+      "why": "an action is due at the instant its own word starts, not after",
+      "due": 1
+    },
+    {
+      "segment": "s1",
       "localMs": 300,
       "phase": "cue",
       "cueIndex": 0,

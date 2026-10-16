@@ -67,7 +67,7 @@
    * small values ~8x more than large ones (12%→14.0% is +17% relative; 92%→94.0%
    * is +2%). At --pct:0 it drew 11px of "progress" against zero. border-box
    * folds the chrome inside the datum: 12% of the track is 12% of the track.
-   * Matches .chart-body / .chart-key (chart-family.css) — the family default;
+   * Matches .chart-body / .chart-key (chart-family.styles.css) — the family default;
    * this rule was the outlier. See #1210. */
   box-sizing: border-box;
   /* CHART-FAMILY MATERIAL, progress-SPECIALIZED GEOMETRY. Progress shares the

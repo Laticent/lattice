@@ -55,18 +55,18 @@ numbers, function names, and so on.
 ```css
 --code-text:         #E6EDF6;  /* everything the twelve below do not claim */
 
---hljs-comment:      #8B9FB8;  /* comments and quotes */
---hljs-keyword:      #F0A6C0;  /* function, const, return */
---hljs-string:       #93D3A8;  /* string and regex literals */
---hljs-number:       #F2C88B;  /* numeric literals */
---hljs-literal:      #F2C88B;  /* true, false, null */
---hljs-built_in:     #8FD3E8;  /* built-in names */
---hljs-title:        #8CB8F0;  /* the names of functions and classes */
---hljs-type:         #C4AEF0;  /* type names, symbols, meta */
---hljs-variable:     #E8DDB5;  /* variables, attributes, bullets */
---hljs-params:       #DCE3EC;  /* a parameter list */
---hljs-tag:          #F0A6C0;  /* markup tags and attribute names */
---hljs-punctuation:  #AAB8C9;  /* braces, operators */
+--syntax-comment:      #8B9FB8;  /* comments and quotes */
+--syntax-keyword:      #F0A6C0;  /* function, const, return */
+--syntax-string:       #93D3A8;  /* string and regex literals */
+--syntax-number:       #F2C88B;  /* numeric literals */
+--syntax-constant:      #F2C88B;  /* true, false, null */
+--syntax-builtin:     #8FD3E8;  /* built-in names */
+--syntax-entity:        #8CB8F0;  /* the names of functions and classes */
+--syntax-type:         #C4AEF0;  /* type names, symbols, meta */
+--syntax-variable:     #E8DDB5;  /* variables, attributes, bullets */
+--syntax-parameter:       #DCE3EC;  /* a parameter list */
+--syntax-markup:          #F0A6C0;  /* markup tags and attribute names */
+--syntax-punctuation:  #AAB8C9;  /* braces, operators */
 ```
 
 Two things constrain them. They all sit on `--code-bg` — the panel behind
@@ -77,7 +77,7 @@ punctuation included.
 
 The temptation to make comments nearly invisible is exactly the mistake:
 de-emphasis is about where a color sits relative to the code around it, not
-about whether it can be read at all. `--hljs-comment` is the quietest color
+about whether it can be read at all. `--syntax-comment` is the quietest color
 in the block above and still clears the floor with room to spare.
 
 <CraftLab
@@ -87,7 +87,7 @@ in the block above and still clears the floor with room to spare.
 	canvasToggle={false}
 	markdown={SLIDE_CODE}
 	size="tall"
-	hint="This theme sets none of the twelve, so the code block is wearing the engine's defaults. Paste --hljs-comment: #8B9FB8; into the :root block and watch just the comment line move — then --hljs-keyword: #F0A6C0; and function, const and return follow."
+	hint="This theme sets none of the twelve, so the code block is wearing the engine's defaults. Paste --syntax-comment: #8B9FB8; into the :root block and watch just the comment line move — then --syntax-keyword: #F0A6C0; and function, const and return follow."
 />
 
 ## What happens to the ones you skip

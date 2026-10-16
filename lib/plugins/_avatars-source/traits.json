@@ -1,0 +1,149 @@
+{
+  "$comment": "The avatars plugin's TRAITS: every option an author may name, the colors behind the color traits, which hair a head covering hides, and the pools a name and a gender preset draw defaults from. tools/build-avatars-data.js validates this file against parts.json and writes lib/plugins/avatars/avatars.vocab.generated.js (names and pools, small) and avatars.data.generated.js (drawings and colors). Design: engineering/decisions/2026-10-09-inline-avatars.md.",
+  "palettes": {
+    "skin": {
+      "1": { "base": "#F6DCCB", "lip": "#C4796D" },
+      "2": { "base": "#EFC6A8", "lip": "#B86F5E" },
+      "3": { "base": "#E2AF88", "lip": "#A86352" },
+      "4": { "base": "#CC9468", "lip": "#91503F" },
+      "5": { "base": "#AE7650", "lip": "#733E30" },
+      "6": { "base": "#8C5A3B", "lip": "#552B21" },
+      "7": { "base": "#6E4430", "lip": "#40201A" },
+      "8": { "base": "#4D2F22", "lip": "#2A1410" }
+    },
+    "hair-color": {
+      "black":     { "base": "#1E1917", "brow": "#1E1917" },
+      "darkbrown": { "base": "#3A2A21", "brow": "#2E211A" },
+      "brown":     { "base": "#5E4130", "brow": "#4A3326" },
+      "auburn":    { "base": "#7B3A22", "brow": "#5E2D1B" },
+      "red":       { "base": "#A5512C", "brow": "#7E3E22" },
+      "blonde":    { "base": "#C8A46A", "brow": "#8F7246" },
+      "platinum":  { "base": "#E2D4AE", "brow": "#A8956A" },
+      "gray":      { "base": "#8C8A87", "brow": "#5F5C59" },
+      "white":     { "base": "#E6E3DE", "brow": "#9C978F" }
+    },
+    "eye-color": {
+      "brown": "#5A3A24",
+      "dark":  "#2E1F16",
+      "hazel": "#7C6233",
+      "green": "#4E6E3E",
+      "blue":  "#3E6C93",
+      "gray":  "#6F7A84"
+    },
+    "top": {
+      "navy":     "#34445A",
+      "slate":    "#4A5563",
+      "charcoal": "#33363B",
+      "olive":    "#55603F",
+      "teal":     "#2F5F63",
+      "plum":     "#5E4660",
+      "brick":    "#7A4440",
+      "taupe":    "#6E6255",
+      "cream":    "#E4DED3"
+    },
+    "fixed": {
+      "ink":   "#1C1513",
+      "white": "#FFFFFF",
+      "mouth": "#5A2626",
+      "frame": "#26262B",
+      "shade": "#000000",
+      "metal": "#D4AC58"
+    }
+  },
+  "traits": {
+    "hair":      ["none", "buzz", "short", "side", "curly", "coily", "bob", "long", "bun", "locs"],
+    "face":      ["oval", "round", "long", "square", "heart"],
+    "eyes":      ["round", "almond", "narrow", "smile"],
+    "brows":     ["soft", "straight", "arched", "thick"],
+    "nose":      ["button", "straight", "wide", "long"],
+    "mouth":     ["smile", "grin", "neutral", "smirk"],
+    "beard":     ["none", "stubble", "mustache", "goatee", "full"],
+    "glasses":   ["none", "round", "square"],
+    "earrings":  ["none", "stud", "hoop", "drop"],
+    "headwear":  ["none", "hijab", "turban", "skullcap", "beanie", "kufi", "cap", "backcap"],
+    "clothing":  ["crew", "vneck", "collar", "turtleneck", "hoodie", "blazer"]
+  },
+  "presets": {
+    "neutral": {
+      "hair":  ["short", "side", "curly", "coily", "bob", "long", "bun", "buzz", "locs"],
+      "beard": ["none"],
+      "brows": ["soft", "straight", "arched"]
+    },
+    "woman": {
+      "hair":  ["long", "bob", "bun", "curly", "coily", "locs", "short", "long", "bob"],
+      "beard": ["none"],
+      "brows": ["arched", "soft", "arched"]
+    },
+    "man": {
+      "hair":  ["short", "side", "buzz", "curly", "coily", "none", "locs", "short", "side"],
+      "beard": ["none", "none", "none", "stubble", "full", "goatee", "mustache"],
+      "brows": ["straight", "soft", "thick"]
+    }
+  },
+  "pools": {
+    "skin":       ["1", "2", "3", "4", "5", "6", "7", "8"],
+    "hair-color": ["black", "black", "black", "darkbrown", "darkbrown", "darkbrown", "brown", "brown", "auburn", "blonde", "red", "gray"],
+    "eye-color":  ["brown", "brown", "brown", "dark", "dark", "hazel", "green", "blue", "gray"],
+    "face":       ["oval", "oval", "round", "long", "square", "heart"],
+    "eyes":       ["round", "almond", "almond", "narrow", "round"],
+    "nose":       ["button", "straight", "wide", "long"],
+    "mouth":      ["smile", "smile", "smile", "neutral", "grin", "smirk"],
+    "glasses":    ["none", "none", "none", "none", "none", "round", "square"],
+    "top":        ["navy", "slate", "charcoal", "olive", "teal", "plum", "brick", "taupe"],
+    "color":      ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"],
+    "earrings":   ["none"],
+    "headwear":   ["none"],
+    "clothing":   ["crew"],
+    "headwear-color": ["navy", "slate", "charcoal", "olive", "teal", "plum", "brick", "taupe", "cream"]
+  },
+  "coverage": {
+    "$comment": "Which hair layers a head covering hides, per hairstyle; \"*\" is every hairstyle not named. A hijab and a turban hide all hair. A skull cap or a cap hides the fringe, and the volume (a bun, an afro, curls) that would otherwise show above it.",
+    "hijab":  { "*": ["back", "mid", "front"] },
+    "turban": { "*": ["back", "mid", "front"] },
+    "skullcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "beanie": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "kufi": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "backcap": { "*": [], "bun": ["back"], "coily": ["back"], "curly": ["back", "front"] },
+    "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
+  },
+  "hides-earrings": ["hijab"],
+  "fit": {
+    "$comment": "Head coverings are drawn once, then fitted to the head they sit on (the hijab wraps the whole head and is not fitted). A covering is sized to the higher of the face's top and the hair's crown, and the wider of the face and the hair, plus a small margin, so it sits snug: sy stretches it from `anchor` (the brow line) up to its target top, sx across about the centerline. `hats` holds each drawing's measured top and half-width, `faces` each face shape's, and `hair` each hairstyle's crown height and half-width (the hair drawings do not change with the face, so these are absolute; the volume styles are the height they press down to under a covering). target top = min(face top, hair top) - margin.top; target half-width = max(face half, hair half) + margin.side.",
+    "anchor": 38,
+    "margin": { "top": 1, "side": 1 },
+    "hats": {
+      "turban":   { "top": 21.2, "half": 21.4 },
+      "skullcap": { "top": 17.4, "half": 19.1 },
+      "beanie":   { "top": 17,   "half": 20.1 },
+      "kufi":     { "top": 18.8, "half": 17.6 },
+      "cap":      { "top": 17.9, "half": 19 },
+      "backcap":  { "top": 17.3, "half": 19.3 }
+    },
+    "faces": {
+      "oval":   { "top": 28,   "half": 16 },
+      "round":  { "top": 30,   "half": 17 },
+      "long":   { "top": 26,   "half": 15 },
+      "square": { "top": 27.5, "half": 16 },
+      "heart":  { "top": 27.5, "half": 16 }
+    },
+    "hair": {
+      "none":  null,
+      "buzz":  { "top": 26.6, "half": 15.6 },
+      "short": { "top": 23.4, "half": 17.8 },
+      "side":  { "top": 23,   "half": 17.8 },
+      "curly": { "top": 22,   "half": 19 },
+      "coily": { "top": 21,   "half": 20 },
+      "bob":   { "top": 23,   "half": 19.5 },
+      "long":  { "top": 26,   "half": 16 },
+      "bun":   { "top": 22.5, "half": 17.4 },
+      "locs":  { "top": 23.5, "half": 18 }
+    }
+  },
+  "deep": {
+    "$comment": "For the deeper skin tones, a default hair color comes from these pools instead, so a name never defaults to blonde or red where it would be rare. A color the author writes always wins.",
+    "skin": ["5", "6", "7", "8"],
+    "pools": {
+      "hair-color": ["black", "black", "black", "black", "darkbrown", "darkbrown", "darkbrown", "brown", "gray"]
+    }
+  }
+}

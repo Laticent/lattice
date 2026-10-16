@@ -35,7 +35,7 @@
  *
  * `height: 100%` shipped here in #1207 and broke every live preview while
  * leaving the PDF perfect. The export was unharmed only because
- * lattice-emulator.js emits `section[data-lattice-slide] { width/height:
+ * lattice.js emits `section[data-lattice-slide] { width/height:
  * !important }` — importance, not specificity, is what kept it out. In the
  * Playground the percentage resolved against `article.lattice`, whose inline
  * height the preview's fit() routine sets to the height of the WHOLE

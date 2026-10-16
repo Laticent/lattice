@@ -16,6 +16,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -114,7 +115,7 @@ describe('resolveDiagramLook — rule 1, the texture channel outranks the finish
 describe('paletteUsesTextureChannel — read the real theme files', () => {
   // A hardcoded theme list here would rot the first time a palette adopted the
   // channel, which is the whole reason the predicate reads CSS instead.
-  const read = (name) => fs.readFileSync(path.join(THEMES, `${name}.css`), 'utf8');
+  const read = (name) => fs.readFileSync(path.join(THEMES, name, `${name}.css`), 'utf8');
 
   test('the three texture BASES declare the channel', () => {
     for (const name of ['a11y-base', 'onyx', 'concrete']) {
@@ -133,9 +134,9 @@ describe('paletteUsesTextureChannel — read the real theme files', () => {
     // onyx-dark, …) inherit the answer rather than declaring it. This asserts the set
     // of DECLARING files, so a new one shows up here rather than silently opting a
     // palette out of the hand look.
-    const declaring = fs.readdirSync(THEMES)
+    const declaring = themeEntries(THEMES)
       .filter((f) => f.endsWith('.css'))
-      .filter((f) => paletteUsesTextureChannel(fs.readFileSync(path.join(THEMES, f), 'utf8')))
+      .filter((f) => paletteUsesTextureChannel(fs.readFileSync(themePath(THEMES, f), 'utf8')))
       .map((f) => f.replace('.css', ''))
       .sort();
     assert.deepEqual(declaring, ['a11y-base', 'concrete', 'onyx']);

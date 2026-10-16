@@ -51,12 +51,64 @@ export const PG_SNAPSHOT_KEY = 'lattice-docs-pg-last-slide';
 export const PG_SHELL_SCOPE = '.pg-ssr-shell';
 // UTF-16 code-unit cap (localStorage stores UTF-16, ~2 bytes/unit, so this is
 // ~480KB on disk — comfortably inside a ~5MB origin quota, latest-only).
-const MAX_UNITS = 240 * 1024;
+export const MAX_UNITS = 240 * 1024;
 
 // Pseudo-classes/elements the live document can't be asked to match; strip them so
 // the STRUCTURAL selector still tests, and keep the rule if what remains matches.
-const STRIP_PSEUDO =
-	/::[a-z-]+(\([^)]*\))?|:(hover|focus|focus-within|focus-visible|active|visited|target|checked|disabled|enabled|first-child|last-child|only-child|first-of-type|last-of-type|nth-child\([^)]*\)|nth-of-type\([^)]*\)|not\([^)]*\)|is\([^)]*\)|where\([^)]*\)|has\([^)]*\))/gi;
+//
+// BALANCED, not a regex. A regex `not\([^)]*\)` stops at the FIRST `)`, so a nested
+// `:not(:is(a, b))` left a stray `)` behind: the probe was invalid, and an invalid probe keeps
+// its rule "conservatively". That one shape carried rules no slide could use into every
+// snapshot, and the Playground's default Edit deck reached MAX_UNITS (#2558). Stripping a
+// simple selector only ever widens a compound, so the probe stays a superset of the rule: a
+// probe that matches nothing proves the rule matches nothing. Where the strip would empty a
+// compound (`a > :is(b) c`), a `*` stands in, so the combinators around it keep their meaning.
+const STRIP_NAMES = new Set([
+	'hover', 'focus', 'focus-within', 'focus-visible', 'active', 'visited', 'target', 'checked', 'disabled', 'enabled',
+	'first-child', 'last-child', 'only-child', 'first-of-type', 'last-of-type', 'nth-child', 'nth-of-type',
+	'not', 'is', 'where', 'has',
+]);
+const COMBINATOR = /[\s>+~,(]/;
+export function stripPseudo(sel) {
+	let out = '';
+	let i = 0;
+	let bracket = 0;
+	let quote = '';
+	while (i < sel.length) {
+		const ch = sel[i];
+		if (quote) {
+			out += ch;
+			if (ch === '\\') { out += sel[i + 1] ?? ''; i += 2; continue; }
+			if (ch === quote) quote = '';
+			i++;
+			continue;
+		}
+		if (ch === '"' || ch === "'") { quote = ch; out += ch; i++; continue; }
+		// An escape is one character of an identifier (`.md\:flex`), never a pseudo or a bracket.
+		if (ch === '\\') { out += ch + (sel[i + 1] ?? ''); i += 2; continue; }
+		if (ch === '[') bracket++;
+		else if (ch === ']') bracket--;
+		if (ch !== ':' || bracket > 0) { out += ch; i++; continue; }
+		const element = sel[i + 1] === ':';
+		const m = /^[a-zA-Z-]+/.exec(sel.slice(i + (element ? 2 : 1)));
+		const name = m ? m[0].toLowerCase() : '';
+		let end = i + (element ? 2 : 1) + name.length;
+		if (sel[end] === '(') {
+			let depth = 0;
+			for (; end < sel.length; end++) {
+				if (sel[end] === '(') depth++;
+				else if (sel[end] === ')' && --depth === 0) { end++; break; }
+			}
+		}
+		if (!element && !STRIP_NAMES.has(name)) { out += sel.slice(i, end); i = end; continue; }
+		// Strip it. An emptied compound becomes `*` so `a > :is(b) c` probes as `a > * c`.
+		const before = out.length ? out[out.length - 1] : ' ';
+		const after = end < sel.length ? sel[end] : ' ';
+		if (COMBINATOR.test(before) && (COMBINATOR.test(after) || after === ')')) out += '*';
+		i = end;
+	}
+	return out;
+}
 
 // A PANE arm (`section lat-pane.x …`, lib/core/pane-css.js) can only match inside a pane. A
 // deck with panes composes one beside each component rule that reaches a pane. The probe below
@@ -69,8 +121,8 @@ const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 
 // A CHART-FINISH arm (`section.chart-finish-tone :where(…)`, tools/build-chart-finish-css.js)
 // can only match under an element carrying that finish's class. Its mark part nests `:is()`
-// inside `:where()`, which STRIP_PSEUDO cannot strip cleanly, so the probe is left invalid and
-// the rule was kept "conservatively": all ~280 finish rules rode into every snapshot, it
+// inside `:where()`, which the regex strip this file used before `stripPseudo` could not undo, so
+// the probe was left invalid and the rule kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
 const FINISH_ARM = /(?<![\w-])chart-finish-(pigment|etching|tone)(?![\w-])/;
@@ -82,7 +134,7 @@ const finishArmAbsent = (doc, sel) => {
 function selectorMatches(doc, selectorText, hasPane) {
 	if (isPaneArm(selectorText) && !hasPane) return false;
 	if (finishArmAbsent(doc, selectorText)) return false;
-	const probe = selectorText.replace(STRIP_PSEUDO, '').replace(/\s+/g, ' ').trim();
+	const probe = stripPseudo(selectorText).replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {
 		return !!doc.querySelector(probe);

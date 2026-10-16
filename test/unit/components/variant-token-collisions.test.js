@@ -177,7 +177,7 @@ const KNOWN_COLLISIONS = {
     guardedFile: 'lib/components/chart/quadrant/quadrant.styles.css',
     guard: ':where(:not(.radar))',
     selectorsChecked: 37,
-    // Measured: 3 of 42 before, 1 after. The one left is `chart-family.css`'s
+    // Measured: 3 of 42 before, 1 after. The one left is `chart-family.styles.css`'s
     // `section.form.quadrant:not(.claim-hero):not(.claim-bleed) .chart-body {
     // container-type: size }` — the rule the issue called the sharp edge — and it is not a
     // leak either: the line directly above it is `section.form.radar…` with the identical

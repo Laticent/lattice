@@ -103,7 +103,7 @@
     "axes": {
       "selector": "p > code",
       "required": false,
-      "description": "Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`."
+      "description": "Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name; a stray `]` right after a quoted name closes the list early, and `lint:deck` warns (`bracket-list-closed-early`). A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`."
     },
     "items": {
       "selector": "ul > li",

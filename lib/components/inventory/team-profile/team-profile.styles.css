@@ -124,6 +124,9 @@ section.team-profile .person-photo {
  *     contract's own pair, so the ink is AA on the fill in both color modes
  *     without a per-mode override.
  *
+ * A drawn avatar (the avatars plugin's `!{…}`, `.person-figure--avatar`) is a FACE for
+ * this test, as a photo is: beside one, a monogram stays quiet.
+ *
  * `:has()` reads that distinction off the rendered roster, so an author gets the
  * right answer without a modifier to remember. (HARD RULE #12 banned `:has()` in
  * theme CSS until it was retired in 2026-07 — retested against a current
@@ -165,22 +168,22 @@ section.team-profile .person-initials {
  * ring takes `--cat-N-mark`, the 3:1 graphical token, which is what a border wants.
  * So the disc stays quiet, the person still has a color, and the contrast is the
  * theme's to keep rather than this file's to assert. */
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-1-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-2-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-3-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-4-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-5-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-6-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-7-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-8-mark); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-1-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-2-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-3-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-4-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-5-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-6-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-7-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-8-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
 
 
 /* `sides` offsets its SECOND roster's cycle. Both lists restart at `nth-child(1)`,
@@ -188,22 +191,22 @@ section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-chi
  * that row 1 faces row 1, row 2 faces row 2. Nothing in the data says that; a QBR
  * roll-call is two teams, not a set of counterparts. Shifting the right-hand list
  * by three breaks the mirror while keeping every person a stable color. */
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-4-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-5-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-6-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-7-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-8-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-1-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-2-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-3-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-4-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-5-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-6-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-7-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-8-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-1-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-2-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-3-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
 
 /* ── The words.
  * A column by default, centered under the portrait. The three lines are a

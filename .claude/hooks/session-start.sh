@@ -73,7 +73,7 @@ quiet npm install --no-audit --no-fund
 
 # 1b. The generated bundles. dist/ and the docs-site bundles are BUILT, not
 #     committed (.gitignore, 2026-08-17), so a fresh container has neither. Almost
-#     everything here needs them: `node dist/lattice-emulator.js`, the unit and
+#     everything here needs them: `node dist/lattice.js`, the unit and
 #     integration suites, the docs site, and the agent-facing catalog
 #     dist/docs/components.pick.md that CLAUDE.md tells you to grep. ~16s, no
 #     browser. Idempotent — a no-op when they are already current.
@@ -110,7 +110,7 @@ if ! command -v mogrify >/dev/null 2>&1; then
   quiet_try apt-get install -y imagemagick || quiet sudo apt-get install -y imagemagick || true
 fi
 
-# 2c. Color emoji font. The owned render paths (lattice-engine, lattice-emulator)
+# 2c. Color emoji font. The owned render paths (lattice-engine, lattice)
 #     emit raw unicode emoji as plain text (no twemoji <img>), so a color emoji
 #     font must be present for them to render in color in headless Chromium. The
 #     webfont @import in lattice.css is a portable bonus, but an installed font

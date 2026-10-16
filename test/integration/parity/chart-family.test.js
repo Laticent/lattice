@@ -1,5 +1,5 @@
 /**
- * Integration: lattice-emulator's chart-family DOM transform.
+ * Integration: lattice's chart-family DOM transform.
  *
  * Builds a small fixture deck with one slide per chart layout (progress,
  * timeline-list, piechart) plus modifier composition, then asserts the

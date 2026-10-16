@@ -11,7 +11,7 @@
 // Keep these PURE and browser-API-free: they are rendered at build time, where there is no
 // `window`. Props only, no hooks that read the DOM.
 
-import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal } from 'lucide-react';
+import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, UsersRound } from 'lucide-react';
 import type * as React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
@@ -54,9 +54,13 @@ export const HOME_HREF = joinBase(import.meta.env.BASE_URL || '/', '');
  *
  * `min-w`, not `w`: a deck past the reserved range grows its slot honestly rather than clipping
  * its own count. The ranges cover 999 slides, which is where the growth resumes.
+ *
+ * The counter's 80px is measured, not fitted: in Outfit 12px semibold the widest count in range,
+ * "Slide 999 / 999", draws 78.95px ("Slide 100 / 999" 78.75px). The slot was 78px until
+ * 2026-10-15, so any deck past 99 slides widened it and shifted the row by up to a pixel.
  */
 export const DECK_META_SLOT = 'min-w-[70px] shrink-0 text-right';
-export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[78px] text-center';
+export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[80px] text-center';
 
 // The top bar's band rule. ONE constant because the app header and the pre-paint
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two
@@ -122,7 +126,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
 						{/* COLOR, both arms, deliberately (2026-08-16 toolbar placement review):
 						    · UNSELECTED was `text-muted-foreground` → `--text-muted`, which every theme
-						      documents as "decorative / de-emphasized … WCAG-exempt" (themes/cuoio.css:108).
+						      documents as "decorative / de-emphasized … WCAG-exempt" (themes/cuoio/cuoio.css:108).
 						      On 12px semibold that is a 1.4.3 AA FAILURE — measured 2.64:1 in cuoio light,
 						      and below 4.5:1 in 21 of 36 palette×mode combos. These are load-bearing labels:
 						      the two stops you are NOT on are exactly the ones you must read to decide where
@@ -255,13 +259,13 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // can never light a panel the app is about to close.
 //
 // The accessible names are the e2e/demo contract — 'Toggle Coach', 'Toggle Chat', 'Deck
-// scope', 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
+// scope', 'Slide settings', 'Open Library', 'Workspace settings', 'Toggle Live' (studio-fixture.ts CHROME
 // map + tour-kit SEL) — keep them stable.
 
 /** Which panel each of the rail's two exclusive slots is showing (null = closed). */
 export type ActivityRailState = {
-	/** The assistant slot: Coach · Chat · Library · Reader views. */
-	assistant: 'coach' | 'chat' | 'library' | 'lenses' | null;
+	/** The assistant slot: Coach · Chat · Live · Library · Reader views. */
+	assistant: 'coach' | 'chat' | 'live' | 'library' | 'lenses' | null;
 	/** The settings slot: the slide Inspector or the deck one. */
 	settings: 'slide' | 'deck' | null;
 };
@@ -295,6 +299,7 @@ export function ActivityRail({
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
 			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Live" hint="Live — edit together: invite, people, session chat" caption="Live" active={state.assistant === 'live'} onClick={() => onAssistant('live')}><UsersRound className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />

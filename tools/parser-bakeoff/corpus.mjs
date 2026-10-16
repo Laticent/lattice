@@ -89,6 +89,20 @@ function literals(src) {
   return out;
 }
 
+/** Every deck and component doc the corpus reads: the decks we ship, then the docs. */
+export function deckFiles() {
+  return [...decks(), ...walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.docs.md'))];
+}
+
+/** String literals in the named test files (paths from the repo root), up to 200 characters. */
+export function testLiterals(files) {
+  const out = [];
+  for (const f of files) {
+    try { out.push(...literals(readFileSync(join(ROOT, f), 'utf8')).filter((s) => s.length <= 200)); } catch { /* file moved */ }
+  }
+  return out;
+}
+
 function decks() {
   return [
     ...walk(join(ROOT, 'examples'), (p) => p.endsWith('.md')),
@@ -108,23 +122,32 @@ export function realCorpus() {
 }
 
 /** Rows of every flowchart / state-chart slide, as one text string each. */
-export function flowCorpus() {
-  const rows = [];
+/** Every outline item on a flowchart or state-chart slide in the shipped decks, in deck order. */
+function flowItems() {
+  const items = [];
   for (const f of decks()) {
     const src = readFileSync(f, 'utf8');
     if (!/_class:\s*[^>]*\b(flowchart|state-chart)\b/.test(src)) continue;
     for (const slide of src.split(/^---$/m)) {
       if (!/_class:\s*[^>]*\b(flowchart|state-chart)\b/.test(slide)) continue;
-      const { items } = outlineFromMarkdown(slide);
       const visit = (list) => {
-        for (const it of list) {
-          for (const s of it.segs) if (s.kind === 'text' && s.value.trim()) rows.push(s.value);
-          visit(it.children || []);
-        }
+        for (const it of list) { items.push(it); visit(it.children || []); }
       };
-      visit(items);
+      visit(outlineFromMarkdown(slide).items);
     }
   }
+  return items;
+}
+
+/** The rows whose segments are more than one text run (a code span, an escaped `\{literal}`, or
+ *  text split around one), as whole segment lists: `splitRow` carries state across them. */
+export function flowSegCorpus() {
+  return flowItems().map((it) => it.segs).filter((segs) => segs.length > 1 || segs.some((s) => s.kind !== 'text'));
+}
+
+export function flowCorpus() {
+  const rows = [];
+  for (const it of flowItems()) for (const s of it.segs) if (s.kind === 'text' && s.value.trim()) rows.push(s.value);
   // The test file's markdown: each `- …` line is a row.
   const t = readFileSync(join(ROOT, 'test/unit/core/flowchart-grammar.test.js'), 'utf8');
   for (const lit of literals(t)) {

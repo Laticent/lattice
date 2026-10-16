@@ -22,6 +22,7 @@ import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
+import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_SNAP_MIDPOINT } from '../components/playground/pg-split';
@@ -34,7 +35,7 @@ import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPL
 import { COMPONENT_KEY, HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY, resolveComponent } from '../lib/playground-controller';
 import { joinBase } from '../lib/base-url.mjs';
 import { isPreviewDeploy } from '../lib/deploy-env.mjs';
-import { assetBase } from '../playground/asset-version.mjs';
+import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { loadGalleries, GALLERY_GROUPS } from '../playground/galleries.mjs';
 
 const docsRoot = process.cwd();
@@ -121,7 +122,6 @@ const galleryGroups = GALLERY_GROUPS.map((grp) => ({
 		.filter((g) => g.group === grp.key)
 		.map((g) => ({ id: g.id, label: g.label, slides: g.slides })),
 })).filter((grp) => grp.items.length);
-const gallerySources = Object.fromEntries(galleries.map((g) => [g.id, g.source]));
 
 // The full data payload for the React island. Passed as a prop (Astro
 // serializes it); the deck sources can contain a literal `</script>` (the jargon
@@ -164,16 +164,16 @@ const pgData = {
 	catalog,
 	components,
 	lenses,
-	gallerySources,
 	galleryGroups,
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
-	engineUrl: url(pg + 'lattice-playground.js'),
+	engineUrl: url(engineAsset()),
 	// Self-hosted Mermaid + KaTeX (staged by sync-playground-assets), so a
 	// diagram/math preview renders from our own origin instead of jsdelivr.
 	dagreUrl: url(pg + 'lattice-dagre.js'),
 	katexUrl: url(pg + 'katex/katex.min.css'),
 	plansBase: url(pg + 'plans/'),
+	galleriesBase: url(pg + 'galleries/'),
 	palettes,
 	finishes: FINISH_NAMES,
 	lintVocab,
@@ -190,6 +190,9 @@ const pgData = {
 		    blank canvas (shown while the render-blocking CSS loads) is never a white flash — even
 		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the seed. */}
 		<ColorSchemeSeed />
+		{/* Before any module preload: a page served from a stale cache after a deploy names
+		    chunks that no longer exist, and the island would never mount. */}
+		<StaleDeployRecovery island="PlaygroundIsland" />
 		<ResourceHints />
 		{/* The runtime prefetch that <RuntimeWarm> issues elsewhere is issued by the boot seed
 		    below on this page: it must NOT run beside the newcomer bake (see there). */}

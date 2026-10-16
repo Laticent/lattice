@@ -31,7 +31,7 @@
  *
  * It also still resolves the palette tokens (paletteCss / listBasePalettes)
  * that tools/build-landing-tokens.js consumes — one place that turns
- * themes/<name>.css into concrete {light, dark} token blocks.
+ * themes/<name>/<name>.css into concrete {light, dark} token blocks.
  *
  * The manifest is the single source of truth — the same fields the
  * per-component docs.md generator (tools/build-component-docs.js) reads,
@@ -50,6 +50,7 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
 const {
@@ -227,15 +228,15 @@ const PORTAL_TOKENS = [
 // (`lib/theme/cat-ink.js`: hold hue and chroma, move lightness by binary search until
 // it clears AA on both surfaces).
 //
-// WHY A NEW TIER AND NOT `--hljs-*` DIRECTLY. `--hljs-*` ARE the repo's real code-token
+// WHY A NEW TIER AND NOT `--syntax-*` DIRECTLY. `--syntax-*` ARE the repo's real code-token
 // colors, and they are the right SEED — but they are tuned for `--code-bg`, a panel that
 // is dark on every palette in both modes, and the editor's canvas is `--bg`. Measured
-// over 18 base palettes x 2 modes x {string, number}: 21 of 36 rows put a raw `--hljs-*`
-// below AA on the editor canvas, worst 1.01:1 (concrete/light `--hljs-number` #C8B880 on
+// over 18 base palettes x 2 modes x {string, number}: 21 of 36 rows put a raw `--syntax-*`
+// below AA on the editor canvas, worst 1.01:1 (concrete/light `--syntax-number` #C8B880 on
 // #B8B8B5 — invisible). Dropping them in as-is would be materially worse than the status
 // trio #1703 shipped, which is why that PR took the cheap path.
 //
-// (#1703 also stated a WRONG reason for taking it: that `--hljs-*` cannot join
+// (#1703 also stated a WRONG reason for taking it: that `--syntax-*` cannot join
 // PORTAL_TOKENS because the four a11y-* palettes declare none and `resolveToken` throws
 // on partial coverage. `a11y-base` extends `onyx`, which declares the full syntax
 // family, so all 18 base palettes resolve them — verified, and the claim is corrected in
@@ -283,7 +284,7 @@ const SYNTAX_INK_REPELLED = ['string', 'number'];
  * row move together: a theme-token change with a far wider blast radius than this tier. Tracked
  * separately, not smuggled in here.
  *
- * `string` / `number` seed from the palette's own `--hljs-string` / `--hljs-number`, so
+ * `string` / `number` seed from the palette's own `--syntax-string` / `--syntax-number`, so
  * the editor and the deck's rendered code panel agree on what a string IS: indaco gets
  * its Night Owl tan, cuoio its terracotta, laguna its sage — instead of one status green
  * everywhere.
@@ -306,7 +307,7 @@ const SYNTAX_INK_REPELLED = ['string', 'number'];
  * shares their grayscale categorical cycle and is a monochrome BRAND rather than a
  * color-vision accommodation. onyx keeps its own hued syntax pair.
  *
- * The deeper fix — giving the a11y palettes their own `--hljs-*` family, so their SLIDE
+ * The deeper fix — giving the a11y palettes their own `--syntax-*` family, so their SLIDE
  * code panels stop rendering confusable syntax too — is a per-palette design job across
  * twelve tokens and four palettes, off this change's path (HARD RULE #18). Tracked, not
  * smuggled in here.
@@ -315,8 +316,8 @@ function syntaxInkSeeds(name) {
   const safePair = name.startsWith('a11y-');
   return {
     keyword: 'accent',
-    string: safePair ? 'pass' : 'hljs-string',
-    number: safePair ? 'warn' : 'hljs-number',
+    string: safePair ? 'pass' : 'syntax-string',
+    number: safePair ? 'warn' : 'syntax-number',
   };
 }
 
@@ -400,7 +401,7 @@ function parseThemeVars(css) {
 function flattenThemeVars(name) {
   const merged = new Map();
   for (const n of themeChain(name, THEME_EDGES)) {
-    const css = fs.readFileSync(path.join(THEMES_DIR, `${n}.css`), 'utf8');
+    const css = fs.readFileSync(path.join(THEMES_DIR, n, `${n}.css`), 'utf8');
     for (const [k, v] of parseThemeVars(css)) merged.set(k, v);
   }
   return merged;
@@ -598,7 +599,7 @@ let _basePalettes = null;
 function listBasePalettes(edges = THEME_EDGES) {
   if (_basePalettes && edges === THEME_EDGES) return _basePalettes;
   const names = [];
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+  for (const file of themeEntries(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
     // A brand palette declares no parent — a chain of ONE, itself. (Asked of the
@@ -697,7 +698,7 @@ function resolvePalettes() {
       dark[`${s}-fill`] = base;
     }
     // The editor SYNTAX INK tier, per mode against that mode's own canvas pair. Seeded
-    // from tokens that are NOT all on PORTAL_TOKENS (`--hljs-string` / `--hljs-number`),
+    // from tokens that are NOT all on PORTAL_TOKENS (`--syntax-string` / `--syntax-number`),
     // so they are resolved here the way --spectrum is, and a palette missing one is a
     // loud failure rather than a silently skipped role: every base palette resolves the
     // syntax family today (onyx declares it; a11y-base extends onyx), and a future
@@ -764,7 +765,7 @@ function resolvePalettes() {
             'solve holds it against: --text-heading, --text-body, --text-muted, AND the syntax inks ' +
             'already placed (keyword, then string, then number). On the shipped palettes it is ' +
             'always the already-placed inks that run the axis out, not the text roles — so widen ' +
-            "the categorical distance between this palette's --hljs-string and --hljs-number, or " +
+            "the categorical distance between this palette's --syntax-string and --syntax-number, or " +
             're-hue the seed. This is a property of the palette: re-running reproduces it.',
         );
       }
@@ -1154,13 +1155,26 @@ function renderFences(manifests) {
 }
 
 /**
+ * The component's DATA SLOTS (LFM 1.1 §3.6, rule 4): each Segno slot its manifest declares with
+ * `sits: "list-rows"`. An inline-code span on such a component's list rows is read by the slot,
+ * never by the slide-wide pill / mark / spark pass. `rowDepth` (when declared) bounds the list
+ * depth the slot reads, and a slot with it reads only the slide's first list. The engine reads
+ * the same declarations through lib/core/resolve-inline-code.js, so the two cannot disagree.
+ */
+function dataSlotsOf(m) {
+  return Object.entries(m.segno || {})
+    .filter(([, s]) => s && s.sits === 'list-rows')
+    .map(([name, s]) => (s.rowDepth ? { name, sits: s.sits, rowDepth: s.rowDepth } : { name, sits: s.sits }));
+}
+
+/**
  * Project the component manifests into dist/docs/grammar.json — the
  * machine-readable per-component grammar for LFM (Lattice-Flavored Markdown).
  * A third projection of the same manifest source that backs components.json
  * (catalog) and the linter vocabulary. For each component it records the
  * `_class` token, its slots (selector + required + description), which slots
- * are required, the modifier tokens it accepts, and whether it reads the shared
- * state-marker / fence sub-grammars. Deterministic and idempotent.
+ * are required, the modifier tokens it accepts, whether it reads the shared
+ * state-marker / fence sub-grammars, and the data slots that own its list rows. Deterministic and idempotent.
  * See spec/LFM-1.0.md §4 and spec/diagnostics.md.
  */
 function renderGrammarJson(manifests) {
@@ -1181,6 +1195,7 @@ function renderGrammarJson(manifests) {
       modifiers: effectiveVariants(m),
       familyModifiers: familyModifiersFor(m),
       readsStateMarkers: stateSet.has(m.name),
+      dataSlots: dataSlotsOf(m),
     };
   });
   const doc = {
@@ -1384,8 +1399,8 @@ the render reports it — and \`optional x\` is one it uses when present. Empty 
 **\`capacity\`** is \`axis:sweet/soft/hard\` — the ideal count, the count past which it
 crowds, and the count past which it overflows. **Count your content before committing
 to a component**: if your count exceeds \`hard\`, pick something from *escalates to* or
-split across slides. \`npm run lint:deck\` warns after the fact (\`capacity-crowd\` /
-\`capacity-overflow\`); this column is how you avoid the rework.
+split across slides. \`npm run lint:deck\` flags it after the fact (\`capacity-crowd\`
+suggests, \`capacity-overflow\` warns); this column is how you avoid the rework.
 
 **A \`*\` means the budget VARIES BY DECK SIZE**, and the number shown is the wide
 (16:9) one. A \`mobile\`/\`strip\` deck holds fewer, a \`tall\` deck often more — \`list\` is

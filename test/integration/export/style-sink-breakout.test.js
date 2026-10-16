@@ -28,7 +28,7 @@ const { JSDOM } = require('jsdom');
 
 describe('a `</style>` in caller CSS cannot break out of the exported document', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 180000;
 
 	// The payload closes the element and then asks for a cross-origin stylesheet — the
@@ -115,7 +115,7 @@ describe('a `</style>` in caller CSS cannot break out of the exported document',
 		// assembler HARVESTED the injected <link> out of the parsed document and shipped it
 		// in every copy, while the deck's own CSS after the payload was silently dropped.
 		// DELIBERATELY no `--css`: the player's CSS prune only engages when the target block
-		// is >= 50 KB (lattice-emulator.js, `bases = target.css.length >= 50000 ? … : []`), so
+		// is >= 50 KB (lattice.js, `bases = target.css.length >= 50000 ? … : []`), so
 		// the tiny hostile sheet skips it entirely and the prune re-wrap is never reached.
 		// With the real `dist/lattice.css` the prune runs (~41/3216 rules kept), the CSS makes
 		// the css-tree round trip that normalizes `<\/style` back to `</style`, and the re-wrap

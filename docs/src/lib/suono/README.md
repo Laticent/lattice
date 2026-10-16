@@ -10,9 +10,25 @@ onset. It **owns no network, no key, no model, and no DOM**: deciding *what to s
 fetching it — is the caller's job.
 
 Zero dependencies, framework-free, `node:`-and-relative imports only (an import-boundary gate enforces
-it) — the third spin-off-able sibling beside [Cadenza](../cadenza/) (caption timeline) and Vetrina
+it) — the third spin-off-able sibling beside [Cadenza](https://github.com/Laticent/lattice/blob/main/docs/src/lib/cadenza/) (caption timeline) and Vetrina
 (walkthrough). Full design contract:
-[`engineering/decisions/2026-07-12-suono-audio-library.md`](../../../../engineering/decisions/2026-07-12-suono-audio-library.md).
+[`engineering/decisions/2026-07-12-suono-audio-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-07-12-suono-audio-library.md).
+
+**Live levels.** `stage.meter(stream)` measures a live `MediaStream` (a call's microphone, a remote
+voice) on the same owned context and returns `{ level(), stop() }`. It analyzes only and never routes
+the stream to the speakers. The Studio's Live calls use it for the speaking ring.
+`stage.amplify(stream, gain)` is the other direction: it plays a live stream through the context at a
+gain (0–4, so a quiet voice can go past the `<audio>` element's 1.0) and returns `{ setGain(g), stop() }`.
+The caller mutes its own element for that stream so it is not heard twice.
+`stage.gainStream(stream, gain)` is the send side: it routes a live stream through a gain and returns a NEW
+stream (`{ stream, setGain(g), stop() }`), so a call can turn its own microphone up or down before it is
+sent. Null where Web Audio is missing; the caller then sends the original.
+
+## Install
+
+```sh
+npm i @laticent/suono
+```
 
 ## 60-second start
 
@@ -69,7 +85,7 @@ stage.clockMs();   // the WebAudio clock a caption cursor rides
 
 The mirror of Cadenza's *"the timeline is data; the clock is someone else's."* Suono owns the real
 WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`) — exactly the anchor
-[Cadenza](../cadenza/)'s `reader.align(cueIndex, onsetMs, durationMs)` consumes. The two compose:
+[Cadenza](https://github.com/Laticent/lattice/blob/main/docs/src/lib/cadenza/)'s `reader.align(cueIndex, onsetMs, durationMs)` consumes. The two compose:
 **Suono plays and times the voice; Cadenza times the highlight; the app wires them.**
 
 ## What Suono is NOT
@@ -91,8 +107,9 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 
 - One owned context, never per-utterance, never closed. Decoded-buffer cache + byte cache + in-flight
   dedup. Bounded synth-ahead, **pause-gated** (a pause can't produce — or bill — the rest of the run).
-- iOS/Safari: gesture-sync unlock, `audioSession = 'playback'` silent-switch fix, callback-form decode,
-  fresh-`ArrayBuffer` replay safety.
+- iOS/Safari: gesture-sync unlock, `audioSession = 'playback'` silent-switch fix (left at
+  `'play-and-record'` when a page is recording, since any other type ends the microphone),
+  callback-form decode, fresh-`ArrayBuffer` replay safety.
 - Never rejects: a produce/decode failure degrades to silence and reports via `onState.error`.
   Barge-in via `AbortController`; a watchdog skips a hung producer.
 - Latency-compensated clock so a caption tracks the ear, not the buffer.
@@ -142,3 +159,7 @@ Vitest-unit-tested with no browser. `stage.ts`'s real `AudioContext` path is bro
 real-surface verification when `voice-model.js` migrates onto it (see the ADR §8). The core stays
 self-contained by a build gate (`checkSuonoBoundary` in `tools/check-ownership.js`): a non-relative,
 non-`node:` import fails the build.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

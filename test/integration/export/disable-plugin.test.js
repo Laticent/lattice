@@ -3,7 +3,7 @@
  *
  * Before plugin-system phase D's last consumers moved, the CLI handed `bakeDeck` no `disabled`
  * at all, so a plugin the engine had switched off still baked its figures into the deck — the
- * export carried a drawing the run had asked to leave out. `lattice-emulator.js` now builds one
+ * export carried a drawing the run had asked to leave out. `lattice.js` now builds one
  * `PLUGINS_DISABLED` list and hands it to both (`lib/plugins/host-bake.js`, `createEngine`).
  *
  * ASSERTED ON THE REAL CLI (HARD RULE #23): the wiring is what a unit test cannot see — dropping
@@ -20,7 +20,7 @@ const { spawnSync } = require('node:child_process');
 
 describe('--disable-plugin', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const TIMEOUT = 180000;
   const DECK = '# Flow\n\n```mermaid\ngraph LR; A-->B\n```\n\nThe area is $\\pi r^2$.\n';
 

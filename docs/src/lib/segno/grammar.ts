@@ -67,12 +67,30 @@ function normalize(cs: CharSet): CharSet {
   return fromRanges(pairs);
 }
 /** One of these characters. */
-export const oneOf = (chars: string, label?: string): Expr => set(ofChars(chars), label);
+// The engine reads UTF-16 code units, so a set can hold only characters that are one unit each. A
+// character outside the Basic Multilingual Plane (an emoji) is two, and a set built from its halves
+// matched neither half alone and parsed nothing, silently. Refused here instead; `lit()` matches one.
+function oneUnit(ch: string, where: string): void {
+  if (ch.length !== 1) throw new Error(`segno: ${where}: "${ch}" is not one character — use lit() for a sequence or a character outside the Basic Multilingual Plane`);
+  const c = ch.charCodeAt(0);
+  if (c >= 0xd800 && c <= 0xdfff) throw new Error(`segno: ${where}: "${ch}" is half of a character outside the Basic Multilingual Plane — use lit() to match the whole character`);
+}
+
+export const oneOf = (chars: string, label?: string): Expr => {
+  for (const ch of chars) oneUnit(ch, `chars(${JSON.stringify(chars)})`);
+  return set(ofChars(chars), label);
+};
 /** Any character NOT in `chars` (and not in the extra sets). */
 export const noneOf = (chars: string, label?: string, ...more: CharSet[]): Expr =>
   set(complement(union(ofChars(chars), ...more)), label);
 /** One character in `from`..`to`. */
-export const range = (from: string, to: string, label?: string): Expr => set(ofRange(from, to), label);
+export const range = (from: string, to: string, label?: string): Expr => {
+  const where = `charRange(${JSON.stringify(from)}, ${JSON.stringify(to)})`;
+  oneUnit(from, where);
+  oneUnit(to, where);
+  if (from > to) throw new Error(`segno: ${where}: the range runs backwards, so it can match nothing`);
+  return set(ofRange(from, to), label);
+};
 /** Any one character. */
 export const any = (): Expr => set(ANY, 'any character');
 export const seq = (...xs: Part[]): Expr => ({ t: 'seq', xs: xs.map(part) });
@@ -179,6 +197,10 @@ export interface ParseError {
   readonly expected: string;
   /** The character found there, or null at the end of the input. */
   readonly found: string | null;
+  /** `'stack'` when the parse stopped because the call stack ran out before the nesting cap, not
+   *  because the input is wrong. Test this rather than comparing `expected` with STACK_EXHAUSTED,
+   *  whose wording may change. Absent on an ordinary syntax error. */
+  readonly code?: 'stack';
 }
 
 export type ParseResult = { ok: true; node: Node } | { ok: false; error: ParseError };
@@ -186,10 +208,18 @@ export type ParseResult = { ok: true; node: Node } | { ok: false; error: ParseEr
 // ── the compiler's own errors ───────────────────────────────────────────────
 
 /** A grammar that is not LL(1). `problems` lists every violation with its rule path. */
+// Branded like SchemaError (schema.ts), so `instanceof` holds across the separately bundled entries.
+const GRAMMAR_ERROR = Symbol.for('@laticent/segno/GrammarError');
+
 export class GrammarError extends Error {
   constructor(readonly problems: readonly string[]) {
     super(`segno: this grammar is not linear (LL(1)):\n  - ${problems.join('\n  - ')}`);
     this.name = 'GrammarError';
+    Object.defineProperty(this, GRAMMAR_ERROR, { value: true });
+  }
+
+  static [Symbol.hasInstance](x: unknown): boolean {
+    return typeof x === 'object' && x !== null && (x as Record<symbol, unknown>)[GRAMMAR_ERROR] === true;
   }
 }
 
@@ -465,14 +495,32 @@ class Analysis {
     this.excludedSets();
     for (const [e, inf] of this.info) {
       if (e.t === 'alt') {
-        for (let a = 0; a < e.xs.length; a++) {
-          for (let b = a + 1; b < e.xs.length; b++) {
-            // An attempt may overlap the branches after it: when it fails, they get the character.
-            if (e.xs[a].t === 'attempt') continue;
-            const both = intersect(this.get(e.xs[a]).first, this.get(e.xs[b]).first);
-            if (!isEmpty(both)) problems.push(`${inf.path}: branches ${a} and ${b} can both start with ${describe(both)}`);
+        // Pairs are named up to MAX_PAIRS per alternation, then counted. A grammar can arrive at
+        // run time, and naming every pair of 3,000 overlapping branches took 12.7 s and 4.5M strings.
+        // `seen` is the union of the earlier branches' FIRST sets (an attempt left out: it may
+        // overlap what follows it), so a branch that overlaps none of them costs one intersection.
+        const MAX_PAIRS = 10;
+        let named = 0;
+        let more = 0;
+        let seen: CharSet = EMPTY;
+        for (let b = 0; b < e.xs.length; b++) {
+          const fb = this.get(e.xs[b]).first;
+          if (!isEmpty(intersect(seen, fb))) {
+            if (named >= MAX_PAIRS) more++;
+            else {
+              let a = 0;
+              for (; a < b && named < MAX_PAIRS; a++) {
+                if (e.xs[a].t === 'attempt') continue;
+                const both = intersect(this.get(e.xs[a]).first, fb);
+                if (!isEmpty(both)) { problems.push(`${inf.path}: branches ${a} and ${b} can both start with ${describe(both)}`); named++; }
+              }
+              // The cap cut this branch's pairs short: count it with the rest, so no branch is lost.
+              if (a < b) more++;
+            }
           }
+          if (e.xs[b].t !== 'attempt') seen = union(seen, fb);
         }
+        if (more) problems.push(`${inf.path}: ${more} more branch${more === 1 ? '' : 'es'} can start with a character an earlier branch takes`);
         const empty = e.xs.map((x, k) => (this.get(x).nullable ? k : -1)).filter((k) => k >= 0);
         if (empty.length > 1) problems.push(`${inf.path}: branches ${empty.join(' and ')} can all match nothing`);
         if (empty.length === 1) {
@@ -679,13 +727,19 @@ class Analysis {
     const refsOf = new Map<string, string[]>();
     for (const name of names) {
       // Preorder with an explicit stack (children pushed in reverse), so deep nesting cannot
-      // overflow the call stack.
+      // overflow the call stack. A piece the grammar reuses (one JS object in several places) is
+      // walked once: walked as a tree, a grammar that reuses each level twice cost 2^depth
+      // (2.1 s at depth 24). A rule named twice is one edge; Tarjan's answer is the same.
       const out: string[] = [];
+      const named = new Set<string>();
+      const seen = new Set<Expr>();
       const stack: Expr[] = [this.spec.rules[name]];
       while (stack.length) {
         const e = stack.pop() as Expr;
+        if (seen.has(e)) continue;
+        seen.add(e);
         switch (e.t) {
-          case 'ref': out.push(e.name); break;
+          case 'ref': if (!named.has(e.name)) { named.add(e.name); out.push(e.name); } break;
           case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push(e.xs[k]); break;
           case 'many': case 'opt': case 'node': case 'attempt': stack.push(e.x); break;
           default: break;
@@ -775,11 +829,16 @@ class Analysis {
   /** The rules an expression can enter before consuming anything. Iterative (deep nesting). */
   private leadingRefs(e: Expr): string[] {
     const out: string[] = [];
+    const named = new Set<string>();
+    // A reused piece once, as in ruleGroups(): its only readers are sccs() and includes().
+    const seen = new Set<Expr>();
     const stack: Expr[] = [e];
     while (stack.length) {
       const x = stack.pop() as Expr;
+      if (seen.has(x)) continue;
+      seen.add(x);
       switch (x.t) {
-        case 'ref': out.push(x.name); break;
+        case 'ref': if (!named.has(x.name)) { named.add(x.name); out.push(x.name); } break;
         case 'seq': {
           let k = 0;
           while (k < x.xs.length && this.get(x.xs[k]).nullable) k++;
@@ -816,9 +875,14 @@ class Analysis {
     const add = (x: string) => { if (!have.has(x)) { have.add(x); parts.push(x); } };
     // Preorder, as the recursive walk it replaced: an explicit stack, children pushed in reverse,
     // so a chain of thousands of rules cannot overflow the call stack.
+    // A reused piece is walked once: a second visit could only add labels already listed, so the
+    // message and its order are unchanged, and the walk stops costing 2^depth.
+    const walked = new Set<Expr>();
     const stack: Expr[] = [e];
     while (stack.length) {
       const x = stack.pop() as Expr;
+      if (walked.has(x)) continue;
+      walked.add(x);
       switch (x.t) {
         case 'lit': add(JSON.stringify(x.s)); break;
         case 'set': add(x.label ?? describe(x.cs)); break;
@@ -923,6 +987,10 @@ export function analyze(spec: GrammarSpec) {
 }
 
 export function compile(spec: GrammarSpec): Grammar {
+  // A spec from JSON.parse can hold an own "__proto__" key, but `rules.__proto__` still reads
+  // Object.prototype, so the analysis saw a rule that is not there and threw a TypeError.
+  // (generate() refuses the name too, as a function name it cannot emit.)
+  if (spec?.rules && Object.hasOwn(spec.rules, '__proto__')) throw new GrammarError(['"__proto__" cannot name a rule']);
   const an = analyze(spec);
   const maxDepth = depthOf(spec);
 
@@ -1193,7 +1261,7 @@ export function compile(spec: GrammarSpec): Grammar {
         // level count: the cap was not reached, and where the stack runs out depends on the
         // engine and on how warm its JIT is.
         if (!isStackOverflow(x)) throw x;
-        return { ok: false, error: { at: st.i, expected: STACK_EXHAUSTED, found: st.i < input.length ? input[st.i] : null } };
+        return { ok: false, error: { at: st.i, expected: STACK_EXHAUSTED, found: st.i < input.length ? input[st.i] : null, code: 'stack' } };
       }
       if (ok && st.i < input.length) fail(st, 'end of input');
       if (!ok || st.err) return { ok: false, error: st.err as ParseError };

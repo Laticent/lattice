@@ -1,0 +1,4 @@
+- The Studio chat's Architect edits the deck only when you ask for a change. A question, about the deck, a photo or a video, gets an answer and no diff card, even when the deck has open review notes.
+- The Architect talks in plain words: no "the checker", "warnings", "referent" or layout class names. The note under an edit reads "Worth a look before you apply this: …", and the line under a reply is one sentence ("Read about the big number layout, drafted changes to the slides and checked the deck.").
+- The review note for a hero number reads "a hero number with nothing to compare it to" instead of "with no referent".
+- Two more review notes drop jargon: "one item on this slide runs to 92 words" (was "a cards-grid element runs to …") and the scorecard's "hero numbers with nothing to compare to".

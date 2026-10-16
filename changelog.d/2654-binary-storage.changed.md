@@ -1,0 +1,4 @@
+- A reference PDF you add is now stored with its real size and typed as a PDF, and a restore refuses a PDF row whose data is not valid base64 or is over the 5 MB a reference doc may be, and names it.
+- A workspace backup stores photos and videos as they are instead of compressing them again: those files are already compressed, so the second pass spent several times the CPU to save 0 to 9%. Text in the backup is still compressed, and backups made before this change restore as before.
+- A backup that cannot read one photo, video or PDF in this browser now leaves out just that file and names it in the backup's warnings, instead of leaving out every photo or failing.
+- Storage-full and private-window messages now say "photos or videos" instead of "photos".

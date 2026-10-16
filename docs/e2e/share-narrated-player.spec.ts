@@ -1,7 +1,7 @@
 // The Studio's narrated webpage export, PLAYED. share-emphasis.spec.ts reads the exported bytes;
 // this opens the downloaded file from disk, offline, and presses Play. It is the one test that
 // runs the player the production Studio bundle assembled — its LTT kernels inlined from the
-// minified build — end to end (LTT step 2, engineering/ltt.md §The timing functions).
+// minified build — end to end (LTT step 2, spec/LTT-1.0.md §The timing functions).
 import * as fs from 'node:fs';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 

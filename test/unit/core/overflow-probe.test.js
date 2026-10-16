@@ -1032,7 +1032,7 @@ describe('probeContentClipped — did the clip actually CUT anything?', () => {
   test('CONTENT_CLIPPED_SRC is injectable — no script-terminating sequence', () => {
     // The REAL hazard for a source string embedded in a <script> element is a literal
     // `</script>` (or `<!--`), which ends the element early — the same hazard
-    // lattice-emulator.js already escapes with \\x3C when it inlines the runtime.
+    // lattice.js already escapes with \\x3C when it inlines the runtime.
     //
     // This test used to assert "no backtick, no dollar-brace" on the theory that either
     // would terminate the template literal the source is interpolated into. That theory
@@ -1691,7 +1691,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     const fs = require('node:fs');
     const path = require('node:path');
     const root = path.join(__dirname, '..', '..', '..');
-    for (const f of ['lattice-emulator.js', path.join('lib', 'runtime', 'index.js')]) {
+    for (const f of ['lattice.js', path.join('lib', 'runtime', 'index.js')]) {
       const src = fs.readFileSync(path.join(root, f), 'utf8');
       assert.match(src, /probeSectionOverflow\(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR\)/,
         `${f} must pass IGNORED_CLIP_SELECTOR to the geometry probe`);

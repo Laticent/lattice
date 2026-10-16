@@ -18,7 +18,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 |---|---|---|---|
 | `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
 | `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
-| `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. |
+| `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. To try the layout before you have the marks, use Lattice's sample logos: `![Acme](sample:logo-acme.svg)` (the full set is in `lib/samples/README.md`). |
 | `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
 
 ### Variant decision rule
@@ -53,15 +53,15 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 ## The headline claim the logos back up.
 
-- ![First brand](logo-1.svg)
+- ![First brand](sample:logo-acme.svg)
   - First brand
   - `Series B`
-- ![Second brand](logo-2.svg)
+- ![Second brand](sample:logo-globex.svg)
   - Second brand
-- ![Third brand](logo-3.svg)
-- ![Fourth brand](logo-4.svg)
-- ![Fifth brand](logo-5.svg)
-- ![Sixth brand](logo-6.svg)
+- ![Third brand](sample:logo-vantage.svg)
+- ![Fourth brand](sample:logo-umbra.svg)
+- ![Fifth brand](sample:logo-meridian.svg)
+- ![Sixth brand](sample:logo-helios.svg)
 ```
 
 ## Anatomy
@@ -93,14 +93,14 @@ Marks keep their brand hues.
 
 ## color lets the marks keep their brands.
 
-- ![Acme](acme.svg)
-- ![Globex](globex.svg)
-- ![Initech](initech.svg)
-- ![Umbra](umbra.svg)
-- ![Vantage](vantage.svg)
-- ![Meridian](meridian.svg)
-- ![Helios](helios.svg)
-- ![Northwind](northwind.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
 ```
 
 ### `dense` — dense
@@ -114,18 +114,18 @@ Six columns for the long roster.
 
 ## dense packs the long roster, captions off.
 
-- ![Acme](acme.svg)
-- ![Globex](globex.svg)
-- ![Initech](initech.svg)
-- ![Umbra](umbra.svg)
-- ![Vantage](vantage.svg)
-- ![Meridian](meridian.svg)
-- ![Helios](helios.svg)
-- ![Northwind](northwind.svg)
-- ![Cobalt](cobalt.svg)
-- ![Sable](sable.svg)
-- ![Quanta](quanta.svg)
-- ![Lumen](lumen.svg)
+- ![Acme](sample:logo-acme.svg)
+- ![Globex](sample:logo-globex.svg)
+- ![Initech](sample:logo-initech.svg)
+- ![Umbra](sample:logo-umbra.svg)
+- ![Vantage](sample:logo-vantage.svg)
+- ![Meridian](sample:logo-meridian.svg)
+- ![Helios](sample:logo-helios.svg)
+- ![Northwind](sample:logo-northwind.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
+- ![Sable](sample:logo-sable.svg)
+- ![Quanta](sample:logo-quanta.svg)
+- ![Lumen](sample:logo-lumen.svg)
 ```
 
 ## Universal modifiers

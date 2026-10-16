@@ -1,13 +1,13 @@
 # Gotchas — VS Code / marp-vscode
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## The VS Code Marp preview runs marp-core directly, without Lattice's markdown-it plugins
 
 - **Symptom:** Lattice's authoring plugins (e.g., `splitPanelCounter`,
   `verdictGridBadges`, `deckClassPropagate`) work in the owned engine
-  and the lattice-emulator pipeline but never fire in the VS Code Marp
+  and the lattice pipeline but never fire in the VS Code Marp
   preview.
 - **Cause:** marp-vscode 3.5.1 has no `markdown.marp.engine` setting.
   It loads themes via `markdown.marp.themes` but uses the bare Marp
@@ -49,7 +49,7 @@ backstop behind it: a gap nobody logs is a gap nobody knows about. Corrected
 
 | Transform | Symptom on a Marp-rendered surface | Added |
 |---|---|---|
-| whatever `lib/core/marp-fidelity.js` lists as `unmirrored` | The constructs a Marp render genuinely does not reproduce, plus one it renders with a different typesetter. Each is built while the deck is PARSED — earlier than any Marp tool lets a plugin in — so a browser runtime cannot cover for it. **This row deliberately names no list.** It carried one for a day and was wrong within a day: it said five-plus-math while the ledger shipped seven (the imagery `![bg]` gap was found after the row was written), and then imagery was CLOSED by baking the lift, taking it back to six. The ledger is the list: `lib/core/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
+| whatever `lib/core/marp-fidelity.js` lists as `unmirrored` | The constructs a Marp render genuinely does not reproduce. (Math is no longer one: the export typesets it with KaTeX, `lib/core/marp-bundle-math.js`.) Each is built while the deck is PARSED — earlier than any Marp tool lets a plugin in — so a browser runtime cannot cover for it. **This row deliberately names no list.** It carried one for a day and was wrong within a day: it said five-plus-math while the ledger shipped seven (the imagery `![bg]` gap was found after the row was written), and then imagery was CLOSED by baking the lift, taking it back to six. The ledger is the list: `lib/core/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
 
 **Deck-wide front-matter registers: row retired 2026-07-29.** `color-mode:` / `class:` /
 `logo:` / `meta:` (and the whole finish / mode / claim / spectrum family) used to be
@@ -80,6 +80,19 @@ means "no gap logged for the runtime route", never "the preview is complete.
   migration. Individual rows retire if the underlying transform is dropped
   or a mirror is later added for it.
 
+## An Export-to-Marp bundle's equations lose their layout in Restricted Mode
+
+- **Symptom:** In an untrusted folder, a bundle's fractions and superscripts collapse onto one line,
+  and a square root or stretchy arrow prints as escaped `<svg…` text.
+- **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/core/marp-bundle-math.js`),
+  and its `.vscode/settings.json` turns the extension's own math off. `enableHtml` is a restricted
+  setting and `mathTypesetting` is not, so in Restricted Mode the math stays off while the HTML
+  filter strips each equation's `style` and its `<svg>`.
+- **Mitigation:** Trust the folder, or render with `npm run pdf`. The bundle README says so.
+- **Triggered by:** Opening a bundle with math in VS Code without granting workspace trust.
+- **Removable when:** never: turning the extension's MathJax back on is the injection surface the
+  bake closes (`engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` § 15).
+
 ## `git worktree` doesn't share `node_modules`
 
 - **Symptom:** Inspecting a historical commit via
@@ -89,9 +102,12 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Cause:** Worktrees share `.git` but not working files. `node_modules/`
   isn't tracked, so the worktree has no installed deps. The script
   tag `<script src="../node_modules/mermaid/...">` 404s.
-- **Mitigation:** Mermaid is now vendored at the repo root as
-  `mermaid-v11-min.js` and committed. Worktrees and fresh clones see
-  it at the right relative path without `npm install`. See
+- **Mitigation:** Mermaid is vendored and committed: the Mermaid
+  plugin owns the copy, `lib/plugins/mermaid/vendor/mermaid.min.js`
+  (it was `mermaid-v11-min.js` at the repo root until 2026-10-06). A
+  deck in the tree loads it by its relative path (the diagram gallery:
+  `../../../../lib/plugins/mermaid/vendor/mermaid.min.js`), so worktrees
+  and fresh clones see it without `npm install`. See
   [engineering/decisions/2026-04-30-mermaid-theming.md](decisions/2026-04-30-mermaid-theming.md)
   for the full rationale.
 - **Triggered by:** Any worktree or clone where `npm install` hasn't
@@ -199,8 +215,11 @@ CI-contract decision, not one to take on the way past.
   rather than dropping it — so the tags survive as visible text and the
   runtime is never fetched. The owned engine parses with `html: true`
   (`lib/engine/index.js`), so nothing on our own render path ever showed it.
-- **Mitigation:** marp-cli needs `html: true` in the config (the generated
-  `marp.config.cjs` sets it) or `--html` on the command line; marp-vscode
+- **Mitigation:** marp-cli needs raw HTML on. An Export-to-Marp bundle's
+  `marp.config.cjs` turns it on as an allowlist plus an engine that passes the
+  runtime tags (`lib/core/marp-bundle-html.js`), so render a bundle with its
+  config and never `--html`, which replaces the list with "everything". The Marp
+  kit's config sets `html: true`, and a bare deck needs `--html`. marp-vscode
   needs `markdown.marp.enableHtml: true` (the generated
   `.vscode/settings.json` sets it, and so does the repo's own). Note this is
   necessary but NOT sufficient in the vscode preview — the webview still
@@ -261,7 +280,7 @@ CI-contract decision, not one to take on the way past.
 - **Cause:** The convenience `logo:` directive is handled by
   `applyDeckLogoToHtml` in `lib/integrations/markdown-it/plugins.js`
   (run by the owned engine) plus the post-render hook in
-  [lattice-emulator.js](../lattice-emulator.js) and the runtime
+  [lattice.js](../lattice.js) and the runtime
   mirror `applyDeckLogoFromFrontMatter` in
   [lattice-runtime.js](../dist/lattice-runtime.js). The owned-engine and
   emulator paths run at build time; the runtime path fetches the
@@ -290,7 +309,7 @@ CI-contract decision, not one to take on the way past.
   runs for >60s on a fixture with two slides and times out.
 - **Cause:** marp-cli fetches Google Fonts on cold starts (the
   Playfair / Outfit / JetBrains-Mono imports we use). Slow network or
-  DNS resolution makes this multiply. The lattice-emulator pre-emits
+  DNS resolution makes this multiply. The lattice pre-emits
   the font links the same way but doesn't block on them at render time
   (and self-hosts the woff2 for offline renders — see "A rendered PDF shows
   serif/fallback type" in `fonts.md`), so the owned engine doesn't hit this.

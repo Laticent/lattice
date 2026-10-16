@@ -16,9 +16,11 @@
  */
 
 const esbuild = require('esbuild');
+// The shared comment/string/url() walk. A comment regex can't tell `/*` inside a
+// string from a real opener, and fuses everything up to the next closer into one
+// "comment" (lib/core/css-comments.mjs states the defect once for all callers).
+const { eachCssRun } = require('../lib/core/css-comments.mjs');
 
-// A CSS comment block. Non-greedy so adjacent comments don't merge.
-const COMMENT_RE = /\/\*[\s\S]*?\*\//g;
 // Marp directive tokens that MUST survive minification.
 const DIRECTIVE_RE = /@(?:theme|size)\b/;
 
@@ -31,7 +33,8 @@ const DIRECTIVE_RE = /@(?:theme|size)\b/;
  * @returns {string} minified CSS, directive comments intact
  */
 function minifyCss(css, banner) {
-  const directives = (css.match(COMMENT_RE) || []).filter((c) => DIRECTIVE_RE.test(c));
+  const directives = [];
+  eachCssRun(css, (type, text) => { if (type === 'comment' && DIRECTIVE_RE.test(text)) directives.push(text); });
   const { code } = esbuild.transformSync(css, { loader: 'css', minify: true });
   const head = [];
   if (banner) head.push(banner);

@@ -111,10 +111,8 @@ An imported PDF or PPTX is a file from anyone.
 
 ## 6. Not done here (and why)
 
-- **CLI exports** (`lattice export --pdf/--pptx`) do not embed. The Studio is where people share
-  and re-open decks. The CLI is the build path. Recorded in `followups.d/`.
-- **Drag a file onto the Studio** to import it: the user asked for the menu, and a drop target
-  on the whole shell is its own UX question.
+- ~~**CLI exports** do not embed.~~ Done in §8: `--reopenable`.
+- ~~**Drag a file onto the Studio** to import it.~~ Done in §9.
 - **A webpage export carries the artifact copy** of the source, with a saved finish's class
   baked in. That is existing behavior of the player, unchanged here.
 
@@ -129,3 +127,133 @@ An imported PDF or PPTX is a file from anyone.
   stored source byte-for-byte. A plain PDF is refused.
 - Export sign-off (QUALITY BAR, export-bytes change): the owner inspects dark and light demo
   exports before merge.
+
+## 8. The CLI half: `--reopenable` (2026-10-06)
+
+The same deck was re-openable or not depending on which tool exported it. `lattice deck.md
+out.pdf --reopenable` (and `out.pptx`) now carries the same `.lattice`.
+
+**One kernel.** The write half moved out of the Studio into `lib/core/reopenable.js`: the part
+names, the manifest (`buildLatticeManifest`), the `.lattice` zip (`buildLatticeZip`), the PDF
+attach (`embedInPdfBytes`) and the PPTX repack (`embedInPptxBytes`). The Studio's
+`lattice-file.ts` and `embedded-source.ts` are now Blob adapters over it, and the CLI calls it
+directly (HARD RULE #1). It is a CommonJS leaf that takes pdf-lib and JSZip as arguments: the
+Studio bundles its own copies from `docs/node_modules`, and a `require` inside a `lib/` file
+would have shipped the root copy beside them. The READ half (extract, caps) stays in the Studio,
+the only reader.
+
+**What the CLI puts in it.**
+
+- *Source:* the file as read (BOM and CRLF normalized, as every CLI read is), before the Mermaid
+  pre-render and before `--size` / `--print` rewrite its front matter for the run. The recipient
+  edits the deck, not this export's settings. `--strip-notes` / `--strip-say` scrub it with the
+  same measured cut `--embed-source` uses (`attachableSource`, shared by both flags).
+- *Comments:* none, as in the Studio (§3.5).
+- *Packages:* the installed theme and the installed components this render used, read from the
+  package store as folders. The Studio's import gates them exactly as it gates a Studio
+  `.lattice`.
+- *Clock:* the manifest's `generatedAt` and every zip entry date come from the pinned PDF epoch
+  (`SOURCE_DATE_EPOCH`, else 1970, clamped to 1980 because a zip date cannot be earlier). So
+  an unchanged deck still re-renders to the same PDF bytes, the property
+  `lib/core/pdf-timestamps.js` exists for. Tested: two renders seconds apart write identical
+  files, and `SOURCE_DATE_EPOCH` sets the entry dates and `generatedAt`. (JSZip writes zip
+  dates in UTC, so the time zone never entered.)
+- *Known gap:* `-p` / `--palette` picks this render's theme without editing the deck. The
+  payload carries the deck as written, so a deck with no `theme:` line re-opens in the default
+  theme, not the one the PDF shows, even though an installed `-p` theme rides along as a
+  package. Same for `--size` / `--print`, deliberately. Put the theme in the deck's front matter
+  to make it travel. The CLI says so: when `-p` or `LATTICE_PALETTE` picked a theme the deck
+  will not re-open in (its own `theme:`, else the default), `--reopenable` prints one warning
+  naming both themes and the `theme:` line that fixes it. It stays silent when the two agree,
+  and both arms are in `test/integration/export/reopenable.test.js`. A warning, not a rewrite of
+  the payload: the `.lattice` is the deck as written, and editing its front matter behind the
+  author's back would make the payload stop matching their file.
+
+**Failure is loud.** `--embed-source` warns and writes the PDF without its attachment, because a
+provenance note must not cost the deck. `--reopenable` exits 1 and writes nothing instead: the
+author asked for a file someone can edit, and a plain one under that promise is found out by the
+recipient, too late. On `.png`, `.zip` and `.html` the flag is named in a warning, never
+dropped silently.
+
+**PPTX write.** `lib/export/pptx-export.js` calls `pptx.write({ outputType: 'nodebuffer' })`
+and writes the file itself, instead of `writeFile`, which is the same call followed by
+`fs.writeFile`. A plain export's bytes do not change shape; the payload is added before the file
+exists.
+
+**Verified on** the real CLI (`test/integration/export/reopenable.test.js`: source byte for
+byte, PDF and PPTX payloads identical, `--strip-notes` scrubs it, a pinned payload clock, an
+installed component rides along, `--strip-notes --strip-say` scrub a PPTX payload, a warning
+on `.png`) and in the real Studio
+(`docs/e2e/deck-import-roundtrip.spec.ts`: the CLI renders a PDF and a PPTX, the built Studio
+imports both through the deck switcher and stores the exact source).
+
+## 9. Drop a file to import it (2026-10-07)
+
+**The owner's pick** (one round, four options: whole shell, the deck switcher only, shell plus
+editor, menu only): **the whole shell**, except the zones that already own a drop.
+
+**The model.** `docs/src/components/studio/deck-drop.ts` puts one set of drag handlers on the
+Studio root. A file drag over the shell shows a full-window sign, "Drop to open as a new deck",
+and a drop hands the file to `importDeckFile`, the same function the menu's file chooser calls.
+So a dropped file meets the same reader (`readDeckFile`: sniffs the bytes, caps the size), the
+same funnel (`openLatticeImport`: package gates, `keepMine`) and the same refusals and toasts.
+A drop always creates a new deck and never edits the open one.
+
+**Where a drop is someone else's** (`OWN_DROP_ZONES`, matched with `closest()`):
+
+- the Library panel and the motion drawing well, which already take files (`data-file-drop`);
+- the code editor and the compose editor, where a drop is text placed at a caret;
+- an open dialog, which is about something else;
+- the whole shell while Present is up, so a drop cannot swap the deck the audience is watching
+  (Present's backdrop sits outside its dialog, so `closest()` alone would not catch it).
+
+An inner handler that already called `preventDefault` also wins, so a zone that forgets the
+marker still keeps its drop.
+
+**A refused drop stays in the Studio.** The browser's default for an unhandled file drop is to
+navigate the tab to the file. So in a zone that did not take the drop, the shell refuses it: on
+`dragover` with the no-drop cursor (dialogs, Present), and on `drop` when a zone accepted the drag
+and then ignored the file. ProseMirror is that case: it cancels `dragover`, then leaves a drop
+with no text in it alone. The `dragover` refusal skips editable elements, because the browser
+lets those take a drop natively and CodeMirror depends on it. CodeMirror never cancels
+`dragover` and reads a dropped file in its own `drop` handler. Measured: refusing there blocked
+the code editor's file drop, and an e2e arm now pins that it still inserts a dropped `.md`.
+
+**Refusals.** More than one file: "Drop one deck at a time", and nothing opens. A file that is not
+a deck (a PNG): the reader's own "can't open that kind of file". A drag that carries no files (a
+rail reorder, dragged text) is not touched at all.
+
+**Two things measured, not assumed.**
+
+- *A drop over the preview iframe reaches the shell.* The preview is the largest surface, and
+  a drop event inside an iframe goes to the iframe's document. Measured with a native drag (CDP
+  `Input.dispatchDragEvent`, which routes through Chromium's own hit testing): it imports. The
+  reason holds in every engine: the preview frame sits inside StudioShell's slide-frame box,
+  which is `pointer-events-none`, so hit testing never picks the iframe (measured: the computed
+  value is `none` on the revealed frame, and the element at the preview's center is the shell's
+  own pane).
+- *A cancelled drag sends the page nothing.* With CDP `dragCancel`, Chromium delivered no
+  `dragleave` at all, and the first build's sign stayed up over a Studio no one was dragging
+  onto. The sign now also comes down after one second with no `dragover`. The browser fires one
+  every 350 ms ± 200 ms while a drag is over the page, even when the pointer is still, so a live
+  drag never trips it. The Library's own drop overlay uses a depth counter with no such timer,
+  and is logged in `followups.d/` rather than changed here.
+
+**Verified on** the built site (`docs/e2e/deck-drop-import.spec.ts`, Chromium, native drags): a
+CLI `--reopenable` PDF dropped on the preview opens as a new deck byte for byte, and the deck
+that was open is still stored unchanged; a `.lattice` dropped on the header opens; two files and
+a PNG are refused and nothing opens; a drop on the code editor shows no sign and imports nothing,
+and a `.md` dropped there is still inserted as text; a PDF dropped on the compose editor and one
+dropped while presenting import nothing and leave the tab on the Studio (both arms fail with
+their guard removed);
+the sign fits at 1440, 820 and 390 px, in light and dark. Unit: `deck-drop.test.ts` (the verdict
+against real DOM nesting). **WebKit's null `relatedTarget`.** The checker flagged that WebKit has reported a null
+`relatedTarget` on `dragleave` between two children, which would blink the sign at every element
+edge. A null one now hides the sign only when the pointer is at or past the window's edge; any
+other end of a drag is the dead-man timer's. An e2e arm replays that leave and asserts the sign
+stays; it fails with the old rule. That arm builds its drag in the page, so it is tagged for the
+WebKit and Gecko CI projects as well as Chromium.
+
+**UNVERIFIED:** a person's drag in the Safari and Firefox applications and from the iPad Files
+app. The engines run the shell's logic in CI; the operating system's own drag is not driven
+there.

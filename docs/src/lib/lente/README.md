@@ -14,7 +14,13 @@ subset.
 
 > The full design contract, the communication-science grounding, the adversarial review that shaped
 > it, and the human-in-the-loop guarantee live in
-> [`engineering/decisions/2026-07-13-lente-reader-lenses.md`](../../../../engineering/decisions/2026-07-13-lente-reader-lenses.md).
+> [`engineering/decisions/2026-07-13-lente-reader-lenses.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-07-13-lente-reader-lenses.md).
+
+## Install
+
+```sh
+npm i @laticent/lente
+```
 
 ## 60-second start
 
@@ -114,7 +120,7 @@ deeperLens(slides, registry, 'brief');
 view that never claimed to nest promises nothing. Altitude itself is *derived* from
 what each rung projects, not declared — `order` is a picker position and
 deliberately not this. Design note:
-[`2026-08-25-lens-view-defaults-and-depth.md`](../../../../engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md) §4.
+[`2026-08-25-lens-view-defaults-and-depth.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md) §4.
 
 ## Where things live
 
@@ -133,3 +139,7 @@ deliberately not this. Design note:
 Everything is covered by co-located `*.test.ts` (vitest), including the caption-coupling invariant
 (`lensPairs` is a predicate filter, so author indices stay unique and monotonic) and the
 registry round-trip (`parseLensRegistry(emitRegistry(x))` ≡ `x`).
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

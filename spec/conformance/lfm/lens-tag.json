@@ -1,0 +1,18 @@
+{
+ "title": "A _lens tag names the lenses a slide is in or out of, and never reaches the output",
+ "spec": "LFM-1.1",
+ "section": "2.4",
+ "rows": [
+  { "name": "include and exclude", "source": "## A\n\n<!-- _lens: brief +ask -evidence -->\n\nText.\n",
+    "L0": { "visible": ["Text."], "hidden": ["_lens", "brief"] },
+    "L1": { "absent": ["_lens", "brief"], "slides": [{ "lens": { "include": ["ask", "brief"], "exclude": ["evidence"] }, "notes": [] }] } },
+  { "name": "no tag", "source": "## A\n\nText.\n",
+    "L1": { "slides": [{ "lens": { "include": [], "exclude": [] } }] } },
+  { "name": "a capital _Lens is not a tag", "source": "## A\n\n<!-- _Lens: brief -->\n\nText.\n",
+    "L1": { "slides": [{ "lens": { "include": [], "exclude": [] } }] } },
+  { "name": "only the first tag counts", "source": "## A\n\n<!-- _lens: brief -->\n\n<!-- _lens: ask -->\n\nText.\n",
+    "L1": { "slides": [{ "lens": { "include": ["brief"], "exclude": [] } }] } },
+  { "name": "a tag inside a fence is documentation", "source": "## A\n\n```\n<!-- _lens: brief -->\n```\n",
+    "L1": { "slides": [{ "lens": { "include": [], "exclude": [] } }] } }
+ ]
+}

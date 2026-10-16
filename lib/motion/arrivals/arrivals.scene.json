@@ -1,0 +1,59 @@
+{
+  "source": "svg",
+  "asset": "arrivals",
+  "duration": 1650,
+  "hero": 1,
+  "elements": [
+    {
+      "id": "mgu06hc7m-baseline",
+      "pathRef": "mgu06hc7m-baseline",
+      "motion": [
+        {
+          "verb": "draw",
+          "at": 0,
+          "span": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "mgu06hc7m-left-marker",
+      "pathRef": "mgu06hc7m-left-marker",
+      "motion": [
+        {
+          "verb": "reveal",
+          "at": 0.333333,
+          "span": 0.333333
+        },
+        {
+          "verb": "slide",
+          "at": 0.333333,
+          "span": 0.333333,
+          "from": [
+            -57.6,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mgu06hc7m-right-marker",
+      "pathRef": "mgu06hc7m-right-marker",
+      "motion": [
+        {
+          "verb": "reveal",
+          "at": 0.666667,
+          "span": 0.333333
+        },
+        {
+          "verb": "slide",
+          "at": 0.666667,
+          "span": 0.333333,
+          "from": [
+            57.6,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

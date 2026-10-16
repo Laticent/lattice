@@ -65,7 +65,7 @@ const PROBE = 'A welt is a strip of leather joining the upper to the outsole';
 function render(dir, out, extraArgs = []) {
 	const src = path.join(dir, 'deck.md');
 	if (!fs.existsSync(src)) fs.writeFileSync(src, DECK_SOURCE);
-	const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), src, out, 'indaco', ...extraArgs, '-q'], {
+	const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), src, out, 'indaco', ...extraArgs, '-q'], {
 		cwd: ROOT, encoding: 'utf8', timeout: 900000,
 	});
 	assert.equal(res.status, 0, `render failed (${extraArgs.join(' ') || 'plain'}):\n${res.stderr}`);
@@ -348,14 +348,14 @@ describe('--read — the deck as prose, and nothing else moves', () => {
       // (a) BOTH ON THE COMMAND LINE — fluid keeps winning, which is the chain's order, but
       // the operator is told the article is not in the file.
       fs.writeFileSync(path.join(dir6, 'deck.md'), DECK_SOURCE);
-      const bothFlags = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'deck.md'), path.join(dir6, 'both.html'), 'indaco', '--read', '--fluid'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+      const bothFlags = spawnSync('node', [path.join(ROOT, 'lattice.js'), path.join(dir6, 'deck.md'), path.join(dir6, 'both.html'), 'indaco', '--read', '--fluid'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
       assert.equal(bothFlags.status, 0, bothFlags.stderr);
       assert.match(`${bothFlags.stdout}${bothFlags.stderr}`, /--fluid and --read both set/, 'the losing flag must not be silent');
       assert.doesNotMatch(fs.readFileSync(path.join(dir6, 'both.html'), 'utf8'), /id="lat-read"/, 'fluid wins when both are flags');
 
       // (b) THE DECK SAYS FLUID, THE OPERATOR SAYS READ — the explicit flag wins.
       fs.writeFileSync(path.join(dir6, 'fm.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\nfluid: true'));
-      const deckKey = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'fm.md'), path.join(dir6, 'fm.html'), 'indaco', '--read'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+      const deckKey = spawnSync('node', [path.join(ROOT, 'lattice.js'), path.join(dir6, 'fm.md'), path.join(dir6, 'fm.html'), 'indaco', '--read'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
       assert.equal(deckKey.status, 0, deckKey.stderr);
       assert.match(fs.readFileSync(path.join(dir6, 'fm.html'), 'utf8'), /id="lat-read"/, "a deck's fluid: must not override an explicit --read");
       // Pin the MESSAGE too, not just the winner. "Say which one won" is half of what this
@@ -366,7 +366,7 @@ describe('--read — the deck as prose, and nothing else moves', () => {
       // (c) BOTH FROM THE DECK, no flags at all — fluid still wins, and the warning must name
       // the KEYS rather than flags the operator never typed.
       fs.writeFileSync(path.join(dir6, 'both.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\nfluid: true\nread: true'));
-      const bothKeys = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'both.md'), path.join(dir6, 'bothkeys.html'), 'indaco'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+      const bothKeys = spawnSync('node', [path.join(ROOT, 'lattice.js'), path.join(dir6, 'both.md'), path.join(dir6, 'bothkeys.html'), 'indaco'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
       assert.equal(bothKeys.status, 0, bothKeys.stderr);
       const said = `${bothKeys.stdout}${bothKeys.stderr}`;
       assert.match(said, /this deck sets both `fluid: true` and `read: true`/, 'name the keys, not flags that were never typed');
@@ -424,7 +424,7 @@ describe('--read — the deck as prose, and nothing else moves', () => {
 
       // `inherited` is the one register whose correct behavior is to write NOTHING: with the
       // sections gone there is nothing between the article and the theme's `:root` to inherit
-      // from, so the root is left to the theme (the map's comment in lattice-emulator.js).
+      // from, so the root is left to the theme (the map's comment in lattice.js).
       // Pinned because a wrong write here looks deliberate — `inherited: 'inherit'` or
       // `inherited: 'light dark'` added to the map would each read as a considered choice.
       const dir7i = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mode-inherited-'));

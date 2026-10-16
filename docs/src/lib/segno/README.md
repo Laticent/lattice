@@ -35,6 +35,31 @@ does not build.
 
 (segno, Italian: sign, mark — and the musical *dal segno*.)
 
+## Install
+
+```sh
+npm i @laticent/segno
+```
+
+## What is stable
+
+This is 0.x: a minor version may break the API. Within that, two halves move at different speeds.
+
+- **Stable for 0.x:** declaring a slot (`record`, the types, `read`, `values`), `parse` for the
+  inline notation, `readNumber` / `readTime`, and `SchemaError`. Lattice reads every deck through
+  these.
+- **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`) and the
+  notation's own grammar (`notationSpec`, `TAGS`). Their names and shapes may change in any minor
+  version. The notation itself is specified in LFM 1.1 §3.6
+  ([`spec/LFM-1.1.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.1.md)), which wins
+  where it and this package disagree.
+
+The notation is one line: a newline inside a span is an ordinary character, not whitespace. That
+matches Markdown inline code, which folds a line break into a space before Segno sees it.
+
+`SchemaError` and `GrammarError` are branded, so `instanceof` holds across the package's entry
+points (`.`, `./read`, `./values`), each of which is bundled on its own.
+
 ## Write a grammar
 
 ```ts
@@ -63,8 +88,14 @@ listing EVERY violation with its rule path:
   (unless the loop is marked `greedy`, below);
 - a rule that reaches itself without consuming (left recursion).
 
-`lint(spec)` returns the same list without throwing. Nesting is capped at `MAX_DEPTH` (64) so a
-deeply nested input is an error, never a stack overflow.
+`lint(spec)` returns the same list without throwing. On a wide alternation it names the first ten
+overlapping pairs and counts the rest, so a grammar built at run time cannot stall it. Nesting is
+capped at `MAX_DEPTH` (64), so a deeply nested input returns an error instead of overflowing the
+stack.
+
+A set holds characters one UTF-16 unit long: `chars()` and `charRange()` throw on an emoji or any
+other character outside the Basic Multilingual Plane, and on a range that runs backwards. Match such
+a character with `lit()`.
 
 ### Longest match, skip-to, and deeper nesting
 
@@ -104,10 +135,14 @@ flowchart row. Three never let a parse go back over what it read; `attempt()` go
   Elsewhere than an `alt` branch, a failed attempt is an ordinary parse error, and it reports why
   the attempt failed: what its body expected, a `next` character, or its end within `max`. Flowchart rows need
   it: at a word start `-x->` is an arrow and `-x` a word, and the two part only at the closing
-  shaft.
+  shaft. Lattice reads every flowchart and state-chart row this way: its grammar is
+  `lib/core/flowchart-row-grammar.js`, generated into `lib/core/flowchart-row.generated.js`.
+  So a change to the code generator (`codegen.ts`) regenerates a Lattice render kernel:
+  `npm run segno-lib:build` rewrites that file, and the change owes its tests
+  (`test/unit/tools/flow-row-grammar.test.js`) and a checker, as any render-path change does.
 - **`maxDepth`** on the spec raises the nesting cap for one grammar, up to `MAX_DEPTH_LIMIT`
-  (1,000). If the JavaScript stack runs out first, the parse returns an error, `STACK_EXHAUSTED`,
-  instead of throwing. That happens in `compile()`, which spends a stack frame per expression, on
+  (1,000). If the JavaScript stack runs out first, the parse returns an error with
+  `code: 'stack'` instead of throwing. Test `error.code`, not the wording of `error.expected`. That happens in `compile()`, which spends a stack frame per expression, on
   grammars with many expressions per level. The generated parser gets further on the same input,
   so on such a grammar the two can disagree.
 
@@ -137,7 +172,7 @@ block pass. Those take code on top.
 
 **Two outputs.** `compile` builds a parser from closures, for a grammar that arrives at runtime.
 `generate(spec)` writes the same parser as TypeScript source — straight-line code, character tests
-inlined, the tree in one reused integer buffer (`flat.ts`) — for a grammar that ships. The inline
+inlined, the tree in one reused integer buffer (`flat.ts`), returned in one reused result object — for a grammar that ships. The inline
 notation ships generated (`notation.generated.ts`), and a test holds the two to identical output on
 20,000 fuzzed spans.
 
@@ -189,7 +224,7 @@ fix is to make one positional, or to wrap it in `named(...)` so it must be writt
 | `flag(word)` | a word that switches something on: `milestone` |
 | `indexed(prefix, { max })` | `c1`…`c12`, `step1`…`step5`: a prefix and a number, the ceiling set per slot (`max` at most 1,000) |
 | `id()` | `#api` |
-| `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567` |
+| `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567`. One sign, paired parentheses and one well-formed digit run, so `--5`, `(5` and `1,2,3` are not numbers; `malformedNumber` says why |
 | `time()` | dates as people write them: `2026-03-15` `2026 Q1` `Q3` `Jan` |
 | `range(of)` | `a..b` over another type |
 
@@ -205,7 +240,7 @@ state.read('{yes}'); // { state: 'done' }
 ```
 
 A **shortcut** is an exact whole-span token that stands for a record; a **sigil** is a leading
-character that names a parameter (`sigils: { '@': 'who' }` makes `@Customer` mean `who=Customer`).
+character that names a parameter (`sigils: { '@': 'who' }` makes `@Customer` mean `who=Customer`). No shipped component declares one: journey, the only user, moved to standard records on 2026-10-14.
 Both are checked when the schema is built, and a sigil that starts one of the schema's declared
 words or could start a number (`$`, `-`, a digit) is refused, because that word or number could
 then never bind bare. A shortcut is bound once, at build time, and every read of it returns the
@@ -215,13 +250,13 @@ the same document (whatever you group by: a file, a config, a slide deck), with 
 
 ## First user: Lattice
 
-[Lattice](../../../../README.md) renders slide decks from Markdown, and its inline code spans carry
+[Lattice](https://github.com/Laticent/lattice/blob/main/README.md) renders slide decks from Markdown, and its inline code spans carry
 directives: `` `{BETA, tag, c4}` `` is a pill, `` `[x]` `` a state mark, `` `[{Effort, 0..10}, Reach]` ``
 a chart's axes. Before Segno it had 27 hand-written grammars for them with 21 sigils between them;
 it is moving all of them onto the one notation, with one schema per place a span can sit. Why it
 built an engine rather than adopting a parser library, and what it measured:
-[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
-The design: [`2026-09-28-segno-unified-inline-notation.md`](../../../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
+[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+The design: [`2026-09-28-segno-unified-inline-notation.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
 
 ## Speed
 
@@ -240,13 +275,14 @@ lists and 4,645 inline spans in Lattice's decks); run 2026-09-29, Node 22:
 | Ohm | PEG, memoized | 107,161 ns | 24,597 ns | did not finish |
 
 Reproduce with `npm run parser:bakeoff:versus`; the method and caveats are in
-[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-parser-library-bakeoff.md).
 Absolute times move with the machine; the ratios carry.
 
 **Against the parsers it replaces, in detail:**
 
 Measured against the hand-written parsers it replaces in Lattice, on the inline-code spans and
-bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
+bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno` in phase 1, when it took the
+fastest of seven long rounds per column; one machine):
 
 | job | kernel | Segno | ratio |
 |---|---|---|---|
@@ -257,20 +293,184 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 | bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
+On 2026-10-14, after the `isDirective` fix below, the arm reads 1.41x to 1.54x every span and 1.36x
+to 1.45x on ordinary code (three runs, the slice-paired method), in line with this table.
+
+**Against the dispatcher Lattice ships.** The table above times the arm's own copy of the
+dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, so the arm times that too:
+the escape, then `dispatches` ("does any kind render this?"). That is the decision, not the render;
+the markdown-it path then calls `renderHtml`, which builds the result. Run 2026-10-14 on Node 22 in
+a cloud sandbox, so the absolute figures are about half what a laptop gives:
+
+| job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
+|---|---|---|---|---|
+| inline dispatch, every span both read alike | 30 ns | 45 ns | 41 ns | 1.33x |
+| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 39 ns | 32 ns | 1.16x |
+| &nbsp;&nbsp;state marks `[x]` | 63 ns | 36 ns | 100 ns | 1.69x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 221 ns | 676 ns | 639 ns | 2.91x |
+| Segno syntax the kernel reads as code (482 spans) | — | 1.47 µs | 3.02 µs | — |
+
+The middle of three runs, after the `isDirective` fix below; the shipped every-span ratio read 1.32x,
+1.33x and 1.39x.
+
+**A regression the bakeoff caught, and its fix (2026-10-14).** From #2513 (2026-10-05) the arm's
+column read about 2.0x the kernel where phase 1 read 1.5x. Bisected over the twelve library commits
+between, on today's corpus, one machine: Segno's reader took 38 to 41 ns on ordinary code up to
+#2513, and 50 to 54 ns from it on. #2513 added tagged records (`~{…}`, `^{…}`, `!{…}`), and with them
+a `TAGS.includes(text[i])` in `isDirective` that ran on every span not opening with `{`, nearly all
+ordinary code. In one process the two `isDirective` bodies read 28 and 43 ns a span. A 128-entry
+lookup table did not recover it (45 ns); comparing the three tags as char codes did (31 ns), and a
+test now holds that comparison to `TAGS`. The arm's every-span ratio went from 1.89x to 2.09x before
+the fix to 1.41x to 1.54x after. The shipped dispatcher never paid it: its first-character table
+sends ordinary code to no kind, so `isDirective` runs only on spans that open with `{` or a tag.
+Callers of the published `@laticent/segno` did pay it.
+
+**How the bakeoff times a row, and why.** The columns of a row take turns in short slices: one
+pass over about 5,000 spans, about 150 µs here, with the first column rotating each slice. A
+column's figure is the median of its slices. A ratio is the median of the PER-SLICE ratios, slice
+*i* of the shipped path over slice *i* of the kernel, timed back to back. The ratio is the figure to
+compare; the ns columns move with the machine (the kernel's median for the same spans read 29 to
+54 ns in different processes of one session).
+
+This sandbox's speed moves within a fraction of a second, so anything coarser than a slice lets the
+noise land on one column and not the other. Five runs of unchanged code, one machine, every-span
+shipped/kernel:
+
+| harness | five readings | spread |
+|---|---|---|
+| fastest of seven ~70 ms rounds per column, ratio of the two fastest (before 2026-10-14) | 1.46, 1.34, 1.54, 1.40, 1.41x | 0.20 |
+| the same rounds, ratio taken inside each round, median across rounds (tried, not kept) | 1.42, 1.60, 1.40, 1.57, 1.35x | 0.25 |
+| **slices, ratio taken inside each slice, median across slices (now)** | **1.36, 1.38, 1.32, 1.33, 1.40x** | **0.08** |
+
+Pairing whole rounds did not help: a single ~70 ms round's own ratio read anything from 0.69x to
+2.29x, so the noise lands inside a round. The ordinary-code row tightened the same way (1.17x to
+1.27x before, 1.14x to 1.21x now). A change that moves the every-span ratio by less than about 0.1
+is still within run-to-run noise, so compare a before and an after over several runs each.
+
+The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the shipped ratio, so halving a
+pill's cost would move it by about that much. Pills are still the slowest thing per span (about 3x
+the kernel) and the design note accepts them above the bar (§ The engine). What #2683's parse change
+moved: a pill's grammar stage went from about 270 ns to about 225 ns (`parse()` no longer allocates
+a result and a tree object per call, and skips the rule-table lookup for the default rule), and the
+shipped decision from about 500 ns to about 480 ns. The grammar's own time also depends on what V8
+has already seen: a parse of the 268 pills alone reads about 165 ns in a fresh process and 230 to
+370 ns after the process has parsed the shipped decks' other spans, because the generated rule
+functions are re-optimized with the wider type feedback.
+
+Before the first-character table the earlier harness read 174 ns for every span and 149 ns for ordinary
+code (5.2x the kernel), because every kind ran its own check on every span.
+
+What moved it:
+
+- **A first-character table.** Ordinary code (a letter, `-`, `/`) is asked of no kind. Two
+  cheaper-looking shapes lost: a `row.lead` test inside the loop cost 103 ns (the rows are
+  different object shapes, so the property load went megamorphic), and indexing the table with
+  `NaN` cost 8 ns a span.
+- **Indexed loops.** A `for…of` over the list cost 12 ns a span for the iterator alone.
+- **A flag, not a second function.** `resolve(text, off, probe)` and `diagnose(text, off, explain)`
+  let a kind answer yes or no without building its fields or its reason. The backslash escape used
+  to build the reason: a mistyped icon name (`\^{databse}`) ran an edit-distance search over the
+  whole set, 173 µs, to decide whether to strip a backslash; it now takes about 1.6 µs.
+- **A record binds from the parser's tree.** See "How a record binds fast" below: a pill's bind went
+  from about 355 ns to 260 ns, and the dispatcher's decision for it from about 480 ns to 370 ns
+  (interleaved runs on one machine).
+- **One parse per span.** `dispatches` then `diagnose` on a broken pill or spark parsed the same
+  text two or three times; each reader keeps its last result.
+
+The bakeoff column does not show where most of the real gain is. The markdown-it path calls the
+escape, then `renderHtml`, then `offPlugin`, and with one plugin switched off every ordinary span
+used to be filtered through every kind twice. Per ordinary span on that path (escape, `renderHtml`,
+`offPlugin`, same machine): 112 ns to 18 ns with every plugin on, 1,426 ns to 58 ns with the icons
+plugin off. Over the whole corpus with icons off, 3,227 ns to 870 ns.
+
+The last bakeoff row covers spans that the decks already write in Segno's notation (`{icon=mail}`,
+chart points, sparks, avatars). The retired kernel reads them as plain code, so they have no kernel
+figure.
+
 Two things to know when reading it. The kernel's axis figure returns strings, which each chart
 then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.
 And the grammar's own time depends on what V8 has already seen: a pill parses in about 110 ns in a
 fresh process and about 280 ns in one that has also parsed lists and failed spans. The table is
 the mixed, realistic figure.
 
+**Whole files, against real tokenizers.** Lattice's CSS, HTML and Markdown grammars
+(`tools/parser-bakeoff/languages-grammars.mjs`) beside the tokenizer layer of each real parser,
+over every tracked file of each type. This is the like-for-like race: both sides tokenize and
+neither builds a tree. Run 2026-10-07 on Node 22 in a cloud sandbox, so the absolute figures are
+about half what a laptop gives; the ratios carry:
+
+| | Segno (generated) | tokenizer beside it |
+|---|---|---|
+| CSS, 3.1 MB | 178 MB/s | postcss 103 · css-tree 142 · @csstools 36 |
+| HTML, 0.2 MB | 156 MB/s | parse5 `Tokenizer` 23 |
+| Markdown, 22 MB | 207 MB/s | markdown-it block pass alone 68 |
+
+The tokenizers classify more than the grammars do: css-tree's tells a number from a dimension,
+and parse5's decodes entities. So the table shows a generated Segno grammar running at
+hand-written tokenizer speed. It does not show that Segno does those jobs too. Reproduce with
+`npm run parser:bakeoff:languages` (its `tokenizers` block). Three generator changes on
+2026-10-07 took the three grammars from 112, 117 and 101 MB/s to these figures (§ How the
+generated parser stays fast).
+
+Those figures are V8. In Firefox and WebKit the same three changes made every grammar faster too:
+1.24x–1.56x in Firefox and 1.21x–1.55x in WebKit, and 1.29x–1.45x on a real iPhone, with identical trees (the table is in the decision
+note's § Generated-parser speed; `npm run parser:bakeoff:languages:browsers` reproduces it).
+
 Every shape on the hostile-input ladder grows linearly and stays under 3 ms at 32,000 characters.
 The `/segno` page runs the same ladder in your browser, and lets you write a grammar and parse with it.
+
+### How the generated parser stays fast
+
+`generate()` does three things a grammar author never sees. None changes a tree or an error,
+and a differential of about 1.2 million grammar/input pairs held them identical to `compile()`
+and to the previous generator:
+
+- **A tested character is not tested again.** When a choice or a loop has read the next character
+  to pick its way, the piece it picked reuses that variable and skips the test the choice already
+  made. CSS gained most from this (112 → 184 MB/s).
+- **A shared piece is written once.** A sub-expression the grammar uses in several places (one JS
+  value, reused) becomes one function when its code is large (600 characters or more). Copied
+  into every place instead, the Markdown grammar's inline-text loop made one 860-line rule, and V8
+  kept deoptimizing and rebuilding it.
+- **A run of like characters scans on locals, then by regular expression.** A loop over one
+  character set copies the parser's position and input into local variables, so V8 keeps them in
+  registers. A run still going after 16 characters is finished by a regular expression that finds
+  the first character outside the set. V8 compiles that to native code, and on long runs (prose,
+  comments) it is about 1.6x a JS loop. Inside an `attempt()` window the regex is not used,
+  because it cannot stop at the window's end: there, reading past it turned a linear grammar
+  quadratic, and a test pins that.
+- **A set with many ranges above ASCII is searched, not chained.** Up to 16 ranges above U+007F,
+  a character test is one comparison per range. Past that, both runtimes binary-search a table of
+  range bounds. A set of every other code unit (32k ranges) read 256k characters inside attempt
+  windows in 11.4 s generated and 1.6 s compiled; it now takes about 6 ms in each. No shipped
+  grammar has more than 9 such ranges, so their parsers are unchanged.
+
+### How a record binds fast
+
+A plain `{…}` span of bare words and `name=bare` items (a pill, a chart point, a state) is bound
+straight from the parser's flat tree. The full bind builds an `Item` and a `Scalar` per item, a
+`Binding`, and a result; the fast read builds only the result. It is the same rules as the full
+bind (§ Write a grammar): positionals first, a declared name, a bare word to its one owner. It
+only ever succeeds. On anything else it returns null and the full bind runs, and the full bind
+alone words an error: a quote, a nested record or list, an unknown name or word, a repeat, a
+missing required value, a tag, a sigil, a sub-slot. So an error reads as it always did, and
+`schema.test.ts` holds a success equal to the full bind's on every span of one to three items
+built from a pool that reaches each of those branches.
+
+One more condition keeps it correct. The parser writes one reused buffer, and the fast read walks
+it while it calls each parameter's `read`. A type of your own may parse a span inside its `read`,
+which would overwrite the buffer under the walk. So a slot takes the fast read only when every
+type it declares was built by Segno (`text()`, `oneOf()`, `indexed()`, `number()`, and a `range()`
+or `named()` of one); a type you wrote, or a copy of a built-in with a new `read`, keeps the full
+bind. A built-in is frozen, so it cannot be changed in place to add a `read`. The `.` and `./read`
+entries each carry their own mark, so a slot built with `record` from one entry and `text` from the
+other takes the full bind: the results are the same and the saving is lost.
 
 ## Build
 
 `npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
 `.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
-`@laticent/segno/values` — `readNumber` and `readTime` alone, a few KB against the full library's
+`@laticent/segno/values` — `readNumber`, `malformedNumber` and `readTime` alone, a few KB against the full library's
 80, for a consumer that only reads values and cannot tree-shake a CommonJS `require`; and
 `@laticent/segno/read` — `parse`, the schema builders and the types without the grammar compiler
 (10KB gzipped against 23KB), which Lattice's `lib/` takes so its live lint does not carry the
@@ -278,5 +478,9 @@ whole engine onto the Studio's startup path. `npm run check:segno` (in `docs/`)
 typechecks the library alone with no DOM and no Node types, which is the mechanical proof it stands
 alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute-force recognizer and
 against Lattice's number and time readers, and metamorphic tests of the notation's promises).
-`npm run mutate:segno` injects 72 defects one at a time and fails if the suite misses any; it takes
+`npm run mutate:segno` injects 77 defects one at a time and fails if the suite misses any; it takes
 about fifteen minutes and is not a CI gate.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

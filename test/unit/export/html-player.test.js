@@ -682,7 +682,7 @@ test('themeDualMode reads DERIVED tokens from :root only — a component-local o
 	// `--fs-*` scale on size classes. Scanning the WHOLE sheet lifted those onto every slide
 	// at (0,7,1), outranking the rules they were read from: `_class: flat` got the lifted
 	// card's shadow back, and a pill border recolored to a categorical mark. Measured on
-	// dist/lattice.css + themes/indaco.css, 281 of 435 candidate tokens were affected.
+	// dist/lattice.css + themes/indaco/indaco.css, 281 of 435 candidate tokens were affected.
 	const css = [
 		':root{--text-heading:light-dark(#0A1628,#FFFFFF);--cat-on-fill:var(--text-heading)}',
 		'section.lifted{--elevation-card:var(--text-heading)}',
@@ -863,6 +863,31 @@ test('a scene deck injects the Anima bundle under the SAME sha256 CSP; a scene-l
 	// Byte-identity gate: a scene-LESS deck must NOT carry the backends.
 	const { html: plain } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.doesNotMatch(plain, /__latticeAnima/, 'a scene-less export must not ship the ~58 KB backends');
+});
+
+test('a collage deck inlines the lightbox under the SAME sha256 CSP, stays ASCII; a deck without one is untouched', async () => {
+	// The collage lightbox rides in the ONE hashed <script>, gated on the grid's own marker on a
+	// real <ul> tag, so a collage-less export stays byte-identical (the golden's rule).
+	const tile = '<li class="collage-tile" data-label="A \u2014 photo"><img src="data:image/png;base64,iVBORw0KGgo=" alt="A photo"></li>';
+	const collageDoc = docHtml.replace(
+		'<p>Intro paragraph.</p>',
+		`<p>Intro paragraph.</p><ul class="collage-list" data-collage="packed" data-collage-n="1">${tile}</ul>`,
+	);
+	assert.notEqual(collageDoc, docHtml, 'the fixture must actually carry the collage');
+	const { html } = await buildPlayerHtml({ docHtml: collageDoc, source, now: 0 });
+	const body = html.match(/<script>([\s\S]*?)<\/script>/i)[1];
+	assert.match(body, /var openCollageLightbox=function/, 'the opener must be inlined for a collage deck');
+	assert.match(body, /useDialog:true/, 'the player hosts it in a native <dialog>');
+	const cspHash = (html.match(/script-src 'sha256-([^']+)'/) || [])[1];
+	assert.equal(crypto.createHash('sha256').update(body, 'utf8').digest('base64'), cspHash, 'the hash must cover the script WITH the lightbox');
+	assert.equal([...body].filter((c) => c.codePointAt(0) > 0x7f).length, 0, 'the script stays pure ASCII');
+	// Byte-identity gate, and the code-fence case: a deck that only DOCUMENTS the attribute has the
+	// tag's `<` escaped, so it must not ship an opener it will never use.
+	const { html: plain } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.doesNotMatch(plain, /openCollageLightbox/, 'a collage-less export must not carry the lightbox');
+	const fenced = docHtml.replace('<p>Intro paragraph.</p>', '<pre><code>&lt;ul class="collage-list" data-collage="packed"&gt;</code></pre>');
+	const { html: documented } = await buildPlayerHtml({ docHtml: fenced, source, now: 0 });
+	assert.doesNotMatch(documented, /openCollageLightbox/, 'a fenced mention must not trip the gate');
 });
 
 test('the CSP-hashed script is pure ASCII (WebKit hashes non-ASCII differently → blocks it)', async () => {
@@ -1975,7 +2000,7 @@ function carriers(html) {
 test('narration: the deck ships ONE packed LTT that validates, and one clip block per slide with audio', async () => {
 	const { html } = await narratedPlayer();
 	const { packed, ltt, audio } = carriers(html);
-	assert.equal(packed.encoding, 'packed', 'the HTML export embeds the packed encoding (engineering/ltt.md §Encodings)');
+	assert.equal(packed.encoding, 'packed', 'the HTML export embeds the packed encoding (spec/LTT-1.0.md §Encodings)');
 	assert.deepEqual(validateLtt(ltt), [], 'and it is a valid LTT once unpacked');
 	assert.deepEqual(ltt.segments.map((s) => [s.kind, s.at.slide, s.holdMs]), [
 		['slide', 1, 0],
@@ -2518,7 +2543,7 @@ test('narration: an encoded clip carries its lead, and the player seeks past it'
 	// clip WE compress and no decoder trims it. Left in, audio starts after its own caption on
 	// every sentence and the tuned breath grows ~28% — the defect that drove compression off the
 	// live reading path, delivered instead to the recipient's copy. So the bake ships the figure
-	// and the player skips it (engineering/ltt.md §The transport, rule 7).
+	// and the player skips it (spec/LTT-1.0.md §The transport, rule 7).
 	const withLead = { ...NARRATION, slides: NARRATION.slides.map((s) => ({ ...s, clips: s.clips.map((c) => c && { ...c, leadMs: 46 }) })) };
 	const { html } = await narratedPlayer({ narration: withLead });
 	assert.equal(carriers(html).ltt.segments[0].audio.clips[0].leadMs, 46, 'the lead travels in the audio layer');

@@ -90,7 +90,7 @@ async function main() {
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'reach-'));
   const html = path.join(tmp, 'd.html');
-  const emu = [path.join(REPO, 'dist/lattice-emulator.js'), args.deck, html];
+  const emu = [path.join(REPO, 'dist/lattice.js'), args.deck, html];
   if (args.theme) emu.push(args.theme);
   execFileSync(process.execPath, emu, { stdio: ['ignore', 'ignore', 'inherit'] });
 

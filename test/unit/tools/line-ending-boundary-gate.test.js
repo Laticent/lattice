@@ -287,7 +287,7 @@ describe('the shipped tree', () => {
 		for (const f of [
 			'.gitattributes',
 			'lib/engine/index.js',
-			'lattice-emulator.js',
+			'lattice.js',
 			'tools/lint-deck.js',
 			'lib/core/resolve-palette.js',
 			'docs/src/lib/normalize-source-text.ts',

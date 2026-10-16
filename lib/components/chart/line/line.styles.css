@@ -2,7 +2,7 @@
  *
  * The kernel (line.transform.js) emits a <div class="line-figure"> holding one
  * <svg>: the shared plot chrome (grid, axis, ticks, category labels — painted
- * by chart-family.css § Cartesian chrome, NOT here) plus this member's own
+ * by chart-family.styles.css § Cartesian chrome, NOT here) plus this member's own
  * marks: the line, the filled region, the dots, and the series' own name at the
  * end of its line.
  *
@@ -80,7 +80,7 @@
 /* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
  * two touching marks apart, so its correct weight follows what it has to
  * separate, not the family's outline weight. It is deliberately excluded
- * from the shared `--chart-edge` rule — see chart-family.css. */
+ * from the shared `--chart-edge` rule — see chart-family.styles.css. */
 :is(section.line, figure.chart-frame) .line-dot {
   fill: var(--mark-hue, var(--chart-cat-1-hue));
   stroke: var(--bg);
@@ -89,7 +89,7 @@
 
 /* THE DIRECT LABEL — the series' own name at the end of its own line.
  *
- * `.cart-series` (chart-family.css) sets the face, size and weight; this file
+ * `.cart-series` (chart-family.styles.css) sets the face, size and weight; this file
  * only colors it, because the color is the whole point: a name painted in its
  * line's own hue means the reader never travels to a key to match a swatch.
  *

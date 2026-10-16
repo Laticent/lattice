@@ -132,7 +132,7 @@ function firstDivergence(a, b) {
   return { at: i, a: win(a), b: win(b) };
 }
 
-engine.addThemes([{ name: 'indaco', css: readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8') }]);
+engine.addThemes([{ name: 'indaco', css: readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8') }]);
 
 const decks = only ? [path.resolve(only)] : galleryDecks();
 const buckets = { identical: [], equivalent: [], different: [], skipped: [] };

@@ -16,11 +16,17 @@
 // The frame's script is the CLI's, byte for byte (FRAME_BOOTSTRAP), so the two doors run a package
 // the same way (HARD RULE #1). What the package returns is sanitized by the caller (door.ts).
 
-import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp, workerScript } from '../../../../lib/packages/code-door-core.mjs';
+import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp } from '../../../../lib/packages/code-door-core.mjs';
+import { checkedWorkerScript } from '../../../../lib/packages/code-syntax.mjs';
 
 // `facts` is the slide's plain content (lib/packages/slide-facts.mjs), read by the door, never by the package.
 export type CodeSlide = { html: string; facts?: unknown; index: number; idPrefix?: string; baseUrl?: string };
-export type PackageFrame = { run: (slide: CodeSlide, ms: number) => Promise<string>; close: () => void; readonly closed: boolean };
+// A plugin's fence renderer is handed the fence's text and one id, and nothing else (plugin-system §9 decision 10).
+export type CodeFence = { body: string; id: string };
+// An inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md) reaches the same renderer as its kind, its text, the
+// fields its declared slot read (or null) and an id: `kind` is what tells it from a fence.
+export type CodeInline = { type?: string; kind: string; text: string; record?: string; fields: unknown; id: string };
+export type PackageFrame = { run: (slide: CodeSlide, ms: number) => Promise<string>; runFence: (fence: CodeFence | CodeInline, ms: number) => Promise<string>; close: () => void; readonly closed: boolean };
 
 let frameDocLoad: Promise<string> | null = null;
 
@@ -43,8 +49,10 @@ type Reply = { t?: string; id?: number; out?: unknown; error?: unknown };
  * Open a sandboxed frame for one package and load its code into the frame's worker. Rejects if the
  * frame or the package does not load within `loadMs` (the bundle's top level runs at load).
  */
-export async function openPackageFrame(code: string, { loadMs = 5000 }: { loadMs?: number } = {}): Promise<PackageFrame> {
-	const text = workerScript(code);
+export async function openPackageFrame(code: string, { loadMs = 5000, fence = false }: { loadMs?: number; fence?: boolean } = {}): Promise<PackageFrame> {
+	// Refused here too, for its syntax: a record saved before the import checked it still never runs.
+	// A plugin's `render.js` is wrapped for a fence (`{ body, id }`), a component's `transform.js` for a slide.
+	const text = checkedWorkerScript(code, { fence });
 	const doc = await frameDoc();
 	const frame = document.createElement('iframe');
 	frame.setAttribute('sandbox', 'allow-scripts');
@@ -53,6 +61,7 @@ export async function openPackageFrame(code: string, { loadMs = 5000 }: { loadMs
 	frame.title = 'code package sandbox';
 	frame.dataset.latticeCodeSandbox = '';
 	frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;border:0;visibility:hidden';
+	const fenceFrame = fence;
 	let closed = false;
 	let seq = 0;
 	let queue: Promise<unknown> = Promise.resolve();
@@ -115,15 +124,30 @@ export async function openPackageFrame(code: string, { loadMs = 5000 }: { loadMs
 		},
 		close,
 		run(slide, ms) {
+			if (fenceFrame) return Promise.reject(new Error('this frame runs fences, not slides'));
 			// One at a time from this side too: the frame queues runs and starts a slide's clock when
 			// the worker gets it, so this side's backstop must not start while the slide waits.
-			const next = queue.then(() => runOne(slide, ms));
+			const next = queue.then(() => runOne({ html: String(slide.html), facts: slide.facts ?? null, index: slide.index, idPrefix: slide.idPrefix ?? '', baseUrl: slide.baseUrl ?? '' }, ms));
+			queue = next.catch(() => {});
+			return next;
+		},
+		runFence(fence, ms) {
+			// A fence frame takes fences only, and a slide frame slides only: the worker's script differs.
+			if (!fenceFrame) return Promise.reject(new Error('this frame runs slides, not fences'));
+			const next = queue.then(() =>
+				runOne(
+					'kind' in fence
+						? { kind: String(fence.kind), text: String(fence.text), record: String(fence.record ?? ''), fields: fence.fields && typeof fence.fields === 'object' ? fence.fields : null, id: String(fence.id) }
+						: { body: String(fence.body), id: String(fence.id) },
+					ms,
+				),
+			);
 			queue = next.catch(() => {});
 			return next;
 		},
 	};
 	return frameApi;
-	function runOne(slide: CodeSlide, ms: number): Promise<string> {
+	function runOne(payload: Record<string, unknown>, ms: number): Promise<string> {
 			if (closed) return Promise.reject(new Error('the package was stopped'));
 			const id = ++seq;
 			return new Promise<string>((resolve, reject) => {
@@ -134,7 +158,7 @@ export async function openPackageFrame(code: string, { loadMs = 5000 }: { loadMs
 					close();
 				}, ms + 1000);
 				waiting.set(id, { resolve, reject, timer });
-				frame.contentWindow?.postMessage({ t: 'run', id, slide: { html: String(slide.html), facts: slide.facts ?? null, index: slide.index, idPrefix: slide.idPrefix ?? '', baseUrl: slide.baseUrl ?? '' }, ms }, '*');
+				frame.contentWindow?.postMessage({ t: 'run', id, slide: payload, ms }, '*');
 			}).catch((e: Error) => {
 				// A run past its time ends the worker, so this frame is spent; the caller opens another.
 				if (/did not finish within|was stopped|not loaded/.test(e.message)) close();

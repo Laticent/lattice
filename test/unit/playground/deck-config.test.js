@@ -210,7 +210,7 @@ describe('writeFrontMatter', () => {
 
   test('math: the retired control is gone, but a deck that carries the key KEEPS it', async () => {
     // `math:` was a managed field with a Math-renderer row until 2026-08-18. Nothing in the
-    // engine reads it — a grep for `mathjax` across lib/ and lattice-emulator.js returns only
+    // engine reads it — a grep for `mathjax` across lib/ and lattice.js returns only
     // the control that wrote it — so the row was retired (see
     // engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.4).
     //

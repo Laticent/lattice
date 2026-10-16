@@ -41,6 +41,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -51,7 +52,7 @@ const { SHAPES, LINES, NON_TEXT_FLOOR } = require('../../helpers/diagram-surface
 const REPO = path.join(__dirname, '..', '..', '..');
 const THEMES_DIR = path.join(REPO, 'themes');
 const LAYOUT_CSS = fs.readFileSync(path.join(REPO, 'dist', 'lattice.css'), 'utf8');
-const THEMES = fs.readdirSync(THEMES_DIR)
+const THEMES = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.css') && !f.includes('audit'))
   .map((f) => f.replace(/\.css$/, ''))
   .sort();
@@ -60,7 +61,7 @@ const THEMES = fs.readdirSync(THEMES_DIR)
 function paletteSource(name, seen = new Set()) {
   if (seen.has(name)) return '';
   seen.add(name);
-  const file = path.join(THEMES_DIR, `${name}.css`);
+  const file = path.join(THEMES_DIR, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';

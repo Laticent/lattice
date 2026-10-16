@@ -10,8 +10,18 @@ are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin i
 **Shipped plugins:** `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it),
 `function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima`
 (` ```anima `; the `scene` slide class requires it) and `mermaid` (` ```mermaid `, drawn by the
-runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it). The chart
-family moves here next.
+runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it),
+`icons` (`` `^{database, c3}` `` in inline code; the flowchart, hub-spoke and state-chart slide
+classes list it as optional), `avatars` (`` `!{Ada Okafor}` `` in inline code), `chart-family`
+(the `kernel` extension point every chart fills; see "Extension points" below) and `code` (every
+fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` slide classes
+require it; see "The code renderer" below). The website introduces the six an author writes at
+/plugins/, from `docs/src/content/catalog/plugins/`.
+
+**A plugin's mark** is its manifest's optional `icon`: path data tagged `line`, `accent` or `fill`,
+drawn by `plugin-icon.mjs` in the active theme's colors (spec/LPM.md §3.1). It is data rather than
+an SVG file, so a mark can carry no color, element or script of its own and travels on every
+channel unchanged. The website's Plugins hub draws it from here.
 
 ## A plugin is a folder
 
@@ -27,7 +37,14 @@ lib/plugins/<name>/
                           runtime drives (Mermaid's), bundled and never serialized
   <name>.bake.js          the CLI half: bake(source, ctx) draws the figures into the Markdown. Node-side
   <name>.highlight.js     highlight(hljs): a highlight.js grammar for the plugin's code fences
+  <name>.dispatch.js      the module that calls an extension point's fillers (the chart family's
+                          section dispatch and chart frame). Shipped exactly when the plugin offers a slot
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
+  vendor/                 the third-party libraries the plugin OWNS a committed copy of (its manifest's
+                          `payload.vendored` for the browser library, `vendor` for the rest — KaTeX,
+                          the bake's ZenUML and mermaid-cli page: file, version, SHA-256). Every surface
+                          reads the copy (payload-path.js) and the build fails one that drifts; refresh
+                          it from node_modules with `npm run vendor:plugins`. IN-TREE ONLY, like shared/
   shared/                 the plugin's own shared modules (.js/.cjs/.mjs, and a README.md) that its
                           role modules import — Mermaid's init directive, render worker, reorientation
                           and motion roles. IN-TREE ONLY: the one subfolder the plugin kind admits
@@ -64,9 +81,16 @@ marks its `<pre>`: `data-lattice-off="mermaid"`. The runtime's pass, the drawn-f
 (`drawn-probe.mjs`) and the preview's ink-withholding rule all skip a marked `<pre>`, so every
 surface that shows the engine's render — the Studio's preview and export, `--fluid`, `--player` —
 draws nothing of that plugin. Admission is deck-wide, so the Studio's one-slide renders take the
-whole deck's answer (`LatticePlayground.pluginAdmission`). Not yet: the Export-to-Marp bundle (Marp
-renders it, not the engine) and the Studio's own lint and slide mapping, which read the default
-set's grammar (`followups.d/2509-p3-admission-marp-and-studio-source-readers.md`). The CLI admits once per run and hands the answer to the engine, `bakeDeck`
+whole deck's answer (`LatticePlayground.pluginAdmission`). Two readers that do not run the engine follow it too: an Export-to-Marp bundle (Marp renders it)
+records the plugins its producer left off in its settings block, `pluginsOff`, and the bundled
+runtime marks them before any pass (`mark-off.mjs`); the Studio's lint and slide mapping point their
+boundary parser at the deck's `off` set first (`docs/src/lib/plugin-admission.ts`), and so does the
+Playground page's lint (`docs/src/playground/editor.js`), which re-lints when the host changes its
+defaults. An author's raw HTML is held to the same answer (`author-markup.js`): the host's figure
+marker names (`data-lattice-hydrate`, `-config`, `-settle`, `-final`, `-off`) are renamed
+`data-author-…` wherever author markup spells them, so a deck cannot forge a pending figure
+(`data-lattice-figure` is kept: a bake writes it into the Markdown the engine reads); and the `language-<fence>` class of an unloaded plugin becomes `language-off-<fence>`, so a
+raw `<pre><code class="language-mermaid">` stays code like the fence. The CLI admits once per run and hands the answer to the engine, `bakeDeck`
 and the boundary parser (`setBoundaryPluginsOff`). A host narrows the set with
 `createEngine({ plugins: { defaults } })`, `--default-plugins` on the CLI, or
 `LatticePlayground.setPluginDefaults` in a browser.
@@ -81,12 +105,20 @@ and the boundary parser (`setBoundaryPluginsOff`). A host narrows the set with
   "contributes": {
     "syntax": {                                       // keyed by the TOKEN TYPE each rule emits
       "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
-      "math_block":  { "kind": "block",  "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
+      "math_block":  { "kind": "block",  "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true,
+                       "scansAhead": "^[ \\t]*\\$\\$|\\$\\$[ \\t]*$" }
     }
   },
   "render": { "parity": "equivalent", "degradesTo": "source" }
 }
 ```
+
+**Every block rule declares `scansAhead`.** `false` when the rule decides from its own lines,
+as every CommonMark block rule does. Otherwise a pattern matching each line its decision
+depends on, opener and closer alike: `math_block` opens on `$$` only if some later line ends
+with `$$`, which can sit slides away. The Studio's incremental slide index re-parses only the
+region an edit touched, and rebuilds the whole deck when either version of that region holds
+such a line (`docs/src/lib/deck-outline/deck-outline.ts`). The build refuses a block rule without it.
 
 `<name>.syntax.mjs` exports each rule **under the token type it emits**
 (`export { mathBlockRule as math_block }`) plus `detect(source)`; `<name>.render.js` exports
@@ -108,7 +140,7 @@ A plugin claims fence names in `contributes.fences` and exports a renderer per n
 ```
 
 The host owns `md.renderer.rules.fence` ONCE — a table from every fence name and alias to its
-plugin's renderer, and everything else to the renderer that was there before. It replaced the old
+plugin's renderer, and everything else to the code renderer (below). It replaced the old
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
 won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
@@ -117,12 +149,59 @@ exception: when a highlight.js upgrade later adds a language named like a fence 
 registry already ships, that plugin keeps the fence and the build warns. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
 must declare. A fence counts as use: the host derives a plugin's `detect` probe from its fence names.
 
+## The code renderer
+
+Every fence no plugin claims goes to ONE plugin that declares `contributes.codeRenderer`: today
+`code` (`lib/plugins/code/`). Its `<name>.render.js` exports `codeRenderer`,
+`{ highlighter, render(token, ctx, env, base) }`:
+
+- `base(highlight)` is markdown-it's own fence rule, run with that `highlight` callback (null for
+  plain text). Every fence's markup (`<pre><code class="language-x">`, its attributes, the escaping
+  of an unknown language) comes from it, whoever colors the code.
+- `highlighter` owns highlight.js. The engine names no plugin and imports no highlight.js: its
+  `languages` capability is `codeHighlighter().languages` (`host.js`), and the host registers each
+  plugin's `contributes.highlight` grammar on `highlighter.hljs`.
+
+A claimed fence never reaches the code renderer, so it cannot restyle a drawn figure. A fence
+declared `as: "code"` (Mermaid) does reach it, because it is code until its plugin draws it. A
+second plugin that declares `codeRenderer` fails the build, naming both. With the code plugin off
+(`createEngine({ plugins: { defaults: [] } })`, or a host that disables it), a fence renders as
+escaped plain code. A zip plugin may not declare it (`PLUGIN_DATA_CONTRIBUTIONS`). Design:
+`engineering/decisions/2026-10-15-code-plugin.md`.
+
+## Extension points
+
+A plugin may OFFER a slot that components FILL (`contributes.extensionPoints`, one per plugin in
+api 1). The chart family is the one in tree:
+
+```jsonc
+"extensionPoints": {
+  "kernel": { "bucket": "chart", "role": "transform", "entry": "transformSection", "description": "…" }
+}
+```
+
+A filler declares the slot's BLOCK (`block`, default the slot name), so a chart's existing
+`"kernel": { … }` block IS the fill; the slot adds who may fill it (`bucket`) and what the plugin calls (`role`,
+`entry`: `bar/bar.transform.js` exporting `transformSection`). The build writes the slot into
+`extension-points.generated.json`, keyed by block, which the component loader (who may declare `kernel`),
+`tools/build-chart-registry.js` (the dispatch table) and `tools/check-ownership.js` (each filler's
+module and export) read instead of a bucket list of their own.
+
+**Filling a slot is requiring the plugin.** The build adds every filler to `COMPONENT_PLUGINS`, so
+a chart class loads the family on a narrowed host and reports `plugin/component-needs-plugin` when
+the family is switched off. Switched off, the family passes each chart section through as written
+and marks it `data-lattice-off="chart-family"`; the runtime's DOM pass skips a marked section.
+
+The resolver fails a slot whose plugin ships no `<name>.dispatch.js` (and a dispatch with no slot), a block two plugins read, a bucket two slots claim, a block that is not an
+object block of the component schema, and a component that declares the block outside the slot's
+bucket. In api 1 only in-tree components fill a slot; a slot that plugins fill (an icon pack) is
+reserved as a later, additive field.
+
 ## A fence rendered as code, and the bake
 
 Mermaid's fence is declared `as: "code"`: the plugin owns the name (no other plugin may claim it,
 and it counts as use), but the engine renders it as the highlighted code block it always was —
-the host leaves it to the fence renderer installed before the table, so it has no renderer and no
-aliases. The plugin draws it later, in two places:
+the host leaves it to the code renderer, so it has no renderer and no aliases. The plugin draws it later, in two places:
 
 - **In a browser, the plugin's PASS draws it** (`render.exec.hydrate: "pass"`):
   `mermaid.hydrate.js` exports `createPass(ctx)` rather than a per-placeholder `hydrate(el, ctx)`,
@@ -152,7 +231,7 @@ The resolver requires the bake of any plugin a pass draws: the CLI export page c
 runtime, so nothing else would draw it there.
 
 **Its grammar and its stylesheet are its own** (`contributes.highlight`, `contributes.styles`):
-`installPlugins` registers `mermaid.highlight.js` on the engine's highlight.js under the code
+`installPlugins` registers `mermaid.highlight.js` on the code renderer's highlight.js under the code
 fence (for every installed plugin, a switched-off one included — its fence is the one that stays
 source), and `mermaid.styles.css` is bundled into the plugin slot like any plugin's CSS.
 

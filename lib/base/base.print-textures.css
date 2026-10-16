@@ -5,7 +5,7 @@
  * a11y-achromatopsia theme (themes/a11y-base.css) — print overlays each
  * categorical fill with a hatch/dot/cross TEXTURE. The `<pattern>` <defs> these
  * `url(#latt-a11y-tex-N)` refs point at are emitted by the engine on EVERY
- * render (lib/core/accessibility-textures.js, injected at lattice-emulator.js
+ * render (lib/core/accessibility-textures.js, injected at lattice.js
  * and lib/runtime), so they resolve here with no extra plumbing — same-document
  * paint-server refs.
  *

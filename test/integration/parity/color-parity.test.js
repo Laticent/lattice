@@ -25,6 +25,7 @@
  */
 
 const { test, describe, before, after } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -68,7 +69,7 @@ function rawRootVars(css) {
 const engine = (() => {
   const eng = latticeEngine.createEngine();
   eng.addThemes([LATTICE_CSS_FILE,
-    ...fs.readdirSync(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => path.join(ROOT, 'themes', f)),
+    ...themeEntries(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => themePath(path.join(ROOT, 'themes'), f)),
   ].map((f) => fs.readFileSync(f, 'utf8')));
   return eng;
 })();
@@ -107,7 +108,7 @@ describe('color-parity (offline resolver ↔ real engine-rendered DOM getCompute
   before(async () => {
     for (const theme of THEMES) {
       html[theme] = renderProbeHtml(theme);
-      raw[theme] = rawRootVars(`${fs.readFileSync(LATTICE_CSS_FILE, 'utf8')}\n${fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8')}`);
+      raw[theme] = rawRootVars(`${fs.readFileSync(LATTICE_CSS_FILE, 'utf8')}\n${fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8')}`);
     }
     browser = await puppeteer.launch({
       executablePath: resolveChrome(),

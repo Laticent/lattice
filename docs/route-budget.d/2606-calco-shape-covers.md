@@ -1,0 +1,2 @@
+studio: +32
+The Studio's eager JS carries Calco's reader, and #2606 adds two things to it: the slide's own `::before`/`::after` join the paint-order walk, and the hide's whole-slide `transition: none` stylesheet with its restore (`[data-calco-still]`). CI measured +7 B gz against main; declared +32 for gzip variation. The stamp CSS change in this PR ships in the deck stylesheet, not the route's JS.

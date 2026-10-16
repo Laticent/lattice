@@ -1,0 +1,20 @@
+{
+  "title": "CRLF line endings and a missing final newline survive the round trip",
+  "spec": "LATTICE-FILE-1.0",
+  "section": "2",
+  "entries": {
+    "deck.md": "# One\r\n\r\nText.",
+    "manifest.json": {
+      "format": "lattice",
+      "version": 1,
+      "title": "Q3 board review",
+      "engine": "lattice",
+      "generatedAt": 0,
+      "comments": []
+    }
+  },
+  "expect": {
+    "ok": true,
+    "source": "# One\r\n\r\nText."
+  }
+}

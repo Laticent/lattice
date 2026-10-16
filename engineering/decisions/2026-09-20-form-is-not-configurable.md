@@ -167,7 +167,8 @@ and the demo deck is `examples/video-title-in-card.md`.
 `lint:deck` warns and never blocks (HARD RULE #29's posture). `retired-form-key` flags any
 `form:` value and, for `off` alone, names what will change about the render. `retired-form-token`
 flags a `form` / `no-form` slide token and points at a sovereign component as the real way to get
-a slide with no chrome. **The RENDER path warns too, as of 2026-09-21** — for the three shapes that actually moved a
+a slide with no chrome. *(Superseded 2026-10-06: only `form: off` and `no-form` are flagged now;
+`form: standard` and a bare `form` token were inert, so their warnings were deleted.)* **The RENDER path warns too, as of 2026-09-21** — for the three shapes that actually moved a
 deck (`form: off`, a deck-wide `class: no-form`, a slide's `no-form`), and only those. The
 linter is the right place for the inert ones, but the person whose deck changed shape is
 rendering it, not linting it, and the change otherwise lands with a successful exit code and

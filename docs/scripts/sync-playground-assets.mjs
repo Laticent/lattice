@@ -13,8 +13,8 @@
 //        engine to render in the chosen palette. We stage the MINIFIED build —
 //        the same one the Export-to-Marp bundle ships — under the unversioned
 //        <name>.css dest, so the themeBase fetch sites are unchanged.)
-//   - public/playground/lattice-playground.js (committed engine bundle)
-//                               → public/playground/v/<hash>/lattice-playground.js
+//   - public/playground/esm/ (the ESM engine, its chart kernels and chunks; built, not committed)
+//                               → public/playground/v/<hash>/esm/
 //   - public/playground/lattice-katex.js (committed on-demand KaTeX bundle,
 //     tools/build-katex-provider.js — split out of the engine bundle above,
 //     see engineering/decisions/2026-07-10-landing-perf-katex-defer.md §4)
@@ -47,10 +47,12 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { collectGalleryAssets } from '../src/playground/galleries.mjs';
+import { collectGalleryAssets, loadExampleDecks, loadGalleries } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
+// Where a plugin's library lives: its own committed copy when it vendors one (lib/plugins/payload-path.js).
+const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'payload-path.js')).payloadPath(name, repoRoot);
 // Per-palette themes: the MINIFIED dist build (same bytes the Export-to-Marp
 // bundle ships), staged under the readable <name>.css dest.
 const distThemesDir = join(repoRoot, 'dist', 'themes');
@@ -66,7 +68,6 @@ const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime-min.js');
 // machine uses. See tools/build-dagre-bundle.js.
 const dagreJs = join(repoRoot, 'dist', 'lattice-dagre-min.js');
 const pgDir = join(here, '..', 'public', 'playground');
-const engineJs = join(pgDir, 'lattice-playground.js'); // committed engine bundle
 // KaTeX, split out of the engine bundle (tools/build-playground.js's `katex`
 // alias — see engineering/decisions/2026-07-10-landing-perf-katex-defer.md
 // §4) into its own committed bundle, staged as a SIBLING of lattice-
@@ -88,15 +89,21 @@ const assets = [
   // deck without a plot never fetches it.
   ...createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'hydrate.generated.js')).HYDRATORS
     .filter((h) => h.payload)
-    .map((h) => [h.payload.file, createRequire(import.meta.url).resolve(h.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
+    .map((h) => [h.payload.file, libraryPath(h.name)]),
   // …and each RUNTIME-drawn plugin's library (Mermaid), from the same registry
   // (lib/plugins/drawn.generated.mjs), beside the runtime for the same reason: the runtime's
   // diagram pass asks the plugin host for it (`ensureLibrary`), so no page threads its URL.
-  ...Object.values((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
-    .filter((d) => d.payload)
-    .map((d) => [d.payload.file, createRequire(import.meta.url).resolve(d.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
-  ['lattice-playground.js', engineJs],
+  // The plugin's OWN copy when it vendors one (Mermaid), so the site serves what every other surface ships.
+  ...Object.entries((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
+    .filter(([, d]) => d.payload)
+    .map(([name, d]) => [d.payload.file, libraryPath(name)]),
   ['lattice-katex.js', katexProviderJs],
+  // Each plugin's data script (the icons plugin's drawings), split out of the engine bundle like
+  // KaTeX and staged beside it, DERIVED from the plugin registry (lib/plugins/data.generated.js)
+  // so a new data plugin is staged without an edit here. docs/src/lib/ensure-plugin-data.ts
+  // derives each URL from the engine's by the same file name.
+  ...Object.keys(createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'data.generated.js')).DATA_LOADERS)
+    .map((name) => [`lattice-plugin-${name}.js`, join(pgDir, `lattice-plugin-${name}.js`)]),
   ['themes/lattice.css', latticeCss],
 ];
 for (const file of readdirSync(distThemesDir)) {
@@ -123,12 +130,23 @@ const distFontsDir = join(repoRoot, 'dist', 'fonts');
 for (const { file } of TEXT_FACES) {
   assets.push([`themes/fonts/${file}.woff2`, join(distFontsDir, `${file}.woff2`)]);
 }
-// On-demand highlight.js grammars — one file per language the engine bundle's
-// 36-language `common` build does NOT carry, plus the alias manifest
-// (tools/build-hljs-languages.js). Staged into the same hashed dir as the engine
-// bundle so docs/src/lib/ensure-hljs-language.ts derives the directory with one
-// path swap, exactly like lattice-katex.js. 156 files, ~932 KB on disk, and the
-// page fetches only the ones a deck's fences actually name — median 1.9 KB.
+// On-demand highlight.js grammars — one file per language, plus the manifest of aliases
+// and embedded grammars (tools/build-hljs-languages.js). Staged into the same hashed dir
+// as the engine bundle so docs/src/lib/ensure-hljs-language.ts derives the directory
+// with one path swap, exactly like lattice-katex.js. About 190 files, and the page
+// fetches only the ones a deck's fences name — median 2.1 KB.
+// THE ENGINE (engineering/decisions/2026-10-14-engine-spine.md): the ESM build tools/build-playground.js
+// writes to esm/ — the entry, one module per chart kernel, the chunks they share and chunks.json.
+// Staged whole, so each file is in the content hash and a changed chunk moves the directory. The
+// single-file lattice-playground.js beside it is no longer staged: no page loads it.
+const esmDir = join(pgDir, 'esm');
+if (!existsSync(join(esmDir, 'engine.js'))) {
+  throw new Error('sync-playground-assets: docs/public/playground/esm/engine.js is missing. Run `npm run playground:build` first.');
+}
+for (const file of readdirSync(esmDir)) {
+  if (file.endsWith('.js') || file === 'chunks.json') assets.push([`esm/${file}`, join(esmDir, file)]);
+}
+
 const hljsDir = join(pgDir, 'hljs');
 if (existsSync(hljsDir)) {
   for (const file of readdirSync(hljsDir)) {
@@ -136,36 +154,44 @@ if (existsSync(hljsDir)) {
   }
 }
 
-// Component sample images referenced by manifest `sample` decks — the image
-// component's `![bg](sample-image-landscape.svg)`, logo-wall's `![Acme](acme.svg)`,
-// team-profile's `![](ada.svg)`. Every one is a BARE FILENAME in the manifest, so
-// the preview resolves it against this samples/ base: the component render passes
-// the base as `{ baseUrl }` and the engine resolves the deck-relative path against
-// it. Staged FLAT for that reason. (The bucket galleries ref the same files
-// nested, e.g. `logo-wall/acme.svg`; those copies come from collectGalleryAssets
-// below, and both paths resolve.)
-//
-// DERIVED from the component tree rather than hand-listed. This was two hard-coded
-// directories, and the third component to ship sample art (team-profile) had its
-// portraits silently missing from the staged set — its docs page rendered a grid of
-// broken-image icons while every gate stayed green, because no gate looks at that
-// page. The filesystem already knows which components ship art; asking it removes
-// the whole class. Additive only: an SVG staged for a component whose sample never
-// references it is an inert file.
-for (const bucket of readdirSync(join(repoRoot, 'lib', 'components'), { withFileTypes: true })) {
-  if (!bucket.isDirectory()) continue;
-  const bucketDir = join(repoRoot, 'lib', 'components', bucket.name);
-  for (const component of readdirSync(bucketDir, { withFileTypes: true })) {
-    // `_`-prefixed folders are bucket-scoped shared infrastructure, not components.
-    if (!component.isDirectory() || component.name.startsWith('_')) continue;
-    const componentDir = join(bucketDir, component.name);
-    for (const file of readdirSync(componentDir)) {
-      if (/\.svg$/i.test(file)) assets.push([`samples/${file}`, join(componentDir, file)]);
-    }
+// The code formatter's browser half — its entry, one chunk per formatter and the
+// formatters' WebAssembly (tools/build-code-format.js). Beside the engine for the same
+// reason as the grammars: docs/src/lib/ensure-code-format.ts finds it by one path swap,
+// and a deck fetches only the formatter its blocks ask for.
+const fmtDir = join(pgDir, 'fmt');
+if (existsSync(fmtDir)) {
+  for (const file of readdirSync(fmtDir)) {
+    if (file.endsWith('.mjs') || file.endsWith('.wasm')) assets.push([`fmt/${file}`, join(fmtDir, file)]);
   }
 }
-// Images the "Load a deck" gallery decks reference (e.g. the imagery survey's
-// `![bg](image/sample-photo-wide.svg)`, the inventory logo-wall). Staged under
+
+// The sample art — every photo, portrait, logo and poster the templates, galleries and
+// example decks show — lives in ONE flat folder, lib/samples/, and decks name it as
+// `sample:<name>` (lib/core/bg-image.js resolveAssetUrl). Staged as-is under samples/,
+// which the previews pass to the engine as `samplesUrl` (docs/src/lib/samples-base.ts). It
+// used to be derived from a walk of every component folder, because the art lived beside
+// the component that showed it; a template whose image lived anywhere else (the Studio's
+// insert skeletons named `logo-1.svg` and `portrait.jpg`, which existed nowhere) failed
+// silently. One folder is the whole contract now: a file in it is servable, one outside is not.
+const samplesDir = join(repoRoot, 'lib', 'samples');
+for (const file of readdirSync(samplesDir)) {
+  if (/\.(svg|png|jpe?g|webp|gif)$/i.test(file)) assets.push([`samples/${file}`, join(samplesDir, file)]);
+}
+// The names the site served BEFORE the move, kept so a deck someone saved in the Studio from
+// an old component sample or gallery (`![](ada.svg)`, `![bg](image/sample-photo-wide.svg)`)
+// still shows its pictures; a bare relative ref resolves against this same folder. Copies,
+// not new art: each points at its lib/samples/ file. Additive and tiny (~30 SVGs).
+const PEOPLE = ['ada', 'jonah', 'kenji', 'marcus', 'nia', 'priya', 'sofia', 'tomas'];
+const BRANDS = ['acme', 'cobalt', 'globex', 'helios', 'initech', 'lumen', 'meridian', 'northwind', 'quanta', 'sable', 'umbra', 'vantage'];
+const PHOTOS = ['wide', 'tall', 'pano', 'square', 'column'];
+const legacy = [
+  ...PEOPLE.flatMap((n) => [[`${n}.svg`, `portrait-${n}.svg`], [`team-profile/${n}.svg`, `portrait-${n}.svg`]]),
+  ...BRANDS.flatMap((n) => [[`${n}.svg`, `logo-${n}.svg`], [`logo-wall/${n}.svg`, `logo-${n}.svg`]]),
+  ...PHOTOS.flatMap((n) => [[`sample-photo-${n}.svg`, `photo-${n}.svg`], [`image/sample-photo-${n}.svg`, `photo-${n}.svg`]]),
+];
+for (const [oldName, file] of legacy) assets.push([`samples/${oldName}`, join(samplesDir, file)]);
+// Any OTHER local image a "Load a deck" gallery deck references by a relative path (the
+// sample art is `sample:` and staged above, so today this finds none). Staged under
 // samples/ mirroring each deck-relative ref so the preview resolves them against
 // the same samples/ base — no base64 inlining (see galleries.mjs). The decks
 // keep clean relative refs in source.
@@ -199,13 +225,13 @@ if (bundledLatticeCss) {
 // woff2/woff/ttf per face and the browser fetches only the first supported format
 // (woff2), so the woff/ttf refs are never requested (no 404s). The CSS's relative
 // `url(fonts/…)` resolves against the co-located katex/fonts/. Sourced from the
-// `katex` dependency so it can't drift from the version the engine renders with.
-const katexDist = join(repoRoot, 'node_modules', 'katex', 'dist');
-if (existsSync(katexDist)) {
-  assets.push(['katex/katex.min.css', join(katexDist, 'katex.min.css')]);
-  for (const file of readdirSync(join(katexDist, 'fonts'))) {
-    if (file.endsWith('.woff2')) assets.push([`katex/fonts/${file}`, join(katexDist, 'fonts', file)]);
-  }
+// math plugin's OWN copy (lib/plugins/math/vendor/katex/, its manifest's `vendor`),
+// the one the engine renders with, so the site and the CLI cannot drift apart.
+const vendorPath = (name, key) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'payload-path.js')).vendorPath(name, key, repoRoot);
+const katexFonts = vendorPath('math', 'katex-fonts');
+assets.push(['katex/katex.min.css', vendorPath('math', 'katex-css')]);
+for (const file of readdirSync(katexFonts)) {
+  if (file.endsWith('.woff2')) assets.push([`katex/fonts/${file}`, join(katexFonts, file)]);
 }
 // The worked exemplar decks (exemplars/<bucket>/<slug>.md) — fetched on demand by
 // the Drawing Board's Drafting picker, trimmed to the chosen tier in the browser
@@ -246,6 +272,34 @@ const generated = loadAll().map((m) => [
   `plans/${m.name}.json`,
   JSON.stringify({ name: m.name, slides: galleryPlan(m) }),
 ]);
+
+// The Galleries sheet's "All examples" list: one static deck per examples/*.md plus a
+// small index of slug, title and slide count. Fetched on demand (the index when the sheet
+// first opens, a deck when chosen), so the route's eager payload does not carry 270 decks.
+// Hashed with the rest, so editing a deck changes the URL it is served from.
+const engine = componentRequire(join(repoRoot, 'lib', 'engine'));
+const exampleDecks = loadExampleDecks(repoRoot, (src) => {
+  try {
+    return (engine.render(src).html.match(/<section\b/g) || []).length;
+  } catch {
+    return 0; // loadExampleDecks falls back to the fence count
+  }
+});
+// The case-insensitive collision guard below covers `assets` only; these slugs become file names
+// too, and `Foo.md` beside `foo.md` is one file on macOS or Windows.
+const slugsSeen = new Map();
+for (const { slug } of exampleDecks) {
+  const prior = slugsSeen.get(slug.toLowerCase());
+  if (prior) throw new Error(`sync-playground-assets: examples/${prior}.md and examples/${slug}.md differ only in case; they stage to one galleries/ file on a case-insensitive filesystem. Rename one.`);
+  slugsSeen.set(slug.toLowerCase(), slug);
+}
+// The curated showcase + family decks stage the same way, under galleries/curated/ so an
+// example slug can never collide with a curated id. The route's props carry only id/label/slides.
+generated.push(
+  ...loadGalleries(repoRoot).map((g) => [`galleries/curated/${g.id}.md`, g.source]),
+  ['galleries/index.json', JSON.stringify(exampleDecks.map(({ slug, title, slides }) => ({ id: slug, title, slides })))],
+  ...exampleDecks.map((d) => [`galleries/${d.slug}.md`, d.source]),
+);
 
 // `samples/` is a FLAT namespace and the copy below is last-wins, so two files
 // with the same basename would silently leave one image standing in for another —
@@ -319,5 +373,5 @@ for (const [rel, content] of generated) {
 }
 
 console.log(
-  `sync-playground-assets: staged ${assets.length + generated.length} asset(s) (${generated.length} generated plans) into public/playground/v/${version}/.`,
+  `sync-playground-assets: staged ${assets.length + generated.length} asset(s) (${generated.length} generated: plans, plus the example-deck index and ${exampleDecks.length} decks) into public/playground/v/${version}/.`,
 );

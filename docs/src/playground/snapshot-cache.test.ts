@@ -13,6 +13,7 @@ import {
 	SNAPSHOT_KEY,
 	savePlaygroundSnapshot,
 	saveSnapshot,
+	stripPseudo,
 } from './snapshot-cache.js';
 
 describe('saveSnapshot / loadSnapshot', () => {
@@ -158,12 +159,13 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	it('drops pane arms a document without panes can never match, and keeps them when it has one', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		// `:is(h1, h2)` makes the probe unevaluable once stripped — the case that kept both arms.
+		// `:is(h1, h2)` made the probe unevaluable under the old regex strip — the case that kept
+		// both arms. `stripPseudo` evaluates it now, and the pane rule still goes by the fast path.
 		doc.head.innerHTML = '<style>section.title > :is(h1, h2), section lat-pane.title > :is(h1, h2){color:red}</style>';
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).toContain('section.title');
 		expect(snap?.css).not.toContain('lat-pane');
-		(doc.querySelector('.lattice > section') as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"></lat-pane>');
+		(doc.querySelector('.lattice > section') as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"><h1>Pane</h1></lat-pane>');
 		const withPane = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(withPane?.css).toContain('lat-pane');
 	});
@@ -186,7 +188,7 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
 		doc.head.innerHTML = '<style>section.title > :is(h1, h2), section lat-pane.title > :is(h1, h2){color:red}</style>';
-		(doc.querySelectorAll('.lattice > section')[1] as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"></lat-pane>');
+		(doc.querySelectorAll('.lattice > section')[1] as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"><h1>Pane</h1></lat-pane>');
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).toContain('section.title');
 		expect(snap?.css).not.toContain('lat-pane');
@@ -316,5 +318,32 @@ describe('extractCriticalFromDoc', () => {
 		// Slide rules become descendant-scoped, inert anywhere but inside the shell.
 		expect(css).toContain('.pg-ssr-shell .lattice');
 		expect(css).toContain('.pg-ssr-shell .lattice>section');
+	});
+});
+
+describe('stripPseudo — the probe a rule is kept by', () => {
+	it('strips a nested functional pseudo whole, which the old regex left half-open', () => {
+		expect(stripPseudo('section.flowchart :not(:is(a, b)) .x')).toBe('section.flowchart * .x');
+		expect(stripPseudo('a:not(:is(.b, .c)):hover')).toBe('a');
+		expect(() => document.querySelector(stripPseudo('.p :where(:is(.q, .r)) .s'))).not.toThrow();
+	});
+	it('stands a `*` in for an emptied compound, so the combinators keep their meaning', () => {
+		expect(stripPseudo('a > :is(b) c')).toBe('a > * c');
+		expect(stripPseudo('::selection')).toBe('*');
+		expect(stripPseudo(':is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon')).toBe('* .hub-spoke-icon');
+	});
+	it('keeps what the document can answer: :root, attribute values, quoted text', () => {
+		expect(stripPseudo(':root[data-palette] .lattice')).toBe(':root[data-palette] .lattice');
+		expect(stripPseudo('[data-x=":hover"] .y')).toBe('[data-x=":hover"] .y');
+		expect(stripPseudo('li:nth-child(2n+1):hover::after')).toBe('li');
+		expect(stripPseudo('.peer\\:hover .a')).toBe('.peer\\:hover .a');
+		expect(stripPseudo('.w-1\\[x .b:hover')).toBe('.w-1\\[x .b');
+	});
+	it('a rule behind a nested :not() is dropped when the slide cannot use it, and kept when it can', () => {
+		document.head.innerHTML = '<style>.absent :not(:is(.a, .b)) .c{color:red}.title :not(:is(.a, .b)) h1{color:blue}</style>';
+		document.body.innerHTML = '<article class="lattice"><section class="title"><div><h1>Hi</h1></div></section></article>';
+		const css = extractCriticalFromDoc(document);
+		expect(css).not.toContain('.absent');
+		expect(css).toContain('.title');
 	});
 });

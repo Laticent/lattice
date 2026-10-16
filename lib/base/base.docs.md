@@ -121,8 +121,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   reach the pane as a slide's `_class` would carry them.
 - **The pane title is optional**, but write one: it says what the pane is for. It is set in the
   eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
-  ("Revenue by line", "Findings by vendor"). Keep it to five words or fewer; `lint:deck` suggests a
-  shorter one past that (`pane-title`). A pane shows one label, so an eyebrow pill written above
+  ("Revenue by line", "Findings by vendor"). Keep it short: a label reads best at five words or
+  fewer. A pane shows one label, so an eyebrow pill written above
   its `###` joins it: `` `Shortlist` `` over `### Cleared` renders "Shortlist · Cleared", and
   `lint:deck` suggests writing it that way. Side by side, the two titles share a row, so both
   bodies start on one line even when one title wraps.
@@ -154,8 +154,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 - `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
   split), `pane-overflow` (past the budget), `pane-crowd` (past the comfortable count),
   `pane-layout` (a ratio off the grid, a third pane, fewer than two, a modifier the component does
-  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title, a title past
-  five words) and `pane-insight`. It warns and never blocks; the Studio's editor shows the same
+  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title) and
+  `pane-insight`. It warns and never blocks; the Studio's editor shows the same
   warnings as you type. At export, a pane that really clips is marked like any clipped slide.
 - **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
   Those sizes set type about twice as large, so two components do not share one frame there.
@@ -319,6 +319,12 @@ fully-rounded status/metadata chip pinned to the end of the row.
 - Throughput target met `on track`
 - API latency `at risk`
 ```
+
+**One exception: `collage` reads the trailing span as photo hints.** On a `collage` slide a
+trailing code span after a photo is the photo's hint list (`hero`, one of `top` `bottom` `left`
+`right` `center`, a ratio such as `3:2`), consumed before the pill pass, so it never draws.
+It is read all or nothing: if any word is not a hint, nothing is applied, the span is
+not drawn, and `collage-hint` names the word.
 
 Authoring guidance: keep pill text to **one word (hyphenated is fine) or
 two words at most**. Pills are `white-space: nowrap`, so a long phrase
@@ -1297,11 +1303,13 @@ foreground tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
 hollow rings neutral.
 
 **Implementation contract:** the marker grammar AND its meaning live in one
-kernel, `lib/core/state-marks.js` — `MARKER_CLASS`, `LEADING_MARKER_RE` and
-`stateClassesFor`. Every consumer builds its pattern from that kernel: the
-engine (`lib/integrations/markdown-it/plugins.js`), the VS Code / export-to-Marp
-runtime (`lib/runtime/index.js`), roadmap's transform, the table row-label
-heuristic, and the docs-site Compose editor. Each strips the marker and adds
+pair of kernels: `lib/core/leading-marker.js` reads it (`readLeadingMarker`, the
+Segno list-text grammar in `lib/core/list-text-grammar.js`) and
+`lib/core/state-marks.js` says what it means (`stateClassesFor`). Every consumer
+reads through them: the engine (`lib/integrations/markdown-it/plugins.js`),
+the VS Code / export-to-Marp runtime (`lib/runtime/index.js`), roadmap's
+transform, the table row-label heuristic, and chart narration. The docs-site
+Compose editor still builds its patterns from the kernel's `MARKER_CLASS`. Each strips the marker and adds
 `class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
 A unit test fails on a private copy of the marker class. Two consumers cannot
 import the kernel and are pinned to it by test instead: the linter
@@ -1524,7 +1532,9 @@ deck FILE is. `logo: ./acme-logo.svg` resolves for the CLI, which knows the
 `.md`'s directory; in the Studio and the Playground there is no file, so the
 same line 404s — and a failed image load stops the PDF export outright (it
 says so now). For your own mark on a web surface, give a URL the viewer can
-fetch, or a `data:` URI.
+fetch, or a `data:` URI. To try the feature with a placeholder mark, write
+`logo: sample:logo-acme-mark.svg`: a `sample:` name is one of Lattice's own
+sample pictures (`lib/samples/README.md`), and it resolves on every surface.
 
 A real DOM element (rather than a `::before` pseudo) is what lets
 the logo compose with every treatment — tints
@@ -1537,7 +1547,7 @@ independently.
 
 1. `lib/engine` — `applyDeckLogoToHtml(html, markdown)` runs in
    the `render()` wrapper alongside `applyChartFamilyToHtml`.
-2. `lattice-emulator.js` — `require()`s the same helper from
+2. `lattice.js` — `require()`s the same helper from
    `lib/engine` and calls it on the assembled HTML.
 3. `lattice-runtime.js` — `applyDeckLogoFromFrontMatter()` mirrors
    the same DOM injection at view time for published HTML decks.
@@ -1638,14 +1648,28 @@ An unknown or repeated word fails back to literal rather than being ignored:
 pill the author did not ask for.
 
 To force the literal for a label that WOULD qualify, put a **backslash** in front:
-`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`.
+`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`. A broken pill escapes
+the same way and silences `pill-literal`: `` `\{A|B}` `` renders as `{A|B}`.
 
-The backslash is only an escape when what follows would actually have become a pill or
-a mark, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched and keep their
+The backslash is only an escape when what follows would have become a pill or a mark, or
+is a broken pill attempt, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched
+and keep their backslash. Braces that belong to another language are never a pill attempt —
+a span holding a backslash (LaTeX `` `\{a,b\}` ``, a regex `` `\{2,3\}` ``), a regex interval
+(`` `{2,5}` ``) or a template tag (`` `{{name}}` ``) — so they get no warning and keep every
 backslash.
 
 **Fenced and indented code blocks are never touched at all** — they are not inline code,
 so nothing in them is ever read as a directive.
+
+### An icon in a pill — `icon=`
+
+`{S3, icon=bucket, c4}` leads the label with a drawn icon, in the pill's own color, at any shape:
+`{Primary, icon=database, tag}`. `{icon=database}` is an icon with no label. `icon` is written by
+name, because a pill's first word is its label. The icons come from the **icons** plugin
+(`lib/plugins/icons/icons.docs.md`), which also draws an icon on its own in prose (`^{database}`);
+with that plugin off, the pill shows its label alone. A name the set does not have — or a vendor
+service name like `icon=lambda` — keeps the span literal, and `lint:deck` names the role icon to
+use instead.
 
 ### Where a pill can go
 
@@ -1663,6 +1687,32 @@ measured:
 - **Two trailing items in one row overlap**, e.g. `` 1. Name `META` `{PILL}` ``. That is
   not about pills: two plain `` `code` `` values do the same, because the row is a grid
   and a grid item paints over rather than pushing. Put one value in the trailing slot.
+
+### Editing a pill without typing it — the Studio
+
+In the Studio's Compose editor a pill is **drawn as the slide draws it**, in your theme's own
+colors, and it is **one object**: its `{…}` text is not on the page, and there is no caret inside
+it. **Tap or click the pill** to change its label, shape, color and size from one editor (a popover
+on a desktop or tablet, a sheet on a phone). Each pick rewrites **only the word you changed** in the
+span, so `{BETA, c4, tag}` stays in that order and every other pill on the slide is untouched.
+**Done** closes the editor and puts the cursor just after the pill; **Edit as text** turns the pill
+back into its `{…}` text with the words between the braces selected, and the pill is drawn again when
+the cursor leaves it. The arrow keys step over a pill as one thing, Backspace takes all of it, and
+Enter on a selected pill opens its editor.
+
+The slide bar has **Undo** and **Redo** buttons for the whole deck, because a phone has no undo
+gesture Compose's history is visible to (iOS's own undo lists only what the browser edited). On a
+narrow pane the bar is two rows: history and the insert doors on the first, the Format group on the
+second. The **+ Pill** button puts a new pill at the cursor (a short selected word becomes its label)
+and opens its editor.
+
+A pill stays as text on a slide that is edited in Markdown, in a deck set to `inline-code: literal`,
+and where the engine would not draw it (a reserved label, an unknown icon). Opening a deck never
+rewrites it: a drawn pill writes back the exact code span it came from. Two code spans cannot touch in
+Markdown (`` `{A}``{B}` `` is one span, and both would stop being pills), so Compose keeps a single space
+between a pill and a neighboring pill or code span, and **+ Pill** adds that space itself. Backspace on that space does nothing visible: it comes straight back. The editor does not touch a
+pill's `icon=`; that word is kept exactly as written. Design:
+`engineering/decisions/2026-10-13-compose-inline-notation-editors.md`.
 
 ## Inline sparks — `~{12 14 17}`
 
@@ -1847,7 +1897,9 @@ opens a CSS attribute selector, an array index and a citation.
 
 Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The six
 markers are **reserved** inside `{}` and render literal, with a `lint:deck` suggestion
-pointing at `` `[x]` `` — the bracket form above.
+pointing at `` `[x]` `` — the bracket form above. With options after it (`` `{x, c2}` ``,
+`` `{x, icon=code}` ``) the span was meant as a pill, so `lint:deck` warns `pill-literal` instead:
+pick another label, or drop it for an icon-only pill (`` `{icon=code}` ``).
 
 ## Composition syntax
 
@@ -1949,7 +2001,7 @@ theme**.
 
 The four are **mode-invariant**: each is a fixed palette that ignores the
 light/dark toggle, so an accessibility render reads identically for every viewer.
-They share `themes/a11y-base.css` (the texture wiring + grayscale categorical
+They share `themes/a11y-base/a11y-base.css` (the texture wiring + grayscale categorical
 ramp + the forced light scheme); each theme file adds only its **status trio**
 (`pass`/`warn`/`fail`, moved off that deficiency's confusion axis). The texture
 `<pattern>` `<defs>` the fills reference are emitted by the engine on every
@@ -1971,6 +2023,29 @@ entirely on glyphs + textures + line-styles (its status trio is
 luminance-separated grays) — the same channels that survive black-and-white print.
 Design + rationale: `engineering/decisions/2026-06-16-colour-blindness-accessibility.md`
 and `…-cvd-redundant-encoding.md`.
+
+## Library photos — `asset:<name>`
+
+In the Studio, a photo you add to the Library is a picture any deck can show: `![](asset:team-offsite)` on a slide, or
+`![bg](asset:hero)` as a background. The name is the one on the photo's card. It works wherever an image does (an
+`image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`), and it exists only in the Studio's browser. The CLI
+leaves the reference as written, and a Markdown or Marp export carries the reference, not the photo (a workspace backup
+carries the photo).
+
+**You write the picture; the photo's own details fill in the rest.**
+
+- **Alt text.** Leave the alt empty (`![](asset:roof)`) and the slide uses the photo's description from the Library, in
+  the preview, the exported page, and a collage's enlarged view and narration. Write your own alt
+  (`![The whole team](asset:roof)`) and yours wins. A photo with no description gives an empty alt, as before.
+- **Renaming.** Rename a photo in the Library and the old name keeps working in every deck. The photo's detail view lists
+  the old names, shows how many decks still write each, and **Use new name** rewrites those decks (a Version history
+  entry is kept first, and a code sample that mentions the name is left as written).
+- **A name, once.** A photo's name and its old names are one pool. A new photo cannot take a name another photo has had.
+- **Missing photos.** A name the Library does not hold (the photo was deleted, or the deck is open in another browser)
+  draws the missing-image stand-in, and an export still finishes.
+
+Where a photo's description, credit and date come from, and what Lattice keeps and removes from the file (the location is
+always removed): `engineering/decisions/2026-10-12-library-media-assets.md` § Editing a photo's metadata.
 
 ---
 
