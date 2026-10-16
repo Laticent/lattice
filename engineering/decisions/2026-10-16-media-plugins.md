@@ -33,15 +33,16 @@ There are two separate questions here, and today's code mixes them:
    sources**. Both plugins read from it, and so do the `image`, `collage` and `video` slide classes.
 
 The two axes are independent. `@video{asset:launch-demo}` is the `video` plugin reading the `asset` source.
-`@image{gdrive:1AbC…, right}` is the `image` plugin reading a future `gdrive` source. Adding a source never
+`@image{https://drive.google.com/file/d/1AbC…}` is the `image` plugin reading a future Google Drive source, which
+recognizes Drive's own address rather than a new scheme (§4.7). Adding a source never
 touches a plugin, and adding a video host never touches a source.
 
 Author syntax, as proposed:
 
 ```md
 ![Team offsite](asset:offsite)                       an image: CommonMark, kept as the image's alias
-`@image{asset:offsite, title="Offsite", description="The team at the lake", nimbus}` the same image, with a title, a description and a setting (§4.7)
-`@video{https://youtu.be/dQw4w9WgXcQ, title="The 90-second tour", poster=sample:photo-pano.jpg}` a video on any slide
+`@image{asset:offsite, alt="The team at the lake", caption="Offsite, 2026", nimbus}` the same image, with its text and a setting (§4.7)
+`@video{https://youtu.be/dQw4w9WgXcQ?t=90, caption="The 90-second tour", poster=sample:photo-pano.jpg, muted}` a video on any slide, starting at 1:30
 `>{https://youtu.be/dQw4w9WgXcQ}`                    the same video through its sigil (§8)
 `@video{clips/demo.mp4}`                             a video file beside the deck (new: the `file` row)
 ```
@@ -132,7 +133,8 @@ The rows: `data`, `relative`, `file`, `web`, `sample`, `asset`. `isRemoteUrl` is
 system. A source a host cannot serve resolves to the existing drawn stand-in, and `lint:deck` names it.
 
 **Remote and slow sources materialize in the bake pass.** The plugin host already runs an async bake before
-the synchronous render. A source with `materialize` (web, and later `gdrive`, `onedrive`, `dropbox`, `unsplash`)
+the synchronous render. A source with `materialize` (web, and later Google Drive, OneDrive, Dropbox or Unsplash, each recognized by its own
+`https:` host)
 fetches there, behind the same consent the web source has today, into a content-addressed cache keyed by
 SHA-256. The render then sees a local reference. This one step also fixes the export duplication in
 `followups.d/2640-p3-media-export-duplication.md`: one cached copy, referenced from every slide.
@@ -144,10 +146,10 @@ hosts can serve it, and the others show the stand-in.
 
 ### 4.2 The `image` plugin
 
-- **The kind is `image`.** `` `@image{src, title="…", description="…", …}` `` is the full form. CommonMark's
-  `![description](src "title")` is its alias, the way `^{…}` is the icon's. Every editor, GitHub and every Markdown
+- **The kind is `image`.** `` `@image{src, alt="…", caption="…", title="…", …}` `` is the full form. CommonMark's
+  `![alt](src "title")` is its alias, the way `^{…}` is the icon's, and both fields mean what HTML means. Every editor, GitHub and every Markdown
   tool still shows the picture.
-- **The record describes the picture; the layout places it.** It carries a title, a description, a focus hint
+- **The record describes the picture; the layout places it.** It carries `alt`, `caption`, `title`, a focus hint
   and a treatment. Placement, size, fit and scrim belong to the layout it is written in (§4.7).
 - **It owns** `bg-image.js`, `background-image.js`, `image-scrim`, `image-adaptive` and the `wrapImageText`
   pass. That ends the CLI/engine split (D3, D4): one lift, in the kernel both paths read.
@@ -157,7 +159,7 @@ hosts can serve it, and the others show the stand-in.
 
 ### 4.3 The `video` plugin
 
-- **The kind is `video`:** `` `@video{url, title="…", poster=…}` ``. It renders the poster and play badge on any
+- **The kind is `video`:** `` `@video{url, caption="…", poster=…}` ``. It renders the poster and play badge on any
   slide. The `video` slide class becomes a layout that requires the plugin, and it keeps its compositions
   (`companion`, `gallery`) and its `qr` variant, which asks the `qr` plugin for a code of the watch address and seats
   it beside the poster. A QR is a layout's choice, not a fact about the clip, so the record has no `qr` word; on
@@ -264,69 +266,79 @@ Each slice that ships a plugin ships its whole set; a plugin without its guide o
 
 ### 4.7 What each plugin carries, and what the layout decides (revised 2026-10-16)
 
-**The rule (owner, 2026-10-16): a plugin describes the thing; the layout it sits in places it.** A media record
-says what to show and what it is about. Where it sits, how big it is, how it fits its box, and whether text runs
-over it are decided by the component or slide layout the record is written inside, exactly as a chart's transform
-owns what its rows mean together (#2723 §2). So no record takes `left`, `right`, `bg`, a share like `40%`, a size,
-`cover` / `contain` or `scrim`. A record alone in a paragraph on a plain slide is a block figure that the slide's
-own flow sizes; on an `image`, `split-panel` or `collage` slide, that layout seats it.
+**Two rules (owner, 2026-10-16).**
 
-**What every record carries: the thing, a title, a description.**
+1. **A plugin describes the thing; the layout it sits in places it.** No record takes `left`, `right`, `bg`, a
+   share like `40%`, a size, `cover` / `contain` or `scrim`. A record alone in a paragraph on a plain slide is a block
+   figure the slide's own flow sizes; on an `image`, `split-panel`, `collage` or `video` slide, that layout seats it,
+   and a layout that composes several plugins (a clip beside its QR code, a Wi-Fi card) owns that composition.
+2. **A field's meaning and its name come from the standard that defines it.** Lattice coins a word only where the
+   standard's spelling would significantly hurt understanding, and then the standard's name is accepted too. No
+   field below is ours where a standard exists.
 
-| Field | Meaning | Where else it means this |
+**The words every media record shares** come from HTML and Markdown, which already define a picture's text:
+
+| Field | Meaning | Standard |
 |---|---|---|
-| the first item | the thing itself: an image or video source (any media source, §4.1) or a QR payload | a chart row's data item comes first (#2723 §2) |
-| `title="…"` | a short visible name, drawn under or beside the figure as the layout chooses | Markdown's image title, `![…](src "title")` |
-| `description="…"` | what the thing shows or says, in a sentence. It is never on the slide face: a screen reader reads it, screen surfaces show it on hover and tap, and print puts it in the speaker note | #2723 decision 5: a description is hidden detail, hover and tap on screen, the speaker note in print |
+| the first item | the thing itself: an image or video address (any media source, §4.1) or a QR payload | the `src` of `<img>` / `<video>` |
+| `alt="…"` | the text alternative a screen reader speaks, and what shows if the picture cannot | HTML `alt`; Markdown's `![alt](…)` |
+| `caption="…"` | a visible line with the figure; the layout decides where | HTML `<figcaption>` |
+| `title="…"` | advisory text, never on the slide face: shown on hover and tap on screen, the speaker note in print | HTML `title`; Markdown's `![…](src "title")` |
 
-The Markdown alias carries all three: `![description](src "title")` is `@image{src, title="title",
-description="description"}`. The alt text becomes the description, which is what alt text is for. Inside a record a
-description is a named field, because a record is its own container; on a collage photo, which is a list item, a
-longer description follows #2723's list form, a `>` blockquote indented under the item. One form per container, as
-#2723 decides.
+The Markdown alias carries three of them: `![alt](src "title")` is `@image{src, alt="alt", title="title"}`, exactly
+as Markdown and HTML mean them. A media `title` plays the role #2723 calls a `description` on a chart (hidden detail,
+hover and tap, the speaker note in print). The two keep their own standards' names; the guide says they are the same
+role.
 
-**What each plugin adds, and nothing more:**
+**What each plugin adds:**
 
-| Plugin | Adds | Meaning |
-|---|---|---|
-| `image` | `focus=top` (`bottom` `left` `right` `center`) | which part of the picture matters, so a layout that crops keeps it in view. A fact about the picture, not a placement; collage's bare focus hints mean the same and may also be written this way |
-| | a treatment word (below) | how the picture is set, chosen from a short curated list |
-| `video` | `poster=` | the still that stands for the clip: a `sample:` picture, an `asset:` picture, a path or a web picture. Omitted, the clip supplies its own: a Library video's captured poster, the host's thumbnail from the oEmbed cache (wiring D6), or the first frame of a video file; failing all three, the drawn stand-in |
-| | `autoplay` | plays as soon as the slide shows, muted (browsers allow autoplay only without sound), on surfaces that play: the HTML player, the presenter, the Studio. PDF and PowerPoint show the poster. A web-hosted clip autoplays only after the reader has allowed web media, because loading it is a request to a third party (HARD RULE #22) |
-| | `fullscreen` | the clip opens full screen when played, rather than in the slide's frame |
-| | `start=1:30` | where playback starts, for hosts that take a start offset; the poster link and the QR open there too |
-| `qr` | `c1` … `c12` | the code's ink, from the deck's color cycle (owner, 2026-10-16). Lint warns when a slot's contrast against the code's paper is too low to scan, in light and dark mode alike |
-| | `ec=L` `M` `Q` `H` | error correction, default `M` |
-| | the payload | what the code carries: a link, an address or quoted text, or a nested format record, `wifi={…}` or `contact={…}`, with the fields those slides already use. The payload's fields live one level down, so a contact's job `title` never meets the code's own `title` (`2026-10-16-qr-plugin.md` §3) |
+| Plugin | Field | Meaning | Standard |
+|---|---|---|---|
+| `image` | `focus=top` (`bottom` `left` `right` `center`) | which part of the picture must stay in view when a layout crops it | the keywords of CSS `object-position` |
+| | a treatment word | how the picture is set (below; open) | the deck's own finishes |
+| `video` | `poster=` | the still that stands for the clip: a `sample:` or `asset:` picture, a path or a web picture. Omitted, the clip supplies its own: a Library video's captured poster, the host's thumbnail from the oEmbed cache (wiring D6), or a video file's first frame; failing all three, the drawn stand-in | HTML `<video poster>` |
+| | `autoplay` | plays when the slide shows, on surfaces that play (HTML player, presenter, Studio); PDF and PowerPoint show the poster. A web-hosted clip autoplays only after the reader allowed web media (HARD RULE #22) | HTML `autoplay`; YouTube `autoplay`; Vimeo `autoplay` |
+| | `muted` | starts without sound. Browsers allow `autoplay` only when muted, so `autoplay` implies it | HTML `muted`; Vimeo `muted` |
+| | `loop` | starts again at the end | HTML `loop`; Vimeo `loop`; YouTube `loop` (limited in embeds) |
+| | `controls` | `controls=false` hides the player's controls | HTML `controls`; YouTube `controls`; Vimeo `controls`; TikTok `controls` |
+| `qr` | the payload | a URI, quoted text, or a nested format record (`wifi={…}`, `contact={…}`) | URIs, the Wi-Fi URI, vCard (`2026-10-16-qr-plugin.md` §3, §3c) |
+| | `c1` … `c12` | the code's ink, with a lint for scan contrast (owner, 2026-10-16) | the deck's color cycle |
+| | `ec=L` `M` `Q` `H` | error correction | ISO/IEC 18004 |
 
-**Treatments: the picture stays the subject.** The owner's ask is a flavor that never takes away from the picture.
-That splits treatments in two, and the proposal is a short list in each:
+Each video host row in the provider table maps these HTML names to the host's own parameters, and leaves out what a
+host does not support (Instagram's embed takes none). The author writes HTML's word once; the row speaks the host's
+dialect. That is the same strategy pattern as the hosts themselves.
 
-- **A setting, around the picture, which never touches its pixels.** The record's mat (the margin a layout gives
-  a framed figure) takes one of the deck's finishes, scoped to the mat: `nimbus` (soft accent blooms), `gallery`
-  (the museum keyline frame) or `halo` (a spotlight and vignette). These reuse the finish presets in
-  `lib/finishes/`, so a theme change recolors them. The other finishes (ledger's ruled lines, savile's pinstripe,
-  loom's cross-hatch) are patterns that would compete with a photograph, so they are left out.
-- **A tone, on the picture itself, for when it must sit back.** `duotone` maps the picture to two of the palette's
-  colors (ink and accent), so a photo behind text or beside a chart belongs to the deck; `mono` is plain grayscale.
-  A tone changes the picture, so neither is a default.
+**Considered and left out, because a standard already covers them or no host supports them:**
 
-The deck sets a default once (`image: nimbus` or `image: gallery duotone`), a slide overrides it with a class, and a
-record's own word wins, as `icon:` and `avatar:` work. **Which words make the list is open (§8, decision 6)**, and
-it needs a rendered contact sheet of each candidate on light and dark themes before it is settled (QUALITY BAR).
+- **`start=`.** A start time is part of the address, as each standard defines it: `#t=90` for a video file (W3C Media
+  Fragments), `?t=90` or `&start=90` on YouTube, `#t=90s` on Vimeo. The author writes the address they would share,
+  and the poster link and QR open at that moment for free. (This reverses decision 7.)
+- **`fullscreen`.** No host offers "open full screen" as a setting. What exists is the opposite: YouTube's `fs=0`
+  and TikTok's `fullscreen_button=0` hide a fullscreen button that is shown by default, and Vimeo follows the HTML
+  `allowfullscreen` attribute on the frame. The plugin always sets `allowfullscreen`, so every clip can go full screen,
+  and no record needs a word for it.
+- **`gdrive:` and other invented schemes.** A Google Drive picture or clip has an `https://drive.google.com/…`
+  address; a future source recognizes that host, as the video rows recognize theirs. `asset:` and `sample:` stay,
+  because they name things no standard covers (a Studio Library item, Lattice's own sample art).
+- **Placement, size and fit words** (rule 1), **pixel sizes and filters** (Marp's keywords are retired, §8 decision 2),
+  and **#2723's chart fields** (`size`, `kind`, `when`, `to`, `after`, `value`, `x`, `y`, `group`), which mean other
+  things there.
+- **`{> …}` inside a record.** In #2723 that form describes a table cell; a record names its `title`.
 
-**What the vocabulary deliberately does not use**, so a word means one thing across charts and media:
+**Treatments: the picture stays the subject.** The owner wants a flavor that never takes from the picture, naming the
+`nimbus` finish and duotone. The proposal splits it in two:
 
-- **No placement, size or fit words.** They belong to the layout (the rule above).
-- **No `size=`, `kind=`, `when=`, `to=`, `after=`, `value=`, `x=`, `y=`, `group=`.** Each is a #2723 chart field. A
-  video's start is `start=`, not `when=`, because `when` is a date or a span.
-- **No `alt=`, `caption=` or `label=`.** `description` and `title` cover what they did, and Markdown's alt and title
-  fill them. The `video` and `qr` bullets' `caption` key becomes `title` (`lint:deck --fix`).
-- **No pixel sizes (`w=200`) or filters (`blur`, `sepia`).** Marp's keywords are retired (§8, decision 2).
-- **No `{> …}` inside a record.** In #2723 that form describes a table cell; a record names its description.
-- **No composition words in a record.** A QR beside a clip, a readable Wi-Fi card, a side panel: each is a layout
-  composing plugins, so it belongs to the layout (the `video` slide's `qr` variant, the `wifi` and `contact`
-  components), never to a record. A record describes one thing.
+- **A setting, around the picture, never touching its pixels.** The figure's mat takes one of the deck's finishes,
+  scoped to the mat: `nimbus` (soft accent blooms), `gallery` (the museum keyline) or `halo` (a spotlight and
+  vignette), from `lib/finishes/`, so a theme change recolors them. Ledger's ruled lines, savile's pinstripe and loom's
+  cross-hatch would compete with a photograph and are left out.
+- **A tone, on the picture, for when it must sit back.** `duotone` maps the picture to two palette colors (ink and
+  accent); `grayscale` is CSS's own filter name. Neither is a default.
+
+The deck sets a default once (`image: nimbus`), a slide class overrides it, and a record's own word wins, as `icon:`
+and `avatar:` work. Which words make the list stays open (§8, decision 6) until a rendered contact sheet, light and
+dark, settles it.
 
 ## 5. Why records, not Marp keywords
 
@@ -384,18 +396,25 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    source, so no glyph reaches a slide (HARD RULE #29).
 4. **Remote sources are fetched in the bake into a content-addressed cache, behind consent** (§4.1). The
    render stays offline, and an export carries one copy of each file.
-5. **A plugin describes; the layout places** (§4.7). Records carry the thing, a `title`, a `description` and a few
-   per-plugin words. Placement, size, fit and scrim belong to the component the record sits in.
+5. **A plugin describes; the layout places** (§4.7). Placement, size, fit and scrim belong to the component the
+   record sits in.
+9. **Standards first** (§4.7, rule 2): a field's meaning and name come from the standard that defines it (HTML, CSS,
+   Media Fragments, the hosts' player parameters, URIs, the Wi-Fi URI, vCard, ISO/IEC 18004). Lattice coins a word only
+   where the standard's spelling would significantly hurt understanding, and accepts the standard's name beside it.
+   `fullscreen` was weighed against the hosts and left out (§4.7).
 6. **Treatments: open.** The owner wants a flavor that lets the picture shine, naming the `nimbus` finish and
    duotone. The proposal (§4.7) is settings on the mat (`nimbus`, `gallery`, `halo`) and tones on the picture
    (`duotone`, `mono`). It is settled from a rendered contact sheet, light and dark.
-7. **`@video` takes `start=`**, and no `end=`.
+7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
+   and W3C Media Fragments define it.
 8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
 
 ## 9. Progress
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: §4.7 rewritten under the standards-first rule: `alt`, `caption`, `title` from HTML; HTML's video
+  attributes mapped per host; `start=`, `fullscreen` and `gdrive:` dropped.
 - 2026-10-16: the `qr` word left the video record; a QR beside a clip is the `video` slide's `qr` variant.
 - 2026-10-16: §4.7 added, then revised on the owner's answer: a plugin describes (thing, title, description and a few
   per-plugin words), the layout places. Treatments split into settings (finishes on the mat) and tones (duotone, mono).
