@@ -17,7 +17,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: lattice-studio-windows
-          run-id: 38841930109
+          run-id: 38882233324
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: installer
       - uses: actions/setup-node@v4

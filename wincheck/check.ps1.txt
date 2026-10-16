@@ -6,8 +6,13 @@ New-Item -ItemType Directory -Force $out | Out-Null
 $log = Join-Path $out 'log.txt'
 function Say($m) { Write-Host $m; Add-Content $log $m }
 
-Add-Type -TypeDefinition (Get-Content (Join-Path $PSScriptRoot 'Win.cs') -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing -OutputAssembly (Join-Path $PSScriptRoot 'Win.dll')
-Say "Win.dll compiled"
+# Compiled by Windows PowerShell 5.1 (.NET Framework), which is what win.ps1 runs on: a DLL
+# from PowerShell 7 (.NET 8) does not load there ("Bad IL format").
+$cs = Join-Path $PSScriptRoot 'Win.cs'; $dll = Join-Path $PSScriptRoot 'Win.dll'
+powershell -NoProfile -Command "Add-Type -TypeDefinition (Get-Content '$cs' -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing -OutputAssembly '$dll' -OutputType Library"
+$win = Join-Path $PSScriptRoot 'win.ps1'
+function W { powershell -NoProfile -ExecutionPolicy Bypass -File $win @args }
+Say "Win.dll: $(Test-Path $dll); focus test: $(W windows | Measure-Object -Line | Select-Object -ExpandProperty Lines) visible windows"
 
 $exe = Get-ChildItem (Join-Path $root 'installer') -Recurse -Filter '*setup.exe' | Select-Object -First 1
 Say "installer: $($exe.FullName) sha256=$((Get-FileHash $exe.FullName).Hash)"
@@ -20,17 +25,23 @@ Say "WebView2 runtime: $wv; Windows: $((Get-CimInstance Win32_OperatingSystem).C
 Say "default browser: $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue).ProgId)"
 
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+# The app sets its own browser arguments (wry), which wins over the variable above; WebView2's
+# per-app policy key is the documented override for an app that does.
+$pol = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+New-Item -Path $pol -Force | Out-Null
+New-ItemProperty -Path $pol -Name 'lattice-studio.exe' -Value '--remote-debugging-port=9222' -PropertyType String -Force | Out-Null
+Say "policy set: $((Get-ItemProperty $pol).'lattice-studio.exe')"
 Start-Process $app.FullName
 $up = $false
 for ($i = 0; $i -lt 60; $i++) { try { Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | Out-Null; $up = $true; break } catch { Start-Sleep 1 } }
 Say "CDP up: $up"
 Start-Sleep 8
-Add-Type -Path (Join-Path $PSScriptRoot 'Win.dll')
 Say "--- processes"
-Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'lattice|msedgewebview2' } | ForEach-Object { Say ("{0} {1} :: {2}" -f $_.ProcessId, $_.Name, ($_.CommandLine -replace '\s+', ' ').Substring(0, [Math]::Min(400, ($_.CommandLine).Length))) }
+Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'lattice' -or ($_.CommandLine -match 'embedded-browser-webview=1' -and $_.CommandLine -notmatch '--type=') } | ForEach-Object { Say ("{0} {1} :: {2}" -f $_.ProcessId, $_.Name, $_.CommandLine) }
 Say "--- windows"
-Say ([Win]::Windows())
-[Win]::Shot((Join-Path $out '00-after-launch.png'))
+Say ((W windows) -join "`n")
+W shot (Join-Path $out '00-after-launch.png')
+Say "screenshot written: $(Test-Path (Join-Path $out '00-after-launch.png'))"
 try { Say ("--- json/version: " + (Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | ConvertTo-Json -Compress)) } catch { Say "json/version: $($_.Exception.Message)" }
 Say ("--- netstat 9222: " + ((netstat -ano | Select-String ':9222') -join ' | '))
 node (Join-Path $PSScriptRoot 'check.mjs') $out 2>&1 | Tee-Object -FilePath (Join-Path $out 'check-output.txt')
