@@ -388,8 +388,7 @@ Proof:
   so `focus=` and `mark=` are text read by the `_focus: line` parser (`3-5 9`), which also keeps the two grammars
   one. `numbers=12` became `numbers, start=12`: a field cannot be both a flag and a number. Per-block focus reuses
   the spotlight treatment with a `<pre>` as its scope.
-- Pending, slice 8: the Compose editor for a fence's record (a popover beside the language picker that writes the
-  `@code{…}` line, changing only the words edited).
+- Slice 8, the Compose editor for a fence's record: shipped 2026-10-16, see the follow-up entry below.
 - 2026-10-15: slice 6 — the `code-format` plugin. The bake contract is synchronous and every formatter is async, so
   the bake runs the formatters in one child process (Mermaid's shape, `render.exec.bake: "subprocess"`); the docs
   site runs the same planner above its render (`ensure-code-format.ts`). Both rewrite the fence bodies in the
@@ -479,3 +478,13 @@ Proof:
 - 2026-10-16: follow-up, the record lint inside a blockquote (followups.d/2710-p4). `findCodeRecords` reads each run of
   `>` lines again with one `>` taken off, recursing for a nested quote, so a quoted record gets the same four rules.
   Checked against the render first: a record at `>` and at `> >` depth both stamp their fence.
+- 2026-10-16: follow-up, slice 8, the Compose record editor (followups.d/2710-p1). A **Code block options** button sits
+  beside the fence's language in the divider pill and opens a panel of switches and boxes for every field. The words
+  are changed by the engine, not by the Studio: `editRecord` in record.js (exposed to the browser through
+  lib/authoring/inline-editors.js `code`, the door the pill editor already uses) replaces only the item a field lives
+  in, keeps the author's spelling of a field whose value did not change (`format=on`), reads the result back, and
+  returns null rather than guess when a record does not parse or names a field twice. The Studio side
+  (docs/src/lib/compose/code-record.ts) only finds the record paragraph above the caret's fence and swaps it.
+  Two calls made without the owner, both reversible: a flag the deck's `code:` default turns on (`numbers`, `wrap`,
+  `diff`) shows as on and locked, because a flag has no "off" word to write per block; and text fields write when the
+  author leaves them or presses Enter, because a half-typed range (`3-`) does not read.

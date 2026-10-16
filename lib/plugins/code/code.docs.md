@@ -60,6 +60,12 @@ a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`, from 
 in the browser); a `wrap` block never clips, so it is never measured, and a tab counts as wide as
 the block's `indent=` draws it.
 
+**In the Studio's Compose editor**, put the caret in a fence: the divider bar shows the fence's
+language and, beside it, a **Code block options** button. Its panel sets every field above with
+switches and boxes, and writes the record on the line above the fence. It changes only the word you
+edit, so the rest of the record stays exactly as you wrote it. A record it cannot change safely (one
+that does not read, or names a field twice) is left alone, and the panel says so.
+
 **A deck default.** `code: numbers, wrap` in the front matter applies to every fence; a block's own
 record overrides it field by field (`@code{format=off}`).
 

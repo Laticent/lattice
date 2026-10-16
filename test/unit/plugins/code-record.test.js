@@ -215,3 +215,57 @@ describe('a record inside a blockquote (followups.d/2710-p4)', () => {
     assert.equal(lint(`\`@code{focus=9}\`\n\`\`\`ts\na\n\`\`\``).length, 1);
   });
 });
+
+describe('editRecord — the writer the Compose options panel uses (followups.d/2710-p1)', () => {
+  const edit = record.editRecord;
+
+  test('changes only the word edited; every other byte the author wrote stays', () => {
+    const src = '@code{title="a, b.ts",  numbers, focus=3-5 9}';
+    assert.equal(edit(src, { numbers: false }), '@code{title="a, b.ts",  focus=3-5 9}');
+    assert.equal(edit(src, { focus: '2' }), '@code{title="a, b.ts",  numbers, focus=2}');
+    assert.equal(edit(src, { wrap: true }), `${src.slice(0, -1)}, wrap}`);
+    assert.equal(edit(src, { focus: '3-5 9' }), src, 'the same value is no change');
+  });
+
+  test('the same value in the author\'s own spelling keeps their bytes', () => {
+    assert.equal(edit('@code{format=on}', { format: true }), '@code{format=on}');
+    assert.equal(edit('@code{focus=3-5 9}', { focus: '3 4 5 9' }), '@code{focus=3-5 9}');
+  });
+
+  test('a new record, and no record when the last field goes', () => {
+    assert.equal(edit('', { numbers: true }), '@code{numbers}');
+    assert.equal(edit('@code{numbers}', { numbers: false }), '');
+    assert.equal(edit('', { numbers: false }), '');
+  });
+
+  test('on/off fields write `=off`; values that need quotes get them', () => {
+    assert.equal(edit('@code{format}', { format: false }), '@code{format=off}');
+    assert.equal(edit('@code{numbers}', { title: 'a, b}.ts' }), '@code{numbers, title="a, b}.ts"}');
+    assert.equal(edit('@code{numbers}', { indent: 'tab', quotes: 'single', width: 48 }), '@code{numbers, indent=tab, quotes=single, width=48}');
+  });
+
+  test('never a guess: a record that does not read, a field written twice, an unknown field or a bad value', () => {
+    assert.equal(edit('@code{wat}', { numbers: true }), null);
+    assert.equal(edit('@code{numbers, numbers}', { numbers: false }), null);
+    assert.equal(edit('@code{numbers}', { colour: 'red' }), null);
+    assert.equal(edit('@code{numbers}', { indent: '3' }), null);
+    assert.equal(edit('@code{numbers}', { focus: '3-' }), null);
+    assert.equal(edit('not a record', { numbers: true }), null);
+  });
+
+  test('whatever it writes, the render reads back as asked', () => {
+    const out = edit('@code{numbers}', { title: 'x', focus: '1-2', mark: '3', start: 10, copy: true });
+    assert.deepEqual({ ...record.readBody(record.recordBody(out)).value, focus: undefined, mark: undefined }, { numbers: true, title: 'x', start: 10, copy: true, focus: undefined, mark: undefined });
+  });
+});
+
+describe('fieldProblem — what the options panel says when a value does not read', () => {
+  test('names the problem, and refuses a backtick, which an inline code span cannot hold', () => {
+    assert.equal(record.fieldProblem('focus', '3-5 9'), null);
+    assert.match(record.fieldProblem('focus', '3-'), /not a line or a range/);
+    assert.match(record.fieldProblem('width', 10), /from 20 to 200/);
+    assert.match(record.fieldProblem('title', 'x`y'), /backtick/);
+    assert.equal(record.editRecord('', { title: 'x`y' }), null);
+    assert.equal(record.fieldProblem('numbers', null), null, 'removing a field is always fine');
+  });
+});
