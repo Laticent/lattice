@@ -286,7 +286,7 @@ describe('the placeholder takes space the way the plugin says (plugin.schema.jso
 		await approve();
 		const html = await draw(DECK_UNLISTED);
 		expect(attrs(html)).toEqual({ placement: 'chip', size: 'lg', ratio: null });
-		expect(html).toMatch(/data-placement="chip"[^>]*title="gantt-plugin: not listed in this deck's plugins:"/);
+		expect(html).toMatch(/data-placement="chip"[^>]*title="gantt-plugin: not in this deck's plugins: list"/);
 		expect(html).not.toMatch(/<div data-lattice-plugin-off[^>]*data-placement="chip"[^>]*>(?:(?!<\/div>).)*lattice-plugin-words/);
 	});
 

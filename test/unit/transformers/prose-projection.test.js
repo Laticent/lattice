@@ -1983,3 +1983,18 @@ test('stats: a paragraph after the stat list reaches the article and narration o
 	assert.ok(text.indexOf('Signal recall') < text.indexOf('Source: CRM export'), text);
 	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
 });
+
+test("a plugin placeholder reads as a sentence, not its name run into its caption (followups.d/2651-p1)", () => {
+	const ph = '<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"></span><span class="lattice-plugin-words"><strong>gantt-plugin</strong><span>Plugin block · not in this deck\'s plugins: list</span></span></div>';
+	const chip = '<span data-lattice-plugin-off="chip-plugin" data-placement="chip" data-inline data-size="sm" role="note" title="x" aria-label="x"><span class="lattice-plugin-mark" aria-hidden="true"></span></span>';
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Plan</h2></div><p>Before.</p>${ph}</div></section>`,
+		`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Tags</h2></div><ul><li>Plan<ul><li>Bars ${chip} here.${ph}</li></ul></li></ul></div></section>`,
+	);
+	const before = secs.map((s) => s.outerHTML);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /gantt-pluginPlugin|Plugin block/, 'the caption is not run into the name');
+	assert.match(articleHtml, /<p class="lp-visual-note">The plugin <code>gantt-plugin<\/code> draws here once this deck's plugins: list names it\.<\/p>/);
+	assert.match(articleHtml, /Bars <span class="lp-visual-note"><code>chip-plugin<\/code><\/span> here\./, 'an inline placeholder stays in its sentence');
+	assert.deepEqual(secs.map((s) => s.outerHTML), before, 'the caller’s slides are not changed');
+});
