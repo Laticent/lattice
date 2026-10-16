@@ -1,4 +1,4 @@
-# check.ps1: install the real installer, launch it with WebView2's debugging port, run check.mjs.
+# check.ps1: install the real installer, launch it, run run.ps1 (UI Automation + real OS input).
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root 'wincheck-results'
@@ -24,17 +24,7 @@ $wv = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients
 Say "WebView2 runtime: $wv; Windows: $((Get-CimInstance Win32_OperatingSystem).Caption) $((Get-CimInstance Win32_OperatingSystem).Version)"
 Say "default browser: $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue).ProgId)"
 
-$env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
-# The app sets its own browser arguments (wry), which wins over the variable above; WebView2's
-# per-app policy key is the documented override for an app that does.
-$pol = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
-New-Item -Path $pol -Force | Out-Null
-New-ItemProperty -Path $pol -Name 'lattice-studio.exe' -Value '--remote-debugging-port=9222' -PropertyType String -Force | Out-Null
-Say "policy set: $((Get-ItemProperty $pol).'lattice-studio.exe')"
 Start-Process $app.FullName
-$up = $false
-for ($i = 0; $i -lt 60; $i++) { try { Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | Out-Null; $up = $true; break } catch { Start-Sleep 1 } }
-Say "CDP up: $up"
 Start-Sleep 8
 Say "--- processes"
 Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'lattice' -or ($_.CommandLine -match 'embedded-browser-webview=1' -and $_.CommandLine -notmatch '--type=') } | ForEach-Object { Say ("{0} {1} :: {2}" -f $_.ProcessId, $_.Name, $_.CommandLine) }
@@ -42,7 +32,6 @@ Say "--- windows"
 Say ((W windows) -join "`n")
 W shot (Join-Path $out '00-after-launch.png')
 Say "screenshot written: $(Test-Path (Join-Path $out '00-after-launch.png'))"
-try { Say ("--- json/version: " + (Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | ConvertTo-Json -Compress)) } catch { Say "json/version: $($_.Exception.Message)" }
-Say ("--- netstat 9222: " + ((netstat -ano | Select-String ':9222') -join ' | '))
-node (Join-Path $PSScriptRoot 'check.mjs') $out 2>&1 | Tee-Object -FilePath (Join-Path $out 'check-output.txt')
+Copy-Item (Join-Path $PSScriptRoot 'run.ps1.txt') (Join-Path $PSScriptRoot 'run.ps1')
+powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'run.ps1') -Out $out 2>&1 | Tee-Object -FilePath (Join-Path $out 'run-output.txt')
 Say 'done'

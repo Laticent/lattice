@@ -1,0 +1,201 @@
+# run.ps1 (Windows PowerShell 5.1): the one-off Windows check of Lattice Studio, PR #2354.
+# Controls are found by their accessible names through UI Automation (WebView2 exposes the
+# page to it). Every test of the ENGINE's own behavior uses real OS input: SendKeys for
+# shortcuts, mouse_event for right-clicks.
+param([string]$Out)
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms, System.Drawing
+Add-Type -TypeDefinition (Get-Content (Join-Path $PSScriptRoot 'Win.cs') -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing
+$AE = [System.Windows.Automation.AutomationElement]
+$TS = [System.Windows.Automation.TreeScope]
+$results = New-Object System.Collections.ArrayList
+function Note($m) { Write-Host $m; Add-Content (Join-Path $Out 'run-log.txt') $m }
+function Step($id, $name, [scriptblock]$body) {
+  try { $d = & $body; [void]$results.Add([pscustomobject]@{ id = $id; name = $name; pass = $true; detail = "$d" }); Note "PASS $id $name :: $d" }
+  catch { [void]$results.Add([pscustomobject]@{ id = $id; name = $name; pass = $false; detail = $_.Exception.Message }); Note "FAIL $id $name :: $($_.Exception.Message)" }
+}
+function Shot($n) { try { [Win]::Shot((Join-Path $Out "$n.png")) } catch { Note "shot $n failed: $($_.Exception.Message)" } }
+function AppEl { $h = [Win]::AppWindow(); if ($h -eq [IntPtr]::Zero) { throw 'app window not found' }; $AE::FromHandle($h) }
+function FindIn($root, $pred, $timeout) {
+  $deadline = (Get-Date).AddSeconds($timeout)
+  do {
+    $all = $root.FindAll($TS::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    foreach ($e in $all) { try { if (& $pred $e) { return $e } } catch {} }
+    Start-Sleep -Milliseconds 500
+  } while ((Get-Date) -lt $deadline)
+  return $null
+}
+function Named($name, $timeout = 10) { FindIn (AppEl) { param($e) $e.Current.Name -eq $name } $timeout }
+function NamedLike($frag, $timeout = 10) { FindIn (AppEl) { param($e) $e.Current.Name -like "*$frag*" } $timeout }
+function Must($el, $what) { if (-not $el) { throw "not found: $what" }; $el }
+function Press($el) {
+  try { ($el.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke(); return } catch {}
+  try { ($el.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)).Select(); return } catch {}
+  $r = $el.Current.BoundingRectangle; [Win]::Click([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2), $false)
+}
+function ClickAt($el, [bool]$right) { $r = $el.Current.BoundingRectangle; [Win]::Click([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2), $right) }
+function WinRect { $r = (AppEl).Current.BoundingRectangle; $r }
+function ClickRel($fx, $fy, [bool]$right) { $r = WinRect; [Win]::Click([int]($r.X + $r.Width * $fx), [int]($r.Y + $r.Height * $fy), $right) }
+function Keys($k) { [Win]::Keys($k); Start-Sleep -Milliseconds 600 }
+function Windows { [Win]::Windows() }
+function MenuItems {
+  $items = $AE::RootElement.FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::MenuItem)))
+  ($items | ForEach-Object { $_.Current.Name } | Where-Object { $_ }) -join ', '
+}
+function Palette($cmd) { Keys '{ESC}'; Keys '{ESC}'; Keys '^k'; [System.Windows.Forms.SendKeys]::SendWait($cmd); Start-Sleep -Milliseconds 800; Keys '{ENTER}'; Start-Sleep -Seconds 1 }
+
+Step '0.1' 'The app window is up and the Studio is drawn' {
+  Must (Named 'Deck source' 60) 'Deck source textbox' | Out-Null
+  [Win]::Focus() | Out-Null
+  Shot '01-boot'
+  "window title: $((AppEl).Current.Name)"
+}
+
+Step '1.1' 'Real Ctrl+F from the preview opens the Studio find bar' {
+  ClickRel 0.74 0.55 $false; Start-Sleep -Milliseconds 500
+  Keys '^f'; Start-Sleep -Seconds 1
+  Shot '02-ctrl-f'
+  Must (Named 'Find' 5) 'the Studio find field' | Out-Null
+  Keys '{ESC}'
+  'Studio find field present (screenshot 02: no Edge find bar)'
+}
+
+Step '1.2' 'Real F5 and Ctrl+R do not reload the page' {
+  Press (Must (Named 'Share' 5) 'Share button'); Start-Sleep -Seconds 1
+  Must (NamedLike 'Present link' 5) 'Share sheet' | Out-Null
+  Keys '{F5}'; Start-Sleep -Seconds 3
+  Shot '03-after-f5'
+  Must (NamedLike 'Present link' 3) 'Share sheet after F5 (a reload would close it)' | Out-Null
+  Keys '^r'; Start-Sleep -Seconds 3
+  Shot '04-after-ctrl-r'
+  Must (NamedLike 'Present link' 3) 'Share sheet after Ctrl+R (a reload would close it)' | Out-Null
+  Keys '{ESC}'
+  'the open Share sheet survived F5 and Ctrl+R'
+}
+
+Step '1.3' 'Real F12, Ctrl+Shift+I and Ctrl+Shift+J open no developer tools' {
+  Keys '{F12}'; Start-Sleep -Seconds 1; Keys '^+i'; Start-Sleep -Seconds 1; Keys '^+j'; Start-Sleep -Seconds 2
+  $w = Windows
+  Shot '05-after-devtools-keys'
+  if ($w -match 'DevTools') { throw "DevTools window: $w" }
+  'no DevTools window'
+}
+
+Step '1.4' 'Real Ctrl+P opens the Print deck panel' {
+  ClickRel 0.74 0.55 $false; Start-Sleep -Milliseconds 500
+  Keys '^p'; Start-Sleep -Seconds 2
+  Shot '06-ctrl-p'
+  Must (Named 'Print' 5) 'the Print deck panel''s Print button' | Out-Null
+  Keys '{ESC}'
+  'Print deck panel open (screenshot 06: no Edge print preview)'
+}
+
+Step '1.5' 'Real Alt+Left never leaves the Studio' {
+  ClickRel 0.74 0.55 $false; Keys '%{LEFT}'; Start-Sleep -Seconds 2
+  Shot '07-after-alt-left'
+  Must (Named 'Deck source' 5) 'the Studio after Alt+Left' | Out-Null
+  'still the Studio'
+}
+
+Step '2.1' 'Real right-click on the preview shows no engine menu' {
+  ClickRel 0.74 0.55 $true; Start-Sleep -Seconds 1.5
+  $m = MenuItems
+  Shot '08-rightclick-preview'
+  Keys '{ESC}'
+  if ($m -match 'Back|Refresh|Reload|Inspect|Save as|Print') { throw "engine menu items: $m" }
+  "menu items: [$m]"
+}
+
+Step '2.2' 'Real right-click in the editor shows only editing items' {
+  ClickAt (Must (Named 'Deck source' 5) 'editor') $true; Start-Sleep -Seconds 1.5
+  $m = MenuItems
+  Shot '09-rightclick-editor'
+  Keys '{ESC}'
+  if ($m -match 'Back|Refresh|Reload|Inspect|Save as|Print') { throw "engine menu items: $m" }
+  "menu items: [$m]"
+}
+
+Step '3.1' 'Continue on GitHub opens the default browser; the app stays put' {
+  Palette 'Send feedback'
+  $s = Must (Named 'Summary' 5) 'Summary field'; ClickAt $s $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check summary')
+  $d = Must (Named 'Details' 5) 'Details field'; ClickAt $d $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check details')
+  Start-Sleep -Milliseconds 800
+  Press (Must (Named 'Continue on GitHub' 5) 'Continue on GitHub')
+  Start-Sleep -Seconds 8
+  Shot '10-continue-on-github'
+  $p = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'issues/new' } | Select-Object -First 1
+  if (-not $p) { throw "no browser process for the GitHub URL; windows:`n$(Windows)" }
+  Must (Named 'Deck source' 5) 'the Studio still in the app window' | Out-Null
+  Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  "$($p.Name) opened it"
+}
+
+Step '4.1' 'Connect OpenRouter opens its own sign-in window; closing it resets Connect' {
+  [Win]::Focus() | Out-Null
+  Palette 'Workspace settings'
+  Press (Must (Named 'AI' 5) 'AI tab'); Start-Sleep -Seconds 1
+  Press (Must (Named 'Connect OpenRouter (one click)' 5) 'Connect button')
+  $found = $false
+  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match 'Sign in - Lattice Studio') { $found = $true; break } }
+  Start-Sleep -Seconds 4
+  Shot '11-sign-in-window'
+  if (-not $found) { throw "no sign-in window; windows:`n$(Windows)" }
+  [Win]::CloseTitled('Sign in - Lattice Studio') | Out-Null
+  Start-Sleep -Seconds 3
+  Shot '12-sign-in-closed'
+  Must (Named 'Connect OpenRouter (one click)' 8) 'Connect button after closing the window' | Out-Null
+  'sign-in window opened and closed; Connect is back'
+}
+
+Step '5.1' 'Share > Markdown: the Windows Save dialog writes the file; Cancel writes nothing' {
+  $target = Join-Path $Out 'saved-deck.md'
+  Palette 'Share'
+  Press (Must (NamedLike 'Source with the theme embedded' 8) 'Markdown row')
+  $found = $false
+  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match '\| Save As$') { $found = $true; break } }
+  Shot '13-save-dialog'
+  if (-not $found) { throw "no Save As dialog; windows:`n$(Windows)" }
+  Start-Sleep -Milliseconds 600
+  [System.Windows.Forms.SendKeys]::SendWait($target); Start-Sleep -Milliseconds 400; [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  for ($i = 0; $i -lt 10 -and -not (Test-Path $target); $i++) { Start-Sleep -Seconds 1 }
+  if (-not (Test-Path $target)) { throw 'file not written' }
+  $len = (Get-Item $target).Length
+  if (-not ((Get-Content $target -Raw) -match '_class:\s*title')) { throw 'the file is not the deck' }
+  Palette 'Share'
+  Press (Must (NamedLike 'Source with the theme embedded' 8) 'Markdown row')
+  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match '\| Save As$') { break } }
+  [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Seconds 2
+  Shot '14-save-cancelled'
+  $extra = Get-ChildItem $Out -Filter '*.md' | Where-Object { $_.Name -ne 'saved-deck.md' }
+  if ($extra) { throw "a cancelled save wrote $($extra.Name)" }
+  if (NamedLike 'Could not save' 2) { throw 'a cancelled save showed an error' }
+  "$len bytes saved; cancel wrote nothing and said nothing"
+}
+
+Step '6.1' 'Real Ctrl+F in Compose opens the Studio find bar' {
+  Keys '{ESC}'; Keys '{ESC}'
+  Press (Must (Named 'Compose — rich editor' 5) 'Compose toggle'); Start-Sleep -Seconds 2
+  ClickRel 0.25 0.45 $false; Start-Sleep -Milliseconds 500
+  Keys '^f'; Start-Sleep -Seconds 1
+  Shot '15-compose-ctrl-f'
+  Must (Named 'Find' 5) 'the Compose find field' | Out-Null
+  Keys '{ESC}'
+  'Compose find field present'
+}
+
+Step '7.1' 'Print at 4-up reaches a print dialog (no file, no new window)' {
+  ClickRel 0.74 0.55 $false; Keys '^p'; Start-Sleep -Seconds 2
+  Press (Must (Named '4-up' 5) '4-up option'); Start-Sleep -Seconds 1
+  $before = Windows
+  Press (Must (Named 'Print' 5) 'Print button')
+  Start-Sleep -Seconds 12
+  Shot '16-print-4up'
+  $after = Windows
+  Keys '{ESC}'; Start-Sleep -Seconds 1; Keys '{ESC}'
+  "windows after Print:`n$after"
+}
+
+Step '9.9' 'Window list at the end' { Windows }
+$results | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $Out 'results.json')
+$f = @($results | Where-Object { -not $_.pass }).Count
+Note "`n$($results.Count - $f) pass, $f fail"

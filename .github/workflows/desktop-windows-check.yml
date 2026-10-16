@@ -20,12 +20,6 @@ jobs:
           run-id: 38882233324
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: installer
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install playwright-core (CDP client only, no browsers)
-        working-directory: wincheck
-        run: npm init -y > $null; npm i --no-audit --no-fund playwright-core@1
       - name: Run the check
         shell: pwsh
         run: |
