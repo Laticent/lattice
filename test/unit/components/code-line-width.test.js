@@ -17,15 +17,10 @@
  * computes is the only version of this test that can catch that.
  */
 
-const { describe, test, before, after } = require('node:test');
+const { describe, test, before } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
 const core = require('../../../lib/authoring/lint-core');
 
-const ROOT = path.resolve(__dirname, '../../..');
 // The modifiers these tests put on a slide, as the real vocabulary has them.
 const vocab = {
   names: new Set(['compare-code', 'code', 'content']),
@@ -168,6 +163,15 @@ describe('code-line-clipped — a plain slide, and the record', () => {
     assert.match(f.fix, /@code\{wrap\}/);
     assert.ok(clipFinding(codeSlide('content', ['x'.repeat(PLAIN + 1)])), '`_class: content` is the same pane');
     assert.ok(clipFinding(codeSlide('dark', ['x'.repeat(PLAIN + 1)])), 'a class of modifiers only is a content slide');
+  });
+
+  test('a tab after the numbers or diff gutter lands on the stop it would without one (measured)', () => {
+    const rec = (r, line) => plain(`\`@code{${r}}\`\n` + fence([line], 'go'));
+    // Chromium: `\tfoo` with numbers ends at 11ch, not 8 + 3 + 3 = 14 — the tab swallows the gutter.
+    assert.equal(clipFinding(rec('numbers', `\t${'x'.repeat(PLAIN - 10)}`)), undefined);
+    assert.equal(clipFinding(rec('diff', `\t${'y'.repeat(PLAIN - 9)}`)), undefined);
+    assert.equal(clipFinding(rec('diff', `+\t${'y'.repeat(PLAIN - 9)}`)), undefined);
+    assert.ok(clipFinding(rec('numbers', `\t${'x'.repeat(PLAIN - 7)}`)), 'past the panel, it is still named');
   });
 
   test('a fence another plugin draws is a picture, not a panel: never measured on a plain slide', () => {
@@ -335,7 +339,8 @@ describe('code-line-clipped — every class that moves the pane is measured, not
 // re-measures, through the tool's own measuring function, and compares cell by cell.
 //
 // A SAMPLE, every canvas: each group bare, each stage, venue and spot scale alone, and one venue
-// with a spot scale beside it (the cross term the table exists for). The whole matrix, 1,120 cells,
+// with a spot scale beside it (the cross term the table exists for), and the bar's cost at two room
+// sizes. The whole column matrix, 1,792 cells, and every bar rung,
 // is `node tools/measure-code-columns.js --check`, minutes rather than seconds. SKIPS (never
 // fails) with no Chromium, so `npm test` stays render-free there.
 describe('code-line-clipped — the table, as the browser lays it out', () => {
@@ -344,7 +349,11 @@ describe('code-line-clipped — the table, as the browser lays it out', () => {
   const table = require('../../../lib/authoring/code-pane-columns.js');
   const SAMPLE = ['||', 'claim-hero||', 'claim-quiet||', 'compact||', '|venue-huddle|', '|venue-conference|', '|venue-hall|',
     '||scale-l', '||scale-xl', '||scale-2xl', '|venue-conference|scale-l'];
+  // The bar table (what a title or copy bar costs the pane, lib/authoring/code-pane-columns.js BAR):
+  // each group at the designed size and at conference, every canvas.
+  const BAR_SAMPLE = ['', 'venue-conference'];
   let measured = null;
+  let bars = null;
   const exe = chrome();
 
   before(async () => {
@@ -353,6 +362,7 @@ describe('code-line-clipped — the table, as the browser lays it out', () => {
     const browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     try {
       measured = await measure.measureCodeColumns(browser, { combos: SAMPLE });
+      bars = await measure.measureCodeBars(browser, { rungs: BAR_SAMPLE });
     } finally {
       await browser.close();
     }
@@ -371,6 +381,20 @@ describe('code-line-clipped — the table, as the browser lays it out', () => {
         const want = table.COLUMNS[g][combo];
         const got = table.CANVASES.map((c) => measured[g][combo][c]);
         assert.deepEqual(got, [...want], `${g} ${combo || 'bare'}: the table says ${want}, Chromium fits ${got}. `
+          + 'Re-run `node tools/measure-code-columns.js --write` and review the diff; do not edit the test to match.');
+      }
+    }
+  });
+
+  test('every sampled bar cost is what Chromium lays out, on every canvas', (t) => {
+    if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    assert.deepEqual([...table.BAR_FIELDS], [...measure.BAR_FIELDS]);
+    for (const g of Object.keys(table.BAR)) {
+      assert.deepEqual(Object.keys(table.BAR[g]), [...measure.RUNGS], g);
+      for (const rung of BAR_SAMPLE) {
+        const want = table.BAR[g][rung];
+        const got = measure.CANVASES.map((c) => bars[g][rung][c.key]);
+        assert.deepEqual(got, want.map((cell) => [...cell]), `${g} bar ${rung || 'designed'}: the table and Chromium differ. `
           + 'Re-run `node tools/measure-code-columns.js --write` and review the diff; do not edit the test to match.');
       }
     }

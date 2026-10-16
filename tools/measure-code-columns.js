@@ -27,6 +27,12 @@
  * columns of the ruler the reader can see: the code box cut by the panel when the panel clips, and
  * by the slide's own edge always, divided by the real advance of the real font.
  *
+ * THE BAR, measured the same way. A block's `title=` and a copy block's buttons sit in a bar above the
+ * code, which takes height the line-capacity rules count in code lines. Per canvas, panel group
+ * (pane, compare) and room size (the designed size, each venue, each spot scale), it records what the
+ * bar costs in hundredths of a code line: an empty copy bar, a one-row title without and with the
+ * buttons, each further title row, and how many title characters fit a row without and with them.
+ *
  * Usage:
  *   node tools/measure-code-columns.js            print the table it measures
  *   node tools/measure-code-columns.js --write    write lib/authoring/code-pane-columns.js
@@ -61,6 +67,18 @@ const STAGES = Object.freeze(['', 'claim-hero', 'claim-quiet', 'compact']);
 const VENUES = Object.freeze(['', 'venue-huddle', 'venue-conference', 'venue-hall']);
 const SPOTS = Object.freeze(['', 'scale-l', 'scale-xl', 'scale-2xl']);
 const RULER = Array.from({ length: 240 }, (_, i) => String((i + 1) % 10)).join('');
+
+/** The room sizes the bar is measured at: the designed size, each venue, each spot scale. */
+const RUNGS = Object.freeze(['', 'venue-huddle', 'venue-conference', 'venue-hall', 'scale-l', 'scale-xl', 'scale-2xl']);
+/** The layout a bar group's slide carries. */
+const BAR_LAYOUT = Object.freeze({ pane: 'code', compare: 'compare-code' });
+const LONG_TITLE = 'abcdefghij'.repeat(30);
+const BAR_VARIANTS = Object.freeze({
+  plain: '', copy: 'copy', title: 'title=a.ts', titleCopy: 'copy, title=a.ts',
+  long: `title="${LONG_TITLE}"`, longCopy: `copy, title="${LONG_TITLE}"`,
+});
+/** The order of a bar cell's numbers. */
+const BAR_FIELDS = Object.freeze(['copy', 'title', 'titleCopy', 'row', 'rowCopy', 'cols', 'colsCopy']);
 
 /** Every combination's key, `stage|venue|spot`. */
 function allCombos() {
@@ -133,12 +151,88 @@ async function measureCodeColumns(browser, { groups = GROUPS, combos = allCombos
   return out;
 }
 
+/**
+ * Measure what the bar costs. Resolves `{ [group]: { [rung]: { [canvasKey]: number[] } } }`, each cell
+ * in BAR_FIELDS order: costs in hundredths of a code line, counts in characters.
+ */
+async function measureCodeBars(browser, { groups = Object.keys(BAR_LAYOUT), rungs = RUNGS, canvases = CANVASES } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-bars-'));
+  const out = {};
+  try {
+    for (const canvas of canvases) {
+      const slides = [];
+      for (const g of groups) for (const r of rungs) for (const [v, rec] of Object.entries(BAR_VARIANTS)) {
+        const block = `${rec ? `\`@code{${rec}}\`\n` : ''}\`\`\`js\nconst a = 1;\nconst b = 2;\n\`\`\`\n`;
+        const body = g === 'compare' ? `\`L\`\n\n${block}\n\`R\`\n\n\`\`\`js\nx\n\`\`\`\n` : block;
+        slides.push(`<!-- _class: ${[BAR_LAYOUT[g], r].filter(Boolean).join(' ')} -->\n\n# ${g}|${r}|${v}\n\n${body}`);
+      }
+      const src = path.join(dir, `${canvas.key}.md`);
+      const html = path.join(dir, `${canvas.key}.html`);
+      fs.writeFileSync(src, `---\nmarp: true\ntheme: indaco\n${canvas.size ? `size: ${canvas.size}\n` : ''}---\n\n${slides.join('\n---\n\n')}`);
+      execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), src, html, 'indaco', '-q', '--no-split'],
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 1800000 });
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1600, height: 1000 });
+      await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 600000 });
+      const rows = await page.evaluate(() => [...document.querySelectorAll('section')].map((sec) => {
+        const pre = sec.querySelector('pre');
+        const code = pre.querySelector('code');
+        const title = pre.querySelector(':scope > .lat-code-title');
+        // Two lines of code: half the box is one line's pitch.
+        const pitch = code.getBoundingClientRect().height / 2;
+        // How far the code starts below the panel's own padding: the bar, its rule and its spacing.
+        const above = code.getBoundingClientRect().top - pre.getBoundingClientRect().top - parseFloat(getComputedStyle(pre).paddingTop);
+        let rowsOf = 0;
+        let perRow = 0;
+        const text = title?.firstChild?.nodeType === 3 ? title.firstChild : null;
+        if (text) {
+          const range = document.createRange();
+          const tops = [];
+          for (let i = 0; i < text.length; i += 1) {
+            range.setStart(text, i);
+            range.setEnd(text, i + 1);
+            const q = range.getClientRects()[0];
+            if (q) tops.push(Math.round(q.top));
+          }
+          rowsOf = new Set(tops).size;
+          perRow = tops.filter((t) => t === tops[0]).length;
+        }
+        return { name: sec.querySelector('h1').textContent, pitch, above, rows: rowsOf, perRow };
+      }));
+      await page.close();
+      const by = Object.fromEntries(rows.map((r) => [r.name, r]));
+      for (const g of groups) {
+        for (const r of rungs) {
+          const at = (v) => by[`${g}|${r}|${v}`];
+          const base = at('plain');
+          const cost = (v) => Math.round((100 * (at(v).above - base.above)) / base.pitch);
+          const perRowCost = (v, one) => Math.round((100 * (at(v).above - at(one).above)) / base.pitch / Math.max(1, at(v).rows - 1));
+          ((out[g] ??= {})[r] ??= {})[canvas.key] = [
+            cost('copy'), cost('title'), cost('titleCopy'),
+            perRowCost('long', 'title'), perRowCost('longCopy', 'titleCopy'),
+            at('long').perRow, at('longCopy').perRow,
+          ];
+        }
+      }
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return out;
+}
+
 /** The data module's source, from a full measurement. */
-function moduleSource(table) {
+function moduleSource(table, bars) {
   const row = (group, combo) => {
     const cells = CANVASES.map((c) => table[group][combo][c.key]);
     return `[${cells.map((v) => (v == null ? 'null' : v)).join(', ')}]`;
   };
+  const barLines = [];
+  for (const g of Object.keys(BAR_LAYOUT)) {
+    barLines.push(`  ${g}: Object.freeze({`);
+    for (const r of RUNGS) barLines.push(`    '${r}': [${CANVASES.map((c) => `[${bars[g][r][c.key].join(', ')}]`).join(', ')}],`);
+    barLines.push('  }),');
+  }
   const lines = [];
   for (const g of GROUPS) {
     lines.push(`  ${g}: Object.freeze({`);
@@ -161,7 +255,19 @@ const COLUMNS = Object.freeze({
 ${lines.join('\n')}
 });
 
-module.exports = { CANVASES, FAMILY, COLUMNS };
+/**
+ * What a code block's bar (its \`title=\`, or a copy block's empty bar) costs, measured the same way.
+ * group → room size ('' designed, a \`venue-*\`, a \`scale-*\`) → one cell per canvas, in CANVASES order:
+ * [${BAR_FIELDS.join(', ')}]. Costs are hundredths of a code line (an empty copy bar; a one-row title
+ * without and with the buttons; each further title row, without and with them); cols are the title
+ * characters a row holds, without and with the buttons.
+ */
+const BAR_FIELDS = Object.freeze(${JSON.stringify(BAR_FIELDS)});
+const BAR = Object.freeze({
+${barLines.join('\n')}
+});
+
+module.exports = { CANVASES, FAMILY, COLUMNS, BAR_FIELDS, BAR };
 `;
 }
 
@@ -175,12 +281,14 @@ async function main(argv) {
   const puppeteer = require('puppeteer-core');
   const browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   let table;
+  let bars;
   try {
     table = await measureCodeColumns(browser);
+    bars = await measureCodeBars(browser);
   } finally {
     await browser.close();
   }
-  const src = moduleSource(table);
+  const src = moduleSource(table, bars);
   if (argv.includes('--write')) {
     fs.writeFileSync(OUT, src);
     console.log(`measure-code-columns: wrote ${path.relative(ROOT, OUT)}`);
@@ -198,4 +306,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).then((code) => process.exit(code), (e) => { console.error(e); process.exit(2); });
 
-module.exports = { CANVASES, GROUPS, STAGES, VENUES, SPOTS, allCombos, measureCodeColumns };
+module.exports = { CANVASES, GROUPS, STAGES, VENUES, SPOTS, RUNGS, BAR_FIELDS, allCombos, measureCodeColumns, measureCodeBars };

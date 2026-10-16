@@ -60,7 +60,10 @@ a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`). The 
 in the browser for every canvas and every class that moves the panel: `claim-*` and `compact`, a
 `venue:` or `scale-*`, and `align-*` or `stats`, which let the panel grow until the slide's own edge
 cuts the line. A `wrap` block never clips, so it is never measured, and a tab counts as wide as the
-block's `indent=` draws it.
+block's `indent=` draws it. A line's width includes what the block draws beside it: the `numbers`
+column and the `diff` marker column. Under a `venue:` or `scale-*`, the line-capacity rule
+(`capacity-scale`) counts the rows a block really takes: its lines, the rows a `wrap` line wraps to,
+and its title or copy bar, which takes about one line of the pane (more when a long title wraps).
 
 **In the Studio's Compose editor**, put the caret in a fence: the divider bar shows the fence's
 language and, beside it, a **Code block options** button. Its panel sets every field above with

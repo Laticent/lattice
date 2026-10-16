@@ -517,3 +517,19 @@ Proof:
   13px on every canvas (minuscule on 4K) and now take the bar's size; and the title inherited the panel's
   `white-space: pre`, so a long path ran off the panel (or under the buttons) and now wraps. The bar costs one code line
   or a little more, which the line-capacity rules now count (the next entry).
+- 2026-10-16: the lint counts the block's gutters, its bar and its wrapped rows (#2716). Three gaps, each a block that
+  clipped with no finding. (1) Width counted the text alone: the `numbers` column (the widest number's digits plus
+  1.5ch, code.styles.css) and the `diff` marker column (2ch; an unmarked line is padded by one) now count, the numbers
+  column as its digits plus ONE so a line is named only when it is cut whatever the half column rounds to. Both
+  gutters sit inside the line box, so a line's tabs expand from the gutter's far edge: in Chromium a leading tab
+  under `numbers` lands where it would without the gutter (counting the gutter on top named a Go line that renders
+  whole, which the checker measured). (2) The
+  title or copy bar takes 0.9 to 1.33 code lines of the pane, more when a long title wraps: measured per canvas, group
+  and room size by `measureCodeBars` in tools/measure-code-columns.js into the `BAR` table, and counted by its whole
+  lines only (a fraction of a line may still fit). A fence another plugin draws (Mermaid, math) gets no bar: the
+  render gives it no options. (3) A `wrap` line takes the rows it wraps to, at the room size's measured width of the
+  plain pane (under `align-*` or `stats` only a block that does not wrap grows past it); a continuation hangs two columns in without numbers, under its own text with them. All three are
+  counted in `capacity-scale` (under a venue or scale); the editorial count rule at the designed size stays on source
+  lines, because it is a budget for what the audience reads, not a clip. A fence inside speaker notes no longer counts
+  as a block of the pane, and a ```` fence no longer closes on ``` (CommonMark). On the 429 decks `lint:deck:all` reads, the change adds no finding; Tier 2 re-measures the
+  bar at two room sizes on every canvas.
