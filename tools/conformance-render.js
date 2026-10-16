@@ -215,7 +215,15 @@ async function probeAxe(page, chunk = 40) {
         for (const h of held) h.mark.replaceWith(h.node);
         const found = [];
         try {
-          const r = await window.axe.run(document, { rules: { 'color-contrast': { enabled: false } }, resultTypes: ['violations'] });
+          const r = await window.axe.run(document, {
+            // The same rule set test/integration/invariants/axe-a11y.test.js runs. Contrast is the
+            // PROBE's job. `page-has-heading-one`, `landmark-one-main` and `region` judge a whole
+            // PAGE, and a slide is a section of one: a deck's slides lead with h2 by design, so they
+            // would fire on every gallery and say nothing about a component.
+            runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
+            rules: { 'color-contrast': { enabled: false }, 'page-has-heading-one': { enabled: false }, 'landmark-one-main': { enabled: false }, region: { enabled: false } },
+            resultTypes: ['violations'],
+          });
           for (const v of r.violations) {
             for (const n of v.nodes) {
               const sec = document.querySelector(n.target[0])?.closest('section[data-lattice-slide]');

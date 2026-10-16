@@ -117,14 +117,17 @@ describe('component conformance, render tier (report-only)', () => {
       } finally { await bad.close(); await good.close(); }
     });
 
-    test('contrast: pale text on the page is flagged; the untouched twin is clean', async () => {
+    test('contrast: pale text on white is flagged; the untouched twin is clean', async () => {
       const page = await open(deckFromSample(manifest('quote').sample), 'quote-sample');
       try {
         const clean = offenders(await page.evaluate(PROBE), new Set());
         assert.deepEqual(clean.map((r) => `${r.text} ${r.r}`), [], 'the shipped quote sample should be AA-clean on indaco');
-        await page.addStyleTag({ content: 'section, section * { color: #d4d4d4 !important; background-color: #ffffff !important; }' });
+        await page.addStyleTag({ content: // Colour the TEXT elements only. A blanket `section *` rule also recolours the probe's own
+        // reference element, whose ink defines the "documented-exempt decorative" tier, so every run
+        // then reads as exempt and nothing can be flagged.
+        'section { background-color: #ffffff !important; } section :is(h1, h2, h3, p, li, blockquote, strong, em) { color: #cfe8cf !important; }' });
         const bad = offenders(await page.evaluate(PROBE), new Set());
-        assert.ok(bad.length > 0, 'light grey on white should be flagged');
+        assert.ok(bad.length > 0, 'pale green on white should be flagged (and not as the exempt decorative tier)');
       } finally { await page.close(); }
     });
 
@@ -137,11 +140,11 @@ describe('component conformance, render tier (report-only)', () => {
       } finally { await page.close(); }
     });
 
-    test('card-row: stats (a row of equal cards) is a hit; quote (one block) is a miss', async () => {
-      const hit = await open(deckFromSample(manifest('stats').sample), 'stats-sample');
+    test('card-row: cards-grid (a row of equal cards) is a hit; quote (one block) is a miss', async () => {
+      const hit = await open(deckFromSample(manifest('cards-grid').sample), 'cards-grid-sample');
       const miss = await open(deckFromSample(manifest('quote').sample), 'quote-sample');
       try {
-        assert.equal((await probeCardRows(hit)).some((s) => s.cardRow), true, 'stats should trigger');
+        assert.equal((await probeCardRows(hit)).some((s) => s.cardRow), true, 'cards-grid should trigger');
         assert.equal((await probeCardRows(miss)).some((s) => s.cardRow), false, 'quote should not trigger');
       } finally { await hit.close(); await miss.close(); }
     });
