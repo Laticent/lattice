@@ -1,11 +1,13 @@
-studio: +1
+studio: +19
 playground: +8
 home: +13
 
-The inline-code dispatcher's first-character table, Segno's `refuses`, and the plain-record parser
-Segno now generates from its grammar (followup 2718-p3) ride the engine code these routes load. Most
-of each figure is the playground asset version: the engine's bytes changed, so the
-`/playground/v/<hash>/` string every eager chunk carries changed too, and a different string gzips a
-few bytes differently (followup 2718-p5). The generated parser itself lives in the engine, which
-these routes load lazily (engineJsGz, well under its soft target). Each engine commit in this PR moved these by a
-few bytes in either direction (studio read +19, −5 and +1), which is followup 2718-p5's noise. In return, ordinary inline code costs less than half what it did per span.
+These bytes are not new code on these routes. They are the largest each route moved across this
+PR's engine commits, and they moved in both directions: studio read +19, −5, +1 and +13;
+playground +3, +5, +8 and +3; home +4, +13, +13 and +2. Every eager chunk that names the engine
+carries the playground asset version (`/playground/v/<12 hex>/`), which hashes every synced asset,
+so any change to engine bytes gives a new string that gzips a few bytes differently (followup
+2718-p5, which records the fix this needs in the budget check itself). The code this PR adds (the
+inline dispatcher's first-character table, Segno's refusal path and its generated plain-record
+parser) lives in the engine bundle, which these routes load lazily (engineJsGz, under its soft
+target).
