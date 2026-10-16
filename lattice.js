@@ -3198,8 +3198,11 @@ const { guard, isTargetGone } = require('./lib/engine/render-guard');
 // `disconnected` race in ms; this only backstops a SILENT wedge. Override with
 // LATTICE_RENDER_WATCHDOG_MS for very large decks on slow hardware. See #502.
 const RENDER_WATCHDOG_MS = Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000;
-// Puppeteer's `protocolTimeout` (see renderExport). One hour: above any `guard` deadline.
-const PROTOCOL_TIMEOUT_MS = 3600000;
+// Puppeteer's `protocolTimeout` (see renderExport): one hour, or the watchdog plus a minute
+// when LATTICE_RENDER_WATCHDOG_MS is set higher. `composePdfInPage` caps its own watchdog
+// below this (COMPOSE_MAX_MS), so no guard deadline can outlast the ceiling.
+const PROTOCOL_TIMEOUT_MS = Math.max(3600000, RENDER_WATCHDOG_MS + 60000);
+const COMPOSE_MAX_MS = PROTOCOL_TIMEOUT_MS - 60000;
 // Snapshot the pre-split deck HTML so a hardened RETRY starts from a clean slate
 // (the autosplit loop below mutates cleanDocHtml + rewrites outHtml in place).
 const initialDocHtml = cleanDocHtml;
@@ -3220,8 +3223,10 @@ async function renderExport({ hardened }) {
     // Puppeteer's own per-call limit is 180 s, and it fires BEFORE `composePdfInPage`'s
     // watchdog (slides x 4 s). A 151-slide deck that composes in 4 minutes then fails with
     // "Runtime.callFunctionOn timed out" and prints with Chrome instead: Type 3 fonts, a
-    // different PDF, so a golden flipped by runner speed. Every call is bounded by `guard`
-    // above, so this ceiling only has to sit above the longest guard, never replace it.
+    // different PDF, so a golden flipped by runner speed. The calls that can run long go
+    // through `guard`, which stays the real bound; this ceiling only has to sit above the
+    // longest guard (COMPOSE_MAX_MS keeps the compose watchdog under it). The few CDP calls
+    // outside `guard` (short DOM reads, scratch-page closes) are bounded by it alone.
     protocolTimeout: PROTOCOL_TIMEOUT_MS,
   };
   if (CHROME_EXEC) launchOpts.executablePath = CHROME_EXEC;
@@ -5332,7 +5337,7 @@ async function composePdfInPage(g, page) {
     // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~31 s (a 4K
     // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
-    const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
+    const composeMs = Math.min(COMPOSE_MAX_MS, Math.max(RENDER_WATCHDOG_MS, handles.length * 4000));
     const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
@@ -5380,7 +5385,7 @@ async function composePdfInPage(g, page) {
       return { b64: btoa(s), report };
     }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
-    await page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); });
+    await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {
       const r = out.report;
       const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
@@ -5396,10 +5401,11 @@ async function composePdfInPage(g, page) {
     // Put the page back BEFORE Chrome prints it: the compose may have hidden every drawn word
     // and shape (and may still be running); the export face is the Studio's, not the printer's.
     try {
-      await page.evaluate(() => {
+      // Guarded: on a wedged renderer an unguarded evaluate would wait out protocolTimeout.
+      await g(() => page.evaluate(() => {
         window.__latticePdfAbort?.();
         for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting');
-      });
+      }), 'abort the PDF writer');
     } catch {}
     // Said even under --quiet (on stderr): a silent switch of writer is a different PDF.
     console.error(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);

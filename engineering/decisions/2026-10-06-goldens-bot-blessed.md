@@ -321,8 +321,10 @@ What the week shows:
   TrueType fonts, the committed golden). On a slower one puppeteer cuts it off and Chrome
   prints the deck instead (Type 3 fonts, lighter text at 8 px). The sandbox reproduces it:
   the old code logged `PDF writer failed (Runtime.callFunctionOn timed out...)` after about
-  4 minutes. The fix passes `protocolTimeout: 3600000` at launch; `guard` still bounds
-  every call. After it, three same-commit renders are byte-identical (`6003856b...`), the
+  4 minutes. The fix passes `protocolTimeout` (one hour) at launch; `guard` still bounds the
+  calls that can run long, including the two `page.evaluate` calls around the writer, which a
+  checker found were unguarded and would otherwise wait out the new ceiling on a wedged Chrome.
+  A few short CDP calls (scratch-page closes, a page count) are bounded by the ceiling alone. After it, three same-commit renders are byte-identical (`6003856b...`), the
   writer ran, and the worst page against the golden falls from 6.66% to 1.92% (the rest is
   cross-machine antialiasing, since this sandbox is not the CI runner). A small deck
   (`examples/pricing.md`) is byte-identical before and after. **Unverified here:** that the
