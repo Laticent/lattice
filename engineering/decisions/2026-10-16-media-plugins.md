@@ -40,8 +40,8 @@ Author syntax, as proposed:
 
 ```md
 ![Team offsite](asset:offsite)                       an image: CommonMark, kept as the image's alias
-`@image{asset:offsite, alt="Team offsite", right, 40%, scrim}`   the same image, placed and treated
-`@video{https://youtu.be/dQw4w9WgXcQ, poster=asset:keynote, qr}` a video on any slide
+`@image{asset:offsite, title="Offsite", description="The team at the lake", nimbus}` the same image, with a title, a description and a setting (§4.7)
+`@video{https://youtu.be/dQw4w9WgXcQ, title="The 90-second tour", poster=sample:photo-pano.jpg, qr}` a video on any slide
 `>{https://youtu.be/dQw4w9WgXcQ}`                    the same video through its sigil (§8)
 `@video{clips/demo.mp4}`                             a video file beside the deck (new: the `file` row)
 ```
@@ -144,12 +144,11 @@ hosts can serve it, and the others show the stand-in.
 
 ### 4.2 The `image` plugin
 
-- **The kind is `image`.** `` `@image{src, alt="…", …}` `` is the full form. CommonMark's `![alt](src)` is
-  its alias, the way `^{…}` is the icon's: same record, no options. Every editor, GitHub and every Markdown
+- **The kind is `image`.** `` `@image{src, title="…", description="…", …}` `` is the full form. CommonMark's
+  `![description](src "title")` is its alias, the way `^{…}` is the icon's. Every editor, GitHub and every Markdown
   tool still shows the picture.
-- **Options are Segno words, not Marp keywords:** placement (`bg`, `left`, `right`, a share like `40%`), fit
-  (`cover`, `contain`), size (`w=`, `h=`), treatment (`scrim`, `duotone`, `grayscale`), focus (`focus=top`).
-  Each maps to a register the deck can set once, as icons and avatars do (`image: scrim`).
+- **The record describes the picture; the layout places it.** It carries a title, a description, a focus hint
+  and a treatment. Placement, size, fit and scrim belong to the layout it is written in (§4.7).
 - **It owns** `bg-image.js`, `background-image.js`, `image-scrim`, `image-adaptive` and the `wrapImageText`
   pass. That ends the CLI/engine split (D3, D4): one lift, in the kernel both paths read.
 - **The `image` and `collage` slide classes require the plugin**, as the `math` class requires `math`.
@@ -160,8 +159,8 @@ hosts can serve it, and the others show the stand-in.
 
 - **The kind is `video`:** `` `@video{url, poster=…, caption="…", qr}` ``. It renders the existing poster,
   badge and QR figure on any slide. The `video` slide class becomes a layout that requires the plugin.
-- **The provider table moves in, and grows a `kind`.** Today's four rows become `kind: 'embed'`. A new
-  `kind: 'file'` row claims `.mp4`, `.webm` and `.mov` from any source (relative, `asset:`, web). That makes
+- **The provider table moves in, and grows a `via` field.** Today's four rows become `via: 'embed'`. A new
+  `via: 'file'` row claims `.mp4`, `.webm` and `.mov` from any source (relative, `asset:`, web). That makes
   Library videos showable (D7) and gives the HTML player and the desktop app a real `<video>` element.
 - **Per-surface output is the row's job, not the call site's:**
 
@@ -260,6 +259,69 @@ Every committed deck that uses video or images renders the same before and after
 
 Each slice that ships a plugin ships its whole set; a plugin without its guide or icon is not done.
 
+### 4.7 What each plugin carries, and what the layout decides (revised 2026-10-16)
+
+**The rule (owner, 2026-10-16): a plugin describes the thing; the layout it sits in places it.** A media record
+says what to show and what it is about. Where it sits, how big it is, how it fits its box, and whether text runs
+over it are decided by the component or slide layout the record is written inside, exactly as a chart's transform
+owns what its rows mean together (#2723 §2). So no record takes `left`, `right`, `bg`, a share like `40%`, a size,
+`cover` / `contain` or `scrim`. A record alone in a paragraph on a plain slide is a block figure that the slide's
+own flow sizes; on an `image`, `split-panel` or `collage` slide, that layout seats it.
+
+**What every record carries: the thing, a title, a description.**
+
+| Field | Meaning | Where else it means this |
+|---|---|---|
+| the first item | the thing itself: an image or video source (any media source, §4.1) or a QR payload | a chart row's data item comes first (#2723 §2) |
+| `title="…"` | a short visible name, drawn under or beside the figure as the layout chooses | Markdown's image title, `![…](src "title")` |
+| `description="…"` | what the thing shows or says, in a sentence. It is never on the slide face: a screen reader reads it, screen surfaces show it on hover and tap, and print puts it in the speaker note | #2723 decision 5: a description is hidden detail, hover and tap on screen, the speaker note in print |
+
+The Markdown alias carries all three: `![description](src "title")` is `@image{src, title="title",
+description="description"}`. The alt text becomes the description, which is what alt text is for. Inside a record a
+description is a named field, because a record is its own container; on a collage photo, which is a list item, a
+longer description follows #2723's list form, a `>` blockquote indented under the item. One form per container, as
+#2723 decides.
+
+**What each plugin adds, and nothing more:**
+
+| Plugin | Adds | Meaning |
+|---|---|---|
+| `image` | `focus=top` (`bottom` `left` `right` `center`) | which part of the picture matters, so a layout that crops keeps it in view. A fact about the picture, not a placement; collage's bare focus hints mean the same and may also be written this way |
+| | a treatment word (below) | how the picture is set, chosen from a short curated list |
+| `video` | `poster=` | the still that stands for the clip: a `sample:` picture, an `asset:` picture, a path or a web picture. Omitted, the clip supplies its own: a Library video's captured poster, the host's thumbnail from the oEmbed cache (wiring D6), or the first frame of a video file; failing all three, the drawn stand-in |
+| | `autoplay` | plays as soon as the slide shows, muted (browsers allow autoplay only without sound), on surfaces that play: the HTML player, the presenter, the Studio. PDF and PowerPoint show the poster. A web-hosted clip autoplays only after the reader has allowed web media, because loading it is a request to a third party (HARD RULE #22) |
+| | `fullscreen` | the clip opens full screen when played, rather than in the slide's frame |
+| | `start=1:30` | where playback starts, for hosts that take a start offset; the poster link and the QR open there too |
+| | `qr` | adds a scannable code of the watch address |
+| `qr` | `c1` … `c12` | the code's ink, from the deck's color cycle (owner, 2026-10-16). Lint warns when a slot's contrast against the code's paper is too low to scan, in light and dark mode alike |
+| | `ec=L` `M` `Q` `H` | error correction, default `M` |
+
+**Treatments: the picture stays the subject.** The owner's ask is a flavor that never takes away from the picture.
+That splits treatments in two, and the proposal is a short list in each:
+
+- **A setting, around the picture, which never touches its pixels.** The record's mat (the margin a layout gives
+  a framed figure) takes one of the deck's finishes, scoped to the mat: `nimbus` (soft accent blooms), `gallery`
+  (the museum keyline frame) or `halo` (a spotlight and vignette). These reuse the finish presets in
+  `lib/finishes/`, so a theme change recolors them. The other finishes (ledger's ruled lines, savile's pinstripe,
+  loom's cross-hatch) are patterns that would compete with a photograph, so they are left out.
+- **A tone, on the picture itself, for when it must sit back.** `duotone` maps the picture to two of the palette's
+  colors (ink and accent), so a photo behind text or beside a chart belongs to the deck; `mono` is plain grayscale.
+  A tone changes the picture, so neither is a default.
+
+The deck sets a default once (`image: nimbus` or `image: gallery duotone`), a slide overrides it with a class, and a
+record's own word wins, as `icon:` and `avatar:` work. **Which words make the list is open (§8, decision 6)**, and
+it needs a rendered contact sheet of each candidate on light and dark themes before it is settled (QUALITY BAR).
+
+**What the vocabulary deliberately does not use**, so a word means one thing across charts and media:
+
+- **No placement, size or fit words.** They belong to the layout (the rule above).
+- **No `size=`, `kind=`, `when=`, `to=`, `after=`, `value=`, `x=`, `y=`, `group=`.** Each is a #2723 chart field. A
+  video's start is `start=`, not `when=`, because `when` is a date or a span.
+- **No `alt=`, `caption=` or `label=`.** `description` and `title` cover what they did, and Markdown's alt and title
+  fill them. The `video` and `qr` bullets' `caption` key becomes `title` (`lint:deck --fix`).
+- **No pixel sizes (`w=200`) or filters (`blur`, `sepia`).** Marp's keywords are retired (§8, decision 2).
+- **No `{> …}` inside a record.** In #2723 that form describes a table cell; a record names its description.
+
 ## 5. Why records, not Marp keywords
 
 Marp hides options in the alt text (`![bg left:40% blur](x)`), so the alt text a screen reader needs is
@@ -316,11 +378,20 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    source, so no glyph reaches a slide (HARD RULE #29).
 4. **Remote sources are fetched in the bake into a content-addressed cache, behind consent** (§4.1). The
    render stays offline, and an export carries one copy of each file.
+5. **A plugin describes; the layout places** (§4.7). Records carry the thing, a `title`, a `description` and a few
+   per-plugin words. Placement, size, fit and scrim belong to the component the record sits in.
+6. **Treatments: open.** The owner wants a flavor that lets the picture shine, naming the `nimbus` finish and
+   duotone. The proposal (§4.7) is settings on the mat (`nimbus`, `gallery`, `halo`) and tones on the picture
+   (`duotone`, `mono`). It is settled from a rendered contact sheet, light and dark.
+7. **`@video` takes `start=`**, and no `end=`.
+8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
 
 ## 9. Progress
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: §4.7 added, then revised on the owner's answer: a plugin describes (thing, title, description and a few
+  per-plugin words), the layout places. Treatments split into settings (finishes on the mat) and tones (duotone, mono).
 - 2026-10-16: D3, D4, D8, D9 and the runtime-mirror path reproduced on real surfaces (CLI renders, the Studio
   under Playwright, `engine.render`). D3 turned out worse than first written, and D4 and D9 narrower.
 - 2026-10-16: a fact-check pass corrected five citations: the scheme-check count, a line number, the scope of
