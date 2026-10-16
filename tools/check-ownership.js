@@ -6088,6 +6088,14 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/library-images-complete.spec.ts', ms: 150, count: 1,
+    why: 'A QUIET WINDOW, polled: `menuSettled` waits until the completion menu has held the same options for '
+       + 'longer than CodeMirror\'s `interactionDelay` (75ms, the default the Studio keeps), because an Enter '
+       + 'inside that window is passed to the Markdown keymap and inserts a list continuation instead of '
+       + 'accepting (followups.d/2668-p3). CodeMirror keeps the menu\'s open time in private state, so there is '
+       + 'no signal to poll; "the menu did not change for 150ms" is an absence, read inside a bounded expect.poll.',
+  },
+  {
     file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
     why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
        + 'point behind it (#2648 P1). Present\'s window listener would open the chart-detail card on '

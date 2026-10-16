@@ -398,8 +398,13 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	await savedDeckWith(page, 'Deck B');
 
 	// The docked Library may already be open from the first deck: the toolbar button toggles it, so only press it when closed.
+	// The new deck re-mounts the shell, and the Library panel may or may not come back open. Asking `isVisible()` at
+	// once raced that mount: a panel still mounting read as shut, and the run waited 15 s on a tab that was never asked
+	// for (followups.d/2687-p3). Wait for ONE of the two settled states, then act on the one that is there.
 	const imagesTab = page.getByRole('tab', { name: 'Images' });
-	if (!(await imagesTab.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
+	const openLibrary = page.getByRole('button', { name: CHROME.library });
+	await expect(imagesTab.or(openLibrary).first()).toBeVisible({ timeout: 15_000 });
+	if (!(await imagesTab.isVisible())) await openLibrary.click();
 	await imagesTab.click();
 	await page.locator('[data-media-card="shared-probe"]').getByRole('button', { name: 'Details for shared-probe' }).click();
 	const dialog = page.locator('[data-media-detail="shared-probe"]');
@@ -611,8 +616,13 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	const craft = page.locator('header').getByText('Craft', { exact: true });
 	if (await craft.isVisible().catch(() => false)) await craft.click();
 
+	// The new deck re-mounts the shell, and the Library panel may or may not come back open. Asking `isVisible()` at
+	// once raced that mount: a panel still mounting read as shut, and the run waited 15 s on a tab that was never asked
+	// for (followups.d/2687-p3). Wait for ONE of the two settled states, then act on the one that is there.
 	const imagesTab = page.getByRole('tab', { name: 'Images' });
-	if (!(await imagesTab.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
+	const openLibrary = page.getByRole('button', { name: CHROME.library });
+	await expect(imagesTab.or(openLibrary).first()).toBeVisible({ timeout: 15_000 });
+	if (!(await imagesTab.isVisible())) await openLibrary.click();
 	await imagesTab.click();
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');
