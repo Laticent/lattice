@@ -19,7 +19,8 @@ summary: >
 Status: proposed. The owner's decisions are in §8; packaging is on hold. Parents: `2026-09-27-plugin-system.md` (the plugin
 contract), `2026-10-14-plugin-inline-door.md` (the `@kind{…}` form), `2026-09-28-segno-unified-inline-notation.md`
 (the record grammar), `2026-10-12-library-media-assets.md` (the `asset:` namespace and the Library),
-`2026-09-13-plugin-architecture.md` (the "T0 Provider" tier, whose first example was video providers).
+`2026-09-13-plugin-architecture.md` (the "T0 Provider" tier, whose first example was video providers). Sibling:
+`2026-10-15-bridges-and-two-hosts.md` (the Marp bridge and the two plugin hosts these plugins are built for, §4.4).
 Sibling: `2026-10-16-qr-plugin.md` (the `qr` plugin; the video figure's QR code becomes a call to its service).
 
 ## 1. The answer
@@ -194,6 +195,22 @@ hosts can serve it, and the others show the stand-in.
 | Image placement, treatment, `@image` | `lib/plugins/image/` | owns the syntax; the slide classes require it |
 | Video providers, `@video` | `lib/plugins/video/` | the T0 table plus the inline kind; a deck with no video loads none of it |
 | `image`, `collage`, `video` slide classes | components, unchanged in place | layouts that compose the plugins |
+
+**Built for the bridge and the two hosts** (added 2026-10-16; `2026-10-15-bridges-and-two-hosts.md`). That note
+simplifies the plugin contract before user plugins ship (its D4, phases P2 and P3). These plugins are built to it:
+
+- **How each one draws.** `image` and `qr` draw with `render(source, ctx)`, synchronous on both hosts (its §5.1). `video`
+  renders its figure and poster the same way; its preview overlay and its player are the browser host's work.
+  None needs `draw(figures)`, so none carries that contract's `data-lattice-figure` marker (its §5.3); a media figure
+  carries `data-lattice-media` (§4.5).
+- **What the host decides.** When a figure is drawn, which surface gets what, and what a failure shows (its §5.2). A
+  plugin states only the facts it alone knows. The QR plugin's one: a failure shows an error figure, never the source
+  (§4.11), overriding the host's "show the source" default.
+- **Payload.** The `qrcode` library is the QR plugin's payload, loaded only when a deck uses a code (its §5.1, item 5).
+- **No removed fields.** If slices 2 and 3 start before P2 and P3 land, their manifests use only the fields that note
+  keeps (its §5.3): no `render.surfaces`, `render.exec`, `render.parity` or `hydrate.budgetMs`.
+- **The Marp bridge.** Export-to-Marp is that note's first bridge. Its per-bridge translation for `image` writes
+  Marp's `![bg left](x)` keywords back out (decision 2); `@video` and `@qr` go out as their drawn form (§4.11).
 
 ### 4.5 The address comes only from the author's block (added 2026-10-16, after #2725)
 
@@ -760,7 +777,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
    input is narrower, so each one is easier to prove.
 2. **Marp's alt-text keywords: a clean break, with an autofix.** `![alt](src)` stays as the plain image alias.
    Placement and treatment move to `@image{…}`, and `lint:deck --fix` rewrites `![bg left](x)` and the rest.
-   This matches Segno's no-dual-syntax decision. Export-to-Marp still writes the keywords back out.
+   This matches Segno's no-dual-syntax decision. Export-to-Marp still writes the keywords back out. Confirmed after
+   the trio (owner, 2026-10-16): Lattice is not generally available, so there are no users' decks to protect; the
+   shipped files are migrated by `--fix` in slice 3; and a Marp deck coming in is the bridge note's import (its §4.5,
+   best effort, later), which applies the same rewrite.
 3. **Video gets the sigil `>`:** `` `>{https://youtu.be/…}` `` is `@video{…}`. The tag set is
    `INLINE_TAGS` in `lib/plugins/resolve.js:419` (`~ ^ !` today), a copy a test holds to Segno's `TAGS` in
    `docs/src/lib/segno/notation-grammar.ts:24`, so slice 2 widens both to four. A tag also stops a top-level Segno
@@ -807,7 +827,8 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
 19. **The host component owns display, the author owns the words** (§4.7). A host may hide or restyle the title and
     description and override frame, size, `show=`, crop, bleed and finish; it never changes the words. A placing host
     ignores size and frame. No lint warning when a host overrides a setting; the component's `.docs.md` says what it
-    decides.
+    decides. A host hides or shows text only by setting the plugin's `show=` default for itself, never with CSS of its
+    own reaching into the figure (owner, 2026-10-16, after the trio; §4.11).
 
 ## 9. Progress
 
@@ -821,6 +842,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   element, the one source every reader takes (§4.7; decision 18).
 - 2026-10-16: owner settled decisions 17 (the plugin owns its title and description) and 18 (the
   `data-lattice-*` attributes).
+- 2026-10-16: owner, after the trio: decision 2 stays a clean break (not GA; the bridge note's import handles Marp
+  decks); a host hides text only through the plugin's `show=` default (decision 19); scope and slices kept. §4.4 now
+  ties the plugins to `2026-10-15-bridges-and-two-hosts.md`.
 - 2026-10-16: adversarial trio on jank, coupling and security: §4.11 added; fixed the record-versus-host order, the
   QR built title, the forged-attribute rationale, the narration of figcaptions and the build order (slice 5 added).
 - 2026-10-16: owner settled decision 19: hosts own display, the author owns the words; no override warnings.
