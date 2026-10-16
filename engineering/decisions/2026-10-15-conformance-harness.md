@@ -496,7 +496,7 @@ What shipped, what it measured, and what is held for the owner. Numbers are from
   `files-both-ways`, `css-wired`, `variants-rendered`, `variant-known-to-lint`, `axes-coherent`,
   `capacity-coherent`, `logical-properties`, `card-row-labeled`, `cards-declared`. Only the last
   three catch anything on day one: 44 components carry 402 physical left/right declarations
-  (the ratchet, §12.5), and `stats`, `actors` and `kpi` carry `cards` debt (§12.2). The other six
+  (the ratchet, §12.5), and `stats`, `actors` and `kpi` had no `cards` declaration (§12.2); the owner ruled they adopt it, which landed in the same PR (§13.6). The other six
   catch nothing today and say so; they are the reach guarantee for the render tier and keep six
   drifts from opening.
 - **Ledger `ceiling`.** A clause that counts (`measure`) puts an integer ceiling on its debt entries:
@@ -601,3 +601,18 @@ ledger does not cover); axe `empty-table-header` on `heatmap` and `line`; overfl
 `citation-card`, `list`, `math`, `regulatory-update`; one page-level `page-has-heading-one` axe
 violation, and 2 slides with no gallery header (a harness fault to chase). 209 run-palette scores are
 left out by `PROBE_LIMITS`.
+
+### 13.6 `stats`, `actors` and `kpi` adopt `cards` (owner ruling 2026-10-16)
+
+Shown today-versus-adopted renders, the owner ruled they adopt now. Each declares `cards: { default: "center" }`
+and its CSS reads `--cards-align`, `--cards-grow` / `--cards-track` and `--cards-basis` with the
+pre-adoption values as fallbacks, so a section the engine stamped nothing on (a pane, a split page)
+looks as it did. `stretch` reproduces the previous look: rows and tiles fill the stage.
+
+What changes by default: `stats` nothing visible (its strip was already centered; `top`, `spread` and
+`stretch` now work on it, wide family only, since tall, strip and square stack and fill the frame by
+design); `actors` and `kpi` stop growing short content to fill the stage and sit centered. Checked
+across `hd`, `standard`, `square`, `portrait`, `story` and `mobile-landscape` on all three
+galleries: no slide newly overflows (the six deliberate overflow demos are unchanged, and one,
+`kpi` square slide 22, now fits). Demo deck: `examples/cards-stats-actors-kpi.md`. The three debt
+entries are gone from `test/conformance/debt.json`.

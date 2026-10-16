@@ -12,6 +12,7 @@
   "components": {
     "actors": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "heading"
       ]
@@ -226,6 +227,7 @@
     },
     "kpi": {
       "surfaces": [
+        "card-row",
         "eyebrow",
         "heading"
       ],
@@ -460,6 +462,7 @@
     "stats": {
       "surfaces": [
         "card-rail",
+        "card-row",
         "card-surface",
         "eyebrow",
         "heading"

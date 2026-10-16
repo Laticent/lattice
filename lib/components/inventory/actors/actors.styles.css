@@ -29,7 +29,7 @@ section.actors > .cell-stage > ol {
    * last card. With it the rows distribute into the stage and every card stays on
    * canvas. */
   flex:1; min-height:0;
-  justify-content:flex-start;
+  justify-content:var(--cards-align);
 }
 section.actors > .cell-stage > ul > li,
 section.actors > .cell-stage > ol > li {
@@ -45,7 +45,9 @@ section.actors > .cell-stage > ol > li {
   /* Rows distribute to fill the bounded stage (flex cell-tree §6) — uniform card
    * heights that fit the shorter stage instead of natural-height rows that overran
    * it. min-height:0 lets a dense deck compress gracefully rather than clip. */
-  flex:1; min-height:0;
+  /* Rows hug their content and sit where `cards` says; `stretch` (the pre-register look) grows
+   * them to fill the stage. The fallbacks are that pre-register look for an unstamped section. */
+  flex:var(--cards-grow, 1) 1 var(--cards-basis, 0%); min-height:0;
   padding:var(--sp-sm) var(--sp-lg);
   background:var(--bg-alt);
   border:1px solid var(--border);

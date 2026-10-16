@@ -230,3 +230,14 @@ section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.la
 section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
   align-self: center;
 }
+
+/* ── card composition (resolve-cards.js) ────────────────────────────────────────────────
+ * Where the strip sits when the stage is taller than it needs: `--cards-align` from the
+ * component's `cards` default or the deck's `cards:`. WIDE family only: square, tall and
+ * strip stack the numbers into a column that fills the frame (`space-evenly` there does
+ * the filling), which is a different composition and is left alone. The manifest is the only place the default lives
+ * (resolve-cards.js), so there is no `--cards-align` fallback here. */
+section.stats:where(:not(.math)):not([data-family="square"], [data-family="tall"], [data-family="strip"]):not([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage {
+  display: flex; flex-direction: column; justify-content: var(--cards-align);
+}
+section.stats:where(:not(.math))[data-cards="stretch"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol { flex: 1; }

@@ -234,7 +234,7 @@ section.kpi.briefing > .cell-stage > ol,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-  /* Rows: `minmax(min-content, 1fr)` — divide the stage, never below content.
+  /* Rows: `minmax(min-content, var(--cards-track, 1fr))` — divide the stage, never below content.
    *
    * ROUND ONE of this bug swapped bare `1fr` (= minmax(auto,1fr)) for minmax(0,1fr)
    * to let the rows shrink. It did not help — the demand was the row COUNT, not the
@@ -245,8 +245,8 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
    * clips it, and the export's overflow report names the page. Visible, never silent.
    *
    * The COUNT — the actual fix — is set below, from the metrics actually authored. */
-  grid-template-rows: minmax(min-content, 1fr);
-  grid-auto-rows: minmax(min-content, 1fr);
+  grid-template-rows: minmax(min-content, var(--cards-track, 1fr));
+  grid-auto-rows: minmax(min-content, var(--cards-track, 1fr));
   gap: 0 var(--sp-2xl);
 }
 /* Row count = support count. The hero spans `1 / -1`, so the explicit row count IS
@@ -269,11 +269,11 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * as the layout extending gracefully; it does not, by design and by declaration. */
 section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
-  grid-template-rows: repeat(2, minmax(min-content, 1fr));
+  grid-template-rows: repeat(2, minmax(min-content, var(--cards-track, 1fr)));
 }
 section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(4)),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(4)) {
-  grid-template-rows: repeat(3, minmax(min-content, 1fr));
+  grid-template-rows: repeat(3, minmax(min-content, var(--cards-track, 1fr)));
 }
 /* THE HERO IS THE FOCUS, so it is composed like one: centered on BOTH axes.
  *
@@ -429,7 +429,7 @@ section.kpi.ops > .cell-stage > ol {
   grid-template-columns: 1fr 1fr;
   /* minmax(min-content,1fr): the 2×2 cells share the bounded stage, and floor at
    * their own content rather than overprinting each other (see briefing note). */
-  grid-template-rows: repeat(2, minmax(min-content, 1fr));
+  grid-template-rows: repeat(2, minmax(min-content, var(--cards-track, 1fr)));
   gap: var(--sp-md);
   /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
   padding: var(--elevation-berth);
@@ -646,7 +646,7 @@ section.kpi.trajectory > .cell-stage > ol {
    * content (justify-content:center below), so a full-height card reads as a deliberate
    * tile, not a stretched box. The min-content floor is the shared family rule (see
    * the briefing note): fill the stage, but never squeeze a card under its content. */
-  grid-auto-rows: minmax(min-content, 1fr);
+  grid-auto-rows: minmax(min-content, var(--cards-track, 1fr));
   gap: var(--sp-md);
   /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
   padding: var(--elevation-berth);
@@ -693,16 +693,16 @@ section.kpi.spotlight > .cell-stage > ol {
    * sizing model as briefing — flexible rows with a min-content floor, and a row
    * COUNT that follows the supports actually authored rather than a hard-coded
    * three (see the briefing note above for both). */
-  grid-template-rows: minmax(min-content, 1fr);
-  grid-auto-rows: minmax(min-content, 1fr);
+  grid-template-rows: minmax(min-content, var(--cards-track, 1fr));
+  grid-auto-rows: minmax(min-content, var(--cards-track, 1fr));
   align-items: stretch;
   gap: var(--sp-2xl);
 }
 section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
-  grid-template-rows: repeat(2, minmax(min-content, 1fr));
+  grid-template-rows: repeat(2, minmax(min-content, var(--cards-track, 1fr)));
 }
 section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(4)) {
-  grid-template-rows: repeat(3, minmax(min-content, 1fr));
+  grid-template-rows: repeat(3, minmax(min-content, var(--cards-track, 1fr)));
 }
 /* THE PILL LINE IS A FLEX CONTAINER, so `text-align` does not reach it.
  *
@@ -1032,3 +1032,10 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
  * numbers and their labels own the narrow frame instead of crowding it. */
 section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul) li code { display: none; }
 
+
+/* ── card composition (resolve-cards.js) ────────────────────────────────────────────────
+ * Every grid above sizes its rows `minmax(min-content, var(--cards-track))`: `1fr` under
+ * `stretch` (the pre-register look: tiles fill the stage), `auto` otherwise, so the tiles
+ * hug their content and `--cards-align` places the band. The track fallback is the pre-register
+ * look for a section the engine stamped nothing on; `--cards-align` has none (the manifest owns it). */
+section.kpi.kpi.kpi > .cell-stage > ol { align-content: var(--cards-align); }
