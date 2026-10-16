@@ -54,8 +54,12 @@ const bigLiteral = `const s = lit('${'x'.repeat(20_000)}');\nreturn { start: 'r'
 // `compile` accepts a numeric start (rules['1'] exists), then `parse` throws inside the worker.
 const numericStart = "return { start: 1, rules: { '1': lit('a') } };";
 
-// 300 alternatives that all start with "a": one problem per overlapping pair, 300 × 299 / 2 = 44,850.
-const alt300 = `return { start: 'r', rules: { r: ref('k'), k: alt(${"seq('a', 'b'), ".repeat(299)}seq('a', 'b')) } };`;
+// Six alternations of 60 branches that all start with "a". Segno names ten overlapping pairs per
+// alternation and counts the rest in one line ("55 more branches can start with …"), so this
+// gives 6 × 11 = 66 problems: past the page's 50, unlike one wide alternation, which now reports
+// 11 (the same shape as segno-playground-grammar.test.ts).
+const alt60 = `alt(${"seq('a', 'b'), ".repeat(59)}seq('a', 'b'))`;
+const alt6x60 = `return { start: 'r', rules: { r: seq(${[0, 1, 2, 3, 4, 5].map((i) => `ref('k${i}')`).join(', ')}), ${[0, 1, 2, 3, 4, 5].map((i) => `k${i}: ${alt60}`).join(', ')} } };`;
 
 // A cheap helper reused to just under the size cap: chars() of 61 characters, 4,801 times.
 const charSet = Array.from({ length: 63 }, (_, i) => String.fromCharCode(0x21 + i))
@@ -65,15 +69,21 @@ const chars4800 = `const s = chars('${charSet}');\nreturn { start: 'r', rules: {
 
 // Rules of node() nested 60 deep, each ending in the next rule: every character of text makes
 // rules × 60 nodes in one chain. 8 rules × 200 characters is 96,000 nodes; 40 rules is 2,400 deep.
-function nestedNodes(rules: number): string {
-	const body = (i: number) => `${"node('a', ".repeat(60)}${i + 1 < rules ? `ref('r${i + 1}')` : "lit('x')"}${')'.repeat(60)}`;
+function nestedNodes(rules: number, leaf = 'x'): string {
+	const body = (i: number) => `${"node('a', ".repeat(60)}${i + 1 < rules ? `ref('r${i + 1}')` : `lit('${leaf}')`}${')'.repeat(60)}`;
 	const ruleList = Array.from({ length: rules }, (_, i) => `r${i}: ${body(i)}`).join(',\n');
 	return `return { start: 's', rules: { s: many1(ref('r0')),\n${ruleList} } };`;
 }
 
-// 3,000 literals sharing a first letter, about 27 KB: Segno's compiler takes many seconds on it
-// (measured 22 s in Node), so only the page's time limit can answer it.
-const alt3000 = `return { start: 'r', rules: { r: alt(${Array.from({ length: 3_000 }, (_, i) => `'w${String(i).padStart(4, '0')}'`).join(', ')}) } };`;
+// A RUNAWAY, for the time limit. A compile request also parses the text in the box, so a grammar
+// that compiles at once can still run away on the text: 40 rules of 60 nested node() calls (2,400
+// pieces, under the size cap) build 2,400 tree nodes per character, and 10,000 characters took
+// 22.5 s in Node (compiling it, 49 ms). Its leaf is `y`, so the text can be put in the box first
+// under step 10's `x` grammar, which refuses it at character 0. It replaced an alt() of 3,000
+// literals, which Segno once took 22 s to lint and now refuses in 49 ms (lint names ten
+// overlapping pairs per alternation and counts the rest).
+const runaway = nestedNodes(40, 'y');
+const LONG_TEXT = 'y'.repeat(10_000);
 
 // ── Page helpers ──
 
@@ -208,14 +218,15 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					record({ step: 6, what: 'a numeric `start` does not build', result: 'does not build: segno: no rule "1"', ms });
 				});
 
-				// 7 — 44,850 problems reach the page as 50 plus a count.
-				await test.step('7 the 300-alternative refusal is capped at 50 problems', async () => {
-					const { ms } = await editGrammar(alt300, /^Refused/);
-					await expect(verdict).toContainText('… and 44,800 more');
+				// 7 — 66 problems reach the page as 50 plus a count, each alternation's own summary among them.
+				await test.step('7 the 6 × 60-alternative refusal is capped at 50 problems', async () => {
+					const { ms } = await editGrammar(alt6x60, /^Refused/);
+					await expect(verdict).toContainText('55 more branches can start with a character an earlier branch takes');
+					await expect(verdict).toContainText('… and 16 more');
 					// The verdict is the heading, then one text node per problem shown, then the count.
 					const shown = await verdict.evaluate((v) => v.childNodes.length - 2);
 					expect(shown).toBe(50);
-					record({ step: 7, what: 'the 300-alternative refusal', result: `${shown} problems + "… and 44,800 more"`, ms });
+					record({ step: 7, what: 'the 6 × 60-alternative refusal', result: `${shown} problems + "… and 16 more"`, ms });
 				});
 
 				// 8 — generated code is cut at 256 KB with a note saying how much was left out.
@@ -246,13 +257,15 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					record({ step: 10, what: 'the 2,400-deep tree', result: 'parses, not drawn', ms });
 				});
 
-				// 11 — a grammar Segno is slow to compile is stopped by the time limit.
-				await test.step('11 an alt() of 3,000 literals is stopped by the timer', async () => {
-					const { ms } = await editGrammar(alt3000, STOPPED, 20_000);
+				// 11 — a build that runs away (here, parsing the text with a huge tree) is stopped by the time limit.
+				await test.step('11 a 2,400-node-per-character tree over 10,000 characters is stopped by the timer', async () => {
+					await input.fill(LONG_TEXT);
+					await expect(verdict).toContainText(/this text stops at character 0:/);
+					const { ms } = await editGrammar(runaway, STOPPED, 20_000);
 					await expect(tree).toContainText('only that worker was stopped; this page kept running');
 					expect(ms).toBeGreaterThan(1_400);
 					expect(ms).toBeLessThan(4_000);
-					record({ step: 11, what: 'an alt() of 3,000 literals', result: 'stopped by the 1.5 s timer', ms });
+					record({ step: 11, what: 'a 2,400-node-per-character tree, 10,000 characters', result: 'stopped by the 1.5 s timer', ms });
 				});
 
 				// 12 — the page starts a fresh worker, and a preset works again.
@@ -266,12 +279,15 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 
 				// 13 — typing in the text box every 250 ms does not re-arm the timer on a runaway build.
 				await test.step('13 typing during a runaway still stops it', async () => {
+					await input.fill(LONG_TEXT);
 					await arm(page, STOPPED);
-					await code.fill(alt3000);
+					await code.fill(runaway);
 					let keys = 0;
 					const deadline = Date.now() + 10_000;
 					while (Date.now() < deadline && !STOPPED.test((await verdict.textContent()) ?? '')) {
-						await input.press('a');
+						// `y`, the runaway's own leaf: the caret can sit anywhere after fill() (Gecko puts it
+						// first), and any other key there makes the text fail at once instead of running away.
+						await input.press('y');
 						keys += 1;
 						await page.waitForTimeout(250);
 					}

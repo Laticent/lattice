@@ -1,9 +1,11 @@
 // The /segno playground's grammar box, off the main thread.
 //
 // Nothing the visitor types is executed: readGrammarSource (./segno-playground-grammar.ts) READS
-// the box as data. The worker is here for a different reason — Segno's compiler and code
-// generator are not linear in every grammar. A pasted `alt(...)` of 3,000 literals is 26 KB and
-// took about 10 s to compile and 14 s to generate; on the main thread that froze the tab. In here
+// the box as data. The worker is here for a different reason — a grammar can make Segno slow. A
+// pasted `alt(...)` of 3,000 literals is 26 KB and once took about 10 s to compile and 14 s to
+// generate (Segno now refuses it in under 0.1 s), and a grammar that compiles at once can still
+// build thousands of tree nodes per character of the text it parses (the e2e spec's runaway: 22 s
+// over 10,000 characters). On the main thread either froze the tab. In here
 // it only blocks this worker: the page (docs/src/pages/libraries/segno/index.astro) keeps one request in flight,
 // waits a fixed time for its answer, then terminates the worker, says the grammar took too long,
 // and starts a fresh one. The reader's size cap answers the common blowups (a name reused until it
