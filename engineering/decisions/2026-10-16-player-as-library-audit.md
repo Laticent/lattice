@@ -579,6 +579,38 @@ the same epoch gives the same SHA from both hosts" holds at the packer seam and 
 from markdown to file it does not hold yet, and closing that gap means one front end.
 `now` is pinned to the epoch in the Studio as it is in the CLI.
 
+### 11.2 The Studio's dead font faces (P2)
+
+**Cause.** `assemblePlayer` removed the deck sheet's own `@font-face` rules with a regex that
+matched only `url(fonts/…)`, the CLI's spelling. The Studio's sheet spells them
+`url(/playground/v/<hash>/themes/fonts/…)`, so they shipped. Under `font-src data:` they can only
+fail. The fix is one rule for both hosts, `stripUnloadableFontFaces` in `player-core.mjs`: drop a
+face whose every source is a non-`data:` URL, unless it also names a `local()` source; never touch
+`#lattice-embedded-fonts`.
+
+The checker found that the first cut ran the strip on each `<style>` element's markup, before the
+step that sanitizes and minifies its CSS. Deleting a face can join `</sty` and `le>` around it into
+a live terminator, and the text after it then parsed as markup in the shipped file (a reproduced
+breakout, HARD RULE #22; the old `fonts/`-only regex had the same hole). The strip now runs on the
+CSS inside that step, before `sanitizeStyleText`, and a scanner that skips strings and comments
+replaced the regex, so a quoted `}` in a family name no longer cuts a rule short.
+`test/unit/export/player-dead-font-faces.test.js` pins both, and fails on the first placement.
+
+**Evidence**, on the production docs build, Studio export of `examples/html-player.md`:
+
+| | P1 export | P2 export |
+|---|---|---|
+| Bytes | 918,858 | 735,536 (−20%; −33% against the 1,095,824 base) |
+| `@font-face` outside `#lattice-embedded-fonts` | 37 | 0 |
+| `error` faces in `document.fonts` (Chromium / WebKit / Firefox) | 8 / 0 / 8 | 0 / 0 / 0 |
+| Faces shipped | 12 | 6: Outfit 300–700 and JetBrains Mono 400–600 each declared once |
+| Pixels against the P1 export, 3 engines × 3 views × light/dark | | identical in all 18 |
+
+The CLI's bytes did not move (gallery `0b26848b…`; `examples/html-player.md` `55801c3d…`, both
+before and after). The Studio's merge goes further than the CLI's on the same deck (Outfit's five
+weights become one face, where the CLI merges only 500–600) because the Studio bundles different
+font files, which is the front-end difference §11.1 names, not a packer one.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever
