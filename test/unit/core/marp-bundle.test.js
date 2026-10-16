@@ -217,11 +217,13 @@ describe('marp-bundle spec', () => {
     assert.doesNotMatch(r, /--html --allow/);
     assert.match(r, /markdown\.marp\.html: "all"/);
     assert.doesNotMatch(r, /enableHtml/);
-    // Honest about the one route whose fidelity we cannot confirm. Deliberately
-    // asserts the HEDGE, not the claim: whether the preview webview executes the
-    // deck's scripts is UNVERIFIED and contested (engineering/gotchas.md). Pinning
-    // the unhedged wording would have turned CI red the day that got settled.
-    assert.match(r, /not something we can confirm/);
+    // The preview's script behavior, as measured (engineering/gotchas/vscode.md, settled
+    // 2026-09-06; reproduced on marp-vscode 3.6.1 for #2712): blocked at the default
+    // Strict level, run at Disable only, and NOT at either "Allow insecure" level.
+    assert.doesNotMatch(r, /not something we can confirm/);
+    assert.match(r, /does \*\*not\*\* run the deck's\n`<script>` tags at VS Code's default preview security level/);
+    assert.match(r, /pick\n\*\*Disable\*\*/);
+    assert.match(r, /"Allow insecure … content" levels do \*\*not\*\* run them/);
     assert.match(r, /\.html` opens standalone in any browser/);
     // Marp-native: the README must NOT point at a bundled emulator any more.
     assert.doesNotMatch(r, /lattice-emulator|\blattice\.js\b/);
