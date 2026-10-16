@@ -183,9 +183,10 @@ export function flatTree(text: string): Int32Array | null {
  *
  * WHY IT CANNOT DRIFT. Nothing here restates the grammar: the restricted grammar is computed from
  * the full one, and on an LL(1) grammar a restriction accepts only what the full grammar accepts,
- * by the same branches, so the trees are equal. The build seeds its node kinds from the full
- * parser's, so `FLAT_KIND` reads both. notation.test.ts holds the two trees equal on every short
- * span over the characters that steer them; codegen.test.ts holds the file fresh.
+ * by the same branches, so the trees are equal. The build seeds its node kinds with the full
+ * parser's (codegen.ts `kindsOf`), so `FLAT_KIND` reads both. notation.test.ts holds the two trees
+ * equal on every short span over the characters that steer them; codegen.test.ts holds the file
+ * fresh.
  */
 export function plainRecordTree(text: string): Int32Array | null {
   if (text.charCodeAt(0) !== 123 /* { */) return null;

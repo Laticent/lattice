@@ -58,7 +58,7 @@ const LIST_BANNER = libBanner('list-text-grammar.js', 'leading-marker.js, matrix
 async function segnoSource() {
   const r = await esbuild.build({
     stdin: {
-      contents: "export { generate } from './codegen.ts'; export { notationSpec, plainRecordSpec } from './notation-grammar.ts'; export * from './index.ts';",
+      contents: "export { generate, kindsOf } from './codegen.ts'; export { notationSpec, plainRecordSpec } from './notation-grammar.ts'; export * from './index.ts';",
       resolveDir: LIB_DIR,
       loader: 'ts',
     },
@@ -77,14 +77,12 @@ async function generatedNotation() {
 
 /**
  * The plain-record parser plainRecordSpec generates today. Its node kinds are numbered as the full
- * parser numbers them (the `kinds` seed, read off the full parser's own output), because
+ * parser numbers them (the `kinds` seed, codegen.ts `kindsOf`), because
  * schema.ts's fast bind walks either parser's tree with one table.
  */
 async function generatedPlain() {
   const S = await segnoSource();
-  const m = /^const KINDS: readonly string\[\] = (.*);$/m.exec(S.generate(S.notationSpec));
-  if (!m) throw new Error('the notation parser carries no KINDS table');
-  return S.generate(S.plainRecordSpec, { banner: PLAIN_BANNER, kinds: JSON.parse(m[1]) });
+  return S.generate(S.plainRecordSpec, { banner: PLAIN_BANNER, kinds: S.kindsOf(S.notationSpec) });
 }
 
 /** The parser a lib/core grammar generates today, as CommonJS. */

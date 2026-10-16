@@ -7,7 +7,7 @@
 
 export type { CharSet } from './charset.js';
 export * as charset from './charset.js';
-export { generate } from './codegen.js';
+export { generate, kindsOf } from './codegen.js';
 export type { Inconsistency, Use } from './consistency.js';
 export { consistency } from './consistency.js';
 export type { FlatTree } from './flat.js';

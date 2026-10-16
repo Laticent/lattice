@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { complement, fromRanges, has } from './charset';
-import { generate } from './codegen';
+import { generate, kindsOf } from './codegen';
 import { toNodes } from './flat';
 import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, restrict, seq, set } from './grammar';
 import { attempt, node } from './index';
@@ -74,8 +74,15 @@ describe('the checked-in generated file is fresh', () => {
   it.skipIf(!!process.env.SEGNO_MUTATE)('the plain-record parser matches what the generator writes from plainRecordSpec', () => {
     const file = readFileSync(new URL('./notation-plain.generated.ts', import.meta.url), 'utf8');
     const banner = file.slice(0, file.indexOf('\n\n') + 2);
-    const kinds = JSON.parse(/^const KINDS: readonly string\[\] = (.*);$/m.exec(generate(notationSpec))?.[1] ?? '[]');
-    expect(file).toBe(generate(plainRecordSpec, { banner, kinds }));
+    expect(file).toBe(generate(plainRecordSpec, { banner, kinds: kindsOf(notationSpec) }));
+  });
+  it('kindsOf is the KINDS table the generated parser carries, and a seed numbers a restricted parser the same way', () => {
+    const table = (src: string) => JSON.parse(/^const KINDS: readonly string\[\] = (.*);$/m.exec(src)?.[1] ?? 'null');
+    expect(kindsOf(notationSpec)).toEqual(table(generate(notationSpec)));
+    const parsed = generatedFlat('{a}');
+    expect(parsed.ok ? parsed.tree.kinds : null).toEqual(kindsOf(notationSpec));
+    expect(table(generate(plainRecordSpec, { kinds: kindsOf(notationSpec) }))).toEqual(kindsOf(notationSpec));
+    expect(table(generate(plainRecordSpec))).not.toEqual(kindsOf(notationSpec)); // unseeded, it numbers its own way
   });
 });
 

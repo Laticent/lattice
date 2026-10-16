@@ -475,7 +475,8 @@ parser first and asks the full one about anything it refuses.
 The two cannot disagree. On an LL(1) grammar a choice is made on the next character, and a
 restriction only removes branches, so whatever the restricted parser accepts, the full one accepts
 by the same branches, and both build the same tree. The build numbers the restricted parser's node
-kinds as the full parser numbers them, so one reader walks both trees. `notation.test.ts` holds the
+kinds as the full parser numbers them (`generate(small, { kinds: kindsOf(full) })`), so one reader
+walks both trees. `notation.test.ts` holds the
 two trees equal, node for node, on every short span over the characters that steer a plain record
 and over the characters that leave the shape. A change to the grammar regenerates both parsers, and
 `build:check` fails if either committed file is stale.
