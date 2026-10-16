@@ -104,3 +104,16 @@ test('a value that does not read is refused with the reason, and the source is u
 	await expect(page.getByRole('alert')).toContainText('not a line or a range');
 	expect(await deckSource(page)).toBe(before);
 });
+
+test('when the writer does not load, the panel still opens and refuses a change with the reason', async ({ page }) => {
+	await page.route('**/esm/code-record.js', (route) => route.abort());
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	const before = await deckSource(page);
+	await toCompose(page);
+	await openOptions(page);
+	await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('src/load.ts');
+	await page.getByRole('switch', { name: 'Line numbers' }).click();
+	await expect(page.getByRole('alert')).toContainText('reload the page');
+	expect(await deckSource(page)).toBe(before);
+});

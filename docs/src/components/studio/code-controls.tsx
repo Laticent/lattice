@@ -277,9 +277,17 @@ function useCodeRecordKernel(): CodeRecordKernel | null {
 		let live = true;
 		type Reader = Omit<CodeRecordKernel, 'edit' | 'problem'>;
 		type Writer = { editRecord: CodeRecordKernel['edit']; fieldProblem: CodeRecordKernel['problem'] };
+		// A writer that did not load still leaves the panel: it reads the record and refuses every change
+		// with the reason, rather than the button vanishing with only a console line to say why.
+		const unwritable: Writer = { editRecord: () => null, fieldProblem: () => 'the code options could not load their writer; reload the page' };
 		Promise.all([
 			import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
-			import('@/playground/code-record-source.js').then((src) => src.loadCodeRecordWriter()),
+			import('@/playground/code-record-source.js')
+				.then((src) => src.loadCodeRecordWriter())
+				.catch((e) => {
+					console.error('[compose] the code options could not load the record writer', e);
+					return unwritable;
+				}),
 		])
 			.then(([m, w]) => {
 				const reader = (m as unknown as { inlineEditors: { code: Reader } }).inlineEditors.code;

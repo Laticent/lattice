@@ -84,7 +84,8 @@ export interface CodeRecordFields {
 /** One edit: a field to its new value; `null` takes the field out. */
 export type CodeRecordEdit = Partial<Record<keyof CodeRecordFields, string | number | boolean | null>>;
 
-/** The code kernel, as lib/authoring/inline-editors.js exports it (`code`). */
+/** The code kernel: the reader from lib/authoring/inline-editors.js (`code`), with the writer's `edit`
+ *  and `problem` from record-edit.js (esm/code-record.js), as code-controls.tsx composes them. */
 export interface CodeRecordKernel {
 	/** A record's fields (`@code{…}` → fields), with what it could not read. Never throws. */
 	read(text: string): { ok: boolean; value?: CodeRecordFields; problems?: string[] };

@@ -3,13 +3,14 @@
 // A button beside the fence's language picker in the divider pill (code-controls.tsx `CodeControls`)
 // opens this panel. Every field is the code plugin's record (lib/plugins/code/shared/record.js SPEC):
 // numbers, focus and mark lines, diff, wrap, copy, format, and the formatter's width, indent, quotes
-// and SQL dialect. Each change goes through the ENGINE's writer (`editRecord`, via
-// lib/authoring/inline-editors.js), which replaces only the word that changed, so the author's
-// spelling of every other field survives and an untouched deck round-trips byte for byte. A change
+// and SQL dialect. Each change goes through the ENGINE's writer (`editRecord`, lib/plugins/code/
+// shared/record-edit.js, loaded as esm/code-record.js), which replaces only the word that changed, so
+// the author's spelling of every other field survives and an untouched deck round-trips byte for byte. A change
 // the writer cannot make safely (a record that does not read, a field written twice) is refused and
 // said, never guessed at.
 //
-// Lazy: its own chunk, which CodeControls loads with the authoring bundle once the caret is in a fence.
+// Lazy: its own chunk, which CodeControls loads with the authoring bundle and the writer once the caret
+// is in a fence.
 // Design: engineering/decisions/2026-10-15-code-plugin.md §7 and §11.
 
 import { Cog } from 'lucide-react';
