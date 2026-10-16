@@ -557,6 +557,75 @@ async function flowchartTier() {
   return { summary };
 }
 
+// ── INLINE-SPAN TIER (the inline-code dispatcher, per span) ──────────────────
+//
+// Every inline-code span an author writes passes through lib/core/inline-code-directives.js,
+// which decides what it is: an escape (`escapedText`), then "does any kind render this?"
+// (`dispatches`). That decision costs tens of nanoseconds, and a change to it moves the cost by
+// 15-45 ns a span (#2683 changed a pill's parse, #2692 Segno's `isDirective` tag guard). The
+// render tier cannot see that: a deck carries a few hundred spans, so 15 ns each is a few
+// microseconds against a 100 ms render. This tier times the decision on its own.
+//
+// IT GATES ON A PAIRED RATIO, NOT ON NANOSECONDS. Between two processes on one machine the same
+// spans read anything from 29 to 54 ns (tools/parser-bakeoff/segno.mjs measured it), so a ±12%
+// band on absolute time would be red on an unchanged tree. So the tier times two columns in
+// short alternating slices — the shipped dispatcher, and the retired pre-Segno kernel
+// (tools/parser-bakeoff/reference.mjs `reference.inline`) on the same spans — and reports the
+// median of the per-slice ratios. Both halves of a pair run within a few hundred microseconds of
+// each other, so the machine's drift cancels. The timing lives in test/benchmark/inline-span-timer.mjs,
+// which this tier runs in a process of its own (see below).
+//
+// THE DENOMINATOR IS FROZEN CODE, for the reason the calibration probe is upstream code: a
+// denominator that moved with lib/ would hide the change. The retired kernel lives in
+// tools/segno-legacy/, which nothing ships. One part of it is live — it reads state marks
+// through lib/core/state-marks.js `parseInlineState` — and that is the price of reusing it: a
+// state-mark change moves both columns. A state mark is 3 characters and a few percent of the
+// kernel's time, so the ratio still sees a change to the dispatcher.
+//
+// THE SPANS ARE A FIXTURE (test/benchmark/fixtures/inline-spans.json), not the live corpus,
+// because the corpus grows whenever a deck gains an inline span and every such PR would then
+// read as WORKLOAD CHANGED. Regenerate it with
+//   node --input-type=module -e "import { readFileSync, writeFileSync } from 'node:fs';
+//     import { inputsFor } from './tools/parser-bakeoff/corpus.mjs';
+//     const p = 'test/benchmark/fixtures/inline-spans.json'; const f = JSON.parse(readFileSync(p, 'utf8'));
+//     f.spans = inputsFor('inline').real; writeFileSync(p, JSON.stringify(f, null, 1) + '\n');"
+// and re-bless in the same change.
+//
+// A BASE WORKTREE MAY HAVE NONE OF THIS: perf-nightly.yml copies only this file into the base
+// commit, so the timer is absent there, and the tier reports itself skipped rather than failing.
+const INLINE_TIMER = join(ROOT, 'test/benchmark/inline-span-timer.mjs');
+async function inlineSpanTier() {
+  const fixture = join(ROOT, 'test/benchmark/fixtures/inline-spans.json');
+  if (!existsSync(fixture) || !existsSync(INLINE_TIMER)) {
+    console.log('\n=== INLINE \u00b7 per-span dispatch === skipped: this tree has no inline-span fixture or timer');
+    return { summary: [] };
+  }
+  // A FRESH PROCESS, measured rather than assumed. Run inside this one, after the render tier has
+  // called the dispatcher with every shape a deck carries, the ordinary-code ratio read 8.0 on
+  // three runs of unchanged code and 6.1 on two: V8's feedback for the dispatcher landed in one of
+  // two states, and the 25% between them is twice the band. In its own process it read 5.70-5.83
+  // over five runs. The timer prints one JSON line; anything else is a failure to report.
+  const { execFileSync } = await import('node:child_process');
+  let out;
+  try {
+    out = execFileSync(process.execPath, [INLINE_TIMER, fixture], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+  } catch (e) {
+    console.log(`\n=== INLINE \u00b7 per-span dispatch === skipped: the timer failed (${e.message.split('\n')[0]})`);
+    return { summary: [] };
+  }
+  const { summary, skipped } = JSON.parse(out.trim().split('\n').pop());
+  if (skipped) {
+    console.log(`\n=== INLINE \u00b7 per-span dispatch === skipped: ${skipped}`);
+    return { summary: [] };
+  }
+  console.log('\n=== INLINE \u00b7 per-span dispatch (paired slices, own process) ===');
+  console.log(`${'dataset'.padEnd(48)}${'spans'.padStart(7)}${'shipped ns'.padStart(12)}${'kernel ns'.padStart(11)}${'ratio'.padStart(8)}`);
+  for (const r of summary) {
+    console.log(`${r.dataset.padEnd(48)}${String(r.spans).padStart(7)}${r.shippedNs.toFixed(1).padStart(12)}${r.kernelNs.toFixed(1).padStart(11)}${r.ratio.toFixed(3).padStart(8)}`);
+  }
+  return { summary };
+}
+
 // ── export / rasterize tier (lazy puppeteer) ──────────────────────────────────
 async function exportTier() {
   const { default: puppeteer } = await import('puppeteer');
@@ -1194,7 +1263,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, inlineSummary = null } = opts;
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -1277,6 +1346,11 @@ function blessBaseline(summary, render, opts = {}) {
   const flowchartOut = tierRows(flowchartSummary?.length ? flowchartSummary : null, 'flowchartDatasets', (s) => ({
     calls: s.calls, routed: s.routed, bounded: s.bounded, hits: s.hits, ms: round2(s.ms),
   }));
+  // THE INLINE-SPAN TIER BLESSES ITS PAIRED RATIO, which is what `checkInlineRows` compares; the
+  // two ns columns ride along so the diff shows the size of a change in real units.
+  const inlineOut = tierRows(inlineSummary, 'inlineDatasets', (s) => ({
+    spans: s.spans, ratio: Math.round(s.ratio * 1000) / 1000, shippedNs: round2(s.shippedNs), kernelNs: round2(s.kernelNs),
+  }));
   // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
   //
   // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
@@ -1339,6 +1413,9 @@ function blessBaseline(summary, render, opts = {}) {
     // The flowchart layout's replayed browser calls: full layouts routed, directions
     // ruled out by dagre alone, and cache hits, per page. Blessed on every bless.
     ...(flowchartOut ? { flowchartDatasets: flowchartOut } : {}),
+    // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
+    // Blessed on every bless.
+    ...(inlineOut ? { inlineDatasets: inlineOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
   const wrote = [`${summary.length} render`];
@@ -1348,7 +1425,64 @@ function blessBaseline(summary, render, opts = {}) {
   if (exportSummary?.length) wrote.push(`${exportSummary.length} export`);
   if (editSummary?.length) wrote.push(`${editSummary.length} edit`);
   if (flowchartSummary?.length) wrote.push(`${flowchartSummary.length} flowchart`);
+  if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
+}
+
+/**
+ * THE INLINE-SPAN CHECK. It compares the paired ratio (see `inlineSpanTier`), and it gates when the
+ * machine FINGERPRINT matches the blessing one — not the calibration probe as well, which the
+ * render rows need. The probe asks "is this machine running at the speed it was blessed at?", and
+ * the ratio has already divided that out: both halves of every pair ran on the same few hundred
+ * microseconds of the machine. What the ratio does not divide out is the CPU's design (a
+ * different core can favor one column's branches over the other's), which is what the
+ * fingerprint guards. Five `bench:check` runs of unchanged code read the two ratios within
+ * −1.9%/+1.4% and −5.4%/+0.5%, and a 15-18 ns per-span regression read +27-32%, so the render
+ * tier's 12% floor is the band.
+ *
+ * A second call with `confirming` (a Set of row names) re-checks only those rows and reports
+ * nothing about drift; `main()` uses it to confirm a regression on a fresh measurement.
+ */
+function checkInlineRows(rows, base, here, confirming = null) {
+  const out = { regressed: [], drift: false, won: false };
+  const comparable = sameFingerprint(base.blessedOn, here);
+  const band = base.tolerancePct ?? TOLERANCE_PCT;
+  console.log(confirming ? '\n=== INLINE CHECK \u00b7 pass 2 (confirming) ===' : '\n=== INLINE CHECK \u00b7 paired ratio vs committed baseline ===');
+  if (!comparable) console.log('  a different machine from the one that blessed it \u2014 the ratio is REPORTED, not gated.');
+  console.log(`${'dataset'.padEnd(48)}${'base'.padStart(8)}${'now'.padStart(8)}${'\u0394%'.padStart(8)}${'band'.padStart(8)}  verdict`);
+  for (const s2 of rows) {
+    if (confirming && !confirming.has(s2.dataset)) continue;
+    const b = base.inlineDatasets?.[s2.dataset];
+    if (!b) {
+      out.drift = true;
+      console.log(`${s2.dataset.padEnd(48)}${'\u2014'.padStart(8)}${s2.ratio.toFixed(3).padStart(8)}${'\u2014'.padStart(8)}${'\u2014'.padStart(8)}  NEW (re-bless)`);
+      continue;
+    }
+    if (b.spans !== s2.spans) {
+      out.drift = true;
+      console.log(`${s2.dataset.padEnd(48)}${String(b.spans).padStart(8)}${String(s2.spans).padStart(8)}${'\u2014'.padStart(8)}${'spans'.padStart(8)}  WORKLOAD CHANGED (re-bless)`);
+      continue;
+    }
+    const deltaPct = ((s2.ratio - b.ratio) / b.ratio) * 100;
+    let verdict = 'ok';
+    if (deltaPct > band) {
+      verdict = comparable ? 'REGRESSION' : 'slower (not gated)';
+      if (comparable) out.regressed.push(s2.dataset);
+    } else if (deltaPct < -band) {
+      verdict = comparable ? 'win' : 'faster (not gated)';
+      if (comparable) out.won = true;
+    }
+    console.log(`${s2.dataset.padEnd(48)}${b.ratio.toFixed(3).padStart(8)}${s2.ratio.toFixed(3).padStart(8)}${((deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(1)).padStart(8)}${('\u00b1' + band.toFixed(0) + '%').padStart(8)}  ${verdict}`);
+  }
+  if (!confirming) {
+    for (const name of Object.keys(base.inlineDatasets ?? {})) {
+      if (!rows.some((s2) => s2.dataset === name)) {
+        out.drift = true;
+        console.log(`${name.padEnd(48)}${'\u2014'.padStart(8)}${'absent'.padStart(8)}${'\u2014'.padStart(8)}${'\u2014'.padStart(8)}  MISSING (re-bless)`);
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -1366,6 +1500,7 @@ function checkBaseline(summary, render, opts = {}) {
   const exportSummary = opts.exportSummary ?? null;
   const editSummary = opts.editSummary ?? null;
   const flowchartSummary = opts.flowchartSummary ?? null;
+  const inlineSummary = opts.inlineSummary ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -1645,6 +1780,13 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  if (inlineSummary?.length) {
+    const r = checkInlineRows(inlineSummary, base, here);
+    regressedDatasets.push(...r.regressed);
+    drift ||= r.drift;
+    won ||= r.won;
+  }
+
   // THE RASTERIZE TIER. Only compared when THIS run produced it (`--export`), so a plain
   // `bench:check` is unchanged. Same-machine-only and no calibration index, for the print
   // tier's reasons: the probe is a markdown-it parse and says nothing about the cost of
@@ -1872,6 +2014,8 @@ async function main() {
   const edit = await editTier();
   // In-process too (~5s), and blessed: it is the flowchart layout's HARD RULE #19 record.
   const flow = await flowchartTier();
+  // In-process (~3s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
+  const inline = await inlineSpanTier();
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
@@ -1879,7 +2023,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary,
     });
   }
   if (wantCheck && wantBless) {
@@ -1903,7 +2047,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -1925,15 +2069,24 @@ async function main() {
       // row. Unreachable while nothing but the render tier could regress on a plain
       // `bench:check`; reachable the moment the export tier gates.
       const renderRegressed = pass1.regressedDatasets.filter((n) => render.summary.some((s) => s.dataset === n));
-      const browserTierRegressed = pass1.regressedDatasets.filter((n) => !renderRegressed.includes(n));
-      let confirmedRender = renderRegressed;
+      // The inline rows are re-measured too: their tier costs ~3s and is as exposed to a busy
+      // machine as the render tier, so they earn the same second sample.
+      const inlineRegressed = pass1.regressedDatasets.filter((n) => inline.summary.some((s) => s.dataset === n));
+      const browserTierRegressed = pass1.regressedDatasets.filter((n) => !renderRegressed.includes(n) && !inlineRegressed.includes(n));
+      let confirmedTwice = [...renderRegressed];
       if (renderRegressed.length) {
         console.log(`\nRe-measuring ${renderRegressed.length} regressed dataset(s) to separate a real slowdown from machine load…`);
         const second = await renderTier();
         const again = checkBaseline(second.summary, second, { confirming: new Set(renderRegressed) });
-        confirmedRender = renderRegressed.filter((n) => again.regressedDatasets.includes(n));
+        confirmedTwice = renderRegressed.filter((n) => again.regressedDatasets.includes(n));
       }
-      const confirmed = [...browserTierRegressed, ...confirmedRender];
+      if (inlineRegressed.length) {
+        console.log(`\nRe-measuring ${inlineRegressed.length} regressed inline row(s)\u2026`);
+        const second = await inlineSpanTier();
+        const again = checkInlineRows(second.summary, JSON.parse(readFileSync(BASELINE, 'utf8')), machineFingerprint(), new Set(inlineRegressed));
+        confirmedTwice.push(...inlineRegressed.filter((n) => again.regressed.includes(n)));
+      }
+      const confirmed = [...browserTierRegressed, ...confirmedTwice];
       const cleared = pass1.regressedDatasets.filter((n) => !confirmed.includes(n));
       if (cleared.length) {
         console.log(`\nNot reproduced on the second pass (machine load, not code): ${cleared.join(', ')}`);
@@ -1946,7 +2099,7 @@ async function main() {
         // export tier now makes reachable on a plain `bench:check -- --export`), the whole
         // sentence was untrue.
         const parts = [];
-        if (confirmedRender.length) parts.push(`${confirmedRender.join(', ')} — confirmed on two passes`);
+        if (confirmedTwice.length) parts.push(`${confirmedTwice.join(', ')} — confirmed on two passes`);
         // The non-render regressions split again, because they stand on one pass for
         // OPPOSITE reasons and saying "browser tier" about both is simply untrue. A
         // browser tier is not re-measured because it is expensive (print is ~11
@@ -1979,7 +2132,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',
