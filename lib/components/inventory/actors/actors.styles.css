@@ -31,6 +31,8 @@ section.actors > .cell-stage > ol {
   flex:1; min-height:0;
   justify-content:var(--cards-align);
 }
+/* `safe`: if the rows ever outgrow the stage, lose the tail, never the head (the token's `center` has no `safe`). */
+section.actors[data-cards="center"] > .cell-stage > :is(ul, ol) { justify-content: safe center; }
 section.actors > .cell-stage > ul > li,
 section.actors > .cell-stage > ol > li {
   /* flex mirror of `grid-template-columns:1fr auto` + a full-width second row: the header

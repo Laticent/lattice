@@ -235,9 +235,14 @@ section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.la
  * Where the strip sits when the stage is taller than it needs: `--cards-align` from the
  * component's `cards` default or the deck's `cards:`. WIDE family only: square, tall and
  * strip stack the numbers into a column that fills the frame (`space-evenly` there does
- * the filling), which is a different composition and is left alone. The manifest is the only place the default lives
- * (resolve-cards.js), so there is no `--cards-align` fallback here. */
+ * the filling), which is a different composition and is left alone. The manifest is the only
+ * place the default lives (resolve-cards.js), so there is no `--cards-align` fallback here. */
 section.stats:where(:not(.math)):not([data-family="square"], [data-family="tall"], [data-family="strip"]):not([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage {
   display: flex; flex-direction: column; justify-content: var(--cards-align);
 }
 section.stats:where(:not(.math))[data-cards="stretch"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol { flex: 1; }
+/* `safe`: a strip taller than the stage must lose its TAIL, never its head. `safe center` is the
+ * stage's own declaration above; `--cards-align: center` has no `safe`, so the default needs this
+ * per-value rule (`safe` is invalid with `stretch` and `space-evenly`, which is why it is not
+ * folded into the token). */
+section.stats:where(:not(.math))[data-cards="center"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]):not([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { justify-content: safe center; }

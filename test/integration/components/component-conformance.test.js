@@ -36,11 +36,10 @@ const { runEmulator, ROOT } = require('../../helpers/render');
 const { deckFromSample } = require('../../helpers/semantic-render');
 const { runMatrix, summarize, formatReport, probeOverflow, probeCardRows, probeAxe } = require('../../../tools/conformance-render');
 const { PROBE } = require('../../../tools/check-slide-contrast');
-const { offenders } = require('../../../tools/palette-sweep');
+const { offenders, listSweepThemes } = require('../../../tools/palette-sweep');
 
 const ONLY = (process.env.CONF_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean);
 const REPORT = path.join(ROOT, '.scratch', 'conformance-render', 'report.json');
-const MIN_PALETTES = 33;
 const MATRIX = process.env.CONFORMANCE_RENDER === '1';
 
 const manifest = (name) => {
@@ -82,7 +81,8 @@ describe('component conformance, render tier (report-only)', () => {
     });
     test('every shipped palette was swept, and each probed real text', () => {
       if (ONLY.length) return;
-      assert.ok(report.swept.palettes.length >= MIN_PALETTES, `swept ${report.swept.palettes.length} palettes`);
+      assert.equal(report.swept.palettes.length, listSweepThemes().length, 'every shipped palette is swept, however many ship');
+      assert.ok(report.swept.palettes.length >= 30, `only ${report.swept.palettes.length} palettes ship`);
       for (const p of report.swept.palettes) assert.ok(p.applied, `${p.theme}: the swapped sheet did not take (the sweep's oracle check failed)`);
       for (const p of report.swept.palettes) assert.ok(p.rows >= 4000, `${p.theme}: ${p.rows} text runs; the probe is not reaching the deck`);
       assert.ok(report.swept.distinctPaints >= 10, `only ${report.swept.distinctPaints} distinct painted canvases: the matrix collapsed`);
@@ -122,7 +122,7 @@ describe('component conformance, render tier (report-only)', () => {
       try {
         const clean = offenders(await page.evaluate(PROBE), new Set());
         assert.deepEqual(clean.map((r) => `${r.text} ${r.r}`), [], 'the shipped quote sample should be AA-clean on indaco');
-        await page.addStyleTag({ content: // Colour the TEXT elements only. A blanket `section *` rule also recolours the probe's own
+        await page.addStyleTag({ content: // Color the TEXT elements only. A blanket `section *` rule also recolors the probe's own
         // reference element, whose ink defines the "documented-exempt decorative" tier, so every run
         // then reads as exempt and nothing can be flagged.
         'section { background-color: #ffffff !important; } section :is(h1, h2, h3, p, li, blockquote, strong, em) { color: #cfe8cf !important; }' });

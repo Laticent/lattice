@@ -224,4 +224,29 @@ describe('conformance: the ledger checks dates against git, not against the entr
     write('test/conformance/debt.json', '{ "entries": [ { "instance": "b", "clause": "x.fresh", "reason": "r" } ] }\n');
     assert.ok(check({ clause: 'x.fresh', instance: 'b', reason: 'r' }).some((p) => p.includes('not found')));
   });
+
+  test('against a base branch: a multi-commit branch that adds a clause and edits its debt is one change', () => {
+    const r = fs.mkdtempSync(path.join(os.tmpdir(), 'conf-ledger-base-'));
+    const gg = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...a], { cwd: r, stdio: 'ignore' });
+    const w = (rel, text) => { fs.mkdirSync(path.dirname(path.join(r, rel)), { recursive: true }); fs.writeFileSync(path.join(r, rel), text); };
+    const cm = (m) => { gg('add', '-A'); gg('commit', '-q', '-m', m); };
+    const chk = (...es) => ledgerGitProblems(es, { cwd: r, base: 'main' });
+    gg('init', '-q', '-b', 'main');
+    w('lib/conformance/kinds/x.contract.js', clauseFile('x.old'));
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'seeded', 5)));
+    cm('base: a clause with debt');
+    gg('checkout', '-q', '-b', 'pr');
+    w('lib/conformance/kinds/x.contract.js', clauseFile('x.old', 'x.new'));
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'seeded', 5), entry('x.new', 'a', 4)));
+    cm('pr 1: a new clause and its debt');
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'seeded', 5), entry('x.new', 'a', 6)));
+    cm('pr 2: the new debt is edited upward in the same branch');
+    assert.deepEqual(chk(entry('x.new', 'a', 6)), [], 'a clause new in the branch is one change; its entries are not judged commit by commit');
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'seeded', 5), entry('x.new', 'a', 6), entry('x.old', 'late', 2)));
+    cm('pr 3: debt for a clause that is already on main');
+    assert.ok(chk(entry('x.old', 'late', 2)).some((p) => p.includes('after its clause landed')));
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'seeded', 9), entry('x.new', 'a', 6), entry('x.old', 'late', 2)));
+    cm('pr 4: a ceiling raised on an entry that is on main');
+    assert.ok(chk(entry('x.old', 'seeded', 9)).some((p) => p.includes('may only fall')));
+  });
 });

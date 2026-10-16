@@ -57,7 +57,9 @@ function changedComponents(base = 'origin/main') {
   }
   const names = new Set();
   for (const f of out.split('\n')) {
-    const m = f.match(/^lib\/components\/(?:[^/]+\/)?([^/_][^/]*)\//);
+    // Bucketed `<bucket>/<name>/…`, or a FLAT `<name>/<name>.<ext>`. A `_` shared folder maps to
+    // nothing here (its consumers are the nightly's to cover), never to its bucket's name.
+    const m = f.match(/^lib\/components\/[^/]+\/([^/_][^/]*)\//) || f.match(/^lib\/components\/([^/_][^/]*)\/\1\.[^/]+$/);
     if (m) names.add(m[1]);
   }
   return [...names].sort();
@@ -348,7 +350,7 @@ async function runMatrix(opts = {}) {
         // A gallery also holds slides it GENERATES: a title, a closing, and a `cards-stack` anti-pattern
         // slide on 73 of 75. Those carry the gallery's header but not the component's own class, so
         // crediting them to the component would charge it with another component's markup. They are
-        // probed (their findings print under `generated`) but never counted as the component's.
+        // probed (their findings are counted and printed as `generated`) but never credited to the component.
         for (const s of index) {
           const host = headers.get(s.header) ?? null;
           out.index.push({ ...s, slide: s.slide + offset });
@@ -423,18 +425,21 @@ function summarize(r, labels = {}) {
     name: f.name, slides: 0, overflow: [], cardRowSlides: 0, axe: [], contrast: new Map(), worst: null,
   }]));
   const at = (slide) => per.get(r.slideOwner.get(slide));
+  // Findings on slides a gallery GENERATES (title, closing, anti-pattern) belong to no component, but
+  // they are findings: counted here and printed, never dropped.
+  const generated = { overflow: 0, contrast: 0, axe: 0 };
   for (const s of r.index) { const o = at(s.slide); if (o) o.slides++; }
   // `unowned` = slides with no gallery header at all (a harness fault); generated slides are counted apart.
   const unowned = r.index.filter((s) => !s.header).map((s) => s.slide);
-  for (const o of r.overflow) if (o.over) at(o.slide)?.overflow.push(o.slide);
+  for (const o of r.overflow) if (o.over) { const c = at(o.slide); if (c) c.overflow.push(o.slide); else generated.overflow++; }
   for (const c of r.cardRows) if (c.cardRow) { const o = at(c.slide); if (o) o.cardRowSlides++; }
   const axeUnplaced = [];
-  for (const v of r.axeViolations || []) { const o = at(v.slide); if (o) o.axe.push(v); else axeUnplaced.push(v); }
+  for (const v of r.axeViolations || []) { const o = at(v.slide); if (o) o.axe.push(v); else if (v.slide != null) generated.axe++; else axeUnplaced.push(v); }
   if (r.swept) {
     for (const [theme, rows] of r.swept.offenders) {
       for (const row of rows) {
         const o = at(Number(row.page));
-        if (!o) continue;
+        if (!o) { generated.contrast++; continue; }
         o.contrast.set(theme, (o.contrast.get(theme) || 0) + 1);
         if (!o.worst || row.r < o.worst.r) o.worst = { r: row.r, theme, slide: Number(row.page), text: row.text, tag: row.tag };
       }
@@ -450,6 +455,7 @@ function summarize(r, labels = {}) {
   return {
     components: [...per.values()],
     unowned,
+    generated,
     axeUnplaced,
     trigger: { ...trigger, hitRate: rate(trigger.tp.length, trigger.fn.length), falseAlarmRate: rate(trigger.fp.length, trigger.tn.length) },
   };
@@ -469,6 +475,8 @@ function formatReport(r, summary) {
   if (unapplied.length) lines.push(`WARNING: the palette swap did not take for ${unapplied.join(', ')}`);
   if (summary.axeUnplaced?.length) lines.push(`axe: ${summary.axeUnplaced.length} violation(s) outside any slide: ${[...new Set(summary.axeUnplaced.map((v) => v.id))].join(', ')}`);
   if (summary.unowned.length) lines.push(`WARNING: ${summary.unowned.length} slide(s) with no gallery header`);
+  const g = summary.generated;
+  if (g && (g.overflow || g.contrast || g.axe)) lines.push(`findings on generated slides (credited to no component): overflow ${g.overflow} · contrast ${g.contrast} run-palette(s) · axe ${g.axe}`);
   if (r.probeLimited) lines.push(`probe limits: ${r.probeLimited} run-palette scores left out (see PROBE_LIMITS in this file)`);
   const flagged = summary.components.filter((c) => c.overflow.length || c.axe.length || c.contrast.size);
   lines.push(`findings in ${flagged.length} of ${summary.components.length} components:`);
