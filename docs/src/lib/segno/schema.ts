@@ -430,8 +430,8 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
   // mark) is bound straight from the parser's flat tree: no Item or Scalar object per item, no
   // Binding. It is the SAME bind as `bindItems` without the objects, and it never words a
   // diagnostic. It answers three ways: a success; `false`, a REFUSAL the full path is certain to
-  // make too (an unknown or ill-formed name, a word no parameter takes, a value its type does not
-  // read, a repeat, a missing positional); and null, "cannot tell" (a quote, a nested record or list,
+  // make too (a span that does not parse, an unknown or ill-formed name, a word no parameter takes,
+  // a value its type does not read, a repeat, a missing positional); and null, "cannot tell" (a quote, a nested record or list,
   // a `name=` whose value is not bare). On either of the last two `read` runs the full path, which
   // alone words a diagnostic, so an error reads as it always did; only `refuses` acts on `false`.
   // A refusal is sound because the walk stops at the FIRST bad item and the full bind never
@@ -443,7 +443,12 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
   const fastRead = (text: string): Bound<RecordOf<S>> | false | null => {
     // The plain shape is scanned directly; anything else asks the generated parser.
     const b = plainRecordTree(text) ?? flatTree(text);
-    if (b === null || b[0] !== FLAT_KIND.record) return null;
+    // A span that does not parse cannot bind: `read` reports the syntax error and fails. Saying so
+    // here lets `refuses` answer it too, without the full parse that words the message. A bare value
+    // or a list does parse, and the full bind may still read it as the record's primary alone, so
+    // that stays "cannot tell".
+    if (b === null) return false;
+    if (b[0] !== FLAT_KIND.record) return null;
     const end = b[3];
     // One item means the record is the whole span's only item: a spelling may then rewrite the span.
     const alone = b[7] === end ? { from: b[1], to: b[2] } : undefined;

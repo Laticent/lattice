@@ -458,6 +458,12 @@ describe('the fast read', () => {
     expect(state.refuses?.('{x}')).toBe(false);
     expect(pill.refuses?.('{"quoted", nope}')).toBe(false); // a quote: the walk cannot tell, the full bind decides
     expect(pill.refuses?.('{BETA, nope}')).toBe(true);
+    // A span that does not parse cannot bind, so it is refused without the parse that words the error.
+    for (const t of ['{ BETA}', '{BETA,}', '{a=b=c}', '{']) {
+      expect(pill.refuses?.(t), t).toBe(true);
+      expect(pill.read(t).ok, t).toBe(false);
+    }
+    expect(pill.refuses?.('BETA')).toBe(false); // a bare value parses, and binds as the record's primary
     expect(pill.refuses?.('{BETA, tag}')).toBe(false);
   });
 
