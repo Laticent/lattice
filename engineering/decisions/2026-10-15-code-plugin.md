@@ -488,3 +488,8 @@ Proof:
   Two calls made without the owner, both reversible: a flag the deck's `code:` default turns on (`numbers`, `wrap`,
   `diff`) shows as on and locked, because a flag has no "off" word to write per block; and text fields write when the
   author leaves them or presses Enter, because a half-typed range (`3-`) does not read.
+- 2026-10-16: follow-up, the copy tooltip in the Studio preview (followups.d/2710-p3-studio-preview-copy-tooltip). The
+  preview takes no pointer events, so `:hover` never reached a block: its buttons stayed at rest and their labels never
+  showed. The Studio now hit-tests the mouse as it moves over the preview, once a frame, and marks the block and button
+  under it with `data-host-hover` (docs/src/playground/code-copy-host.js `hoverCodeCopyAt`), which code.styles.css reads
+  beside `:hover`. Mouse only: a touch has no hover, and a tap already copies through the tap bridge.
