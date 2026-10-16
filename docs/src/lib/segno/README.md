@@ -48,8 +48,9 @@ This is 0.x: a minor version may break the API. Within that, two halves move at 
 - **Stable for 0.x:** declaring a slot (`record`, the types, `read`, `values`), `parse` for the
   inline notation, `readNumber` / `readTime`, and `SchemaError`. Lattice reads every deck through
   these.
-- **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`) and the
-  notation's own grammar (`notationSpec`, `TAGS`). Their names and shapes may change in any minor
+- **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`,
+  `restrict`, `kindsOf`), a record slot's `refuses`, and the notation's own grammar
+  (`notationSpec`, `plainRecordSpec`, `TAGS`). Their names and shapes may change in any minor
   version. The notation itself is specified in LFM 1.1 §3.6
   ([`spec/LFM-1.1.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.1.md)), which wins
   where it and this package disagree.
@@ -96,6 +97,38 @@ stack.
 A set holds characters one UTF-16 unit long: `chars()` and `charRange()` throw on an emoji or any
 other character outside the Basic Multilingual Plane, and on a range that runs backwards. Match such
 a character with `lit()`.
+
+### A faster parser for a common subset: `restrict`
+
+When most inputs take a few simple shapes, a parser that knows only those shapes can skip the
+branches they never take. `restrict(spec, { rules, nodes })` derives that grammar from yours
+instead of asking you to write a second one: it removes every reference to a rule in `rules` and
+every node of a kind in `nodes`, together with the branch that needs it.
+
+```ts
+import { compile, generate, kindsOf, restrict } from '@laticent/segno';
+
+const plain = restrict(spec, { rules: ['list', 'quoted'] }); // no lists, no quoted text
+const fast = compile(plain);
+const full = compile(spec);
+// Try the subset first; anything it refuses, the full grammar decides.
+const read = (text) => { const r = fast.parse(text); return r.ok ? r : full.parse(text); };
+
+// Generated, number the subset's nodes as the full parser does, so one reader walks both trees:
+generate(plain, { kinds: kindsOf(spec) });
+```
+
+The two parsers cannot disagree. On a strictly LL(1) grammar every choice is made on the next
+character, and removing branches can only make a parser refuse more, never read a span another way.
+So whatever the subset accepts, the full grammar accepts by the same branches, with the same tree.
+`restrict` throws rather than break that: inside a `greedy()` loop or optional, or an `attempt()`,
+removing a branch can change which branch wins, so it refuses to prune there. It also throws if
+it would remove the start rule, or leave a choice with a branch that matches nothing.
+
+Note that pruning does not by itself make the generated code faster. Measured on the notation, the
+generated parser of its plain-record subset ran at about the speed of the full one, 135 ns against
+139 ns. The subset earns its keep when the caller can skip work on what the subset refuses, as
+Lattice's pill check does below (§ How a record binds fast).
 
 ### Longest match, skip-to, and deeper nesting
 
@@ -494,8 +527,8 @@ other takes the full bind: the results are the same and the saving is lost.
 
 ## Build
 
-`npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
-`.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
+`npm run segno-lib:build` regenerates `notation.generated.ts` and `notation-plain.generated.ts`
+(the parser of `plainRecordSpec`) and writes `dist/` (ESM + CJS + `.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
 `@laticent/segno/values` — `readNumber`, `malformedNumber` and `readTime` alone, a few KB against the full library's
 80, for a consumer that only reads values and cannot tree-shake a CommonJS `require`; and
 `@laticent/segno/read` — `parse`, the schema builders and the types without the grammar compiler
