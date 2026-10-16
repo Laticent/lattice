@@ -414,8 +414,14 @@ list of Lattice assumptions still left.
    Once the merge widened Outfit to `300 700`, the broken exact `400` became the closer match:
    Chromium chose it, it failed, and the player's toolbar fell back to the system font. WebKit
    was unaffected. The merge now leaves alone any family that another stylesheet declares.
-   Measured on the Studio export of the sign-off deck: 1,390,177 → 926,003 bytes before that
-   guard. The dead font set is `followups.d/2728-p2-studio-export-dead-font-faces.md`.
+   With the guard, the Studio export of the sign-off deck goes from 1,390,177 to 1,182,881 bytes
+   (−15%, from the picture hoist alone). Old against new, that export is pixel-identical in
+   Chromium and WebKit in all three views, light and dark. In Firefox every comparison matched
+   except one, where the screenshot caught the *old* file before it had re-fit its slides; a
+   control comparing two copies of one file never differed. All 10 `webpage-export` e2e tests
+   pass, with one probe corrected to read the computed picture rather than the declared text.
+   The dead font set is `followups.d/2728-p2-studio-export-dead-font-faces.md`; once it is gone,
+   the Studio gets the font merge too.
 
    One thing turned up along the way: Firefox took more than 30 seconds to load the old 2.7 MB
    gallery file from disk.
