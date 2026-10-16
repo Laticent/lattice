@@ -25,7 +25,9 @@ sandbox), `spec/LPM.md` (a draft until the npm door opens).
   hostile author, because `globalThis['fe'+'tch']` passes any identifier scan.
 - A **harness** is a test that runs plugin code inside the locked page and tries to get data out.
   It is what contains a hostile plugin. The repo already has the walls for it
-  (`lib/core/code-sandbox.js`); the npm door has no test that aims them at a plugin.
+  (`lib/core/code-sandbox.js`), and `test/integration/export/plugin-fence-door.test.js` already runs a
+  stranger's zip plugin through the locked page with a network log that must read 0 (fetch,
+  WebSocket, `sendBeacon`). The npm door has no equivalent test; the harness builds on that one.
 
 The boundary does the protecting. The gate only keeps honest contributors honest.
 
@@ -68,13 +70,14 @@ The explicit list and the export record are good. Neither limits what an admitte
    run does not model.
 2. **The Studio and the desktop app are not `npm i` projects.** The Studio keeps the user's
    OpenRouter key in same-origin `localStorage` (`lattice-db-or-key`, read in four places on
-   2026-10-16). The planned Tauri app will hold it in the OS keychain. A plugin with full Node
-   privileges inside that app's process, or any plugin script in the Studio page, sits next to the
-   key and defeats the keychain. The plan says npm plugins resolve "at build time" and does not say
+   2026-10-16). The Tauri exploration note (`2026-05-10-tauri-exploration.md`) mentions the system keychain
+   for credentials; whether the desktop app will hold this key there is not decided. If it does, a
+   plugin with full Node privileges inside that app's process defeats the keychain. Any plugin
+   script in the Studio page sits next to the key today. The plan says npm plugins resolve "at build time" and does not say
    whether the Studio or the desktop app ever loads one.
 3. **Transitive dependencies.** An explicit plugin list pins which package Lattice loads. It does
    not pin what that package pulls in. npm runs a dependency's lifecycle scripts (`postinstall`) at
-   install, before Lattice sees anything. (Standard npm behavior; not tested here.)
+   install, before Lattice sees anything. (Measured 2026-10-16 with a throwaway tarball: a default `npm i` ran its `postinstall`; `--ignore-scripts` did not.)
 4. **Version drift.** Phase G turns version ranges on. A routine update then changes the code that
    renders every deck on the machine. The export record tells you afterward which hash ran; it does
    not stop the change.
@@ -85,14 +88,20 @@ The explicit list and the export record are good. Neither limits what an admitte
 ## 4. The principle that makes this tractable
 
 A plugin is smart about what it controls and dumb about what is around it. It takes data in and
-returns markup out. It never calls AI, never reads storage, never reaches the network. Authors
+returns markup out. It never calls AI, never reads storage, and loads nothing but its own deck's files and
+author-supplied URLs. Authors
 write plugins through the coach, and the plugin renders what the author typed or accepted.
 
 **Checked 2026-10-16: it holds for in-tree code.** A grep for `fetch`, `XMLHttpRequest`,
 `WebSocket`, `sendBeacon`, `localStorage`, `sessionStorage`, `indexedDB` and `openrouter` across
 `lib/plugins`, `lib/components` and `lib/runtime` (vendored libraries and generated files
-excluded) found one hit: `lib/runtime/index.js:618`, which fetches the deck's own markdown. AI
-calls live in the Studio's coach side (`architect-model.js`, `chat-agent.ts`, `voice-model.js`)
+excluded) found one code hit once comment lines are filtered out: `lib/runtime/index.js:618`, which
+fetches the deck's own markdown. The grep cannot see loads that use none of those names. A
+fact-check pass found these, all first-party files or author-supplied URLs and none a leak of
+stored data: script tags for the dagre engine (`lib/runtime/index.js:90`) and plugin data
+(`:145`); the author's `logo` as `img.src` (`:1391`); the payload loader's `<script src>`
+(`lib/plugins/host-browser.mjs:141`); and Mermaid's author-written click links via `window.open`
+(`lib/plugins/mermaid/mermaid.hydrate.js:1077`). G1 must allowlist these by name. AI calls live in the Studio's coach side (`architect-model.js`, `chat-agent.ts`, `voice-model.js`)
 and two library pages (`suono`, `cadenza`). **No gate enforces it.**
 
 For npm, the principle becomes the admission contract: a plugin that needs the network or the key
@@ -106,7 +115,8 @@ is refused, not sandboxed.
 |---|---|---|
 | **G1. Purity scan** of plugin and component code: no network, storage, or key-name identifiers; an allowlist entry needs a justification and fails when stale | An in-tree contributor adding `fetch` by accident | Obfuscation passes. For npm it is a tripwire, not a defense |
 | **G2. npm admission**: explicit list, exact versions, package integrity hash, plugin packages installed with `--ignore-scripts` | A typosquat, a silent update, an install-time script | Does not read the code. A reviewed version can still be hostile |
-| **G3. Declared equals contained**: the manifest names every contribution (`hydrate`, `bake`, `payload`) and the build fails both ways (already true in-tree, `spec/LPM.md` §3.3) | A plugin carrying a surface it did not declare | A declared surface can still misbehave |
+| **G3. Declared equals contained**: the manifest names every contribution (`hydrate`, `bake`, `payload`) and the build fails both ways (already enforced in-tree by `lib/plugins/resolve.js`: a bake declared with no file, and a file
+shipped but not declared) | A plugin carrying a surface it did not declare | A declared surface can still misbehave |
 | **G4. Export record** (already planned, §4.10): name plus SHA-256 per non-shipped plugin | Nothing at run time; it makes an incident traceable | After the fact |
 
 ### 5.2 The harness (dynamic)
@@ -120,7 +130,7 @@ code door. Three parts:
    `window.open`, navigation, WebRTC, DNS, `postMessage` to the parent, `localStorage`,
    `IndexedDB`, cookies, a service worker, `eval`, dynamic `import()`. The test passes only if
    the listener sees zero packets and no storage read returns data. A harness that cannot fail
-   proves nothing (HARD RULE #19's arm-that-can-fail, applied here), so the canary must be shown
+   proves nothing (HARD RULE #9's "the arm that proves the thing can fail", applied here), so the canary must be shown
    red against a deliberately weakened wall.
 2. **A conformance run per admitted npm plugin**: the same locked page, the plugin's real fixtures,
    zero network, and output that passes `sanitizeSlideHtml` and `sanitizeStyleText` unchanged
@@ -144,7 +154,9 @@ code door. Three parts:
 ## 6. Decisions for the owner
 
 1. **Add G1 to `build:check`?** Recommend yes. It makes the principle in §4 enforced instead of
-   hoped for. It changes the CI contract, so it needs your OK; I would measure its cost first.
+   hoped for. It is a new check inside the existing `build:check` step, which CLAUDE.md's second filter does
+   not list as a CI-contract change, but it adds a permanent gate every PR pays for, so I am asking
+   and would measure its cost first.
 2. **Add the canary harness to the integration tier?** Recommend yes. This is a test, not a CI
    job, so it adds no step to the pipeline.
 3. **Where does an npm plugin's `bake` run?** (a) Not at all in v1: npm plugins render in the
@@ -163,7 +175,8 @@ superseded in a follow-up.
 - The §4 grep covers the named identifiers in the named directories. It did not read the vendored
   Mermaid or KaTeX bundles, and it cannot see obfuscated access.
 - The gate's run-time cost is unmeasured.
-- The `--ignore-scripts` and lifecycle-script claims are standard npm behavior, not exercised here.
+- The `postinstall` measurement used one tarball with no transitive dependencies. It shows the mechanism, not how a real plugin's dependency tree behaves.
+- Whether the desktop app will keep the OpenRouter key in the OS keychain is undecided (§3.2).
 - The §3.1 measurement replays the policy string from `lib/export/player-core.mjs:3346` in a
   `data:` page. It did not drive a real exported file, and it ran headless Chromium 131 only. The
   probe script lives in the session scratchpad, not in the repo. If the harness in §5.2 is built,
