@@ -38,14 +38,14 @@ export async function load(id: string): Promise<User> {
 
 | Field | What it does | Example |
 |---|---|---|
-| `title=` | A file name or caption bar at the top of the panel | `title=src/load.ts`, `title="a, b.ts"` |
+| `title=` | A file name or caption bar at the top of the panel. A long path wraps inside the bar rather than running off the panel | `title=src/load.ts`, `title="a, b.ts"` |
 | `numbers` | Line numbers. They are drawn, never part of the text, so copying the code copies only the code | `numbers` |
 | `start=` | The first line number | `numbers, start=120` |
 | `focus=` | Lines at full strength; the rest recede. Same grammar as `_focus: line` | `focus=3-5 9` |
 | `mark=` | Lines tinted, nothing dimmed | `mark=4` |
 | `diff` | A leading `+`, `-` or space marks each line added, removed or unchanged; the rest is highlighted in the fence's language | ```` ```ts ```` with `diff` |
 | `wrap` | Long lines wrap inside the panel, and the continuation hangs two columns in (with numbers, under the line's own text) | `wrap` |
-| `copy` | Two buttons at the panel's top right: copy the code as text, or as HTML with the theme's colors inline. Shown only where the deck is read in a browser (the Studio, the Playground, the exported webpage), never in a PDF, PowerPoint, image or video, in Present, or in a thumbnail. Off unless asked; `code: copy` turns it on for every block | `copy`, `copy=off` |
+| `copy` | Two buttons at the right of the panel's title bar: copy the code as text, or as HTML with the theme's colors inline. A copy block always has the bar (empty without `title=`), in every surface, so the buttons never sit over the code and a PDF lays the block out exactly as the browser does. The buttons are shown only where the deck is read in a browser (the Studio, the Playground, the exported webpage), never in a PDF, PowerPoint, image or video, in Present, or in a thumbnail. Off unless asked; `code: copy` turns it on for every block | `copy`, `copy=off` |
 | `format` | Keep the block formatted: the Studio formats it when you leave the editor. `lattice fmt` and the Studio's Format command format every block except `format=off` | `format`, `format=off` |
 | `width=` | The formatter's print width, in columns | `width=48` |
 | `dialect=` | The SQL dialect the formatter reads | `dialect=postgresql` |

@@ -90,3 +90,17 @@ A line wider than its panel is cut off at the edge. The `code-line-clipped` chec
 ```sh
 docker run --rm -v "$PWD:/work" -w /work ghcr.io/laticent/lattice:latest lattice fmt slides/quarterly-review.md slides/board-update.md --check
 ```
+
+---
+
+## Copy buttons sit in the title bar, never over the code.
+
+A copy block always has a title bar, empty when it has no `title=`, so the buttons have room of their own. The PDF draws no buttons but keeps the bar, so the block is the same height in the browser and in print.
+
+`@code{copy, title=src/features/billing/invoices/load-invoice-history.ts}`
+```ts
+export async function loadInvoiceHistory(customerId: string) {
+  return api.get(`/customers/${customerId}/invoices`);
+}
+```
+

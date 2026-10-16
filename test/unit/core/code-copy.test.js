@@ -45,6 +45,27 @@ describe('codeCopy — the buttons', () => {
     assert.equal(win.document.querySelector('.lat-code-copy').textContent, '', 'no text in the bar');
   });
 
+  test('the buttons go in the block\'s title bar, which every copy block has, so they never sit over code', async () => {
+    const { codeCopy } = await load();
+    // The bar is in the RENDER, empty without a title: a PDF lays the block out as the browser does.
+    assert.match(render(`# A\n\n\`@code{copy}\`\n${FENCE}`), /<pre class="lat-code" data-copy><span class="lat-code-title"><\/span><code/);
+    assert.doesNotMatch(render(`# A\n\n${FENCE}`), /lat-code-title/, 'no copy, no title: no bar');
+    const win = page(render(`# A\n\n\`@code{copy}\`\n${FENCE}\n\n\`@code{copy, title=a.ts}\`\n${FENCE}`));
+    codeCopy(win).install();
+    const bars = [...win.document.querySelectorAll('pre[data-copy] > .lat-code-title')];
+    assert.equal(bars.length, 2);
+    for (const bar of bars) assert.ok(bar.querySelector(':scope > .lat-code-copy'), 'the buttons are inside the bar');
+    assert.equal(bars[1].firstChild.nodeValue, 'a.ts', 'the title text stays first');
+    assert.equal(win.document.querySelectorAll('pre > .lat-code-copy').length, 0, 'none floats over the code');
+  });
+
+  test('a block from an older render, with no bar, still gets its buttons at the panel top', async () => {
+    const { codeCopy } = await load();
+    const win = page('<section><pre class="lat-code" data-copy><code>x</code></pre></section>');
+    codeCopy(win).install();
+    assert.ok(win.document.querySelector('pre > .lat-code-copy'));
+  });
+
   test('"Copy code" writes the block\'s source exactly, line numbers and title excluded', async () => {
     const { codeCopy } = await load();
     const win = page(render(`# A\n\n\`@code{copy, numbers, title=a.ts}\`\n${FENCE}`));

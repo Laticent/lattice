@@ -98,6 +98,10 @@ section .hljs-deletion {
  * code, spaced by padding (HARD RULE #20). */
 section :where(pre).lat-code > .lat-code-title {
   display: block;
+  /* A long path wraps rather than running off the panel (or, in a copy block, under the buttons):
+   * the panel's own `white-space: pre` would otherwise reach the title too. */
+  white-space: normal;
+  overflow-wrap: anywhere;
   padding-bottom: var(--sp-xs);
   border-bottom: 1px solid var(--code-edge);
   font-family: var(--font-mono);
@@ -184,6 +188,19 @@ section :where(pre).lat-code-wrap.lat-code-numbers .ln {
  * browser. Quiet until the block is pointed at or a button has focus, so they never compete with
  * the code; the tooltip is the button's own label, in the panel's colors reversed. */
 section :where(pre)[data-copy] { position: relative; }
+/* The buttons' room: a copy block's title bar (empty without `title=`) is a two-column row, the
+ * title's text and then the buttons, at least the buttons' height. The render draws the bar in
+ * every surface, so a PDF, where no button is drawn, lays the block out exactly as the browser does.
+ * Measured before: a bare copy block's buttons sat over its first line once that line reached about
+ * 95 columns at wide and 40 at portrait. */
+section :where(pre)[data-copy] > .lat-code-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-xs);
+  min-block-size: 1.9em;
+}
+section :where(pre)[data-copy] > .lat-code-title > .lat-code-copy { position: static; grid-column: 2; grid-row: 1; }
 section :where(pre) .lat-code-copy {
   position: absolute;
   top: var(--sp-xs);
@@ -210,6 +227,9 @@ section :where(pre) .lat-code-copy-btn {
   background-color: color-mix(in srgb, var(--code-text) 12%, var(--code-bg));
   box-shadow: inset 0 0 0 1px var(--code-edge);
   color: var(--code-text);
+  /* A button does not inherit type by default, so it drew at the browser's 13px on every canvas:
+   * tiny on a 4K slide, and short of the bar it sits in. It takes the bar's size instead. */
+  font-size: inherit;
   cursor: pointer;
 }
 section :where(pre) .lat-code-copy-btn:is(:hover, [data-host-hover]) { background-color: color-mix(in srgb, var(--code-text) 22%, var(--code-bg)); }

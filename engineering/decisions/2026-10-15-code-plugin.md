@@ -506,3 +506,14 @@ Proof:
   (`venue-conference scale-l` fits 77, not 68), and a canvas is judged by its own number (a 16:9 compare-code pane
   fits 48, 4K 47). The rule stays `info`. Tier 2 re-measures a sample of the table on every `npm test` with a browser;
   `--check` re-measures it all.
+- 2026-10-16: the copy buttons move into the title bar (jank found by measuring, #2716). They were absolutely
+  positioned at the panel's top right with an opaque face, so they sat over the first line once it was long: measured
+  from about 95 columns at 16:9 and 40 at portrait, inside the width the lint passes. Three placements were weighed: a
+  reserved right gutter (padding does not stop a no-wrap line, and it costs every line columns), a band added only
+  where the buttons are drawn (the browser and the PDF would then lay the block out differently, so a slide could fit
+  in one and clip in the other), and the bar. The bar won: the render draws a title bar for every copy block (empty
+  without `title=`) in every surface, and the script puts the buttons in it, a two-column grid of the title's text and
+  the buttons. Two defects the move exposed are fixed with it: a `<button>` does not inherit type, so the buttons drew at
+  13px on every canvas (minuscule on 4K) and now take the bar's size; and the title inherited the panel's
+  `white-space: pre`, so a long path ran off the panel (or under the buttons) and now wraps. The bar costs one code line
+  or a little more, which the line-capacity rules now count (the next entry).
