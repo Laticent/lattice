@@ -37,7 +37,7 @@ is a binary tree of side-by-side and stacked joins. Each tree node stores its wi
 keeps its exact aspect. The output is CSS grid tracks in `fr` units plus one grid area per photo, so the
 browser does the final fit and the packer needs only the container's shape. It is deterministic, supports a
 fixed order, a hero, a `fill` stretch, a full-bleed weighting and a check that rejects zero-size tracks.
-Only `collage.transform.js:35` imports it, and it requires nothing.
+In `lib/`, only `collage.transform.js:35` imports it (plus its two unit-test files), and it requires nothing.
 
 **Prior art.** The tree and its aspect arithmetic are BRIC, Blocked Recursive Image Composition (C. Brian
 Atkins, ACM Multimedia 2008), used by tools such as `imgwrench`. On npm, `diorama` searches the same kind of
@@ -64,13 +64,16 @@ why `MAX_PHOTOS` is 6 (`:33`).
 
 **Where the time goes.** Deleting the `signature(...)` term from the dedupe key (`:145`) cuts six free-order
 photos from 92 ms to 47 ms. (The deletion changes which layouts survive, so it is a cost probe, not a fix.)
-`signature` runs a full `layout` of every candidate node to compute its tile-balance key (`:113-124`). Most of
-the remaining time is string keys (`key2`, `canon`) and short-lived objects. All of this is fixable, but a
+`signature` runs a full `layout` of every candidate node to compute its tile-balance key (`:113-124`). A CPU profile of the probe copy puts most of the remaining time in checking every surviving root: one
+`layout`, two `tracksFor` calls and a score per candidate (`:237-257`), plus garbage collection. The string
+keys (`key2`, `canon`) cost under 5%. All of this is fixable, but a
 large speedup is a hypothesis until slice 1 measures it.
 
 **Ordered mode already does less work than it pays for.** It only ever splits off a prefix of the written
 order (`:141`), so every reachable subset is a contiguous run. It still loops over all `2^n` subset masks.
-Interval dynamic programming over the `n(n+1)/2` runs gives the same answers.
+Interval dynamic programming over the `n(n+1)/2` runs gives the same answers, if it visits splits in the same
+order: the dedupe keeps the first node it sees (`:146-148`), so a different order can keep a different
+duplicate and change a tie-break.
 
 ## 4. The model
 
@@ -90,7 +93,7 @@ Interval dynamic programming over the `n(n+1)/2` runs gives the same answers.
 Every rule except the last is a **convex region**: the segment between any two allowed sizes is also allowed.
 
 **Joins keep convexity.** A side-by-side join of regions A and B is
-`{(w₁ + w₂ + g, h) : (w₁, h) ∈ A, (w₂, h) ∈ B}`, with `g` the gutter. That is a linear image of the
+`{(w₁ + w₂ + g, h) : (w₁, h) ∈ A, (w₂, h) ∈ B}`, with `g` the gutter. That is an affine image of the
 intersection of two convex sets, so it is convex. A stacked join is the same with the axes swapped. So every
 node of a tree, however mixed its leaves, is a convex region, and the container fits exactly when its own size
 lies inside the root's region.
@@ -211,13 +214,13 @@ library's. `collage` passes them in.
 
 ## 6. Lattice surfaces
 
-**Status:** proposed. "Today" cites the code. The logo-wall sizes are arithmetic from the CSS, not a render.
+**Status:** proposed. "Today" cites the code. The logo-wall ratio was measured on a CLI render (a fact-check pass, 2026-10-16).
 
 | Surface | Today | With mosaico |
 |---|---|---|
 | `collage` | `packCollage` | `tree` + `fill`, same output byte for byte |
-| `logo-wall` | equal cells (`--logo-cols` 4 or 6) and a fixed mark height (`logo-wall.styles.css:27-31, 47-57`). From the CSS, a 4:1 wordmark gets about 3× the area of a 1:2 mark | ragged `rows` + `equal-weight`, measured from each SVG's `viewBox` (`image-aspect.js:50`) |
-| `columns` / `rows` panes | the author's ratio, 25–75 in 5% steps (`lib/core/panes.js`) | `template`: a flexible pane beside a fixed-shape image or chart takes the width that ends the matte |
+| `logo-wall` | equal cells (`--logo-cols` 4 or 6) and a fixed mark height (`logo-wall.styles.css:27-31, 55-58, 75-77, 78-88`). Rendered at 1280×720, a 4:1 wordmark gets 2.7× the area of a 1:2 mark (about 1.7× in `dense`) | ragged `rows` + `equal-weight`, measured from each SVG's intrinsic size (`width`/`height`, else `viewBox`; `image-aspect.js:50`) |
+| `columns` / `rows` panes | the author's ratio, 25–75 in 5% steps (`lib/core/pane-spec.js:47-49`) | `template`: a flexible pane beside a fixed-shape image or chart takes the width that ends the matte |
 | future mosaic | none | `template` with named arrangements; the pinwheel later |
 | `team-profile` | hand-measured column counts per composition (`team-profile.docs.md` §Agent contract) | ragged `rows` + `equal-size`, with the `lead` hero. Its card is the curve case, so **v2** |
 | several images on a plain slide | the engine keeps only the last `![bg]` (`background-image.js:127-129`); #2727's D3 shows the CLI drops `![bg]` on a plain slide entirely | `tree` + `fill`, **after #2727's `image` plugin lands**: under its rule that the layout places what a plugin describes, a plain slide packs several image records. That rule is #2727's to adopt |
@@ -240,7 +243,8 @@ Surveyed and left out, because every item has one shape or the layout crops on p
 Each slice ships on its own, with its own gates.
 
 1. **Package and `tree` + `fill` for fixed shapes.** Create the workspace package and port `packCollage`,
-   rewritten for speed (no string keys, no per-candidate re-layout, interval DP for ordered).
+   rewritten for speed (fewer `tracksFor` checks per root,
+   no per-candidate re-layout in the dedupe key, interval DP for ordered).
    **Byte-identical gate:** a golden file of today's output over a few hundred random 1–6 photo sets, in both
    orders, both fits, with and without hero and bleed. `collage` switches its import. Bench: add the scenario
    to `test/benchmark/engine-bench.mjs` and compare with `justified-layout` and `diorama` on the same machine
