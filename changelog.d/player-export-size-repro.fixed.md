@@ -1,0 +1,1 @@
+- Two `--player` exports of an unchanged deck are now byte-identical: the file's `generatedAt` stamp follows `SOURCE_DATE_EPOCH` (else the epoch), as PDF dates and the reopenable payload already did.

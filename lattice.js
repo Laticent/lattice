@@ -4894,7 +4894,10 @@ async function renderBody(browser, g, closeBrowser) {
         // for downstream tools; gated on the `glossary: auto` opt-in, so a deck that merely defines
         // terms (without opting in) is byte-identical. Empty → omitted (lean envelope).
         glossary: autoGlossaryEntries,
-        now: Date.now(),
+        // Pinned like every PDF date and the reopenable payload (SOURCE_DATE_EPOCH, else the
+        // epoch), so two exports of an unchanged deck are byte-identical. A wall-clock stamp
+        // here was the only difference between two runs (decisions/2026-10-16-player-as-library-audit.md §3).
+        now: reopenableDate().getTime(),
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,
       });
