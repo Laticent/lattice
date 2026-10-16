@@ -598,32 +598,37 @@ async function inlineSpanTier() {
   const fixture = join(ROOT, 'test/benchmark/fixtures/inline-spans.json');
   if (!existsSync(fixture) || !existsSync(INLINE_TIMER)) {
     console.log('\n=== INLINE \u00b7 per-span dispatch === skipped: this tree has no inline-span fixture or timer');
-    return { summary: [] };
+    return { summary: [], skipped: 'absent' };
   }
   // A FRESH PROCESS, measured rather than assumed. Run inside this one, after the render tier has
   // called the dispatcher with every shape a deck carries, the ordinary-code ratio read 8.0 on
   // three runs of unchanged code and 6.1 on two: V8's feedback for the dispatcher landed in one of
   // two states, and the 25% between them is twice the band. In its own process it read 5.70-5.83
   // over five runs. The timer prints one JSON line; anything else is a failure to report.
+  //
+  // `skipped: 'failed'` IS NOT `skipped: 'absent'`, and the difference is the gate. The other tiers
+  // skip because a flag was not passed; this one runs on every check, so in a tree that HAS the timer
+  // and the fixture, an empty summary means the timer broke (a renamed export, a throw in the
+  // dispatcher, a kernel that stopped importing). `checkBaseline` fails that, and `blessBaseline`
+  // refuses it; read as "did not run", it would switch the gate off with a green check.
   const { execFileSync } = await import('node:child_process');
-  let out;
+  let summary;
   try {
-    out = execFileSync(process.execPath, [INLINE_TIMER, fixture], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+    const out = execFileSync(process.execPath, [INLINE_TIMER, fixture], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], timeout: 180_000 });
+    const result = JSON.parse(out.trim().split('\n').pop());
+    if (result.skipped) throw new Error(result.skipped);
+    ({ summary } = result);
+    if (!summary?.length) throw new Error('the timer reported no rows');
   } catch (e) {
-    console.log(`\n=== INLINE \u00b7 per-span dispatch === skipped: the timer failed (${e.message.split('\n')[0]})`);
-    return { summary: [] };
-  }
-  const { summary, skipped } = JSON.parse(out.trim().split('\n').pop());
-  if (skipped) {
-    console.log(`\n=== INLINE \u00b7 per-span dispatch === skipped: ${skipped}`);
-    return { summary: [] };
+    console.log(`\n=== INLINE \u00b7 per-span dispatch === FAILED: ${String(e.message).split('\n')[0]}`);
+    return { summary: [], skipped: 'failed' };
   }
   console.log('\n=== INLINE \u00b7 per-span dispatch (paired slices, own process) ===');
   console.log(`${'dataset'.padEnd(48)}${'spans'.padStart(7)}${'shipped ns'.padStart(12)}${'kernel ns'.padStart(11)}${'ratio'.padStart(8)}`);
   for (const r of summary) {
     console.log(`${r.dataset.padEnd(48)}${String(r.spans).padStart(7)}${r.shippedNs.toFixed(1).padStart(12)}${r.kernelNs.toFixed(1).padStart(11)}${r.ratio.toFixed(3).padStart(8)}`);
   }
-  return { summary };
+  return { summary, skipped: null };
 }
 
 // ── export / rasterize tier (lazy puppeteer) ──────────────────────────────────
@@ -1263,7 +1268,15 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, inlineSummary = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
+  // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
+  // those rows would then gate a machine they were never measured on. Refuse instead.
+  if (inlineSkipped === 'failed') {
+    console.error('\nRefusing to bless: the inline-span timer failed, and its blessed rows would be re-filed under this machine. Fix the timer first.');
+    process.exitCode = 1;
+    return;
+  }
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -1501,6 +1514,7 @@ function checkBaseline(summary, render, opts = {}) {
   const editSummary = opts.editSummary ?? null;
   const flowchartSummary = opts.flowchartSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
+  const inlineSkipped = opts.inlineSkipped ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -1780,7 +1794,11 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
-  if (inlineSummary?.length) {
+  if (inlineSkipped === 'failed') {
+    // Drift, not a timing verdict: the rows recorded nothing this run, on any machine.
+    drift = true;
+    console.log('\n=== INLINE CHECK === the timer FAILED, so every blessed inline row recorded nothing (see the FAILED line above)');
+  } else if (inlineSummary?.length) {
     const r = checkInlineRows(inlineSummary, base, here);
     regressedDatasets.push(...r.regressed);
     drift ||= r.drift;
@@ -2014,7 +2032,7 @@ async function main() {
   const edit = await editTier();
   // In-process too (~5s), and blessed: it is the flowchart layout's HARD RULE #19 record.
   const flow = await flowchartTier();
-  // In-process (~3s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
+  // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
   const inline = await inlineSpanTier();
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
@@ -2023,7 +2041,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2047,7 +2065,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -2074,6 +2092,7 @@ async function main() {
       const inlineRegressed = pass1.regressedDatasets.filter((n) => inline.summary.some((s) => s.dataset === n));
       const browserTierRegressed = pass1.regressedDatasets.filter((n) => !renderRegressed.includes(n) && !inlineRegressed.includes(n));
       let confirmedTwice = [...renderRegressed];
+      const inlineOnePass = [];
       if (renderRegressed.length) {
         console.log(`\nRe-measuring ${renderRegressed.length} regressed dataset(s) to separate a real slowdown from machine load…`);
         const second = await renderTier();
@@ -2083,10 +2102,15 @@ async function main() {
       if (inlineRegressed.length) {
         console.log(`\nRe-measuring ${inlineRegressed.length} regressed inline row(s)\u2026`);
         const second = await inlineSpanTier();
-        const again = checkInlineRows(second.summary, JSON.parse(readFileSync(BASELINE, 'utf8')), machineFingerprint(), new Set(inlineRegressed));
-        confirmedTwice.push(...inlineRegressed.filter((n) => again.regressed.includes(n)));
+        if (second.skipped) {
+          // No second measurement is not a cleared one: the rows stand on pass 1, and say so.
+          inlineOnePass.push(...inlineRegressed);
+        } else {
+          const again = checkInlineRows(second.summary, JSON.parse(readFileSync(BASELINE, 'utf8')), machineFingerprint(), new Set(inlineRegressed));
+          confirmedTwice.push(...inlineRegressed.filter((n) => again.regressed.includes(n)));
+        }
       }
-      const confirmed = [...browserTierRegressed, ...confirmedTwice];
+      const confirmed = [...browserTierRegressed, ...confirmedTwice, ...inlineOnePass];
       const cleared = pass1.regressedDatasets.filter((n) => !confirmed.includes(n));
       if (cleared.length) {
         console.log(`\nNot reproduced on the second pass (machine load, not code): ${cleared.join(', ')}`);
@@ -2100,6 +2124,7 @@ async function main() {
         // sentence was untrue.
         const parts = [];
         if (confirmedTwice.length) parts.push(`${confirmedTwice.join(', ')} — confirmed on two passes`);
+        if (inlineOnePass.length) parts.push(`${inlineOnePass.join(', ')} — one pass, the inline timer failed on pass 2`);
         // The non-render regressions split again, because they stand on one pass for
         // OPPOSITE reasons and saying "browser tier" about both is simply untrue. A
         // browser tier is not re-measured because it is expensive (print is ~11

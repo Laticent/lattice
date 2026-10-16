@@ -29,10 +29,13 @@ try {
   shipped = null;
 }
 if (typeof shipped?.escapedText !== 'function' || typeof shipped?.dispatches !== 'function' || typeof kernel !== 'function') {
+  // No `process.exit()`: on a platform whose stdout pipe is asynchronous it can drop this line.
   console.log(JSON.stringify({ skipped: 'this tree has no shipped dispatcher or retired kernel to time' }));
-  process.exit(0);
+} else {
+  console.log(JSON.stringify({ summary: measure() }));
 }
 
+function measure() {
 const { spans } = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 // The job the markdown-it path asks first, for every span: is it escaped, and does a kind render
 // it? `renderHtml` builds the result afterwards; that cost is the kinds', not the dispatcher's.
@@ -76,4 +79,5 @@ for (const [key, inputs] of Object.entries(groups)) {
     kernelNs: median(old.slices),
   });
 }
-console.log(JSON.stringify({ summary }));
+return summary;
+}

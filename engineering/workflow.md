@@ -561,6 +561,12 @@ the band. In its own process, five `bench:check` runs read −1.9% to +1.4% (dir
 +0.5%), and a deliberate per-span `includes` test at the top of `dispatches` read +31.7% and
 +26.6% on the two passes and exited 1.
 
+**A timer that fails is drift, not a skip.** This tier runs on every check, unlike the
+flag-gated ones, so in a tree that has the timer and the fixture an empty result means the timer
+broke. `bench:check` prints `FAILED` and exits 1, and `bench:bless` refuses, because a bless
+would otherwise re-file the old inline rows under the new machine stamp. Only a tree with no timer
+or no fixture (the nightly's base worktree) skips quietly.
+
 **Re-adding `TAGS.includes` to Segno's `isDirective` does NOT exercise this tier**, though it
 looks like the obvious arm. Every shipped caller tests `text[0] !== '{'` first, so the tag
 branch runs on 0 of the fixture's 5,314 spans. The 15 ns #2692 removed was measured in the
