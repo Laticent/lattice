@@ -183,7 +183,7 @@
     }
   ],
   "dataShapeGuidance": [
-    "The value pill is a number with optional currency prefix, thousands commas, magnitude suffix and unit: `$4.2M`, `12,400`, `68%`, `-3.1`. The magnitude suffix is SCALE, not decoration — `1.2M` is 1 200 000 — so `800k` and `1.2M` sit correctly on one axis.",
+    "The value pill is a number with optional currency prefix, thousands commas, magnitude suffix and unit: `$4.2M`, `12,400`, `68%`, `-3.1`. The magnitude suffix is SCALE, not decoration — `1.2M` is 1 200 000 — so `800k` and `1.2M` sit correctly on one axis. A billion is spelled any of four ways (`B`, `bn`, `Bn`, `BN`), and all four read the same.",
     "A pill that is not one number (two signs as in `--5`, an unpaired parenthesis as in `(5`, or digits that are not one number as in `1,2,3`) is no value: the row draws no bar, and lint's `chart-value-malformed` names it. Before, each of these drew a different number with no warning.",
     "A negative value is legitimate in every form and hangs from the zero rule; the axis is widened to include it. Zero is legitimate too and draws no bar, with its value printed on the baseline.",
     "Bars are drawn in AUTHORED order, never re-sorted. Sort the list yourself when ranking is the story; leave it in natural order when the categories have one (quarters, stages, sizes).",

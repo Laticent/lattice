@@ -95,7 +95,7 @@ prose is a JavaScript expression.
 
 ## 5. Numbers: ISO in, locale out
 
-Today `chart-values.js` and Segno's `number` type read `12K`, `12.5M`, `1.2B`, `bn` and `T` correctly, but a deck's
+Today `chart-values.js` and Segno's `number` type read `12K`, `12.5M`, `1.2B`, `bn` (and its finance spellings `Bn` and `BN`, since followups.d/2699-p3) and `T` correctly, but a deck's
 `lang:` is ignored and separators are guessed: a comma followed by exactly three digits groups, anything else is a
 decimal, US wins a tie. Measured on 2026-10-14: `12.000` reads as 12, `1.234,5` read as 1.2345 (a pre-existing
 misread, fixed since: a whole European number, dot-grouped thousands then one decimal comma, reads its comma as the decimal), and `12 000` was not a value though `parseValue`, which six charts call without that test, read it as 12 (fixed since: exact three-digit space groups collapse before either reader runs; `2026-10-14-chart-authoring-census.md` §4). A malformed spelling read as a different number: `--5` as -5, `(5` as 5, `1,2,3` as 1.2 and `1.2.3.4x` as 1234 (fixed since: both readers refuse a second sign, an unpaired parenthesis and a digit run that is not one number, every chart reads it as no value, and lint's `chart-value-malformed` names it). Inside a record the comma is Segno's only
@@ -103,7 +103,7 @@ separator, so `{12,000}` is two items, `12` and `000`, and `{"12,000"}` is text.
 comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md` and non-chart lists are counted).
 
 - **What an author types, in records and table cells alike:** a decimal point, optional digit grouping by a space (a
-  no-break space counts, Segno decision 23; a thin space is new and needs adding to Segno's whitespace set), and the magnitude suffixes `k`/`K`, `M`, `B`/`bn`, `T`, with `%`,
+  no-break space counts, Segno decision 23; a thin space is new and needs adding to Segno's whitespace set), and the magnitude suffixes `k`/`K`, `M`, `B`/`bn`/`Bn`/`BN`, `T`, with `%`,
   a currency sign and a trailing unit as today. A comma is never part of a number. This reverses Segno migration rows 13 and 14 (`1,25M` means 1.25M on every chart). This is ISO 80000-1's rule: digit
   groups are separated by a space, never by a dot or a comma, because those two mean opposite things in different
   countries.

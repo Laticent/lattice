@@ -714,7 +714,7 @@ describe('the checker round (#2371)', () => {
 
 	it('counts amounts as figures and indexes as not', () => {
 		const li = (t: string) => doc(`<ul><li>${t}</li></ul>`).querySelector('li') as Element;
-		for (const t of ['3 million users', '40 percent churn', '$4.2M', '118%', '19 mo']) expect(salience(li(t)), t).toBe(3);
+		for (const t of ['3 million users', '40 percent churn', '$4.2M', '118%', '19 mo', '5bn', '5Bn', '5BN', '5B']) expect(salience(li(t)), t).toBe(3);
 		for (const t of ['Section 01', '2.1 Scope and goals', 'in 2026']) expect(salience(li(t)), t).toBe(0);
 	});
 });

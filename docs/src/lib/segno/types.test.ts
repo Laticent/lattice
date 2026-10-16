@@ -12,7 +12,7 @@ const ganttTime = require('../../../../lib/core/gantt-time.js');
 
 const NUMBERS = [
   '42', '-1.2', '12%', '$4.2M', '-$0.8M', '$-0.8M', '\u22121.2M', '($1.2M)', '+12M', '1,25M', '1.234.567', '1,234.5', '1.234,5', '1.234.567,89', '€1.234,5M',
-  '900.000', '12k', '1.2bn', '4 beds', 'PROJ-42', '2024', '0.5k', '€3', '\u20305', '5\u2030', '(5)', '5)', '12 000', '1 234,5', '€12 000k', '1\u202F234', '12  000', '1 2345', 'Q1 2025', 'Q1 120', 'Top 100 500', '1 000,000', '100 200 300', '1 234 %', '1e5', '--5', '$$$5',
+  '900.000', '12k', '1.2bn', '1.2Bn', '1.2BN', '$5Bn', '($0.8BN)', '-$1.2Bn', '5Bnx', '4 bN', '4 beds', 'PROJ-42', '2024', '0.5k', '€3', '\u20305', '5\u2030', '(5)', '5)', '12 000', '1 234,5', '€12 000k', '1\u202F234', '12  000', '1 2345', 'Q1 2025', 'Q1 120', 'Top 100 500', '1 000,000', '100 200 300', '1 234 %', '1e5', '--5', '$$$5',
   '', ' ', 'abc', '12kg', '1,2,3', '.5', '5.', '((5))', '+-5', '(5M', '5M)', '$(5)', '1.2.3.4x', '12.5.3', '1,234,5678', '1,2.3', '-(5)', '(-5)',
 ];
 const TIMES = ['2026-03-15', '2026-13-01', '2026-02-30', 'Q1', 'q4', '2026 Q1', '2026Q2', 'Jan', 'Sept', 'September', '2026 Jan', 'Marketing', '2026-03', 'Q5', ' Q2 ', ''];
@@ -112,7 +112,7 @@ describe('readNumber on hostile input', () => {
 
 describe('readNumber fast path = the full reader', () => {
   it('agrees on 300,000 fuzzed tokens', () => {
-    const A = ['(', ')', '+', '-', '−', '$', '€', '£', '¥', '1', '2', '0', '9', '.', ',', '%', '‰', 'k', 'M', 'B', 'b', 'n', 'T', 'g', 'x', ' ', '#'];
+    const A = ['(', ')', '+', '-', '−', '$', '€', '£', '¥', '1', '2', '0', '9', '.', ',', '%', '‰', 'k', 'M', 'B', 'b', 'n', 'N', 'T', 'g', 'x', ' ', '#'];
     let seed = 11;
     const rnd = (m: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
     let differ = 0;
@@ -134,7 +134,7 @@ describe('readNumber fast path = the full reader', () => {
     expect(fast).toBeGreaterThan(30_000); // not vacuous: 44,109 at this seed
   });
   it('the shapes decks write read the same both ways', () => {
-    for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '(12M)', '($1.2M)', '(-5)', '--5', '62%', '140kg', '5M)', '(5M', '+12.0M', '−12M', '3bn', '1e5', '007', '$-$2', '$−€2', '€-€3', '$+€2k', '+€2', '-£5'])
+    for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '(12M)', '($1.2M)', '(-5)', '--5', '62%', '140kg', '5M)', '(5M', '+12.0M', '−12M', '3bn', '3Bn', '($3BN)', '1e5', '007', '$-$2', '$−€2', '€-€3', '$+€2k', '+€2', '-£5'])
       expect(readNumber(s), s).toEqual(readNumberFull(s));
   });
 });
@@ -147,7 +147,7 @@ describe('readNumber fast path = the full reader on every prefix', () => {
     // The random fuzz above missed `$-$2` (a sign between two symbols): the fast path read 2 and
     // the full reader refused it. Every prefix is enumerated here, so no prefix shape can hide.
     const P = ['', '(', '+', '-', '\u2212', '$', '\u20ac', '\u00a3', '\u00a5'];
-    const bodies = ['5', '1.5', '2k', '5)', '5M)', '12%'];
+    const bodies = ['5', '1.5', '2k', '2Bn', '5)', '5M)', '5BN)', '12%'];
     const bad: string[] = [];
     for (const a of P) for (const b of P) for (const c of P) for (const d of P) for (const body of bodies) {
       const s = a + b + c + d + body;
@@ -160,7 +160,7 @@ describe('readNumber fast path = the full reader on every prefix', () => {
 
 describe('readNumber fast path is really taken', () => {
   it('every shape decks write takes the single-pass reader, not the fallback', () => {
-    for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '62%', '(12M)', '($1.2M)', '140kg', '+12M', '\u221212M', '3bn', '0.5k'])
+    for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '62%', '(12M)', '($1.2M)', '140kg', '+12M', '\u221212M', '3bn', '3Bn', '3BN', '0.5k'])
       expect(readNumberFast(s), s).not.toBeNull();
   });
   it('and hands the shapes it does not handle to the full reader', () => {
@@ -170,7 +170,7 @@ describe('readNumber fast path is really taken', () => {
 
 describe('readNumber and readTime agree with the kernels on fuzzed input', () => {
   it('readNumber = chart-values.js on 100,000 fuzzed tokens', () => {
-    const A = ['(', ')', '+', '-', '\u2212', '$', '\u20ac', '1', '2', '0', '9', '.', ',', '%', '\u2030', 'k', 'M', 'B', 'b', 'n', 'T', 'g', 'x', ' ', '#'];
+    const A = ['(', ')', '+', '-', '\u2212', '$', '\u20ac', '1', '2', '0', '9', '.', ',', '%', '\u2030', 'k', 'M', 'B', 'b', 'n', 'N', 'T', 'g', 'x', ' ', '#'];
     const r = rng(101);
     const bad: string[] = [];
     let accepted = 0;
