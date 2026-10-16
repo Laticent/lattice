@@ -987,3 +987,17 @@ describe('cartesian — money and decimal marks as a global client writes them',
     }
   });
 });
+
+describe('cartesian — parseAffix reads hostile input in linear time', () => {
+  test('a long whitespace run inside or around a number takes milliseconds', () => {
+    // The single regular expression parseAffix used to be split a whitespace run between `\s*`
+    // and `[^\d]*` every possible way: `1` + 50,000 spaces + `x` took 2.4 s, on main as well.
+    const t0 = performance.now();
+    for (const s of [`1${' '.repeat(50_000)}x`, `(${' '.repeat(50_000)}1`, `${'-'.repeat(50_000)}1`]) C.parseAffix(s);
+    assert.ok(performance.now() - t0 < 500, `${Math.round(performance.now() - t0)} ms`);
+  });
+  test('a minus that does not touch the number is not a sign', () => {
+    assert.equal(C.parseAffix('index - 1'), null);
+    assert.deepEqual(C.parseAffix('$-0.8M'), { prefix: '$', suffix: '' });
+  });
+});

@@ -684,6 +684,7 @@ function trailingPunct(s: string): string {
   while (i > 0 && TRAILING_PUNCT.has(s[i - 1])) i--;
   return s.slice(i);
 }
+const withoutTrailingPunct = (s: string): string => s.slice(0, s.length - trailingPunct(s).length);
 const isMonthWord = (t: string | undefined): boolean => {
   const s = String(t ?? '');
   return MONTH_WORD.has(s.slice(0, s.length - trailingPunct(s).length));
@@ -727,13 +728,15 @@ function afterNumber(display: string, prev: string | undefined, prevPrev: string
   const tok = String(display ?? '').trim();
   const punct = trailingPunct(tok);
   const core = punct ? tok.slice(0, -punct.length) : tok;
-  const prevCore = prev.replace(/[.,;:!?…]+$/, '');
+  // `withoutTrailingPunct`, a linear reverse scan: a `/[…]+$/` regex here is polynomial on a long run of `!`.
+  const prevCore = withoutTrailingPunct(prev);
   if (Object.hasOwn(AFTER_NUMBER_MAGNITUDE, core) && BARE_NUMBER.test(prevCore)) {
     return AFTER_NUMBER_MAGNITUDE[core] + punct.replace(/^\./, '');
   }
   if (!Object.hasOwn(AFTER_NUMBER_CURRENCY, core)) return null;
   const afterMagnitude = Object.hasOwn(AFTER_NUMBER_MAGNITUDE, prevCore) || Object.hasOwn(AFTER_NUMBER_MAGNITUDE, prev);
-  const number = afterMagnitude ? prevPrev?.replace(/[.,;:!?…]+$/, '') : prevCore;
+  const before = afterMagnitude ? prevPrev : prevCore;
+  const number = before === undefined ? undefined : withoutTrailingPunct(before);
   if (number === undefined || !BARE_NUMBER.test(number)) return null;
   const one = !afterMagnitude && amount(number) === 1;
   return AFTER_NUMBER_CURRENCY[core][one ? 0 : 1] + punct;

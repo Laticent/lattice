@@ -807,6 +807,13 @@ describe('a European amount is said as the number it shows', () => {
 		expect(toSpokenText('3,5 Mrd. €')).toBe('three point five billion euros');
 		expect(toSpokenText('We paid 4200 € and 1 €.')).toBe('We paid four thousand two hundred euros and one euro.');
 	});
+	it('reads a hostile run of punctuation after a number in linear time', () => {
+		// CodeQL flagged the first draft's `/[.,;:!?…]+$/` on this path: polynomial on a run of `!`.
+		const t0 = performance.now();
+		toSpokenText(`5${'!'.repeat(100_000)} €`);
+		toSpokenText(`5 Mio${'!'.repeat(100_000)} €`);
+		expect(performance.now() - t0).toBeLessThan(500);
+	});
 	it('leaves the same words alone when no number comes before them', () => {
 		expect(toSpokenText('Mio is a name.')).toBe('Mio is a name.');
 		expect(toSpokenText('the € sign')).not.toContain('euros');
