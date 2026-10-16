@@ -90,7 +90,7 @@ describe('runtime card-row composition — stamped on every section, at every fa
   });
 
   test('an ungoverned component is not stamped at all', async () => {
-    const dom = await boot(section('kpi'), 'wide');
+    const dom = await boot(section('quote'), 'wide');
     assert.equal(cardsOf(dom.window.document), null,
       'a component with no manifest `cards` entry must be left exactly as it was');
     dom.window.close();
@@ -107,7 +107,7 @@ describe('runtime card-row composition — stamped on every section, at every fa
 
   test('every section in a multi-slide deck is stamped, not just the first', async () => {
     const dom = await boot(
-      [section('cards-grid'), section('verdict-grid'), section('kpi')].join(''), 'wide');
+      [section('cards-grid'), section('verdict-grid'), section('quote')].join(''), 'wide');
     const got = [...dom.window.document.querySelectorAll('section')]
       .map((s) => s.getAttribute('data-cards'));
     assert.deepEqual(got, ['center', 'center', null]);
@@ -173,7 +173,7 @@ describe('runtime card-row composition — the runtime re-stamps what the export
     };
     assert.equal(by('split-panel capstone').cards, 'stretch', 'capstone resolves as proof does');
     assert.equal(by('decision cards-top').cards, 'top', 'a per-slide token beats the manifest');
-    assert.equal(by('kpi').cards, null, 'an ungoverned component is left alone');
+    assert.equal(by('quote').cards, null, 'an ungoverned component is left alone');
   });
 
   // The exporter only renders the wide family; the kernel's family and variant arms are the
