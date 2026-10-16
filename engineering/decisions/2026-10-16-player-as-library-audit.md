@@ -775,6 +775,31 @@ of anything. A real fix redesigns the no-JS floor (likely: move the token arms t
 follows the checkbox, and keep `:root` for what only the root can carry), changes every export's
 bytes, and needs the scheme matrix and an export sign-off of its own. It is a followup.
 
+### 11.7 A relative section background reached the player un-inlined (P7)
+
+**Reproduced.** `![bg left:40%](a.jpg)` on an `image` slide: the lift reads only `left` / `right`
+(lib/core/bg-directive.js `BG_RE` takes word characters), so the slide falls through to the
+engine's section background, `style="background-image:url(&quot;a.jpg&quot;)"`. The CLI renders
+with no base URL (its PDF resolves relative paths against the deck folder), and the player's
+inliner matched `url(file://…)` with `'` or `"` only. The exported file carried `a.jpg` twice, a
+path that points at nothing once the file leaves the folder, and the run reported
+"0 image(s) inlined" with no warning. The same seam carried an absolute `file://` background
+un-inlined, and the engine's informational `--background-image:"url(\"file://…\")"` copy put
+the author's folder path into the shared file.
+
+**Fixed, in the player adapter (`html-player.js`):** relative `url()` in `style` attributes now
+resolves against the deck folder before inlining (`resolveStyleUrls`); the inliner reads the
+`&quot;` / `&#39;` forms; and the informational copy is dropped when it names a local file (nothing
+reads it back; lib/engine/background-image.js says so). The asset hoist also reads `&quot;`, so a
+picture used as two slides' backgrounds ships once. On the repro: "1 image(s) inlined", "stored 1
+repeated background picture(s) once, 101 KB saved", no `file:` anywhere in the file, and a missing
+picture is now listed in the report. The gallery and `examples/html-player.md` players are
+byte-identical. `test/unit/export/player-style-urls.test.js` pins it.
+
+Not fixed: the ratio itself. `left:40%` still renders a full-bleed background rather than the image
+layout's panel; reading Marp's split ratios is a feature of its own (a followup). P6 makes the lint
+say so.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever

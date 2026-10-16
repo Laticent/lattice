@@ -53,6 +53,17 @@ describe('hoistRepeatedAssets', () => {
 		assert.equal(html.split(PNG).length - 1, 1);
 	});
 
+	// The engine's own section background for a `![bg]` that is not lifted is serialized with the
+	// quote escaped (`url(&quot;…&quot;)`); a picture on two such slides shipped twice (§11.7).
+	test('the attribute-escaped quote is hoisted too', async () => {
+		const { hoistRepeatedAssets } = await load();
+		const body = `<section style="background-image:url(&quot;${JPEG}&quot;)"></section><section style="background-image:url(&quot;${JPEG}&quot;)"></section>`;
+		const { html, hoisted } = hoistRepeatedAssets(doc('', body));
+		assert.equal(hoisted, 1);
+		assert.equal(html.split(JPEG).length - 1, 1);
+		assert.match(html, /style="background-image:var\(--lp-asset-0\)"/);
+	});
+
 	test('stylesheets are left alone: the CSS prune may still drop the rule', async () => {
 		const { hoistRepeatedAssets } = await load();
 		const input = doc(`<style>.a{background:url("${PNG}")}.b{mask:url(${PNG})}</style>`, '');
