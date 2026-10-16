@@ -228,21 +228,25 @@ async function measureCodeBars(browser, { groups = Object.keys(BAR_LAYOUT), rung
 
 /** The data module's source, from a full measurement. */
 function moduleSource(table, bars) {
-  const row = (group, combo) => {
-    const cells = CANVASES.map((c) => table[group][combo][c.key]);
-    return `[${cells.map((v) => (v == null ? 'null' : v)).join(', ')}]`;
-  };
   const barLines = [];
   for (const g of Object.keys(BAR_LAYOUT)) {
     barLines.push(`  ${g}: Object.freeze({`);
     for (const r of RUNGS) barLines.push(`    '${r}': [${CANVASES.map((c) => `[${bars[g][r][c.key].join(', ')}]`).join(', ')}],`);
     barLines.push('  }),');
   }
+  // Each group's rows in allCombos() order, keyless: one row a word (counts joined by commas, `-`
+  // where the panel wraps), one stage a line. The keys were three quarters of the table's weight in
+  // the Studio's lint bundle, which has a ceiling (docs/route-budget.json lintCoreGz).
+  const cell = (v) => (v == null ? '-' : String(v));
   const lines = [];
   for (const g of GROUPS) {
-    lines.push(`  ${g}: Object.freeze({`);
-    for (const combo of allCombos()) lines.push(`    '${combo}': ${row(g, combo)},`);
-    lines.push('  }),');
+    lines.push(`  ${g}: rows(\``);
+    for (const st of STAGES) {
+      const words = [];
+      for (const ve of VENUES) for (const sp of SPOTS) words.push(CANVASES.map((c) => cell(table[g][`${st}|${ve}|${sp}`][c.key])).join(','));
+      lines.push(`    ${words.join(' ')}`);
+    }
+    lines.push('  `),');
   }
   return `/**
  * lib/authoring/code-pane-columns.js — MEASURED by tools/measure-code-columns.js --write; do not edit.
@@ -256,6 +260,13 @@ function moduleSource(table, bars) {
  */
 const CANVASES = Object.freeze(${JSON.stringify(CANVASES.map((c) => c.key))});
 const FAMILY = Object.freeze(${JSON.stringify(Object.fromEntries(CANVASES.map((c) => [c.key, c.family])))});
+// The row keys, in the order the rows below are written: every stage × venue × spot scale.
+const STAGES = ${JSON.stringify(STAGES)};
+const VENUES = ${JSON.stringify(VENUES)};
+const SPOTS = ${JSON.stringify(SPOTS)};
+const KEYS = STAGES.flatMap((st) => VENUES.flatMap((ve) => SPOTS.map((sp) => \`\${st}|\${ve}|\${sp}\`)));
+const rows = (text) => Object.freeze(Object.fromEntries(text.trim().split(/\\s+/)
+  .map((word, i) => [KEYS[i], word.split(',').map((v) => (v === '-' ? null : Number(v)))])));
 const COLUMNS = Object.freeze({
 ${lines.join('\n')}
 });

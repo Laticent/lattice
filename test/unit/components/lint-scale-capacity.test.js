@@ -316,7 +316,12 @@ describe('capacity-scale — a code block', () => {
   });
 
   test('a ```` fence closes only on four backticks or more (CommonMark)', () => {
-    assert.equal(core.tallestCodeBlock('````\na\n```\nb\n````'), 3);
+    // The ``` line is content of the outer block, so its widest line is the one after it.
+    assert.equal(core.widestCodeLine('````\na\n```\nbbbbb\n````').text, 'bbbbb');
+    // A ``` fence closes on the ``` line, so `bbbbb` is prose; an unclosed fence runs to the end.
+    assert.equal(core.widestCodeLine('```\na\n```\nbbbbb\n```').text, 'a');
+    assert.equal(core.widestCodeLine('~~~\na\nbbb').text, 'bbb');
+    assert.equal(core.widestCodeLine('no fence'), null);
   });
 
   test('a fence inside speaker notes is no block of the pane', () => {
@@ -324,11 +329,6 @@ describe('capacity-scale — a code block', () => {
     assert.deepEqual(lint(deck('scale-xl', code(bareXl) + notes)), []);
   });
 
-  test('tallestCodeBlock counts the longest fence, unclosed included', () => {
-    assert.equal(core.tallestCodeBlock('```\na\nb\n```\n\n~~~\nc\n~~~'), 2);
-    assert.equal(core.tallestCodeBlock('```\na\nb\nc'), 3);
-    assert.equal(core.tallestCodeBlock('no fence'), 0);
-  });
 });
 
 describe('the fit: register in lint', () => {
