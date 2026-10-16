@@ -4,50 +4,50 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 4.85,
-    "rmePct": 2.42
+    "ms": 2.75,
+    "rmePct": 1.79
   },
   "blessedOn": {
     "node": "v22",
     "platform": "linux/x64",
     "cpus": 4,
-    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz"
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
   },
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 23.06,
-      "ms": 111.85,
-      "slidesPerSec": 519,
-      "rmePct": 8.18
+      "index": 31.4,
+      "ms": 86.45,
+      "slidesPerSec": 671,
+      "rmePct": 9.94
     },
     "charts": {
       "slides": 25,
-      "index": 24.02,
-      "ms": 116.51,
-      "slidesPerSec": 215,
-      "rmePct": 6.6
+      "index": 27.33,
+      "ms": 75.25,
+      "slidesPerSec": 332,
+      "rmePct": 7.28
     },
     "math": {
       "slides": 17,
-      "index": 21.42,
-      "ms": 103.87,
-      "slidesPerSec": 164,
-      "rmePct": 8
+      "index": 21.94,
+      "ms": 60.39,
+      "slidesPerSec": 281,
+      "rmePct": 5.6
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 69,
-      "ms": 334.62,
-      "slidesPerSec": 1040,
-      "rmePct": 8.7
+      "index": 79.98,
+      "ms": 220.2,
+      "slidesPerSec": 1580,
+      "rmePct": 6.61
     },
     "hub-spoke (gallery + tiered x3)": {
       "slides": 17,
-      "index": 29.97,
-      "ms": 145.34,
-      "slidesPerSec": 117,
-      "rmePct": 8.82
+      "index": 27.7,
+      "ms": 76.27,
+      "slidesPerSec": 223,
+      "rmePct": 5.23
     }
   },
   "printDatasets": {
@@ -152,29 +152,29 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 42.59,
-      "burstMs": 517.71
+      "ms": 30.64,
+      "burstMs": 379.51
     },
     "edit · charts": {
       "slides": 25,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 43.32,
-      "burstMs": 515.01
+      "ms": 30.32,
+      "burstMs": 321.33
     },
     "edit · math": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 22.1,
-      "burstMs": 253.75
+      "ms": 13,
+      "burstMs": 163.45
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 63.43,
-      "burstMs": 778.17
+      "ms": 39.45,
+      "burstMs": 436.87
     }
   },
   "flowchartDatasets": {
@@ -183,42 +183,42 @@
       "routed": 12,
       "bounded": 41,
       "hits": 1,
-      "ms": 234.02
+      "ms": 156.3
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
       "bounded": 44,
       "hits": 0,
-      "ms": 233.56
+      "ms": 161.5
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 1060.72
+      "ms": 713.89
     },
     "state chart · same calls, no cache": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 1102.48
+      "ms": 751.73
     }
   },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4946,
-      "ratio": 2.754,
-      "shippedNs": 37.84,
-      "kernelNs": 12.66
+      "ratio": 3.043,
+      "shippedNs": 43.54,
+      "kernelNs": 13.62
     },
     "inline · directives / retired kernel": {
       "spans": 368,
-      "ratio": 39.312,
-      "shippedNs": 3834.43,
-      "kernelNs": 94.74
+      "ratio": 36.585,
+      "shippedNs": 1741.8,
+      "kernelNs": 49.76
     }
   }
 }

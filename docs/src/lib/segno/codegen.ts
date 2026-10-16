@@ -98,7 +98,7 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
 }
 
 /** Generate an ES module exporting `parse(input, rule?)` with the same contract as `compile().parse`. */
-export function generate(spec: GrammarSpec, options: { banner?: string } = {}): string {
+export function generate(spec: GrammarSpec, options: { banner?: string; kinds?: readonly string[] } = {}): string {
   const an = analyze(spec); // throws GrammarError exactly as compile() does
   const maxDepth = depthOf(spec);
   // Rule names become identifiers (`r_<name>`), so they must be identifiers.
@@ -121,7 +121,9 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
     return name;
   };
   const recursive = an.recursiveRules();
-  const kinds: string[] = [];
+  // `kinds` seeds the node-kind numbering, so a parser generated from a restricted grammar
+  // (grammar.ts `restrict`) numbers its nodes as the full parser does and one reader walks both trees.
+  const kinds: string[] = [...(options.kinds ?? [])];
   // Attempts become functions of their own (`t_K` tries and rewinds, `b_K` is the body), written
   // after the rules. A grammar without one is generated exactly as before.
   const attempts = new Map<Expr, number>();

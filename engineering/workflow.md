@@ -549,10 +549,10 @@ directives (avatars, sparks, pills, which carry two thirds of the time) and ordi
 cheap guard rejects those). Ordinary code was 5.7x the retired kernel until followup 2718-p3 found
 where: 175 of its 4,946 spans are brace records that are not pills (`{2, 82}`, `{who=sales}`), and
 each paid the generated parser plus a full Segno bind that worded a diagnostic nobody read. A
-first-character table in front of the row loop, Segno's `refuses`, and a direct scan of plain
-records took the row from 6.71 to 2.75 on one machine in one session (the blessed pair, from two
-runner classes, is 5.72 to 2.75; directives 45.0 to 39.3) (docs/src/lib/segno/README.md § How a
-record binds fast). Each row is timed in 2,000 short slices that alternate with the
+first-character table in front of the row loop, Segno's `refuses`, and a parser generated from the
+notation restricted to plain records (`restrict`, `plainRecordSpec`) took the row from 6.71 to
+2.85-3.09 on one machine (directives 44.9 to 35.6-38.2), and on a GitHub runner from 5.98 to 2.41
+(docs/src/lib/segno/README.md § How a record binds fast). Each row is timed in 2,000 short slices that alternate with the
 retired kernel (`tools/parser-bakeoff/reference.mjs`) on the same spans, and it gates on the
 median of the per-slice ratios: absolute ns move ±11% between processes on one machine, and the
 ratio holds within a few percent. The ratio gates at the render tier's 12% floor whenever the

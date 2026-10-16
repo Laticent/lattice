@@ -466,13 +466,19 @@ of every brace span in inline code before reading it as a pill: most of those ar
 braces (`{2, 82}`, a chart point), and the full bind of a refusal cost 1.8 µs. `refuses` is
 experimental, like the grammar engine.
 
-The plainest spans skip the generated parser too. A span with `{` first, `}` last and no `{}[]"|`
-in between is scanned directly into the same flat tree (`plainRecordTree` in `notation.ts`): items
-split on commas, each a bare run or `name=value`. On `{2, 82}` that costs a tenth of the generated
-parser's 550 ns. Any span outside that shape, and any step of it the grammar would refuse, goes to
-the generated parser, so that parser alone decides every error. `notation.test.ts` holds the
-scan's tree equal to the parser's, node for node, on every span of up to five characters drawn
-from the characters it tells apart.
+Plain records also take a smaller parser, and nobody wrote it by hand. `restrict()` (in
+`grammar.ts`) takes a grammar and removes named rules and node kinds, with every branch that needs
+them. `plainRecordSpec` is the notation restricted to no lists, no quoted text and no tags, and the
+code generator makes its own parser of it (`notation-plain.generated.ts`). The fast bind tries that
+parser first and asks the full one about anything it refuses.
+
+The two cannot disagree. On an LL(1) grammar a choice is made on the next character, and a
+restriction only removes branches, so whatever the restricted parser accepts, the full one accepts
+by the same branches, and both build the same tree. The build numbers the restricted parser's node
+kinds as the full parser numbers them, so one reader walks both trees. `notation.test.ts` holds the
+two trees equal, node for node, on every short span over the characters that steer a plain record
+and over the characters that leave the shape. A change to the grammar regenerates both parsers, and
+`build:check` fails if either committed file is stale.
 
 One more condition keeps it correct. The parser writes one reused buffer, and the fast read walks
 it while it calls each parameter's `read`. A type of your own may parse a span inside its `read`,

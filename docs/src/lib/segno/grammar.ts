@@ -180,6 +180,94 @@ export interface GrammarSpec {
   readonly maxDepth?: number;
 }
 
+/**
+ * A grammar with some of its shapes taken out: every reference to a rule in `rules`, and every
+ * node of a kind in `nodes`, removed with the branch that needs it. A sequence that needs a removed
+ * piece goes; a choice keeps its other branches; an optional or repeated piece that goes leaves
+ * nothing behind. A rule left with no branch goes too, and so does everything that needs it, until
+ * nothing more changes.
+ *
+ * WHAT IT IS FOR: a faster parser for a common subset, generated rather than written by hand. On
+ * an LL(1) grammar (every grammar Segno builds is one) a choice is made on the next character, and
+ * pruning only removes branches. So whatever the restricted grammar accepts, the full grammar
+ * accepts too, by the same branches, and builds the same tree. It may reject more, which is the
+ * point: the caller tries the restricted parser first and asks the full one about anything it
+ * refuses. notation-grammar.ts `plainRecordSpec` is the first user.
+ *
+ * Experimental, like the rest of the grammar engine.
+ */
+export function restrict(spec: GrammarSpec, drop: { rules?: readonly string[]; nodes?: readonly string[] }): GrammarSpec {
+  const gone = new Set(drop.rules ?? []);
+  const nodes = new Set(drop.nodes ?? []);
+  const EMPTY: Expr = { t: 'seq', xs: [] };
+  // null: the expression needs something removed. EMPTY: it matched nothing but may stay.
+  const prune = (e: Expr): Expr | null => {
+    switch (e.t) {
+      case 'ref': return gone.has(e.name) ? null : e;
+      case 'node': {
+        if (nodes.has(e.kind)) return null;
+        const x = prune(e.x);
+        return x === null ? null : x === e.x ? e : { ...e, x };
+      }
+      case 'seq': {
+        const xs: Expr[] = [];
+        for (const x of e.xs) {
+          const p = prune(x);
+          if (p === null) return null;
+          if (p !== EMPTY) xs.push(p);
+        }
+        return xs.length === e.xs.length && xs.every((x, i) => x === e.xs[i]) ? e : xs.length ? { t: 'seq', xs } : EMPTY;
+      }
+      case 'alt': {
+        const xs = e.xs.map(prune);
+        if (xs.some((x) => x === EMPTY)) throw new Error('segno: restrict() left a choice with an empty branch, which would change what the choice means');
+        const kept = xs.filter((x): x is Expr => x !== null);
+        if (!kept.length) return null;
+        return kept.length === 1 ? kept[0] : kept.length === e.xs.length && kept.every((x, i) => x === e.xs[i]) ? e : { t: 'alt', xs: kept };
+      }
+      case 'many': {
+        const x = prune(e.x);
+        if (x === null || x === EMPTY) return e.min === 0 ? EMPTY : null;
+        return x === e.x ? e : { ...e, x };
+      }
+      case 'opt': {
+        const x = prune(e.x);
+        if (x === null || x === EMPTY) return EMPTY;
+        return x === e.x ? e : { ...e, x };
+      }
+      case 'attempt': {
+        const x = prune(e.x);
+        return x === null || x === EMPTY ? null : x === e.x ? e : { ...e, x };
+      }
+      default: return e;
+    }
+  };
+  let rules: Record<string, Expr> = { ...spec.rules };
+  for (let changed = true; changed;) {
+    changed = false;
+    const next: Record<string, Expr> = {};
+    for (const [name, e] of Object.entries(rules)) {
+      if (gone.has(name)) continue;
+      const p = prune(e);
+      if (p === null || p === EMPTY) { gone.add(name); changed = true; continue; }
+      next[name] = p;
+    }
+    rules = next;
+  }
+  if (!rules[spec.start]) throw new Error(`segno: restrict() removed the start rule "${spec.start}"`);
+  // Only what the start still reaches, so the generated parser carries no dead rule.
+  const reached = new Set<string>();
+  const walk = (e: Expr): void => {
+    if (e.t === 'ref') {
+      if (!reached.has(e.name)) { reached.add(e.name); walk(rules[e.name]); }
+    } else if (e.t === 'seq' || e.t === 'alt') e.xs.forEach(walk);
+    else if (e.t === 'many' || e.t === 'opt' || e.t === 'node' || e.t === 'attempt') walk(e.x);
+  };
+  reached.add(spec.start);
+  walk(rules[spec.start]);
+  return { ...spec, rules: Object.fromEntries(Object.entries(rules).filter(([n]) => reached.has(n))) };
+}
+
 // ── the parse tree ──────────────────────────────────────────────────────────
 
 /** A kept span of input. `from`/`to` are UTF-16 offsets; `kids` are the nodes inside it. */

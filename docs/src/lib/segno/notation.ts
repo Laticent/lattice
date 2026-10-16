@@ -22,6 +22,7 @@
 import { compile, type Grammar, MAX_DEPTH, type ParseError } from './grammar.js';
 import { parse as parseGenerated } from './notation.generated.js';
 import { notationSpec } from './notation-grammar.js';
+import { parse as parsePlain } from './notation-plain.generated.js';
 
 let compiled: Grammar | null = null;
 /** The closure-compiled notation grammar — the reference the generated parser must match. */
@@ -170,90 +171,31 @@ export function flatTree(text: string): Int32Array | null {
 
 /**
  * @internal for schema.ts; not part of the published API.
- * THE PLAIN-RECORD SCAN: the same flat tree `flatTree` returns, for the one shape most record spans
- * take (`{2, 82}`, `{who=sales, mood=5}`, `{LIVE, tag}`), built by a direct scan instead of the
- * generated parser. Null for anything else, and the caller then asks `flatTree`.
+ * THE PLAIN-RECORD PARSE: the same flat tree `flatTree` returns, for the shape most record spans
+ * take (`{2, 82}`, `{who=sales, mood=5}`, `{LIVE, tag}`), read by the parser Segno's code generator
+ * makes from `plainRecordSpec`: the notation with its lists, quoted text and tags `restrict`ed away
+ * (notation-grammar.ts). Null for anything else, and the caller then asks `flatTree`.
  *
- * WHY. The generated parser is general, and on a 7-character `{2, 82}` it cost about 550 ns, warm.
- * Inline code is full of braces that are not pills (a quadrant's points, a journey's rows), and the
- * render path asks of each one only "does this bind?" (followup 2718-p3). This scan costs a tenth of
- * that.
+ * WHY. Inline code is full of braces that are not pills (a quadrant's points, a journey's rows), and
+ * the render path asks of each one only "does this bind?" (followup 2718-p3). This parser never
+ * enters the branches a plain span cannot take, and it keeps its own buffer, so a span it reads
+ * never disturbs the full parser's hand-over to `parseRaw`.
  *
- * THE SHAPE: `{` at index 0, `}` last but for trailing space, and nothing inside from `{}[]"|`, so
- * there are no nested values, no quotes and no reserved bar. What is left of the grammar is small:
- * items split on `,` (space after a comma skipped), each a bare run, or a bare name, `=`, space and
- * a bare value. A bare run stops at `,` `=` `}`, starts on neither those nor a space, and keeps
- * its trailing space (`bareEnd` trims it). Any step the grammar would fail (a leading space, an
- * empty item, a second `=`) returns null, so the generated parser alone decides every error.
- *
- * notation.test.ts holds it EQUAL to the generated parser's tree, node for node, on every short span
- * over the characters that steer it; Lattice's test/unit/core/segno-both-paths.test.js holds the
- * binds built from it equal to the full path's on every span the tracked decks write.
+ * WHY IT CANNOT DRIFT. Nothing here restates the grammar: the restricted grammar is computed from
+ * the full one, and on an LL(1) grammar a restriction accepts only what the full grammar accepts,
+ * by the same branches, so the trees are equal. The build seeds its node kinds from the full
+ * parser's, so `FLAT_KIND` reads both. notation.test.ts holds the two trees equal on every short
+ * span over the characters that steer them; codegen.test.ts holds the file fresh.
  */
 export function plainRecordTree(text: string): Int32Array | null {
-  const n = text.length;
-  if (n < 3 || text.charCodeAt(0) !== 123 /* { */) return null;
-  let e = n;
-  while (e > 1 && isSpace(text.charCodeAt(e - 1))) e--;
-  const close = e - 1; // the `}`
-  if (text.charCodeAt(close) !== 125 /* } */) return null;
-  for (let i = 1; i < close; i++) {
-    const c = text.charCodeAt(i);
-    if (c < 128 && PLAIN_STOP[c] === 1) return null;
-  }
+  if (text.charCodeAt(0) !== 123 /* { */) return null;
+  const r = parsePlain(text);
+  if (!r.ok) return null;
   if (K_RECORD < 0) primeKinds();
-  // Each item is at most 12 slots and takes at least 2 characters (a value and a comma).
-  const need = 4 + 12 * ((close >> 1) + 1);
-  if (plainBuf.length < need || plainBuf.length > 65536) plainBuf = new Int32Array(Math.max(256, need));
-  const b = plainBuf;
-  b[0] = K_RECORD; b[1] = 0; b[2] = e;
-  let top = 4;
-  let pos = 1;
-  for (;;) {
-    // An item: never at the `}`, never on a separator or a space (the grammar skips space only
-    // after a comma, and that was done below).
-    let c = text.charCodeAt(pos);
-    if (pos >= close || c === 44 || c === 61 || isSpace(c)) return null;
-    const word = top;
-    const head = top + 4;
-    top += 8;
-    b[word] = K_WORD; b[word + 1] = pos;
-    b[head] = K_BARE; b[head + 1] = pos;
-    let end = pos + 1;
-    while (end < close && (c = text.charCodeAt(end)) !== 44 && c !== 61) end++;
-    b[head + 2] = end;
-    if (end < close && c === 61 /* = */) {
-      let v = end + 1;
-      while (v < close && isSpace(text.charCodeAt(v))) v++;
-      c = text.charCodeAt(v);
-      if (v >= close || c === 44 || c === 61) return null;
-      const tail = top;
-      top += 4;
-      b[head + 3] = tail;
-      b[tail] = K_BARE; b[tail + 1] = v;
-      end = v + 1;
-      while (end < close && (c = text.charCodeAt(end)) !== 44 && c !== 61) end++;
-      if (end < close && c === 61) return null; // `a=b=c`: a value stops at `=`, and then nothing takes it
-      b[tail + 2] = end;
-      b[tail + 3] = top;
-    } else {
-      b[head + 3] = top;
-    }
-    b[word + 2] = end;
-    b[word + 3] = top;
-    if (end >= close) break;
-    pos = end + 1; // past the comma
-    while (pos < close && isSpace(text.charCodeAt(pos))) pos++;
-  }
-  b[3] = top;
-  return b;
+  return r.tree.buf;
 }
-/** 1 for the characters that put a span outside the plain shape: `{` `}` `[` `]` `"` `|`. */
-const PLAIN_STOP = new Uint8Array(128);
-for (const ch of '{}[]"|') PLAIN_STOP[ch.charCodeAt(0)] = 1;
-let plainBuf = new Int32Array(256);
-/** The kind numbers come from the generated parser, so the first plain scan before any parse asks
- *  it for them once. That parse overwrites the shared buffer, so the hand-over is dropped too. */
+/** The kind numbers come from the full parser, so the first plain read before any full parse asks
+ *  it for them once. That parse overwrites the full parser's buffer, so the hand-over is dropped. */
 function primeKinds() {
   const r = parseGenerated('{x}');
   handedText = null;

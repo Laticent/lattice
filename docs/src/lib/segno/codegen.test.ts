@@ -9,10 +9,10 @@ import { describe, expect, it } from 'vitest';
 import { complement, fromRanges, has } from './charset';
 import { generate } from './codegen';
 import { toNodes } from './flat';
-import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, seq, set } from './grammar';
+import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, restrict, seq, set } from './grammar';
 import { attempt, node } from './index';
 import { parse as generatedFlat } from './notation.generated';
-import { notationSpec } from './notation-grammar';
+import { notationSpec, plainRecordSpec } from './notation-grammar';
 
 // The generated parser writes a flat tree; rebuild the object tree to compare with the reference.
 const generated = (s: string) => {
@@ -70,6 +70,32 @@ describe('the checked-in generated file is fresh', () => {
     const file = readFileSync(new URL('./notation.generated.ts', import.meta.url), 'utf8');
     const banner = file.slice(0, file.indexOf('\n\n') + 2);
     expect(file).toBe(generate(notationSpec, { banner }));
+  });
+  it.skipIf(!!process.env.SEGNO_MUTATE)('the plain-record parser matches what the generator writes from plainRecordSpec', () => {
+    const file = readFileSync(new URL('./notation-plain.generated.ts', import.meta.url), 'utf8');
+    const banner = file.slice(0, file.indexOf('\n\n') + 2);
+    const kinds = JSON.parse(/^const KINDS: readonly string\[\] = (.*);$/m.exec(generate(notationSpec))?.[1] ?? '[]');
+    expect(file).toBe(generate(plainRecordSpec, { banner, kinds }));
+  });
+});
+
+describe('restrict() keeps only what the full grammar accepts', () => {
+  const full: GrammarSpec = { start: 's', rules: { s: alt(seq('(', ref('s'), ')'), ref('word'), ref('num')), word: many1(oneOf('ab')), num: many1(oneOf('12')) } };
+  it('drops the branches that need a removed rule, and the full parser agrees on what is left', () => {
+    const small = restrict(full, { rules: ['num'] });
+    expect(Object.keys(small.rules).sort()).toEqual(['s', 'word']);
+    const a = compile(small);
+    const b = compile(full);
+    for (const t of ['ab', '(ab)', '((b))', '1', '(12)', '(a', '']) {
+      const r = a.parse(t);
+      if (r.ok) expect(b.parse(t)).toEqual(r); // accepted by the restriction: the same tree in full
+    }
+    expect(a.parse('(12)').ok).toBe(false);
+  });
+  it('removes a rule left with no branch, and refuses to remove the start', () => {
+    expect(() => restrict(full, { rules: ['s'] })).toThrow(/start rule/);
+    const none = restrict({ start: 's', rules: { s: alt(ref('x'), 'z'), x: ref('y'), y: seq('q') } }, { rules: ['y'] });
+    expect(Object.keys(none.rules)).toEqual(['s']);
   });
 });
 
