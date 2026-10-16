@@ -301,6 +301,7 @@ role.
 | | `muted` | starts without sound. Browsers allow `autoplay` only when muted, so `autoplay` implies it | HTML `muted`; Vimeo `muted` |
 | | `loop` | starts again at the end | HTML `loop`; Vimeo `loop`; YouTube `loop` (limited in embeds) |
 | | `controls` | `controls=false` hides the player's controls | HTML `controls`; YouTube `controls`; Vimeo `controls`; TikTok `controls` |
+| | `fullscreen` | while presenting, the clip fills the stage as it plays (§4.8) | PowerPoint *Play Full Screen* (ECMA-376 `fullScrn`) |
 | `qr` | the payload | a URI, quoted text, or a nested format record (`wifi={…}`, `contact={…}`) | URIs, the Wi-Fi URI, vCard (`2026-10-16-qr-plugin.md` §3, §3c) |
 | | `c1` … `c12` | the code's ink, with a lint for scan contrast (owner, 2026-10-16) | the deck's color cycle |
 | | `ec=L` `M` `Q` `H` | error correction | ISO/IEC 18004 |
@@ -314,10 +315,9 @@ dialect. That is the same strategy pattern as the hosts themselves.
 - **`start=`.** A start time is part of the address, as each standard defines it: `#t=90` for a video file (W3C Media
   Fragments), `?t=90` or `&start=90` on YouTube, `#t=90s` on Vimeo. The author writes the address they would share,
   and the poster link and QR open at that moment for free. (This reverses decision 7.)
-- **`fullscreen`.** No host offers "open full screen" as a setting. What exists is the opposite: YouTube's `fs=0`
-  and TikTok's `fullscreen_button=0` hide a fullscreen button that is shown by default, and Vimeo follows the HTML
-  `allowfullscreen` attribute on the frame. The plugin always sets `allowfullscreen`, so every clip can go full screen,
-  and no record needs a word for it.
+- **`fullscreen` as a host setting.** No host offers "open full screen": YouTube's `fs=0` and TikTok's
+  `fullscreen_button=0` only hide a button shown by default, and Vimeo follows the HTML `allowfullscreen` attribute.
+  The plugin always sets `allowfullscreen`. The word does earn a place, but from the presentation standard (§4.8).
 - **`gdrive:` and other invented schemes.** A Google Drive picture or clip has an `https://drive.google.com/…`
   address; a future source recognizes that host, as the video rows recognize theirs. `asset:` and `sample:` stay,
   because they name things no standard covers (a Studio Library item, Lattice's own sample art).
@@ -339,6 +339,52 @@ dialect. That is the same strategy pattern as the hosts themselves.
 The deck sets a default once (`image: nimbus`), a slide class overrides it, and a record's own word wins, as `icon:`
 and `avatar:` work. Which words make the list stays open (§8, decision 6) until a rendered contact sheet, light and
 dark, settles it.
+
+### 4.8 Playing a clip while presenting (added 2026-10-16)
+
+**What presenting a clip is like today.** Present and Practice show the poster only; in-place playback was built
+for the Studio and Playground and deferred for presenting (`2026-07-02-video-overlay-playback.md` §5). A presenter
+who wants the room to see the clip clicks the poster, a new tab opens on the host's site, and they have left their
+deck in front of the audience. That is the experience to fix.
+
+**The presenting standard is PowerPoint's, so the words come from it.** A PowerPoint video carries playback
+options, stored in the PPTX format (ECMA-376 PresentationML): *Start* (on click, or automatically), *Play Full Screen*
+(`<p:video fullScrn="1">`), *Loop until Stopped*, *Rewind after Playing*, and *Hide While Not Playing*. Keynote offers
+the same few. Lattice already exports PowerPoint, so these are the meanings a presenter brings with them.
+
+| Record word | Presenting behavior | Standard |
+|---|---|---|
+| *(none)* | the clip waits on its poster; **the next advance plays it** (a clicker's forward button, →, Space, a tap), and the advance after that moves to the next slide | PowerPoint *Start: In Click Sequence* |
+| `autoplay` | plays as the slide arrives | HTML `autoplay`; PowerPoint *Start: Automatically* |
+| `fullscreen` | while it plays, the clip fills the stage; when it ends, or on Esc, or on the next advance, it shrinks back into the slide | PowerPoint *Play Full Screen* (`fullScrn`) |
+| `loop` | plays until the presenter advances | HTML `loop`; PowerPoint *Loop until Stopped* |
+| `muted` | plays without sound | HTML `muted` |
+
+**Why the next advance plays the clip.** A presenter holds a clicker with two buttons and stands away from the
+laptop. A play button in the corner of a poster is out of reach, and a forward press that skips the clip loses it.
+So on a slide with a clip, forward means "play" once, then "next slide", which is how PowerPoint's click sequence
+behaves and what a presenter's hands already know. Back from a playing clip stops it and stays on the slide. The
+same verbs reach every input (keyboard, clicker, wheel, touch), through the shared kernel
+(`lib/core/present-transport.mjs`, `2026-08-10-input-verb-parity.md`).
+
+**What `fullscreen` does, exactly.** The deck is already full screen when presenting, so the clip's frame grows to
+fill the stage (the audience window), above the slide, and shrinks back after. It does not call the browser's
+Fullscreen API: a page cannot put a host's cross-origin player full screen without a click inside that player, and it
+would not need to. Without `fullscreen` the clip plays in the frame its layout gave it, which is right for a
+`companion` slide whose claim sits beside the clip. The default follows PowerPoint (off); a deck that wants every
+clip to fill the stage sets it once with the `video:` register (`video: fullscreen`).
+
+**Two windows, one playback.** With the presenter console open, the clip plays on the audience window only; the
+console shows its poster, elapsed and remaining time, and play / pause. Two embeds playing at once would mean two
+soundtracks, so the console never plays its own.
+
+**Where it applies.** Present, Practice and the HTML player play; the Studio preview plays in place as today. PDF
+and PNG keep the poster and link. A future PowerPoint export that embeds clips writes these words as PowerPoint's
+options (`fullscreen` → `fullScrn="1"`, `autoplay` → start automatically, `loop` → loop until stopped).
+
+**The venue matters.** A web-hosted clip needs the room's network and the reader's web-media consent; an `asset:`
+or file clip plays offline. Before presenting starts, a check (new work) names every clip that streams from a
+host, so a presenter learns it before the audience does.
 
 ## 5. Why records, not Marp keywords
 
@@ -401,7 +447,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 9. **Standards first** (§4.7, rule 2): a field's meaning and name come from the standard that defines it (HTML, CSS,
    Media Fragments, the hosts' player parameters, URIs, the Wi-Fi URI, vCard, ISO/IEC 18004). Lattice coins a word only
    where the standard's spelling would significantly hurt understanding, and accepts the standard's name beside it.
-   `fullscreen` was weighed against the hosts and left out (§4.7).
+   `fullscreen` was weighed against the hosts and left out (§4.7), then admitted from the presentation standard
+   (§4.8).
 6. **Treatments: open.** The owner wants a flavor that lets the picture shine, naming the `nimbus` finish and
    duotone. The proposal (§4.7) is settings on the mat (`nimbus`, `gallery`, `halo`) and tones on the picture
    (`duotone`, `mono`). It is settled from a rendered contact sheet, light and dark.
@@ -413,6 +460,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: §4.8 added: playing a clip while presenting, with PowerPoint's playback options as the standard
+  (`fullscreen` = *Play Full Screen*, the next advance plays a waiting clip).
 - 2026-10-16: §4.7 rewritten under the standards-first rule: `alt`, `caption`, `title` from HTML; HTML's video
   attributes mapped per host; `start=`, `fullscreen` and `gdrive:` dropped.
 - 2026-10-16: the `qr` word left the video record; a QR beside a clip is the `video` slide's `qr` variant.
