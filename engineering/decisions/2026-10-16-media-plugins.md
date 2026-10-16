@@ -41,7 +41,7 @@ Author syntax, as proposed:
 ```md
 ![Team offsite](asset:offsite)                       an image: CommonMark, kept as the image's alias
 `@image{asset:offsite, title="Offsite", description="The team at the lake", nimbus}` the same image, with a title, a description and a setting (§4.7)
-`@video{https://youtu.be/dQw4w9WgXcQ, title="The 90-second tour", poster=sample:photo-pano.jpg, qr}` a video on any slide
+`@video{https://youtu.be/dQw4w9WgXcQ, title="The 90-second tour", poster=sample:photo-pano.jpg}` a video on any slide
 `>{https://youtu.be/dQw4w9WgXcQ}`                    the same video through its sigil (§8)
 `@video{clips/demo.mp4}`                             a video file beside the deck (new: the `file` row)
 ```
@@ -157,8 +157,11 @@ hosts can serve it, and the others show the stand-in.
 
 ### 4.3 The `video` plugin
 
-- **The kind is `video`:** `` `@video{url, poster=…, caption="…", qr}` ``. It renders the existing poster,
-  badge and QR figure on any slide. The `video` slide class becomes a layout that requires the plugin.
+- **The kind is `video`:** `` `@video{url, title="…", poster=…}` ``. It renders the poster and play badge on any
+  slide. The `video` slide class becomes a layout that requires the plugin, and it keeps its compositions
+  (`companion`, `gallery`) and its `qr` variant, which asks the `qr` plugin for a code of the watch address and seats
+  it beside the poster. A QR is a layout's choice, not a fact about the clip, so the record has no `qr` word; on
+  another slide an author who wants one writes `@qr{…}` beside the video.
 - **The provider table moves in, and grows a `via` field.** Today's four rows become `via: 'embed'`. A new
   `via: 'file'` row claims `.mp4`, `.webm` and `.mov` from any source (relative, `asset:`, web). That makes
   Library videos showable (D7) and gives the HTML player and the desktop app a real `<video>` element.
@@ -166,7 +169,7 @@ hosts can serve it, and the others show the stand-in.
 
   | Surface | `embed` row | `file` row |
   |---|---|---|
-  | PDF, PNG, PPTX | poster, badge, QR | poster (the Library's captured one, or a first frame), badge |
+  | PDF, PNG, PPTX | poster, badge (plus the code, on a `video qr` slide) | poster (the Library's captured one, or a first frame), badge |
   | HTML player, presenter | click-to-load iframe behind the web consent | `<video controls>` |
   | Studio preview | the existing overlay | `<video controls>` |
 
@@ -292,7 +295,6 @@ longer description follows #2723's list form, a `>` blockquote indented under th
 | | `autoplay` | plays as soon as the slide shows, muted (browsers allow autoplay only without sound), on surfaces that play: the HTML player, the presenter, the Studio. PDF and PowerPoint show the poster. A web-hosted clip autoplays only after the reader has allowed web media, because loading it is a request to a third party (HARD RULE #22) |
 | | `fullscreen` | the clip opens full screen when played, rather than in the slide's frame |
 | | `start=1:30` | where playback starts, for hosts that take a start offset; the poster link and the QR open there too |
-| | `qr` | adds a scannable code of the watch address |
 | `qr` | `c1` … `c12` | the code's ink, from the deck's color cycle (owner, 2026-10-16). Lint warns when a slot's contrast against the code's paper is too low to scan, in light and dark mode alike |
 | | `ec=L` `M` `Q` `H` | error correction, default `M` |
 | | the payload | what the code carries: a link, an address or quoted text, or a nested format record, `wifi={…}` or `contact={…}`, with the fields those slides already use. The payload's fields live one level down, so a contact's job `title` never meets the code's own `title` (`2026-10-16-qr-plugin.md` §3) |
@@ -322,6 +324,9 @@ it needs a rendered contact sheet of each candidate on light and dark themes bef
   fill them. The `video` and `qr` bullets' `caption` key becomes `title` (`lint:deck --fix`).
 - **No pixel sizes (`w=200`) or filters (`blur`, `sepia`).** Marp's keywords are retired (§8, decision 2).
 - **No `{> …}` inside a record.** In #2723 that form describes a table cell; a record names its description.
+- **No composition words in a record.** A QR beside a clip, a readable Wi-Fi card, a side panel: each is a layout
+  composing plugins, so it belongs to the layout (the `video` slide's `qr` variant, the `wifi` and `contact`
+  components), never to a record. A record describes one thing.
 
 ## 5. Why records, not Marp keywords
 
@@ -373,7 +378,7 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 2. **Marp's alt-text keywords: a clean break, with an autofix.** `![alt](src)` stays as the plain image alias.
    Placement and treatment move to `@image{…}`, and `lint:deck --fix` rewrites `![bg left](x)` and the rest.
    This matches Segno's no-dual-syntax decision. Export-to-Marp still writes the keywords back out.
-3. **Video gets the sigil `>`:** `` `>{https://youtu.be/…, qr}` `` is `@video{…}`. The tag set is
+3. **Video gets the sigil `>`:** `` `>{https://youtu.be/…}` `` is `@video{…}`. The tag set is
    `INLINE_TAGS` in `lib/plugins/resolve.js:419` (`~ ^ !` today), so slice 2 widens it to four and has
    to show that no shipped grammar reads an inline code span that starts with `>{`. The sigil is typed only in
    source, so no glyph reaches a slide (HARD RULE #29).
@@ -391,6 +396,7 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: the `qr` word left the video record; a QR beside a clip is the `video` slide's `qr` variant.
 - 2026-10-16: §4.7 added, then revised on the owner's answer: a plugin describes (thing, title, description and a few
   per-plugin words), the layout places. Treatments split into settings (finishes on the mat) and tones (duotone, mono).
 - 2026-10-16: D3, D4, D8, D9 and the runtime-mirror path reproduced on real surfaces (CLI renders, the Studio
