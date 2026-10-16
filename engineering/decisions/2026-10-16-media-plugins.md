@@ -294,12 +294,41 @@ and between them they cover everything a picture, a clip or a code needs to say.
 
 | Surface | Uses | Built as |
 |---|---|---|
-| the slide | the `title`, when the layout shows a visible name (the layout decides, as it decides placement) | `<figcaption>` |
+| the slide | the `title`, shown or not by the plugin's rule below; the `description` is hidden unless asked for | `<figcaption>` |
 | a screen reader | the `title` as the name, the `description` as the detail | `alt` / `aria-label` from the title; `aria-describedby` to the description |
 | hover and tap on screen | the `title` and the `description` | the figure's tooltip |
 | print and PDF | the `description` beside the slide's speaker notes | the notes page |
 | narration | the `title`, then the `description` (§4.10) | the speech projection |
 | the Guide's gestures | the figure as one named unit, whose title the narration has just spoken | the figure unit the frame bracket and the cue match |
+
+**The plugin owns its text, not the layout** (proposed 2026-10-16; owner leaning, to confirm). The plugin renders its
+figure together with its title and description; a layout places and sizes the figure and never reads, writes, hides or
+restyles that text. This is the secure split (no layout composes text from a slide again, the pattern §4.5 retires),
+and it gives one behavior on every layout. What shows by default, by kind, from the test below:
+
+| Kind | Title on the slide | Description on the slide |
+|---|---|---|
+| QR code | shown: it is the only thing that tells the room what scanning does | hidden |
+| video | shown: it tells the room what they are about to watch | hidden |
+| image | hidden: the slide's heading already sets the context, and a caption is too small to read across a room | hidden |
+
+An author overrides on the record: `show=title`, `show=all` or `show=none`. A layout that wants labels on every item
+(a gallery) asks for them through the record, never by drawing its own. The `video` slide's `caption` bullet and a
+collage photo's text become the record's `title` / `description` (`lint:deck --fix`). The description is hidden by
+default (owner, 2026-10-16): a sentence at caption size cannot be read across a room, so it goes to the tooltip, the
+print notes, narration and the screen reader.
+
+**What the test found** (2026-10-16): the same photo, video and QR code, each with the title shown, both shown, and
+nothing shown, rendered by the CLI, narrated by the CLI's own speech projection (`--captions`), and read in Chromium's
+accessibility tree:
+
+- **Narration must not depend on what is visible.** With the title shown, narration read "Q3 offsite. The field team
+  surveying Lake Louise, site 14 of 40." as two sentences. With both shown in one caption, it ran them together ("Q3
+  offsite The field team…"). With nothing shown, it dropped the title. So the plugin hands narration both fields as
+  separate sentences whatever is visible.
+- **A screen reader heard a visible title twice** (as the picture's name and as the caption text). The plugin labels the
+  figure by its visible title so it is announced once.
+- **Not checked:** a native tooltip shows only on a real pointer hover, which a headless screenshot cannot capture.
 
 **When the author leaves one out, Lattice fills it**, first source wins:
 
@@ -617,6 +646,10 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
     clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
 13. **Narration speaks a media record's title, then its description, never a QR payload** (§4.10).
+16. **The description is hidden on the slide by default**; it reaches the room through narration, the tooltip and the
+    print notes (§4.7).
+17. *(proposed, owner leaning)* **The plugin owns its title and description**, with defaults by kind (QR and video
+    titles shown, image titles hidden) and a per-record `show=`; layouts never touch the text (§4.7).
 14. **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
     the MP4 with its sound, a host's clip holds on its poster (§4.10).
 15. **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
@@ -625,6 +658,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: tested title and description display on the CLI, in narration and in the accessibility tree; decision
+  16 settled, 17 proposed.
 - 2026-10-16: the owner set the text model: every record has `title` and `description`, and `alt`, `caption`,
   tooltips, narration and the Guide's targets are derived from them under the hood (§4.7).
 - 2026-10-16: §4.10 added: narration, the Guide and its captions; owner settled decisions 13–15 as recommended.
