@@ -52,22 +52,28 @@ The explicit list and the export record are good. Neither limits what an admitte
    `lib/export/player-core.mjs:3344`), so the hash certifies the plugin's code rather than
    constrains it. What constrains the page is the rest of the policy:
    `default-src 'none'; … img-src data:; font-src data:; base-uri 'none'; form-action 'none'`.
-   **Measured 2026-10-16** (Chromium 131 headless, that policy replayed around a script allowed by
-   its own hash, a local listener, and a no-CSP control that reached the listener on every probe
-   but one):
+   **Measured 2026-10-16 on a real export** (`lattice deck.md deck.html --player`, opened from
+   `file://`, in Chromium, WebKit and Firefox through Playwright). Each attempt ran inside the page,
+   so the CSP shipped in the file decided. The file's policy matched the one in
+   `player-core.mjs:3346` exactly, apart from the hash. A copy with the CSP `<meta>` removed was the
+   control, and it reached a local listener on every attempt in every engine, so no cell below is
+   empty by accident:
 
-   | Exit the script tries | Reached the listener |
+   | Exit the script tries | Reached the listener (all three engines) |
    |---|---|
    | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` | no |
-   | `new Image().src`, CSS `url()`, `<iframe>`, form post, `<a ping>`, `<link rel=prefetch>` | no |
+   | `new Image().src`, CSS `url()`, `<iframe>`, form post | no |
    | **`location.href = 'http://…?x=…'`** | **yes** |
    | **`window.open('http://…')`** | **yes** |
+
+   An earlier replay of the same policy in Chromium alone also saw no request from `<a ping>` or
+   `<link rel=prefetch>` (their controls fired); the real-export run did not repeat those two.
 
    So the export's policy closes every request a script can send, and leaves **navigation** open.
    A hostile `hydrate` can send the page's text (including the speaker notes and glossary in the
    envelope) to a server by redirecting the page. It cannot do it silently, since the page
-   visibly leaves. A real browser also blocks a popup without a user gesture, which this headless
-   run does not model.
+   visibly leaves. A real browser also blocks a popup without a user gesture, which these headless
+   runs do not model, so `window.open` is the weaker of the two exits.
 2. **The Studio and the desktop app are not `npm i` projects.** The Studio keeps the user's
    OpenRouter key in same-origin `localStorage` (`lattice-db-or-key`, read in four places on
    2026-10-16). The Tauri exploration note (`2026-05-10-tauri-exploration.md`) mentions the system keychain
@@ -177,7 +183,9 @@ superseded in a follow-up.
 - The gate's run-time cost is unmeasured.
 - The `postinstall` measurement used one tarball with no transitive dependencies. It shows the mechanism, not how a real plugin's dependency tree behaves.
 - Whether the desktop app will keep the OpenRouter key in the OS keychain is undecided (§3.2).
-- The §3.1 measurement replays the policy string from `lib/export/player-core.mjs:3346` in a
-  `data:` page. It did not drive a real exported file, and it ran headless Chromium 131 only. The
-  probe script lives in the session scratchpad, not in the repo. If the harness in §5.2 is built,
-  this probe becomes its export check.
+- The §3.1 measurement drove one real export of a two-slide deck with no plugin hydrate in it,
+  in headless Chromium, WebKit and Firefox on Linux. It ran each attempt through `page.evaluate`,
+  which stands in for plugin code allowed by the hash. It did not run an actual plugin's hydrate,
+  and it did not run Safari, Chrome or Firefox on a user's machine. The probe script lives in the
+  session scratchpad, not in the repo. If the harness in §5.2 is built, this probe becomes its
+  export check.
