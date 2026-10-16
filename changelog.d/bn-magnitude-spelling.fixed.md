@@ -1,0 +1,2 @@
+- Charts read `Bn` and `BN` as billions, the same as `B` and `bn`. Before, `$5Bn` plotted at 5 with the unit `Bn`, so a chart that mixed `$5bn` and `$5Bn` drew the two a billion apart, while the narration said "five billion dollars" over the short bar. Both number readers (Segno's and `lib/core/chart-values.js`) changed together. A negative `($0.8BN)` is now also said as "down eight hundred million dollars" instead of dropping its sign.
+- The Studio Guide counts `5Bn` and `5BN` as figures when it ranks what to point at, as it already did for `5bn` and `5B`.

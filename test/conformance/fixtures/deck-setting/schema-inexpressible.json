@@ -1,0 +1,1 @@
+{ "key": "header", "row": { "key": "header", "kind": "register", "group": "chrome", "default": "none", "info": "A register that names no values." }, "readers": ["lib/engine/slides.js"] }

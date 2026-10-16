@@ -18,7 +18,8 @@
  *                            level; producer choices, not deck front matter)
  *     lattice.css          — the palette-blind engine stylesheet (minified)
  *     fonts/*.woff2        — every face lattice.css's @font-face srcs point at
- *     themes/<palette>.css — the deck's palette (+ -dark), minified (from dist/themes/)
+ *     themes/<palette>.css — the deck's palette (+ -dark) and every palette either extends
+ *                            (paletteClosure, from THEME_EDGES), minified (from dist/themes/)
  *     lattice-runtime-min.js,
  *     mermaid-v11-min.js   — render diagrams + components when opened as HTML
  *     .vscode/settings.json — registers the themes for the Marp VS Code preview
@@ -111,6 +112,21 @@ function die(msg) { console.error(`export-marp: ${msg}`); process.exit(1); }
  */
 function readDeckSource(deckPath) {
   return fs.readFileSync(deckPath, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+}
+
+/**
+ * The theme files the bundle ships for `palette`: the palette and its `-dark`
+ * companion, each preceded by every palette it extends (parent-first, deduped).
+ * `lattice` is not a theme edge — it ships as lattice.css via STATIC_ASSETS.
+ */
+function paletteClosure(palette) {
+  const { themeChain } = require('../lib/theme/chain.mjs');
+  const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
+  const out = [];
+  for (const root of [palette, `${palette}-dark`]) {
+    for (const name of themeChain(root, THEME_EDGES)) if (!out.includes(name)) out.push(name);
+  }
+  return out;
 }
 
 /** Read the deck's `theme:` front-matter palette, or null. */
@@ -396,14 +412,22 @@ function main(argv) {
   }
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
-  //    under the readable `<palette>.css` name marp/VS Code register by @theme.
-  const themeFiles = [`${palette}.css`, `${palette}-dark.css`];
+  //    under the readable `<palette>.css` name marp/VS Code register by @theme —
+  //    AND every palette either one extends, transitively. The recipient's Marp
+  //    resolves `@import 'parent'` against its own theme set, so a missing ancestor
+  //    renders the deck without its colors (atelier-dark → atelier; a11y-deuteranopia
+  //    → a11y-base → onyx). The chain comes from the declared graph (THEME_EDGES,
+  //    lib/theme/chain.mjs), the same one the Studio's producer walks.
+  const themeFiles = paletteClosure(palette).map((n) => `${n}.css`);
   const bundledThemes = [];
   for (const f of themeFiles) {
     const min = path.join(ROOT, 'dist', 'themes', f.replace(/\.css$/, '-min.css'));
     if (fs.existsSync(min)) { copyCssInto(min, path.join(dest, 'themes', f)); bundledThemes.push(`themes/${f}`); }
   }
-  if (!bundledThemes.length) die(`unknown palette '${palette}' — no dist/themes/${palette}-min.css (run \`npm run build\`)`);
+  // The deck's OWN palette must ship, not just a parent of it: a palette declared in the
+  // graph but missing from a stale dist/ would otherwise ship only its ancestor, and Marp
+  // would fall back to its default theme without a word (the Studio producer throws here too).
+  if (!bundledThemes.includes(`themes/${palette}.css`)) die(`unknown palette '${palette}' — no dist/themes/${palette}-min.css (run \`npm run build\`)`);
   const themesList = ['lattice.css', ...bundledThemes];
 
   // 4) the shared static assets — minified stylesheet (→ lattice.css), runtime,
@@ -467,4 +491,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { localizeAssets, localizeFrontMatter, readTheme, readDeckSource };
+module.exports = { paletteClosure, localizeAssets, localizeFrontMatter, readTheme, readDeckSource };

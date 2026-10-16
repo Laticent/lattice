@@ -1,0 +1,10 @@
+- Each of the 16 charts in the chart authoring model now declares its row in its manifest's `segno` block: a `row` slot (a `cell` slot on heatmap and matrix-grid) whose fields are written as one `{…}` record, plus a `rows` block naming the row's shape, whether a `>` under a list row is its description (`quotes`), which rows draw no mark, and how the chart reads the row today. The build compiles each one, so a schema Segno refuses fails the build.
+  - Field names follow the model's shared vocabulary: `value`, `target`, `band` and `floor` (bullet), `kind` (waterfall's `total` or `step`), `status` (the shared status words) and `note` (progress), `x`, `y` and `size` (scatter and quadrant).
+- `lib/core/chart-rows.js` is the one chart row reader. The narrator and lint take the detail charts, the markless rows and a row's `>` description from it; Compose reads the same schema flag, pinned to the reader's list by a test. It replaces `lib/core/chart-row-detail.js`, and the narrator no longer rewrites a description into nested bullets before reading the slide.
+- Narration of a row's `>` description fixes two cases:
+  - A description on a bullet row that also has `Floor` or `Band` rows no longer hides those rows.
+  - A description holding inline code under a bar, line, stacked-bar or slope row no longer silences the whole chart's narration.
+  - Every other description is said as before.
+- The new lint warning `chart-row-record-unread` catches a row written as one record, such as ``- Uptime `{4.2M, target=5.0M}` ``, on a chart that does not draw that form yet. Today such a row loses its value with no error: a bar draws no bar, a pie misreads the slice, progress prints the braces. The warning names the spans the chart reads today (`` `4.2M` `5.0M` ``). It has no machine fix, because the model's codemod will write the record form.
+- The radar and quadrant docs now describe the rows the charts actually read: a radar series nests one row per axis, and a quadrant's points nest under their groups.
+- None of the 895 chart slides in the decks, docs and manifest samples renders, narrates or lints differently.

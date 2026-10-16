@@ -2359,7 +2359,7 @@ export function shownSection(doc: Document | null): Document | Element | null {
 
 /** A measured amount: currency, a percentage, a magnitude or duration unit, a decimal,
  *  thousands, or three or more digits that are not a year. */
-const FIGURE = /[$€£¥]\s?\d|\d\s?%|\d\s?(?:percent|pts?|million|billion|thousand|[kKmMbB]|bn|pp|x|mo|months?|weeks?|days?|years?|yrs?|hours?|hrs?)\b|\d[.,]\d(?!\S*\s+\p{Lu}\p{Ll})|\b(?!(?:19|20)\d\d\b)\d{3,}\b/u;
+const FIGURE = /[$€£¥]\s?\d|\d\s?%|\d\s?(?:percent|pts?|million|billion|thousand|[kKmMbB]|bn|Bn|BN|pp|x|mo|months?|weeks?|days?|years?|yrs?|hours?|hrs?)\b|\d[.,]\d(?!\S*\s+\p{Lu}\p{Ll})|\b(?!(?:19|20)\d\d\b)\d{3,}\b/u;
 
 /** How much a target matters. Authored focus dominates everything else, so it is never cut. */
 export function salience(el: Element): number {

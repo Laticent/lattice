@@ -183,6 +183,10 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
   word-cloud reader takes the first list depth-aware, and a nested bullet becomes the word's
   hover detail, as it is on the other detail charts.
 
+- **Superseded 2026-10-16 by phase 2's first slice:** `rowQuotesAsBullets` is deleted, and the
+  narrator reads a description as structure from `lib/core/chart-rows.js` `readChartRows`, which
+  keeps the scanner's markdown-it list rules. The engine's HTML lift and the flowchart grammar
+  remain. The note as written:
 - **A row's `>` description has three readers until phase 2's one reader lands.** The engine
   lifts it from the rendered HTML (`takeRowDescription`,
   `lib/components/chart/_chart-family/mark-detail.js`); the narrator rewrites it into nested

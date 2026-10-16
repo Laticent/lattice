@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import chartRows from '../../../../lib/core/chart-rows.js';
 import { deckToDoc, docToDeck } from './deck-doc';
 
 // The owner's deck on #2690: an older Compose saved a row's `>` description with blank lines
@@ -15,5 +16,13 @@ describe('a chart slide saved from Compose writes its rows tight', () => {
 	it('a loose list on a slide that is not a chart stays loose', () => {
 		const prose = '## T\n\n- one\n\n- two';
 		expect(docToDeck(deckToDoc(prose))).toBe(prose);
+	});
+	it('every chart that reads a row\'s `>` is tightened: the row schemas and the grammar charts', () => {
+		// Compose reads the list from the generated catalog (it requires nothing); this pins it to
+		// the row reader's own list, so a chart whose schema starts reading detail is not missed.
+		for (const chart of [...chartRows.DETAIL_CHARTS, ...chartRows.QUOTE_CHARTS]) {
+			const loose = `<!-- _class: ${chart} -->\n\n## T\n\n- A\n\n- B`;
+			expect(docToDeck(deckToDoc(loose)), chart).toBe(`<!-- _class: ${chart} -->\n\n## T\n\n- A\n- B`);
+		}
 	});
 });

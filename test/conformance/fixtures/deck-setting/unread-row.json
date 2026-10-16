@@ -1,0 +1,1 @@
+{ "key": "lift", "row": { "key": "lift", "kind": "register", "vocab": "liftNames", "rule": "unknown-lift", "spec": "2.3", "group": "look", "default": "off", "info": "Card lift — on / off." }, "readers": [], "inSpec": true, "specCases": 1 }

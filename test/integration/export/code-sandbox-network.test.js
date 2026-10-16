@@ -116,7 +116,12 @@ describe('code sandbox: a hostile transform reaches nothing', () => {
       Object.entries(vectors).map(async ([name, body]) => {
         const code = `console.log('ran:${name}');${body}`;
         const onConsole = (text) => (text.startsWith('ran:') ? ran.add(text.slice(4)) : null);
-        if (locked) return (await openSandboxPage(browser, { script: code, onConsole })).close;
+        // Eleven locked pages load AT ONCE here, and `openSandboxPage`'s 5 s default load cap (which
+        // exists to stop a top-level loop) is shared CPU time among them. On a loaded runner one page
+        // missed it (#2722 CI, 2 runs in 3); pinned to one core it missed in 3 runs of 3. This test
+        // proves what the walls STOP, not how fast a page loads, so it gives the load room. With 30 s:
+        // 3 of 3 passed on one core.
+        if (locked) return (await openSandboxPage(browser, { script: code, onConsole, loadTimeoutMs: 30000 })).close;
         const context = await browser.createBrowserContext();
         const page = await context.newPage();
         page.on('console', (m) => onConsole(m.text()));

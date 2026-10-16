@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { appendToEditor, CHROME, expect, gotoStudio, LIVE_PREVIEW, openInspector, openSection, persistedSource, test } from './studio-fixture';
 
 // ── The `inline-code:` register, driven from the real Studio ────────────────────────
@@ -20,19 +21,37 @@ import { appendToEditor, CHROME, expect, gotoStudio, LIVE_PREVIEW, openInspector
 //     runtime in one document, so this is the composition the register has to survive
 //     — not either half alone.
 
-test('the deck-settings toggle turns the inline grammar off, and the preview obeys', async ({ page }) => {
+// ── Getting around a phone ──────────────────────────────────────────────────────────
+//
+// Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): `Markdown
+// source` swaps the editor in and `Preview` swaps the slide back, and deck settings is a sheet
+// opened from the bottom bar's `Settings` and closed with Escape. On a wider box the editor, the
+// preview and the Inspector are all on screen together, so each helper does nothing there.
+async function showSource(page: Page, phone: boolean): Promise<void> {
+	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+}
+async function showPreview(page: Page, phone: boolean): Promise<void> {
+	if (phone) await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
+}
+async function openDeckSettings(page: Page, phone: boolean): Promise<void> {
+	if (phone) await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+	else await openInspector(page);
+	await openSection(page, CHROME.deckTab.general);
+}
+async function closeDeckSettings(page: Page, phone: boolean): Promise<void> {
+	if (phone) await page.keyboard.press('Escape');
+}
+
+// `phone`: the same claims, reached the way a phone reaches them — type behind `Markdown
+// source`, toggle in the settings sheet, then close it and look behind `Preview`.
+async function togglesTheGrammar(page: Page, phone: boolean): Promise<void> {
 	await gotoStudio(page);
 	// Typed into the REAL editor rather than seeded through localStorage: the Studio keys
 	// its draft per deck (`lattice-studio-src-<deckId>`), so there is no fixed key to seed,
 	// and typing is the flow an author actually takes anyway.
+	await showSource(page, phone);
 	await appendToEditor(page, '\n\nProse with `{ALPHA, c2}` and `[x]` and plain `getUserId()`.\n');
-	await openInspector(page);
-	await openSection(page, CHROME.deckTab.general);
-
-	const toggle = page.getByRole('switch', { name: 'Inline pills and marks' });
-	// ON by default — no register in the deck, and the default has to be the running
-	// grammar or every existing deck changes.
-	await expect(toggle).toHaveAttribute('aria-checked', 'true');
+	await showPreview(page, phone);
 
 	// ANTI-VACUITY, before touching anything: the grammar must be RUNNING, or "the pills
 	// went away" is trivially true because there were never any.
@@ -40,6 +59,12 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 	await expect(preview.locator('.lattice')).toBeVisible({ timeout: 40_000 });
 	await expect(preview.locator('.lat-pill')).toHaveCount(1, { timeout: 30_000 });
 	await expect(preview.locator('.lat-state')).toHaveCount(1);
+
+	await openDeckSettings(page, phone);
+	const toggle = page.getByRole('switch', { name: 'Inline pills and marks' });
+	// ON by default — no register in the deck, and the default has to be the running
+	// grammar or every existing deck changes.
+	await expect(toggle).toHaveAttribute('aria-checked', 'true');
 
 	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'false');
@@ -50,6 +75,8 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 	// THE PREVIEW OBEYS — the half a unit test cannot reach. Both drawn objects are gone
 	// and every span is back to literal text, in the document where the engine's output
 	// and the runtime's mirror are composed together.
+	await closeDeckSettings(page, phone);
+	await showPreview(page, phone);
 	await expect(preview.locator('.lat-pill')).toHaveCount(0, { timeout: 30_000 });
 	await expect(preview.locator('.lat-state')).toHaveCount(0);
 	expect(await preview.locator('section code').allTextContents()).toEqual(
@@ -58,12 +85,29 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 
 	// And turning it back on REMOVES the key rather than writing `inline-code: rich` —
 	// a deck that never opted out should carry no trace of having been toggled.
+	// (Only the phone closed the sheet; on desktop the Inspector is still open, and opening it
+	// again would toggle it shut.)
+	if (phone) await openDeckSettings(page, phone);
 	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'true');
 	await expect.poll(() => persistedSource(page)).not.toContain('inline-code:');
 	// …and the drawn objects come back, so the switch is a switch and not a one-way door.
+	await closeDeckSettings(page, phone);
+	await showPreview(page, phone);
 	await expect(preview.locator('.lat-pill')).toHaveCount(1, { timeout: 30_000 });
 	await expect(preview.locator('.lat-state')).toHaveCount(1);
+}
+
+test('the deck-settings toggle turns the inline grammar off, and the preview obeys', async ({ page }) => {
+	await togglesTheGrammar(page, false);
+});
+
+// The same claims on WebKit at an iPhone's size, by touch (the nightly `webkit-phone` project).
+// The arms below reach the field at 820px and 390px, but in desktop Chromium with a resized
+// window and no preview check; this is the one run that toggles AND reads the preview in the
+// layout a phone gets.
+test('@webkit-phone the deck-settings toggle turns the inline grammar off on an iPhone, and the preview obeys', async ({ page }) => {
+	await togglesTheGrammar(page, true);
 });
 
 // ── The same field, at the two widths that reach it by a DIFFERENT control ──────────

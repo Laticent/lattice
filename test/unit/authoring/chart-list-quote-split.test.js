@@ -1,4 +1,4 @@
-// A row's `>` description on the list charts (lib/core/chart-row-detail.js), and the two lint rules
+// A row's `>` description on the list charts (lib/core/chart-rows.js), and the two lint rules
 // around it (lib/authoring/lint-core.js):
 //   - `chart-list-split-quote`: a `>` at the left margin between two items ends the chart's list,
 //     so every row after it drops out of the chart. Born from the adversarial trio on #2686.
@@ -15,7 +15,7 @@ const { buildVocab } = require('../../../lib/authoring/lint');
 const { loadAll } = require('../../../lib/components');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
-const ROW_DETAIL = require('../../../lib/core/chart-row-detail.js');
+const ROW_DETAIL = require('../../../lib/core/chart-rows.js');
 
 const manifests = loadAll(path.join(__dirname, '../../../lib/components'));
 const vocab = buildVocab(manifests);
@@ -236,8 +236,10 @@ describe('a description cannot break the slide, the narration or the card', () =
     assert.match(say(bar('- Alpha `10`\n  > first line\n  continued lazily\n- Beta `20`')), /first line continued lazily\. Beta/);
     // `1. ` puts its content at column 3: a two-space quote ends the list in the engine, and is no
     // row's description to the narrator either.
-    assert.equal(ROW_DETAIL.rowQuotesAsBullets('1. A `1`\n  > q\n2. B `2`', 'bar'), '1. A `1`\n  > q\n2. B `2`');
-    assert.equal(ROW_DETAIL.rowQuotesAsBullets('1. A `1`\n   > q\n2. B `2`', 'bar'), '1. A `1`\n   - q\n2. B `2`');
+    assert.deepEqual(ROW_DETAIL.readChartRows('1. A `1`\n  > q\n2. B `2`', 'bar').descriptions, []);
+    const three = ROW_DETAIL.readChartRows('1. A `1`\n   > q\n2. B `2`', 'bar');
+    assert.equal(three.markdown, '1. A `1`\n2. B `2`');
+    assert.deepEqual(three.descriptions.map((d) => [d.anchor, d.blocks[0].text]), [[0, 'q']]);
     // A radar series draws no mark of its own: its quote is dropped, never read as an axis at zero.
     const radar = say(deck('radar', '- Speed\n  > series desc\n  - A `3`\n  - B `4`\n  - C `5`'));
     assert.doesNotMatch(radar, /series desc|, at zero/);

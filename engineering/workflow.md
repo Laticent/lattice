@@ -448,7 +448,7 @@ So `bench:check` re-measures the regressed datasets once and exits 1 only for a
 dataset that regresses on **both** passes — you'll see a `PERF CHECK · pass 2
 (confirming)` block, and a `Not reproduced on the second pass` line for anything
 that was just load. The extra ~1 min is paid only when something already looks red.
-Only the RENDER tier is re-measured: the browser tiers stand on one pass, because a
+Only the RENDER and INLINE-SPAN tiers are re-measured: the browser tiers stand on one pass, because a
 puppeteer arm cannot be re-run on a hunch (`--print` is ~11 min, `--export` ~3, and
 `--cli` spawns a fresh browser per iteration). Their ±50% band — and the sweep's 3×
 floor — is sized for that. The re-measure is selected BY DATASET NAME, so every browser
@@ -525,6 +525,7 @@ expensive for anything scheduled to pass it:
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
 | *(none)* | edit — warm re-render per keystroke, single char and 12-char burst | ~2s | `editDatasets` |
 | *(none)* | flowchart layout — the demo deck's browser `layout()` calls, replayed with and without the kernel's cache | ~5s | `flowchartDatasets` |
+| *(none)* | inline span — the inline-code dispatcher per span, paired against the retired pre-Segno kernel | ~5s | `inlineDatasets` |
 | `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
@@ -539,6 +540,39 @@ before the kernel cached its results). It gates on three integers per row, `rout
 and `hits` (calls answered from the cache): more of the first two, or fewer hits, is a
 regression on any machine; `ms` is commentary. Re-capture the fixture when the browser
 pass or the deck changes what it measures.
+
+The **inline-span tier** times the decision every inline-code span pays in
+`lib/core/inline-code-directives.js` (`escapedText`, then `dispatches`): tens of nanoseconds a
+span, which no whole-deck render can resolve. It runs the 5,314 spans frozen in
+`test/benchmark/fixtures/inline-spans.json`, split into the ones the shipped path reads as
+directives (avatars, sparks, pills, which carry two thirds of the time) and ordinary code (a
+cheap guard rejects those). Each row is timed in 2,000 short slices that alternate with the
+retired kernel (`tools/parser-bakeoff/reference.mjs`) on the same spans, and it gates on the
+median of the per-slice ratios: absolute ns move ±11% between processes on one machine, and the
+ratio holds within a few percent. The ratio gates at the render tier's 12% floor whenever the
+fingerprint matches the blessing machine. The calibration probe is not consulted, because
+pairing has already divided machine speed out.
+
+`engine-bench.mjs` runs the timing in **a process of its own**
+(`test/benchmark/inline-span-timer.mjs`), and that is load-bearing. Run after the render tier,
+in the same process, the ordinary-code ratio read 8.0 on three runs of unchanged code and 6.1 on
+two, depending on which state V8's type feedback for the dispatcher landed in, and 25% is twice
+the band. In its own process, five `bench:check` runs read −1.9% to +1.4% (directives −5.4% to
++0.5%), and a deliberate per-span `includes` test at the top of `dispatches` read +31.7% and
++26.6% on the two passes and exited 1.
+
+**A timer that fails is drift, not a skip.** This tier runs on every check, unlike the
+flag-gated ones, so in a tree that has the timer and the fixture an empty result means the timer
+broke. `bench:check` prints `FAILED` and exits 1, and `bench:bless` refuses, because a bless
+would otherwise re-file the old inline rows under the new machine stamp. Only a tree with no timer
+or no fixture (the nightly's base worktree) skips quietly.
+
+**Re-adding `TAGS.includes` to Segno's `isDirective` does NOT exercise this tier**, though it
+looks like the obvious arm. Every shipped caller tests `text[0] !== '{'` first, so the tag
+branch runs on 0 of the fixture's 5,314 spans. The 15 ns #2692 removed was measured in the
+bakeoff's own dispatcher (`tools/parser-bakeoff/segno.mjs` `segnoInline`), which calls
+`isDirective` on every span. Re-capture the fixture (`inlineSpanTier`'s header comment has the
+command) only together with a re-bless.
 
 The **edit tier** runs unflagged beside the render tier, and the pair is deliberate:
 the render tier clears every cache to measure a COLD one-shot (what a CLI export
@@ -877,7 +911,7 @@ marp-vscode webview execute `<script>`?"), but the claim has never been tested h
 contradicts it. Don't plan a mirror around the preview either way.
 Two further requirements are easy to miss and were silently unmet until
 #1256: raw HTML must be enabled (for marp-cli, the bundle's `marp.config.cjs`
-allowlist or the kit's `html: true`; `markdown.marp.enableHtml` for the
+allowlist or the kit's `html: true`; `markdown.marp.html: "all"` for the
 extension) or the runtime `<script>` tags
 are ESCAPED into visible text, and a rule whose selector LEADS with
 `:is(section…)` is dead in any Marp render — see the same doc's two entries.

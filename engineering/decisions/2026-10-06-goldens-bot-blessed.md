@@ -311,11 +311,24 @@ What the week shows:
   4. *A first-time component gallery.* The collage gallery (#2635, #2658) was in neither
      PR's marker. Step 3 shows a PR's new DECK, but not its new gallery, so every new
      component makes one night wait for a person.
-- **`themes/palette-audit.pdf` does not render the same way twice.** It flips between two
-  states, unchanged or exactly 6.58% moved. Of the two runs that rendered `6592eaa`, one saw
-  each state, and so did 10-10 and 10-11, which rendered the same commit (`3bea7eb`). On a
-  night with no other change, rule 2 would hold that night back for nothing. Recorded as
-  `followups.d/2689-p2-palette-audit-nondeterministic.md`.
+- **`themes/palette-audit.pdf` did not render the same way twice, and the cause is found.**
+  It flipped between two states, unchanged or exactly 6.58% moved: two bless runs on `6592eaa`
+  saw one each, and so did 10-10 and 10-11 on `3bea7eb`. Every page moved by about 4.5%, in
+  the tiny monospace text only. The two states are two different PDFs. `lattice.js` composes
+  the PDF with the shared writer inside one `page.evaluate`, with its own watchdog of
+  slides x 4 s (604 s for these 151 slides). Puppeteer's default `protocolTimeout` of 180 s
+  fires first. On a machine that composes the deck in under 180 s the writer finishes (CID
+  TrueType fonts, the committed golden). On a slower one puppeteer cuts it off and Chrome
+  prints the deck instead (Type 3 fonts, lighter text at 8 px). The sandbox reproduces it:
+  the old code logged `PDF writer failed (Runtime.callFunctionOn timed out...)` after about
+  4 minutes. The fix passes `protocolTimeout` (one hour) at launch; `guard` still bounds the
+  calls that can run long, including the two `page.evaluate` calls around the writer, which a
+  checker found were unguarded and would otherwise wait out the new ceiling on a wedged Chrome.
+  A few short CDP calls (scratch-page closes, a page count) are bounded by the ceiling alone. After it, three same-commit renders are byte-identical (`6003856b...`), the
+  writer ran, and the worst page against the golden falls from 6.66% to 1.92% (the rest is
+  cross-machine antialiasing, since this sandbox is not the CI runner). A small deck
+  (`examples/pricing.md`) is byte-identical before and after. **Unverified here:** that the
+  CI runner now matches the golden; the first bless night after merge is that check.
 - **Nothing in the week moves the guesses**, so rule 2 stays at 1% and rule 3 at 10. No
   person has labeled a night (item (a) of the step 4 follow-up). Only two deltas carried a
   re-blessed golden a person had seen: the logo galleries at 0.11–0.12% (#2628), and the

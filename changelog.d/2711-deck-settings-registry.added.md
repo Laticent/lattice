@@ -1,0 +1,6 @@
+- `lint:deck` now warns on a front-matter key Lattice does not read (`unknown-key`, with a did-you-mean: `finsh:` → `finish:`), and on a wrong value for `theme:`, `size:`, `motion:`, `motion-style:`, `motion-speed:`, `player-motion:`, `glossary:`, `logo-on:`, `logo-style:` and `profile:` (`unknown-<key>`). Before, a typo in any of them rendered the default without a word.
+- `lint:deck` now warns on a `tint-*` or `mark-*` class that paints nothing (`unknown-treatment`), and on `tint-corner` or `tint-edge` without a placement it accepts (`treatment-placement`).
+- Every front-matter key now lives in one engine table, `lib/core/deck-settings.js`. The Studio editor completes from it, so `icon:`, `avatar:`, `plugins:`, `greeting:`, `closing:` and `code:` now complete, and hovering a key shows what it does, its values and its default.
+- `npm run build` writes `dist/schemas/front-matter.schema.json`, a JSON Schema of the same table, for editors outside the Studio.
+- LFM 1.1 §2.3 now lists `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and `avatar:`, each with a shared conformance case.
+- `dist/engineering/conformance.md` is the generated checklist of what each kind of thing owes, starting with deck settings; `npm test` runs its clauses.

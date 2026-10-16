@@ -71,6 +71,11 @@ const studioTheme = (focusRing: boolean) =>
 			color: 'var(--text-heading)',
 		},
 		...iconPreviewTheme,
+		// The front-matter key hover (Editor.tsx `hoverTooltip`): the key, what it does, its
+		// values and its default, inside the shared tooltip shell.
+		'.cm-fm-hover': { display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px 10px', maxWidth: 'min(28rem, 85vw)', color: 'var(--text-body)', fontSize: '0.85em', lineHeight: '1.4' },
+		'.cm-fm-hover > strong': { fontFamily: 'var(--font-mono, ui-monospace, monospace)', color: 'var(--text-heading)' },
+		'.cm-fm-hover > div:nth-child(n+3)': { color: 'var(--text-muted)' },
 		'.cm-completionMatchedText': { color: 'var(--accent)', textDecoration: 'none', fontWeight: '600' },
 		'.cm-completionDetail': { color: 'var(--text-muted)', fontStyle: 'normal', marginLeft: '0.6em', fontSize: '0.85em' },
 		'.cm-completionInfo': {

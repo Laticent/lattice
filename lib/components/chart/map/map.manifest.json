@@ -252,5 +252,25 @@
       }
     },
     "key": "largest"
+  },
+  "segno": {
+    "row": {
+      "label": "a map region",
+      "positional": [
+        {
+          "name": "value",
+          "type": "text",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "legacy": [
+          "value"
+        ]
+      }
+    }
   }
 }

@@ -218,7 +218,6 @@ section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-
    * the dark field smeared a band into the options zone. Clip the layer to the panel's box. */
   clip-path: inset(0);
 }
-:where(.lattice-exporting) section.split-compare.finish .compare-left::before,
 section.split-compare.finish.lattice-exporting .compare-left::before {
   -webkit-mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
   mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));

@@ -85,7 +85,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Symptom:** In an untrusted folder, a bundle's fractions and superscripts collapse onto one line,
   and a square root or stretchy arrow prints as escaped `<svg…` text.
 - **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/core/marp-bundle-math.js`),
-  and its `.vscode/settings.json` turns the extension's own math off. `enableHtml` is a restricted
+  and its `.vscode/settings.json` turns the extension's own math off. `markdown.marp.html` is a restricted
   setting and `mathTypesetting` is not, so in Restricted Mode the math stays off while the HTML
   filter strips each equation's `style` and its `<svg>`.
 - **Mitigation:** Trust the folder, or render with `npm run pdf`. The bundle README says so.
@@ -169,14 +169,54 @@ this protocol has to record the level, or it is measuring a coin flip.
   components rendering in the preview, which the CSS-only reading could not
   explain. It is explained now: that reporter's preview was at Disable, or their
   workspace was trusted into it. It was not wrong, and neither was the register.
-- **AND THE DIAGRAM MARKER IS A DEFECT, not a data point.** At Disable the fence
-  reaches `data-lattice-settle="rendered"` with an EMPTY `.mermaid` container:
-  source hidden, box 0×0, zero SVGs. The author gets a blank where the diagram
-  belongs. The frame is capable — calling `window.mermaid.render()` in it by hand
-  returns an 11.6KB SVG — so this is our runtime marking a fence rendered and
-  landing nothing. Reproduced independently twice on two builds. Mechanism not
-  chased. One clue: with `bierner.markdown-mermaid` also installed, our render
-  DOES land (21KB, one SVG, deck face) — n=2 each way, cause unknown.
+- **THE BLANK DIAGRAM — SOLVED 2026-10-16: a built-in VS Code extension strips our SVGs.**
+  The symptom was a fence at `data-lattice-settle="rendered"` beside an EMPTY `.mermaid`
+  container: the source hidden, no SVG, a blank where the diagram belongs. It was
+  intermittent, which is why two runs saw it and the owner's VS Code did not. The cause is
+  VS Code's built-in **`mermaid-markdown-features`** extension (present in VS Code 1.142.0
+  desktop and code-server 4.141.0). It adds a Markdown preview script, and every pass of
+  that script opens with
+  `for (const svg of document.querySelectorAll(".mermaid > svg")) svg.remove()`. The pass
+  runs once on load, after an async library setup, and again on every
+  `vscode.markdown.updateContent`. Our render target is `<div class="mermaid">`, so when
+  that setup finished after the runtime had drawn, every diagram was removed. Our fences
+  are already defanged (`language-mermaid-source`), so the extension's own pass then drew
+  nothing in their place.
+  - **How it was pinned down:** a tracer prepended to the bundle's runtime (in the harness
+    copy only) logged every write to and removal from a `.mermaid`, with stacks. In the
+    blank runs, all seven SVGs were drawn and connected, and then all seven were removed
+    in one batch by `Element.remove()` called from
+    `mermaid-markdown-features/markdown-preview-out/index.js`. It was not Mermaid's own
+    `startOnLoad` pass: `window.load` came later, with `config.startOnLoad=false`.
+  - **How often:** on code-server with marp-vscode 3.6.1, after a live Strict → Disable
+    switch, it happened in 4 of 19 runs, headless and headed alike. It did not happen on a
+    fresh open of the preview. So it is a race, not a painting artifact of a headless frame.
+  - **The fix is ours:** the Mermaid pass now redraws a target that loses its SVG while
+    its fence reads `rendered` (`restoreStrippedDiagrams`,
+    `lib/plugins/mermaid/mermaid.hydrate.js`). It uses the cached SVG, or returns the fence
+    to `pending` for the next pass. `test/integration/mermaid/mermaid-host-strip.test.js`
+    runs the extension's exact line against the real runtime and fails without the fix.
+    **After the fix, on the same code-server harness: 12 of 12 live switches drew all
+    seven diagrams.** The extension's strip fired in 5 of those runs, and each time the
+    runtime wrote all seven back (14 writes: 7 draws, 7 restores).
+  - **Mermaid `click` behavior in the preview (#2734).** Two hosts, both at Disable with
+    marp-vscode 3.6.1: VS Code **desktop** 1.142.0 (the Electron binary under xvfb, edits made
+    by the launcher extension through `WorkspaceEdit`, because CDP keystrokes do not reach the
+    window) and **code-server** 4.141.0 (Code 1.141.0, real keystrokes). A real pointer probed
+    a deck with a `click A "url" "tooltip"` flowchart and two linked gantts, on first paint and
+    after each of three edits; every edit made the built-in extension strip all three SVGs.
+    - `main`'s runtime, desktop: first paint had the tooltip and the second gantt's link, but
+      the FIRST gantt's link was dead (two gantts in one band, see `takeGanttTurn`); after
+      every edit the tooltip and all four gantt targets were dead (the cache hand-back).
+    - `main`'s runtime, code-server: dead on first paint too, because there the strip and
+      the hand-back land before a reader can point.
+    - #2734's runtime: everything held on both hosts, first paint and after every edit.
+    The harness is the one above, plus a 25-line launcher extension (open the deck, open the
+    preview to the side, and apply an edit when a trigger file appears). None of it is
+    committed.
+  - **The `bierner.markdown-mermaid` clue is not explained.** Installing it shifts what
+    loads into the preview and when, which would change who wins the race, but that is a
+    guess and was not tested.
 - **`bierner.markdown-mermaid` installs no `window.mermaid` at 1.32.1** — not a
   stub with `.render` missing, no global at all, in both preview hosts. Three
   comments in `lib/runtime/index.js` said otherwise; they are corrected. The
@@ -197,15 +237,40 @@ xvfb-run -a --server-args="-screen 0 1600x1200x24" ./VSCode-linux-x64/bin/code \
 
 Then `puppeteer.connect({ browserURL })` and find the frame whose
 `document.body.classList` contains `marp-vscode`. **`browser.targets()` does not
-surface the webview; `page.frames()` does** — the webview is out-of-process, which
-is also why a parent-page screenshot of it comes back black. Read the DOM, not a
-picture. Opening the preview needs a command (`markdown.showPreviewToSide`), which
-a twenty-line development extension can issue on `onStartupFinished`.
+surface the webview; `page.frames()` does**, because the webview is out-of-process.
+A screenshot of the workbench page DOES show the webview on VS Code 1.142.0 under
+xvfb (this entry used to say it came back black). Dismiss the first-run Copilot
+sign-in modal first, or it covers the preview. Opening the preview needs a command
+(`markdown.showPreview`), which a twenty-line development extension can issue on
+`onStartupFinished` (pass it with `--extensionDevelopmentPath`).
+
+**What the harness needed (2026-10-16), and the traps that cost time:**
+- **Run the Electron binary, not `bin/code`.** `bin/code` hands off to a launcher, and
+  `--remote-debugging-port` never opens.
+- **Install outside `/tmp/claude-0/…`.** From the scratchpad path, VS Code refuses its
+  own `workbench.html` ("Blocked vscode-file request") and the renderer dies with code 1002.
+  `/root/vsc` works.
+- **Seed the security level instead of clicking it.** The level lives in the markdown
+  extension's globalState under `preview_security_level:<folder URI>`, and Disable is `2`.
+  Before launch, write it into `<user-data-dir>/User/globalStorage/state.vscdb`
+  (`ItemTable`, key `vscode.markdown-language-features`, a JSON object). That gives a
+  preview that opens AT Disable. To reproduce the live switch, run
+  `markdown.showPreviewSecuritySelector` from the extension, then
+  `workbench.action.quickOpenSelectNext` three times and
+  `workbench.action.acceptSelectedQuickOpenItem`. CDP keystrokes do not reach the
+  Electron window.
+- **code-server is the faster loop for a race.** `code-server-4.141.0-linux-amd64.tar.gz`
+  downloads from the GitHub release now, with no 403. Drive it with puppeteer's own Chrome
+  (headless or headed under xvfb): open the file with Ctrl+P, toggle the preview with
+  Ctrl+Shift+V, and change the level through the command palette. The web host keeps its
+  globalState in the browser profile, so the seeded `state.vscdb` does not apply there.
+- **Never `pkill -f` a pattern that your own shell command contains.** It kills the
+  calling shell. Kill the process group of the `xvfb-run` you started instead.
 
 None of this is committed. Whether it should become a harness or a CI job is a
 CI-contract decision, not one to take on the way past.
 
-## `enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT
+## `markdown.marp.html` / `html: true` is required or the runtime `<script>` tags print as TEXT
 
 - **Symptom:** The last slide of a deck (or an Export-to-Marp bundle) shows a
   literal `<script src="mermaid-v11-min.js"></script> <script
@@ -220,8 +285,10 @@ CI-contract decision, not one to take on the way past.
   runtime tags (`lib/core/marp-bundle-html.js`), so render a bundle with its
   config and never `--html`, which replaces the list with "everything". The Marp
   kit's config sets `html: true`, and a bare deck needs `--html`. marp-vscode
-  needs `markdown.marp.enableHtml: true` (the generated
-  `.vscode/settings.json` sets it, and so does the repo's own). Note this is
+  needs `markdown.marp.html: "all"` (the generated
+  `.vscode/settings.json` sets it, and so does the repo's own). That key replaced
+  the boolean `markdown.marp.enableHtml` in marp-vscode 3.0.0; 3.6.1 still honors
+  the old key but shows a deprecation warning, so nothing we generate writes it. Note this is
   necessary but NOT sufficient in the vscode preview — the webview still
   won't execute the scripts (entry above).
 - **Triggered by:** Any Marp render of a deck carrying the runtime tags.

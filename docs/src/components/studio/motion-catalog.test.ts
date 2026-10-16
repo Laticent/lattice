@@ -3,6 +3,7 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { MOTION_SPEEDS, MOTION_STYLES } from '@/playground/anima-host-sel';
+import deckSettings from '../../../../lib/core/deck-settings.js';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 
 // Rot-guard: the Studio Style/Speed pickers MUST stay in step with the value sets the host resolves
@@ -14,6 +15,12 @@ describe('motion-catalog ↔ host vocabularies', () => {
 	});
 	it('the Speed picker offers exactly MOTION_SPEEDS', () => {
 		expect(MOTION_SPEED_ENTRIES.map((e) => e.name).sort()).toEqual([...MOTION_SPEEDS].sort());
+	});
+	// The engine's table (lib/core/deck-settings.js) holds the lists the linter warns against; the
+	// host is what resolves them, so the two must agree or lint:deck blesses a value that does nothing.
+	it('the engine table accepts exactly the values the host resolves', () => {
+		expect([...(deckSettings.deckSetting('motion-style')?.values ?? [])].sort()).toEqual([...MOTION_STYLES].sort());
+		expect([...(deckSettings.deckSetting('motion-speed')?.values ?? [])].sort()).toEqual([...MOTION_SPEEDS].sort());
 	});
 	it('active* default an unset/unknown value to the built-in default', () => {
 		expect(activeMotionStyle(undefined).name).toBe('build');

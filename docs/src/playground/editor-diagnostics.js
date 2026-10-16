@@ -68,6 +68,7 @@ export function chunkStartLines(src) {
  * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
  *   (`fitNames`, `cardsNames`, …); only the ones a caller reads by name are declared
  * @property {string[]} [modeNames]
+ * @property {string[]} [themeNames]
  * @property {string[]} [splitNames]
  * @property {Record<string, { axis: string; hard: number }>} [capacity]
  */
@@ -140,6 +141,7 @@ export function buildVocabSets(vocab) {
 	// deck's adaptive family from the renderer's own table rather than from a
 	// snapshot passed across the boundary.
 	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
+	if (Array.isArray(v.pluginRegisters)) /** @type {Record<string, unknown>} */ (sets).pluginRegisters = v.pluginRegisters; // `icon:` / `avatar:` words
 	return sets;
 }
 

@@ -791,16 +791,16 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 // Numeric provenance — Munger's content-truth point. A rewrite that changes a figure is
 // the highest-risk edit in a numbers deck, so surface it explicitly for review regardless
 // of the "facts locked" mode. A money/metric token: optional SIGN, optional currency,
-// grouped-thousands OR a plain number, optional decimal, optional magnitude (K/M/B),
+// grouped-thousands OR a plain number, optional decimal, optional magnitude (K/M/B/T; `bn` `Bn` `BN` land on the `b` and read as B),
 // optional percent. The leading `[-−+]?` is load-bearing — without it a loss↔profit flip
 // (`-5%` → `5%`) tokenizes identically and the change is invisible (trio: the highest-risk
 // numeric edit). NOT `[\d,]*` — that swallowed list commas ("10, 20" → "10,").
-const NUM_RE = /[-−+]?[$€£]?\d{1,3}(?:,\d{3})+(?:\.\d+)?[KkMmBb]?%?|[-−+]?[$€£]?\d+(?:\.\d+)?[KkMmBb]?%?/g;
+const NUM_RE = /[-−+]?[$€£]?\d{1,3}(?:,\d{3})+(?:\.\d+)?[KkMmBbT]?%?|[-−+]?[$€£]?\d+(?:\.\d+)?[KkMmBbT]?%?/g;
 function numericTokens(s: string): string[] {
 	return (String(s).match(NUM_RE) || []).filter((x) => /\d/.test(x));
 }
 // Normalize a token to a comparable numeric VALUE: apply sign, strip currency/commas,
-// fold magnitude (K/M/B) and percent (÷100). So a pure REFORMAT of the same value
+// fold magnitude (K/M/B/T) and percent (÷100). So a pure REFORMAT of the same value
 // (`4,200`↔`4200`, `$4.2M`↔`$4,200,000`) compares EQUAL and does not flag — only a real
 // value change (or a sign flip) does. NaN for an unparseable token (compared as literal).
 function tokenValue(tok: string): number {
@@ -810,8 +810,8 @@ function tokenValue(tok: string): number {
 	let pct = false;
 	if (t.endsWith('%')) { pct = true; t = t.slice(0, -1); }
 	let mult = 1;
-	const mag = /[KkMmBb]$/.exec(t);
-	if (mag) { mult = { k: 1e3, m: 1e6, b: 1e9 }[mag[0].toLowerCase() as 'k' | 'm' | 'b']; t = t.slice(0, -1); }
+	const mag = /[KkMmBbT]$/.exec(t);
+	if (mag) { mult = mag[0] === 'T' ? 1e12 : { k: 1e3, m: 1e6, b: 1e9 }[mag[0].toLowerCase() as 'k' | 'm' | 'b']; t = t.slice(0, -1); }
 	const n = Number(t);
 	if (!Number.isFinite(n)) return Number.NaN;
 	return (sign * n * mult) / (pct ? 100 : 1);

@@ -168,5 +168,50 @@
       }
     },
     "key": "first"
+  },
+  "segno": {
+    "row": {
+      "label": "a progress row",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": {
+            "type": "oneOf",
+            "values": [
+              "on-track",
+              "done",
+              "live",
+              "at-risk",
+              "warn",
+              "blocked",
+              "fail",
+              "pilot",
+              "decision",
+              "deferred"
+            ]
+          },
+          "required": false
+        }
+      ],
+      "params": {
+        "note": {
+          "type": "text",
+          "named": true
+        }
+      },
+      "rows": {
+        "shape": "fields",
+        "quotes": false,
+        "legacy": [
+          "value",
+          "status"
+        ]
+      }
+    }
   }
 }

@@ -213,7 +213,7 @@ test('css: the clear edge is soft in both exports; the Studio raster masks inste
   // The Studio raster (html-to-image) draws the soft edge with a MASK: its blur came out as
   // vertical stripes over a dot texture. It also keeps a spotlight's feathered scrim: the
   // hard-edged mirror printed a solid arc.
-  const studio = css.match(/:where\(\.lattice-exporting\) section\.finish,\s*section\.finish\.lattice-exporting \{\s*--backdrop-clear-filter: none;[^}]*\}/);
+  const studio = css.match(/section\.finish\.lattice-exporting \{\s*--backdrop-clear-filter: none;[^}]*\}/);
   assert.ok(studio, 'Studio raster clear rule missing');
   assert.doesNotMatch(studio[0], /--backdrop-scrim:/, 'the Studio raster must keep the feathered spotlight');
   assert.match(css, /section\.finish\.lattice-exporting > \.backdrop > \.backdrop-mask::before \{[^}]*mask-image: linear-gradient\(to right, var\(--backdrop-clear-ramp\)\)/);

@@ -85,7 +85,7 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
  */
 // The wiring has two halves since the pass moved into the plugin: the RUNTIME's observer hands
 // each burst to every plugin pass (`entry.pass.onMutations(records)`, one try per pass) and then schedules the debounce,
-// and the PASS's `onMutations` replays the cache and then adopts. Both are read here.
+// and the PASS's `onMutations` replays the cache, adopts, then restores stripped diagrams. Both are read here.
 const RUNTIME_INDEX_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
 function observerCallbackSrc() {
   const at = RUNTIME_INDEX_SRC.indexOf('try { entry.pass.onMutations(records); }');
@@ -93,8 +93,9 @@ function observerCallbackSrc() {
   // not push a later call out of the slice this reads.
   const end = at === -1 ? -1 : RUNTIME_INDEX_SRC.indexOf('.observe(', at);
   if (end === -1) return null;
-  // And the pass's half must still replay first, then adopt.
-  if (!/function onMutations\(records\) \{\n {4}replayCachedFences\(\);\n {4}adoptOutgoingDiagrams\(records\);\n {2}\}/.test(RUNTIME_SRC)) return null;
+  // And the pass's half must still replay first, then adopt, then put back any diagram another
+  // script stripped (`restoreStrippedDiagrams`, which reads only what the first two left behind).
+  if (!/function onMutations\(records\) \{\n {4}replayCachedFences\(\);\n {4}adoptOutgoingDiagrams\(records\);\n {4}restoreStrippedDiagrams\(records\);\n {2}\}/.test(RUNTIME_SRC)) return null;
   return RUNTIME_INDEX_SRC.slice(at, end);
 }
 

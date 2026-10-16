@@ -186,7 +186,7 @@ export interface NumberValue {
   readonly unit: string;
 }
 
-const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9, bn: 1e9, T: 1e12 };
+const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9, bn: 1e9, Bn: 1e9, BN: 1e9, T: 1e12 };
 // A WHOLLY numeric pill, in one of three shapes: `(…)` around an unsigned number, the accounting
 // negative; one sign before an optional symbol prefix (`-$0.8M`); or one sign after it (`$-0.8M`).
 // The symbol prefix is up to three characters that are not a sign, a parenthesis or a separator
@@ -261,7 +261,7 @@ function normalizeSeparators(s: string): string {
  *
  * The rules it mirrors, each from `chart-values.js`: `(…)` is negative; a leading `-` or
  * U+2212 flips the sign; a `-` or U+2212 directly before the digits that the lead did not take is the
- * number's own sign; a magnitude letter (`k` `M` `B` `bn` `T`) must end the word; the sign is
+ * number's own sign; a magnitude letter (`k` `M` `B` `bn` `Bn` `BN` `T`) must end the word; the sign is
  * "written" when the part before the digits holds `+`, `-` or U+2212, or the whole is `(…)`.
  */
 export function readNumberFast(t: string): NumberValue | null | undefined {
@@ -318,7 +318,7 @@ export function readNumberFast(t: string): NumberValue | null | undefined {
   if (digitsFrom > p && (t.charCodeAt(digitsFrom - 1) === 45 || t.charCodeAt(digitsFrom - 1) === 0x2212)) x = -x;
   if (!Number.isFinite(x)) return undefined;
   const unit = t.slice(unitFrom, unitTo);
-  const mag = unit === 'bn' || (unit.length === 1 && 'kKmMBbT'.includes(unit)) ? unit : '';
+  const mag = unit === 'bn' || unit === 'Bn' || unit === 'BN' || (unit.length === 1 && 'kKmMBbT'.includes(unit)) ? unit : '';
   const value = mag ? x * MAGNITUDE[mag] : x;
   let signed = paren;
   for (let k = opens ? 1 : 0; k < digitsFrom && !signed; k++) {
@@ -358,7 +358,7 @@ export function readNumberFull(t: string): NumberValue | undefined {
   const n = Number.parseFloat(m[0]);
   if (!Number.isFinite(n)) return undefined;
   const after = s.slice(m.index + m[0].length).trim();
-  const mag = after.match(/^(bn|[kKmMBbT])\b/);
+  const mag = after.match(/^(bn|Bn|BN|[kKmMBbT])\b/);
   const value = mag ? n * MAGNITUDE[mag[1]] : n;
   const beforeDigits = t.replace(/^\(/, '').split(/\d/)[0];
   const signed = /^\(.*\)$/.test(t) || /[+\-\u2212]/.test(beforeDigits);

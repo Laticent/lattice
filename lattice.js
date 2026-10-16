@@ -3198,6 +3198,11 @@ const { guard, isTargetGone } = require('./lib/engine/render-guard');
 // `disconnected` race in ms; this only backstops a SILENT wedge. Override with
 // LATTICE_RENDER_WATCHDOG_MS for very large decks on slow hardware. See #502.
 const RENDER_WATCHDOG_MS = Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000;
+// Puppeteer's `protocolTimeout` (see renderExport): one hour, or the watchdog plus a minute
+// when LATTICE_RENDER_WATCHDOG_MS is set higher. `composePdfInPage` caps its own watchdog
+// below this (COMPOSE_MAX_MS), so no guard deadline can outlast the ceiling.
+const PROTOCOL_TIMEOUT_MS = Math.max(3600000, RENDER_WATCHDOG_MS + 60000);
+const COMPOSE_MAX_MS = PROTOCOL_TIMEOUT_MS - 60000;
 // Snapshot the pre-split deck HTML so a hardened RETRY starts from a clean slate
 // (the autosplit loop below mutates cleanDocHtml + rewrites outHtml in place).
 const initialDocHtml = cleanDocHtml;
@@ -3215,6 +3220,14 @@ async function renderExport({ hardened }) {
       ...OFFLINE_ARGS,
     ],
     headless: 'new',
+    // Puppeteer's own per-call limit is 180 s, and it fires BEFORE `composePdfInPage`'s
+    // watchdog (slides x 4 s). A 151-slide deck that composes in 4 minutes then fails with
+    // "Runtime.callFunctionOn timed out" and prints with Chrome instead: Type 3 fonts, a
+    // different PDF, so a golden flipped by runner speed. The calls that can run long go
+    // through `guard`, which stays the real bound; this ceiling only has to sit above the
+    // longest guard (COMPOSE_MAX_MS keeps the compose watchdog under it). The few CDP calls
+    // outside `guard` (short DOM reads, scratch-page closes) are bounded by it alone.
+    protocolTimeout: PROTOCOL_TIMEOUT_MS,
   };
   if (CHROME_EXEC) launchOpts.executablePath = CHROME_EXEC;
   // Reset to the pre-split baseline so each attempt renders from clean HTML.
@@ -4894,7 +4907,10 @@ async function renderBody(browser, g, closeBrowser) {
         // for downstream tools; gated on the `glossary: auto` opt-in, so a deck that merely defines
         // terms (without opting in) is byte-identical. Empty → omitted (lean envelope).
         glossary: autoGlossaryEntries,
-        now: Date.now(),
+        // Pinned like every PDF date and the reopenable payload (SOURCE_DATE_EPOCH, else the
+        // epoch), so two exports of an unchanged deck are byte-identical. A wall-clock stamp
+        // here was the only difference between two runs (decisions/2026-10-16-player-as-library-audit.md §3).
+        now: reopenableDate().getTime(),
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,
       });
@@ -4909,12 +4925,14 @@ async function renderBody(browser, g, closeBrowser) {
         if (pr.applied) {
           finalPlayerHtml = pr.html;
           if (pr.saved > 0) pruneNotes.push(`  pruned unused CSS: ${pr.keptRules}/${pr.totalRules} rules kept, ${(pr.saved / 1024).toFixed(0)} KB saved`);
-          if (pr.fontApplied) pruneNotes.push(`  pruned unused fonts: ${pr.fontsKept}/${pr.fontsTotal} faces kept, ${(pr.fontSaved / 1024).toFixed(0)} KB saved`);
+          if (pr.fontApplied) pruneNotes.push(`  pruned unused fonts: ${pr.fontsKept}/${pr.fontsTotal} faces kept${pr.fontsMerged ? `, shipped as ${pr.fontsKept - pr.fontsMerged} (identical files declared once)` : ''}, ${(pr.fontSaved / 1024).toFixed(0)} KB saved`);
         }
         if (pr.gateFailed) pruneNotes.push('  note: CSS prune skipped — computed-style gate flagged a diff; shipping full CSS');
       } catch (e) {
         pruneNotes.push(`  note: player optimization skipped (${e?.message}); shipping full CSS + fonts`);
       }
+      // Reported outside the prune: the hoist runs in assemblePlayer, so it applies either way.
+      if (report.assetsHoisted) pruneNotes.push(`  stored ${report.assetsHoisted} repeated background picture(s) once, ${(report.assetBytesSaved / 1024).toFixed(0)} KB saved`);
       fs.writeFileSync(outHtml, finalPlayerHtml);
       // The player carries its own, STRICTER policy (`default-src 'none'`). Record that it
       // is what landed at outHtml, so the subresource injection below skips it — see the
@@ -5089,7 +5107,7 @@ async function renderBody(browser, g, closeBrowser) {
 // that crashes the small-container Chromium. A dedicated hardened instance is
 // isolated from that pressure and can't perturb the deliverable render.
 async function prunePlayerCssInPage(playerHtml) {
-  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces, GATE_PROPS } = require('./lib/export/html-player.js');
+  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces, GATE_PROPS, PRUNE_SKIP_STYLE_IDS, isPruneSkippedStyle, fontFaceFamilies, literalFontWeights, mergeIdenticalFontFaces } = require('./lib/export/html-player.js');
   // Two targets: the inlined lattice.css (largest non-font <style>) for the selector
   // prune, and the base64 @font-face block (#lattice-embedded-fonts) for the font prune.
   const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
@@ -5100,9 +5118,9 @@ async function prunePlayerCssInPage(playerHtml) {
       fontBlock = { full: b[0], css: b[2] };
       continue;
     }
-    // The dark block is NOT the deck stylesheet and can outweigh it (player-core.mjs
-    // `darkStyle`), so it is skipped by id, never judged by size.
-    if (/lattice-dual-mode/.test(b[1])) continue;
+    // The dark block and the hoisted-asset block are NOT the deck stylesheet and can outweigh
+    // it, so they are skipped by id, never judged by size (player-prune.js PRUNE_SKIP_STYLE_IDS).
+    if (isPruneSkippedStyle(b[1])) continue;
     if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
   }
   // `legacyPseudoElements`: KaTeX's sheet writes `:before`/`:after` with one colon, which
@@ -5131,8 +5149,9 @@ async function prunePlayerCssInPage(playerHtml) {
     // `font-family` (so a deck applying the sketch hand keeps Caveat + Shantell). All
     // three views are cycled and every element forced to lay out so no face is missed.
     let fontResult = { applied: false };
+    let usedFonts = null;
     if (fontBlock) {
-      const usedFamilies = await scratch.evaluate(async () => {
+      usedFonts = await scratch.evaluate(async () => {
         for (const v of ['present', 'read-slides', 'read-article']) {
           document.getElementById('lp-app')?.setAttribute('data-lp-view', v);
           for (const el of document.querySelectorAll('#lp-app *')) el.getBoundingClientRect();
@@ -5146,14 +5165,30 @@ async function prunePlayerCssInPage(playerHtml) {
         }
         const strip = (s) => String(s).trim().replace(/^["']|["']$/g, '');
         const fams = new Set();
-        for (const f of document.fonts) if (f.status === 'loaded') fams.add(strip(f.family));
-        for (const el of document.querySelectorAll('*')) {
-          for (const part of (getComputedStyle(el).fontFamily || '').split(',')) fams.add(strip(part));
+        // Every computed weight, under every family the element names, for the identical-file
+        // merge's guard (player-prune.js mergeIdenticalFontFaces). Read in all three views.
+        const weights = {};
+        const note = (el, pseudo) => {
+          const cs = getComputedStyle(el, pseudo);
+          const w = Number(cs.fontWeight);
+          for (const part of (cs.fontFamily || '').split(',')) {
+            const fam = strip(part);
+            if (!fam) continue;
+            if (!pseudo) fams.add(fam);
+            const key = fam.toLowerCase();
+            if (Number.isFinite(w)) (weights[key] ||= []).push(w);
+          }
+        };
+        for (const v of ['present', 'read-slides', 'read-article']) {
+          document.getElementById('lp-app')?.setAttribute('data-lp-view', v);
+          for (const el of document.querySelectorAll('*')) for (const pseudo of [null, '::before', '::after']) note(el, pseudo);
         }
+        for (const f of document.fonts) if (f.status === 'loaded') fams.add(strip(f.family));
         document.getElementById('lp-app')?.setAttribute('data-lp-view', 'present');
-        return [...fams];
+        for (const k of Object.keys(weights)) weights[k] = [...new Set(weights[k])];
+        return { families: [...fams], weights };
       });
-      fontResult = prunePlayerFontFaces(fontBlock.css, usedFamilies);
+      fontResult = prunePlayerFontFaces(fontBlock.css, usedFonts.families);
     }
 
     // ── CSS prune (only when the lattice.css block is present + css-tree installed) ─
@@ -5181,11 +5216,11 @@ async function prunePlayerCssInPage(playerHtml) {
 
     // (2) computed-style gate across all three views (+ pseudo-elements) — CSS only.
     const identical = !cssResult.applied ? true : await scratch.evaluate(
-      ({ prunedCss, PROPS }) => {
+      ({ prunedCss, PROPS, SKIP }) => {
         // The pruned block is the biggest non-font <style> — same target the Node
         // side chose, re-found here by size so we swap the right one.
         const styleEl = [...document.querySelectorAll('style')]
-          .filter((s) => s.id !== 'lattice-embedded-fonts' && s.id !== 'lattice-dual-mode')
+          .filter((s) => s.id !== 'lattice-embedded-fonts' && !SKIP.includes(s.id))
           .sort((a, b) => b.textContent.length - a.textContent.length)[0];
         const app = document.getElementById('lp-app');
         const views = ['present', 'read-slides', 'read-article'];
@@ -5218,11 +5253,30 @@ async function prunePlayerCssInPage(playerHtml) {
         if (app) app.setAttribute('data-lp-view', 'present');
         return ok;
       },
-      { prunedCss: cssResult.css, PROPS: GATE_PROPS },
+      { prunedCss: cssResult.css, PROPS: GATE_PROPS, SKIP: PRUNE_SKIP_STYLE_IDS },
     );
     // A CSS-gate failure drops only the CSS prune; the font prune (independent, no
     // gate needed — it removes faces nothing paints) can still apply.
     const cssOk = cssResult.applied && identical;
+
+    // Then declare each identical font file once, where no used weight can tell
+    // (player-prune.js mergeIdenticalFontFaces; decisions/2026-10-16-player-as-library-audit.md §3).
+    // Literal weights in the stylesheets count too, for the states the pass above never enters,
+    // and they come from the CSS that SHIPS, so this waits for the CSS verdict: the full deck
+    // sheet names every component's weights (hub-spoke's 560, 680…), and those would block
+    // every merge in a deck that draws no hub-spoke.
+    if (fontBlock && usedFonts) {
+      // The font block itself is not text styling: its own descriptors (Outfit's 500, 600)
+      // would count as weights for every family and block the Playfair merge.
+      const shipped = blocks
+        .filter((b) => b[0] !== fontBlock.full)
+        .map((b) => (cssOk && b[0] === target.full ? cssResult.css : b[2]))
+        .join('\n');
+      const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedFonts.weights, any: literalFontWeights(shipped), foreign: fontFaceFamilies(shipped) });
+      if (merged.applied) {
+        fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
+      }
+    }
 
     if (!cssOk && !fontResult.applied) {
       return { applied: false, gateFailed: cssResult.applied && !identical };
@@ -5251,6 +5305,7 @@ async function prunePlayerCssInPage(playerHtml) {
       fontSaved: fontResult.applied ? fontBlock.css.length - fontResult.css.length : 0,
       fontsKept: fontResult.kept,
       fontsTotal: fontResult.total,
+      fontsMerged: fontResult.merged || 0,
     };
   } finally {
     await pruneBrowser.close().catch(() => {});
@@ -5324,7 +5379,7 @@ async function composePdfInPage(g, page) {
     // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~31 s (a 4K
     // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
-    const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
+    const composeMs = Math.min(COMPOSE_MAX_MS, Math.max(RENDER_WATCHDOG_MS, handles.length * 4000));
     const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
@@ -5372,7 +5427,7 @@ async function composePdfInPage(g, page) {
       return { b64: btoa(s), report };
     }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
-    await page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); });
+    await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {
       const r = out.report;
       const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
@@ -5388,10 +5443,11 @@ async function composePdfInPage(g, page) {
     // Put the page back BEFORE Chrome prints it: the compose may have hidden every drawn word
     // and shape (and may still be running); the export face is the Studio's, not the printer's.
     try {
-      await page.evaluate(() => {
+      // Guarded: on a wedged renderer an unguarded evaluate would wait out protocolTimeout.
+      await g(() => page.evaluate(() => {
         window.__latticePdfAbort?.();
         for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting');
-      });
+      }), 'abort the PDF writer');
     } catch {}
     // Said even under --quiet (on stderr): a silent switch of writer is a different PDF.
     console.error(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);

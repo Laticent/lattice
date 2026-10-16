@@ -53,9 +53,9 @@ test('dist-kits branch-root staging', async (t) => {
     );
 
     assert.equal(
-      fallback['markdown.marp.enableHtml'],
-      generated['markdown.marp.enableHtml'],
-      'enableHtml must match the kit; without it a deck\'s trailing <script> tags print as ' +
+      fallback['markdown.marp.html'],
+      generated['markdown.marp.html'],
+      'markdown.marp.html must match the kit; without it a deck\'s trailing <script> tags print as ' +
         'literal text across the preview.',
     );
   });

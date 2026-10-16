@@ -34,12 +34,14 @@ table before binding, so the reader, reshape and conformance tests all target on
 
 | Written as | One row is | Charts |
 |---|---|---|
-| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
-| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar |
+| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, bullet, progress, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
+| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar (its `quadrant` variant stays a nested list) |
 | **A table, grid shape** | a label column, then one column per category; every crossing is a value | heatmap, matrix-grid |
 
-Open (owner, §7): bullet and progress. Each row is one measure plus named parameters (`{4.2M, target=5.0M}`,
-`{68%, at-risk}`), which fits the list form under the rule above; an earlier draft put them in tables.
+Decided (owner, 2026-10-16, after a measured bake-off): bullet and progress are lists, and radar is a table. Each bullet or
+progress row is one measure plus named parameters (`{4.2M, target=5.0M}`, `{68%, at-risk}`), which fits the list form under
+the rule above. Radar's rows share the same named columns across several series, which is the table-shaped case. Radar's
+`quadrant` variant (3 slides) adds a group level no table holds, so it stays a nested list. The bake-off is in §7.
 
 Outside this model, by choice: gantt (spans and `after=` dependencies), kanban (cards in columns), journey (its own
 record, Segno decision 11), and the structure charts (flowchart, state-chart, hub-spoke, roadmap, timeline-list). They
@@ -95,7 +97,7 @@ prose is a JavaScript expression.
 
 ## 5. Numbers: ISO in, locale out
 
-Today `chart-values.js` and Segno's `number` type read `12K`, `12.5M`, `1.2B`, `bn` and `T` correctly, but a deck's
+Today `chart-values.js` and Segno's `number` type read `12K`, `12.5M`, `1.2B`, `bn` (and its finance spellings `Bn` and `BN`, since followups.d/2699-p3) and `T` correctly, but a deck's
 `lang:` is ignored and separators are guessed: a comma followed by exactly three digits groups, anything else is a
 decimal, US wins a tie. Measured on 2026-10-14: `12.000` reads as 12, `1.234,5` read as 1.2345 (a pre-existing
 misread, fixed since: a whole European number, dot-grouped thousands then one decimal comma, reads its comma as the decimal), and `12 000` was not a value though `parseValue`, which six charts call without that test, read it as 12 (fixed since: exact three-digit space groups collapse before either reader runs; `2026-10-14-chart-authoring-census.md` §4). A malformed spelling read as a different number: `--5` as -5, `(5` as 5, `1,2,3` as 1.2 and `1.2.3.4x` as 1234 (fixed since: both readers refuse a second sign, an unpaired parenthesis and a digit run that is not one number, every chart reads it as no value, and lint's `chart-value-malformed` names it). Inside a record the comma is Segno's only
@@ -103,7 +105,7 @@ separator, so `{12,000}` is two items, `12` and `000`, and `{"12,000"}` is text.
 comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md` and non-chart lists are counted).
 
 - **What an author types, in records and table cells alike:** a decimal point, optional digit grouping by a space (a
-  no-break space counts, Segno decision 23; a thin space is new and needs adding to Segno's whitespace set), and the magnitude suffixes `k`/`K`, `M`, `B`/`bn`, `T`, with `%`,
+  no-break space counts, Segno decision 23; a thin space is new and needs adding to Segno's whitespace set), and the magnitude suffixes `k`/`K`, `M`, `B`/`bn`/`Bn`/`BN`, `T`, with `%`,
   a currency sign and a trailing unit as today. A comma is never part of a number. This reverses Segno migration rows 13 and 14 (`1,25M` means 1.25M on every chart). This is ISO 80000-1's rule: digit
   groups are separated by a space, never by a dot or a comma, because those two mean opposite things in different
   countries.
@@ -137,14 +139,40 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
 
 ## 7. Open, for the owner
 
-- **Bullet and progress:** list records (`{4.2M, target=5.0M}`, `{68%, at-risk}`) or tables. Bullet takes any number of
-  `Band` rows (it draws the three nearest the target) and an optional floor, which a record names more easily than a fixed set of columns.
-- **Radar's `quadrant` variant** (series, then group, then axis) does not fit a GFM table: it stays a nested list, or
-  gets a group spelling.
-- **The cross-chart field vocabulary** (`value`, `target`, `status`, `x`, `y`, `size`, `group`) is decided in phase
-  2's note, before any manifest gains a schema, so reshaping has shared names to project between.
-- **A `|` inside a description.** Segno reserves `|` inside a record (decision 4). The recommendation is that prose is
-  exempt, so a table description can hold `\|`.
+- **Decided 2026-10-16: radar is a table; bullet and progress are list records.** Measured over the corpus (every deck,
+  gallery, docs example and manifest sample; counts match the census: 44 plain radar slides plus 3 quadrant, 20 bullet slides
+  with 86 rows, 30 progress slides with 140 rows), each slide converted to both forms. Re-derive with
+  `node tools/chart-list-vs-table-bakeoff.mjs --sensitivity` (a corpus edit moves every number, so quote the commit):
+
+  | | radar list → table | bullet list → table | progress list → table |
+  |---|---|---|---|
+  | characters, table unpadded | 13,740 → 7,908 (−42%) | 3,498 → 3,837 (+10%) | 5,012 → 6,334 (+26%) |
+  | characters, table padded to align pipes | 13,740 → 14,304 (+4%) | 3,498 → 5,822 (+66%) | 5,012 → 9,341 (+86%) |
+  | axis or label names written | 610 → 225 | same | same |
+  | places touched to add or rename an axis | 2.7 → 1 | n/a | n/a |
+  | places touched to add a series or band | 1 → 6.1 | 1 → 4.3 | n/a |
+  | optional cells left empty in a table | n/a | 84% (26 of 31) | n/a |
+
+  A table is a clear win for radar under every weighting tried (raw-markdown, Compose-first, agent author), including a
+  worst case that scores the list's Compose support and error hazard generously. Bullet's table would be 84% empty cells.
+  Progress is the closest call: the list wins unless Compose carries about a fifth of the weight. A table edits in Compose
+  today (an editable grid with Tab to add a row); a `{…}` list row has no row editor yet (the chart-series grid was never
+  built), so that editor is the one thing that would move progress. Not measured: authoring error rates for people and for
+  models. Radar's size saving holds only when pipes are left unaligned.
+- **Decided 2026-10-16: the cross-chart field vocabulary.** Shared core: `value`, `target`, `status`, `x`, `y`, `size`, `group`,
+  plus `band`, `floor`, `kind` (waterfall's bar kind), `when` (a date or span), `after` (a dependency) and `to`
+  (quadrant's trail end). Two renames remove the collisions the survey found: kanban's S/M/L/XL badge is `effort`, so
+  `size` means bubble size only; map's bloc of regions is `bloc`, so `group` means a category only. A chart's old word
+  (`measure`, `pct`, `weight`, `volume`) stays an alias for `value` or `size`. Journey's `who` and `mood`, hub-spoke's
+  `flow` and state-chart's styling keys stay chart-specific. `total` (waterfall's anchor versus stacked-bar's printed sum)
+  and `note` (heatmap's hidden detail versus progress's visible one) collide too and are not decided here: phase 2's schema
+  names them. Named (phase 2, 2026-10-16): waterfall's `total` is a value of `kind`, stacked-bar's authored total is
+  dropped (unused), and `note` is progress's visible field; heatmap's `note=` is retired by decision 7 anyway. Evidence: a read-only survey of all 23 charts' parsers and docs.
+- **Decided 2026-10-16: `|` in a description is allowed, and the author escapes it as `\|`.** Segno still reserves `|` inside
+  a record (decision 4); prose is exempt. A table cell is split on an unescaped `|` by GFM before Segno reads it, so a
+  bare `|` in a table description silently adds a cell. A lint rule in `lib/authoring/lint-core.js` must warn on it and
+  carry the fix (`\|`); it ships with the first `{> …}` table description (phase 3), and
+  `followups.d/2723-p2-lint-unescaped-pipe-in-description.md` holds it until then.
 - **Phase 4 goes ahead only on evidence from phases 2 and 3** (how many schema exceptions today's shapes need, what
   authors mis-type in the new editor), the bar Segno decision 17 sets, and with the owner's sign-off.
 
@@ -192,6 +220,30 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    forms. The old-form branch is transitional and is deleted in phase 4, so nothing reads the old spellings after it.
    This departs from Segno decision 9 (no dual-syntax period) and decision 24 (the codemod deleted before merge) for
    the span of phases 2 to 4, because those phases are separate PRs to `main`.
+
+   **Phase 2, slice 1 (2026-10-16): the schemas and the reader's seam.** Each of the 16 charts declares its row in
+   its manifest's `segno` block (a `row` slot, `cell` on the two grid charts), with a `rows` block for shape, detail,
+   markless depths (`markless`), whether a `>` under a list row is its description (`quotes`) and `legacy`, the spans the chart
+   reads today. `lib/core/chart-rows.js` is the one reader: the narrator and lint take the detail charts, the
+   markless rows and a row's `>` description from it (Compose reads the same `quotes` flag from the generated
+   catalog, pinned to the reader by a test), and `rowQuotesAsBullets` is deleted (the narrator reads descriptions as
+   structure, not as rewritten source). The record form is linted, not drawn: `chart-row-record-unread` warns on a
+   data row written as one record and names the old spans, because today that row loses its value; it has no
+   machine fix, so a bulk fix never pushes decks away from the form phase 4 writes. A schema the chart does not draw
+   yet does not count as the component reading a span (`componentReads`), so the pill lint still judges it. Names
+   decided by the schema: waterfall's marker is `kind` (`total` / `step`), progress's `status` is the shared status
+   vocabulary (`lib/core/chart-status.js`) and its visible note is `note`, and stacked-bar's authored group total is
+   dropped (no group row in the corpus carries a span, census note §4). Left out until a reader reads it: quadrant's
+   trail end `to`. One exception the format does not express yet, for the phase 4 count: map's `value` is `text`
+   because it is a number in a choropleth and a category word under `highlight`. Corpus evidence: all 895 chart
+   slides render, narrate and lint identically (895 by the engine's own section split).
+
+   **Phase 2, still to do.** The ownership step (§9: a row's data record claimed before the pill pass on every
+   path, narrower than `sits: list-rows`, which would also stop a label's pill and a description's pill rendering);
+   each transform and narrator reading the record through `readRecord` instead of its private parser (the census
+   note §3 table); the `{> …}` production; and the census tool reporting no private reader. Until the record is
+   drawn, `chart-row-record-unread` keeps the record form from failing silently. Held in
+   `followups.d/2690-p1-chart-model-phase-2-reader.md`.
 3. **Editor.** The Insert menu, the schema-driven grid for lists and tables, the description fields, and reshape.
 4. **Normalize.** The codemod, kept runnable as a migrator because it is the last clean break before GA, the old
    branch deleted, locale display on, and a `**Breaking:**` fragment. Gated by §7, and it gets the full adversarial

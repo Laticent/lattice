@@ -65,6 +65,7 @@ describe('html-player export (--player)', () => {
 	// passed (a gate failure ships the FULL ~452 KB block, so a shrunk block IS the
 	// gate's pass certificate — pruned CSS that renders identically).
 	test('the inlined lattice CSS is pruned to the used selectors (gate passed)', () => {
+		const { isPruneSkippedStyle } = require(path.join(ROOT, 'lib', 'export', 'player-prune.js'));
 		const blocks = [...html.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
 		let css = '';
 		for (const b of blocks) {
@@ -72,8 +73,9 @@ describe('html-player export (--player)', () => {
 			// The dual-mode block is NOT the deck stylesheet and can be larger than it (it
 			// repeats the token body once per scheme scope). Selecting the deck CSS by size
 			// alone silently picked it up instead, and this assertion then measured the wrong
-			// block. Both non-deck blocks are excluded by id.
-			if (/lattice-dual-mode/.test(b[1])) continue;
+			// block. The non-deck blocks (this one, and the hoisted-asset block) are excluded by
+			// id, through the same list the prune hosts use.
+			if (isPruneSkippedStyle(b[1])) continue;
 			if (b[2].length > css.length) css = b[2];
 		}
 		const fullMin = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-min.css'), 'utf8');

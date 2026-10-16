@@ -102,6 +102,10 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-capabilities.js',
   'build-decisions-index.js',
   'build-gotchas-index.js',
+  // Measured 2026-10-16: its whole write set is dist/schemas/front-matter.schema.json.
+  'build-front-matter-schema.js',
+  // Measured 2026-10-16: its whole write set is dist/engineering/conformance.md.
+  'build-conformance.js',
 ]);
 
 // Generators that write PR-owned artifacts. Listed explicitly, so that tagging

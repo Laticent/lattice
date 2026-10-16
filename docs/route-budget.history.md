@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-16 — measured on #2716 built on top of main at 72ae80f
+
+Raises the lint core's ceiling by 1KB (101712 → 102736 bytes), soft target unchanged; the owner chose this on 2026-10-16 (#2716). #2716 (the code record follow-ups) adds the measured code-pane column and bar tables and the rules that read them to the lint core. Before asking, it gave back what it could: the column table is written without its keys (655 bytes) and the record writer moved to its own entry, esm/code-record.js, which only the Studio's code options panel loads (about 0.8KB). That left it at 101813 bytes on top of main (main alone, at the same commit: 98317 bytes), 101 bytes past the old ceiling. The other give-backs on offer (an encoding about 20 bytes under the ceiling, or dropping the bar and wrapped-row counting) were weighed and refused: the first fails on the next lint change anywhere, the second reopens a clip the lint should name. The lint core loads after the Studio's first paint (engine-spine note §5).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 102736 |
+
 ### 2026-10-15 — measured on the built tree at cef3c3b
 
 code plugin: highlight.js grammars load on demand per deck instead of 36 bundled in the engine (#2710)

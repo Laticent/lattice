@@ -218,7 +218,8 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.doesNotMatch(cfg, /html:\s*true/);
     assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
     const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
-    assert.equal(settings['markdown.marp.enableHtml'], true);
+    assert.equal(settings['markdown.marp.html'], 'all');
+    assert.equal(settings['markdown.marp.enableHtml'], undefined);
     // The deck's math is typeset at export; `off` also disables a deck's own `math:` directive.
     assert.equal(settings['markdown.marp.mathTypesetting'], 'off');
   });
@@ -254,6 +255,51 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.doesNotMatch(fs.readFileSync(path.join(d, 'README.md'), 'utf8'), /Extend it with an AI agent/);
     fs.rmSync(lean, { recursive: true, force: true });
   });
+});
+
+/**
+ * Every palette a shipped palette `@import`s rides in the bundle, transitively.
+ *
+ * The recipient's Marp resolves `@import 'parent'` against its own theme set (the files
+ * under themes/ plus lattice.css), so an ancestor left out renders the deck without its
+ * colors. Before the fix, atelier-dark shipped without atelier, and a11y-deuteranopia
+ * without a11y-base or onyx — five example decks in the #2712 layer census.
+ */
+describe('export-marp — the palette closure', () => {
+  const { paletteClosure } = require(TOOL);
+
+  test('paletteClosure walks the declared chain, parent-first, for the palette and its -dark', () => {
+    assert.deepEqual(paletteClosure('a11y-deuteranopia'), ['onyx', 'a11y-base', 'a11y-deuteranopia', 'a11y-deuteranopia-dark']);
+    assert.deepEqual(paletteClosure('atelier-dark'), ['atelier', 'atelier-dark', 'atelier-dark-dark']);
+    assert.deepEqual(paletteClosure('indaco'), ['indaco', 'indaco-dark']);
+  });
+
+  // `[^'")\s;]+` rather than a name class, so a dotted form (`@import 'x.css'`) is caught
+  // and FLAGGED as unresolved instead of silently skipped.
+  const IMPORT = /@import\s*(?:url\()?\s*['"]?([^'")\s;]+)['"]?\s*\)?\s*;/g;
+  for (const deck of ['accent-on-accent', 'a11y']) {
+    test(`examples/${deck}.md exports with no unresolved @import`, () => {
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'exp-closure-'));
+      try {
+        execFileSync('node', [TOOL, path.join(REPO, 'examples', `${deck}.md`), tmp, '--no-agent'], { stdio: 'pipe' });
+        const themesDir = path.join(tmp, deck, 'themes');
+        const shipped = new Set(['lattice', ...fs.readdirSync(themesDir).map((f) => f.replace(/\.css$/, ''))]);
+        const unresolved = [];
+        for (const f of fs.readdirSync(themesDir)) {
+          for (const [, name] of fs.readFileSync(path.join(themesDir, f), 'utf8').matchAll(IMPORT)) {
+            if (!shipped.has(name)) unresolved.push(`${f} → ${name}`);
+          }
+        }
+        assert.deepEqual(unresolved, [], `every @import resolves inside the bundle (shipped: ${[...shipped].join(', ')})`);
+        const settings = JSON.parse(fs.readFileSync(path.join(tmp, deck, '.vscode', 'settings.json'), 'utf8'));
+        for (const name of shipped) {
+          if (name !== 'lattice') assert.ok(settings['markdown.marp.themes'].includes(`themes/${name}.css`), `VS Code registers ${name}`);
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  }
 });
 
 /**

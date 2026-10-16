@@ -52,7 +52,7 @@ Accent colors for categories, levels, or themes extend this palette — they don
 ## 1.4 Typography Rules
 
 - One font stack for all outputs (HTML, PDF, PPTX, images)
-- Fonts must be available on Google Fonts
+- Fonts are self-hosted: each face is listed in `lib/fonts/text-faces.js` and ships as a woff2 under `assets/fonts/`. No font loads from a CDN, and `tools/check-fonts.js` fails the build on a `fonts.googleapis.com` or `fonts.gstatic.com` URL
 - Define explicit PPTX fallback if exact font unavailable (e.g., Cormorant Garamond → Georgia)
 - Display/heading font: serif or distinctive sans
 - Body font: clean sans-serif

@@ -1,0 +1,1 @@
+- The Architect's figure-change cue now reads `T` as trillions, so a reply that drops or swaps it (`$5T` → `$5`) is flagged, and `$5T` → `$5,000B` is not. `bn`/`Bn`/`BN` already read as billions there.

@@ -84,9 +84,9 @@
  *     its `-opaque` mirror. It fires for BOTH export paths:
  *       @media print                — the CLI vector PDF (lattice.js
  *                                      `page.pdf` prints with print media on).
- *       :where(.lattice-exporting)  — the Studio raster export
- *                                      (drawing-board-export.js adds this class
- *                                      to the capture root before html-to-image
+ *       section.lattice-exporting   — the Studio raster export
+ *                                      (deck-export.js adds this class
+ *                                      to the section before html-to-image
  *                                      `toPng`, which captures the SCREEN DOM
  *                                      with NO print media).
  *   Because the flip only swaps `--fin-X: var(--fin-X-opaque)` (the opaque
@@ -976,16 +976,16 @@ section.finish-gallery :is(.panel-left, .panel-right, .compare-left) {
  *   @media print               — CLI vector PDF (lattice.js page.pdf) and the
  *                                Studio's desktop Print. A baked spotlight mask flips to
  *                                its hard-edged mirror too.
- *   :where(.lattice-exporting) — Studio raster export (deck-export.js tags the capture
- *                                root before html-to-image).
+ *   section.lattice-exporting  — Studio raster export (deck-export.js tags the section
+ *                                before html-to-image).
  *
  * A finish SURFACE (a split slide's panel, finish-generate.js `FINISH_SURFACES`) re-declares
  * the rich face on itself, so both flips reach it too, or its export face stays rich.
- * The export class matches BOTH an ANCESTOR (the Studio capture root carries it) AND the
- * section ITSELF. The latter is load-bearing for the html-to-image raster: `toPng(section)`
- * clones only the section + its descendants, NOT its ancestors, so a root-only class would be
- * lost in the clone; the capture therefore also stamps the class on each section it
- * rasterizes. :where() keeps it at zero specificity so a per-slide finish override still wins.
+ * The export class rides the section ITSELF, and only there: `toPng(section)` clones only the
+ * section + its descendants, NOT its ancestors, and no host stamps an ancestor. An
+ * ancestor-led `:where(.lattice-exporting) section…` arm is not written: the packer treats
+ * only a literal leading `section` as the slide, so it packs to a section inside a section
+ * and matches nothing in the preview (css-scope.test.js pins it).
  * The Studio raster keeps a baked MASK's screen face: it is a transparent-to-canvas radial
  * (no color-mix), which html-to-image draws cleanly, and its hard-edged mirror exists only
  * for the vector PDF. The hard mirror printed a solid arc in every Studio download.
@@ -1002,8 +1002,6 @@ section.finish-gallery :is(.panel-left, .panel-right, .compare-left) {
     --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
-:where(.lattice-exporting) section.finish,
-:where(.lattice-exporting) section.finish :is(.panel-left, .panel-right, .compare-left),
 section.finish.lattice-exporting,
 section.finish.lattice-exporting :is(.panel-left, .panel-right, .compare-left) {
   --fin-wash: var(--fin-wash-opaque, none);
@@ -1097,7 +1095,6 @@ section.backdrop-spot-br { --backdrop-spot-position: 78% 74%; }
  * which Apple PDFKit can drop in a vector PDF, is flattened to pixels here before any PDF
  * viewer sees it. The mask is the same two-axis falloff the blur makes (bleed 5cqi, sigma
  * 2.5cqi), sampled at seven stops per side. */
-:where(.lattice-exporting) section.finish,
 section.finish.lattice-exporting {
   --backdrop-clear-filter: none;
   --backdrop-clear-fade: calc(var(--_sec-1cqi, 1cqi) * 10);
@@ -1111,7 +1108,6 @@ section.finish.lattice-exporting {
     rgb(0 0 0 / 0.5) calc(100% - var(--backdrop-clear-fade) * 0.5), rgb(0 0 0 / 0.345) calc(100% - var(--backdrop-clear-fade) * 0.4),
     rgb(0 0 0 / 0.115) calc(100% - var(--backdrop-clear-fade) * 0.2), rgb(0 0 0 / 0) 100%;
 }
-:where(.lattice-exporting) section.finish > .backdrop > .backdrop-mask::before,
 section.finish.lattice-exporting > .backdrop > .backdrop-mask::before {
   -webkit-mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
   mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
@@ -1163,13 +1159,17 @@ section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-l
  * rasterize the whole PDF page. A register SPOTLIGHT is a window placed on the slide, so it
  * leaves the panel on its plain field.
  *
- * THE BAKED MASK IS RESET ON THE PANEL at zero-class specificity. A finish written before surfaces
- * existed declares its mask only on the section, already mixed for the light canvas; a panel that
+ * THE BAKED MASK IS RESET ON THE PANEL at (0,1,1). A finish written before surfaces existed
+ * declares its mask only on the section, already mixed for the light canvas; a panel that
  * inherited it painted itself white in the PDF with its white text on it (found by the #2457
  * checker). The generator's own surface rule (0,2,1 or more) outranks this reset, so a current
  * finish re-declares its mask mixed for the panel. A baked CLEARANCE is reset the same way, for
- * the same reason: inherited, it would fill the panel with the light canvas. */
-:where(section.finish) :is(.panel-left, .panel-right, .compare-left) {
+ * the same reason: inherited, it would fill the panel with the light canvas.
+ * The selector LEADS with `section` and keeps the panel list in `:where()` for the weight. The
+ * engine's packer scopes any selector that does not start with `section` as a slide descendant,
+ * so the old `:where(section.finish) :is(…)` packed to a section inside a section and was dead in
+ * the Studio and Playground preview (#2705 follow-up; the guard is test/unit/engine/css-scope). */
+section.finish :where(.panel-left, .panel-right, .compare-left) {
   --fin-backdrop-mask: none;
   --fin-backdrop-mask-opaque: none;
   --fin-backdrop-clear-scrim: none;
