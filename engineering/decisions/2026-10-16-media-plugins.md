@@ -489,7 +489,7 @@ The Studio Guide narrates a deck (speech), points at what it says (gestures), sh
   timing track to the millisecond (`video.mjs:12-15`). The transport has no step inside a slide yet
   (`lib/core/present-transport.mjs:375`), so §4.8's "the next advance plays the clip" is its first.
 
-**What the plugins do, proposed (owner decisions 13–15, §8):**
+**What the plugins do (owner decisions 13–15, settled 2026-10-16, §8):**
 
 - **Speech.** A media record's `caption` is spoken, as a figcaption is today; `alt` is never spoken by the narrator,
   because it describes the picture for someone who cannot see it, and the room can. A QR code speaks its caption and
@@ -600,16 +600,16 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 11. **A clip fills the stage when it plays, by default** (§4.8). `fullscreen=false` opts out.
 12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
     clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
-13. *(proposed)* **Narration speaks a media record's caption, never its alt or a QR payload** (§4.10).
-14. *(proposed)* **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
+13. **Narration speaks a media record's caption, never its alt or a QR payload** (§4.10).
+14. **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
     the MP4 with its sound, a host's clip holds on its poster (§4.10).
-15. *(proposed)* **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
+15. **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
 
 ## 9. Progress
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
-- 2026-10-16: §4.10 added: narration, the Guide and its captions; decisions 13–15 proposed.
+- 2026-10-16: §4.10 added: narration, the Guide and its captions; owner settled decisions 13–15 as recommended.
 - 2026-10-16: author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
   text field; `alt` is optional and filled by Lattice when missing; the hover `title` and the QR `ec` word are dropped.
 - 2026-10-16: a pass-through for host player settings rejected (§6); `subtitles` recorded as a proposed word (§4.7; first
