@@ -103,6 +103,25 @@ Re-bases the axis on the walk itself and tears the anchors it clips. For a compr
 - Closing cash `9.8M`
 ```
 
+### `lower-is-better`
+
+Swaps the meaning hues for a walk where a rise is bad news — a loss ratio, claims, cost, churn — so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down.
+
+```markdown
+<!-- _class: waterfall lower-is-better -->
+
+`Combined ratio · %`
+
+## Cat losses pushed the combined ratio 6 points above plan.
+
+- Plan `94`
+- Cat losses `+8`
+- Attritional `+1`
+- Rate `-2`
+- Expenses `-1`
+- Actual `100`
+```
+
 ## Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

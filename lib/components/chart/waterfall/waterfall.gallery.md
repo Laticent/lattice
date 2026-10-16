@@ -51,6 +51,23 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
+<!-- _class: waterfall lower-is-better -->
+<!-- _footer: "lower-is-better · waterfall lower-is-better — Swaps the meaning hues for a walk where a rise is bad news — a loss ratio, claims, cost, churn — so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down." -->
+
+`Combined ratio · %`
+
+## Cat losses pushed the combined ratio 6 points above plan.
+
+- Plan `94`
+- Cat losses `+8`
+- Attritional `+1`
+- Rate `-2`
+- Expenses `-1`
+- Actual `100`
+
+
+---
+
 <!-- _class: waterfall -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · waterfall — Eight bars, a mid-walk subtotal, a step that takes the running total below zero and back, and a level authored as a negative — the geometries that break a naive bridge." -->

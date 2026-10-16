@@ -299,6 +299,25 @@ describe('waterfall kernel', () => {
       assert.ok(!ticksOf(zoomed).includes('0M'), 'and off the zoomed one');
       assert.ok(ticksOf(zoomed).length <= 5, 'never more than five gridlines');
     });
+
+    test('`lower-is-better` swaps the meaning hue, never the direction', () => {
+      const fillOf = (svg, s) => svg.match(new RegExp(`data-s="${s}"[^>]*fill="url\\(#([^)]+)\\)"`))[1];
+      const plain = buildWaterfall(parseWaterfall(ul(PLAN_ACTUAL)), {});
+      const lower = buildWaterfall(parseWaterfall(ul(PLAN_ACTUAL)),
+        { classTokens: ['waterfall', 'lower-is-better'] });
+      assert.match(fillOf(plain, 'up'), /pass/);
+      assert.match(fillOf(plain, 'down'), /fail/);
+      assert.match(fillOf(lower, 'up'), /fail/, 'a rise wears fail');
+      assert.match(fillOf(lower, 'down'), /pass/, 'a fall wears pass');
+      assert.match(lower, /class="cart-svg waterfall-svg waterfall-lower"/,
+        'the SVG carries the hook the stroke and finish swap key on');
+      assert.doesNotMatch(plain, /waterfall-lower/);
+      const dirs = (svg) => [...svg.matchAll(/class="waterfall-bar"[^>]*data-s="(\w+)"/g)].map((m) => m[1]);
+      assert.deepEqual(dirs(lower), dirs(plain), 'direction is unchanged');
+      const css = fs.readFileSync(STYLES, 'utf8');
+      assert.match(css, /\.waterfall-lower \.waterfall-bar\[data-s="up"\] \{\s*--state-pass-hue: var\(--state-fail-hue\)/);
+      assert.match(css, /\.waterfall-lower \.waterfall-bar\[data-s="down"\] \{\s*--state-fail-hue: var\(--state-pass-hue\)/);
+    });
   });
 
   describe('buildWaterfall — the emitted figure', () => {
