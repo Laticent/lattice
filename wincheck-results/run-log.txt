@@ -1,17 +1,13 @@
 PASS 0.1 The app window is up and the Studio is drawn :: window title: Lattice Studio
 feedback button at 956,41 32x33 type=ControlType.Button
 edit fields: [SUMMARY] [DETAILS]
-FAIL 3.1 Continue on GitHub opens the default browser; the app stays put :: not found: Summary field
-Headers and footers present, no toggle pattern
-Margins present: ControlType.Text
-PASS 7.1 Print at 4-up reaches a print dialog (no file, no new window) :: windows after Print:
-lattice-studio | Tauri Window | Lattice Studio
-WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedComputeAgent\hosted-compute-agent
-SystemPropertiesPerformance | #32770 | System Properties
-explorer | Progman | Program Manager
+PASS 3.1 Continue on GitHub opens the default browser; the app stays put :: msedge.exe opened it
+PASS P.1 Edge prints probe-iframe.html :: screenshots P-P.1-a/b
+PASS P.2 Edge prints probe-top.html :: screenshots P-P.2-a/b
+PASS P.3 Chrome prints probe-iframe.html :: screenshots P-P.3-a/b
+PASS P.4 Chrome prints probe-top.html :: screenshots P-P.4-a/b
 PASS 9.9 Window list at the end :: lattice-studio | Tauri Window | Lattice Studio
 WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedComputeAgent\hosted-compute-agent
-SystemPropertiesPerformance | #32770 | System Properties
 explorer | Progman | Program Manager
 
-3 pass, 1 fail
+7 pass, 0 fail

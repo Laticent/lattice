@@ -8,19 +8,37 @@
     {
         "id":  "3.1",
         "name":  "Continue on GitHub opens the default browser; the app stays put",
-        "pass":  false,
-        "detail":  "not found: Summary field"
+        "pass":  true,
+        "detail":  "msedge.exe opened it"
     },
     {
-        "id":  "7.1",
-        "name":  "Print at 4-up reaches a print dialog (no file, no new window)",
+        "id":  "P.1",
+        "name":  "Edge prints probe-iframe.html",
         "pass":  true,
-        "detail":  "windows after Print:\nlattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nSystemPropertiesPerformance | #32770 | System Properties\nexplorer | Progman | Program Manager"
+        "detail":  "screenshots P-P.1-a/b"
+    },
+    {
+        "id":  "P.2",
+        "name":  "Edge prints probe-top.html",
+        "pass":  true,
+        "detail":  "screenshots P-P.2-a/b"
+    },
+    {
+        "id":  "P.3",
+        "name":  "Chrome prints probe-iframe.html",
+        "pass":  true,
+        "detail":  "screenshots P-P.3-a/b"
+    },
+    {
+        "id":  "P.4",
+        "name":  "Chrome prints probe-top.html",
+        "pass":  true,
+        "detail":  "screenshots P-P.4-a/b"
     },
     {
         "id":  "9.9",
         "name":  "Window list at the end",
         "pass":  true,
-        "detail":  "lattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nSystemPropertiesPerformance | #32770 | System Properties\nexplorer | Progman | Program Manager"
+        "detail":  "lattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nexplorer | Progman | Program Manager"
     }
 ]
