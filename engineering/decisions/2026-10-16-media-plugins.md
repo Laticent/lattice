@@ -200,15 +200,18 @@ hosts can serve it, and the others show the stand-in.
 simplifies the plugin contract before user plugins ship (its D4, phases P2 and P3). These plugins are built to it:
 
 - **How each one draws.** `image` and `qr` draw with `render(source, ctx)`, synchronous on both hosts (its §5.1). `video`
-  renders its figure and poster the same way; its preview overlay and its player are the browser host's work.
-  None needs `draw(figures)`, so none carries that contract's `data-lattice-figure` marker (its §5.3); a media figure
-  carries `data-lattice-media` (§4.5).
+  renders its figure and poster the same way, and its poster painting runs in the browser host. Its Studio preview
+  overlay is the docs page's own code (`docs/src/playground/video-overlay.js`), outside the frame, and playback belongs
+  to Present and the exported player (§4.8). None needs `draw(figures)`, so none carries the host's drawn-figure marker
+  `data-lattice-figure` (its §5.3; and diagram rules match that marker with no value check, §4.5); a media figure
+  carries `data-lattice-media`.
 - **What the host decides.** When a figure is drawn, which surface gets what, and what a failure shows (its §5.2). A
-  plugin states only the facts it alone knows. The QR plugin's one: a renderer that throws shows nothing, never the
-  source (§4.11), overriding the host's "show the source" default.
+  plugin states only the facts it alone knows. The QR plugin's one: a failure shows nothing, never the source,
+  overriding the host's "show the source" default; today's inline dispatch cannot honor that yet (§4.11).
 - **Payload.** The `qrcode` library is the QR plugin's payload, loaded only when a deck uses a code (its §5.1, item 5).
 - **No removed fields.** If slices 2 and 3 start before P2 and P3 land, their manifests use only the fields that note
-  keeps (its §5.3): no `render.surfaces`, `render.exec`, `render.parity` or `hydrate.budgetMs`.
+  keeps (its §5.3): no `render.surfaces`, `render.exec` or `hydrate.budgetMs`. The one exception is `render.parity`,
+  which today's schema still requires (`lib/plugins/plugin.schema.json:188`); it is dropped with P2 and P3.
 - **The Marp bridge.** Export-to-Marp is that note's first bridge. Its per-bridge translation for `image` writes
   Marp's `![bg left](x)` keywords back out (decision 2); `@video` and `@qr` go out as their drawn form (§4.11).
 
@@ -670,9 +673,14 @@ by the slice named, and each slice's own trio checks it on the code that ships.
 - **An OAuth source acts only with named consent** (Google Drive, after slice 4). It fetches only after a consent per
   deck and per account that names the account, never for a deck opened from someone else. Its watch link and QR address
   keep only the file id.
-- **A QR never leaks its payload** (QR slice 1). A built title names the kind only (§4.7). A renderer that throws leaves
-  nothing, never the record's source (`degradesTo: "hidden"`, `lib/plugins/host.js:62`), so a Wi-Fi password is never
-  printed.
+- **A QR never leaks its payload** (QR slice 1). A built title names the kind only (§4.7). `degradesTo` does not reach a `@qr{…}` record today: it is honored only for fence and syntax renderers
+  (`lib/plugins/host.js:62`, wired at `:151` and `:256`), while an `@kind{…}` record goes through the inline dispatch
+  (`renderHtml`, `lib/core/inline-code-directives.js:268`, called from `lib/integrations/markdown-it/plugins.js:1507`),
+  which has no catch and leaves the typed `<code>` in place when a row returns nothing or its plugin is off. A Wi-Fi
+  record would print its password. So QR slice 2 owes two things: the `qr` row catches its own errors and always
+  returns a figure (the error figure when it cannot draw), never nothing; and the inline dispatch gains a per-kind
+  `degradesTo`, honored when the row returns nothing and when its plugin is off, so a QR record on a deck with codes
+  turned off shows nothing rather than its source. That second change is to a shared kernel, so it gets maker-checker.
   Export-to-Marp writes a QR record as its SVG, never its source. Error correction never rises past what the payload
   fits: today a 1,523-character URL encodes at level M and returns `''` at level H (run by the red team), so lint
   checks capacity at the highest level any host could pick, and a code that cannot fit shows a visible error figure.
@@ -706,8 +714,8 @@ by the slice named, and each slice's own trio checks it on the code that ships.
 
 **Coupling**
 
-- **One way to hide a title** (slice 3). Every host that hides or restyles a figure's text does it through the
-  plugin's own `show=` default for that host, never with its own CSS reaching into the figure, so labeling for a screen
+- **One way to hide a title** (slice 3). Every host that hides or shows a figure's text does it through the
+  plugin's own `show=` default for that host, and restyles it only through settings or tokens the plugin exposes, never with its own CSS reaching into the figure, so labeling for a screen
   reader follows what is actually visible. `check-ownership` holds component CSS that selects inside
   `[data-lattice-media]` to a budget of zero plus a sanctioned list.
 - **The trio on every slice.** Slice 1 moves a HARD RULE #22 predicate, so the trio, not a single checker.
@@ -781,7 +789,7 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
    This matches Segno's no-dual-syntax decision. Export-to-Marp still writes the keywords back out. Confirmed after
    the trio (owner, 2026-10-16): Lattice is not generally available, so there are no users' decks to protect; the
    shipped files are migrated by `--fix` in slice 3; and a Marp deck coming in is the bridge note's import (its §4.5,
-   best effort, later), which applies the same rewrite.
+   best effort, later); this note asks that import to apply the same `--fix` rewrite.
 3. **Video gets the sigil `>`:** `` `>{https://youtu.be/…}` `` is `@video{…}`. The tag set is
    `INLINE_TAGS` in `lib/plugins/resolve.js:419` (`~ ^ !` today), a copy a test holds to Segno's `TAGS` in
    `docs/src/lib/segno/notation-grammar.ts:24`, so slice 2 widens both to four. A tag also stops a top-level Segno
@@ -826,7 +834,7 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
 18. **The figure carries `data-lattice-title` and `data-lattice-description`**, and every reader
     (narration, the Guide, the tooltip, the notes, exports) takes the text from them (§4.7).
 19. **The host component owns display, the author owns the words** (§4.7). A host may hide or restyle the title and
-    description and override frame, size, `show=`, crop, bleed and finish; it never changes the words. A placing host
+    description (through the plugin's `show=` and the settings or tokens it exposes) and override frame, size, `show=`, crop, bleed and finish; it never changes the words. A placing host
     ignores size and frame. No lint warning when a host overrides a setting; the component's `.docs.md` says what it
     decides. A host hides or shows text only by setting the plugin's `show=` default for itself, never with CSS of its
     own reaching into the figure (owner, 2026-10-16, after the trio; §4.11).
@@ -843,6 +851,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   element, the one source every reader takes (§4.7; decision 18).
 - 2026-10-16: owner settled decisions 17 (the plugin owns its title and description) and 18 (the
   `data-lattice-*` attributes).
+- 2026-10-16: a checker on the post-trio commits found that `degradesTo` never reaches an `@qr{…}` record (the inline
+  dispatch ignores it) and that the schema still requires `render.parity`; §4.4, §4.11 and the QR note corrected, and
+  QR slice 2 owns the fix.
 - 2026-10-16: owner, after the trio: decision 2 stays a clean break (not GA; the bridge note's import handles Marp
   decks); a host hides text only through the plugin's `show=` default (decision 19); scope and slices kept. §4.4 now
   ties the plugins to `2026-10-15-bridges-and-two-hosts.md`.
