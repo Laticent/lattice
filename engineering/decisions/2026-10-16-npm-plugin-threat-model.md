@@ -45,9 +45,27 @@ The explicit list and the export record are good. Neither limits what an admitte
 ## 3. Why "installing it is the trust decision" is not enough here
 
 1. **Plugin output travels.** A `hydrate` or `payload` runs in the browser of whoever opens the
-   deck or its HTML export. That person never ran `npm i`. The export's CSP script hashes are
-   computed from the assembled bytes (`2026-09-27` §4.8), so the hashes certify the plugin's code
-   rather than constrain it.
+   deck or its HTML export. That person never ran `npm i`. The export pins its one script by
+   SHA-256 and the hash is computed from the assembled bytes (`2026-09-27` §4.8,
+   `lib/export/player-core.mjs:3344`), so the hash certifies the plugin's code rather than
+   constrains it. What constrains the page is the rest of the policy:
+   `default-src 'none'; … img-src data:; font-src data:; base-uri 'none'; form-action 'none'`.
+   **Measured 2026-10-16** (Chromium 131 headless, that policy replayed around a script allowed by
+   its own hash, a local listener, and a no-CSP control that reached the listener on every probe
+   but one):
+
+   | Exit the script tries | Reached the listener |
+   |---|---|
+   | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` | no |
+   | `new Image().src`, CSS `url()`, `<iframe>`, form post, `<a ping>`, `<link rel=prefetch>` | no |
+   | **`location.href = 'http://…?x=…'`** | **yes** |
+   | **`window.open('http://…')`** | **yes** |
+
+   So the export's policy closes every request a script can send, and leaves **navigation** open.
+   A hostile `hydrate` can send the page's text (including the speaker notes and glossary in the
+   envelope) to a server by redirecting the page. It cannot do it silently, since the page
+   visibly leaves. A real browser also blocks a popup without a user gesture, which this headless
+   run does not model.
 2. **The Studio and the desktop app are not `npm i` projects.** The Studio keeps the user's
    OpenRouter key in same-origin `localStorage` (`lattice-db-or-key`, read in four places on
    2026-10-16). The planned Tauri app will hold it in the OS keychain. A plugin with full Node
@@ -109,7 +127,10 @@ code door. Three parts:
    (HARD RULE #22: markup and stylesheet are separate channels).
 3. **An export check**: render a deck that uses the plugin to HTML and confirm the exported file
    makes no request when opened offline (`lib/core/offline-chromium.js` already supplies the
-   dead-proxy arguments).
+   dead-proxy arguments). The check must include navigation and `window.open`, the two exits the
+   export's CSP leaves open (§3.1). Closing them needs a design choice, not a header: a policy
+   cannot forbid navigation, so the options are a script that freezes `location` before plugin
+   code runs, or accepting it as visible and documenting it.
 
 ### 5.3 What neither covers
 
@@ -143,5 +164,7 @@ superseded in a follow-up.
   Mermaid or KaTeX bundles, and it cannot see obfuscated access.
 - The gate's run-time cost is unmeasured.
 - The `--ignore-scripts` and lifecycle-script claims are standard npm behavior, not exercised here.
-- Whether the export's CSP blocks outbound requests from a plugin's `hydrate` is not checked.
-  Measure it before relying on it.
+- The §3.1 measurement replays the policy string from `lib/export/player-core.mjs:3346` in a
+  `data:` page. It did not drive a real exported file, and it ran headless Chromium 131 only. The
+  probe script lives in the session scratchpad, not in the repo. If the harness in §5.2 is built,
+  this probe becomes its export check.
