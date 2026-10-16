@@ -388,6 +388,8 @@ describe('the fast read', () => {
       positional: [{ name: 'name', type: text() }],
       params: { span: range(time()), start: named(time()), done: flag('done', { aliases: ['finished'] }), owner: id(), state: oneOf(['todo', 'doing']) },
     }),
+    // No positional at all, the shape of the pill's icon-only re-read: every item must be a param.
+    iconOnly: record({ label: 'an icon', positional: [], params: { icon: named(text()), shape: oneOf(['tag', 'chip']), color: indexed('c', { max: 12 }) } }),
     optional: record({ label: 'an optional label', positional: [{ name: 'label', type: text(), required: false }], params: { icon: named(text()), shape: oneOf(['tag', 'chip']), color: indexed('c', { max: 12 }) } }),
   };
   const pool = [
@@ -431,7 +433,7 @@ describe('the fast read', () => {
     it(`${name}: tryRead is read's success or null, on every span`, () => {
       let refusedFast = 0;
       for (const span of spans) {
-        const hits = bindMode.hits;
+        const refused = bindMode.refused;
         const quiet = same(slot.tryRead?.(span) ?? null);
         bindMode.fast = false;
         const full = same(slot.read(span));
@@ -440,12 +442,22 @@ describe('the fast read', () => {
           if (JSON.stringify(quiet) !== JSON.stringify(full)) throw new Error(`${name} tryRead ${span} differs:\n quiet ${JSON.stringify(quiet)}\n full ${JSON.stringify(full)}`);
         } else {
           if (quiet !== null) throw new Error(`${name} tryRead ${span} returned a value the full bind refuses`);
-          if (bindMode.hits === hits) refusedFast++;
+          if (bindMode.refused > refused) refusedFast++;
         }
       }
       expect(refusedFast).toBeGreaterThan(100);
     });
   }
+  it('tryRead walks a span that binds once, and refuses a certain failure without the full path', () => {
+    const hits = bindMode.hits;
+    expect(pill.tryRead?.('{BETA, tag}')).not.toBeNull();
+    expect(bindMode.hits - hits).toBe(1);
+    const refused = bindMode.refused;
+    expect(pill.tryRead?.('{BETA, nope}')).toBeNull();
+    expect(bindMode.refused - refused).toBe(1);
+    expect(pill.tryRead?.('{"quoted", nope}')).toBeNull(); // the walk cannot tell, so the full path decides
+    expect(bindMode.refused - refused).toBe(1);
+  });
   it('tryRead keeps no state between calls: any order of spans gives each its own answer', () => {
     const a = pill.tryRead?.('{BETA, tag}');
     const b = pill.tryRead?.('{2, 82}');

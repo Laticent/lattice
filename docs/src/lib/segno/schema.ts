@@ -293,10 +293,12 @@ class Binding {
 }
 
 /** @internal Test hook, not public: `fast: false` makes every record slot take the full bind, so a test can
- *  hold the fast read equal to it; `hits` counts the binds the fast read made. */
+ *  hold the fast read equal to it; `hits` counts the binds the fast read made, `refused` the refusals
+ *  `tryRead` answered from the fast walk without the full path. */
 export const bindMode = {
   fast: true,
   hits: 0,
+  refused: 0,
   /** Under test, run the full bind beside every fast read and throw when they differ. Set before the first
    *  read: by a test directly, or by `globalThis[Symbol.for('laticent.segno.checkBothPaths')] = true` before
    *  the library loads. Off in every shipped path. */
@@ -609,7 +611,10 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
       if (sc) return sc.ok ? sc : null;
       const f = fastStep(text);
       if (f) return f;
-      if (f === false) return null;
+      if (f === false) {
+        bindMode.refused++;
+        return null;
+      }
       const r = fullRead(text);
       return r.ok ? r : null;
     },
