@@ -2903,10 +2903,8 @@ section[data-lattice-overflow-marker="off"] .fit-culprit { outline: none; }
  * style during a simulated capture rather than by reading the selector. This is
  * the same leading-compound trap `lib/core/leading-is.js` exists for and that the
  * `data-lattice-overflow-marker` gate above rides on the section to avoid. */
-section.lattice-exporting > .fixme-tab,
-:where(.lattice-exporting) section > .fixme-tab { display: none !important; }
-section.lattice-exporting .fit-culprit,
-:where(.lattice-exporting) section .fit-culprit { outline: none !important; }
+section.lattice-exporting > .fixme-tab { display: none !important; }
+section.lattice-exporting .fit-culprit { outline: none !important; }
 
 /* ════════════════════════════════════════════════════════════════════════
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.

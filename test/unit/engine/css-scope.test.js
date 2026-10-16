@@ -122,7 +122,10 @@ describe('packTheme flat (the exported player)', () => {
 // `:where(section.finish) .panel` packs to `article.lattice > section :where(section.finish)
 // .panel`, a section inside a section, and matches nothing in the Studio and Playground preview
 // while the flat CLI sheet still applies it. #2705 found two (`code.styles.css`,
-// `base.finish.css`). Write `section.x :where(…)` instead.
+// `base.finish.css`). Write `section.x :where(…)` instead. The trailing form is the same trap:
+// `:where(.lattice-exporting) section.x` packs to `article.lattice > section :where(.lattice-exporting)
+// section.x`, which needs a slide inside a slide (#2705 follow-up: nine such arms, all redundant
+// because the Studio stamps the class on the section itself). Write `section.x.lattice-exporting`.
 describe('no engine stylesheet names the slide inside a dead leading :where()', () => {
   const fs = require('node:fs');
   const path = require('node:path');
@@ -133,12 +136,17 @@ describe('no engine stylesheet names the slide inside a dead leading :where()', 
       if (e.isDirectory()) return cssFiles(p);
       return e.name.endsWith('.css') ? [p] : [];
     });
-  const DEAD = /article\.lattice > section :where\(\s*section(?![\w-])/;
+  const DEAD = /article\.lattice > section :where\((?:\s*section(?![\w-])|(?:[^()]|\([^()]*\))*\) section(?![\w-]))/;
 
   test('the dead shape is what the packer makes of it (the guard can fail)', () => {
     assert.match(scope(':where(section.finish) .panel-left'), DEAD);
     assert.doesNotMatch(scope('section.finish :where(.panel-left)'), DEAD);
     assert.match(packTheme('@media print { :where(section.x) .a { b: 1 } }'), DEAD, 'inside an at-rule too');
+    // The trailing form: an ancestor-led arm whose slide comes AFTER the :where().
+    assert.match(scope(':where(.lattice-exporting) section.finish'), DEAD);
+    assert.match(scope(':where(.a:not(.b)) section > .tab'), DEAD, 'nested parens in the :where()');
+    assert.doesNotMatch(scope('section.finish.lattice-exporting'), DEAD);
+    assert.doesNotMatch(scope('section :where(.x) h2'), DEAD, 'a :where() before a descendant, not a slide');
   });
 
   test('every lib/ and themes/ stylesheet packs without one', () => {

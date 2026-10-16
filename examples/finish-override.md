@@ -28,7 +28,6 @@ section.finish.finish-recede {
   --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
-:where(.lattice-exporting) section.finish.finish-recede,
 section.finish.finish-recede.lattice-exporting {
   --fin-wash:none;
   --fin-texture:repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px);
@@ -54,7 +53,6 @@ section.finish.finish-beam {
   --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
-:where(.lattice-exporting) section.finish.finish-beam,
 section.finish.finish-beam.lattice-exporting {
   --fin-wash:linear-gradient(118deg, color-mix(in srgb, var(--accent) 12%, var(--bg)) 0%, var(--bg) 42%, color-mix(in srgb, var(--accent) 7%, var(--bg)) 100%);
   --fin-texture:radial-gradient(color-mix(in srgb, var(--accent) 8%, var(--bg)) 0 1.3px, transparent 1.7px);

@@ -30,7 +30,6 @@ section.finish.finish-graph {
     --fin-texture: repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px);
   }
 }
-:where(.lattice-exporting) section.finish.finish-graph,
 section.finish.finish-graph.lattice-exporting {
   --fin-texture: repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px);
 }
