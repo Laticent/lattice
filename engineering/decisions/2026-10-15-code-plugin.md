@@ -283,6 +283,8 @@ come from the plugin's manifest and Compose builds an editor for it like any oth
 | `format` / `format=off` | format this block (needs `code-format`) | |
 | `width=` | the formatter's print width; defaults to what fits the slide's column | `width=48` |
 | `dialect=` | SQL dialect for the formatter | `dialect=postgres` |
+| `indent=` | the formatter's indentation, `2`, `4` or `tab`; also how wide the panel draws a tab (added in the follow-up, §11) | `indent=tab` |
+| `quotes=` | the formatter's string quote, `single` or `double`, where the language has a choice | `quotes=single` |
 | `wrap` | soft-wrap long lines instead of letting them overflow | |
 
 **Attachment.** A paragraph that is only a `@code{…}` span attaches to the next fence and renders
@@ -386,8 +388,7 @@ Proof:
   so `focus=` and `mark=` are text read by the `_focus: line` parser (`3-5 9`), which also keeps the two grammars
   one. `numbers=12` became `numbers, start=12`: a field cannot be both a flag and a number. Per-block focus reuses
   the spotlight treatment with a `<pre>` as its scope.
-- Pending, slice 8: the Compose editor for a fence's record (a popover beside the language picker that writes the
-  `@code{…}` line, changing only the words edited).
+- Slice 8, the Compose editor for a fence's record: shipped 2026-10-16, see the follow-up entry below.
 - 2026-10-15: slice 6 — the `code-format` plugin. The bake contract is synchronous and every formatter is async, so
   the bake runs the formatters in one child process (Mermaid's shape, `render.exec.bake: "subprocess"`); the docs
   site runs the same planner above its render (`ensure-code-format.ts`). Both rewrite the fence bodies in the
@@ -454,3 +455,96 @@ Proof:
   (`<html data-lattice-chromeless>`, "watched, not read"), set on every preview-pool tile, both Present frames
   and the stage window. The Studio e2e now also clicks "Copy as HTML" through the tap bridge, the cross-realm
   path where the frame's `ClipboardItem` is written by the page's clipboard.
+- 2026-10-16: follow-up, formatter options (followups.d/2710-p2, the owner's three picks). `indent=2|4|tab` and
+  `quotes=single|double` are record fields and deck defaults. Prettier reads them as `tabWidth`/`useTabs`/`singleQuote`,
+  ruff as `indent_style`/`indent_width`/`quote_style`, and sql-formatter reads only the indent, because in SQL a quote is
+  meaning. A tab counts four columns for `tab` (2 for `indent=2`) in all three places that measure one: the formatter's
+  width, the panel's `tab-size` (`data-indent`), and the lint's column count; a block naming no indent keeps CSS's 8.
+  The line-width lint was already there (`code-line-clipped`, measured budgets for `code` and `compare-code`), so it was
+  extended rather than re-made: a plain slide now has a measured budget too (`content`: 102 / 58 / 36 / 36 columns,
+  the same as `code`; its old test asserted "content wraps", which stopped being true when every fence got the panel),
+  a `wrap` block is no longer measured, and on a plain slide a fence another plugin draws (`PLUGIN_FENCES`, now
+  generated beside `PLUGIN_NAMES`) or one inside an HTML comment is skipped (the checker's two false alarms). It stays `info`,
+  not `warning`, for the reason its note gives: CI runs `lint:deck:all --strict` and has no browser to re-measure the
+  table. The record's `width=` stays the formatter's target, not the lint's budget: the panel's measured width is what
+  clips, and judging a line against a 48-column target would warn about lines that render whole.
+- 2026-10-16: follow-up, "Copy as HTML" keeps line bands (followups.d/2710-p3-html-copy-keeps-line-bands). The band of
+  a `diff` or `mark=` line is its `.ln` row's background, and the copy wrote only each run's own. Measured in Chromium
+  before the fix it was worse than "dropped": a run sitting directly in the row read the row's background as its own,
+  so the paste showed ragged patches behind some words. Now each banded row pastes as one `display:inline-block;
+  min-width:100%` span carrying the row's background, and its runs carry none. Chromium reports a `color-mix()`
+  result as `color(srgb … / a)`, so every color the copy writes goes through `legacy()` to `rgb()`/`rgba()`. The
+  mark's accent bar (a box-shadow) is not carried: rich-text editors drop box-shadow, and the tint marks the line.
+- 2026-10-16: follow-up, the record lint inside a blockquote (followups.d/2710-p4). `findCodeRecords` reads each run of
+  `>` lines again with one `>` taken off, recursing for a nested quote, so a quoted record gets the same four rules.
+  Checked against the render first: a record at `>` and at `> >` depth both stamp their fence.
+- 2026-10-16: follow-up, slice 8, the Compose record editor (followups.d/2710-p1). A **Code block options** button sits
+  beside the fence's language in the divider pill and opens a panel of switches and boxes for every field. The words
+  are changed by the engine, not by the Studio: `editRecord` in record.js (exposed to the browser through
+  lib/authoring/inline-editors.js `code`, the door the pill editor already uses) replaces only the item a field lives
+  in, keeps the author's spelling of a field whose value did not change (`format=on`), reads the result back, and
+  returns null rather than guess when a record does not parse or names a field twice. The Studio side
+  (docs/src/lib/compose/code-record.ts) only finds the record paragraph above the caret's fence and swaps it.
+  Two calls made without the owner, both reversible: a flag the deck's `code:` default turns on (`numbers`, `wrap`,
+  `diff`) shows as on and locked, because a flag has no "off" word to write per block; and text fields write when the
+  author leaves them or presses Enter, because a half-typed range (`3-`) does not read.
+- 2026-10-16: follow-up, the copy tooltip in the Studio preview (followups.d/2710-p3-studio-preview-copy-tooltip). The
+  preview takes no pointer events, so `:hover` never reached a block: its buttons stayed at rest and their labels never
+  showed. The Studio now hit-tests the mouse as it moves over the preview, once a frame, and marks the block and button
+  under it with `data-host-hover` (docs/src/playground/code-copy-host.js `hoverCodeCopyAt`), which code.styles.css reads
+  beside `:hover`. Mouse only: a touch has no hover, and a tap already copies through the tap bridge.
+- 2026-10-16: follow-up to the follow-up, the width lint judges every slide (owner, on #2716: "no broken window, no
+  tech debt, no jank"). The split/grid gap the checker suspected does not exist: on a plain slide those classes leave
+  the panel as it is. But measuring all 386 class modifiers found 14 that change the panel's width, and the rule
+  mishandled each. It stood down on `claim-hero`, `claim-bleed` and `compact`; it read `claim-quiet` (105 columns) as
+  102, a false alarm; it ignored a venue or spot scale on a plain slide, missing every clip a venue causes; and
+  `align-*` and `stats` shrink-wrap the panel, which then grows until the slide's edge cuts the line (on the left,
+  for centered and right-aligned). `capacity-scale` divided 102 by nominal factors, a column short at huddle (88 for 89)
+  and hall (59 for 60). Everything now reads one table, lib/authoring/code-pane-columns.js, written by
+  `tools/measure-code-columns.js`: 4 stages × 4 venues × 4 spot scales × 4 panel groups × 7 canvases, 1,792 cells,
+  each what Chromium fits. Two facts only measurement gave: a spot scale beside a venue REPLACES the venue's size
+  (`venue-conference scale-l` fits 77, not 68), and a canvas is judged by its own number (a 16:9 compact
+  side-aligned pane at scale-l fits 97, 4K 96, where the font draws a hair wider). The rule stays `info`. Tier 2 re-measures a sample of the table on every `npm test` with a browser;
+  `--check` re-measures it all.
+- 2026-10-16: the copy buttons move into the title bar (jank found by measuring, #2716). They were absolutely
+  positioned at the panel's top right with an opaque face, so they sat over the first line once it was long: measured
+  from about 95 columns at 16:9 and 40 at portrait, inside the width the lint passes. Three placements were weighed: a
+  reserved right gutter (padding does not stop a no-wrap line, and it costs every line columns), a band added only
+  where the buttons are drawn (the browser and the PDF would then lay the block out differently, so a slide could fit
+  in one and clip in the other), and the bar. The bar won: the render draws a title bar for every copy block (empty
+  without `title=`) in every surface, and the script puts the buttons in it, a two-column grid of the title's text and
+  the buttons. Two defects the move exposed are fixed with it: a `<button>` does not inherit type, so the buttons drew at
+  13px on every canvas (minuscule on 4K) and now take the bar's size; and the title inherited the panel's
+  `white-space: pre`, so a long path ran off the panel (or under the buttons) and now wraps. The bar costs one code line
+  or a little more, which the line-capacity rules now count (the next entry).
+- 2026-10-16: the lint counts the block's gutters, its bar and its wrapped rows (#2716). Three gaps, each a block that
+  clipped with no finding. (1) Width counted the text alone: the `numbers` column (the widest number's digits plus
+  1.5ch, code.styles.css) and the `diff` marker column (2ch; an unmarked line is padded by one) now count, the numbers
+  column as its digits plus ONE so a line is named only when it is cut whatever the half column rounds to. Both
+  gutters sit inside the line box, so a line's tabs expand from the gutter's far edge: in Chromium a leading tab
+  under `numbers` lands where it would without the gutter (counting the gutter on top named a Go line that renders
+  whole, which the checker measured). (2) The
+  title or copy bar takes 0.9 to 1.33 code lines of the pane, more when a long title wraps: measured per canvas, group
+  and room size by `measureCodeBars` in tools/measure-code-columns.js into the `BAR` table, and counted by its whole
+  lines only (a fraction of a line may still fit). A fence another plugin draws (Mermaid, math) gets no bar: the
+  render gives it no options. (3) A `wrap` line takes the rows it wraps to, at the room size's measured width of the
+  plain pane (under `align-*` or `stats` only a block that does not wrap grows past it); a continuation hangs two columns in without numbers, under its own text with them. All three are
+  counted in `capacity-scale` (under a venue or scale); the editorial count rule at the designed size stays on source
+  lines, because it is a budget for what the audience reads, not a clip. A fence inside speaker notes no longer counts
+  as a block of the pane, and a ```` fence no longer closes on ``` (CommonMark). The measuring tool also gained a
+  twentieth of a column of slack: 4K is the 16:9 slide at 3x, and float error measured its compare-code pane at
+  47.9998 columns, which the floor called 47. That named a 48-column line in two galleries (gallery-jargon slide 45,
+  the baseline gallery slide 34) that renders whole, measured 0.016px past the content edge and well inside the
+  panel's clip; 57 cells moved up by one, every one where the panel's padding lies past the measured edge. Where the
+  slide's own edge is the cut (a panel `align-*` or `stats` lets grow) there is no slack: the checker measured a `W`
+  losing up to a pixel of ink there with it, so those 16 cells stay at what fits whole. On the 429 decks `lint:deck:all` reads, the change adds no finding and removes those two (main named them too, from
+  its hand-written 47); Tier 2 re-measures the
+  bar at two room sizes on every canvas.
+- 2026-10-16: the lint core's size (#2716, #2736). The measured tables and the rules that read them put the Studio's
+  lint core (`lintCoreGz`, esm/lint.js beyond the engine) 1.5KB past its ceiling once the branch met main. Two
+  give-backs: code-pane-columns.js writes each group's rows keyless, in the generator's fixed order (655 bytes), and the
+  record writer (record-edit.js, split from record.js) is its own ESM entry, esm/code-record.js, which only the Compose
+  options panel loads (docs/src/playground/code-record-source.js; about 0.8KB). The "lint core" is the whole authoring
+  bundle, Compose kernels included, so splitting the module alone moved nothing; the entry did. That left 101 bytes over
+  (101813 against 101712, on main at 72ae80f, where main alone is 98317). The owner chose a 1KB ceiling raise in its own
+  PR (#2736) over an encoding 20 bytes under the line or dropping the bar and wrapped-row counting.

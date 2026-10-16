@@ -838,6 +838,14 @@ cd docs && npm install
 cd docs && npm run dev > /tmp/astro.log 2>&1 &
 #   wait until /tmp/astro.log prints "ready". In the cloud sandbox a plain `&`
 #   server can get reaped — prefer the harness's run_in_background to keep it up.
+#   Under an AI agent, astro 7 detects the agent and DAEMONIZES itself: the log
+#   ends at "Dev server running at …" (never "ready"), `npx astro dev logs`
+#   shows the server output, and `npx astro dev stop` stops it. Set
+#   ASTRO_DEV_BACKGROUND=1 to keep it in the foreground instead.
+#   The Studio paints from the dev server: `src/plugins/vite-public-esm-dev.mjs`
+#   lets the site's runtime `import()` of the engine staged under public/
+#   through, which Vite otherwise refuses with a 500. The first load after a
+#   cold dep cache reloads the page once while Vite optimizes dependencies.
 
 # 3. Screenshot any route, then VIEW the PNG with the Read tool (renders
 #    inline) or SendUserFile.
