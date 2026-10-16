@@ -143,8 +143,11 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
   than a fixed set of table columns.
 - **The cross-chart field vocabulary** (`value`, `target`, `status`, `x`, `y`, `size`, `group`) is decided in phase
   2's note, before any manifest gains a schema, so reshaping has shared names to project between.
-- **A `|` inside a description.** Segno reserves `|` inside a record (decision 4). The recommendation is that prose is
-  exempt, so a table description can hold `\|`.
+- **Decided 2026-10-16: `|` in a description is allowed, and the author escapes it as `\|`.** Segno still reserves `|` inside
+  a record (decision 4); prose is exempt. A table cell is split on an unescaped `|` by GFM before Segno reads it, so a
+  bare `|` in a table description silently adds a cell. A lint rule in `lib/authoring/lint-core.js` must warn on it and
+  carry the fix (`\|`); it ships with the first `{> …}` table description (phase 3), and
+  `followups.d/2723-p2-lint-unescaped-pipe-in-description.md` holds it until then.
 - **Phase 4 goes ahead only on evidence from phases 2 and 3** (how many schema exceptions today's shapes need, what
   authors mis-type in the new editor), the bar Segno decision 17 sets, and with the owner's sign-off.
 
