@@ -1,0 +1,29 @@
+# check.ps1: install the real installer, launch it with WebView2's debugging port, run check.mjs.
+$ErrorActionPreference = 'Continue'
+$root = Split-Path -Parent $PSScriptRoot
+$out = Join-Path $root 'wincheck-results'
+New-Item -ItemType Directory -Force $out | Out-Null
+$log = Join-Path $out 'log.txt'
+function Say($m) { Write-Host $m; Add-Content $log $m }
+
+Add-Type -TypeDefinition (Get-Content (Join-Path $PSScriptRoot 'Win.cs') -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing -OutputAssembly (Join-Path $PSScriptRoot 'Win.dll')
+Say "Win.dll compiled"
+
+$exe = Get-ChildItem (Join-Path $root 'installer') -Recurse -Filter '*setup.exe' | Select-Object -First 1
+Say "installer: $($exe.FullName) sha256=$((Get-FileHash $exe.FullName).Hash)"
+Start-Process $exe.FullName -ArgumentList '/S' -Wait
+$app = Get-ChildItem $env:LOCALAPPDATA -Recurse -Filter 'lattice-studio.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $app) { Say 'FAIL install: lattice-studio.exe not found under LOCALAPPDATA'; exit 0 }
+Say "installed: $($app.FullName)"
+$wv = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
+Say "WebView2 runtime: $wv; Windows: $((Get-CimInstance Win32_OperatingSystem).Caption) $((Get-CimInstance Win32_OperatingSystem).Version)"
+Say "default browser: $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue).ProgId)"
+
+$env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+Start-Process $app.FullName
+$up = $false
+for ($i = 0; $i -lt 60; $i++) { try { Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | Out-Null; $up = $true; break } catch { Start-Sleep 1 } }
+Say "CDP up: $up"
+Start-Sleep 8
+node (Join-Path $PSScriptRoot 'check.mjs') $out 2>&1 | Tee-Object -FilePath (Join-Path $out 'check-output.txt')
+Say 'done'

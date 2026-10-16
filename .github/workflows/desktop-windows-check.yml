@@ -1,0 +1,45 @@
+# ONE-OFF (PR #2354): drive the real Windows installer on a GitHub Windows runner and commit
+# the results back to this branch. Lives only on this temporary branch, which is deleted after.
+name: desktop-windows-check (one-off)
+on:
+  push:
+    branches: [claude/lattice-studio-desktop-app-65ie80-wincheck]
+    paths-ignore: ['wincheck-results/**']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: lattice-studio-windows
+          run-id: 38841930109
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: installer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install playwright-core (CDP client only, no browsers)
+        working-directory: wincheck
+        run: npm init -y > $null; npm i --no-audit --no-fund playwright-core@1
+      - name: Run the check
+        shell: pwsh
+        run: |
+          # Stored as .txt: the repo's file-type census has no entry for .cs or .ps1.
+          Copy-Item wincheck/Win.cs.txt wincheck/Win.cs
+          Copy-Item wincheck/check.ps1.txt wincheck/check.ps1
+          Copy-Item wincheck/win.ps1.txt wincheck/win.ps1
+          ./wincheck/check.ps1
+      - name: Commit the results to this branch
+        if: always()
+        shell: pwsh
+        run: |
+          git config user.name "wincheck"
+          git config user.email "wincheck@users.noreply.github.com"
+          git add wincheck-results
+          git commit -m "wincheck: results [skip ci]"
+          git push

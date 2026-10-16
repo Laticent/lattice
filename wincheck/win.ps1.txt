@@ -1,0 +1,13 @@
+# win.ps1 <action> [args]: the Win32 half of the check, called by check.mjs once per action.
+param([string]$Action, [string]$A1 = '', [string]$A2 = '', [string]$A3 = '')
+Add-Type -Path (Join-Path $PSScriptRoot 'Win.dll')
+switch ($Action) {
+  'focus'   { [Win]::Focus() }
+  'keys'    { [Win]::Keys($A1) }
+  'origin'  { [Win]::ClientOrigin() }
+  'click'   { [Win]::Click([int]$A1, [int]$A2, $A3 -eq 'right') }
+  'windows' { [Win]::Windows() }
+  'close'   { [Win]::CloseTitled($A1) }
+  'shot'    { [Win]::Shot($A1) }
+  'procs'   { Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match $A1 } | ForEach-Object { "$($_.Name) :: $($_.CommandLine)" } }
+}
