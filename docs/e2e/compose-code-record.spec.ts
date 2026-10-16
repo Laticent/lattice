@@ -65,6 +65,10 @@ test('@crosswidth the options panel toggles numbers, writing only that word, and
 	await page.getByRole('switch', { name: 'Line numbers' }).click();
 	await expect.poll(() => deckSource(page)).toContain('`@code{title="src/load.ts",  focus=2, numbers}`\n```ts');
 	await page.screenshot({ path: test.info().outputPath('code-options.png') });
+	// On a desktop window every field shows at once: the panel scrolls only where the window is short.
+	const fields = page.getByTestId('code-record-fields');
+	const { scrollHeight, clientHeight } = await fields.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+	if ((page.viewportSize()?.height ?? 0) >= 900) expect(scrollHeight).toBeLessThanOrEqual(clientHeight);
 	const after = await deckSource(page);
 	expect(after).toBe(before.replace(RECORD, '`@code{title="src/load.ts",  focus=2, numbers}`'));
 	await expect(page.getByTestId('code-record-text')).toHaveText('@code{title="src/load.ts",  focus=2, numbers}');

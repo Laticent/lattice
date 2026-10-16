@@ -26,6 +26,20 @@ import { ITEM } from './PillEditor';
 
 const HEAD = 'font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
+/**
+ * Scroll shadows: where the panel is shorter than its fields (a phone, a short window) a soft edge
+ * shows there is more above or below, and goes when the list reaches that end. CSS only: the two
+ * `local` covers scroll with the content and hide the `scroll` shades at each end.
+ */
+const SCROLL_SHADOWS: React.CSSProperties = {
+	background: [
+		'linear-gradient(var(--color-popover) 30%, transparent) top / 100% 24px no-repeat local',
+		'linear-gradient(transparent, var(--color-popover) 70%) bottom / 100% 24px no-repeat local',
+		'radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--text-body) 16%, transparent), transparent) top / 100% 8px no-repeat scroll',
+		'radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--text-body) 16%, transparent), transparent) bottom / 100% 8px no-repeat scroll',
+	].join(', '),
+};
+
 /** Line targets as the author writes them: `3-5 9`. */
 function linesText(lines: Set<number> | undefined): string {
 	const ns = [...(lines ?? [])].sort((a, b) => a - b);
@@ -150,7 +164,7 @@ export function CodeRecordPanel({ record, defaults, lang, kernel, onWrite }: { r
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3 text-[13px]">
-			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5" style={SCROLL_SHADOWS} data-testid="code-record-fields">
 				{!read.ok ? (
 					<p role="alert" className="text-[12px] text-[var(--warn)]">
 						This record does not read: {(read.problems ?? []).join('; ')}. The slide ignores what it cannot read.
@@ -222,7 +236,7 @@ export function CodeRecordButton({ view, source, kernel }: { view: EditorView; s
 			<PopoverContent
 				align="center"
 				collisionPadding={8}
-				className="flex w-[min(20rem,92vw)] flex-col overflow-hidden p-3 max-h-[max(220px,min(560px,calc(var(--radix-popover-content-available-height)-12px)))]"
+				className="flex w-[min(20rem,92vw)] flex-col overflow-hidden p-3 max-h-[max(220px,min(760px,calc(var(--radix-popover-content-available-height)-12px)))]"
 				onOpenAutoFocus={(e) => e.preventDefault()}
 			>
 				<CodeRecordPanel
