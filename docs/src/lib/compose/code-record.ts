@@ -7,7 +7,7 @@ import { deckSchema } from './deck-doc';
 // one inline code span reading `@code{…}`, directly before the `code_block` it configures
 // (lib/plugins/code/code.syntax.mjs reads the same shape; deck-markdown.ts `recordHugsFence` writes
 // it back on the line above the fence). Pure: no DOM, no React. The words inside the record are
-// changed by the engine's own writer (lib/plugins/code/shared/record.js `editRecord`), never here,
+// changed by the engine's own writer (lib/plugins/code/shared/record-edit.js `editRecord`), never here,
 // so this file only finds the record and puts a new one in its place.
 // Design: engineering/decisions/2026-10-15-code-plugin.md §7 and §11.
 

@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createEngine } = require('../../../lib/engine/index.js');
-const record = require('../../../lib/plugins/code/shared/record.js');
+const record = { ...require('../../../lib/plugins/code/shared/record.js'), ...require('../../../lib/plugins/code/shared/record-edit.js') };
 const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
 
 const render = (md) => createEngine().render(md).html;

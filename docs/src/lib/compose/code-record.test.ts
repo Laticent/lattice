@@ -4,7 +4,7 @@
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 // The engine's own writer, which the record editor calls (through the authoring bundle in the app).
-import record from '../../../../lib/plugins/code/shared/record.js';
+import recordEdit from '../../../../lib/plugins/code/shared/record-edit.js';
 import { fenceRecord, setFenceRecord } from './code-record';
 import { deckToDoc, docToDeck } from './deck-doc';
 
@@ -24,7 +24,7 @@ function caretInFence(source: string): EditorState {
 
 /** The writer's answer, which these cases all expect to be a record (null would be a refusal). */
 function edited(text: string, edit: Record<string, unknown>): string {
-	const out = record.editRecord(text, edit);
+	const out = recordEdit.editRecord(text, edit);
 	if (out === null) throw new Error(`editRecord refused ${JSON.stringify(edit)} on ${text}`);
 	return out;
 }
