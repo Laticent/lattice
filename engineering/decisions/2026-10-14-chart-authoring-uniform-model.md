@@ -34,12 +34,13 @@ table before binding, so the reader, reshape and conformance tests all target on
 
 | Written as | One row is | Charts |
 |---|---|---|
-| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
-| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar |
+| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, bullet, progress, radar (a nested list: series, then axis; the `quadrant` variant adds a group level), waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
+| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope |
 | **A table, grid shape** | a label column, then one column per category; every crossing is a value | heatmap, matrix-grid |
 
-Open (owner, §7): bullet and progress. Each row is one measure plus named parameters (`{4.2M, target=5.0M}`,
-`{68%, at-risk}`), which fits the list form under the rule above; an earlier draft put them in tables.
+Decided (owner, 2026-10-16): bullet and progress are lists, and radar stays a nested list. Each bullet or progress row is one
+measure plus named parameters (`{4.2M, target=5.0M}`, `{68%, at-risk}`), which fits the list form under the rule above;
+an earlier draft put them in tables, and radar in one.
 
 Outside this model, by choice: gantt (spans and `after=` dependencies), kanban (cards in columns), journey (its own
 record, Segno decision 11), and the structure charts (flowchart, state-chart, hub-spoke, roadmap, timeline-list). They
@@ -137,10 +138,9 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
 
 ## 7. Open, for the owner
 
-- **Bullet and progress:** list records (`{4.2M, target=5.0M}`, `{68%, at-risk}`) or tables. Bullet takes any number of
-  `Band` rows (it draws the three nearest the target) and an optional floor, which a record names more easily than a fixed set of columns.
-- **Radar's `quadrant` variant** (series, then group, then axis) does not fit a GFM table: it stays a nested list, or
-  gets a group spelling.
+- **Decided 2026-10-16:** bullet and progress are list records, and radar stays a nested list, `quadrant` included. Bullet takes any
+  number of `Band` rows (it draws the three nearest the target) and an optional floor, which a record names more easily
+  than a fixed set of table columns.
 - **The cross-chart field vocabulary** (`value`, `target`, `status`, `x`, `y`, `size`, `group`) is decided in phase
   2's note, before any manifest gains a schema, so reshaping has shared names to project between.
 - **A `|` inside a description.** Segno reserves `|` inside a record (decision 4). The recommendation is that prose is
