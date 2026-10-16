@@ -17,6 +17,7 @@ Status: proposed. The owner's decisions are in §8; packaging is on hold. Parent
 contract), `2026-10-14-plugin-inline-door.md` (the `@kind{…}` form), `2026-09-28-segno-unified-inline-notation.md`
 (the record grammar), `2026-10-12-library-media-assets.md` (the `asset:` namespace and the Library),
 `2026-09-13-plugin-architecture.md` (the "T0 Provider" tier, whose first example was video providers).
+Sibling: `2026-10-16-qr-plugin.md` (the `qr` plugin; the video figure's QR code becomes a call to its service).
 
 ## 1. The answer
 
