@@ -239,6 +239,21 @@ video or image. Rendered in the real Studio and in a CLI export with a network l
 its assertions and flips its expectation from "the plugin never drew" to "the plugin drew, nothing leaked".
 Every committed deck that uses video or images renders the same before and after (golden-diff).
 
+### 4.6 What each plugin ships beside its code (added 2026-10-16)
+
+`image` and `video` ship the same set every shipped plugin carries (avatars, icons, math, mermaid, code):
+
+| File or field | What it holds for these plugins |
+|---|---|
+| `<name>.docs.md` | The plain-language guide the docs site renders at `/plugins/<name>/`, in the shape of `avatars.docs.md`: the record and its alias, every option with a live example, the deck register, the sources an address can name (relative, `asset:`, `sample:`, web; Google Drive when it lands), the video hosts, what each export does (§4.3's table), accessibility (alt text, the poster's label), what stays literal, anti-patterns, and a short "where the address comes from" section stating §4.5 for authors |
+| `<name>.fixtures.md` | The conformance cases `test/unit/plugins/conformance.test.js` runs: one `##` case per option and alias, plus the §4.5 cases (a plugin's `<code>@video{…}</code>` stays text; a bullet the author did not write never becomes a poster) |
+| manifest `icon` | A drawn mark: a viewBox plus paths tagged `line`, `accent` or `fill`, which `lib/plugins/plugin-icon.mjs` turns into SVG and the theme colors. `image`: a frame with a hill and a sun. `video`: a frame with a play triangle. Drawn paths, never a typed `▶` (HARD RULE #29) |
+| Docs site | the `/plugins/` index lists them. Its one-line description (`docs/src/pages/plugins/index.astro:20`) names the plugins by hand, so it gains "images, video" |
+| `lib/plugins/README.md` | the "Shipped plugins" line gains both |
+| Demo deck | `examples/<slug>.md`, one per plugin (HARD RULE #9) |
+
+Each slice that ships a plugin ships its whole set; a plugin without its guide or icon is not done.
+
 ## 5. Why records, not Marp keywords
 
 Marp hides options in the alt text (`![bg left:40% blur](x)`), so the alt text a screen reader needs is
@@ -300,5 +315,6 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: §4.6 added: each plugin's guide, fixtures, drawn icon and docs-site entry.
 - 2026-10-16: §4.5 added after #2725's attack. The design now takes every address from the author's block.
   The inline records stay off the runtime DOM mirror, and every slice gets the adversarial trio.
