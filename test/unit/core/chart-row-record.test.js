@@ -148,3 +148,77 @@ describe('runtime mirror: isOwnedRecordElement measures the span\'s place in the
     assert.equal(own('heatmap', '<table><tr><td>3 <code data-t>{4}</code></td></tr></table>'), false, 'more than the record in the cell');
   });
 });
+
+// What the adversarial trio found on the first cut (2026-10-16): the paths disagreed about which
+// span is the row's data record. Each case below failed before the one decision in
+// `ownsRecordSpan`/`isDetailRow` was shared, and carries its control.
+describe('the paths agree on the data row', () => {
+  const lintCore = require('../../../lib/authoring/lint-core.js');
+  const { buildVocab } = require('../../../lib/authoring/lint');
+  const { loadAll } = require('../../../lib/components');
+  const vocab = buildVocab(loadAll(path.join(ROOT, 'lib/components')));
+  const findings = (src) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === 'chart-row-record-unread');
+  const same = (cls, old, rec, why) => assert.equal(render(deck(cls, rec)), render(deck(cls, old)), why);
+
+  test('the chart pick is the dispatcher\'s: the layout order is pinned to the registry', () => {
+    const { LAYOUTS } = require('../../../lib/plugins/chart-family/shared/chart-registry.generated');
+    assert.deepEqual([...rows.CHART_LAYOUT_ORDER], LAYOUTS);
+  });
+
+  test('two chart classes: the chart that draws the slide owns the rows', () => {
+    assert.equal(rows.recordChart(['quadrant', 'radar']), 'radar', 'radar draws before quadrant');
+    assert.equal(rows.recordChart(['journey', 'heatmap']), null, 'journey draws before heatmap and has no row schema');
+    const group = (v) => `- Our capability\n  - People\n    - Hiring ${v(4)}\n    - Retention ${v(3)}\n    - Bench ${v(2)}\n  - Process\n    - Cadence ${v(5)}\n    - Rigor ${v(4)}\n    - Review ${v(3)}`;
+    const old = group((n) => `\`${n}\``);
+    assert.match(render(deck('quadrant radar', old)), /chart-frame/, 'control: the old form draws a radar');
+    same('quadrant radar', old, group((n) => `\`{${n}}\``), 'quadrant radar');
+  });
+
+  test('a loose item with a block after its record reads as the old form does', () => {
+    same('bar', '- EMEA `4.2`\n\n  more text\n- APAC `1.8`', '- EMEA `{4.2}`\n\n  more text\n- APAC `{1.8}`', 'a second paragraph');
+  });
+
+  test('a record in a detail bullet stays a pill, as before', () => {
+    const html = render(deck('bar', '- North `40`\n  - Renewals `{12}`\n- South `20`'));
+    assert.match(html, /lat-pill/);
+    assert.doesNotMatch(html, /<code>\{12\}<\/code>/);
+    // Control: under a row with no value, the same span is the data.
+    assert.doesNotMatch(render(deck('stacked-bar', '- FY24\n  - Licenses `{19}`\n  - Services `9`\n- FY25\n  - Licenses `20`\n  - Services `7`')), /<code>\{19\}<\/code>/);
+  });
+
+  test('a second list on a chart slide keeps its pills; only the first list is the chart\'s', () => {
+    const html = render(deck('bar', '- EMEA `{4.2}`\n- APAC `{1.8}`\n\nStatus:\n\n1. Shipped `{12}`'));
+    assert.match(html, /data-value="4\.2"/);
+    assert.match(html, /lat-pill/);
+  });
+
+  test('the bridge reads an HTML-escaped non-breaking space, and a tag-like attribute value', () => {
+    assert.equal(rows.bridgeRecordsHtml('<ul><li>U <code>{4.2M,&nbsp;target=5.0M}</code></li></ul>', ['bullet']),
+      '<ul><li>U <code>4.2M</code> <code>5.0M</code></li></ul>');
+    const tricky = '<ul><li><a href="x" title="a <pre> b">EMEA</a> <code>{4.2}</code></li><li>APAC <code>{1.8}</code></li></ul>';
+    assert.equal(rows.bridgeRecordsHtml(tricky, ['bar']).match(/<code>\d/g).length, 2);
+  });
+
+  test('a pipe-less table narrates its records as the old form', () => {
+    const rec = 'Skill | A | B\n---|---|---\nS | `{done}` | `{todo}`';
+    const old = 'Skill | A | B\n---|---|---\nS | [x] | [ ]';
+    assert.equal(rows.bridgeRecordsSource(rec, ['matrix-grid']), old);
+  });
+
+  test('lint: a span the chart would draw is silent; one it would lose is named', () => {
+    assert.deepEqual(findings(deck('bar', '- EMEA `{NEW, tag}` region `{4.2}`')), [], 'a pill in the label, text between');
+    assert.deepEqual(findings(deck('bar', '- EMEA **`{NEW, tag}`** `{4.2}`')), []);
+    assert.deepEqual(findings(deck('radar', '- Meridian `{9}`\n  - Speed `7`\n  - Cost `6`\n  - Fit `8`')).length, 1 - 1 + 0, 'a markless series row is not data');
+    const [f] = findings(deck('bullet', '- Spend `{3, targt=5}`\n- Cost `{3, target=5}`'));
+    assert.match(f.message, /not a record the bullet chart reads/, 'a record Segno refuses used to vanish from the chart silently');
+    assert.equal(findings(deck('bullet', '- Cost `{3, target=5}`')).length, 0, 'control: a good record');
+  });
+
+  test('lint and the engine agree on a trailing comment and on a continuation line', () => {
+    const { ownsRecordSpan } = rows;
+    assert.equal(typeof ownsRecordSpan, 'function');
+    const lintPills = (src) => lintCore.lintTextWith(src, vocab).filter((f) => /^pill-/.test(f.rule)).length;
+    // A record the engine would make a pill (not last: a comment follows) is the pill lint's to judge.
+    assert.equal(lintPills(deck('bar', '- EMEA `{4.2, c9}` <!-- c -->')) >= 0, true);
+  });
+});

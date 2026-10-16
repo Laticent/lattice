@@ -114,6 +114,8 @@ export interface ChartRecordPlace {
 	lastInRow: boolean;
 	afterCode?: boolean;
 	quoted?: boolean;
+	firstList?: boolean;
+	ancestors?: (string | null)[];
 }
 
 // ── The kinds ────────────────────────────────────────────────────────────────
@@ -228,32 +230,57 @@ export interface NormalizeOptions {
 }
 
 /**
- * Is this code-marked run a chart row's data record: the last thing in a list row of a chart slide, with
- * no code run right before it, outside a quote? Then the chart reads it and it stays a code span, as the
- * engine leaves it (`ownsRecordSpan`). The twin of the engine's token check and the runtime's DOM check.
+ * Is this code-marked run a chart row's data record: the last thing in a list row's lead (or the whole of a
+ * table cell) of a chart slide, with no code run right before it, outside a quote, in the slide's first list,
+ * on a row that is data and not the detail of a valued row? Then the chart reads it and it stays a code span,
+ * as the engine leaves it (`ownsRecordSpan`). The twin of the engine's token check, the runtime's DOM check
+ * and lint's source check.
  */
 function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, directives: string[], kernels: InlineKernels): boolean {
 	if (!kernels.ownsChartRecord) return false;
+	const codeMark = deckSchema.marks.code;
+	// A span wrapped in emphasis or a link is not the row's last child in the engine's token stream.
+	if (node.marks.length !== 1 || !codeMark.isInSet(node.marks)) return false;
 	const $at = doc.resolve(from);
 	const row = $at.parent;
-	if (row.type.name !== 'paragraph' || $at.depth < 2 || $at.node($at.depth - 1).type.name !== 'list_item') return false;
+	const cell = row.type.name === 'table_cell';
+	const inItem = row.type.name === 'paragraph' && $at.depth >= 2 && $at.node($at.depth - 1).type.name === 'list_item';
+	if (!cell && !inItem) return false;
 	const blank = (n: PMNode) => n.isText && !(n.text ?? '').trim();
 	let lastInRow = true;
 	for (let i = index + 1; i < row.childCount; i++) if (!blank(row.child(i))) lastInRow = false;
 	let prev = index - 1;
 	while (prev >= 0 && blank(row.child(prev))) prev--;
-	const codeMark = deckSchema.marks.code;
+	if (cell && prev >= 0) lastInRow = false; // the record is the whole cell
 	let depth = 0;
 	let quoted = false;
+	const ancestors: (string | null)[] = [];
 	for (let d = 1; d <= $at.depth; d++) {
-		const name = $at.node(d).type.name;
-		if (name === 'list_item') depth++;
-		if (name === 'blockquote') quoted = true;
+		const anc = $at.node(d);
+		if (anc.type.name === 'blockquote') quoted = true;
+		if (anc.type.name !== 'list_item') continue;
+		depth++;
+		// An enclosing item's lead span: the last child of its first paragraph, when that is a code run.
+		if (d < $at.depth - 1) {
+			const lead = anc.firstChild;
+			const last = lead?.type.name === 'paragraph' ? lead.lastChild : null;
+			ancestors.push(last && codeMark.isInSet(last.marks) ? (last.text ?? null) : null);
+		}
+	}
+	// Only the slide's first list is the chart's (`spliceFirstList`): no list before this one in the slide.
+	let firstList = true;
+	if (!cell && $at.depth >= 2) {
+		const slide = $at.node(1);
+		const here = $at.index(1);
+		for (let i = 0; i < here; i++) if (/_list$/.test(slide.child(i).type.name)) firstList = false;
 	}
 	return kernels.ownsChartRecord(classTokens(directives), node.text ?? '', {
+		cell,
 		depth,
 		lastInRow,
 		quoted,
+		firstList,
+		ancestors,
 		afterCode: prev >= 0 && codeMark.isInSet(row.child(prev).marks) !== undefined,
 	});
 }

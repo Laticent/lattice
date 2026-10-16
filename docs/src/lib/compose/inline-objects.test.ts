@@ -133,6 +133,19 @@ describe('the inline object node', () => {
 		expect(texts(quoted)).toEqual(['{LIVE}']);
 	});
 
+	it('agrees with the engine on where the chart\'s record is: cells, wrapped spans, detail rows, later lists', () => {
+		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		// A table cell holding only the record is the chart's (table slides are not locked in Compose).
+		expect(texts(mount(src('heatmap', '| | Mon | Tue |\n|---|---|---|\n| AM | `{3}` | `{5}` |')))).toEqual([]);
+		expect(texts(mount(src('matrix-grid', '| | A |\n|---|---|\n| S | `{done}` |')))).toEqual([]);
+		// A span wrapped in emphasis is not the row's last child in the engine, so it is a pill.
+		expect(texts(mount(src('bar', '- EMEA **`{4.2}`**')))).toEqual(['{4.2}']);
+		// A record under a valued row is detail, where a pill is a pill.
+		expect(texts(mount(src('bar', '- North `40`\n  - Renewals `{12}`')))).toEqual(['{12}']);
+		// Only the slide's first list is the chart's.
+		expect(texts(mount(src('bar', '- EMEA `{4.2}`\n\nStatus:\n\n1. Shipped `{12}`')))).toEqual(['{12}']);
+	});
+
 	it('plain text copy and textContent still see the notation', () => {
 		const view = mount(DECK);
 		expect(view.state.doc.textContent).toContain('{SHIPPED, c2}');

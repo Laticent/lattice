@@ -240,9 +240,8 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
 
    **Phase 2, slice 2 (2026-10-16): the record is drawn.** A data row written as one `{…}` record draws
    what its old spans draw, on all 16 charts, on the engine and on the runtime. Three pieces, all in
-   `lib/core/chart-rows.js`. (1) **Ownership**, `ownsRecordSpan`: a span is the row's record when the slide's
-   chart has a row schema, the span reads as that record, it is the LAST thing in its row (a list item's lead or a
-   whole table cell), no code span sits right before it, it is outside a `>` quote and its row draws a mark. Every path asks that one question
+   `lib/core/chart-rows.js`. (1) **Ownership**, `ownsRecordSpan`: a span is the row's record when the chart that DRAWS the slide (the dispatcher's pick, `recordChart`; a literal order pinned to the registry) has a row schema, the span reads as that record, it is the LAST thing in its row (a list item's lead or a
+   whole table cell), no code span sits right before it, it is outside a `>` quote, in the slide's first list (the only one a kernel reads), and on a row that draws a mark and is data, not the detail of a row that already holds a value (`isDetailRow`, from each path's ancestor lead spans). Every path asks that one question
    and measures the place its own way: the engine's `inlinePills` from tokens, the runtime's `isOwnedRecordElement`
    from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source line. This
    is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders. "After
@@ -250,8 +249,9 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    span into a pill (otherwise the answer would depend on visit order). (2) **The bridge**: the chart family
    calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so the engine and the runtime share it, and
    rewrites a data row's record to the spans each transform reads (`legacySpans`). `bridgeRecordsSource` does the
-   same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. Only a
-   DATA row converts: a record in a detail bullet under a row that already holds a value stays code. Grid
+   same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. The
+   bridge asks `ownsRecordSpan` the same question, so a span the pill pass left alone is a span it rewrites; a record in a
+   detail bullet is neither, and stays a pill. Grid
    charts convert through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut
    table), and matrix-grid's cell decoder, which runs before any bridge, reads the same text. The transforms themselves are
    untouched, which is why parity is exact; phase 4 deletes the bridge with the old spellings. (3) **Lint**:
@@ -260,11 +260,14 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    code span). `chart-table-unescaped-pipe` (followups 2723) warns on a bare `|` inside a table cell's `{> …}`
    description. Evidence: the same rows written both ways render identical HTML on the engine and the runtime bundle
    and narrate identically, for all 16 charts (`test/unit/core/chart-row-record.test.js`), a fidelity probe pins
-   engine against runtime, and 786 chart slides across the tree's Markdown render, narrate and lint byte-identically
-   to `main`. Two things the format does not express yet, found on the way: a grouped number (`1,200`) is not a record
+   engine against runtime, and 786 chart-class slides (every slide of a git-tracked `.md` whose `_class:` names one of the
+   24 chart layouts, split on `---`) render, narrate and lint byte-identically to `main`. A first cut had the paths
+   disagree about the data row (the red team, the inversion and the independent checker each found a visible regression:
+   a detail bullet's pill shown as `{+12%}`, a `quadrant radar` slide, a later list, a loose item, `&nbsp;`); the shared decision and
+   `the paths agree on the data row` in that test are the fix. Two things the format does not express yet, found on the way: a grouped number (`1,200`) is not a record
    value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into two items, so phase 4's codemod must write
-   `1200` and show it grouped (the corpus has 64 grouped funnel values); and a detail bullet's record stays a code span
-   (the pill pass no longer makes it a pill).
+   `1200` and show it grouped (the census counts 78 grouped funnel values). One pill changes: on a matrix-grid slide a
+   sole-cell `{DONE}` (any case) is the state `done`, because Segno reads it as `state=done`; it was a label pill.
 
    **Phase 2, still to do.** The `{> …}` production (§9) and the table description it needs; each transform and
    narrator reading the record through `readRecord` instead of the bridge and its private parser (the census note §3

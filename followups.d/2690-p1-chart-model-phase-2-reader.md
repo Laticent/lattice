@@ -24,10 +24,11 @@ where     — 1. The `{> …}` production and the table description (model note 
             3. The fields the bridge cannot spell as spans: bullet's `band=` and `floor=` (named nested rows
                today) and progress's `note=` (a nested row, drawn as a visible note). Until a transform reads
                them, lint `chart-row-record-unread` is what keeps a record that carries one from losing it silently.
-            4. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the corpus
-               has 64 grouped funnel values: the codemod writes `1200` and the chart shows it grouped.
-            5. A record in a detail bullet under a row that holds a value stays a code span, where it used to
-               be a pill. No deck in the tree has one; if a deck needs a pill there, the escape is `\{…}`.
+            4. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the census
+               counts 78 grouped funnel values: the codemod writes `1200` and the chart shows it grouped.
+            5. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
+               finding 7, 2026-10-16); and `chart-table-unescaped-pipe` misses a row that does not grow
+               (`| AM | 3 `{> a | b}` |` under a three-column header), and its `\|` fix still meets `pill-literal`.
 done when — no transform or narrator parses a row's spans itself; the bridge and `legacySpans` are deleted
             with the old spellings (phase 4); the census shows no private reader.
 evidence  — corpus parity unchanged (HTML, marks, narration, lint), plus the per-chart matrix
