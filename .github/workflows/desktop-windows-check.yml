@@ -27,7 +27,7 @@ jobs:
           Copy-Item wincheck/Win.cs.txt wincheck/Win.cs
           Copy-Item wincheck/check.ps1.txt wincheck/check.ps1
           Copy-Item wincheck/win.ps1.txt wincheck/win.ps1
-          $env:ONLY = '0.1,3.1,7.1,9.9'
+          $env:ONLY = '0.1,3.1,P.1,P.2,P.3,P.4,9.9'
           ./wincheck/check.ps1
       - name: Commit the results to this branch
         if: always()

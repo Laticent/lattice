@@ -1,0 +1,4 @@
+<!doctype html><meta charset="utf-8"><title>probe iframe</title>
+<body style="font:20px sans-serif">TOP DOCUMENT (should not print)
+<iframe id="f" style="position:absolute;left:-10000px;width:800px;height:600px" srcdoc="<!doctype html><style>@page{size:5in 3in;margin:0}html,body{margin:0}div{width:5in;height:3in;background:#c33;color:#fff;font:40px sans-serif;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}</style><div>FRAME 5x3in</div>"></iframe>
+<script>document.getElementById('f').addEventListener('load', () => setTimeout(() => document.getElementById('f').contentWindow.print(), 1500));</script>

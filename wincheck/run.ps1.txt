@@ -155,8 +155,8 @@ Step '3.1' 'Continue on GitHub opens the default browser; the app stays put' {
   Shot '10a-feedback-open'
   $names = (AppEl).FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))) | ForEach-Object { "[$($_.Current.Name)]" }
   Note "edit fields: $($names -join ' ')"
-  $s = Must (Named 'Summary' 5) 'Summary field'; ClickAt $s $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check summary')
-  $d = Must (Named 'Details' 5) 'Details field'; ClickAt $d $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check details')
+  $s = Must (Named 'SUMMARY' 5) 'Summary field'; ClickAt $s $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check summary')
+  $d = Must (Named 'DETAILS' 5) 'Details field'; ClickAt $d $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check details')
   Start-Sleep -Milliseconds 800
   Press (Must (Named 'Continue on GitHub' 5) 'Continue on GitHub')
   Start-Sleep -Seconds 8
@@ -241,6 +241,30 @@ Step '7.1' 'Print at 4-up reaches a print dialog (no file, no new window)' {
   Keys '{ESC}'; Start-Sleep -Seconds 1; Keys '{ESC}'
   "windows after Print:`n$after"
 }
+
+
+function Probe($id, $browser, $exe, $page) {
+  Step $id "$browser prints $page" {
+    $dir = Join-Path $env:TEMP "probe-$id"; New-Item -ItemType Directory -Force $dir | Out-Null
+    $url = 'file:///' + ((Join-Path $PSScriptRoot $page) -replace '\\', '/')
+    $p = Start-Process $exe -ArgumentList "--user-data-dir=$dir", '--no-first-run', '--no-default-browser-check', '--start-maximized', $url -PassThru
+    Start-Sleep -Seconds 10
+    Shot "P-$id-a"
+    [Win]::Wheel(180, 450, -15); [Win]::Wheel(850, 450, -15); Start-Sleep -Seconds 1
+    $more = $AE::RootElement.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, 'More settings')))
+    if ($more) { Press $more; Start-Sleep -Seconds 1; [Win]::Wheel(180, 450, -15); [Win]::Wheel(850, 450, -15); Start-Sleep -Seconds 1 }
+    Shot "P-$id-b"
+    Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    "screenshots P-$id-a/b"
+  }
+}
+$edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+$chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+Probe 'P.1' 'Edge' $edge 'probe-iframe.html'
+Probe 'P.2' 'Edge' $edge 'probe-top.html'
+Probe 'P.3' 'Chrome' $chrome 'probe-iframe.html'
+Probe 'P.4' 'Chrome' $chrome 'probe-top.html'
 
 Step '9.9' 'Window list at the end' { Windows }
 $results | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $Out 'results.json')
