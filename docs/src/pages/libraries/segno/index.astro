@@ -681,7 +681,7 @@ return {
 			}
 			function stopRunaway() {
 				const what = inFlight?.kind === 'parse' ? 'parse this text' : 'build this grammar';
-				dropWorker([`Segno took longer than ${GRAMMAR_LIMIT_MS / 1000} s to ${what}, so it was stopped. A very long alt() is the usual cause: split it into rules joined with ref().`], 'The work ran in a separate worker, so only that worker was stopped; this page kept running. Nothing was parsed.');
+				dropWorker([`Segno took longer than ${GRAMMAR_LIMIT_MS / 1000} s to ${what}, so it was stopped. The usual cause is a long text run through a grammar that builds a large tree for each character, such as deeply nested node() calls. Try a shorter text, or flatten the nesting.`], 'The work ran in a separate worker, so only that worker was stopped; this page kept running. Nothing was parsed.');
 				startWorker();
 			}
 			// A crash is not a slow build, so it says so. A worker that never started (its script failed to

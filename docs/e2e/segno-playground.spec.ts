@@ -263,6 +263,9 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					await expect(verdict).toContainText(/this text stops at character 0:/);
 					const { ms } = await editGrammar(runaway, STOPPED, 20_000);
 					await expect(tree).toContainText('only that worker was stopped; this page kept running');
+					// The hint names the cause that still reaches the limit, and no longer blames alt().
+					await expect(verdict).toContainText('a long text run through a grammar that builds a large tree for each character');
+					await expect(verdict).not.toContainText('alt()');
 					expect(ms).toBeGreaterThan(1_400);
 					expect(ms).toBeLessThan(4_000);
 					record({ step: 11, what: 'a 2,400-node-per-character tree, 10,000 characters', result: 'stopped by the 1.5 s timer', ms });
@@ -292,7 +295,8 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 						await page.waitForTimeout(250);
 					}
 					const { ms } = await landed(page, 1_000);
-					expect(keys).toBeGreaterThan(3);
+					// WebKit's evaluate round trips stretch each loop past 250 ms, so 2 keys can span the 1.5 s.
+					expect(keys).toBeGreaterThan(1);
 					expect(ms).toBeGreaterThan(1_400);
 					expect(ms).toBeLessThan(4_000);
 					record({ step: 13, what: 'typing every 250 ms during a runaway', result: `stopped after ${keys} keystrokes`, ms });
