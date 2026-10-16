@@ -611,6 +611,77 @@ before and after). The Studio's merge goes further than the CLI's on the same de
 weights become one face, where the CLI merges only 500–600) because the Studio bundles different
 font files, which is the front-end difference §11.1 names, not a packer one.
 
+### 11.3 The reveal.js falsifier (P3)
+
+The trio's test (§10, point 1): if a plain reveal.js export cannot pass the prune gate on declared
+data plus a few-line state driver, the contract is the shell player under another name.
+
+**The file.** A hand-written six-slide reveal.js 5.1.0 deck (seven slides counting one vertical
+stack, with fragments, a `data-background-color` slide, a quote, code and a table), with
+`reveal.css`, the white theme and `reveal.js` inlined: 168,207 bytes. It lives in the session's
+scratch, not the repo; reveal.js is not a dependency.
+
+**What the kernel needed first.** `prunePlayerHtml` hardcoded the Lattice player: the gate
+snapshotted `#lp-app *` and drove `data-lp-view`. The declarations are now data with Lattice's as
+the default (`LATTICE_CONNECTOR`): a `root`, a list of `states` (each a list of
+`[selector, attribute, value]` writes, with `+class` / `-class`), a `reset`, the font block's id,
+the sheet-size floor, a `safelist`, the skipped style ids, and `freezeMotion`. The CLI's bytes did
+not move.
+
+**What the run found, in order.**
+
+1. **Under the Lattice declaration the gate passed on nothing.** No `#lp-app`, so both snapshots
+   were empty and equal: the prune kept 73 of 373 rules and every state but the first rendered
+   differently (14,549–921,584 changed pixels). The gate now refuses when its root matches no
+   elements.
+2. **With a reveal root and one state, the gate passed and the file still broke.** Rules for
+   classes reveal adds while presenting (`past`, a fragment's `visible`) were dropped, and the
+   gate never entered those states. So selectors are now matched in every declared state too.
+3. **The first state driver let states accumulate**, so the gate's second pass ran on a different
+   DOM. Each state now starts from the page as loaded.
+4. **Reveal's transitions made the gate refuse** (a fragment snapshotted mid-fade). `freezeMotion`
+   stops transitions and animations while the probes drive states. A small synthetic deck did not
+   reproduce reveal's timing, so the evidence for it is this run, not a test.
+5. **Three more rounds of pixel diffs found the rest**: the navigation arrows' `enabled` /
+   `fragmented` / `highlight` and `.reveal`'s `has-dark-background` / `has-light-background`.
+
+**Verdict: the gate passes, and the contract is not Lattice-specific, with one condition.** The
+final declaration is ten states (fourteen attribute writes) plus `freezeMotion`:
+
+```json
+{ "root": ".reveal", "freezeMotion": true, "minSheetChars": 20000, "skipStyleIds": ["theme"],
+  "states": [[], [[".reveal .slides section","-class","present"],[".reveal .slides section","+class","past"]],
+    [[".fragment","+class","visible"],[".fragment","+class","current-fragment"]],
+    [[".reveal","+class","overview"]], [[".reveal","+class","paused"]],
+    [[".reveal .controls button","+class","enabled"]],
+    [[".reveal .controls button","+class","enabled"],[".reveal .controls button","+class","fragmented"]],
+    [[".reveal .controls button","+class","highlight"]],
+    [[".reveal","+class","has-dark-background"]], [[".reveal","+class","has-light-background"]]] }
+```
+
+With it, the gate passes, the prune keeps 100 of 373 rules (168,207 → 127,787 bytes), and the
+pruned file is pixel-identical to the full one in all twelve states the walk drives through
+reveal's own API (every slide and fragment step, the overview, and pause); a control of the full
+file against itself was also zero everywhere. The condition: **the gate checks only the states it
+is told about.** It passed with one state while slides broke, and the declaration took three rounds
+of diffing to complete. So a connector's declaration has to be authored by someone who knows the
+runtime's class vocabulary, and it should ship with a walk like this one, through the runtime's own
+API, as its proof. That is what freezing the connector contract needs: a declared-states field and
+a required runtime walk, not a shell player.
+
+**The guard.** `assemblePlayer` now throws when the document has no `section[data-lattice-slide]`.
+The reveal file made a 120,508-byte player with zero slides before; now the CLI reports
+"--player assembly failed". The engine renders at least one slide for every deck, an empty one
+included, so no Lattice deck reaches it.
+
+`test/integration/export/player-connector.test.js` pins items 1–3 on a small foreign deck, reading
+the page itself after each probe (no state class or freeze style left behind, a gate with no
+declared state refuses), and `test/unit/export/player-zero-frames.test.js` pins the guard. The
+checker found the first cut of those tests could not fail on the restore or the freeze cleanup;
+both now fail when either is disabled. It also had `root` wrapped in `:is()` (a comma in it split
+the gate's selector), an `undefined` override keep its default instead of erasing it, and the
+freeze style excluded from the gate's choice of sheet.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever

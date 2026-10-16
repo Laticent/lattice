@@ -46,7 +46,7 @@ export const {
   GATE_PROPS, DYNAMIC_PSEUDO_CLASSES, DYNAMIC_PSEUDO_RE, PLAYER_PRUNE_SAFELIST,
   baseSelectorString, collectBaseSelectors, prunePlayerCss, normalizeFamily, prunePlayerFontFaces, scopeReHostedCss,
   PRUNE_SKIP_STYLE_IDS, isPruneSkippedStyle, fontFaceFamilies, literalFontWeights, mergeIdenticalFontFaces,
-  PLAYER_VIEWS, probeFontUse, probeUsedSelectors, probeGate, prunePlayerHtml,
+  PLAYER_VIEWS, LATTICE_CONNECTOR, probeFontUse, probeUsedSelectors, probeGate, prunePlayerHtml,
 } = prune;
 export const { subsetEmbeddedFonts } = fonts;
 export { setSubsetWasm } from '../../tools/lib/player-pack-shims/fs.js';
