@@ -1,0 +1,1 @@
+- `list-steps converge` keeps every band's text at 4.5:1 or better in every theme, light and dark. The second band now mixes 12% accent (was 32%) and the third 92% (was 66%); the old third band measured 3.01:1 on indaco.
