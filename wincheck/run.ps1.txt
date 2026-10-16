@@ -148,7 +148,7 @@ Step '2.2' 'Real right-click in the editor shows only editing items' {
 }
 
 Step '3.1' 'Continue on GitHub opens the default browser; the app stays put' {
-  Palette 'Send feedback'
+  Neutral; Press (Must (Named 'Send feedback' 5) 'Feedback button'); Start-Sleep -Seconds 1
   $s = Must (Named 'Summary' 5) 'Summary field'; ClickAt $s $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check summary')
   $d = Must (Named 'Details' 5) 'Details field'; ClickAt $d $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check details')
   Start-Sleep -Milliseconds 800
@@ -184,7 +184,7 @@ Step '5.1' 'Share > Markdown: the Windows Save dialog writes the file; Cancel wr
   Palette 'Share'
   Press (Must (NamedLike 'Source with the theme embedded' 8) 'Markdown row')
   $found = $false
-  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match '\| Save As$') { $found = $true; break } }
+  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match '(?m)\| Save As\r?$') { $found = $true; break } }
   Shot '13-save-dialog'
   if (-not $found) { throw "no Save As dialog; windows:`n$(Windows)" }
   Start-Sleep -Milliseconds 600
@@ -195,7 +195,7 @@ Step '5.1' 'Share > Markdown: the Windows Save dialog writes the file; Cancel wr
   if (-not ((Get-Content $target -Raw) -match '_class:\s*title')) { throw 'the file is not the deck' }
   Palette 'Share'
   Press (Must (NamedLike 'Source with the theme embedded' 8) 'Markdown row')
-  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match '\| Save As$') { break } }
+  for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; if ((Windows) -match '(?m)\| Save As\r?$') { break } }
   [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Seconds 2
   Shot '14-save-cancelled'
   $extra = Get-ChildItem $Out -Filter '*.md' | Where-Object { $_.Name -ne 'saved-deck.md' }
@@ -206,7 +206,7 @@ Step '5.1' 'Share > Markdown: the Windows Save dialog writes the file; Cancel wr
 
 Step '6.1' 'Real Ctrl+F in Compose opens the Studio find bar' {
   Neutral
-  Press (Must (Named 'Compose — rich editor' 5) 'Compose toggle'); Start-Sleep -Seconds 2
+  Press (Must (Named "Compose $([char]0x2014) rich editor" 5) 'Compose toggle'); Start-Sleep -Seconds 2
   At 240 300; Start-Sleep -Milliseconds 500
   Keys '^f'; Start-Sleep -Seconds 1
   Shot '15-compose-ctrl-f'

@@ -2,6 +2,7 @@
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root 'wincheck-results'
+Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $out | Out-Null
 $log = Join-Path $out 'log.txt'
 function Say($m) { Write-Host $m; Add-Content $log $m }
