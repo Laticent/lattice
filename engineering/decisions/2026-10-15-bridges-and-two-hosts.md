@@ -578,7 +578,7 @@ The first draft went to the adversarial trio and a fact-checker on 2026-10-15. W
 - **Re-measured on `main` at `6e7c738` (2026-10-16)**, after #2710 (the code plugin) and #2705
   (manifest icons) landed during review. Both censuses were rerun from the committed scripts:
   flattening stays exact (0 differences on 277 decks, and 0 of 5,699 on the gallery with the
-  runtime, screen media; the print rerun is pending). Layering now changes 125 gallery elements (119 before), and the
+  runtime, screen and print). Layering now changes 125 gallery elements (119 before), and the
   manifest count is 797 → 370 on eight plugins. The figures above are the re-measured ones.
 
 ## References
