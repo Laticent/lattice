@@ -181,7 +181,8 @@ formatter reads, except one whose `@code{…}` record says `format=off`. Prettie
 formats JavaScript, TypeScript, JSON, CSS, SCSS, Less, HTML, Vue, Markdown,
 YAML, GraphQL, PHP, XML and Java; ruff formats Python; sql-formatter formats SQL
 (PostgreSQL unless the record names another `dialect=`). A record's `width=`
-sets the line width. A block a formatter cannot parse keeps its text and is
+sets the line width, `indent=2|4|tab` the indentation and `quotes=single|double`
+the string quote (the deck's `code:` default sets them for every block). A block a formatter cannot parse keeps its text and is
 reported. Line endings and a byte-order mark stay as the file had them.
 
 The formatters are optional dependencies: an install without them still renders

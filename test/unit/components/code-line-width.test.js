@@ -139,9 +139,68 @@ describe('code-line-clipped — the box decides', () => {
     assert.deepEqual(seen, [...seen].sort((a, b) => b - a), `budgets must not widen as the box narrows: ${seen}`);
   });
 
-  test('says nothing about layouts that wrap, or slides with no code', () => {
-    assert.equal(clipFinding(codeSlide('content', ['x'.repeat(300)])), undefined);
+  test('says nothing about slides with no code', () => {
     assert.equal(clipFinding(deck('<!-- _class: code -->\n\nNo fenced block here.\n')), undefined);
+  });
+});
+
+// A plain slide's fence takes the code panel since #2710, and the panel clips: this used to read
+// "content wraps", which stopped being true when every fence got the panel (measured, Tier 2).
+describe('code-line-clipped — a plain slide, and the record', () => {
+  const PLAIN = core.CODE_LINE_BUDGET.content.wide;
+  const plain = (body, fm = '') => `---\nmarp: true\ntheme: indaco\n${fm}---\n\n# Title\n\n${body}`;
+  const fence = (lines, lang = 'js') => `\`\`\`${lang}\n${lines.join('\n')}\n\`\`\`\n`;
+
+  test('a slide with no _class is judged against the content pane, and quotes the line', () => {
+    assert.equal(clipFinding(plain(fence(['x'.repeat(PLAIN)]))), undefined);
+    const f = clipFinding(plain(fence(['y'.repeat(PLAIN + 4)])));
+    assert.ok(f, 'a plain slide clips like any panel');
+    assert.equal(f.classToken, 'content');
+    assert.match(f.line, /^y+$/, 'with no class directive, the finding quotes the long line');
+    assert.match(f.fix, /@code\{wrap\}/);
+    assert.ok(clipFinding(codeSlide('content', ['x'.repeat(PLAIN + 1)])), '`_class: content` is the same pane');
+    assert.ok(clipFinding(codeSlide('dark', ['x'.repeat(PLAIN + 1)])), 'a class of modifiers only is a content slide');
+  });
+
+  test('a fence another plugin draws is a picture, not a panel: never measured on a plain slide', () => {
+    assert.equal(clipFinding(plain(fence(['A-->'.repeat(60)], 'mermaid'))), undefined);
+    assert.ok(clipFinding(plain(fence(['x'.repeat(PLAIN + 1)], ''))), 'an untagged fence is a panel');
+    assert.ok(clipFinding(plain(fence(['x'.repeat(PLAIN + 1)], 'text'))));
+  });
+
+  test('the checker\'s cases: notes, unknown tags, a deck-wide class, an indented fence', () => {
+    const long = 'x'.repeat(PLAIN + 8);
+    // A fence inside an HTML comment (speaker notes) renders nothing.
+    assert.equal(clipFinding(plain(`<!--\n${fence([long])}-->\n`)), undefined);
+    assert.equal(clipFinding(plain(`<!-- note -->\n\n${fence([long])}`)) !== undefined, true, 'a closed comment above does not hide the fence');
+    // A tag no grammar knows is still a plain panel, and it clips.
+    assert.ok(clipFinding(plain(fence([long], 'output'))));
+    // `class: compact` in the front matter resizes the stage, so the plain arm stands down as a classed slide does.
+    assert.equal(clipFinding(plain(fence([long]), 'class: compact\n')), undefined);
+    // A record attaches only to a fence at its own indentation, as the engine reads it.
+    assert.ok(clipFinding(plain(`\`@code{wrap}\`\n  \`\`\`js\n  ${long}\n  \`\`\`\n`)));
+  });
+
+  test('a `wrap` block never clips, from its record or the deck default', () => {
+    const long = fence(['x'.repeat(PLAIN + 40)]);
+    assert.equal(clipFinding(plain(`\`@code{wrap}\`\n${long}`)), undefined);
+    assert.equal(clipFinding(plain(`\`@code{wrap}\`\n\n${long}`)), undefined, 'a blank line between is still its record');
+    assert.equal(clipFinding(plain(long, 'code: wrap\n')), undefined);
+    assert.ok(clipFinding(plain(`\`@code{numbers}\`\n${long}`, 'code: numbers\n')), 'a record without wrap still clips');
+    assert.ok(clipFinding(codeSlide('code', ['x'.repeat(core.CODE_LINE_BUDGET.code.wide + 1)])), 'guard: code clips unwrapped');
+    assert.equal(clipFinding(deck(`<!-- _class: code -->\n\n\`@code{wrap}\`\n${fence(['x'.repeat(200)])}`)), undefined);
+    // A record written under a sentence continues it, so it configures nothing (the render's reading).
+    assert.ok(clipFinding(plain(`Some words.\n\`@code{wrap}\`\n${long}`)));
+  });
+
+  test('a tab takes the record\'s indent: 4 columns for `tab` or 4, 2 for 2, 8 when unset', () => {
+    assert.equal(core.codeLineColumns('\tx', 4), 5);
+    assert.equal(core.codeLineColumns('\tx', 2), 3);
+    const tabbed = (n) => fence([`${'\t'.repeat(n)}x`]);
+    // 13 tabs + x: 105 columns at 8 (clips at 102), 53 at 4 (fits).
+    assert.ok(clipFinding(plain(tabbed(13))));
+    assert.equal(clipFinding(plain(`\`@code{indent=tab}\`\n${tabbed(13)}`)), undefined);
+    assert.equal(clipFinding(plain(tabbed(13), 'code: indent=2\n')), undefined);
   });
 });
 
@@ -264,7 +323,9 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
       const src = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}.md`);
       fs.writeFileSync(src, `---\nmarp: true\ntheme: indaco\n${box.size ? `size: ${box.size}\n` : ''}---\n\n`
         + `<!-- _class: compare-code -->\n\n\`L\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n\`R\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n`
-        + `---\n\n<!-- _class: code -->\n\n\`\`\`js\n${ruler}\n\`\`\`\n`);
+        + `---\n\n<!-- _class: code -->\n\n\`\`\`js\n${ruler}\n\`\`\`\n`
+        // A plain slide: no _class, so the default `content` layout.
+        + `\n---\n\n# Plain\n\n\`\`\`js\n${ruler}\n\`\`\`\n`);
       const base = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}`);
       // `--keep-html`: this reads the `.html` sidecar beside the PDF, deleted on success by default (P1).
       execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
@@ -296,7 +357,7 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
           probe.remove();
           return { fits: Math.floor(content / advance), whiteSpace: ccs.whiteSpace, overflow: cs.overflow };
         };
-        return { 'compare-code': read('section.compare-code'), code: read('section.code') };
+        return { 'compare-code': read('section.compare-code'), code: read('section.code'), content: read('section:last-of-type') };
       });
       await page.close();
 
@@ -306,7 +367,7 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
       // @size the family serves, and it can only be the smallest without
       // under-reporting a clip on the narrowest of them.
       const acc = measured.get(box.family) || {};
-      for (const layout of ['compare-code', 'code']) {
+      for (const layout of ['compare-code', 'code', 'content']) {
         const m = atSize[layout];
         if (!m) continue;
         const prev = acc[layout];
@@ -342,7 +403,7 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
     // must be one this canvas can actually honor. A budget generous by even one
     // column on ONE @size is a line that lints clean and exports clipped.
     for (const { family, size, at } of perCanvas) {
-      for (const layout of ['compare-code', 'code']) {
+      for (const layout of ['compare-code', 'code', 'content']) {
         const budget = core.CODE_LINE_BUDGET[layout]?.[family];
         if (budget == null || !at[layout]) continue;
         assert.ok(
@@ -363,6 +424,9 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
       assert.equal(m.code.whiteSpace, 'pre', `code@${family} is expected not to wrap`);
       assert.match(m.code.overflow, /hidden|clip/, `code@${family} is expected to clip`);
       assert.ok(core.CODE_LINE_BUDGET.code[family], `code@${family} must carry a budget`);
+      // A plain slide's fence takes the same panel, so it clips in every box too.
+      assert.equal(m.content.whiteSpace, 'pre', `content@${family} is expected not to wrap`);
+      assert.match(m.content.overflow, /hidden|clip/, `content@${family} is expected to clip`);
       // compare-code carries one ONLY where it does not wrap. If a future change
       // makes landscape wrap (or stops the stacked families wrapping), this flips
       // and the table must follow — silence would be the rule warning about a

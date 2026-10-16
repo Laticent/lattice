@@ -157,6 +157,12 @@ pre[data-focus-style="spotlight"] .ln.lat-recede span,
 pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
 section { --code-recede: 55%; }
 
+/* indent= : a tab draws as wide as the block's indent, `tab` as four columns, rather than CSS's
+ * initial eight, which on a slide spends a third of a portrait panel on one level of nesting. A block
+ * that names no indent keeps eight, and lint-core's column count (CODE_TAB_SIZE) agrees with both. */
+section :where(pre).lat-code[data-indent="2"] { tab-size: 2; }
+section :where(pre).lat-code:is([data-indent="4"], [data-indent="tab"]) { tab-size: 4; }
+
 /* wrap : long lines wrap inside the panel, and a wrapped line's continuation hangs two columns in,
  * so it does not read as a new line of code. With numbers it hangs under its own text, not under
  * the number column. */

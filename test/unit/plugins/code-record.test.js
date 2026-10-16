@@ -38,6 +38,16 @@ describe('the record reader', () => {
     assert.equal(record.readBody('{format=off}').value.format, false);
   });
 
+  test('`indent=` takes 2, 4 or tab and `quotes=` single or double; anything else is named', () => {
+    assert.deepEqual(record.readBody('{indent=tab, quotes=single}').value, { indent: 'tab', quotes: 'single' });
+    assert.deepEqual(record.readBody('{indent=2, quotes=double}').value, { indent: '2', quotes: 'double' });
+    assert.match(record.readBody('{indent=3}').problems[0], /"3" is not one of 2, 4, tab/);
+    assert.match(record.readBody('{quotes=back}').problems[0], /"back" is not one of single, double/);
+    assert.deepEqual(record.deckDefaults('code: indent=4, quotes=single\n'), { indent: '4', quotes: 'single' });
+    // A tab is as wide as the indent; `tab` draws four columns, and unset is the caller's (CSS's 8).
+    assert.deepEqual(['2', '4', 'tab'].map(record.tabColumns), [2, 4, 4]);
+  });
+
   test('only exactly `@code{…}` is a record', () => {
     assert.equal(record.recordBody('@code{numbers}'), '{numbers}');
     assert.equal(record.recordBody('@code {numbers}'), null);
@@ -51,6 +61,13 @@ describe('the record reader', () => {
 });
 
 describe('rendering a record', () => {
+  test('`indent=` stamps the panel, so a tab draws at that width; the deck default does too', () => {
+    const tabbed = '```go\nfunc f() {\n\treturn\n}\n```\n';
+    assert.match(pre(render(`# A\n\n\`@code{indent=tab}\`\n${tabbed}`)), /^<pre class="lat-code" data-indent="tab">/);
+    assert.match(pre(render(`---\ncode: indent=2\n---\n\n# A\n\n${tabbed}`)), /^<pre class="lat-code" data-indent="2">/);
+    assert.match(pre(render(`# A\n\n${tabbed}`)), /^<pre class="lat-code">/, 'no indent, no attribute: CSS keeps 8');
+  });
+
   test('the record line renders nothing; the fence below carries it', () => {
     const html = render(`# A\n\n\`@code{numbers}\`\n\n${FENCE}`);
     assert.doesNotMatch(html, /@code/);
@@ -179,3 +196,4 @@ describe('lint rule 12c and formatting', () => {
     assert.deepEqual(found.map((f) => f.rule), ['code-record']);
   });
 });
+

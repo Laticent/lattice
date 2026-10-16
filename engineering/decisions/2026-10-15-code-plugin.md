@@ -283,6 +283,8 @@ come from the plugin's manifest and Compose builds an editor for it like any oth
 | `format` / `format=off` | format this block (needs `code-format`) | |
 | `width=` | the formatter's print width; defaults to what fits the slide's column | `width=48` |
 | `dialect=` | SQL dialect for the formatter | `dialect=postgres` |
+| `indent=` | the formatter's indentation, `2`, `4` or `tab`; also how wide the panel draws a tab (added in the follow-up, §11) | `indent=tab` |
+| `quotes=` | the formatter's string quote, `single` or `double`, where the language has a choice | `quotes=single` |
 | `wrap` | soft-wrap long lines instead of letting them overflow | |
 
 **Attachment.** A paragraph that is only a `@code{…}` span attaches to the next fence and renders
@@ -454,3 +456,16 @@ Proof:
   (`<html data-lattice-chromeless>`, "watched, not read"), set on every preview-pool tile, both Present frames
   and the stage window. The Studio e2e now also clicks "Copy as HTML" through the tap bridge, the cross-realm
   path where the frame's `ClipboardItem` is written by the page's clipboard.
+- 2026-10-16: follow-up, formatter options (followups.d/2710-p2, the owner's three picks). `indent=2|4|tab` and
+  `quotes=single|double` are record fields and deck defaults. Prettier reads them as `tabWidth`/`useTabs`/`singleQuote`,
+  ruff as `indent_style`/`indent_width`/`quote_style`, and sql-formatter reads only the indent, because in SQL a quote is
+  meaning. A tab counts four columns for `tab` (2 for `indent=2`) in all three places that measure one: the formatter's
+  width, the panel's `tab-size` (`data-indent`), and the lint's column count; a block naming no indent keeps CSS's 8.
+  The line-width lint was already there (`code-line-clipped`, measured budgets for `code` and `compare-code`), so it was
+  extended rather than re-made: a plain slide now has a measured budget too (`content`: 102 / 58 / 36 / 36 columns,
+  the same as `code`; its old test asserted "content wraps", which stopped being true when every fence got the panel),
+  a `wrap` block is no longer measured, and on a plain slide a fence another plugin draws (`PLUGIN_FENCES`, now
+  generated beside `PLUGIN_NAMES`) or one inside an HTML comment is skipped (the checker's two false alarms). It stays `info`,
+  not `warning`, for the reason its note gives: CI runs `lint:deck:all --strict` and has no browser to re-measure the
+  table. The record's `width=` stays the formatter's target, not the lint's budget: the panel's measured width is what
+  clips, and judging a line against a 48-column target would warn about lines that render whole.

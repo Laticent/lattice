@@ -49,11 +49,16 @@ export async function load(id: string): Promise<User> {
 | `format` | Keep the block formatted: the Studio formats it when you leave the editor. `lattice fmt` and the Studio's Format command format every block except `format=off` | `format`, `format=off` |
 | `width=` | The formatter's print width, in columns | `width=48` |
 | `dialect=` | The SQL dialect the formatter reads | `dialect=postgresql` |
+| `indent=` | The formatter's indentation: `2` or `4` spaces, or `tab`. The panel draws a tab as wide as the indent (`tab` is four columns) instead of the browser's eight | `indent=4`, `indent=tab` |
+| `quotes=` | The formatter's string quote, where the language has a choice (JavaScript, TypeScript, CSS, YAML, PHP, Python). JSON, Java and SQL keep theirs, because there the quote is meaning | `quotes=single` |
 
 Lines are counted as written, from 1, whatever a comment or string spans. `lint:deck` warns when a
 record does not read (`code-record`), when a record line has no fence after it
 (`code-record-orphan`), and when `focus=`, `mark=` or a slide's `_focus: line` names a line past
-the end of the block (`code-line-range`).
+the end of the block (`code-line-range`). It also says when a line is wider than its panel fits, on
+a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`, from the widths measured
+in the browser); a `wrap` block never clips, so it is never measured, and a tab counts as wide as
+the block's `indent=` draws it.
 
 **A deck default.** `code: numbers, wrap` in the front matter applies to every fence; a block's own
 record overrides it field by field (`@code{format=off}`).
