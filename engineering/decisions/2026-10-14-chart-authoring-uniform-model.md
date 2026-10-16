@@ -141,8 +141,14 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
 - **Decided 2026-10-16:** bullet and progress are list records, and radar stays a nested list, `quadrant` included. Bullet takes any
   number of `Band` rows (it draws the three nearest the target) and an optional floor, which a record names more easily
   than a fixed set of table columns.
-- **The cross-chart field vocabulary** (`value`, `target`, `status`, `x`, `y`, `size`, `group`) is decided in phase
-  2's note, before any manifest gains a schema, so reshaping has shared names to project between.
+- **Decided 2026-10-16: the cross-chart field vocabulary.** Shared core: `value`, `target`, `status`, `x`, `y`, `size`, `group`,
+  plus `band`, `floor`, `kind` (waterfall's bar kind), `when` (a date or span), `after` (a dependency) and `to`
+  (quadrant's trail end). Two renames remove the collisions the survey found: kanban's S/M/L/XL badge is `effort`, so
+  `size` means bubble size only; map's bloc of regions is `bloc`, so `group` means a category only. A chart's old word
+  (`measure`, `pct`, `weight`, `volume`) stays an alias for `value` or `size`. Journey's `who` and `mood`, hub-spoke's
+  `flow` and state-chart's styling keys stay chart-specific. `total` (waterfall's anchor versus stacked-bar's printed sum)
+  and `note` (heatmap's hidden detail versus progress's visible one) collide too and are not decided here: phase 2's schema
+  names them. Evidence: a read-only survey of all 23 charts' parsers and docs.
 - **Decided 2026-10-16: `|` in a description is allowed, and the author escapes it as `\|`.** Segno still reserves `|` inside
   a record (decision 4); prose is exempt. A table cell is split on an unescaped `|` by GFM before Segno reads it, so a
   bare `|` in a table description silently adds a cell. A lint rule in `lib/authoring/lint-core.js` must warn on it and
