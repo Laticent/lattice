@@ -1,12 +1,13 @@
 /**
  * The inline notation's grammar, as data. `notation.ts` reads with the parser GENERATED from it
- * (notation.generated.ts, written by tools/build-segno-lib.js and kept fresh by a test); the
+ * (notation.generated.ts, and notation-plain.generated.ts from `plainRecordSpec` at the end of this
+ * file, both written by tools/build-segno-grammar.js and kept fresh by a test); the
  * closure-compiled parser (`compile(notationSpec)`) is the reference the generated one must
  * match exactly. Both start from the same LL(1) proof, so the grammar below is also a proof
  * that every span is read in one left-to-right pass.
  */
 
-import { alt, any, type GrammarSpec, many, node, noneOf, oneOf, opt, ref, seq } from './grammar.js';
+import { alt, any, type GrammarSpec, many, node, noneOf, oneOf, opt, ref, restrict, seq } from './grammar.js';
 
 /** Space, tab and no-break space (U+00A0, which text pasted from documents and chat carries). */
 export const WS = ' \t\u00a0';
@@ -49,3 +50,13 @@ export const notationSpec: GrammarSpec = {
     item: alt(seq(ref('record'), ws), seq(ref('list'), ws), seq(ref('quoted'), ws), node('word', seq(bare, opt(seq('=', ws, ref('value')))))),
   },
 };
+
+/**
+ * THE PLAIN NOTATION: `notationSpec` with no lists, no quoted text and no tagged records, derived
+ * by `restrict` rather than written out, so it cannot drift from the grammar above. It is what most
+ * record spans are (`{2, 82}`, `{who=sales, mood=5}`, `{LIVE, tag}`), and Segno's code generator
+ * makes its own parser of it (notation-plain.generated.ts), which skips the branches a plain span
+ * never takes. schema.ts's fast bind tries it first and asks the full parser about anything it
+ * refuses: on `{2, 82}` the full parser cost about 550 ns (followup 2718-p3).
+ */
+export const plainRecordSpec: GrammarSpec = restrict(notationSpec, { rules: ['list', 'quoted'], nodes: ['tagged'] });

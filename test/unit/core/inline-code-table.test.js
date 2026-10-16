@@ -1,7 +1,8 @@
 /**
  * The inline-code dispatcher is a TABLE now (engineering/decisions/2026-09-29-inline-icons.md
- * § 6a, phase 1a): marks, pills and sparks are its first-party rows, and a plugin adds a row
- * through `contributes.inline`. This pins the promise that made the refactor safe — every span in
+ * § 6a, phase 1a): marks and pills are its first-party rows, and a plugin adds a row through
+ * `contributes.inline`. Sparks were the third first-party row until the sparks plugin took them
+ * (2026-10-16); the hand list below still names them, and the spark-row test pins the move. This pins the promise that made the refactor safe — every span in
  * the tracked corpus dispatches, escapes and renders exactly as the hand-written list did — and
  * the table's own contract: order, the escape, and a plugin row leaving when its plugin is off.
  */
@@ -16,7 +17,7 @@ const ROOT = path.join(__dirname, '../../..');
 const table = require('../../../lib/core/inline-code-directives.js');
 const { stateHtml, stateElement, parseInlineState } = require('../../../lib/core/state-marks.js');
 const pills = require('../../../lib/core/inline-pills.js');
-const sparks = require('../../../lib/core/inline-sparks.js');
+const sparks = require('../../../lib/plugins/sparks/sparks.inline.js');
 const icons = require('../../../lib/plugins/icons/icons.inline.js');
 const avatars = require('../../../lib/plugins/avatars/avatars.inline.js');
 const { CORE } = require('../../../lib/core/segno-slots.js');
@@ -35,13 +36,19 @@ const legacy = {
 };
 
 /** Every inline-code span in every tracked Markdown file, fenced blocks left out. */
-function corpusSpans() {
+function corpusSpanSet() {
   const files = execSync(`git ls-files '*.md' ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT }).toString().trim().split('\n');
   const spans = new Set();
   for (const f of files) {
     const text = fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');
     for (const m of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) spans.add(m[1]);
   }
+  return spans;
+}
+
+/** The corpus less what a plugin reads and the named form, which the hand list never saw. */
+function corpusSpans() {
+  const spans = corpusSpanSet();
   // A span the icons plugin READS (`^{database}`, a pill's `icon=`) is new: the hand list never saw
   // one, so it has no "before" to equal; the plugin's fixtures pin those. Every other span — TeX's
   // `^{o}` included — must come out exactly as before, with the plugin ON.
@@ -59,9 +66,24 @@ describe('the inline-code table — first-party rows are byte-identical to the h
   // by switching their plugins off, so this holds whatever plugins ship.
   const off = new Set(table.KINDS.filter((k) => k.plugin).map((k) => k.plugin));
 
-  test('the first-party rows are marks, pills and sparks, in that order', () => {
-    assert.deepEqual(firstParty, ['state', 'pill', 'spark']);
-    assert.deepEqual(table.KINDS.slice(0, 3), [...table.FIRST_PARTY]);
+  test('the first-party rows are marks and pills, in that order', () => {
+    assert.deepEqual(firstParty, ['state', 'pill']);
+    assert.deepEqual(table.KINDS.slice(0, 2), [...table.FIRST_PARTY]);
+  });
+
+  test('the sparks plugin\'s row draws every corpus spark exactly as the first-party row did', () => {
+    const row = table.KINDS.find((k) => k.name === 'spark');
+    assert.equal(row.plugin, 'sparks');
+    assert.equal(row.sigil, '~');
+    const sparkSpans = [...corpusSpanSet()].filter((s) => sparks.resolve(s) || sparks.diagnose(s));
+    assert.ok(sparkSpans.length > 50, `expected real sparks in the corpus, got ${sparkSpans.length}`);
+    for (const s of sparkSpans) {
+      assert.equal(table.renderHtml(s), sparks.sparkHtml(s), s);
+      assert.equal(table.escapedText(`\\${s}`), s, `\\${s}`);
+    }
+    // With the plugin off, a spark is code, as every plugin kind is.
+    const drawn = sparkSpans.find((s) => sparks.resolve(s));
+    assert.equal(table.renderHtml(drawn, new Set(['sparks'])), null, drawn);
   });
 
   test(`every corpus span renders to the same HTML (${spans.length} distinct spans)`, () => {

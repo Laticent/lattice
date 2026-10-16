@@ -1,8 +1,9 @@
 // @vitest-environment node
 // The inline notation: three shapes, one separator, one escape, quotes that must close.
 import { describe, expect, it } from 'vitest';
-import { isDirective, isName, MAX_NESTING, parse, type Value } from './notation';
-import { TAGS } from './notation-grammar';
+import { isDirective, isName, MAX_NESTING, parse, plainRecordTree, type Value } from './notation';
+import { parse as parseGenerated } from './notation.generated';
+import { notationSpec, plainRecordSpec, TAGS } from './notation-grammar';
 
 const shape = (v: Value | null): unknown => {
   if (v === null) return null;
@@ -255,5 +256,65 @@ describe('the cheap filters keep their meaning', () => {
       return escaped ? 'escaped' : 'directive';
     };
     for (const s of strings(['\\', '~', '^', '!', '{', '}', ' ', 'a', '\t', '\u00a0', '['], 4)) expect(isDirective(s), JSON.stringify(s)).toBe(was(s));
+  });
+});
+
+// The plain-record parser (notation.ts `plainRecordTree`) is generated from `plainRecordSpec`, the
+// notation `restrict`ed to records of bare words. It is a second way to build the flat tree a fast
+// bind walks, so it must build the SAME tree, node for node. It may refuse a span (null) and leave it
+// to the full parser; it may never accept a span the full parser refuses, and never build a
+// different tree. That is restrict()'s promise on an LL(1) grammar, held here. Followup 2718-p3.
+describe('the plain-record parser builds the full parser\'s tree', () => {
+  const tree = (b: Int32Array | null) => (b ? Array.from(b.slice(0, b[3])) : null);
+  // `expect` only on a difference: the pools hold a third of a million spans, and an `expect` each costs seconds.
+  const compare = (s: string) => {
+    const plain = tree(plainRecordTree(s));
+    if (plain === null) return 'declined';
+    const g = parseGenerated(s);
+    if (!g.ok) expect.fail(`${JSON.stringify(s)}: the plain parser accepted a span the full parser refuses`);
+    const want = Array.from(g.tree.buf.slice(0, g.tree.top));
+    if (plain.length !== want.length || plain.some((x, k) => x !== want[k])) expect(plain, JSON.stringify(s)).toEqual(want);
+    return 'equal';
+  };
+  const pool = (alphabet: string[], depth: number) => {
+    const out: string[] = [''];
+    let layer = [''];
+    for (let n = 0; n < depth; n++) {
+      layer = layer.flatMap((p) => alphabet.map((c) => p + c));
+      for (const s of layer) out.push(s);
+    }
+    return out;
+  };
+  it('on every short span over the characters that steer a plain record', () => {
+    // One character per class: a word character, a space of each kind, the two separators, a line
+    // break (a bare character, not a space), and one past ASCII.
+    let equal = 0;
+    for (const body of pool(['a', '1', ' ', ',', '=', '\t', '\u00a0', '-', '\n', '\u00e9'], 5)) {
+      for (const s of [`{${body}}`, `{${body}} `, `{${body}}\u00a0\t`]) if (compare(s) === 'equal') equal++;
+    }
+    expect(equal).toBeGreaterThan(20000); // the pool really exercised the parser, not only its refusals
+  });
+  it('on every short span over the characters that leave the plain shape', () => {
+    // Nesting, lists, quotes, the reserved bar and a tag: what the restriction removes or keeps.
+    let equal = 0;
+    for (const body of pool(['a', ',', '=', ' ', '{', '}', '[', ']', '"', '|', '~'], 4)) {
+      for (const s of [`{${body}}`, `~{${body}}`, ` {${body}}`]) if (compare(s) === 'equal') equal++;
+    }
+    expect(equal).toBeGreaterThan(100); // measured 154: nested records the restriction keeps
+  });
+  it('refuses lists, quotes, tags and everything the full grammar refuses', () => {
+    for (const s of ['{a, [b]}', '{"a"}', '{a|b}', ' {a}', '~{1 2}', '{a}\n', '{a} b', '[a]', 'a', '{', '{}', '{ a}', '{a,}', '{a=}', '{a=b=c}', '{=a}']) {
+      expect(plainRecordTree(s), JSON.stringify(s)).toBeNull();
+    }
+  });
+  it('accepts the shapes the decks write, nested records included', () => {
+    for (const s of ['{2, 82}', '{who=prospect, mood=5}', '{$420k, 18%, size=1200}', '{LIVE, tag}', '{STEP 2, chevron-right}', '{icon=gateway, c2}', '{a = b ,  c}', '{a, {b}}']) {
+      expect(compare(s), s).toBe('equal');
+    }
+  });
+  it('is derived, not written: the restriction removed lists, quotes and tags and nothing else', () => {
+    expect(Object.keys(plainRecordSpec.rules).sort()).toEqual(['item', 'record', 'span', 'top', 'value']);
+    expect(JSON.stringify(plainRecordSpec)).not.toMatch(/"list"|"quoted"|"tagged"/);
+    expect(plainRecordSpec.rules.record).toBe(notationSpec.rules.record); // untouched rules are shared, not copied
   });
 });

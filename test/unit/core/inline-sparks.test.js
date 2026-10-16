@@ -10,7 +10,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const sparks = require('../../../lib/core/inline-sparks.js');
+const sparks = require('../../../lib/plugins/sparks/sparks.inline.js');
 const directives = require('../../../lib/core/inline-code-directives.js');
 
 const marks = (text, role) => sparks.resolve(text).marks.filter((m) => m.role === role);

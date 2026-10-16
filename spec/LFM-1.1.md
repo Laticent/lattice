@@ -149,8 +149,8 @@ a warning. The reference implementation's list of keys is `lib/core/deck-setting
 accepts Marp's own keys (`marp:`, `headingDivider:`, `author:` …) so a Marp deck does not warn.
 
 The value lists above are the ones the reference implementation ships, each defined once
-in `lib/core/resolve-<key>.js` (`*_NAMES`), or for a plugin's register (`icon:`, `avatar:`) in
-the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
+in `lib/core/resolve-<key>.js` (`*_NAMES`), or for a plugin's register (`spark:`, `icon:`,
+`avatar:`) in the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
 marked `spec: '2.3'` must have a line in the tables above. The full behavior of every register is
 documented in `lib/base/base.registers.docs.md`. Where that page and this table disagree
 about a value list, this table is the contract and the disagreement is a defect.
@@ -386,7 +386,7 @@ Four rules hold for every form:
    change.
 
 The full behavior of each form is documented in `lib/base/base.docs.md` (§ Inline pills,
-§ Inline sparks, § Inline state marks) and `lib/plugins/icons/icons.docs.md`.
+§ Inline state marks), `lib/plugins/sparks/sparks.docs.md` and `lib/plugins/icons/icons.docs.md`.
 
 - **Degrades to:** inline code showing the span as written. A reader of the raw Markdown
   sees `{BETA, tag, c4}` or `~{12 14 17}`. **L0-clean.**

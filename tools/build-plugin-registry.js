@@ -611,7 +611,7 @@ module.exports = { PLUGIN_STYLE_SOURCES: Object.freeze(${JSON.stringify(files)})
 
 /**
  * The plugins' INLINE kinds, in dependency order: the rows lib/core/inline-code-directives.js
- * appends to its own (marks, pills, sparks). Each row's module is light by contract — no data —
+ * appends to its own (marks, pills). Each row's module is light by contract — no data —
  * because every bundle that dispatches inline code (the linter, the runtime) carries it.
  */
 function renderInline(ordered) {

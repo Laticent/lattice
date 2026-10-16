@@ -22,6 +22,7 @@
 import { compile, type Grammar, MAX_DEPTH, type ParseError } from './grammar.js';
 import { parse as parseGenerated } from './notation.generated.js';
 import { notationSpec } from './notation-grammar.js';
+import { parse as parsePlain } from './notation-plain.generated.js';
 
 let compiled: Grammar | null = null;
 /** The closure-compiled notation grammar — the reference the generated parser must match. */
@@ -166,6 +167,41 @@ export function flatTree(text: string): Int32Array | null {
   if (!r.ok) return null;
   bindKinds(r.tree.kinds);
   return r.tree.buf;
+}
+
+/**
+ * @internal for schema.ts; not part of the published API.
+ * THE PLAIN-RECORD PARSE: the same flat tree `flatTree` returns, for the shape most record spans
+ * take (`{2, 82}`, `{who=sales, mood=5}`, `{LIVE, tag}`), read by the parser Segno's code generator
+ * makes from `plainRecordSpec`: the notation with its lists, quoted text and tags `restrict`ed away
+ * (notation-grammar.ts). Null for anything else, and the caller then asks `flatTree`.
+ *
+ * WHY. Inline code is full of braces that are not pills (a quadrant's points, a journey's rows), and
+ * the render path asks of each one only "does this bind?" (followup 2718-p3). This parser never
+ * enters the branches a plain span cannot take, and it keeps its own buffer, so a span it reads
+ * never disturbs the full parser's hand-over to `parseRaw`.
+ *
+ * WHY IT CANNOT DRIFT. Nothing here restates the grammar: the restricted grammar is computed from
+ * the full one, and on an LL(1) grammar a restriction accepts only what the full grammar accepts,
+ * by the same branches, so the trees are equal. The build seeds its node kinds with the full
+ * parser's (codegen.ts `kindsOf`), so `FLAT_KIND` reads both. notation.test.ts holds the two trees
+ * equal on every short span over the characters that steer them; codegen.test.ts holds the file
+ * fresh.
+ */
+export function plainRecordTree(text: string): Int32Array | null {
+  if (text.charCodeAt(0) !== 123 /* { */) return null;
+  const r = parsePlain(text);
+  if (!r.ok) return null;
+  if (K_RECORD < 0) primeKinds();
+  return r.tree.buf;
+}
+/** The kind numbers come from the full parser, so the first plain read before any full parse asks
+ *  it for them once. That parse overwrites the full parser's buffer, so the hand-over is dropped. */
+function primeKinds() {
+  const r = parseGenerated('{x}');
+  handedText = null;
+  handedResult = null;
+  if (r.ok) bindKinds(r.tree.kinds);
 }
 
 function readValue(s: string, b: Int32Array, at: number): Value {

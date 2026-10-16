@@ -4,7 +4,7 @@
  * WHY THIS IS MEASURED, NOT LINTED. Whether `~{…, lg}` fits depends on the layout it lands in (a
  * table column, a kpi support row, a card), which lint-core cannot see. The Studio's preview frame
  * is same-origin, so the Studio reads the rendered sparks directly — no engine change, no message
- * channel. Each spark carries its own source text as `data-src` (lib/core/inline-sparks.js), so a
+ * channel. Each spark carries its own source text as `data-src` (lib/plugins/sparks/sparks.inline.js), so a
  * report names the exact span, and lint-core's `sparkFitFindings` turns it into a warning with a
  * one-click resize. Spec: engineering/decisions/2026-09-28-inline-sparks.md.
  */
