@@ -1,1 +1,3 @@
 - Two `--player` exports of an unchanged deck are now byte-identical: the file's `generatedAt` stamp follows `SOURCE_DATE_EPOCH` (else the epoch), as PDF dates and the reopenable payload already did.
+- Exported players (the CLI's `--player` and the Studio's Webpage export) store a picture the deck reuses only once, instead of once per slide. The 120-slide gallery deck drops from 2.74 MB to 2.36 MB.
+- An identical font file that the bundled faces ship under several weights is now embedded once, as a weight range, wherever no text the deck draws could tell the difference. The `html-player` example drops from 858 KB to 765 KB.

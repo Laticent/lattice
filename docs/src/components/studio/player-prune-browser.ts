@@ -18,7 +18,16 @@
 
 // css-tree is heavy, so this whole module (and its bundle) loads on demand, only when
 // the user actually exports a webpage — never on the initial Studio load.
-import { collectBaseSelectors, GATE_PROPS, prunePlayerCss, prunePlayerFontFaces } from '@/playground/player-prune.generated.js';
+import {
+	collectBaseSelectors,
+	GATE_PROPS,
+	isPruneSkippedStyle,
+	literalFontWeights,
+	mergeIdenticalFontFaces,
+	PRUNE_SKIP_STYLE_IDS,
+	prunePlayerCss,
+	prunePlayerFontFaces,
+} from '@/playground/player-prune.generated.js';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 
 export type PruneResult = {
@@ -50,9 +59,9 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 			fontBlock = { full: b[0], css: b[2] };
 			continue;
 		}
-		// The dark block is NOT the deck stylesheet and can outweigh it (player-core.mjs
-		// `darkStyle`), so it is skipped by id, never judged by size.
-		if (/lattice-dual-mode/.test(b[1])) continue;
+		// The dark block and the hoisted-asset block are NOT the deck stylesheet and can outweigh
+		// it, so they are skipped by id, never judged by size (player-prune.js PRUNE_SKIP_STYLE_IDS).
+		if (isPruneSkippedStyle(b[1])) continue;
 		if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
 	}
 	// `legacyPseudoElements`: the Studio's engine bundle ships `lattice.css` minified, which
@@ -104,16 +113,33 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		// ── FONT prune: which embedded families does the deck actually use? ──────────
 		// USED = a face the browser LOADED (lazy) OR a family named in any element's
 		// resolved font-family (so a deck applying the sketch hand keeps Caveat + Shantell).
-		let fontResult: { css: string; applied: boolean; total: number; kept: number } = { css: '', applied: false, total: 0, kept: 0 };
+		let fontResult: { css: string; applied: boolean; total: number; kept: number; merged?: number } = { css: '', applied: false, total: 0, kept: 0 };
+		let usedWeights: Record<string, number[]> | null = null;
 		if (fontBlock) {
 			const strip = (s: string) => String(s).trim().replace(/^["']|["']$/g, '');
 			const fams = new Set<string>();
-			for (const f of doc.fonts as unknown as Iterable<FontFace>) if (f.status === 'loaded') fams.add(strip(f.family));
-			for (const el of doc.querySelectorAll('*')) {
-				for (const part of (win.getComputedStyle(el).fontFamily || '').split(',')) fams.add(strip(part));
+			// Every computed weight, under every family the element names, for the identical-file
+			// merge's guard (player-prune.js mergeIdenticalFontFaces). Read in all three views; the
+			// CLI twin (lattice.js prunePlayerCssInPage) reads the same.
+			const weights: Record<string, number[]> = {};
+			const note = (el: Element, pseudo: string | null) => {
+				const cs = win.getComputedStyle(el, pseudo);
+				const w = Number(cs.fontWeight);
+				for (const part of (cs.fontFamily || '').split(',')) {
+					const fam = strip(part);
+					if (!fam) continue;
+					if (!pseudo) fams.add(fam);
+					if (Number.isFinite(w)) (weights[fam.toLowerCase()] ||= []).push(w);
+				}
+			};
+			for (const v of views) {
+				app?.setAttribute('data-lp-view', v);
+				for (const el of doc.querySelectorAll('*')) for (const pseudo of [null, '::before', '::after']) note(el, pseudo);
 			}
+			for (const f of doc.fonts as unknown as Iterable<FontFace>) if (f.status === 'loaded') fams.add(strip(f.family));
 			app?.setAttribute('data-lp-view', 'present');
 			fontResult = prunePlayerFontFaces(fontBlock.css, [...fams]) as typeof fontResult;
+			usedWeights = Object.fromEntries(Object.entries(weights).map(([k, v]) => [k, [...new Set(v)]]));
 		}
 
 		// ── CSS prune: authoritative match — keep a base on ANY querySelector error. ─
@@ -138,7 +164,7 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		let identical = true;
 		if (cssResult.applied) {
 			const styleEl = [...doc.querySelectorAll('style')]
-				.filter((s) => s.id !== 'lattice-embedded-fonts' && s.id !== 'lattice-dual-mode')
+				.filter((s) => s.id !== 'lattice-embedded-fonts' && !PRUNE_SKIP_STYLE_IDS.includes(s.id))
 				.sort((a, b) => (b.textContent?.length || 0) - (a.textContent?.length || 0))[0];
 			const snap = () => {
 				const rows: string[] = [];
@@ -168,6 +194,15 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 			app?.setAttribute('data-lp-view', 'present');
 		}
 		const cssOk = cssResult.applied && identical;
+
+		// Then declare each identical font file once, where no used weight can tell (player-prune.js
+		// mergeIdenticalFontFaces). The literal weights come from the CSS that SHIPS, so this waits
+		// for the CSS verdict; the CLI twin (lattice.js prunePlayerCssInPage) explains why.
+		if (fontBlock && usedWeights) {
+			const shipped = blocks.map((b) => (cssOk && target && b[0] === target.full ? cssResult.css : b[2])).join('\n');
+			const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedWeights, any: literalFontWeights(shipped) }) as { css: string; applied: boolean; merged: number };
+			if (merged.applied) fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
+		}
 
 		if (!cssOk && !fontResult.applied) {
 			return { html: playerHtml, applied: false, gateFailed: cssResult.applied && !identical };

@@ -382,6 +382,31 @@ list of Lattice assumptions still left.
 0. **Fixes in place (ruled):** the pinned clock, content-hashed assets stored once, and
    identical font files declared once, plus a player reproducibility test, in the current
    tree. One export sign-off.
+   **Result, 2026-10-16.**
+
+   | Deck | Before | After | Change | What fired |
+   |---|---|---|---|---|
+   | gallery (120 slides) | 2,742,199 | 2,357,094 | −14% | 2 repeated pictures stored once (376 KB) |
+   | `examples/html-player.md` | 857,831 | 765,105 | −11% | 3 identical font files declared once |
+
+   The font merge did not fire on the gallery, and that is correct. Hub-spoke text uses weights
+   560, 680, 720 and 760, and 560 falls inside Outfit's 500–600 run, where a merged face would
+   render 560 rather than snapping to 600 as it does now. The first wiring read literal weights
+   from the *unpruned* deck sheet, which names every component's weights, so it blocked every
+   merge in every deck. The guard now reads the CSS that ships. Two runs are byte-identical.
+
+   **Proof the change does not show:**
+
+   - Every weight from 100 to 900 of each bundled family renders pixel-identical in Chromium,
+     WebKit and Firefox, at every weight a face declares and every weight outside a run.
+   - Old against new, `examples/html-player.md` is pixel-identical in all three engines, in
+     Present, Slides and Article, light and dark.
+   - The gallery is pixel-identical in the same grid in Chromium and WebKit. The Firefox run
+     was still going when this was written.
+
+   One thing turned up along the way: Firefox took more than 30 seconds to load the old 2.7 MB
+   gallery file from disk.
+
 1. **Packer behind the seam:** move prune, inlining, fonts, CSP and the asset store into
    the package with a boundary gate, and keep the bytes identical, so the golden test is
    the proof and no new sign-off is needed. Add the static conformance clauses.
