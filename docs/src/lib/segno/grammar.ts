@@ -183,16 +183,25 @@ export interface GrammarSpec {
 /**
  * A grammar with some of its shapes taken out: every reference to a rule in `rules`, and every
  * node of a kind in `nodes`, removed with the branch that needs it. A sequence that needs a removed
- * piece goes; a choice keeps its other branches; an optional or repeated piece that goes leaves
- * nothing behind. A rule left with no branch goes too, and so does everything that needs it, until
- * nothing more changes.
+ * piece goes; a choice keeps its other branches; an `opt` or a `many` whose piece goes leaves
+ * nothing behind, while a `many1` whose piece goes takes its sequence with it. A rule left with no
+ * branch goes too, and so does everything that needs it, until nothing more changes.
  *
- * WHAT IT IS FOR: a faster parser for a common subset, generated rather than written by hand. On
- * an LL(1) grammar (every grammar Segno builds is one) a choice is made on the next character, and
- * pruning only removes branches. So whatever the restricted grammar accepts, the full grammar
- * accepts too, by the same branches, and builds the same tree. It may reject more, which is the
- * point: the caller tries the restricted parser first and asks the full one about anything it
- * refuses. notation-grammar.ts `plainRecordSpec` is the first user.
+ * WHAT IT IS FOR: a faster parser for a common subset, generated rather than written by hand. On a
+ * strictly LL(1) grammar every choice is made on the next character alone, and pruning only removes
+ * branches. So whatever the restricted grammar accepts, the full grammar accepts too, by the same
+ * branches, and builds the same tree. It may reject more, which is the point: the caller tries the
+ * restricted parser first and asks the full one about anything it refuses. notation-grammar.ts
+ * `plainRecordSpec` is the first user.
+ *
+ * IT REFUSES what would break that promise, and throws rather than return a grammar that could
+ * disagree. Two constructs choose by more than the next character: a `greedy()` loop or optional
+ * (which keeps going while its piece could start, even when what follows could start too) and an
+ * `attempt()` (which tries, and falls back). Pruning inside either changes WHICH branch wins, not only
+ * whether one does: the restricted parser can then accept a span the full one refuses, or build a
+ * different tree (a checker found both). So `restrict()` throws when a removal reaches inside one.
+ * It also throws when a choice would be left with a branch that matches nothing, which would
+ * change what the choice means.
  *
  * Experimental, like the rest of the grammar engine.
  */
@@ -202,6 +211,13 @@ export function restrict(spec: GrammarSpec, drop: { rules?: readonly string[]; n
   const EMPTY: Expr = { t: 'seq', xs: [] };
   // null: the expression needs something removed. EMPTY: it matched nothing but may stay.
   const prune = (e: Expr): Expr | null => {
+    const out = pruneOnce(e);
+    if (out !== e && (e.t === 'attempt' || ((e.t === 'many' || e.t === 'opt') && e.greedy))) {
+      throw new Error(`segno: restrict() would change inside ${e.t === 'attempt' ? 'an attempt()' : 'a greedy()'}, where pruning can change which branch wins; restrict a grammar without one there`);
+    }
+    return out;
+  };
+  const pruneOnce = (e: Expr): Expr | null => {
     switch (e.t) {
       case 'ref': return gone.has(e.name) ? null : e;
       case 'node': {

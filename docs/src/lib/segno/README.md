@@ -472,13 +472,15 @@ them. `plainRecordSpec` is the notation restricted to no lists, no quoted text a
 code generator makes its own parser of it (`notation-plain.generated.ts`). The fast bind tries that
 parser first and asks the full one about anything it refuses.
 
-The two cannot disagree. On an LL(1) grammar a choice is made on the next character, and a
-restriction only removes branches, so whatever the restricted parser accepts, the full one accepts
+The two cannot disagree. On a strictly LL(1) grammar every choice is made on the next character,
+and a restriction only removes branches, so whatever the restricted parser accepts, the full one accepts
 by the same branches, and both build the same tree. The build numbers the restricted parser's node
 kinds as the full parser numbers them (`generate(small, { kinds: kindsOf(full) })`), so one reader
 walks both trees. `notation.test.ts` holds the
 two trees equal, node for node, on every short span over the characters that steer a plain record
-and over the characters that leave the shape. A change to the grammar regenerates both parsers, and
+and over the characters that leave the shape. `restrict()` throws rather than prune inside a
+`greedy()` or an `attempt()`, the two constructs that choose by more than the next character, where
+removing a branch can change which branch wins (the notation uses neither). A change to the grammar regenerates both parsers, and
 `build:check` fails if either committed file is stale.
 
 One more condition keeps it correct. The parser writes one reused buffer, and the fast read walks

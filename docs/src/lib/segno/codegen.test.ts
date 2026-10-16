@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { complement, fromRanges, has } from './charset';
 import { generate, kindsOf } from './codegen';
 import { toNodes } from './flat';
-import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, restrict, seq, set } from './grammar';
-import { attempt, node } from './index';
+import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, opt, range, ref, restrict, seq, set } from './grammar';
+import { any, attempt, greedy, node } from './index';
 import { parse as generatedFlat } from './notation.generated';
 import { notationSpec, plainRecordSpec } from './notation-grammar';
 
@@ -98,6 +98,18 @@ describe('restrict() keeps only what the full grammar accepts', () => {
       if (r.ok) expect(b.parse(t)).toEqual(r); // accepted by the restriction: the same tree in full
     }
     expect(a.parse('(12)').ok).toBe(false);
+  });
+  it('refuses to prune inside greedy() or attempt(), where a removal changes which branch wins', () => {
+    // The checker's counterexamples: pruned, each accepted a span the full grammar refuses, or
+    // built a different tree for one both accept.
+    const g1: GrammarSpec = { start: 's', rules: { s: seq(greedy(many(node('X', seq('a', 'b')))), many(oneOf('a'))) } };
+    expect(() => restrict(g1, { nodes: ['X'] })).toThrow(/greedy/);
+    const g2: GrammarSpec = { start: 's', rules: { s: seq(greedy(opt(seq('a', ref('q')))), opt(oneOf('a'))), q: oneOf('b') } };
+    expect(() => restrict(g2, { rules: ['q'] })).toThrow(/greedy/);
+    const g3: GrammarSpec = { start: 's', rules: { s: alt(attempt(node('A', seq('a', alt(ref('q'), 'b'))), { max: 4, next: '' }), node('B', seq('a', many(any())))), q: oneOf('x') } };
+    expect(() => restrict(g3, { rules: ['q'] })).toThrow(/attempt/);
+    // Untouched, they pass through: the refusal is about pruning INSIDE one, not about having one.
+    expect(() => restrict(g1, { nodes: ['Y'] })).not.toThrow();
   });
   it('removes a rule left with no branch, and refuses to remove the start', () => {
     expect(() => restrict(full, { rules: ['s'] })).toThrow(/start rule/);
