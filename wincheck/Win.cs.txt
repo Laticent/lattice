@@ -69,6 +69,10 @@ public static class Win {
         GetGUIThreadInfo(GetWindowThreadProcessId(fg, out pid), ref info);
         return "foreground=[" + Describe(fg) + "] focus=[" + Describe(info.focus) + "]";
     }
+    public static void Wheel(int x, int y, int clicks) {
+        SetProcessDPIAware(); SetCursorPos(x, y); System.Threading.Thread.Sleep(150);
+        for (int i = 0; i < Math.Abs(clicks); i++) { mouse_event(0x0800, 0, 0, (uint)(clicks < 0 ? -120 : 120), UIntPtr.Zero); System.Threading.Thread.Sleep(80); }
+    }
     public static string Windows() {
         var rows = new List<string>();
         EnumWindows((h, l) => {

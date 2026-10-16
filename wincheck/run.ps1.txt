@@ -11,6 +11,7 @@ $TS = [System.Windows.Automation.TreeScope]
 $results = New-Object System.Collections.ArrayList
 function Note($m) { Write-Host $m; Add-Content (Join-Path $Out 'run-log.txt') $m }
 function Step($id, $name, [scriptblock]$body) {
+  if ($env:ONLY -and -not (($env:ONLY -split ',') -contains $id)) { return }
   try { $d = & $body; [void]$results.Add([pscustomobject]@{ id = $id; name = $name; pass = $true; detail = "$d" }); Note "PASS $id $name :: $d" }
   catch { [void]$results.Add([pscustomobject]@{ id = $id; name = $name; pass = $false; detail = $_.Exception.Message }); Note "FAIL $id $name :: $($_.Exception.Message)" }
 }
@@ -148,7 +149,12 @@ Step '2.2' 'Real right-click in the editor shows only editing items' {
 }
 
 Step '3.1' 'Continue on GitHub opens the default browser; the app stays put' {
-  Neutral; Press (Must (Named 'Send feedback' 5) 'Feedback button'); Start-Sleep -Seconds 1
+  Neutral; $fb = Must (Named 'Send feedback' 5) 'Feedback button'
+  $r = $fb.Current.BoundingRectangle; Note "feedback button at $($r.X),$($r.Y) $($r.Width)x$($r.Height) type=$($fb.Current.ControlType.ProgrammaticName)"
+  ClickAt $fb $false; Start-Sleep -Seconds 2
+  Shot '10a-feedback-open'
+  $names = (AppEl).FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))) | ForEach-Object { "[$($_.Current.Name)]" }
+  Note "edit fields: $($names -join ' ')"
   $s = Must (Named 'Summary' 5) 'Summary field'; ClickAt $s $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check summary')
   $d = Must (Named 'Details' 5) 'Details field'; ClickAt $d $false; [System.Windows.Forms.SendKeys]::SendWait('Windows check details')
   Start-Sleep -Milliseconds 800
@@ -223,6 +229,15 @@ Step '7.1' 'Print at 4-up reaches a print dialog (no file, no new window)' {
   Start-Sleep -Seconds 12
   Shot '16-print-4up'
   $after = Windows
+  [Win]::Wheel(180, 500, -15); Start-Sleep -Seconds 1
+  Shot '16b-print-settings'
+  $more = $AE::RootElement.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, 'More settings')))
+  if ($more) { Press $more; Start-Sleep -Seconds 1; [Win]::Wheel(180, 500, -15); Start-Sleep -Seconds 1 }
+  Shot '16c-print-more-settings'
+  $hf = $AE::RootElement.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, 'Headers and footers')))
+  if ($hf) { try { Note "Headers and footers toggle: $(($hf.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState)" } catch { Note "Headers and footers present, no toggle pattern" } } else { Note 'Headers and footers: not found' }
+  $mg = $AE::RootElement.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, 'Margins')))
+  if ($mg) { try { Note "Margins: $(($mg.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)).Current.Value)" } catch { Note "Margins present: $($mg.Current.ControlType.ProgrammaticName)" } }
   Keys '{ESC}'; Start-Sleep -Seconds 1; Keys '{ESC}'
   "windows after Print:`n$after"
 }
