@@ -53,47 +53,70 @@ async function openDeckSettings(page: import('@playwright/test').Page, width: nu
 	await openSection(page, CHROME.deckTab.plugins);
 }
 
+/**
+ * The tab's claims at one width. `phone` is a real phone layout (the `webkit-phone` project):
+ * below 700px the Studio shows one pane at a time, so the deck is typed behind `Markdown source`
+ * rather than at desktop width, and the preview is read behind `Preview` once the settings sheet
+ * is closed. Without it the window starts at desktop width and shrinks after the deck goes in,
+ * because the narrow layouts keep the editor behind a tab of their own.
+ */
+async function listsAPlugin(page: import('@playwright/test').Page, width: number, height: number, phone: boolean): Promise<void> {
+	await gotoStudio(page);
+	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await setEditorContent(page, DECK('light'));
+	await expect.poll(() => persistedSource(page)).toContain('# The area of a circle');
+	if (!phone) await page.setViewportSize({ width, height });
+	await openDeckSettings(page, width);
+
+	const mermaid = page.locator('[data-plugin-row="mermaid"]');
+	await expect(mermaid).toBeVisible({ timeout: 15_000 });
+	// Every shipped plugin has a row, on by default; the diagram slide class needs Mermaid.
+	for (const name of ['math', 'function-plot', 'mermaid', 'anima']) {
+		await expect(page.locator(`[data-plugin-row="${name}"]`)).toContainText('On by default');
+	}
+	await expect(mermaid).toContainText('Needed by diagram slides');
+
+	const sw = page.getByRole('checkbox', { name: /List Math in this deck/ });
+	await expect(sw).toHaveAttribute('aria-checked', 'false');
+	await sw.click();
+	await expect(sw).toHaveAttribute('aria-checked', 'true');
+	await expect.poll(() => persistedSource(page)).toContain('plugins: [math]');
+	await expect(page.locator('[data-plugin-row="math"]')).toContainText('Listed in this deck');
+
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		await page.screenshot({ path: path.join(EVIDENCE, `plugins-tab-${phone ? 'phone' : width}.png`) });
+	}
+
+	// Listing a default plugin changes nothing: the preview still typesets the math. On a phone the
+	// settings sheet covers the slide, so close it and look behind `Preview`, then come back.
+	if (phone) {
+		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
+	}
+	await expect(livePreview(page).locator('.katex').first()).toBeAttached({ timeout: 30_000 });
+	if (phone) await openDeckSettings(page, width);
+
+	// …and unlisting removes the key rather than leaving `plugins: []` behind.
+	await sw.click();
+	await expect.poll(() => persistedSource(page)).not.toContain('plugins:');
+}
+
 for (const [label, width, height] of [
 	['desktop', 1440, 900],
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
 ] as const) {
 	test(`the Plugins tab shows why each plugin is on, and writes the deck's list, at ${label} (${width}px)`, async ({ page }) => {
-		// The deck goes in at desktop width, where the editor is on screen, and the window then
-		// shrinks: the phone layout keeps the editor behind its own tab.
-		await gotoStudio(page);
-		await setEditorContent(page, DECK('light'));
-		await expect.poll(() => persistedSource(page)).toContain('# The area of a circle');
-		await page.setViewportSize({ width, height });
-		await openDeckSettings(page, width);
-
-		const mermaid = page.locator('[data-plugin-row="mermaid"]');
-		await expect(mermaid).toBeVisible({ timeout: 15_000 });
-		// Every shipped plugin has a row, on by default; the diagram slide class needs Mermaid.
-		for (const name of ['math', 'function-plot', 'mermaid', 'anima']) {
-			await expect(page.locator(`[data-plugin-row="${name}"]`)).toContainText('On by default');
-		}
-		await expect(mermaid).toContainText('Needed by diagram slides');
-
-		const sw = page.getByRole('checkbox', { name: /List Math in this deck/ });
-		await expect(sw).toHaveAttribute('aria-checked', 'false');
-		await sw.click();
-		await expect(sw).toHaveAttribute('aria-checked', 'true');
-		await expect.poll(() => persistedSource(page)).toContain('plugins: [math]');
-		await expect(page.locator('[data-plugin-row="math"]')).toContainText('Listed in this deck');
-		// Listing a default plugin changes nothing: the preview still typesets the math.
-		await expect(livePreview(page).locator('.katex').first()).toBeAttached({ timeout: 30_000 });
-
-		if (EVIDENCE) {
-			fs.mkdirSync(EVIDENCE, { recursive: true });
-			await page.screenshot({ path: path.join(EVIDENCE, `plugins-tab-${width}.png`) });
-		}
-
-		// …and unlisting removes the key rather than leaving `plugins: []` behind.
-		await sw.click();
-		await expect.poll(() => persistedSource(page)).not.toContain('plugins:');
+		await listsAPlugin(page, width, height, false);
 	});
 }
+
+// The same claims on WebKit at an iPhone's size, by touch (the nightly `webkit-phone` project).
+// The `mobile` arm above is desktop Chromium with a 390px window; this is the layout a phone gets.
+test('@webkit-phone the Plugins tab shows why each plugin is on, and writes the deck\'s list, on an iPhone', async ({ page }) => {
+	await listsAPlugin(page, page.viewportSize()?.width ?? 393, page.viewportSize()?.height ?? 852, true);
+});
 
 test('a Studio export of a deck that lists plugins draws them, light and dark', async ({ page }) => {
 	test.skip(!EVIDENCE, 'evidence mode only (PLUGINS_EVIDENCE=<dir>)');
