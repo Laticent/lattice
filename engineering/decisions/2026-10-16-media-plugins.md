@@ -207,9 +207,9 @@ only if no code turns slide text into an address. These plugins are where that b
 1. **The address comes from the author's own block:** the `@video{…}` / `@image{…}` record or the
    `![alt](src)` token, read from the Markdown at render time. Never from slide text, never from the DOM.
 2. **No plugin scans a slide.** No `textContent`, no walk over `<li>`s, no regex over a section's HTML in
-   search of a URL. Today's `video` pass does all three (`video.transform.js` `resolvePayload` reads the
-   rendered bullets, and `lib/transformers/video.js` runs it again over the finished DOM). The plugin does not
-   copy it.
+   search of a URL. Today's `video` pass walks the bullets with a regex over the section's HTML
+   (`video.transform.js` `resolvePayload`, `topLevelLis`), and `lib/transformers/video.js` runs it again over the
+   finished DOM's `innerHTML`. The plugin does not copy it.
 3. **A browser half touches only its own figure.** Poster painting and the preview overlay select
    `[data-lattice-figure="video"]` only, read the address from an attribute the renderer wrote, and skip
    anything inside `[data-lattice-plugin]`.
@@ -234,7 +234,9 @@ only if no code turns slide text into an address. These plugins are where that b
   skips `[data-lattice-plugin]` for every kind. Address-bearing records resolve on the markdown-it token path
   only.
 - **The image passes that run over rendered HTML.** `resolveInlineImageSrcs` (`IMG_SRC_RE`,
-  `bg-image.js:94`), `liftImageBgImages` and `wrapImageText` read the section's HTML, plugin output included.
+  `lib/core/bg-image.js:94`) and `wrapImageText` read the section's HTML, plugin output included. (`liftImageBgImages`
+  does not: it rewrites the Markdown source before the render, `lib/engine/index.js:537`, so plugin output never
+  reaches it.)
   They map only to local schemes today, so they leak nothing, but the `image` plugin moves them onto the
   image tokens or onto elements the engine stamped, never onto any `<img>` in the section. The web-image
   consent gate (`blockWebImages`) stays the last pass over the whole page, so even a plugin's own `<img>`
@@ -318,7 +320,8 @@ dialect. That is the same strategy pattern as the hosts themselves.
   Fragments), `?t=90` or `&start=90` on YouTube, `#t=90s` on Vimeo. The author writes the address they would share,
   and the poster link and QR open at that moment for free. (This reverses decision 7.)
 - **`fullscreen` as a host setting.** No host offers "open full screen": YouTube's `fs=0` and TikTok's
-  `fullscreen_button=0` only hide a button shown by default, and Vimeo follows the HTML `allowfullscreen` attribute.
+  `fullscreen_button=0` only hide a button shown by default, and Vimeo's `fullscreen=0` does the same (it also honors
+  the frame's HTML `allowfullscreen` attribute).
   The plugin always sets `allowfullscreen`. The word does earn a place, but from the presentation standard (§4.8).
 - **`gdrive:` and other invented schemes.** A Google Drive picture or clip has an `https://drive.google.com/…`
   address; a future source recognizes that host, as the video rows recognize theirs. `asset:` and `sample:` stay,
@@ -405,8 +408,8 @@ same verbs reach every input (keyboard, clicker, wheel, touch), through the shar
 fill the stage (the audience window), above the slide, and shrinks back after. It does not call the browser's
 Fullscreen API: a page cannot put a host's cross-origin player full screen without a click inside that player, and it
 would not need to. **It is on by default** (owner, 2026-10-16): a layout often shows the poster small, and a small
-clip on a room's screen is hard to watch, so pressing play fills the stage. PowerPoint's default is off; Lattice keeps
-PowerPoint's word and flips its default. `fullscreen=false` keeps a clip in the frame its layout gave it, which suits
+clip on a room's screen is hard to watch, so pressing play fills the stage. In PowerPoint, *Play Full Screen* is an
+option the author ticks; Lattice keeps PowerPoint's word and makes it the default. `fullscreen=false` keeps a clip in the frame its layout gave it, which suits
 a muted, looping clip used as motion behind a slide (`autoplay muted loop fullscreen=false`); a deck can turn the
 default off once with the `video:` register.
 
@@ -508,21 +511,23 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    render stays offline, and an export carries one copy of each file.
 5. **A plugin describes; the layout places** (§4.7). Placement, fit and scrim belong to the component the record
    sits in. Size is the one exception, as a relative `sm` / `md` / `lg` (decision 12).
+6. **Treatments: settled into three controls (§4.7):** frames (3–5, off by default, shared by all three plugins),
+   finishes on the photo (`nimbus` and the others that suit a photograph), and tones (`duotone`, `grayscale`). Which
+   frames and finishes make the cut was settled from renders on two real photographs (owner, 2026-10-16): **all five
+   frames** (`mat`, `keyline`, `float`, `device`, `corners`) and **all three finishes** (`nimbus`, `halo`,
+   `meridian`), with both tones. `stack` and `strata` were left out: both appeared on the first, rougher sample sheet
+   on Lattice's sample art, and neither is in the final prototype `render.mjs` rebuilds.
+7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
+   and W3C Media Fragments define it.
+8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
 9. **Standards first** (§4.7, rule 2): a field's meaning and name come from the standard that defines it (HTML, CSS,
    Media Fragments, the hosts' player parameters, URIs, the Wi-Fi URI, vCard, ISO/IEC 18004). Lattice coins a word only
    where the standard's spelling would significantly hurt understanding, and accepts the standard's name beside it.
    `fullscreen` was weighed against the hosts and left out (§4.7), then admitted from the presentation standard
    (§4.8).
-6. **Treatments: settled into three controls (§4.7):** frames (3–5, off by default, shared by all three plugins),
-   finishes on the photo (`nimbus` and the others that suit a photograph), and tones (`duotone`, `grayscale`). Which
-   frames and finishes make the cut was settled from renders on two real photographs (owner, 2026-10-16): **all five
-   frames** (`mat`, `keyline`, `float`, `device`, `corners`) and **all three finishes** (`nimbus`, `halo`,
-   `meridian`), with both tones. `stack` and `strata` were rendered and left out.
-7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
-   and W3C Media Fragments define it.
-8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
 10. **The next advance plays a waiting clip** (§4.8), as in PowerPoint and Google Slides: the familiar behavior for
-    most presenters, and it lets the speaker introduce the clip first. `autoplay` gives Keynote's behavior.
+    most presenters, and it lets the speaker introduce the clip first. Keynote also starts a movie on click by default
+    (its *Start movie on click* setting); `autoplay` is the opt-in for a clip that starts as its slide arrives.
 11. **A clip fills the stage when it plays, by default** (§4.8). `fullscreen=false` opts out.
 12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
     clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
@@ -531,6 +536,9 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: a second fact-check pass (44 claims confirmed) corrected six: Keynote's default, Vimeo's `fullscreen`
+  parameter, which image passes read rendered HTML, how the video pass reads bullets, `strata`'s render history, and
+  PowerPoint's default wording.
 - 2026-10-16: the approved prototype kept in `2026-10-16-media-plugins/` (CSS, render script, reference renders).
 - 2026-10-16: decision 12: `sm` / `md` / `lg` on all three plugins, clamped inside the layout's box.
 - 2026-10-16: finishes and tones take one strength lever, `20` … `80` `full`, the `backdrop:` scale.
