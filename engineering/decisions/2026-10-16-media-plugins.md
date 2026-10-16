@@ -305,7 +305,7 @@ role.
 | | `muted` | starts without sound. Browsers allow `autoplay` only when muted, so `autoplay` implies it | HTML `muted`; Vimeo `muted` |
 | | `loop` | starts again at the end | HTML `loop`; Vimeo `loop`; YouTube `loop` (limited in embeds) |
 | | `controls` | `controls=false` hides the player's controls | HTML `controls`; YouTube `controls`; Vimeo `controls`; TikTok `controls` |
-| | `captions` *(proposed, not decided)* | captions on when the clip plays, for a muted room and for accessibility | HTML `<track default>`; YouTube `cc_load_policy=1`; Vimeo's text-track parameter; to be checked per host before it is adopted |
+| | `subtitles` *(proposed, not decided)* | the host's subtitle text shown over the clip while it plays, for a muted room and for accessibility. Named `subtitles`, not `captions`, so it cannot be confused with `caption=`, the visible line under the figure | HTML `<track kind="subtitles" default>`; YouTube `cc_load_policy=1`; Vimeo's text-track parameter; to be checked per host before it is adopted |
 | | `fullscreen=false` | while presenting, the clip plays in its frame instead of filling the stage, which is the default (§4.8) | PowerPoint *Play Full Screen* (ECMA-376 `fullScrn`) |
 | `qr` | the payload | a URI, quoted text, or a nested format record (`wifi={…}`, `contact={…}`) | URIs, the Wi-Fi URI, vCard (`2026-10-16-qr-plugin.md` §3, §3c) |
 | | `c1` … `c12` | the code's ink, with a lint for scan contrast (owner, 2026-10-16) | the deck's color cycle |
@@ -545,7 +545,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
-- 2026-10-16: a pass-through for host player settings rejected (§6); `captions` recorded as a proposed word (§4.7).
+- 2026-10-16: a pass-through for host player settings rejected (§6); `subtitles` recorded as a proposed word (§4.7; first
+  drafted as `captions`, renamed the same day so it cannot be mistaken for `caption=`).
 - 2026-10-16: a second fact-check pass (44 claims confirmed) corrected six: Keynote's default, Vimeo's `fullscreen`
   parameter, which image passes read rendered HTML, how the video pass reads bullets, `strata`'s render history, and
   PowerPoint's default wording.
