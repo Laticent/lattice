@@ -545,12 +545,15 @@ test('the emulator reads all three through the kernel, not its own regex', () =>
 });
 
 test("the Studio editor offers every one, so a hand-typed key is discoverable", () => {
-	// FRONT_MATTER_KEYS lives in its own module (the Studio chat agent reads it too);
-	// editor-complete.ts re-exports it to the editor.
-	const src = readFileSync(join(REPO, 'docs/src/components/studio/front-matter-keys.ts'), 'utf8');
+	// The Studio's key list (docs/src/components/studio/front-matter-keys.ts) is a view of the
+	// engine's table, lib/core/deck-settings.js: every row not marked `offer: false` is offered.
+	const { DECK_SETTINGS } = require('../../../lib/core/deck-settings');
+	const { withProse } = require('../../../lib/core/deck-settings.prose');
+	const rows = withProse(DECK_SETTINGS);
 	for (const key of RENDER_TARGET_KEY_NAMES) {
-		const entry = src.match(new RegExp(`\\{ key: '${key}', info: '([^']*)'`));
-		assert.ok(entry, `${key} is missing from FRONT_MATTER_KEYS`);
+		const row = rows.find((r) => r.key === key);
+		assert.ok(row && row.offer !== false, `${key} is missing from the offered deck settings`);
+		const entry = [null, row.info];
 		// The entries exist to hand a hand-typing author the accepted values, and they said
 		// `true / false` — two of six — until a review caught it. Nothing failed when that
 		// regressed, so the six words are pinned rather than trusted.

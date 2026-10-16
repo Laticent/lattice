@@ -51,7 +51,7 @@ export function hasContent(src: string): boolean {
 /** The real deck assessment: the engine scorecard + the union of lint + review
  *  findings. Returns an empty, content-false assessment (not a grade) for a blank deck.
  *  Never throws into render. */
-export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = [], profileOverride?: string): Promise<CoachAssessment> {
+export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = [], profileOverride?: string, extraThemes: string[] = []): Promise<CoachAssessment> {
 	const src = String(source ?? '');
 	if (!hasContent(src)) return { hasContent: false, scorecard: null, findings: [] };
 	const v = lintVocab as { names?: unknown } | null;
@@ -70,6 +70,9 @@ export async function assessDeck(source: string, lintVocab: unknown, components:
 			const vocab = buildVocabSets(lintVocab);
 			for (const n of extraNames) if (n) vocab.names.add(n);
 			if (extraFinishes.length) vocab.finishNames = [...(vocab.finishNames || []), ...extraFinishes];
+			// A saved theme is a theme this deck can name; the page vocab carries only the shipped ones,
+			// so without these `unknown-theme` would dock the Craft score of a deck on a saved theme.
+			if (extraThemes.length) vocab.themeNames = [...(vocab.themeNames || []), ...extraThemes];
 			lint = lintCore.lintTextWith(src, vocab) as Finding[];
 		}
 		const bucketMap = new Map(components.filter((c) => c.bucket).map((c) => [c.name, c.bucket]));

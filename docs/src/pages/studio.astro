@@ -191,6 +191,9 @@ try {
 		exclusiveAxes: v.exclusiveAxes || {},
 		stampStyles: v.stampStyles || { boardroom: [], range: [] },
 		toneStyles: v.toneStyles || [],
+		// The plugin-declared registers (`icon:`, `avatar:`): their keys and words, for the
+		// inline lint's `unknown-<key>` and the editor's value completion.
+		pluginRegisters: v.pluginRegisters || [],
 	};
 } catch (e) {
 	lintVocab = null;

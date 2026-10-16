@@ -69,13 +69,15 @@ describe('buildVocabSets', () => {
 		expect(lists.length).toBeGreaterThanOrEqual(21);
 		// The front-matter key each list validates: camelCase → kebab-case, with the two
 		// SHAPE registers named for the key rather than the style.
-		const keyFor = (list: string) => ({ stampStyleNames: 'stamp', toneStyleNames: 'tone' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+		const keyFor = (list: string) => ({ stampStyleNames: 'stamp', toneStyleNames: 'tone', pluginNames: 'plugins' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+		// `plugins:` predates the `unknown-<key>` convention: its rule is the singular `unknown-plugin`.
+		const ruleFor = (key: string) => ({ plugins: 'unknown-plugin' })[key] ?? `unknown-${key}`;
 		const silent = lists.filter((list) => {
 			expect(sets[list], list).toEqual(live[list]);
 			const deck = `---\n${keyFor(list)}: zzqx-not-a-value\n---\n\n# A\n`;
 			// Each register's own rule, `unknown-<key>` — not any `unknown-*`, which a
 			// neighboring rule could satisfy while this one stays dead.
-			return !lintTextWith(deck, sets).some((f: { rule: string }) => f.rule === `unknown-${keyFor(list)}`);
+			return !lintTextWith(deck, sets).some((f: { rule: string }) => f.rule === ruleFor(keyFor(list)));
 		});
 		expect(silent, `a bad value on these registers draws no warning in the Studio: ${silent.join(', ')}`).toEqual([]);
 	});

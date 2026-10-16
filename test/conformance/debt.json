@@ -1,0 +1,4 @@
+{
+  "//": "Known conformance failures, each with a reason. Rules: lib/conformance/ledger.js and engineering/decisions/2026-10-15-conformance-harness.md §6.3 rule 1. Debt is seeded only the day its clause lands, and the list only shrinks.",
+  "entries": []
+}

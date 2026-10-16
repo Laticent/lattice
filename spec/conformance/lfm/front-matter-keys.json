@@ -1,0 +1,17 @@
+{
+ "title": "Every register in §2.3 takes its listed values, and a key no reader knows is reported",
+ "spec": "LFM-1.1",
+ "section": "2.3",
+ "rows": [
+  { "name": "spectrum-card: a listed value", "source": "---\nspectrum-card: duo\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "spectrum-card: an unknown value", "source": "---\nspectrum-card: plaid\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-spectrum-card", "severity": "warning", "slide": 0 }] } },
+  { "name": "spectrum-card-edge: a listed value", "source": "---\nspectrum-card-edge: top\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "spectrum-card-edge: an unknown value", "source": "---\nspectrum-card-edge: middle\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-spectrum-card-edge", "severity": "warning", "slide": 0 }] } },
+  { "name": "spectrum-trim: a listed value", "source": "---\nspectrum-trim: restrained\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "spectrum-trim: an unknown value", "source": "---\nspectrum-trim: heavy\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-spectrum-trim", "severity": "warning", "slide": 0 }] } },
+  { "name": "avatar: one word per axis", "source": "---\navatar: rounded bare\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "avatar: an unknown word", "source": "---\navatar: hexagon\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-avatar", "severity": "warning", "slide": 0 }] } },
+  { "name": "a misspelled key is reported", "source": "---\nfinsh: halo\n---\n\n## A\n\nText.\n", "L1": { "deck": { "finish": "none" } }, "L2": { "findings": [{ "rule": "unknown-key", "severity": "warning", "slide": 0 }] } },
+  { "name": "a Marp key is not", "source": "---\nmarp: true\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } }
+ ]
+}

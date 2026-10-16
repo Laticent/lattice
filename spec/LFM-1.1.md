@@ -104,6 +104,9 @@ specify them, and `split:` and `preset:` have none.
 | `tone:` | `rail` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
 | `spectrum:` | `on` · `solid` · `duo` · `mono` · `off` | The spectrum accent. | `unknown-spectrum` |
 | `spectrum-edge:` | `top` · `left` · `right` · `bottom` · `off` | Which slide edge carries the spectrum. | `unknown-spectrum-edge` |
+| `spectrum-card:` | `off` · `auto` · `solid` · `duo` · `mono` · `rainbow` | The accent rail on each card. `auto` follows `spectrum:`. | `unknown-spectrum-card` |
+| `spectrum-card-edge:` | `left` · `top` · `right` · `bottom` | Which card edge carries the rail. | `unknown-spectrum-card-edge` |
+| `spectrum-trim:` | `off` · `restrained` · `on` | Whether the spectrum also colors structural accents: table rails, code strips, rules. | `unknown-spectrum-trim` |
 | `rule:` | `auto` · `full` · `short` · `accent` · `none` | The underline beneath a slide heading. | `unknown-rule` |
 | `eyebrow:` | `plain` · `dot` · `bar` · `arrow` · `underline` | The decoration on a kicker (§3.4). | `unknown-eyebrow` |
 | `headline:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline` |
@@ -114,6 +117,7 @@ specify them, and `split:` and `preset:` have none.
 | `chart-finish:` | `off` · `pigment` · `etching` · `tone` | How every chart spends its color. | `unknown-chart-finish` |
 | `spark:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline sparks (§3.6). | `unknown-spark` |
 | `icon:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline icons (§3.6). | `unknown-icon` |
+| `avatar:` | up to one word per axis: shape (`circle` `rounded` `square`), frame (`framed` `bare`) | The deck's default for avatars. | `unknown-avatar` |
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
@@ -138,10 +142,16 @@ present the deck, so a renderer ignores them, but an export MUST keep them.
 
 A *host application* MAY read its own front-matter keys that LFM does not define, and a
 conforming renderer ignores them. The Lattice Studio reads `title:` to name a deck, for
-instance. Such keys are application metadata, not language surface.
+instance. Such keys are application metadata, not language surface. Because a renderer ignores
+a key it does not know, a misspelled key (`finsh: halo`) silently drops its setting, so an L2
+tool SHOULD report a top-level key that neither LFM nor the tool's host reads as `unknown-key`,
+a warning. The reference implementation's list of keys is `lib/core/deck-settings.js`; it
+accepts Marp's own keys (`marp:`, `headingDivider:`, `author:` …) so a Marp deck does not warn.
 
 The value lists above are the ones the reference implementation ships, each defined once
-in `lib/core/resolve-<key>.js` (`*_NAMES`). The full behavior of every register is
+in `lib/core/resolve-<key>.js` (`*_NAMES`), or for a plugin's register (`icon:`, `avatar:`) in
+the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
+marked `spec: '2.3'` must have a line in the tables above. The full behavior of every register is
 documented in `lib/base/base.registers.docs.md`. Where that page and this table disagree
 about a value list, this table is the contract and the disagreement is a defect.
 
@@ -553,6 +563,7 @@ LFM 1.1 deliberately does **not**:
 | **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
 | 1.1-draft | 2026-10-08 | §2.3 lists every front-matter register the reference implementation reads, each with its values and its `unknown-<key>` diagnostic, plus the settings (`logo:`, `plugins:`) and the delivery keys (`pace:`, `delivery:`, `greeting:`, `closing:`). §2.2 specifies the heading split. §2.4 adds the `_lens` tag. §3.6 adds the inline notation: pills, marks, sparks and icons. Each has shared test cases in `spec/conformance/lfm/`. Additive (a minor version, §7). Waits on the owner's sign-off. |
 | 1.1-draft | 2026-10-14 | §3.6 rule 4: a span in a declared data slot belongs to that slot and never renders as a pill, mark, spark or icon; `grammar.json` publishes the slots as `dataSlots` (§4). This writes down what the reference implementation already does for flowchart, hub-spoke and state-chart rows, and it keeps `` `{4.2}` `` on a chart row from becoming a pill once a chart declares its rows. A change to a normative meaning, landed before ratification (§7). Shared case: `spec/conformance/lfm/data-slots.json`. Record: `engineering/decisions/2026-10-14-chart-authoring-uniform-model.md` §3 decision 12, §6. |
+| 1.1-draft | 2026-10-16 | §2.3 adds the four registers the reference implementation read but the table omitted: `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and the avatars plugin's `avatar:`. An L2 tool SHOULD report an unknown top-level key as `unknown-key`. Additive. The table is now checked against `lib/core/deck-settings.js`, so a register the engine reads cannot go missing from it again. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-15-conformance-harness.md` §9 phase 1. |
 
 ## Appendix A — A worked example (informative)
 

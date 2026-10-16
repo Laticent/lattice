@@ -2,12 +2,13 @@
 /**
  * The front-matter reference, generated at build time so it cannot drift from what the
  * engine accepts:
- *   - the KEYS and their one-line descriptions are the Studio's autocomplete list
+ *   - the KEYS and their one-line descriptions are the engine's table
+ *     (lib/core/deck-settings.js) through the Studio's autocomplete list
  *     (FRONT_MATTER_KEYS), the same rows an author sees while typing;
  *   - the VALUES come from the lint vocabulary (lib/authoring/lint.js buildVocab) through
  *     registerValueLists, so a value listed here is one lint:deck accepts;
- *   - group, default, per-slide form and Settings location come from front-matter-docs.ts,
- *     whose test fails when a key is missing from either side.
+ *   - group, default, per-slide form and Settings location are columns of the same table,
+ *     read through front-matter-docs.ts.
  */
 import { createRequire } from 'node:module';
 import { join } from 'node:path';

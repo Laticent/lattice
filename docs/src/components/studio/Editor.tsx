@@ -5,7 +5,7 @@ import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
-import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
@@ -14,7 +14,7 @@ import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type AssetChoice, type CompletionComponent, type CompletionVocab, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { iconPreviewOption } from './icon-preview';
 import { tourChromeMargin } from './tour-chrome';
@@ -440,7 +440,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const completionRegisters = React.useMemo(() => registerValueLists(lintVocab), [lintVocab]);
 	const modifierKey = completionModifiers.join(',');
 	const registersKey = React.useMemo(() => JSON.stringify(completionRegisters), [completionRegisters]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey are the stable content-proxies; depending on the arrays themselves would rebuild every render.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey / paletteKey are the stable content-proxies; depending on the arrays themselves would rebuild every render.
 	const vocabSets = React.useMemo(() => {
 		if (!useRealLint) return null;
 		const sets = buildVocabSets(lintVocab);
@@ -456,8 +456,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const extra = completionFinishValues.flatMap((v) => (v.startsWith('finish-') ? [v, v.slice('finish-'.length)] : [v]));
 			sets.finishNames = [...(sets.finishNames || []), ...extra];
 		}
+		// The same for `theme:`: a palette the author saved is a theme this deck can name, so
+		// `unknown-theme` must not flag it. The lint vocab carries only the shipped ones.
+		if (completionPalettes.length) sets.themeNames = [...(sets.themeNames || []), ...completionPalettes];
 		return sets;
-	}, [lintVocab, useRealLint, extraNamesKey, finishKey]);
+	}, [lintVocab, useRealLint, extraNamesKey, finishKey, paletteKey]);
 
 	// The completion + lint extensions live in Compartments so they can be RECONFIGURED
 	// in place when their vocabulary changes (e.g. you save a finish mid-session) —
@@ -476,8 +479,41 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
-	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] });
+	const buildAutocomplete = () => [
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] }),
+		// Hover a front-matter key for what it does, its values and its default: the same row of
+		// the engine's table (lib/core/deck-settings.js) that the completion menu and the
+		// reference page print. In this compartment so a vocab change reaches it too.
+		hoverTooltip((view, pos) => {
+			const line = view.state.doc.lineAt(pos);
+			const values = { ...completionRegisters, ...(completionPalettes.length ? { theme: completionPalettes } : {}), ...(completionFinishValues.length ? { finish: completionFinishValues } : {}) };
+			const hit = frontMatterKeyAt(view.state.doc.toString(), line.text, line.from, pos, values);
+			if (!hit) return null;
+			return {
+				pos: hit.from,
+				end: hit.to,
+				above: true,
+				create: () => {
+					const dom = document.createElement('div');
+					dom.className = 'cm-fm-hover';
+					const head = document.createElement('strong');
+					head.textContent = `${hit.key}:`;
+					const info = document.createElement('div');
+					info.textContent = hit.info;
+					dom.append(head, info);
+					if (hit.values?.length) {
+						const v = document.createElement('div');
+						v.textContent = `Values: ${hit.values.join(' · ')}`;
+						dom.append(v);
+					}
+					const d = document.createElement('div');
+					d.textContent = `Default: ${hit.default}`;
+					dom.append(d);
+					return { dom };
+				},
+			};
+		}),
+	];
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
