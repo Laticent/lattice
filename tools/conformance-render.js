@@ -59,7 +59,7 @@ function changedComponents(base = 'origin/main') {
   for (const f of out.split('\n')) {
     // Bucketed `<bucket>/<name>/…`, or a FLAT `<name>/<name>.<ext>`. A `_` shared folder maps to
     // nothing here (its consumers are the nightly's to cover), never to its bucket's name.
-    const m = f.match(/^lib\/components\/[^/]+\/([^/_][^/]*)\//) || f.match(/^lib\/components\/([^/_][^/]*)\/\1\.[^/]+$/);
+    const m = f.match(/^lib\/components\/[^/]+\/([^/_][^/]*)\//) || f.match(/^lib\/components\/([^/_][^/]*)\/\1\.(?:manifest\.json|styles\.css)$/);
     if (m) names.add(m[1]);
   }
   return [...names].sort();
@@ -428,18 +428,19 @@ function summarize(r, labels = {}) {
   // Findings on slides a gallery GENERATES (title, closing, anti-pattern) belong to no component, but
   // they are findings: counted here and printed, never dropped.
   const generated = { overflow: 0, contrast: 0, axe: 0 };
+  const headerless = new Set(r.index.filter((s) => !s.header).map((s) => s.slide));
   for (const s of r.index) { const o = at(s.slide); if (o) o.slides++; }
   // `unowned` = slides with no gallery header at all (a harness fault); generated slides are counted apart.
   const unowned = r.index.filter((s) => !s.header).map((s) => s.slide);
-  for (const o of r.overflow) if (o.over) { const c = at(o.slide); if (c) c.overflow.push(o.slide); else generated.overflow++; }
+  for (const o of r.overflow) if (o.over) { const c = at(o.slide); if (c) c.overflow.push(o.slide); else if (!headerless.has(o.slide)) generated.overflow++; }
   for (const c of r.cardRows) if (c.cardRow) { const o = at(c.slide); if (o) o.cardRowSlides++; }
   const axeUnplaced = [];
-  for (const v of r.axeViolations || []) { const o = at(v.slide); if (o) o.axe.push(v); else if (v.slide != null) generated.axe++; else axeUnplaced.push(v); }
+  for (const v of r.axeViolations || []) { const o = at(v.slide); if (o) o.axe.push(v); else if (v.slide != null && !headerless.has(v.slide)) generated.axe++; else axeUnplaced.push(v); }
   if (r.swept) {
     for (const [theme, rows] of r.swept.offenders) {
       for (const row of rows) {
         const o = at(Number(row.page));
-        if (!o) { generated.contrast++; continue; }
+        if (!o) { if (!headerless.has(Number(row.page))) generated.contrast++; continue; }
         o.contrast.set(theme, (o.contrast.get(theme) || 0) + 1);
         if (!o.worst || row.r < o.worst.r) o.worst = { r: row.r, theme, slide: Number(row.page), text: row.text, tag: row.tag };
       }

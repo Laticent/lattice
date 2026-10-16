@@ -249,4 +249,27 @@ describe('conformance: the ledger checks dates against git, not against the entr
     cm('pr 4: a ceiling raised on an entry that is on main');
     assert.ok(chk(entry('x.old', 'seeded', 9)).some((p) => p.includes('may only fall')));
   });
+
+  test('against a base: a clause added in one branch commit and its debt in a LATER one is still one change; a ceiling is held to the base\'s CURRENT value', () => {
+    const r = fs.mkdtempSync(path.join(os.tmpdir(), 'conf-ledger-base2-'));
+    const gg = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...a], { cwd: r, stdio: 'ignore' });
+    const w = (rel, text) => { fs.mkdirSync(path.dirname(path.join(r, rel)), { recursive: true }); fs.writeFileSync(path.join(r, rel), text); };
+    const cm = (m) => { gg('add', '-A'); gg('commit', '-q', '-m', m); };
+    const chk = (...es) => ledgerGitProblems(es, { cwd: r, base: 'main' });
+    gg('init', '-q', '-b', 'main');
+    w('lib/conformance/kinds/x.contract.js', clauseFile('x.old'));
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'i', 10)));
+    cm('main: debt added at 10');
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'i', 5)));
+    cm('main: the ceiling falls to 5');
+    gg('checkout', '-q', '-b', 'pr');
+    w('lib/conformance/kinds/x.contract.js', clauseFile('x.old', 'x.new'));
+    cm('pr 1: the clause alone');
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'i', 5), entry('x.new', 'a', 3)));
+    cm('pr 2: its debt in a later commit');
+    assert.deepEqual(chk(entry('x.new', 'a', 3)), [], 'the clause is new in the branch, so debt in a later commit of the same branch is not back-dating');
+    w('test/conformance/debt.json', ledgerText(entry('x.old', 'i', 9), entry('x.new', 'a', 3)));
+    cm('pr 3: the ceiling is raised to 9, above main\'s 5 though below the 10 it was added with');
+    assert.ok(chk(entry('x.old', 'i', 9)).some((p) => p.includes('may only fall')), 'held to what main holds now');
+  });
 });
