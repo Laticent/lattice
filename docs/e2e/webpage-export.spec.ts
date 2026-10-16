@@ -429,7 +429,10 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 			bg: bg ? getComputedStyle(bg).backgroundImage.slice(0, 30) : null,
 			icon: imgs[0] ? { src: imgs[0].src.slice(0, 22), loaded: imgs[0].complete && imgs[0].naturalWidth > 0 } : null,
 			poster: poster ? getComputedStyle(poster).backgroundImage.slice(0, 30) : null,
-			thumb: thumb ? thumb.style.backgroundImage.slice(0, 30) : null,
+			// Computed, like `bg` and `poster`: the player may store a repeated picture once and point
+			// the inline style at it with var() (lib/export/player-assets.mjs), so the declared text
+			// is not the picture. What the reader sees is the computed value.
+			thumb: thumb ? getComputedStyle(thumb).backgroundImage.slice(0, 30) : null,
 			articleImg: (document.querySelector('#lp-article img[alt="Icon"]') as HTMLImageElement | null)?.src.slice(0, 22) ?? null,
 			// The failed picture and the web one both draw the placeholder, never a broken-image mark.
 			placeholders: imgs.filter((i) => i.hasAttribute('data-lattice-web-src')).map((i) => i.getAttribute('data-lattice-web-src')),

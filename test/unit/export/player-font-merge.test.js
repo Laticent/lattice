@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { mergeIdenticalFontFaces, literalFontWeights, isPruneSkippedStyle } = require('../../../lib/export/player-prune.js');
+const { fontFaceFamilies, mergeIdenticalFontFaces, literalFontWeights, isPruneSkippedStyle } = require('../../../lib/export/player-prune.js');
 
 const face = (family, weight, src, style = 'normal') =>
 	`@font-face{font-family:'${family}';font-style:${style};font-weight:${weight};font-display:fallback;src:url(${src}) format('woff2');}`;
@@ -57,6 +57,16 @@ describe('mergeIdenticalFontFaces', () => {
 		const ranged = (w, src, range) => `@font-face{font-family:Z;font-weight:${w};src:url(${src})${range ? `;unicode-range:${range}` : ''}}`;
 		const css = ranged(400, 'A') + ranged(500, 'A') + ranged(500, 'B', 'U+0100-024F') + ranged(600, 'A');
 		assert.equal(mergeIdenticalFontFaces(css, { byFamily: { z: [400, 500, 600] } }).applied, false);
+	});
+
+	test('a family another stylesheet also declares is left alone', () => {
+		// The Studio export carries a second, relative-URL set of the bundled faces that cannot load
+		// from a file. In Chromium its exact 400 outranks a merged 400 600 range, errors, and the text
+		// falls back to the system font: measured on the Webpage export's toolbar.
+		const elsewhere = "@font-face{font-family:'JetBrains Mono';font-weight:400;src:url(fonts/jetbrains-400.woff2)}";
+		const r = mergeIdenticalFontFaces(MONO, { byFamily: { 'jetbrains mono': [400] }, foreign: fontFaceFamilies(elsewhere) });
+		assert.equal(r.applied, false);
+		assert.equal(mergeIdenticalFontFaces(MONO, { byFamily: { 'jetbrains mono': [400] }, foreign: fontFaceFamilies('') }).applied, true);
 	});
 
 	test('keyword weights read as numbers', () => {

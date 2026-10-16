@@ -20,6 +20,7 @@
 // the user actually exports a webpage — never on the initial Studio load.
 import {
 	collectBaseSelectors,
+	fontFaceFamilies,
 	GATE_PROPS,
 	isPruneSkippedStyle,
 	literalFontWeights,
@@ -204,7 +205,7 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 				.filter((b) => b[0] !== fontBlock.full)
 				.map((b) => (cssOk && target && b[0] === target.full ? cssResult.css : b[2]))
 				.join('\n');
-			const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedWeights, any: literalFontWeights(shipped) }) as { css: string; applied: boolean; merged: number };
+			const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedWeights, any: literalFontWeights(shipped), foreign: fontFaceFamilies(shipped) }) as { css: string; applied: boolean; merged: number };
 			if (merged.applied) fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
 		}
 

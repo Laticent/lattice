@@ -388,7 +388,7 @@ Before 2026-10-16 the CLI stamped the wall clock there, the only byte that moved
 | Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` (both hosts, inside `assemblePlayer`) | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
 | CSS prune | `player-prune.js`, run in a real browser by `lattice.js` and the Studio | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
 | Font prune | `player-prune.js` `prunePlayerFontFaces` | families nothing uses |
-| Font merge | `player-prune.js` `mergeIdenticalFontFaces` | an identical font file declared once per weight: adjacent weights that share one file become one face with a weight range, unless a weight the page uses (measured, or written in the shipped CSS) falls strictly inside the run undeclared |
+| Font merge | `player-prune.js` `mergeIdenticalFontFaces` | an identical font file declared once per weight: adjacent weights that share one file become one face with a weight range, unless a weight the page uses (measured, or written in the shipped CSS) falls strictly inside the run undeclared, or another stylesheet also declares the family |
 
 The font merge is exact for every weight a face declares and every weight outside a run, which
 was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Firefox. A weight

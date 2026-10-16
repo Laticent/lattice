@@ -407,6 +407,16 @@ list of Lattice assumptions still left.
      Present, Slides and Article, light and dark.
    - The gallery is pixel-identical in the same grid in all three engines.
 
+   **The Studio check, which the pre-merge confidence asked for, found a regression the CLI
+   could not show.** The Studio's Webpage export carries a second, relative-URL set of the
+   bundled `@font-face` rules, which cannot load from a file. While every face declared one
+   weight, Chromium treated the two sets as one composite and fell back to the embedded copy.
+   Once the merge widened Outfit to `300 700`, the broken exact `400` became the closer match:
+   Chromium chose it, it failed, and the player's toolbar fell back to the system font. WebKit
+   was unaffected. The merge now leaves alone any family that another stylesheet declares.
+   Measured on the Studio export of the sign-off deck: 1,390,177 → 926,003 bytes before that
+   guard. The dead font set is `followups.d/2728-p2-studio-export-dead-font-faces.md`.
+
    One thing turned up along the way: Firefox took more than 30 seconds to load the old 2.7 MB
    gallery file from disk.
 

@@ -5094,7 +5094,7 @@ async function renderBody(browser, g, closeBrowser) {
 // that crashes the small-container Chromium. A dedicated hardened instance is
 // isolated from that pressure and can't perturb the deliverable render.
 async function prunePlayerCssInPage(playerHtml) {
-  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces, GATE_PROPS, PRUNE_SKIP_STYLE_IDS, isPruneSkippedStyle, literalFontWeights, mergeIdenticalFontFaces } = require('./lib/export/html-player.js');
+  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces, GATE_PROPS, PRUNE_SKIP_STYLE_IDS, isPruneSkippedStyle, fontFaceFamilies, literalFontWeights, mergeIdenticalFontFaces } = require('./lib/export/html-player.js');
   // Two targets: the inlined lattice.css (largest non-font <style>) for the selector
   // prune, and the base64 @font-face block (#lattice-embedded-fonts) for the font prune.
   const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
@@ -5259,7 +5259,7 @@ async function prunePlayerCssInPage(playerHtml) {
         .filter((b) => b[0] !== fontBlock.full)
         .map((b) => (cssOk && b[0] === target.full ? cssResult.css : b[2]))
         .join('\n');
-      const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedFonts.weights, any: literalFontWeights(shipped) });
+      const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedFonts.weights, any: literalFontWeights(shipped), foreign: fontFaceFamilies(shipped) });
       if (merged.applied) {
         fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
       }
