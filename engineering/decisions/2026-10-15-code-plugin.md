@@ -538,3 +538,11 @@ Proof:
   panel's clip; 46 cells moved by one, every one toward what Chromium draws. On the 429 decks `lint:deck:all` reads, the change adds no finding and removes those two (main named them too, from
   its hand-written 47); Tier 2 re-measures the
   bar at two room sizes on every canvas.
+- 2026-10-16: the lint core's size (#2716, #2736). The measured tables and the rules that read them put the Studio's
+  lint core (`lintCoreGz`, esm/lint.js beyond the engine) 1.5KB past its ceiling once the branch met main. Two
+  give-backs: code-pane-columns.js writes each group's rows keyless, in the generator's fixed order (655 bytes), and the
+  record writer (record-edit.js, split from record.js) is its own ESM entry, esm/code-record.js, which only the Compose
+  options panel loads (docs/src/playground/code-record-source.js; about 0.8KB). The "lint core" is the whole authoring
+  bundle, Compose kernels included, so splitting the module alone moved nothing; the entry did. That left 101 bytes over
+  (101813 against 101712, on main at 72ae80f, where main alone is 98317). The owner chose a 1KB ceiling raise in its own
+  PR (#2736) over an encoding 20 bytes under the line or dropping the bar and wrapped-row counting.
