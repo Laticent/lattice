@@ -1,0 +1,336 @@
+---
+// Mosaico — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/mosaico,
+// the `@laticent/mosaico` workspace). Two panels: a collage you build from photo shapes, packed by
+// the `tree` strategy into a box you pick, and a logo wall you can flip between the old equal
+// cells and the `rows` strategy's equal area, with every mark's area measured beside it. Reached
+// at /libraries/mosaico/; its Learn page is /libraries/mosaico/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Mosaico — every box keeps its shape</title>
+		<link rel="icon" href="/mosaico-mark-min.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #f7f3f4; --stage: #efe8ec; --ink: #24161f; --muted: #6d5d68; --line: #e0d3db;
+				--accent: #7a3b74; --accent-ink: #fff; --glow: #b96a0a; --glow-bg: #f8e6cc;
+				--panel: #fdfbfc; --tile: #e9d8e5; --tile-ink: #4a2446;
+				--shadow: 0 1px 2px rgba(36,22,31,.06), 0 8px 24px rgba(36,22,31,.06);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #141012; --stage: #1d171b; --ink: #efe4ec; --muted: #a8949f; --line: #33282f;
+					--accent: #d08ac6; --accent-ink: #1e0c1b; --glow: #f2b252; --glow-bg: #33270f;
+					--panel: #19141a; --tile: #3a2537; --tile-ink: #f1d9ec;
+					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				}
+			}
+			:root[data-theme="light"] {
+				--paper: #f7f3f4; --stage: #efe8ec; --ink: #24161f; --muted: #6d5d68; --line: #e0d3db;
+				--accent: #7a3b74; --accent-ink: #fff; --glow: #b96a0a; --glow-bg: #f8e6cc;
+				--panel: #fdfbfc; --tile: #e9d8e5; --tile-ink: #4a2446;
+			}
+			:root[data-theme="dark"] {
+				--paper: #141012; --stage: #1d171b; --ink: #efe4ec; --muted: #a8949f; --line: #33282f;
+				--accent: #d08ac6; --accent-ink: #1e0c1b; --glow: #f2b252; --glow-bg: #33270f;
+				--panel: #19141a; --tile: #3a2537; --tile-ink: #f1d9ec;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 920px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 64ch; margin: 8px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
+
+			.tabs { display: flex; gap: 8px; margin: 26px 0 0; flex-wrap: wrap; }
+			.tab { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 13px var(--sans);
+				border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+			.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+			.stage { margin: 12px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(16px, 4vw, 32px); }
+			.controls { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; }
+			.group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+			.group .lbl { font: 600 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+			.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 12px var(--mono);
+				border-radius: 999px; padding: 6px 11px; cursor: pointer; min-height: 32px; }
+			.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
+			.chip:disabled { opacity: .4; cursor: default; }
+
+			.frame { margin: 20px auto 0; background: var(--panel); border: 1px dashed var(--line); border-radius: 10px;
+				position: relative; width: 100%; max-height: 62vh; overflow: hidden; }
+			.frame .box { position: absolute; border: 0; padding: 0; border-radius: 6px; cursor: pointer;
+				background: linear-gradient(150deg, var(--tile), color-mix(in srgb, var(--tile) 70%, var(--accent))); color: var(--tile-ink);
+				display: grid; place-items: center; font: 600 12px var(--mono); transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease, filter .12s ease; }
+			.frame .box:hover { filter: brightness(1.04); }
+			@media (max-width: 560px) { .frame .box { font-size: 10px; } }
+			.frame .box.warm { background: linear-gradient(150deg, var(--glow-bg), color-mix(in srgb, var(--glow-bg) 70%, var(--glow))); color: var(--glow); }
+			.frame .cell { position: absolute; border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 6px; }
+			.stats { margin: 14px 0 0; display: flex; gap: 8px 20px; flex-wrap: wrap; font: 12px var(--mono); color: var(--muted); }
+			.stats b { color: var(--ink); font-weight: 600; }
+			.note { margin: 10px 0 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
+			.panel[hidden] { display: none; }
+
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot a { color: var(--accent); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="mosaico" />
+			<header>
+				<div class="brand">
+					<img class="logo" src="/mosaico-mark.svg" alt="" width="46" height="46" />
+					<h1>Mosaico</h1><span class="tag">Library</span>
+				</div>
+				<button class="theme" id="themeBtn" type="button">Theme</button>
+			</header>
+			<p class="promise">Every box keeps its shape, and every gutter comes out exact.</p>
+			<p class="sub">Build a <b>collage</b> from photos of any shape and watch every arrangement get searched in a few milliseconds, or flip a <b>logo wall</b> between equal cells and equal area and see the wide marks stop winning.</p>
+
+			<div class="tabs" role="tablist" aria-label="Strategy">
+				<button class="tab" role="tab" id="tabTree" aria-selected="true" aria-controls="panelTree" type="button">Collage · tree</button>
+				<button class="tab" role="tab" id="tabRows" aria-selected="false" aria-controls="panelRows" type="button">Logo wall · rows</button>
+			</div>
+
+			<div class="stage">
+				<section class="panel" id="panelTree" role="tabpanel" aria-labelledby="tabTree">
+					<div class="controls">
+						<div class="group" id="shapes" aria-label="Add a photo"><span class="lbl">Add</span></div>
+						<div class="group" id="boxes" aria-label="Box shape"><span class="lbl">Box</span></div>
+						<div class="group" aria-label="Order"><span class="lbl">Order</span>
+							<button class="chip" id="free" aria-pressed="true" type="button">free</button>
+							<button class="chip" id="ordered" aria-pressed="false" type="button">ordered</button>
+						</div>
+						<button class="chip" id="clear" type="button">clear</button>
+					</div>
+					<div class="frame" id="treeFrame"></div>
+					<div class="stats" id="treeStats" role="status" aria-live="polite"></div>
+					<p class="note">Each photo keeps its exact shape; whatever the box's shape leaves over becomes matte, never crop. Click a tile to remove it. Up to six photos: the search tries every guillotine arrangement.</p>
+				</section>
+
+				<section class="panel" id="panelRows" role="tabpanel" aria-labelledby="tabRows" hidden>
+					<div class="controls">
+						<div class="group" id="marks" aria-label="Add a mark"><span class="lbl">Add</span></div>
+						<div class="group" aria-label="Sizing"><span class="lbl">Sizing</span>
+							<button class="chip" id="cells" aria-pressed="false" type="button">equal cells</button>
+							<button class="chip" id="area" aria-pressed="true" type="button">equal area</button>
+						</div>
+						<button class="chip" id="clearMarks" type="button">reset</button>
+					</div>
+					<div class="frame" id="rowsFrame"></div>
+					<div class="stats" id="rowsStats" role="status" aria-live="polite"></div>
+					<p class="note">Equal cells draw each mark as large as a cell allows, so a wide wordmark takes the room. Equal area gives every mark the same area, unless that would stand it taller than a cap. Rows are balanced and centered.</p>
+				</section>
+			</div>
+
+			<p class="foot">This page runs the real library in your browser. <a href="/libraries/mosaico/learn/">Learn how Mosaico works, and how to use it →</a></p>
+		</div>
+
+		<script>
+			import { pack } from '@/lib/mosaico';
+
+			const $ = (s: string) => document.querySelector(s) as HTMLElement;
+			const root = document.documentElement;
+
+			// Theme toggle (shared key with the docs site; see the Lente demo for the `system` value).
+			const THEME_LS = 'lattice-docs-mode';
+			const applyTheme = (t: string) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			const resolveThemePref = (t: string | null) => (t === 'light' || t === 'dark' ? t : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+			try { applyTheme(resolveThemePref(localStorage.getItem(THEME_LS))); } catch {}
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch {}
+			});
+
+			// Tabs.
+			const tabs = [['#tabTree', '#panelTree'], ['#tabRows', '#panelRows']] as const;
+			for (const [tab, panel] of tabs) {
+				$(tab).addEventListener('click', () => {
+					for (const [t, p] of tabs) {
+						$(t).setAttribute('aria-selected', String(t === tab));
+						$(p).hidden = p !== panel;
+					}
+					render();
+				});
+			}
+
+			const chip = (label: string, onClick: () => void) => {
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.className = 'chip';
+				b.textContent = label;
+				b.addEventListener('click', onClick);
+				return b;
+			};
+			const ratio = (a: number) => {
+				for (const [w, h] of [[16, 9], [9, 16], [3, 2], [2, 3], [4, 3], [3, 4], [1, 1], [12, 5], [1, 2], [4, 1], [3, 1]]) if (Math.abs(w / h - a) < 0.01) return `${w}:${h}`;
+				return a.toFixed(2);
+			};
+
+			// ── Collage (tree) ───────────────────────────────────────────────────────────────
+			const SHAPES: [string, number][] = [['tall', 2 / 3], ['wide', 3 / 2], ['square', 1], ['pano', 12 / 5], ['column', 1 / 2], ['16:9', 16 / 9]];
+			const BOXES: [string, number][] = [['16:9', 16 / 9], ['4:3', 4 / 3], ['1:1', 1], ['9:16', 9 / 16]];
+			const GAP = 0.02;
+			// Five different shapes that pack to under 1% matte in a 16:9 box.
+			let photos: number[] = [2 / 3, 3 / 2, 1, 12 / 5, 16 / 9];
+			let box = 16 / 9;
+			let ordered = false;
+			const shapesEl = $('#shapes');
+			for (const [name, a] of SHAPES) shapesEl.append(chip(name, () => { if (photos.length < 6) { photos = [...photos, a]; render(); } }));
+			const boxesEl = $('#boxes');
+			const boxChips = BOXES.map(([name, a]) => {
+				const b = chip(name, () => { box = a; render(); });
+				boxesEl.append(b);
+				return [b, a] as const;
+			});
+			$('#free').addEventListener('click', () => { ordered = false; render(); });
+			$('#ordered').addEventListener('click', () => { ordered = true; render(); });
+			$('#clear').addEventListener('click', () => { photos = []; render(); });
+
+			function renderTree() {
+				const frame = $('#treeFrame');
+				for (const [b, a] of boxChips) b.setAttribute('aria-pressed', String(a === box));
+				$('#free').setAttribute('aria-pressed', String(!ordered));
+				$('#ordered').setAttribute('aria-pressed', String(ordered));
+				for (const b of shapesEl.querySelectorAll('button')) (b as HTMLButtonElement).disabled = photos.length >= 6;
+				frame.style.aspectRatio = String(box);
+				frame.style.maxWidth = `calc(62vh * ${box})`;
+				frame.replaceChildren();
+				const stats = $('#treeStats');
+				if (!photos.length) { stats.textContent = 'Add a photo to start.'; return; }
+				const t0 = performance.now();
+				const res = pack(photos, { aspect: box }, { gap: GAP, order: ordered ? 'ordered' : 'free' });
+				const ms = performance.now() - t0;
+				if (!res.ok) { stats.textContent = `No layout: ${res.reason}`; return; }
+				// The layout is 1 tall and res.aspect wide; center it in the box (the leftover is matte).
+				const scale = Math.min(1, box / res.aspect);
+				const lw = (res.aspect * scale) / box, lh = scale;
+				const ox = (1 - lw) / 2, oy = (1 - lh) / 2;
+				res.rects.forEach((r, i) => {
+					const el = document.createElement('button');
+					el.type = 'button';
+					el.className = 'box' + (i === 0 ? ' warm' : '');
+					el.style.left = `${(ox + (r.x / res.aspect) * lw) * 100}%`;
+					el.style.top = `${(oy + r.y * lh) * 100}%`;
+					el.style.width = `${(r.w / res.aspect) * lw * 100}%`;
+					el.style.height = `${r.h * lh * 100}%`;
+					el.textContent = ratio(photos[i]);
+					el.setAttribute('aria-label', `Photo ${i + 1}, ${ratio(photos[i])}: remove`);
+					el.addEventListener('click', () => { photos = photos.filter((_, k) => k !== i); render(); });
+					frame.append(el);
+				});
+				stats.innerHTML = `<span>arrangement <b>${res.arrangement}</b></span><span>matte <b>${(res.empty * 100).toFixed(1)}%</b></span><span>searched <b>${res.work.arrangements}</b> arrangements in <b>${ms.toFixed(1)} ms</b></span>`;
+			}
+
+			// ── Logo wall (rows) ─────────────────────────────────────────────────────────────
+			const MARKS: [string, number][] = [['4:1', 4], ['3:1', 3], ['1:1', 1], ['1:2', 1 / 2]];
+			const START = [4, 1, 1 / 2, 3, 3, 1, 4, 1 / 2];
+			let marks = [...START];
+			let equalArea = true;
+			const COLS = 4, RGAP = 0.05, BAND = 0.09;
+			const marksEl = $('#marks');
+			for (const [name, a] of MARKS) marksEl.append(chip(name, () => { if (marks.length < 16) { marks = [...marks, a]; render(); } }));
+			$('#cells').addEventListener('click', () => { equalArea = false; render(); });
+			$('#area').addEventListener('click', () => { equalArea = true; render(); });
+			$('#clearMarks').addEventListener('click', () => { marks = [...START]; render(); });
+
+			function renderRows() {
+				const frame = $('#rowsFrame');
+				$('#cells').setAttribute('aria-pressed', String(!equalArea));
+				$('#area').setAttribute('aria-pressed', String(equalArea));
+				frame.replaceChildren();
+				frame.style.maxWidth = '';
+				const cell = (1 - (COLS - 1) * RGAP) / COLS;
+				const rects: { x: number; y: number; w: number; h: number }[] = [];
+				const cells: { x: number; y: number; w: number; h: number }[] = [];
+				let height = 0;
+				const t0 = performance.now();
+				if (equalArea) {
+					const res = pack(marks, {}, { strategy: 'rows', gap: RGAP, heightCap: BAND * Math.SQRT2, minHeightCap: BAND, maxPerRow: COLS, minCell: cell });
+					if (!res.ok) return;
+					rects.push(...res.rects);
+					cells.push(...(res.cells || []));
+					height = 1 / res.aspect;
+				} else {
+					// The old wall: equal cells, each mark drawn `contain` in a cell under the band.
+					const rowsN = Math.ceil(marks.length / COLS);
+					marks.forEach((a, i) => {
+						const r = Math.floor(i / COLS), inRow = Math.min(COLS, marks.length - r * COLS);
+						const x0 = (1 - (inRow * cell + (inRow - 1) * RGAP)) / 2 + (i % COLS) * (cell + RGAP);
+						const y0 = r * (BAND + RGAP);
+						const w = Math.min(cell, BAND * a), h = w / a;
+						cells.push({ x: x0, y: y0, w: cell, h: BAND });
+						rects.push({ x: x0 + (cell - w) / 2, y: y0 + (BAND - h) / 2, w, h });
+					});
+					height = rowsN * BAND + (rowsN - 1) * RGAP;
+				}
+				const ms = performance.now() - t0;
+				// Inset the wall by `pad` of the frame's width on all four sides.
+				const pad = 0.04;
+				const s = 1 - 2 * pad;
+				const H = height * s + 2 * pad;
+				frame.style.aspectRatio = String(1 / H);
+				const place = (el: HTMLElement, r: { x: number; y: number; w: number; h: number }) => {
+					el.style.left = `${(pad + r.x * s) * 100}%`;
+					el.style.width = `${r.w * s * 100}%`;
+					el.style.top = `${((pad + r.y * s) / H) * 100}%`;
+					el.style.height = `${((r.h * s) / H) * 100}%`;
+				};
+				cells.forEach((c) => { const el = document.createElement('div'); el.className = 'cell'; place(el, c); frame.append(el); });
+				rects.forEach((r, i) => {
+					const el = document.createElement('button');
+					el.type = 'button';
+					el.className = 'box' + (marks[i] >= 3 ? ' warm' : '');
+					place(el, r);
+					el.textContent = ratio(marks[i]);
+					el.setAttribute('aria-label', `Mark ${i + 1}, ${ratio(marks[i])}: remove`);
+					el.addEventListener('click', () => { if (marks.length > 1) { marks = marks.filter((_, k) => k !== i); render(); } });
+					frame.append(el);
+				});
+				const areas = rects.map((r) => r.w * r.h);
+				const spread = Math.max(...areas) / Math.min(...areas);
+				$('#rowsStats').innerHTML = `<span>largest mark / smallest <b>${spread.toFixed(2)}×</b></span><span>rows <b>${equalArea ? 'balanced' : 'four, then the rest'}</b></span>${equalArea ? `<span>packed in <b>${ms.toFixed(2)} ms</b></span>` : ''}`;
+			}
+
+			// A label that would spill out of its tile moves into the tile's tooltip.
+			function fitLabels(frame: HTMLElement) {
+				for (const el of frame.querySelectorAll<HTMLElement>('.box')) {
+					const label = el.textContent || '';
+					el.title = label;
+					// Measure the text itself: centered text that spills out of both sides does not
+					// show up in the tile's own scroll size.
+					const probe = document.createElement('span');
+					probe.textContent = label;
+					el.replaceChildren(probe);
+					if (probe.offsetWidth > el.clientWidth - 4 || probe.offsetHeight > el.clientHeight - 2) el.replaceChildren();
+				}
+			}
+			function render() {
+				if (!$('#panelTree').hidden) { renderTree(); fitLabels($('#treeFrame')); }
+				if (!$('#panelRows').hidden) { renderRows(); fitLabels($('#rowsFrame')); }
+			}
+			render();
+		</script>
+	</body>
+</html>

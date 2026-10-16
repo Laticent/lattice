@@ -200,3 +200,30 @@ vermilion, Segno's charcoal and red):
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#1b2423` | `#e3ebea` | Fraunces "Fuoco" |
 
+## Mosaico — the mosaic (built 2026-10-16)
+
+Mosaico (the box-packing library, `docs/src/lib/mosaico`) joined the family with its site page.
+*Mosaico* is Italian for **mosaic**, which is what it makes: tiles of different shapes, cut
+straight across, fitted into one box with even gutters. The mark is one of its own layouts:
+
+- **the tiles**: a tall tile on the left, a square over two slim tiles on the right, each a
+  different shape, cut the guillotine way the `tree` strategy cuts;
+- **the warm square** is the tile the eye lands on, the "live" accent;
+- **the ringed hub** sits exactly on the T where the cuts meet, the family tie.
+
+A first draft put the hub on a tile's edge, where it read as a stray dot; moving the cuts so they
+meet at the center put it on the junction. The min mark drops the two slim tiles for one, keeps
+the strokes at 11 units and enlarges the hub. Assets: `docs/public/mosaico-mark.svg`,
+`mosaico-mark-min.svg` (favicon), `mosaico-lockup.svg`. The generator was kept out of tree
+(`.scratch/mosaico-brand/gen.py`), as the siblings' were.
+
+**Palette**, plum with an amber live accent, apart from every sibling (Suono's green, Lente's blue,
+Vetrina's rose, Cadenza's indigo, Trama's sienna and gold, Calco's ink blue and vermilion, Segno's
+charcoal and red, Fuoco's teal and ember):
+
+| Class | Light | Dark |
+|---|---|---|
+| `pri` / `hub` | `#7a3b74` | `#d08ac6` |
+| `warm` | `#d9861c` | `#f2b252` |
+| `ring` | `#3a1636` | `#1e0c1b` |
+

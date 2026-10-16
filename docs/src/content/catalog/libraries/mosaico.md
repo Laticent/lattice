@@ -1,0 +1,99 @@
+---
+kind: library
+name: Mosaico
+order: 10
+promise: Every box keeps its shape, and every gutter comes out exact.
+intro: Hand Mosaico a set of photos or logos and a box to fill, and it returns a rectangle for each one. A photo keeps its own shape, the gutters come out exact, and the same input always gives the same layout.
+group: Drawing and parsing
+inLattice: Lays out every collage, and sizes the marks on every logo wall.
+mark: /mosaico-mark.svg
+useWhen: You need to place pictures or marks of different shapes in one box, without cropping them, stretching them or letting the wide ones win.
+facts:
+  - { k: Package, v: '@laticent/mosaico' }
+  - { k: Status, v: Coming to npm with Lattice 1.0 }
+  - { k: Runs in, v: 'The browser, Node and workers' }
+  - { k: Dependencies, v: None }
+  - { k: License, v: AGPL-3.0 }
+reference:
+  - label: The README
+    href: https://github.com/Laticent/lattice/blob/main/docs/src/lib/mosaico/README.md
+    note: Both strategies, every option, and the speed numbers.
+  - label: The tree search
+    href: https://github.com/Laticent/lattice/blob/main/docs/src/lib/mosaico/tree.ts
+    note: Every guillotine arrangement of up to six boxes, with the gutters solved inside the tree.
+  - label: The rows strategy
+    href: https://github.com/Laticent/lattice/blob/main/docs/src/lib/mosaico/rows.ts
+    note: Equal area under a height cap, balanced rows by dynamic programming.
+  - label: Why we built it
+    href: https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-16-mosaico-layout-library.md
+    note: The model, the measurements, and what the checker caught on the way.
+---
+
+## The problem
+
+You have five photos — tall, wide, square, a panorama, a slim column — and one box to put them in.
+The easy answers all lose something:
+
+- **A grid of equal cells** crops every photo to the cell, or leaves bands of empty matte around it.
+- **Justified rows** keep each photo's shape, but only in rows, and the box's height comes out
+  wherever it lands.
+- **Logos in equal cells** look fair and are not: a wide wordmark fills its cell's width, a tall
+  crest only its height, so the wordmark gets several times the area.
+
+## The idea
+
+Mosaico treats layout as a search over arrangements, and makes the arrangement exact.
+
+- **`tree`** tries every guillotine layout of up to six boxes, where each cut runs all the way
+  across the region it divides. Every node of the tree stores its width as a straight line in its
+  height, so a tile that spans several grid tracks keeps its exact shape and the gutters need no
+  rounding. It keeps the arrangement that leaves the least empty space and crop.
+- **`rows`** breaks a list of any length into balanced, centered rows and gives every item the
+  **same area**, unless that would make it taller than a cap. A wordmark, a badge and a crest then
+  carry the same weight.
+
+Both are pure functions: numbers in, rectangles out, no DOM, deterministic to the byte.
+
+## How to use it
+
+```ts
+import { pack, toGrid } from '@laticent/mosaico';
+
+// A collage: three photos (width / height) in a 16:9 box, with a small gutter.
+const collage = pack([1.5, 0.67, 1], { aspect: 16 / 9 }, { gap: 0.012 });
+if (collage.ok) {
+  const { cols, rows, areas } = toGrid(collage); // CSS grid tracks in fr, one area per photo
+}
+
+// A logo wall: four marks at equal area, at most four a row.
+const wall = pack([4, 1, 0.5, 3], {}, {
+  strategy: 'rows', gap: 0.05, heightCap: 0.12, maxPerRow: 4,
+});
+// wall.rects: each mark's box, as fractions of the container's width
+```
+
+The grid adapter emits `fr` tracks, so the browser fits the result to whatever box it has. Mosaico
+needs only the container's shape.
+
+## Where else it fits
+
+- A photo gallery or a product grid where the pictures arrive in any shape.
+- A sponsor or partner page, a "trusted by" strip, a team wall of crests.
+- Print layouts, canvas and SVG composition: the rectangles are plain numbers, not CSS.
+
+## How Lattice uses it
+
+Every `collage` slide packs its photos with `tree`. The move into Mosaico made the search about six
+times faster (six photos: 58 ms down to 9 ms) without changing one byte of any layout, which a
+golden file of 4,128 cases checks. Every `logo-wall` slide sizes its marks with `rows`, so a 3:1
+wordmark no longer gets 3.6× the area of a 1:2 crest. The CLI and the live preview call the same
+functions, so both draw the same layout.
+
+## What it doesn't do
+
+- **No more than six boxes in `tree`.** The search grows about eight times per box; past six,
+  use `rows`.
+- **Not ink.** Equal area is measured on each box, not on what is drawn inside it. A logo with
+  empty margin in its file looks smaller than its neighbors; crop the file to the logo.
+- **Not yet: boxes with a range of shapes,** panes that grow, or layouts you draw yourself and
+  only want sized. Those are the next strategies in the design note.
