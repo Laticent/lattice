@@ -3,3 +3,6 @@
   (6.71x to 2.75x on one runner in one session; the blessed baseline reads 5.72x to 2.75x across
   two runner classes). Brace records that are not pills, such as a chart's `{2, 82}`, no longer pay
   for an error message nobody reads. Segno record slots gain an experimental `refuses(text)`.
+- The perf nightly now compares the inline-span tier head against base, so a per-span dispatcher
+  regression past 12% files the rolling perf issue instead of waiting for someone to run
+  `npm run bench:check`.

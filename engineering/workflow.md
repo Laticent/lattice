@@ -571,7 +571,17 @@ the band. In its own process, five `bench:check` runs read −1.9% to +1.4% (dir
 flag-gated ones, so in a tree that has the timer and the fixture an empty result means the timer
 broke. `bench:check` prints `FAILED` and exits 1, and `bench:bless` refuses, because a bless
 would otherwise re-file the old inline rows under the new machine stamp. Only a tree with no timer
-or no fixture (the nightly's base worktree) skips quietly.
+or no fixture skips quietly.
+
+**The nightly runs this tier on both arms** (followup 2718-p4). `perf-nightly.yml` copies the timer
+and the fixture into the base worktree beside `engine-bench.mjs`, and `tools/perf-nightly-compare.mjs`
+compares each row's ratio head against base at 12%, not at the render tier's 60% cliff: the ratio
+is paired inside each arm, so the runner's speed has already cancelled, and a cliff would pass the
++21% a per-span `includes` reads. That headroom is narrow and one timer run has tails wider than
+it (a checker read 1.42 and 3.52 among 66 runs of unchanged code that otherwise sat in
+2.55-2.86), so the nightly passes `--inline-runs 5` and each arm reports each row's median of
+five. An inline row in one arm only is drift, the report names an arm whose timer did not run, and
+a tier empty on both is an alarm, as for the other tiers.
 
 **Re-adding `TAGS.includes` to Segno's `isDirective` does NOT exercise this tier**, though it
 looks like the obvious arm. Every shipped caller tests `text[0] !== '{'` first, so the tag
@@ -660,7 +670,7 @@ Two mechanisms, neither of which replaces the loop above:
   it **blocks the merge**. It cannot see a render that got slower for the same amount
   of work, and it cannot see cost in the *route decision* that precedes the render.
 - **The nightly clocks it** — `perf-nightly.yml`'s `engine-perf` job compares the
-  render and export-rasterize tiers **head vs base on the same runner** (never against
+  render, export-rasterize and inline-span tiers **head vs base on the same runner** (never against
   the committed baseline, which is machine-relative), and asserts the Studio preview's
   interaction ceilings. It files a rolling issue on a breach. The `--print` tier is
   **not** in it; nothing compares `printDatasets` on a schedule.

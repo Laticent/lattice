@@ -98,6 +98,12 @@ const wantCli = process.argv.includes('--cli');
 //          can see them; this is the only thing that measures them. ~30s.
 const wantSweep = process.argv.includes('--sweep');
 const asJson = process.argv.includes('--json');
+// `--inline-runs N`: run the inline-span timer N times and keep, per row, the run with the median
+// ratio. The nightly passes 5. One run has fat tails (a checker read 1.42 and 3.52 among 66 runs of
+// unchanged code that otherwise sat in 2.55-2.86, about 3% of runs), and the nightly compares ONE
+// figure per arm with no second pass, where `bench:check` re-runs a row that regressed. About 4 s a run.
+const inlineRunsAt = process.argv.indexOf('--inline-runs');
+const inlineRuns = inlineRunsAt > 0 ? Math.max(1, Number.parseInt(process.argv[inlineRunsAt + 1], 10) || 1) : 1;
 const wantBless = process.argv.includes('--bless');
 const wantCheck = process.argv.includes('--check');
 const BASELINE = join(ROOT, 'test/benchmark/baseline.json');
@@ -594,7 +600,21 @@ async function flowchartTier() {
 // A BASE WORKTREE MAY HAVE NONE OF THIS: perf-nightly.yml copies only this file into the base
 // commit, so the timer is absent there, and the tier reports itself skipped rather than failing.
 const INLINE_TIMER = join(ROOT, 'test/benchmark/inline-span-timer.mjs');
-async function inlineSpanTier() {
+async function inlineSpanTier(runs = 1) {
+  if (runs > 1) {
+    const all = [];
+    for (let i = 0; i < runs; i++) {
+      const r = await inlineSpanTier(1);
+      if (r.skipped) return r; // a failed or absent timer is reported as such, not outvoted
+      all.push(r.summary);
+    }
+    const summary = all[0].map((row) => {
+      const rows = all.map((s) => s.find((x) => x.dataset === row.dataset)).filter(Boolean).sort((a, b) => a.ratio - b.ratio);
+      return { ...rows[rows.length >> 1], runs: rows.length };
+    });
+    console.log(`  (median of ${runs} runs per row: ${summary.map((r) => r.ratio.toFixed(3)).join(', ')})`);
+    return { summary, skipped: null };
+  }
   const fixture = join(ROOT, 'test/benchmark/fixtures/inline-spans.json');
   if (!existsSync(fixture) || !existsSync(INLINE_TIMER)) {
     console.log('\n=== INLINE \u00b7 per-span dispatch === skipped: this tree has no inline-span fixture or timer');
@@ -2033,7 +2053,7 @@ async function main() {
   // In-process too (~5s), and blessed: it is the flowchart layout's HARD RULE #19 record.
   const flow = await flowchartTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
-  const inline = await inlineSpanTier();
+  const inline = await inlineSpanTier(inlineRuns);
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
@@ -2148,7 +2168,7 @@ async function main() {
   }
   // `cli` joins the --json dump for symmetry with the other tiers and so a future
   // head-vs-base comparator can read it. It is NOT wired into the nightly today:
-  // tools/perf-nightly-compare.mjs has arms for render/export/print only, and
+  // tools/perf-nightly-compare.mjs has arms for render/export/print/inline only, and
   // perf-nightly.yml invokes `--json --export`, never `--cli`. Wiring it there is a
   // separate change — this line only makes the data available.
   // `edit` joins the dump for the same reason `cli` does — symmetry, and so the
