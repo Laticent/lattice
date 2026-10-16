@@ -138,11 +138,15 @@ async function measureCodeColumns(browser, { groups = GROUPS, combos = allCombos
         const left = Math.max(cr.left, clips ? pr.left + parseFloat(ps.paddingLeft) : -Infinity, sr.left);
         const right = Math.min(cr.left + rulerLength * advance, clips ? pr.right - parseFloat(ps.paddingRight) : Infinity, sr.right);
         // A twentieth of a column of slack (half a pixel at 16:9, the same share of a glyph on every
-        // canvas): a column that overshoots the edge by less draws whole, and the panel clips at its
-        // padding edge, further out. A layout scaled up (4K is the 16:9 slide at 3x) carries float
-        // error; without the slack a 4K compare-code pane measured 47.9998 columns and was called 47
-        // where it draws 48, as 16:9 does (examples/gallery-jargon.md slide 45 renders its 48 whole).
-        return { name, n: Math.floor((right - left) / advance + 0.05) };
+        // canvas), but ONLY where the panel's content edge is the cut: the panel clips at its padding
+        // edge, further out, so a column that overshoots the content edge by less draws whole. A layout
+        // scaled up (4K is the 16:9 slide at 3x) carries float error; without the slack a 4K compare-code
+        // pane measured 47.9998 columns and was called 47 where it draws 48, as 16:9 does
+        // (examples/gallery-jargon.md slide 45 renders its 48 whole). Where the SLIDE's edge is the cut
+        // (a panel `align-*` or `stats` lets grow), nothing lies beyond it, so no slack: a `W` there lost
+        // up to a pixel of ink with it (measured).
+        const slack = right === sr.right ? 1e-6 : 0.05;
+        return { name, n: Math.floor((right - left) / advance + slack) };
       }), RULER.length);
       await page.close();
       for (const { name, n } of rows) {

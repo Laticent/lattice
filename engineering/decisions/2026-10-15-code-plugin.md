@@ -535,7 +535,9 @@ Proof:
   twentieth of a column of slack: 4K is the 16:9 slide at 3x, and float error measured its compare-code pane at
   47.9998 columns, which the floor called 47. That named a 48-column line in two galleries (gallery-jargon slide 45,
   the baseline gallery slide 34) that renders whole, measured 0.016px past the content edge and well inside the
-  panel's clip; 46 cells moved by one, every one toward what Chromium draws. On the 429 decks `lint:deck:all` reads, the change adds no finding and removes those two (main named them too, from
+  panel's clip; 57 cells moved up by one, every one where the panel's padding lies past the measured edge. Where the
+  slide's own edge is the cut (a panel `align-*` or `stats` lets grow) there is no slack: the checker measured a `W`
+  losing up to a pixel of ink there with it, so those 16 cells stay at what fits whole. On the 429 decks `lint:deck:all` reads, the change adds no finding and removes those two (main named them too, from
   its hand-written 47); Tier 2 re-measures the
   bar at two room sizes on every canvas.
 - 2026-10-16: the lint core's size (#2716, #2736). The measured tables and the rules that read them put the Studio's
