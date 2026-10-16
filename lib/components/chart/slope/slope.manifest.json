@@ -286,5 +286,25 @@
       }
     },
     "key": "largest"
+  },
+  "segno": {
+    "row": {
+      "label": "a slope point",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "series",
+        "quotes": true,
+        "legacy": [
+          "value"
+        ]
+      }
+    }
   }
 }

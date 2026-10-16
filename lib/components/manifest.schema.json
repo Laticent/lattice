@@ -1707,6 +1707,43 @@
           "required": ["default"],
           "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
           "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "rows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape"],
+          "description": "On a chart's `row` (or `cell`) slot: what one row of its data holds, read by the one chart row reader (lib/core/chart-rows.js) for the transforms' detail kernel, the narrator and lint. The slot's `positional` and `params` are the row's fields, written as one `{…}` record (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §2).",
+          "properties": {
+            "shape": {
+              "description": "`fields` (a list row: a label plus one record of named fields), `series` (a table: a label column, then one column per series whose header is data) or `grid` (a table whose every crossing is a value). A chart that is a list for one series and a table for several (bar, line) names both.",
+              "oneOf": [
+                { "enum": ["fields", "series", "grid"] },
+                { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["fields", "series", "grid"] } }
+              ]
+            },
+            "quotes": {
+              "type": "boolean",
+              "description": "A `>` blockquote indented under one of the chart's LIST rows is that row's description, read with the row's value-less nested bullets as its detail: shown on hover and tap and in the speaker note (lib/components/chart/_chart-family/mark-detail.js). False on a table chart, whose cells carry no list row, and on progress, whose nested note shows on the slide face."
+            },
+            "markless": {
+              "type": "object",
+              "description": "The list depths (1 = the top level) whose rows draw no mark of their own, so a `>` under them describes nothing: a radar series (its marks are its axes), a quadrant group (its marks are its points). Keyed like `rowDepth`: `default`, or a modifier present on the slide.",
+              "required": ["default"],
+              "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+              "additionalProperties": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+            },
+            "legacy": {
+              "description": "How the chart reads a row TODAY, before the record form is drawn: the fields its trailing inline-code spans hold, in order (`[\"value\", \"target\"]` for bullet's `4.2M` `5.0M`), or `record` where today's form already is one `{…}` record (scatter, quadrant). The old-form branch, deleted in phase 4 of the model note.",
+              "oneOf": [
+                { "const": "record" },
+                { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
+              ]
+            },
+            "empty": {
+              "enum": ["none", "not-measured"],
+              "description": "What an empty cell means: `none` (nothing yet: no mark) or `not-measured` (heatmap: a gap the chart draws as unmeasured)."
+            }
+          }
         }
       }
     },

@@ -193,5 +193,34 @@
       }
     },
     "key": "largest"
+  },
+  "segno": {
+    "row": {
+      "label": "a waterfall step",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {
+        "kind": {
+          "type": "oneOf",
+          "values": [
+            "total",
+            "step"
+          ]
+        }
+      },
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "legacy": [
+          "value",
+          "kind"
+        ]
+      }
+    }
   }
 }

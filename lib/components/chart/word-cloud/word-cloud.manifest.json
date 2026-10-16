@@ -198,5 +198,25 @@
       }
     },
     "key": "act:peak"
+  },
+  "segno": {
+    "row": {
+      "label": "a word-cloud term",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "legacy": [
+          "value"
+        ]
+      }
+    }
   }
 }

@@ -243,5 +243,32 @@
       }
     },
     "key": "first"
+  },
+  "segno": {
+    "row": {
+      "label": "a scatter point",
+      "positional": [
+        {
+          "name": "x",
+          "type": "number"
+        },
+        {
+          "name": "y",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {
+        "size": {
+          "type": "number",
+          "named": true
+        }
+      },
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "legacy": "record"
+      }
+    }
   }
 }

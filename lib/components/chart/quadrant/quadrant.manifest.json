@@ -106,9 +106,9 @@
       "description": "Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name; a stray `]` right after a quoted name closes the list early, and `lint:deck` warns (`bracket-list-closed-early`). A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`."
     },
     "items": {
-      "selector": "ul > li",
+      "selector": "li > ul > li",
       "required": true,
-      "description": "One li per item: its label, then one point record, `{x, y}` or `{x, y, size=n}`."
+      "description": "One li per item, nested under the group it belongs to (`- Quick Wins` / `  - Weekly digest `{2, 82}``): its label, then one point record, `{x, y}` or `{x, y, size=n}`. The group is a top-level li that holds items and draws no mark of its own, so a `>` under it describes nothing (lint `chart-row-quote-unread`); a `>` under an item is that point's description."
     },
     "detail": {
       "selector": "li > ul > li > ul",
@@ -286,5 +286,37 @@
       }
     },
     "key": "largest"
+  },
+  "segno": {
+    "row": {
+      "label": "a quadrant point",
+      "positional": [
+        {
+          "name": "x",
+          "type": "number"
+        },
+        {
+          "name": "y",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {
+        "size": {
+          "type": "number",
+          "named": true
+        }
+      },
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "markless": {
+          "default": [
+            1
+          ]
+        },
+        "legacy": "record"
+      }
+    }
   }
 }

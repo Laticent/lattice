@@ -242,5 +242,28 @@
       }
     },
     "key": "largest"
+  },
+  "segno": {
+    "row": {
+      "label": "a bar row",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": [
+          "fields",
+          "series"
+        ],
+        "quotes": true,
+        "legacy": [
+          "value"
+        ]
+      }
+    }
   }
 }

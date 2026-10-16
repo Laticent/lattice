@@ -236,5 +236,40 @@
       }
     },
     "key": "first"
+  },
+  "segno": {
+    "row": {
+      "label": "a bullet row",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {
+        "target": {
+          "type": "number",
+          "named": true
+        },
+        "band": {
+          "type": "list",
+          "of": "number",
+          "named": true
+        },
+        "floor": {
+          "type": "number",
+          "named": true
+        }
+      },
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "legacy": [
+          "value",
+          "target"
+        ]
+      }
+    }
   }
 }
