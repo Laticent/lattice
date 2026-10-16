@@ -97,7 +97,7 @@ describe('hoistRepeatedAssets', () => {
 		const { hoistRepeatedAssets } = await load();
 		const input = doc('', `<p style="background:url(${PNG})"></p><p style="background:url(${PNG})"></p><script>x="url(${PNG})"</script>`);
 		const { html } = hoistRepeatedAssets(input);
-		assert.match(html, new RegExp(`<script>x="url\\(${PNG.replace(/[+/]/g, '\\$&')}\\)"</script>`));
+		assert.ok(html.includes(`<script>x="url(${PNG})"</script>`), 'the script body is unchanged');
 	});
 
 	test('a document without </head> is returned unchanged', async () => {
