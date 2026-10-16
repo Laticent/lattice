@@ -192,3 +192,27 @@ for (const [label, width, height] of [
 	});
 }
 
+// ── An approval survives a reload (followups.d/2687-p6, the versioned consent text) ──
+// The consent digest is now one of a list (`pluginDigests`, one per accepted version); the approval the Studio writes
+// must still be the one it reads back after the page loads again.
+test('an approved plugin is still approved after a reload', async ({ page }) => {
+	await gotoStudio(page);
+	const docked = page.getByRole('button', { name: 'Open Library' });
+	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER) });
+	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
+	await page.keyboard.press('Escape');
+	await setEditorContent(page, DECK);
+	await expect.poll(() => persistedSource(page)).toContain('plugins: [gantt-plugin]');
+	const notice = page.locator('[data-slot="code-packages"]');
+	await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+	await notice.getByRole('button', { name: 'Run the code of gantt-plugin' }).click();
+	await expect(livePreview(page).locator('[data-lattice-plugin="gantt-plugin"] svg rect')).toHaveCount(3, { timeout: 30_000 });
+	const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-code-package-approvals') || '{}')?.approved?.['plugin/gantt-plugin']?.sha256);
+	expect(stored, 'the approval is recorded').toMatch(/^[0-9a-f]{64}$/);
+
+	await page.reload();
+	await expect.poll(() => persistedSource(page), { timeout: 30_000 }).toContain('plugins: [gantt-plugin]');
+	await expect(livePreview(page).locator('[data-lattice-plugin="gantt-plugin"] svg rect')).toHaveCount(3, { timeout: 30_000 });
+	await expect(page.locator('[data-slot="code-packages"][data-state="unapproved"]')).toHaveCount(0);
+});

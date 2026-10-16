@@ -469,7 +469,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, in a versioned text both doors accept every listed version of, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
@@ -487,6 +487,13 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.6-draft, a versioned consent text (2026-10-16).** §10's consent digest is over a text with a
+  version (`lib/packages/code-shape.mjs` `CONSENT_VERSION`, `CONSENT_ACCEPTED`). Version 1 is the
+  text as it shipped, byte for byte; both doors accept an approval held under any accepted
+  version, so a later format change does not void approvals users hold. An approval covers what
+  its own version pinned: a later version that pins more protects an older approval only once
+  the older version leaves `CONSENT_ACCEPTED`.
 
 - **0.6-draft, what `fields` holds (2026-10-16).** §3.3.1 documents the value a zip inline kind
   is handed per field type under `api: 1`, pins it with a test across both doors' readers, names

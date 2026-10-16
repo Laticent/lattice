@@ -23,7 +23,7 @@
 // code package never downloads the kernel, the sanitizer or the runner.
 
 import { ASPECT_RE, planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
-import { pluginConsentText } from '../../../../lib/packages/code-shape.mjs';
+import { CONSENT_ACCEPTED, CONSENT_VERSION, pluginConsentText } from '../../../../lib/packages/code-shape.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 
@@ -44,6 +44,8 @@ export type StudioPlugin = {
 	fence: string;
 	code: string;
 	sha256: string;
+	/** Every digest an approval of it may hold, one per consent text version the doors accept, `sha256` first (`pluginDigests`). */
+	accepts?: string[];
 	bytes: number;
 	/** The manifest's `placeholder` hint (placement, aspect, size), reduced by `placeholderHint`. */
 	placeholder?: { placement?: string; aspect?: string; size?: string };
@@ -73,8 +75,8 @@ export async function codeDigest(code: string): Promise<string> {
  * `pluginConsentText`, from the renderer's bytes as they are held here. The two share the text's shape
  * (head, code, tail), so a change to what the digest covers changes both.
  */
-export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = []): Promise<string> {
-	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2]).split('\u0001');
+export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = [], version: number = CONSENT_VERSION): Promise<string> {
+	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2], version).split('\u0001');
 	const enc = new TextEncoder();
 	const parts = [enc.encode(head), enc.encode(code), enc.encode(tail)];
 	const all = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
@@ -84,6 +86,15 @@ export async function pluginDigest(code: string, fence: string, kinds: readonly 
 		at += a.length;
 	}
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', all)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Every digest an approval of this plugin may hold, the current consent text version's first: `lib/packages/trust.js
+ * pluginDigests`. An approval recorded under an earlier version (code-shape.mjs `CONSENT_ACCEPTED`) still matches.
+ */
+export async function pluginDigests(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = []): Promise<string[]> {
+	const versions = [CONSENT_VERSION, ...CONSENT_ACCEPTED.filter((v: number) => v !== CONSENT_VERSION)];
+	return Promise.all(versions.map((v) => pluginDigest(code, fence, kinds, v)));
 }
 
 /** A plugin's approval is under `plugin/<name>`, so it shares no key with a component of the same name. */
@@ -119,8 +130,9 @@ export function approveCodePackage(p: Pick<StudioCodePackage, 'name' | 'sha256'>
 }
 
 /** Has the user approved exactly this plugin code, with this fence, in this browser? */
-export function isPluginApproved(p: Pick<StudioPlugin, 'name' | 'sha256'>): boolean {
-	return readApprovals()[pluginKey(p.name)]?.sha256 === p.sha256;
+export function isPluginApproved(p: Pick<StudioPlugin, 'name' | 'sha256' | 'accepts'>): boolean {
+	const held = readApprovals()[pluginKey(p.name)]?.sha256;
+	return !!held && (p.accepts ?? [p.sha256]).includes(held);
 }
 
 /** Record the user's yes for this plugin's code and fence, in this browser. Changed code, or a changed fence, asks again. */
@@ -169,12 +181,14 @@ export async function setPlugins(list: { name: string; fence: string; code: stri
 	const next = new Map<string, StudioPlugin>();
 	for (const p of list) {
 		const kinds = (p.kinds ?? []).filter((k) => k && typeof k.name === 'string');
+		const accepts = await pluginDigests(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) })));
 		next.set(p.name, {
 			kind: 'plugin',
 			name: p.name,
 			fence: p.fence ?? '',
 			code: p.code,
-			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) }))),
+			sha256: accepts[0],
+			accepts,
 			bytes: new TextEncoder().encode(p.code).length,
 			...(p.placeholder ? { placeholder: p.placeholder } : {}),
 			...(kinds.length ? { kinds } : {}),
