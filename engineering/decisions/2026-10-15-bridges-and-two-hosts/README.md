@@ -3,7 +3,7 @@
 | File | What it is | Note section |
 |---|---|---|
 | `layer-census.cjs` | Exports each deck to Marp, builds a layered, a flattened and a reference theme for its palette, renders each through marp-cli and compares every element's computed style | §3.1 |
-| `layer-census-results.json` | One entry per deck from the 2026-10-15 run: palette, element count, `AvsC` (flattened vs reference) and `AvsL` (the veto) differing elements. `bundleMissingPalettes` lists palettes the deck's Marp bundle imports but does not ship (a P0 follow-up); the census read those from `dist/themes/` | §3.1 |
+| `layer-census-results.json` | One entry per deck, measured on `main` at `6e7c738`: palette, element count, `AvsC` (flattened vs reference) and `AvsL` (the veto) differing elements. `bundleMissingPalettes` lists palettes the deck's Marp bundle imports but does not ship (a P0 follow-up); the census read those from `dist/themes/` | §3.1 |
 | `runtime-census.cjs` | The same comparison on one deck as an author sees it: rendered through the bundle's own `marp.config.cjs` (real allowlist, runtime loaded and settled, `::marker` included), adding today's unlayered sheet (D) and the theme stylesheet's size | §3.1 |
 | `runtime-census-results/` | Its output for the gallery deck, screen and print media | §3.1 |
 | `measure-manifests.mjs` | Applies §5.3's field changes to the in-tree plugin manifests (eight on `main` at `6e7c738`) and counts lines before and after | §3.4 |

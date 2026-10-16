@@ -10,12 +10,12 @@
   "elements": 5699,
   "sizes": {
     "D": {
-      "raw": 1315199,
-      "gzip": 130074
+      "raw": 1323265,
+      "gzip": 131431
     },
     "C": {
-      "raw": 1703226,
-      "gzip": 136908
+      "raw": 1718780,
+      "gzip": 138357
     }
   },
   "comparisons": {
@@ -24,7 +24,7 @@
       "examples": []
     },
     "DvsC": {
-      "differ": 119,
+      "differ": 125,
       "examples": [
         {
           "el": "p.",
@@ -129,7 +129,7 @@
       ]
     },
     "DvsA": {
-      "differ": 119,
+      "differ": 125,
       "examples": [
         {
           "el": "p.",

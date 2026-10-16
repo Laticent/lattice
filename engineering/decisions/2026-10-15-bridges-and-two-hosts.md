@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: A bridge is a transpiler from Lattice to another engine (Marp first). Flattening a layered stylesheet for Marp is exact on 276 decks, which lifts @layer's Marp veto, but activating @layer stays a separate call. Plugins shrink to what an author writes and how it draws; two hosts (Node, browser) own the rest; authors pick from export presets.
+summary: A bridge is a transpiler from Lattice to another engine (Marp first). Flattening a layered stylesheet for Marp is exact on 277 decks, which lifts @layer's Marp veto, but activating @layer stays a separate call. Plugins shrink to what an author writes and how it draws; two hosts (Node, browser) own the rest; authors pick from export presets.
 ---
 
 # Bridges, and two plugin hosts (2026-10-15)
@@ -14,12 +14,12 @@ every layered one. A bridge that **compiles** the stylesheet instead removes tha
 could write layered CSS, and the Marp bridge would flatten it into the plain CSS Marp expects.
 
 **Measured, through a real marp-cli:** the flattened stylesheet gives the same computed style
-as the layered one on every slide element of every deck the census rendered: 275 of the 276
+as the layered one on every slide element of every deck the census rendered: 276 of the 277
 example decks plus the gallery baseline (§3.1). Without
 flattening, the veto reproduces on every deck.
 
 **Removing the veto does not mean `@layer` should be turned on.** That is a separate decision
-(D2) with real costs. Layering changes Lattice's own rendering on at least 119 elements of the
+(D2) with real costs. Layering changes Lattice's own rendering on at least 125 elements of the
 gallery deck alone (§3.1). And **an author's own CSS loses**: a deck's `style:` front matter and
 `<style>` blocks, which win today, lose to the flattened Lattice rules, at export and after it
 (§4.4). The benefit is a real specificity tax whose decisive part, the cross-file share, is
@@ -96,11 +96,11 @@ this first; the committed script reproduces its numbers exactly.
 
 | Comparison | What it tests | Result |
 |---|---|---|
-| **A vs C**, every deck rendered | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** across **276 decks** (275 example decks and the gallery baseline), **40,590 elements, 14 palettes** (4 of them dark). The 276th example, `data-viz-gallery.md`, has no front matter, so Marp renders it in its own default theme; it is excluded |
-| A vs L, every deck rendered | The veto: layered Lattice next to unlayered Marp base | elements differ on **all 276** decks. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
+| **A vs C**, every deck rendered | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** across **277 decks** (276 example decks and the gallery baseline), **40,783 elements, 14 palettes** (4 of them dark), on `main` at `6e7c738`. The 277th example, `data-viz-gallery.md`, has no front matter, so Marp renders it in its own default theme; it is excluded |
+| A vs L, every deck rendered | The veto: layered Lattice next to unlayered Marp base | elements differ on **all 277** decks. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
 | A vs C, gallery, real allowlist, runtime loaded | The same, on the DOM an author actually sees | **0 of 5,699**, screen and print media (`runtime-census-results/`); also 0 with `mustard-dark` in the red team's run |
 | D vs A, gallery, CSS only | What layering changes in Lattice's own meaning, Marp aside | 20 of 2,016 |
-| D vs C, gallery, real allowlist, runtime loaded | The same, on the real DOM | **119 of 5,699** (`runtime-census-results/`) |
+| D vs C, gallery, real allowlist, runtime loaded | The same, on the real DOM | **125 of 5,699** (`runtime-census-results/`, `main` at `6e7c738`; 119 before #2710 added the code plugin's CSS) |
 
 **Reading the results.**
 
@@ -110,7 +110,7 @@ this first; the committed script reproduces its numbers exactly.
   order, nested layers, `@layer` inside `@media`, `:where()` and `:has()`. The veto in
   `2026-06-18-layer-activation-scope.md` (R-PATH) is real, and the bridge removes it **for the
   CSS Lattice ships**. Author CSS is outside that, and breaks (§4.4).
-- **Layering changes Lattice's own rendering, and not on a few elements.** On the gallery, 119
+- **Layering changes Lattice's own rendering, and not on a few elements.** On the gallery, 125
   elements change with the runtime loaded, mostly because a rule in an earlier file had higher
   specificity than a rule in a later file and layers ignore specificity. Examples: inline
   `code` on the title slide switches from JetBrains Mono at 43.4px to Outfit at 81.2px; a title
@@ -119,8 +119,8 @@ this first; the committed script reproduces its numbers exactly.
   by the protocol in `engineering/cascade.md` §"What changing the cascade now would require".
   The examples-wide count is not measured (the census ran CSS only).
 - **Flattening costs size, less than it first looked.** What ships is the theme stylesheet Marp
-  writes into the page: on the gallery, 1,315,199 → 1,703,226 bytes (+29.5%), and gzipped
-  130,074 → 136,908 bytes (+5.3%) (`runtime-census-results/`).
+  writes into the page: on the gallery, 1,323,265 → 1,718,780 bytes (+29.9%), and gzipped
+  131,431 → 138,357 bytes (+5.3%) (`runtime-census-results/`, `main` at `6e7c738`).
   The flattener repeats `:not(#\#)` per selector to encode a layer's rank, which compresses well.
 
 **Not covered:** the runtime's DOM beyond the gallery; the VS Code preview's own stylesheet;
@@ -339,7 +339,7 @@ offered. Stock needs an optional per-bridge translation the plugin may supply.
 deck's palette) into one theme and flattens them as one unit, because the layer order is
 declared once; flattening each file alone would rank their layers independently.
 
-**What the census settled** (§3.1): exact on all 276 decks it rendered, in marp-cli, CSS only, and on
+**What the census settled** (§3.1): exact on all 277 decks it rendered, in marp-cli, CSS only, and on
 the gallery with the runtime loaded.
 
 **What it leaves open:**
@@ -363,7 +363,7 @@ the gallery with the runtime loaded.
 - **`!important` inverts across layers** (`engineering/cascade.md` rule 2). The flattener
   handles this per spec; the Mermaid and KaTeX overrides of inline styles stay `!important` either
   way (cascade.md, "A fourth surprise").
-- **Size**: +29.5% on the theme stylesheet Marp ships, +5.3% gzipped (§3.1).
+- **Size**: +29.9% on the theme stylesheet Marp ships, +5.3% gzipped (§3.1).
 - **A dependency we then own.** Marp fidelity would rest on the flattener keeping up with every
   CSS feature Lattice adopts. Pin its version, and keep the census as a test over a fixture deck
   so a bump that changes output fails the build.
@@ -515,7 +515,7 @@ items in §4.4.
 | # | Decision | Recommendation |
 |---|---|---|
 | D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | **yes**. Worth having without `@layer` |
-| D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 119 on the gallery alone) |
+| D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 125 on the gallery alone) |
 | D3 | VS Code presets for drawn plugins | **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which works today in the owner's VS Code. *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
 | D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
 | D5 | ~~Merge the code-plugin branch first, or adopt §5.3 first~~ | **Settled**: the code plugin merged (#2710) with `codeRenderer: true`. P2+P3 migrate it with the rest |
@@ -575,6 +575,11 @@ The first draft went to the adversarial trio and a fact-checker on 2026-10-15. W
   "every example deck" overstated the census (now 275 of 276 plus the gallery); five bundles, not
   one, omit an imported palette (§8); the specificity comment count is 167, not 211 (§3.6); and
   three smaller citations.
+- **Re-measured on `main` at `6e7c738` (2026-10-16)**, after #2710 (the code plugin) and #2705
+  (manifest icons) landed during review. Both censuses were rerun from the committed scripts:
+  flattening stays exact (0 differences on 277 decks, and 0 of 5,699 on the gallery with the
+  runtime, screen media; the print rerun is pending). Layering now changes 125 gallery elements (119 before), and the
+  manifest count is 797 → 370 on eight plugins. The figures above are the re-measured ones.
 
 ## References
 
