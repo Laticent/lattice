@@ -24,7 +24,7 @@ const { loadContracts, runContract, readLedger, contractProblems } = require('..
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'dist', 'engineering', 'conformance.md');
 const MARK = { pass: '✓', fail: '✗', 'n/a': '–', debt: 'D' };
-const cell = (s) => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
 function render() {
   const ledger = readLedger();
