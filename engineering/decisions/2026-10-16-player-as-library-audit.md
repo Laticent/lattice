@@ -682,6 +682,39 @@ both now fail when either is disabled. It also had `root` wrapped in `:is()` (a 
 the gate's selector), an `undefined` override keep its default instead of erasing it, and the
 freeze style excluded from the gate's choice of sheet.
 
+### 11.5 Why Firefox takes half a minute to open the gallery player (P5)
+
+**The cause is the no-JS dark-mode switch.** The player ships a hidden checkbox (`#lp-nj-flip`)
+so a reader with scripting off (iOS Quick Look) can still flip the theme, and the dark block
+(`#lattice-dual-mode`) repeats every scheme rule under a root that tests it:
+`:root:not([data-lp-scheme=dark]):where(:not(.lp-js):has([id=lp-nj-flip]:checked)) …`. The
+gallery's dark block carries 326 such rules (695 `:has()` selectors). A `:has()` anchored on the
+root makes Firefox re-match those rules as the parser inserts each node, so parsing the
+2.36 MB file takes about half a minute; DOMContentLoaded and load land together.
+
+**Measured** with Playwright Firefox 142, 15 interleaved loads of each file from disk:
+
+| File | Median load | Min | Max |
+|---|---|---|---|
+| The shipped gallery player | 32,241 ms | 30,961 | 33,599 |
+| The same file, flip rules rewritten as `[id=lp-nj-flip]:checked~* …` (sibling, no `:has()`) | 718 ms | 207 | 860 |
+| The same file with the 326 flip rules removed | 609 ms | 219 | 849 |
+| `examples/html-player.md`'s player, for scale | about 220 ms | | |
+
+Bisecting got there in three steps: removing every `<style>` took the load to 0.3 s; of the
+blocks, only removing the dark block did (0.7 s); of its 800 rules, the 326 with `:has()` carry
+all of it. Scripts, pictures and fonts made no difference. Chromium opens the same file in under a
+second.
+
+**Not fixed here, and why.** The rewrite above is a measurement, not a candidate. The flip rules
+hold the same specificity as `:root[data-lp-scheme=dark]` on purpose (the `:has()` sits inside
+`:where()`), so each wins or loses exactly as the rule it mirrors; a sibling form adds the
+checkbox's specificity. And the rules that restyle `:root` itself (the token arms, the page
+background, `color-scheme`) cannot follow a sibling combinator, because the root is not a sibling
+of anything. A real fix redesigns the no-JS floor (likely: move the token arms to a wrapper that
+follows the checkbox, and keep `:root` for what only the root can carry), changes every export's
+bytes, and needs the scheme matrix and an export sign-off of its own. It is a followup.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever
