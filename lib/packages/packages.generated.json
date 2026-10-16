@@ -6,7 +6,7 @@
     "component": 75,
     "finish": 9,
     "motion": 4,
-    "plugin": 8
+    "plugin": 9
   },
   "packages": [
     {
@@ -1430,6 +1430,20 @@
         "hydrate.js",
         "manifest.json",
         "styles.css"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "sparks",
+      "path": "lib/plugins/sparks",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
+        "styles.css",
+        "syntax.mjs"
       ],
       "code": true
     }

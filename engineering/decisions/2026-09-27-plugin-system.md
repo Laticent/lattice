@@ -302,11 +302,12 @@ about the whole plugin's CSS, not one render path.
   calls for `icon=` through `lib/plugins/services.js` `service(plugin, name, off)` — null with
   the plugin off, so a caller renders without it (`2026-09-29-inline-icons.md` § 12).
 - `inline` — an inline-code kind behind one Segno tag character (`^{…}`), a row in the host's
-  dispatch table (`lib/core/inline-code-directives.js`) after the host's marks, pills and sparks.
-  Built 2026-10-05 for icons; in-tree only, like `syntax`.
+  dispatch table (`lib/core/inline-code-directives.js`) after the host's marks and pills.
+  Built 2026-10-05 for icons; in-tree only, like `syntax`. Sparks moved onto it on 2026-10-16
+  (`lib/plugins/sparks/`, `2026-09-28-inline-sparks.md` § 13), so the host now owns no tag.
 - `registers` — a front-matter axis register declared as data (`icon: bare etching` → `icon-*`
-  slide classes), built by the host's register factory (`lib/core/register-factory.js`), which
-  `spark:` now uses too. Built 2026-10-05 for icons; data, so a later data plugin may declare one.
+  slide classes), built by the host's register factory (`lib/core/register-factory.js`). Built
+  2026-10-05 for icons; `spark:` became the sparks plugin's on 2026-10-16; data, so a later data plugin may declare one.
 - `data` — data a plugin's kernels read only through `lib/plugins/plugin-data.js`: a lazy loader
   on Node, its own on-demand script in a browser (`lattice-plugin-<name>.js`), so a deck that does
   not use the plugin never loads it. §4.8's "payload when used" for in-tree data. Built

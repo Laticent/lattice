@@ -1,6 +1,7 @@
 /**
- * The `spark:` register — the frame, look and corners of every inline spark
- * (lib/core/resolve-spark.js), and the per-axis eviction both render paths apply.
+ * The `spark:` register — the frame, look and corners of every inline spark, declared by the
+ * sparks plugin (lib/plugins/sparks/sparks.manifest.json) and built by
+ * lib/core/register-factory.js — and the per-axis eviction both render paths apply.
  */
 
 const { test } = require('node:test');
@@ -10,9 +11,11 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '../../..');
+const SPARK = require(path.join(ROOT, 'lib/core/axis-registers.js')).AXIS_REGISTERS.find((r) => r.key === 'spark');
 const {
-  SPARK_TOKENS, parseSpark, sparkClasses, sparkClassesFromFrontMatter, sparkTokenAxis, isSparkToken,
-} = require(path.join(ROOT, 'lib/core/resolve-spark.js'));
+  TOKENS: SPARK_TOKENS, parse: parseSpark, classes: sparkClasses, classesFromFrontMatter: sparkClassesFromFrontMatter,
+  tokenAxis: sparkTokenAxis, isToken: isSparkToken,
+} = SPARK;
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));

@@ -150,8 +150,8 @@ section .lat-pill[role='img'] { text-indent:0; }
  * lib/core/rough-ink.js): the ink redraws a FRAMED icon's tile edge in its own `--icon-edge`, as
  * a spark's, so the two siblings read as one hand. The drawing inside stays crisp, and a bare
  * icon has no tile to ink. Header and footer icons stay clean, as sparks do (lib/core/rough-ink-dom.js;
- * the spark's twin of these two rules is in lib/base/base.sketch.css). The ink frame is square, so an
- * `icon-rounded` tile shows its rounded fill inside square ink, as a rounded spark does. */
+ * the spark's twin of these two rules is in lib/plugins/sparks/sparks.styles.css). The ink frame is
+ * square, so an `icon-rounded` tile shows its rounded fill inside square ink, as a rounded spark does. */
 section.sketch .lat-icon {
   --rough-ink-stroke: var(--icon-edge);
   --rough-ink-width: 1.6;

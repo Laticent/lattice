@@ -46,7 +46,7 @@ export interface PillEdit {
 	icon?: string | null;
 }
 
-/** What the engine reads out of a spark (lib/core/inline-sparks.js `read`). */
+/** What the engine reads out of a spark (lib/plugins/sparks/sparks.inline.js `read`). */
 export interface SparkFields {
 	/** The numbers as the author wrote them (`12 14 17`, `72/80`, `72%`). */
 	dataText: string;
@@ -59,7 +59,7 @@ export interface SparkFields {
 	markers: string[];
 }
 
-/** One change to a spark (lib/core/inline-sparks.js `editSpark`): an absent key leaves the axis alone. */
+/** One change to a spark (lib/plugins/sparks/sparks.inline.js `editSpark`): an absent key leaves the axis alone. */
 export interface SparkEdit {
 	/** The numbers as an array, or the data text (`72/80`, `72%`, `12 14 17`). */
 	data?: string | number[];
