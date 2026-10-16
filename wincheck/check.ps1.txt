@@ -25,5 +25,13 @@ $up = $false
 for ($i = 0; $i -lt 60; $i++) { try { Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | Out-Null; $up = $true; break } catch { Start-Sleep 1 } }
 Say "CDP up: $up"
 Start-Sleep 8
+Add-Type -Path (Join-Path $PSScriptRoot 'Win.dll')
+Say "--- processes"
+Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'lattice|msedgewebview2' } | ForEach-Object { Say ("{0} {1} :: {2}" -f $_.ProcessId, $_.Name, ($_.CommandLine -replace '\s+', ' ').Substring(0, [Math]::Min(400, ($_.CommandLine).Length))) }
+Say "--- windows"
+Say ([Win]::Windows())
+[Win]::Shot((Join-Path $out '00-after-launch.png'))
+try { Say ("--- json/version: " + (Invoke-RestMethod 'http://127.0.0.1:9222/json/version' | ConvertTo-Json -Compress)) } catch { Say "json/version: $($_.Exception.Message)" }
+Say ("--- netstat 9222: " + ((netstat -ano | Select-String ':9222') -join ' | '))
 node (Join-Path $PSScriptRoot 'check.mjs') $out 2>&1 | Tee-Object -FilePath (Join-Path $out 'check-output.txt')
 Say 'done'
