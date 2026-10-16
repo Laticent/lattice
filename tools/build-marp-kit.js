@@ -160,8 +160,9 @@ function vscodeSettings() {
         `./${THEME}-dark-min.css`,
       ],
       // Mirrors marp.config.cjs's html:true. Without it the deck's trailing
-      // <script> tags print as literal text across the preview.
-      'markdown.marp.enableHtml': true,
+      // <script> tags print as literal text across the preview. `html: "all"`
+      // replaced the deprecated boolean `enableHtml` in marp-vscode 3.0.0.
+      'markdown.marp.html': 'all',
     },
     null,
     2,

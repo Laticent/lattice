@@ -171,7 +171,9 @@ describe('marp-bundle spec', () => {
     assert.deepEqual(parsed['markdown.marp.themes'], ['lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css']);
     // Mirrors marp.config.cjs's html:true — the extension also escapes raw HTML
     // by default, which printed the runtime <script> tags across the preview.
-    assert.equal(parsed['markdown.marp.enableHtml'], true);
+    assert.equal(parsed['markdown.marp.html'], 'all');
+    // The boolean key is deprecated since marp-vscode 3.0.0 and warns in 3.6.1.
+    assert.equal(parsed['markdown.marp.enableHtml'], undefined);
   });
 
   test('packageJson pins marp-cli only and scripts reference the deck', () => {
@@ -213,7 +215,8 @@ describe('marp-bundle spec', () => {
     // By hand: the config, never `--html`, which would replace the config's allowlist.
     assert.match(r, /--config-file marp\.config\.cjs \\\n  --allow-local-files/);
     assert.doesNotMatch(r, /--html --allow/);
-    assert.match(r, /markdown\.marp\.enableHtml/);
+    assert.match(r, /markdown\.marp\.html: "all"/);
+    assert.doesNotMatch(r, /enableHtml/);
     // Honest about the one route whose fidelity we cannot confirm. Deliberately
     // asserts the HEDGE, not the claim: whether the preview webview executes the
     // deck's scripts is UNVERIFIED and contested (engineering/gotchas.md). Pinning

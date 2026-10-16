@@ -218,7 +218,8 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.doesNotMatch(cfg, /html:\s*true/);
     assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
     const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
-    assert.equal(settings['markdown.marp.enableHtml'], true);
+    assert.equal(settings['markdown.marp.html'], 'all');
+    assert.equal(settings['markdown.marp.enableHtml'], undefined);
     // The deck's math is typeset at export; `off` also disables a deck's own `math:` directive.
     assert.equal(settings['markdown.marp.mathTypesetting'], 'off');
   });

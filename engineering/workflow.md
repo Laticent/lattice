@@ -877,7 +877,7 @@ marp-vscode webview execute `<script>`?"), but the claim has never been tested h
 contradicts it. Don't plan a mirror around the preview either way.
 Two further requirements are easy to miss and were silently unmet until
 #1256: raw HTML must be enabled (for marp-cli, the bundle's `marp.config.cjs`
-allowlist or the kit's `html: true`; `markdown.marp.enableHtml` for the
+allowlist or the kit's `html: true`; `markdown.marp.html: "all"` for the
 extension) or the runtime `<script>` tags
 are ESCAPED into visible text, and a rule whose selector LEADS with
 `:is(section…)` is dead in any Marp render — see the same doc's two entries.

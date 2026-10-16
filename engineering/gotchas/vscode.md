@@ -85,7 +85,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Symptom:** In an untrusted folder, a bundle's fractions and superscripts collapse onto one line,
   and a square root or stretchy arrow prints as escaped `<svg…` text.
 - **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/core/marp-bundle-math.js`),
-  and its `.vscode/settings.json` turns the extension's own math off. `enableHtml` is a restricted
+  and its `.vscode/settings.json` turns the extension's own math off. `markdown.marp.html` is a restricted
   setting and `mathTypesetting` is not, so in Restricted Mode the math stays off while the HTML
   filter strips each equation's `style` and its `<svg>`.
 - **Mitigation:** Trust the folder, or render with `npm run pdf`. The bundle README says so.
@@ -205,7 +205,7 @@ a twenty-line development extension can issue on `onStartupFinished`.
 None of this is committed. Whether it should become a harness or a CI job is a
 CI-contract decision, not one to take on the way past.
 
-## `enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT
+## `markdown.marp.html` / `html: true` is required or the runtime `<script>` tags print as TEXT
 
 - **Symptom:** The last slide of a deck (or an Export-to-Marp bundle) shows a
   literal `<script src="mermaid-v11-min.js"></script> <script
@@ -220,8 +220,10 @@ CI-contract decision, not one to take on the way past.
   runtime tags (`lib/core/marp-bundle-html.js`), so render a bundle with its
   config and never `--html`, which replaces the list with "everything". The Marp
   kit's config sets `html: true`, and a bare deck needs `--html`. marp-vscode
-  needs `markdown.marp.enableHtml: true` (the generated
-  `.vscode/settings.json` sets it, and so does the repo's own). Note this is
+  needs `markdown.marp.html: "all"` (the generated
+  `.vscode/settings.json` sets it, and so does the repo's own). That key replaced
+  the boolean `markdown.marp.enableHtml` in marp-vscode 3.0.0; 3.6.1 still honors
+  the old key but shows a deprecation warning, so nothing we generate writes it. Note this is
   necessary but NOT sufficient in the vscode preview — the webview still
   won't execute the scripts (entry above).
 - **Triggered by:** Any Marp render of a deck carrying the runtime tags.
