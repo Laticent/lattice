@@ -1061,3 +1061,26 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   (`grep -n "function <name>" lattice.js`) rather than jumping to the line.
 - **Triggered by:** Any card written before the rename (2026-10-08).
 - **Commits:** #2601.
+
+## A rule works in the CLI export and does nothing in the Studio or Playground preview
+
+- **Symptom:** A theme or engine rule whose selector starts with `:where(section…)` styles the
+  slide in the CLI's PDF and HTML, and has no effect in the Studio's and the Playground's live
+  slide. Nothing errors. #2705 found two: the code plugin's `:where(section) pre` (code blocks
+  lost their panel in the preview) and a finish's split-panel reset (a legacy finish left its
+  white section mask on the panel, so the panel painted white under its white text).
+- **Cause:** The engine packs every sheet for the live preview (`packSelector` in
+  `lib/engine/css.js`). Only a literal leading `section`, or a leading `:is(…)` it distributes,
+  counts as the slide; anything else is scoped as a slide DESCENDANT. So
+  `:where(section.finish) .panel-left` packs to
+  `article.lattice > section :where(section.finish) .panel-left`, a section inside a section.
+  The CLI reads the FLAT pack, which also ships each re-scoped arm as written, so the CLI still
+  matches. It is the Marp-side trap in `marp.md` ("A theme rule gated on `:root[…]`"), from the
+  engine's own packer.
+- **Fix:** Lead with `section` and move the weight-free part inside `:where()`:
+  `section.finish :where(.panel-left, …)`. The rewrite adds the type selector plus whatever
+  classes leave `:where()`, less those that enter it ((0,0,1) here), so check what the rule must
+  still lose to.
+- **Guard:** `test/unit/engine/css-scope.test.js` packs every `lib/` and `themes/` stylesheet
+  and fails on a packed `section :where(section…)`.
+- **Commits:** #2705 (code plugin), the catalog follow-ups PR (base.finish.css).

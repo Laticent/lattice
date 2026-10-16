@@ -117,3 +117,42 @@ describe('packTheme flat (the exported player)', () => {
   });
 });
 
+// A selector that names the slide inside a LEADING `:where(…)` cannot be packed: the packer
+// only treats a literal leading `section` (or a distributed leading `:is(…)`) as the slide, so
+// `:where(section.finish) .panel` packs to `article.lattice > section :where(section.finish)
+// .panel`, a section inside a section, and matches nothing in the Studio and Playground preview
+// while the flat CLI sheet still applies it. #2705 found two (`code.styles.css`,
+// `base.finish.css`). Write `section.x :where(…)` instead.
+describe('no engine stylesheet names the slide inside a dead leading :where()', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '../../..');
+  const cssFiles = (dir) =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) return cssFiles(p);
+      return e.name.endsWith('.css') ? [p] : [];
+    });
+  const DEAD = /article\.lattice > section :where\(\s*section(?![\w-])/;
+
+  test('the dead shape is what the packer makes of it (the guard can fail)', () => {
+    assert.match(scope(':where(section.finish) .panel-left'), DEAD);
+    assert.doesNotMatch(scope('section.finish :where(.panel-left)'), DEAD);
+    assert.match(packTheme('@media print { :where(section.x) .a { b: 1 } }'), DEAD, 'inside an at-rule too');
+  });
+
+  test('every lib/ and themes/ stylesheet packs without one', () => {
+    const files = [...cssFiles(path.join(root, 'lib')), ...cssFiles(path.join(root, 'themes'))];
+    assert.ok(files.length > 50, `found only ${files.length} stylesheets`);
+    const hits = [];
+    for (const f of files) {
+      const css = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      // The whole packed text, not split selectors: a split by braces loses the alternation inside
+      // an `@media` / `@container` block, which is where a panel rule often lives.
+      for (const m of packTheme(css).matchAll(new RegExp(`[^{}]*${DEAD.source}[^{}]*`, 'g'))) {
+        hits.push(`${path.relative(root, f)}: ${m[0].trim().slice(0, 120)}`);
+      }
+    }
+    assert.deepEqual(hits, []);
+  });
+});
