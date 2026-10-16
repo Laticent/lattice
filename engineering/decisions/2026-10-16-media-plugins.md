@@ -295,7 +295,7 @@ longer description follows #2723's list form, a `>` blockquote indented under th
 | | `qr` | adds a scannable code of the watch address |
 | `qr` | `c1` … `c12` | the code's ink, from the deck's color cycle (owner, 2026-10-16). Lint warns when a slot's contrast against the code's paper is too low to scan, in light and dark mode alike |
 | | `ec=L` `M` `Q` `H` | error correction, default `M` |
-| | the first word | what the code is for: a link, an address or quoted text, or `wifi` / `contact` with the fields those slides already use (`2026-10-16-qr-plugin.md` §3). Inside a contact record the job title is `role=`, because `title=` is the shared visible name |
+| | the payload | what the code carries: a link, an address or quoted text, or a nested format record, `wifi={…}` or `contact={…}`, with the fields those slides already use. The payload's fields live one level down, so a contact's job `title` never meets the code's own `title` (`2026-10-16-qr-plugin.md` §3) |
 
 **Treatments: the picture stays the subject.** The owner's ask is a flavor that never takes away from the picture.
 That splits treatments in two, and the proposal is a short list in each:
