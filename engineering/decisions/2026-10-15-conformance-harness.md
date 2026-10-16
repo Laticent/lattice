@@ -527,16 +527,27 @@ thousands (2.0 s a palette at 73 slides, 4.7 s at 200, 85.7 s at 858 on one page
 150 slides keeps it near linear). The existing per-PR sweep (117 slides, 32 palettes) costs about
 2 minutes by the same arithmetic.
 
-### 13.3 What is held for the owner
+### 13.3 Owner rulings on the render tier (2026-10-16)
 
-Nothing in this tier is scheduled or blocking. Two decisions, each of which changes what every
-future run pays (the second filter in `CLAUDE.md`):
+Ruled after the measurements above. Each changes what every future run pays (the second filter in
+`CLAUDE.md`), so each is recorded as the owner's:
 
-1. **Run it nightly?** Setting `CONFORMANCE_RENDER=1` on the existing "Integration tests (nightly
+1. **Nightly: yes.** `integration-nightly.yml` gets its own report-only step that runs the whole
+   matrix with `CONFORMANCE_RENDER=1` (about 48 minutes added to a job that already takes about two
+   hours). Findings do not fail it; a blind harness or a probe that cannot bite does, and opens the
+   rolling issue.
+2. **Per PR: in line with the recommendation.** `ci.yml` runs `tools/conformance-render.js --changed`
+   on shard 1 of the PR integration job: the components the diff touches, every cheap probe, and
+   contrast on three palettes (`indaco`, `indaco-dark`, `concrete`). Report-only, in the job summary.
+   A shared-file change (lib/core, lattice.css) maps to no component, so the nightly covers it.
+
+The options as put to the owner, kept for the record:
+
+1. **Run it nightly?** (Ruled yes.) Setting `CONFORMANCE_RENDER=1` on the existing "Integration tests (nightly
    slice)" step adds about 48 minutes to that job. A separate nightly step costs the same and keeps
    the existing slice's time. Without either, only the small "bite" tests run on the nightly (they
    prove each probe can fail on a planted defect).
-2. **Per-PR?** The cheap probes (overflow, axe, card-row, about 1 minute for everything) could run
+2. **Per-PR?** (Ruled: changed components, three palettes.) The cheap probes (overflow, axe, card-row, about 1 minute for everything) could run
    per PR on the changed components today. The contrast sweep is the cost: a changed component is
    30 s to 3.5 minutes across all 33 palettes, a changed shared file is the covering sample
    (about 17 minutes) or more. The honest options are all palettes for the changed component only,

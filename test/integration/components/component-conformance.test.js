@@ -20,9 +20,9 @@
  * TWO PARTS, TWO COSTS. The `bite` tests take seconds (small decks) and always run, so a probe
  * that stops being able to fail is caught on the nightly slice. The MATRIX (every variant slide x
  * every shipped palette: the reach and report tests) is held behind `CONFORMANCE_RENDER=1`,
- * because measured on 2026-10-16 it costs tens of minutes (the figures are in the decision note,
- * section 13) and §12.4 gives the owner the call on spending that nightly. Wiring it in is one
- * environment variable on one step; this file does not make that call by running it on its own.
+ * because measured on 2026-10-16 it costs about 48 minutes (decision note, section 13.2). The owner
+ * ruled it runs nightly: `integration-nightly.yml` has its own report-only step that sets the
+ * variable. It is not set on the per-PR path, which runs `tools/conformance-render.js --changed`.
  *
  * Needs Chromium (CHROME_PATH). Local iteration: `CONFORMANCE_RENDER=1 CONF_ONLY=stats,kpi node --test <this file>`.
  */

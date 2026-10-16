@@ -342,6 +342,29 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # COMPONENT CONFORMANCE, RENDER TIER (report-only; owner ruling 2026-10-16: run it nightly).
+      # Every gallery slide (858, one per variant of all 75 components) rendered in pages, then
+      # overflow, axe, the card-row trigger and the shared contrast sweep over all 33 palettes.
+      # MEASURED: about 48 minutes on the sandbox for the matrix alone, almost all of it the
+      # contrast sweep (engineering/decisions/2026-10-15-conformance-harness.md section 13.2).
+      # FINDINGS DO NOT FAIL THIS STEP: they are printed into the report and the job summary. The
+      # step fails only when the harness itself is blind or a probe can no longer fail on a planted
+      # defect (the reach and bite tests), which opens the rolling issue like any other arm.
+      - name: Component conformance matrix (render tier, report-only)
+        id: conformance
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- component conformance, render tier (report-only) ---'
+          } >> "$REPORT"
+          if CONFORMANCE_RENDER=1 node --test test/integration/components/component-conformance.test.js 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # WHY NOT A BARE TAIL. This used to be `tail -n 40`, which worked only while the
       # last gate in the report was also the noisiest thing in it. `check:family-conformance`
       # prints a 33-row table, a legend and a per-rule shortfall listing before its verdict,
@@ -403,7 +426,7 @@ jobs:
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
@@ -436,7 +459,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -449,7 +472,7 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
             echo '```'
             echo ""
@@ -554,6 +577,7 @@ jobs:
           && steps.chartfit.outcome == 'success' && steps.chartfit.outputs.failed == 'false'
           && steps.geometry.outcome == 'success' && steps.geometry.outputs.failed == 'false'
           && steps.regress.outcome == 'success' && steps.regress.outputs.failed == 'false'
+          && steps.conformance.outcome == 'success' && steps.conformance.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

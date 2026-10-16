@@ -1421,9 +1421,11 @@ debt: it conforms or it does not merge. A debt entry for a count (the physical d
 The **render clauses** (every variant slide fits, has no axe violation, and meets AA in every shipped
 palette; the card-row trigger agrees with the corpus) run with `npm run conformance:render`, not in
 `npm test`: they need a browser and cost minutes. `--only=<component>` runs one component's slides
-across all palettes. They are report-only. `test/integration/components/component-conformance.test.js`
-runs the matrix when `CONFORMANCE_RENDER=1`; its smaller "bite" tests, which prove each probe can
-fail, run on the nightly slice without it.
+across all palettes; `--changed` runs the components your diff touches on three palettes. They are
+report-only. The nightly runs the whole matrix (about 48 minutes) in its own step, and CI runs
+`--changed` on shard 1 of each PR (seconds to under a minute) and prints it in the job summary.
+`test/integration/components/component-conformance.test.js` runs the matrix when
+`CONFORMANCE_RENDER=1`; its smaller "bite" tests, which prove each probe can fail, always run.
 
 A `tint-*` or `mark-*` treatment is the same idea on a smaller scale: add it to
 `lib/base/treatments.js` with its CSS, or `unknown-treatment` calls it unknown.

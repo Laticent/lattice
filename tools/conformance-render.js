@@ -18,21 +18,50 @@
  *             RULE #15), the overflow oracle (`lib/core/overflow-probe.js`, HARD RULE #1), axe-core
  *             with its contrast rule off (the PROBE owns contrast), and the card-row trigger.
  *
- * REPORT-ONLY, AND ON DEMAND. Nothing here blocks a PR and nothing schedules it yet:
- * `component.render.*` clauses are marked `status: 'report-only'`, and
- * `test/integration/components/component-conformance.test.js` runs this matrix only under
- * `CONFORMANCE_RENDER=1`. That test fails only when the harness itself is blind or a probe cannot
+ * REPORT-ONLY. Nothing here blocks a PR: `component.render.*` clauses are marked
+ * `status: 'report-only'`. The nightly (`integration-nightly.yml`) runs the whole matrix through
+ * `test/integration/components/component-conformance.test.js` with `CONFORMANCE_RENDER=1`, and CI
+ * runs `--changed` per PR. The test fails only when the harness itself is blind or a probe cannot
  * bite — never on a finding. §12.4 says the per-PR render
  * budget is measured here and brought to the owner before any of it blocks.
  *
+ * PER PR (`--changed`, owner ruling 2026-10-16): only the components whose folder the diff touches,
+ * every cheap probe, and the contrast sweep over three palettes (`PR_THEMES`: light, dark, and the
+ * concrete palette that trips the most near-misses) instead of all 33, which the nightly runs.
+ * Measured: `list-steps` (21 slides) takes 8 s wall across the three; the heaviest component (`map`) extrapolates to about 25 s. A shared
+ * file (lib/core, lattice.css) is NOT mapped to components here: the nightly covers it.
+ *
  * Usage:
  *   node tools/conformance-render.js [--only=a,b] [--themes=a,b] [--json=out.json]
- *                                    [--no-axe] [--no-themes]
+ *                                    [--no-axe] [--no-themes] [--changed[=<base ref>]]
  */
 const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
+
+/** The palettes the per-PR run sweeps: a light one, a dark one, and the one with the most near-misses. */
+const PR_THEMES = ['indaco', 'indaco-dark', 'concrete'];
+
+/**
+ * The components a diff touches: every `lib/components/<bucket>/<name>/` path (or a flat
+ * `lib/components/<name>/`) between `base` and HEAD. `null` when git cannot say (no such ref).
+ */
+function changedComponents(base = 'origin/main') {
+  const { execFileSync } = require('node:child_process');
+  let out;
+  try {
+    out = execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return null;
+  }
+  const names = new Set();
+  for (const f of out.split('\n')) {
+    const m = f.match(/^lib\/components\/(?:[^/]+\/)?([^/_][^/]*)\//);
+    if (m) names.add(m[1]);
+  }
+  return [...names].sort();
+}
 
 /** Every component directory with a generated gallery, as `{ name, bucket, file }`, sorted. */
 function galleryFiles(only = null) {
@@ -450,7 +479,7 @@ function formatReport(r, summary) {
   return lines.join('\n');
 }
 
-module.exports = { PROBE_LIMITS, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
+module.exports = { PR_THEMES, changedComponents, PROBE_LIMITS, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────
 if (require.main === module) {
@@ -458,9 +487,22 @@ if (require.main === module) {
   const list = (k) => (arg(k) ? arg(k).split(',').filter(Boolean) : null);
   const corpusFile = path.join(ROOT, 'test', 'conformance', 'card-row-corpus.json');
   const labels = fs.existsSync(corpusFile) ? JSON.parse(fs.readFileSync(corpusFile, 'utf8')).labels : {};
-  runMatrix({ only: list('only'), themes: list('themes'), axe: !process.argv.includes('--no-axe'), sweepThemes: !process.argv.includes('--no-themes'), log: (m) => process.stderr.write(`  · ${m}\n`) })
+  let only = list('only');
+  let themes = list('themes');
+  const changedArg = process.argv.find((x) => x === '--changed' || x.startsWith('--changed='));
+  if (changedArg) {
+    const base = changedArg.includes('=') ? changedArg.split('=')[1] : 'origin/main';
+    const names = changedComponents(base);
+    if (names === null) { process.stdout.write(`conformance-render: cannot diff against ${base}; nothing run.\n`); process.exit(0); }
+    const known = new Set(galleryFiles().map((f) => f.name));
+    only = names.filter((n) => known.has(n));
+    if (!only.length) { process.stdout.write('conformance-render: no component changed; nothing to render.\n'); process.exit(0); }
+    themes = themes || PR_THEMES;
+    process.stdout.write(`conformance-render: changed ${only.join(', ')} against ${base}; palettes ${themes.join(', ')}\n`);
+  }
+  runMatrix({ only, themes, axe: !process.argv.includes('--no-axe'), sweepThemes: !process.argv.includes('--no-themes'), log: (m) => process.stderr.write(`  · ${m}\n`) })
     .then((r) => {
-      const summary = summarize(r, list('only') ? {} : labels);
+      const summary = summarize(r, only ? {} : labels);
       process.stdout.write(`${formatReport(r, summary)}\n`);
       if (arg('json')) {
         fs.writeFileSync(arg('json'), JSON.stringify({ timing: r.timing, summary: { ...summary, components: summary.components.map((c) => ({ ...c, contrast: Object.fromEntries(c.contrast) })) }, overflow: r.overflow.filter((o) => o.over), axe: r.axeViolations, cardRows: r.cardRows }, null, 1));
