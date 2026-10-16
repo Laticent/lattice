@@ -1,11 +1,11 @@
 ---
 status: proposed
-summary: Design for mosaico, a general box-packing library grown out of the collage packer. Each item is a size rule (fixed shape, a shape range, one-axis stretch, a flexible pane, or not-yet-measured), the container may be fully known, width-only, shape-only or not laid out, and three strategies (tree, rows, template) serve three goals (fill, equal visual weight, equal size). Proves the exact-gutter math still holds when items have ranges instead of one shape, measures today's packer (92-113 ms at six photos, half of it in one function), maps six Lattice surfaces onto it, and lists the owner decisions still open.
+summary: Design for mosaico, a general box-packing library grown out of the collage packer. Each item is a size rule (fixed shape, a shape range, one-axis stretch, a flexible pane, or not-yet-measured), the container may be fully known, width-only, shape-only or not laid out, and three strategies (tree, rows, template) serve three goals (fill, equal visual weight, equal size). Proves the exact-gutter math still holds when items have ranges instead of one shape, measures today's packer (92-113 ms at six photos, half of it in one function), maps six Lattice surfaces onto it, and records the owner's eight decisions.
 ---
 
 # mosaico: a box-packing library grown from the collage packer (2026-10-16)
 
-**Status: proposed.** The owner settled seven forks on 2026-10-16 (§9); one is open. Nothing is built. Slice 1 (§8) is
+**Status: proposed.** The owner settled all eight forks on 2026-10-16 (§9). Nothing is built. Slice 1 (§8) is
 the first code.
 
 ## 1. The answer first
@@ -256,7 +256,7 @@ Each slice ships on its own, with its own gates.
 4. **Adapters.** `measure` and `dom`, with the stability rule, checked on the real Studio (HARD RULE #23).
 5. **v2:** height-depends-on-width items, then `team-profile`.
 6. **Later:** the pinwheel and named mosaic templates; several images on a plain slide after #2727.
-7. **Publish to npm.** The owner's call (§9).
+7. **Publish to npm**, after slice 3 (§9, decision 8). The owner triggers the release.
 
 ## 9. Decisions
 
@@ -274,7 +274,6 @@ Each slice ships on its own, with its own gates.
 7. **Layout is async: lay out at once, re-lay out as sizes arrive** (§4.5). Waiting for every item, with a cap,
    is a host option, not the default. The speed budget in §4.5 is what makes this the default.
 
-**Open:**
-
-8. **When to publish to npm.** After two Lattice callers have shaped the API (recommended), so the first public
-   version is not the one that has to change.
+8. **Publish after `collage` and `logo-wall` run on it.** Both are committed users: `collage` in slice 1 and
+   `logo-wall` in slice 3. The first public version comes after slice 3, so it carries an API those two shaped.
+   The publish itself is still a release the owner triggers (§8, slice 7).
