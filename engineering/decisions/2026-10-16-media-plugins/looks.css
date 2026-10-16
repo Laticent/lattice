@@ -1,0 +1,69 @@
+/*
+ * The reference looks for the media plugins' frames, finishes and tones: the CSS the owner approved on
+ * 2026-10-16, exactly as it rendered. A starting point for the plugins' own styles, not shipped code.
+ * Known fixes the build owes are in ../2026-10-16-media-plugins.md section 4.9. Re-render with ./render.mjs.
+ * Class names here are the prototype's (.f.mat, .ph.nimbus); the plugins will use their own.
+ */
+:root{}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:.6em 3.2em;align-items:start;width:80%}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:.6em 3em;align-items:start;width:62%;margin:0 auto}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:.9em 1.8em;align-items:start}
+.row{display:grid;grid-template-columns:1.45fr 1.45fr .8fr;gap:2.6em;align-items:center;padding:.8em .4em 0}
+.cell{display:flex;flex-direction:column;gap:.4em;min-width:0}
+.cell b{font-size:.56em;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);line-height:1.2}
+.cell i{font-style:normal;font-size:.48em;opacity:.7;line-height:1.3}
+figure{margin:0}
+.f.mat img,.f.corners img,.f.mat .poster img{border-radius:0 !important}
+.f.keyline img{border-radius:9px !important}.f.float img{border-radius:12px !important}.f.device img{border-radius:8px !important}
+.f{position:relative;line-height:0;box-sizing:border-box}
+.f img{display:block;width:100%;height:auto;border-radius:0;aspect-ratio:16/9;object-fit:cover}
+.poster{position:relative;line-height:0}
+.poster::after{content:"";position:absolute;left:50%;top:50%;width:2.9em;height:2.9em;transform:translate(-50%,-50%);border-radius:50%;
+  background:rgb(255 255 255/.92);box-shadow:0 .3em 1.1em -.2em rgb(0 0 0/.45)}
+.poster::before{content:"";position:absolute;left:50%;top:50%;width:.95em;height:1.1em;transform:translate(-33%,-50%);z-index:1;background:#16181d;clip-path:polygon(0 0,100% 50%,0 100%)}
+.qrtile{background:#fff;padding:6%;line-height:0}
+.qrtile svg{width:100%;height:auto;color:#14140f}
+/* ── FRAMES ── */
+/* mat: a gallery passe-partout; the picture is cut square, a bevel line, the mat sits on the slide with a quiet shadow */
+.f.mat{padding:7%;background:color-mix(in srgb,var(--text-heading) 2.5%,var(--bg));
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--text-heading) 9%,transparent),0 .1em .2em rgb(0 0 0/.06),0 1.1em 2em -1.3em color-mix(in srgb,var(--text-heading) 40%,transparent)}
+.f.mat>*{box-shadow:0 0 0 1px color-mix(in srgb,var(--text-heading) 20%,transparent),0 0 0 3px color-mix(in srgb,var(--bg) 88%,white),0 0 0 4px color-mix(in srgb,var(--text-heading) 8%,transparent)}
+/* keyline: one accent hairline, offset from a softly rounded picture */
+.f.keyline{padding:3.2%;border-radius:14px;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.f.keyline>*{border-radius:9px;overflow:hidden}
+/* float: no border; the picture rests on a two-layer shadow tinted by the palette */
+.f.float>*{border-radius:12px;overflow:hidden;box-shadow:0 .08em .16em rgb(0 0 0/.10),0 .9em 1.8em -.7em color-mix(in srgb,var(--text-heading) 50%,transparent),0 1.8em 3em -2.2em color-mix(in srgb,var(--accent) 35%,transparent)}
+/* device: a screen bezel with a rim light, for product demos and clips */
+.f.device{padding:max(3.4%,.75em);border-radius:22px;background:linear-gradient(165deg,#30343c 0%,#17191e 55%,#0f1114 100%);
+  box-shadow:inset 0 0 0 1px rgb(255 255 255/.10),inset 0 1px 0 rgb(255 255 255/.14),0 0 0 1px color-mix(in srgb,var(--text-heading) 14%,transparent),0 1em 1.6em -1.1em rgb(0 0 0/.5)}
+.f.device>*{border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px rgb(0 0 0/.6)}
+.f.device::after{content:"";position:absolute;top:max(1.3%,.22em);left:50%;width:.32em;height:.32em;border-radius:50%;background:#3a3f48;box-shadow:inset 0 0 0 1px rgb(255 255 255/.08);transform:translateX(-50%)}
+/* corners: registration brackets in the accent, the picture square */
+.f.corners{padding:4%;--c:var(--accent);--l:13%;--w:2px;
+  background:
+   linear-gradient(var(--c),var(--c)) top left/var(--l) var(--w),linear-gradient(var(--c),var(--c)) top left/var(--w) var(--l),
+   linear-gradient(var(--c),var(--c)) top right/var(--l) var(--w),linear-gradient(var(--c),var(--c)) top right/var(--w) var(--l),
+   linear-gradient(var(--c),var(--c)) bottom left/var(--l) var(--w),linear-gradient(var(--c),var(--c)) bottom left/var(--w) var(--l),
+   linear-gradient(var(--c),var(--c)) bottom right/var(--l) var(--w),linear-gradient(var(--c),var(--c)) bottom right/var(--w) var(--l);
+  background-repeat:no-repeat}
+/* ── FINISHES ON THE PHOTO ── */
+.ph{position:relative;line-height:0;border-radius:10px;overflow:hidden;isolation:isolate}
+.ph img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.ph::after{content:"";position:absolute;inset:0;pointer-events:none}
+
+.ph.nimbus::after{mix-blend-mode:screen;background:
+  radial-gradient(60% 75% at 4% 6%, color-mix(in srgb,var(--accent) 85%,white 15%),transparent 68%),
+  radial-gradient(55% 70% at 98% 96%, color-mix(in srgb,var(--accent) 70%,white 10%),transparent 66%)}
+.ph.nimbus img{filter:saturate(1.05)}
+.ph.halo img{filter:brightness(1.07)}
+.ph.halo::after{background:radial-gradient(75% 80% at 50% 45%, transparent 42%, rgb(8 10 14/.68) 100%)}
+.ph.meridian::after{mix-blend-mode:overlay;background:linear-gradient(130deg, color-mix(in srgb,var(--accent) 85%,white) 0%, rgb(128 128 128/0) 45%, rgb(128 128 128/0) 55%, color-mix(in srgb,var(--accent) 80%,black) 100%)}
+/* ── TONES ── */
+.ph.duotone{background:color-mix(in srgb,var(--accent) 22%,#f6f3ec)}
+.ph.duotone img{filter:grayscale(1) contrast(1.25) brightness(1.02);mix-blend-mode:multiply}
+.ph.duotone::after{background:color-mix(in srgb,var(--accent) 28%,#05080c);mix-blend-mode:lighten}
+.ph.grayscale img{filter:grayscale(1) contrast(1.04)}
+/* in situ */
+.f.mat .ph{border-radius:0}
+.situ{display:grid;grid-template-columns:1fr 1fr;gap:2.6em;align-items:center}
+.situ p{font-size:.85em}

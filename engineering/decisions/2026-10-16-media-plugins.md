@@ -424,6 +424,11 @@ host, so a presenter learns it before the audience does.
 
 ### 4.9 What the prototype taught, which the build owes (added 2026-10-16)
 
+**The approved looks are kept in `2026-10-16-media-plugins/`**: the prototype's CSS (`looks.css`), a script that
+rebuilds the reference sheets from it (`render.mjs`, which reproduced the approved render pixel for pixel), and the
+approved renders (`reference/`). The build starts from those values, so the shipped looks match what the owner
+approved.
+
 The pick was made from a throwaway prototype: inline CSS in a scratch deck, rendered by the CLI in `indaco` and
 `cuoio`, light and dark, on two real photographs (a canoe on a lake; a red mug) and on Lattice's sample art. The
 build turns it into the plugins' styles and owes these fixes, each seen in the renders:
@@ -526,6 +531,7 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: the approved prototype kept in `2026-10-16-media-plugins/` (CSS, render script, reference renders).
 - 2026-10-16: decision 12: `sm` / `md` / `lg` on all three plugins, clamped inside the layout's box.
 - 2026-10-16: finishes and tones take one strength lever, `20` … `80` `full`, the `backdrop:` scale.
 - 2026-10-16: owner kept all five frames and all three finishes after renders on real photographs; §4.9 lists the
