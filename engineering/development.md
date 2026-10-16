@@ -164,7 +164,7 @@ test/integration/invariants/  component-invariants (semantic gate),     [PR]
                               tools/check-slide-contrast.js)
 test/integration/galleries/   emulator.gallery                      [nightly]
 test/integration/components/  component- + bucket-galleries          [nightly]
-test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
+test/integration/exemplars/   exemplar-render (46 decks)            [nightly]
 test/integration/mermaid/     mermaid-smoke                         [nightly]
 test/integration/screenshot/  screenshot, svg-scaling              [nightly]
 test/integration/lint-engine/ lint-engine-equivalence: esm/lint.js  [nightly]
