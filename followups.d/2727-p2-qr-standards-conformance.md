@@ -11,7 +11,7 @@ source: https://github.com/Laticent/lattice/pull/2727
 # The shipped QR codes miss four points of the QR, Wi-Fi URI and vCard standards
 
 why now   — A contact or Wi-Fi code with an accented name or SSID decodes garbled in a standards-following reader,
-            and three smaller gaps sit beside it. The QR plugin (2026-10-16-qr-plugin.md §4, slice 1) moves this code
+            and three smaller gaps sit beside it. The QR plugin (2026-10-16-qr-plugin.md §4, slice 1b) moves this code
             and owes the fixes.
 where     — `lib/components/connect/_qr-card/qr-card.js:83` (`margin: 3`; no ECI), `lib/engine/qr.js` (the encoder
             call), `lib/components/connect/wifi/wifi.transform.js:22-41` (Wi-Fi URI), `lib/components/connect/contact/contact.transform.js:26-45` (vCard).

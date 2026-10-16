@@ -18,5 +18,14 @@ renders, apart from the fixes in §4.9. To check, render the plugin's demo deck 
 **What it is not.** It is not shipped code and no build reads it. It uses a few fixed colors (the device bezel's grays,
 the QR paper, duotone's two anchors) that the build turns into tokens or allowlisted fixed colors (HARD RULE #3).
 
+**What the port must change** (from the adversarial review, 2026-10-16). Nine hex literals: the bezel grays, the QR
+paper and duotone's anchors named above, plus the play badge's triangle (`#16181d`), which becomes a token, and the QR
+ink (`#14140f`), which becomes the existing `--qr-ink`. The fixed `rgb()` values, `white` and `black`, the pixel radii
+(9, 12, 14, 22) and the `!important` flags become tokens or go. The `margin` rules and the `em` font sizes belong to
+the reference sheet's own layout and labels, not to a look: the port spaces with `padding` and `gap` (HARD RULE #20)
+and sizes text with the `--fs-*` tokens (HARD RULE #4). `render.mjs` loads `lib/engine/qr.js`, so it needs its import
+updated when the QR plugin's slice 1 moves the encoder. Its pixel match also depends on the two photographs staying
+the same at Lorem Picsum.
+
 **The photographs** are Lorem Picsum images 1011 and 30, which serve Unsplash photographs under the Unsplash license;
 `render.mjs` fetches them and the repository does not store them, apart from the downscaled reference renders.

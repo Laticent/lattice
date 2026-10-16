@@ -48,7 +48,9 @@ Author syntax, as proposed:
 ```
 
 A paragraph that holds only one media record renders as a block figure, the same way a lone `![…](…)` does
-today. A record inside running text renders inline at text height, as an icon does.
+today. A record inside running text renders inline at text height, as an icon does. A QR code is the exception: at
+text height it cannot be scanned, so `@qr{…}` inside running text is a lint error whose autofix moves it to its own
+paragraph (§4.11).
 
 ## 2. What exists today
 
@@ -176,8 +178,9 @@ hosts can serve it, and the others show the stand-in.
   | HTML player, presenter | click-to-load iframe behind the web consent | `<video controls>` |
   | Studio preview | the existing overlay | `<video controls>` |
 
-- **Posters resolve through a chain:** the author's `poster=`, then the Library record's poster, then the
-  oEmbed cache (wiring the dead cache, D6), then the drawn stand-in. Each link is a media source, so a poster
+- **Posters resolve through a chain:** the author's `poster=`, then the Library record's poster, then the provider
+  row's own thumbnail template filled with the validated id (never an address read from an oEmbed reply), then the
+  drawn stand-in. Each link is a media source, so a poster
   can come from anywhere an image can.
 - **New hosts are rows.** Loom, Wistia and Google Drive video are each one descriptor. In-tree rows keep
   their `id(url)` functions; a zip plugin's row is declarative (hosts plus a Segno-compiled path pattern),
@@ -211,8 +214,11 @@ only if no code turns slide text into an address. These plugins are where that b
    (`video.transform.js` `resolvePayload`, `topLevelLis`), and `lib/transformers/video.js` runs it again over the
    finished DOM's `innerHTML`. The plugin does not copy it.
 3. **A browser half touches only its own figure.** Poster painting and the preview overlay select
-   `[data-lattice-figure="video"]` only, read the address from an attribute the renderer wrote, and skip
-   anything inside `[data-lattice-plugin]`.
+   `[data-lattice-media="video"]` only, and skip anything inside `[data-lattice-plugin]`. They never use an attribute
+   value as an address: they re-run the provider row's `detectProvider` on it, require `https:`, and build the embed
+   only from the row's template (§4.11). `data-lattice-figure` is not reused: Mermaid's bake writes it, author HTML
+   may carry it (`author-markup.js:54`), and diagram fit, fluid view and the overflow probe match it with no value
+   check, so a media figure carrying it would pick up diagram rules.
 4. **Existing decks keep working.** A `<!-- _class: video -->` bullet URL is read from the author's bullet
    tokens in the engine, before any plugin draws. `lint:deck --fix` offers the `@video{…}` record in its
    place, the same migration as the Marp keywords (§8, decision 2).
@@ -308,11 +314,16 @@ Guide's figure unit, the tooltip, the notes page, the CLI's `--captions` file an
 hooks that exist today: `[data-lattice-desc]`, a component's own text alternative (journey's board,
 `lib/components/chart/journey/journey.transform.js:316`), which `describedText()` reads in `lib/transformers/prose-projection.mjs:736` along with
 `.lattice-description`, the author's `describe:` pragma. Nothing ships a title attribute today, and narration's caption
-band comes from `say:` or the speech projection, not from an attribute. The bare `data-title` / `data-description` are
-not used: an author's raw HTML can carry them, so a reader could not tell the plugin's text from the author's markup.
-The build adds `[data-lattice-title]` and `[data-lattice-description]` to the projection's `SKIP_SELECTOR`
+band comes from `say:` or the speech projection, not from an attribute. The prefix alone
+proves nothing about who wrote the attribute: the sanitizer keeps every `data-*`, and the trio's red team passed a forged
+`data-lattice-title` through the real `createSlideSanitizer` unchanged. So the build adds `data-lattice-title`,
+`data-lattice-description` and `data-lattice-media` to `HOST_MARKERS` (`lib/plugins/author-markup.js`), which renames
+them `data-author-…` in author raw HTML, and the host applies the same refusal to a plugin's own markup before it
+stamps its figure, and every reader ignores
+them inside `[data-lattice-plugin]` (§4.11). The build adds `[data-lattice-title]` and `[data-lattice-description]` to the projection's `SKIP_SELECTOR`
 (`prose-projection.mjs:62`) beside `[data-lattice-desc]`, so the figure's text is spoken once, in the order §4.10 sets,
-and never read twice by the generic walk. The attributes survive the preview sanitizer: `lib/core/sanitize-slide-html.mjs` leaves
+and never read twice by the generic walk. That skip covers the whole figure, its `<figcaption>` included: narration
+reads the two attributes, never the visible caption. The attributes survive the preview sanitizer: `lib/core/sanitize-slide-html.mjs` leaves
 DOMPurify's `ALLOW_DATA_ATTR` at its default, which keeps `data-*`.
 
 **The plugin owns its text; the host component owns how it is shown** (owner, 2026-10-16; decisions 17 and 19). The
@@ -328,7 +339,7 @@ shows by default, by kind, from the test below:
 | image | hidden: the slide's heading already sets the context, and a caption is too small to read across a room | hidden |
 
 An author overrides on the record: `show=title`, `show=all` or `show=none`. A layout that wants labels on every item
-(a gallery) asks for them through the record, never by drawing its own.
+(a gallery) sets `show=title` as its host default (decision 19), never by drawing its own.
 
 **Hosts have the final say on display** (owner, 2026-10-16; decision 19). A component that hosts a media plugin has
 agency over how the figure looks, and it needs that agency to do its job: a collage tile has no frame and no visible
@@ -367,9 +378,12 @@ accessibility tree:
 
 **When the author leaves one out, Lattice fills it**, first source wins:
 
-- **A missing `title`:** the host's own title for a video (the oEmbed cache, D6); the photo's name in the Studio Library
-  (`assetAlts`, `2026-10-12-library-media-assets.md`); for a QR code, a line built from its payload ("Join the Guest Wi-Fi
-  network", "laticent.com/join"). With none of these, the picture is marked decorative, so a screen reader skips it
+- **A missing `title`:** for a video, the host's own title, which `lint:deck --fix` copies from the oEmbed cache into
+  the author's record for the author to keep or edit; it is never applied at render, because uploader text would
+  otherwise reach the slide, narration and captions with no author behind it (§4.11); the photo's name in the Studio Library
+  (`assetAlts`, `2026-10-12-library-media-assets.md`); for a QR code, a line that names the payload's kind and never its text
+  ("Scan to open a link", "Join the Wi-Fi network", "Save a contact"), so no address, path, query, SSID or password
+  reaches the slide, narration, a caption file or the tooltip (decision 13). With none of these, the picture is marked decorative, so a screen reader skips it
   rather than reading a file name.
 - **A missing `description`:** none is invented; the title stands alone. Offering to describe a picture in the Studio
   is a later, opt-in idea, not part of this design.
@@ -435,11 +449,13 @@ inside it, within limits, so no choice can break a slide:
 The steps are deliberately small: the three sizes read as a nudge, not three different layouts. The exact ratios and
 floors are tuned on the demo decks, and the fit gate (`lint:deck`'s overflow check and the render's overflow warning)
 must stay clean for `lg` on every layout that seats one. A deck sets a default once (`image: lg`); a record's word
-wins.
+wins, except inside a placing host (decision 19).
 
 **How a picture is styled: three separate controls (owner, 2026-10-16).** All three are off by default, and a deck
 sets a default once through the `image:`, `video:` or `qr:` register, as `icon:` and `avatar:` work. A slide class
-overrides the deck, and a record's own word wins.
+overrides the deck, and a record's own word wins. **One order for every setting, lowest to highest:** the deck's
+register, then the slide class, then the record's word, then a placing host's override (decision 19). A flow host
+overrides nothing.
 
 1. **A frame**, shared by `image`, `video` and `qr`: `frame=mat`, `frame=keyline`, and so on. One frame system for all
    three, so a layout never draws its own frame around a picture, a clip or a code. The owner's bar is three to five
@@ -587,10 +603,96 @@ The Studio Guide narrates a deck (speech), points at what it says (gestures), sh
   keyboard, a clicker, the wheel, touch and narrated autoplay all take it the same way (input verb parity,
   `2026-08-10-input-verb-parity.md`).
 
-**Found on the way, not yet confirmed:** a probe on hand-written markup suggests the `wifi` card's fields are silent in
-narration, because its `<dl>` wraps each pair in a `div.qr-row` (`wifi.transform.js:74`) and the projection reads only
+**Found on the way, confirmed on a CLI render:** the `wifi` card's fields are silent in narration (a `wifi` slide with
+`ssid`, `password` and `security` rendered with `--captions` speaks only its heading). The likely cause, not yet
+confirmed, is that its `<dl>` wraps each pair in a `div.qr-row` (`wifi.transform.js:74`) and the projection reads only
 a `<dl>`'s direct `<dt>` children (`prose-projection.mjs:1634-1637`). Logged as
-`followups.d/2727-p3-wifi-card-silent-in-narration.md`, to be confirmed on a real render first.
+`followups.d/2727-p3-wifi-card-silent-in-narration.md`.
+
+### 4.11 Guards from the adversarial review (added 2026-10-16)
+
+The trio (red team, inversion, checker) attacked this design for jank, coupling and security. Each guard below is owed
+by the slice named, and each slice's own trio checks it on the code that ships.
+
+**Security**
+
+- **Only Lattice writes a media figure's data** (slice 3). `HOST_MARKERS` renames `data-lattice-title`,
+  `data-lattice-description` and `data-lattice-media` to `data-author-…` in author raw HTML, and the host refuses them in
+  any plugin's markup before it stamps its own. Every reader (narration, the Guide, the tooltip, the notes page, `--captions`, exports) ignores them
+  inside `[data-lattice-plugin]`. A fixture forges a figure in author HTML and in plugin output, and narration speaks
+  neither.
+- **The remote check fails closed** (slice 1). In the derived `isRemoteUrl`, a scheme no row claims is remote, and
+  `file:` with a host is remote (on Windows it is a network share, which can leak credentials). A differential test
+  runs the old and new predicates over a corpus (`//x`, `\\x`, `HTTPS:`, `file://h/`, `blob:`, malformed `sample:` and
+  `asset:`) and pins equal or stricter answers.
+- **A contributed source or provider row cannot widen trust** (slices 1 and 2). Only in-tree rows may declare `local`;
+  a plugin's row is always remote. A plugin row whose scheme or host overlaps an in-tree row fails the build, so no zip
+  can take over `youtube.com`. Its templates must resolve to its own declared hosts. `check-ownership` keeps a census of
+  rows, failing on a stale entry, like the other `SANCTIONED_*` lists.
+- **Paths stay inside the deck** (slice 1). The `relative` row resolves inside the deck's folder (real path; no `..` or
+  symlink escape). A `file` row is refused unless the deck was authored on this machine. An `inline` export checks the
+  bytes against the image and video types. Today's `fileToDataUri` inlines `file:///etc/hostname` without a check
+  (run by the red team).
+- **The fetch is fenced** (slice 4). `materialize` takes only the typed list a core collector builds from the author's
+  tokens, never rendered HTML, and a test shows a plugin's `<img src=https://…>` is never fetched. It refuses private,
+  loopback and link-local addresses, refuses redirects unless allowed, checks the content type per kind, and caps bytes
+  per kind (images keep today's 8 MB). The cache key is the address plus the consent; the content hash only removes
+  duplicates. Consent is per origin.
+- **Nothing from a host's reply becomes an address or words at render** (slice 2). Posters come from the record, the
+  Library or the row's own thumbnail template (§4.3). A host's title reaches a deck only through `lint:deck --fix`
+  (§4.7).
+- **A start time and Vimeo's unlisted hash are parsed, not passed through** (slice 2). Today `detectProvider` drops
+  `?t=90` and Vimeo's hash (run by the red team), so the §1 example would start at 0. Each row parses them into
+  validated fields and writes them back through its templates; every other parameter (sharing tokens such as `si=`) is
+  dropped, and lint names what was dropped.
+- **The player's iframe is a census entry** (slice 5). The sanitizer forbids `iframe`, so the exported player and the
+  presenter mount it at runtime: a `SANCTIONED_RUNTIME_MARKUP_SINKS` entry (HARD RULE #22, the fourth shape), with the
+  `src` built only from the row's template. The host's JS API (for play, pause and elapsed time in the console) is set
+  by the plugin, and `message` events are accepted only from the row's own origin. Whether YouTube plays inside a
+  `file://` player at all (it may refuse without a referrer) is checked on the real surface before it is promised.
+- **An OAuth source acts only with named consent** (Google Drive, after slice 4). It fetches only after a consent per
+  deck and per account that names the account, never for a deck opened from someone else. Its watch link and QR address
+  keep only the file id.
+- **A QR never leaks its payload** (QR slice 1). A built title names the kind only (§4.7). A renderer failure shows an
+  error figure, never the record's source (`degradesTo` is `hidden`, so a Wi-Fi password is never printed).
+  Export-to-Marp writes a QR record as its SVG, never its source. Error correction never rises past what the payload
+  fits: today a 1,523-character URL encodes at level M and returns `''` at level H (run by the red team), so lint
+  checks capacity at the highest level any host could pick, and a code that cannot fit shows a visible error figure.
+- **`address` is derived, not declared** (slice 2). A kind whose slots take an address or a source is an address kind,
+  and a schema test holds every kind to it, so a new kind cannot forget the flag and be re-dispatched by the runtime
+  mirror. On export-to-Marp, where that mirror is the only renderer, these records stay as literal code: a known gap
+  in HARD RULE #1, stated here rather than discovered.
+
+**Jank**
+
+- **The box is known before the bytes arrive** (slices 2 and 3). The plugin stamps `aspect-ratio` from known
+  dimensions (the Library record, the CLI's file header, the bake cache); a video's box takes the provider row's shape,
+  never the poster's own size, with the poster fitted inside. With no dimensions, it uses the existing pending/relayout
+  guard (`data-img-pending`, `image-adaptive.js`). A pixel check shows the box is identical with the stand-in and with
+  the loaded picture.
+- **A shown title reserves its line** (slice 3). Whenever `show` includes the title, the row is reserved even when the
+  text is empty, so a cold cache, a warm cache and an offline CLI run lay out the same.
+- **Sizes stay in order** (slice 3). Size is `min(box, max(floor, scale × box))`, so `sm ≤ md ≤ lg ≤ box` always holds,
+  and the `lg` clamp and the overflow check include the frame's thickness. Frame thickness is set in a unit that does
+  not change with column width.
+- **Every combination is swept for movement** (slice 3). `tools/check-jank.js` gains a record axis that sweeps
+  `sm` / `md` / `lg`, each frame and each `show=` in every flow host, anchored on the page mark and the next sibling,
+  with an arm in `test/integration/invariants/jank-sweep.test.js` (`engineering/jank.md`).
+- **A clip that cannot play takes no step** (slice 5). Without consent, offline, or with embedding disabled by the
+  uploader, the next advance goes to the next slide; a dead click is jank.
+- **Playback has one set of rules** (slice 5). On a narrated slide or in the MP4, a `loop` or `autoplay` clip plays
+  muted, is not timed and never holds the advance. With several clips on a slide, the steps go in written order.
+  Returning to a slide resets its clips to their posters. Only the stage in Present, Practice or the exported player
+  mounts a player; the Studio's editing preview, the filmstrip, the grid and the presenter's next-slide preview show
+  the poster only, so an author typing never restarts a clip.
+
+**Coupling**
+
+- **One way to hide a title** (slice 3). Every host that hides or restyles a figure's text does it through the
+  plugin's own `show=` default for that host, never with its own CSS reaching into the figure, so labeling for a screen
+  reader follows what is actually visible. `check-ownership` holds component CSS that selects inside
+  `[data-lattice-media]` to a budget of zero plus a sanctioned list.
+- **The trio on every slice.** Slice 1 moves a HARD RULE #22 predicate, so the trio, not a single checker.
 
 ## 5. Why records, not Marp keywords
 
@@ -628,20 +730,26 @@ Each slice ships on its own, smallest risk first.
 
 1. **Sources registry**, no visible change except fixes: the six rows, `isRemoteUrl` derived from them, the
    repeated regexes deleted, `asset:` resolving in the CLI against a deck-folder map, and D1 fixed by passing
-   the deck folder as `baseUrl`. Maker-checker (it moves a HARD RULE #22 predicate).
+   the deck folder as `baseUrl`. Owes the differential test and the source rules in §4.11.
 2. **`video` plugin**: the table moves, `@video{…}` on any slide, the `file` row, the poster chain, the oEmbed
-   cache read. Demo deck (HARD RULE #9).
+   oEmbed title offered through `lint:deck --fix`. Demo deck (HARD RULE #9).
 3. **`image` plugin**: `@image{…}`, the options and registers, one lift for both paths (D3, D4), Marp keywords
    rewritten by `lint:deck --fix` (§8, decision 2). Demo deck.
    The hosts move with it (§4.7, decision 19): collage, `bleed` and the image compositions read
    `data-lattice-title` / `data-lattice-description`, and each hosting component's `.docs.md` gains its short "media
    inside" section. Recommended: a manifest field generates that section, so it cannot drift from the code.
+   The `data-lattice-*` stamping, `sm` / `md` / `lg`, the frames, finishes and tones land here for all three
+   plugins, with the `check:jank` record axis (§4.11).
 4. **Bake materialization and the content-addressed cache**, then the first remote source behind consent.
-   Google Drive comes after the desktop app holds a token.
+   Google Drive comes after the desktop app holds a token. Owes the fetch rules in §4.11.
+5. **Presenting and narration (§4.8, §4.10)**: the step inside a slide in `present-transport.mjs` (a shared kernel),
+   full screen by default, the presenter console's clip controls, narration-then-clip, the caption band hiding, and
+   the MP4 timing. Its own demo deck, an input-parity test across keyboard, clicker, wheel, touch and narrated
+   autoplay, and evidence from the real Studio and the real exported player (HARD RULE #23).
 
 Adversarial trio on every slice (HARD RULE #25). Slices 1 and 4 move the remote predicate and add a fetch, and
 slices 2 and 3 replace passes that read slide text into an address (§4.5), so each one is a trust boundary.
-Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from its allowlist.
+Slices 2 and 3 do not start until #2725's check is on `main`, because they delete rows from its allowlist.
 
 ## 8. Decisions (owner, 2026-10-16)
 
@@ -654,8 +762,10 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    Placement and treatment move to `@image{…}`, and `lint:deck --fix` rewrites `![bg left](x)` and the rest.
    This matches Segno's no-dual-syntax decision. Export-to-Marp still writes the keywords back out.
 3. **Video gets the sigil `>`:** `` `>{https://youtu.be/…}` `` is `@video{…}`. The tag set is
-   `INLINE_TAGS` in `lib/plugins/resolve.js:419` (`~ ^ !` today), so slice 2 widens it to four and has
-   to show that no shipped grammar reads an inline code span that starts with `>{`. The sigil is typed only in
+   `INLINE_TAGS` in `lib/plugins/resolve.js:419` (`~ ^ !` today), a copy a test holds to Segno's `TAGS` in
+   `docs/src/lib/segno/notation-grammar.ts:24`, so slice 2 widens both to four. A tag also stops a top-level Segno
+   value from starting with it, so slice 2 has to show that no shipped grammar or deck reads an inline code span that
+   starts with `>` at all, not only `>{`. The sigil is typed only in
    source, so no glyph reaches a slide (HARD RULE #29).
 4. **Remote sources are fetched in the bake into a content-addressed cache, behind consent** (§4.1). The
    render stays offline, and an export carries one copy of each file.
@@ -683,7 +793,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 11. **A clip fills the stage when it plays, by default** (§4.8). `fullscreen=false` opts out.
 12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
     clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
-13. **Narration speaks a media record's title, then its description, never a QR payload** (§4.10).
+13. **Narration speaks a media record's title, then its description, never a QR payload** (§4.10); a title Lattice
+    builds for a QR names the payload's kind only (§4.7).
 14. **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
     the MP4 with its sound, a host's clip holds on its poster (§4.10).
 15. **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
@@ -710,6 +821,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
   element, the one source every reader takes (§4.7; decision 18).
 - 2026-10-16: owner settled decisions 17 (the plugin owns its title and description) and 18 (the
   `data-lattice-*` attributes).
+- 2026-10-16: adversarial trio on jank, coupling and security: §4.11 added; fixed the record-versus-host order, the
+  QR built title, the forged-attribute rationale, the narration of figcaptions and the build order (slice 5 added).
 - 2026-10-16: owner settled decision 19: hosts own display, the author owns the words; no override warnings.
 - 2026-10-16: §4.10 added: narration, the Guide and its captions; owner settled decisions 13–15 as recommended.
 - 2026-10-16: (superseded by the title/description model) author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
@@ -729,11 +842,12 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 - 2026-10-16: decisions 10 and 11 recorded: the next advance plays a waiting clip; full screen is the default.
 - 2026-10-16: §4.8 added: playing a clip while presenting, with PowerPoint's playback options as the standard
   (`fullscreen` = *Play Full Screen*, the next advance plays a waiting clip).
-- 2026-10-16: §4.7 rewritten under the standards-first rule: `alt`, `caption`, `title` from HTML; HTML's video
+- 2026-10-16: (superseded by the title/description model) §4.7 rewritten under the standards-first rule: `alt`, `caption`, `title` from HTML; HTML's video
   attributes mapped per host; `start=`, `fullscreen` and `gdrive:` dropped.
 - 2026-10-16: the `qr` word left the video record; a QR beside a clip is the `video` slide's `qr` variant.
 - 2026-10-16: §4.7 added, then revised on the owner's answer: a plugin describes (thing, title, description and a few
   per-plugin words), the layout places. Treatments split into settings (finishes on the mat) and tones (duotone, mono).
+  (Superseded: finishes now sit on the photo, and `mono` became `grayscale`.)
 - 2026-10-16: D3, D4, D8, D9 and the runtime-mirror path reproduced on real surfaces (CLI renders, the Studio
   under Playwright, `engine.render`). D3 turned out worse than first written, and D4 and D9 narrower.
 - 2026-10-16: a fact-check pass corrected five citations: the scheme-check count, a line number, the scope of
