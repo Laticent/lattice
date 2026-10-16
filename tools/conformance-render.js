@@ -178,6 +178,24 @@ const SLIDE_INDEX_PAGE = () => [...document.querySelectorAll('section[data-latti
   slide: Number(s.getAttribute('data-lattice-slide')), cls: [...s.classList], header: (s.querySelector(':scope > header')?.textContent || '').trim(),
 }));
 
+/** The classes a gallery generates on its own slides: the title, the closing, the anti-pattern. */
+const GENERATED_CLASSES = new Set(['title', 'closing', 'cards-stack']);
+
+/**
+ * Which component owns a slide: the gallery named by its `<header>`, unless the slide is one the
+ * gallery generates. Owned = it carries the host's class, OR it carries none of the GENERATED
+ * classes. The second clause exists because a LAYOUT consumes its own class: `columns` and `rows`
+ * never reach the rendered `<section class>`, so a class test credited them with zero slides
+ * (found by the first nightly run in CI, 2026-10-16).
+ * @param {{header: string, cls: string[]}} s one slide from SLIDE_INDEX_PAGE
+ * @param {Map<string, string>} headers gallery header text → component name
+ * @returns {string | null} the component, or null for a generated or headerless slide
+ */
+function ownerOf(s, headers) {
+  const host = headers.get(s.header) ?? null;
+  return host && (s.cls.includes(host) || !s.cls.some((c) => GENERATED_CLASSES.has(c))) ? host : null;
+}
+
 /** The overflow verdict for every slide of the page, from the shared probe. */
 function probeOverflow(page) {
   const { PROBE_SRC, CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR } = require('../lib/core/overflow-probe');
@@ -338,10 +356,10 @@ async function runMatrix(opts = {}) {
         // crediting them to the component would charge it with another component's markup. They are
         // probed (their findings are counted and printed as `generated`) but never credited to the component.
         for (const s of index) {
-          const host = headers.get(s.header) ?? null;
+          const owner = ownerOf(s, headers);
           out.index.push({ ...s, slide: s.slide + offset });
-          out.slideOwner.set(s.slide + offset, host && s.cls.includes(host) ? host : null);
-          if (host && !s.cls.includes(host)) out.generated++;
+          out.slideOwner.set(s.slide + offset, owner);
+          if (headers.has(s.header) && !owner) out.generated++;
         }
         const shift = (rows) => rows.map((r) => ({ ...r, slide: r.slide + offset }));
 
@@ -412,10 +430,14 @@ function summarize(r, labels = {}) {
   // Findings on slides a gallery GENERATES (title, closing, anti-pattern) belong to no component, but
   // they are findings: counted here and printed, never dropped.
   const generated = { overflow: 0, contrast: 0, axe: 0 };
-  const headerless = new Set(r.index.filter((s) => !s.header).map((s) => s.slide));
+  // A slide with no `<header>` is a harness fault, UNLESS it is one the gallery generates and chose to
+  // blank: the `diagram` gallery sets `_header: ''` on its own title and closing. Those are generated
+  // slides like any other (their findings are counted, not dropped).
+  const faulty = (s) => !s.header && !s.cls.some((c) => GENERATED_CLASSES.has(c));
+  const headerless = new Set(r.index.filter(faulty).map((s) => s.slide));
   for (const s of r.index) { const o = at(s.slide); if (o) o.slides++; }
   // `unowned` = slides with no gallery header at all (a harness fault); generated slides are counted apart.
-  const unowned = r.index.filter((s) => !s.header).map((s) => s.slide);
+  const unowned = r.index.filter(faulty).map((s) => s.slide);
   for (const o of r.overflow) if (o.over) { const c = at(o.slide); if (c) c.overflow.push(o.slide); else if (!headerless.has(o.slide)) generated.overflow++; }
   for (const c of r.cardRows) if (c.cardRow) { const o = at(c.slide); if (o) o.cardRowSlides++; }
   const axeUnplaced = [];
@@ -479,7 +501,7 @@ function formatReport(r, summary) {
   return lines.join('\n');
 }
 
-module.exports = { PR_THEMES, changedComponents, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
+module.exports = { ownerOf, GENERATED_CLASSES, PR_THEMES, changedComponents, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────
 if (require.main === module) {

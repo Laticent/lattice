@@ -642,3 +642,27 @@ in `state-chart`, `timeline-list` and `video`, were previously wrong and were no
 got worse. The independent check of the first version found five evaluator bugs for forms the engine
 does not use yet (corner angle on a non-square box, sRGB versus OKLab, 4-value positions, transforms,
 inline wraps); all are fixed and pinned against pixels, and the pixel test caught one more of mine.
+
+### 13.8 The nightly step's first run in CI (2026-10-16, run 116 on `c6d650b`)
+
+Until this run the nightly step had only run on the sandbox. Dispatched on the branch, it ran in
+CI and finished in **30 min 38 s** (palette sweep 29 min 31 s; render 21 s, load 14 s, axe 7 s,
+overflow and card-row under a second), against 48 to 50 minutes on the sandbox. The runner is
+faster than the sandbox, so §13.2's 48 minutes is an upper bound for planning, not the CI cost.
+
+It also **failed its own reach test**, which is the test doing its job: the report is
+report-only, so the step stayed green, but `every component has a slide of its own` listed
+`columns` and `rows` with zero slides. A layout consumes its own `_class`, so the rendered
+`<section>` never carries `columns` or `rows`, and the ownership test (`s.cls.includes(host)`)
+credited neither. Ownership is now `ownerOf` in `tools/conformance-render.js`: a slide belongs to
+its gallery's component unless it carries one of the classes a gallery generates itself (`title`,
+`closing`, `cards-stack`). `columns` and `rows` now own six slides each; the matrix reads
+858 slides, 0 unowned, 0 empty components.
+
+The same run showed two slides with no `<header>`. Both are the `diagram` gallery's own title and
+closing, which set `_header: ''` on purpose. A headerless slide is now a harness fault only when
+it is not a generated one; before, its findings were dropped from the generated counters, now
+they are counted.
+
+Nothing in the findings list changed shape: 17 of 75 components with findings, and the card-row
+trigger at 70% hit and 29% false alarm, the same as the sandbox run.

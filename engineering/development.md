@@ -1425,7 +1425,7 @@ The **render clauses** (every variant slide fits, has no axe violation, and meet
 palette; the card-row trigger agrees with the corpus) run with `npm run conformance:render`, not in
 `npm test`: they need a browser and cost minutes. `--only=<component>` runs one component's slides
 across all palettes; `--changed` runs the components your diff touches on three palettes. They are
-report-only. The nightly runs the whole matrix (about 48 minutes) in its own step, and CI runs
+report-only. The nightly runs the whole matrix (about 31 minutes in CI, 48 on a slower sandbox) in its own step, and CI runs
 `--changed` on shard 1 of each PR (seconds to under a minute) and prints it in the job summary.
 `test/integration/components/component-conformance.test.js` runs the matrix when
 `CONFORMANCE_RENDER=1`; its smaller "bite" tests, which prove each probe can fail, always run.
