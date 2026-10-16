@@ -91,8 +91,8 @@ test('a Studio finish names its finish surfaces in every face, and only it emits
   // mixed for the section's canvas: the print wash would end on the light deck canvas.
   assert.ok(css.startsWith(`section.finish.finish-mine,\nsection.finish.finish-mine ${S} {`), css.slice(0, 120));
   assert.ok(css.includes(`@media print {\n  section.finish.finish-mine,\nsection.finish.finish-mine ${S} {`));
-  assert.ok(css.includes(`:where(.lattice-exporting) section.finish.finish-mine ${S},`));
-  assert.ok(css.includes(`section.finish.finish-mine.lattice-exporting ${S} {`));
+  assert.ok(css.includes(`section.finish.finish-mine.lattice-exporting,\nsection.finish.finish-mine.lattice-exporting ${S} {`));
+  assert.ok(!css.includes(':where(.lattice-exporting)'), 'no ancestor-led arm: it packs to a section inside a section');
   assert.match(css, /--fin-surface-layers: var\(--fin-texture\), var\(--fin-wash\)/);
   // A crafted name still cannot leave the selector.
   assert.ok(!gen.generateFinishCss('x { } body', recipe('strata')).includes('body {'));
@@ -147,17 +147,18 @@ test('coercion keeps the new details when set, clamps them, and adds nothing whe
 // actually emits, must be exactly the table's list for its target, so a hand edit to either
 // writer (or to the region) fails here.
 test('the engine flip and a saved finish’s flip are both the EXPORT_FACES table', () => {
+  const rasterAt = (css) => css.search(/^section\.finish[\w.-]*\.lattice-exporting/m);
   const declsIn = (block) => [...block.matchAll(/(--fin-[a-z-]+): (var\([^;]*\));/g)].map((m) => `${m[1]}: ${m[2]}`);
   const region = CSS.slice(CSS.indexOf('/* ── BEGIN GENERATED EXPORT FLIP'), CSS.indexOf('/* ── END GENERATED EXPORT FLIP ── */'));
-  const regionPrint = region.slice(region.indexOf('@media print'), region.indexOf(':where(.lattice-exporting)'));
-  const regionRaster = region.slice(region.indexOf(':where(.lattice-exporting)'));
+  const regionPrint = region.slice(region.indexOf('@media print'), rasterAt(region));
+  const regionRaster = region.slice(rasterAt(region));
   assert.deepEqual(declsIn(regionPrint), gen.exportFlipDecls('print'));
   assert.deepEqual(declsIn(regionRaster), gen.exportFlipDecls('raster'));
 
   for (const r of [recipe('strata'), { ...recipe('atrium'), backdrop: { spotlight: { x: 70, y: 36, radius: 38 } } }]) {
     const css = gen.generateFinishCss('mine', r);
-    const print = css.slice(css.indexOf('@media print'), css.indexOf(':where(.lattice-exporting)'));
-    const raster = css.slice(css.indexOf(':where(.lattice-exporting)'));
+    const print = css.slice(css.indexOf('@media print'), rasterAt(css));
+    const raster = css.slice(rasterAt(css));
     assert.deepEqual(declsIn(print), gen.exportFlipDecls('print'));
     assert.deepEqual(declsIn(raster), gen.exportFlipDecls('raster'));
     // Every flipped layer slot finds a mirror in the finish's own rich rule, so the flip never
@@ -171,14 +172,14 @@ test('the engine flip and a saved finish’s flip are both the EXPORT_FACES tabl
   assert.deepEqual(Object.keys(gen.EXPORT_FACES), ['print', 'raster']);
 
   // The SELECTORS matter as much as the list. Both flips reach the finish surfaces (split panels
-  // re-declare the rich face), and the raster flip matches the section ITSELF, because the
+  // re-declare the rich face), and the raster flip matches the section ITSELF (never an ancestor), because the
   // html-to-image capture clones the section without its ancestors.
   const S = gen.FINISH_SURFACES;
   for (const [css, base] of [[region, 'section.finish'], [gen.generateFinishCss('mine', recipe('strata')), 'section.finish.finish-mine']]) {
-    const print = css.slice(css.indexOf('@media print'), css.indexOf(':where(.lattice-exporting)'));
-    const raster = css.slice(css.indexOf(':where(.lattice-exporting)'));
+    const print = css.slice(css.indexOf('@media print'), rasterAt(css));
+    const raster = css.slice(rasterAt(css));
     assert.ok(print.includes(`${base},\n`) && print.includes(`${base} ${S} {`), `${base}: print reaches the surfaces`);
-    for (const sel of [`:where(.lattice-exporting) ${base},`, `:where(.lattice-exporting) ${base} ${S},`, `${base}.lattice-exporting,`, `${base}.lattice-exporting ${S} {`]) {
+    for (const sel of [`${base}.lattice-exporting,`, `${base}.lattice-exporting ${S} {`]) {
       assert.ok(raster.includes(sel), `${base}: raster selector ${sel}`);
     }
   }

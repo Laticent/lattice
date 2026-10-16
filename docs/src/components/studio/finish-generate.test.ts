@@ -37,10 +37,11 @@ describe('finish-generate', () => {
 		expect(css).toContain('--fin-mark:');
 		expect(css).toContain('--fin-edge:');
 		// BOTH export guards are present, each re-pointing the full-bleed slots. The
-		// export-class guard matches an ancestor OR the section itself (the latter is
-		// load-bearing for the html-to-image raster, which clones the section only).
+		// export-class guard matches the section itself (the html-to-image raster clones the
+		// section only); an ancestor-led arm would pack to a section inside a section.
 		expect(css).toContain('@media print {');
-		expect(css).toContain(':where(.lattice-exporting) section.finish.finish-my-finish');
+		expect(css).not.toContain(':where(.lattice-exporting)');
+		expect(css).toContain('section.finish.finish-my-finish.lattice-exporting,');
 		expect(css).toContain('section.finish.finish-my-finish.lattice-exporting :is(.panel-left, .panel-right, .compare-left) {');
 	});
 

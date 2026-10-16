@@ -1,0 +1,1 @@
+- The `/segno` playground's time-limit message no longer blames a long `alt()`, which Segno now refuses in well under the limit. It names the cause that still reaches it: a long text run through a grammar that builds a large tree per character (deeply nested `node()` calls), and suggests a shorter text or flatter nesting.

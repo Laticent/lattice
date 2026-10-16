@@ -47,7 +47,6 @@ section.finish.finish-signal {
   --fin-edge:none;
   }
 }
-:where(.lattice-exporting) section.finish.finish-signal,
 section.finish.finish-signal.lattice-exporting {
   --fin-wash:radial-gradient(108% 95% at 26% 74%, color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%, var(--bg) 60%);
   --fin-texture:none;

@@ -1081,6 +1081,16 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `section.finish :where(.panel-left, …)`. The rewrite adds the type selector plus whatever
   classes leave `:where()`, less those that enter it ((0,0,1) here), so check what the rule must
   still lose to.
+- **The trailing form is the same trap.** `:where(.lattice-exporting) section.finish` packs to
+  `article.lattice > section :where(.lattice-exporting) section.finish`. Nine such arms sat in
+  `base.finish.css`, `base.modifiers.css`, the split-panel and split-compare styles and both finish
+  generators, and matched in no host: every host that sets the class (`lattice.js` for the CLI,
+  `deck-export.js` for the Studio, `tools/pdf-writer-parity.mjs`) stamps it on the section itself, never an
+  ancestor. Each had a `section….lattice-exporting` sibling that does the work, so they were
+  deleted, not rewritten. Computed style on an exporting split slide, old sheet vs new, was
+  identical in the packed and CLI forms (0 properties differ).
 - **Guard:** `test/unit/engine/css-scope.test.js` packs every `lib/` and `themes/` stylesheet
-  and fails on a packed `section :where(section…)`.
-- **Commits:** #2705 (code plugin), the catalog follow-ups PR (base.finish.css).
+  and fails on a packed `section :where(section…)` or `section :where(…) section`
+  (one `:where()`, one level of nested parens; `:where(.a) > section.x` and `:where(:root)` slip past it).
+- **Commits:** #2705 (code plugin), the catalog follow-ups PR (base.finish.css), the
+  catalog-followups-2 PR (the nine `.lattice-exporting` arms).
