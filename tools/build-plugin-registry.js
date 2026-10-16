@@ -463,8 +463,9 @@ export const FORWARD_SCAN_LINES = Object.freeze({${ahead.length ? ` ${ahead.join
 export const PLUGIN_NAMES = Object.freeze(${JSON.stringify(ordered.map((p) => p.manifest.name))});
 
 /** Every fence name a plugin claims, aliases included, lower-case: a fence the code plugin does not
- *  draw as a plain panel (lint-core's \`code-line-clipped\` leaves these out on a plain slide). */
-export const PLUGIN_FENCES = Object.freeze(${JSON.stringify(ordered.flatMap((p) => Object.entries(p.manifest.contributes?.fences || {})
+ *  draw as a plain panel (lint-core's \`code-line-clipped\` leaves these out on a plain slide). Pure, so a
+ *  startup bundle that imports this file for the block rules drops it. */
+export const PLUGIN_FENCES = /* @__PURE__ */ Object.freeze(${JSON.stringify(ordered.flatMap((p) => Object.entries(p.manifest.contributes?.fences || {})
     .flatMap(([name, f]) => [name, ...(f.aliases || []).map((a) => (typeof a === 'string' ? a : a.name))]))
     .map((n) => String(n).toLowerCase()))});
 `;
