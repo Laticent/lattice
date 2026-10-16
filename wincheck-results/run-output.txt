@@ -1,16 +1,9 @@
 PASS 0.1 The app window is up and the Studio is drawn :: window title: Lattice Studio
-PASS 0.2 Keyboard reaches the page (typing into the editor) :: typed ' wincheck' at the end of line 7 (screenshot 01b); foreground=[lattice-studio | Tauri Window | Lattice Studio] focus=[msedgewebview2 | Chrome_WidgetWin_1 | Lattice Studio — one workspace]
-PASS 1.1 Real Ctrl+F opens the Studio find bar, from the editor and from outside it :: find field both times (screenshots 02, 02b: no Edge find bar); foreground=[lattice-studio | Tauri Window | Lattice Studio] focus=[msedgewebview2 | Chrome_WidgetWin_1 | Lattice Studio — one workspace]
-PASS 1.2 Real F5 and Ctrl+R do not reload the page :: the open Share sheet survived F5 and Ctrl+R
-PASS 1.3 Real F12, Ctrl+Shift+I and Ctrl+Shift+J open no developer tools :: no DevTools window
-PASS 1.4 Real Ctrl+P opens the Print deck panel :: Print deck panel open (screenshot 06: no Edge print preview)
-PASS 1.5 Real Alt+Left never leaves the Studio :: still the Studio
-PASS 2.1 Real right-click on the preview shows no engine menu :: menu items: []
-PASS 2.2 Real right-click in the editor shows only editing items :: menu items: []
+feedback button at 956,41 32x33 type=ControlType.Button
+edit fields: [SUMMARY] [DETAILS]
 FAIL 3.1 Continue on GitHub opens the default browser; the app stays put :: not found: Summary field
-PASS 4.1 Connect OpenRouter opens its own sign-in window; closing it resets Connect :: sign-in window opened and closed; Connect is back
-PASS 5.1 Share > Markdown: the Windows Save dialog writes the file; Cancel writes nothing :: 12285 bytes saved; cancel wrote nothing and said nothing
-PASS 6.1 Real Ctrl+F in Compose opens the Studio find bar :: Compose find field present
+Headers and footers present, no toggle pattern
+Margins present: ControlType.Text
 PASS 7.1 Print at 4-up reaches a print dialog (no file, no new window) :: windows after Print:
 lattice-studio | Tauri Window | Lattice Studio
 WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedComputeAgent\hosted-compute-agent
@@ -21,4 +14,4 @@ WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedCo
 SystemPropertiesPerformance | #32770 | System Properties
 explorer | Progman | Program Manager
 
-14 pass, 1 fail
+3 pass, 1 fail
