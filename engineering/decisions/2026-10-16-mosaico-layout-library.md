@@ -5,7 +5,7 @@ summary: Design for mosaico, a general box-packing library grown out of the coll
 
 # mosaico: a box-packing library grown from the collage packer (2026-10-16)
 
-**Status: proposed.** The owner settled four forks on 2026-10-16 (§9). Nothing is built. Slice 1 (§8) is
+**Status: proposed.** The owner settled seven forks on 2026-10-16 (§9); one is open. Nothing is built. Slice 1 (§8) is
 the first code.
 
 ## 1. The answer first
@@ -133,8 +133,8 @@ known. Otherwise the floors are read as fractions and the result says so.
 | custom | per-item weights | hosts |
 
 Hero (one item must hold the largest tile) and fixed order are constraints on any goal, not goals of their
-own. **`equal-weight` needs a definition**, and §9 leaves it open. The common one in logo walls is equal area
-with a height cap; optical density is out of scope.
+own. **`equal-weight` is equal area with a height cap** (§9, decision 6): every item gets the same area unless
+that would make it taller than the cap, and optical density is out of scope.
 
 ### 4.4 Strategies
 
@@ -165,11 +165,20 @@ The core never waits. An unmeasured item enters with a stand-in rule: the host's
   for SVG.
 - **Container:** `ResizeObserver`.
 
-When a late item lands, a visible jump is the failure to avoid (`engineering/jank.md`). The live adapter keeps
-the arrangement it chose and only re-runs the sizing step, which is cheap. It searches again only if the fit
-gets worse than a set threshold. The current collage instead waits up to 4 s before its one stamp
-(`PENDING_CAP_MS`, `collage.transform.js:259`); whether a host waits or shows a provisional layout is the
-host's choice, and the adapter supports both.
+**Layout is an async process (owner, 2026-10-16, decision 7).** The live adapter lays out at once with what
+it knows, then re-lays out each time an item's size or the container's size becomes known. That is the default
+and the main path, not a fallback. It is affordable only if a re-pack is cheap, so speed is a requirement here,
+not a nicety. Slice 1 proposes and measures a budget: one re-pack inside one 60 Hz frame (16 ms) for `tree` up
+to six items and `rows` up to forty.
+
+**Waiting is an option.** A host can instead hold the layout until every item is measured, with a cap, as the
+current collage does (`PENDING_CAP_MS`, 4 s, `collage.transform.js:259`). The adapter takes `wait: false`
+(default), `wait: true` or a cap in milliseconds.
+
+**A re-layout must not shuffle the page.** A visible jump is the failure to avoid (`engineering/jank.md`). On
+each arrival the adapter first re-runs only the sizing step for the arrangement already on screen. It searches
+again only when that arrangement fits worse than a set threshold. Whether a re-layout may move items to new
+places or only resize them is a host option; the threshold and the default are slice 4's to measure.
 
 ### 4.6 Output
 
@@ -256,13 +265,12 @@ Each slice ships on its own, with its own gates.
 3. **Name:** mosaico.
 4. **This note first, as a docs-only PR, before any code.**
 
+5. **License: `AGPL-3.0-only`**, the same as `segno`.
+6. **`equal-weight` means equal area with a height cap** (§4.3). Optical density stays out of scope.
+7. **Layout is async: lay out at once, re-lay out as sizes arrive** (§4.5). Waiting for every item, with a cap,
+   is a host option, not the default. The speed budget in §4.5 is what makes this the default.
+
 **Open:**
 
-5. **License.** `segno` is `AGPL-3.0-only`. A library meant for anyone to reuse reaches far fewer projects
-   under the AGPL than under MIT or Apache-2.0. This decides who can adopt it.
-6. **`equal-weight`'s definition** for logos: equal area with a height cap (recommended, and measurable), or
-   something optical.
-7. **Waiting versus provisional layout** for unmeasured items on live surfaces (§4.5): keep `collage`'s wait
-   with a 4 s cap, or show a provisional layout and resolve it without a jump.
 8. **When to publish to npm.** After two Lattice callers have shaped the API (recommended), so the first public
    version is not the one that has to change.
