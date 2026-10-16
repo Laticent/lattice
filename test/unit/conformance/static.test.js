@@ -4,7 +4,7 @@
 // third proves the runner and the ledger bite, so a green matrix cannot be a vacuous one.
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadContracts, runContract, fixtureProblems, readLedger, ledgerProblems, contractProblems } = require('../../../lib/conformance');
+const { loadContracts, runContract, fixtureProblems, readLedger, ledgerProblems, ledgerGitProblems, formatEntry, contractProblems } = require('../../../lib/conformance');
 
 const contracts = loadContracts();
 const ledger = readLedger();
@@ -19,6 +19,10 @@ describe('conformance: every instance meets every clause', () => {
       assert.deepEqual(fails, []);
     });
   }
+  test('the ledger: no entry was added after its clause landed, or raised since (git history)', () => {
+    // A shallow clone answers nothing (ledgerGitProblems returns []); the arms below prove it bites.
+    assert.deepEqual(ledgerGitProblems(ledger), []);
+  });
   test('the ledger: every entry names a live failure, a reason, and its clause\'s day', () => {
     const cells = runs.flatMap(([, r]) => r.cells);
     const clauses = new Map(contracts.flatMap((c) => c.clauses.map((cl) => [cl.id, cl])));
@@ -164,5 +168,60 @@ describe('conformance: the runner and the ledger bite (failing arms)', () => {
     assert.deepEqual(ledgerProblems([entry(over.measure)], debtCells, cclauses), []);
     const late = ledgerProblems([{ clause: cell.clause, instance: cell.instance, reason: 'x', seeded: '2099-01-01' }], run.cells, clauses);
     assert.ok(late.some((p) => p.includes('only the day')) && late.some((p) => p.includes('reason')));
+  });
+});
+
+describe('conformance: the ledger checks dates against git, not against the entry (failing arms)', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'conf-ledger-'));
+  const g = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...a], { cwd: repo, stdio: 'ignore' });
+  const write = (rel, text) => { fs.mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true }); fs.writeFileSync(path.join(repo, rel), text); };
+  const commit = (msg) => { g('add', '-A'); g('commit', '-q', '-m', msg); };
+  const clauseFile = (...ids) => `module.exports = [${ids.map((i) => `{ id: '${i}' }`).join(', ')}];\n`;
+  const entry = (clause, instance, ceiling) => ({ clause, instance, reason: 'a reason long enough', seeded: '2026-10-16', ...(ceiling === undefined ? {} : { ceiling }) });
+  const ledgerText = (...es) => `{\n  "entries": [\n${es.map((e) => `    ${formatEntry(e)}`).join(',\n')}\n  ]\n}\n`;
+  const check = (...es) => ledgerGitProblems(es, { cwd: repo });
+  g('init', '-q');
+  write('lib/conformance/kinds/x.contract.js', clauseFile('x.early'));
+  write('test/conformance/debt.json', ledgerText());
+  commit('base');
+
+  test('an entry added in the SAME commit as its clause is honest, and a later ceiling cut stays honest', () => {
+    write('lib/conformance/kinds/x.contract.js', clauseFile('x.early', 'x.same'));
+    write('test/conformance/debt.json', ledgerText(entry('x.same', 'a', 5)));
+    commit('clause and debt together');
+    assert.deepEqual(check(entry('x.same', 'a', 5)), []);
+    write('test/conformance/debt.json', ledgerText(entry('x.same', 'a', 3)));
+    commit('ceiling falls');
+    assert.deepEqual(check(entry('x.same', 'a', 3)), []);
+  });
+  test('an entry added in a LATER commit than its clause is refused, whatever its seeded date says', () => {
+    write('test/conformance/debt.json', ledgerText(entry('x.same', 'a', 3), entry('x.early', 'late', 1)));
+    commit('debt for a clause that landed earlier');
+    assert.ok(check(entry('x.early', 'late', 1)).some((p) => p.includes('after its clause landed')));
+  });
+  test('a ceiling raised since the entry was added is refused', () => {
+    assert.ok(check(entry('x.same', 'a', 9)).some((p) => p.includes('may only fall')));
+  });
+  test('deleting an entry and adding it back counts as added later', () => {
+    write('test/conformance/debt.json', ledgerText(entry('x.early', 'late', 1)));
+    commit('drop a');
+    write('test/conformance/debt.json', ledgerText(entry('x.early', 'late', 1), entry('x.same', 'a', 3)));
+    commit('add a back');
+    assert.ok(check(entry('x.same', 'a', 3)).some((p) => p.includes('after its clause landed')));
+  });
+  test('an uncommitted entry for a committed clause is refused; for an uncommitted clause it is honest', () => {
+    write('test/conformance/debt.json', ledgerText(entry('x.early', 'late', 1), entry('x.same', 'a', 3), entry('x.early', 'new', 1)));
+    assert.ok(check(entry('x.early', 'new', 1)).some((p) => p.includes('in no commit yet')));
+    write('lib/conformance/kinds/x.contract.js', clauseFile('x.early', 'x.same', 'x.fresh'));
+    write('test/conformance/debt.json', ledgerText(entry('x.fresh', 'b', 2)));
+    assert.deepEqual(check(entry('x.fresh', 'b', 2)), []);
+  });
+  test('an entry git cannot find as one line is refused', () => {
+    write('test/conformance/debt.json', '{ "entries": [ { "instance": "b", "clause": "x.fresh", "reason": "r" } ] }\n');
+    assert.ok(check({ clause: 'x.fresh', instance: 'b', reason: 'r' }).some((p) => p.includes('not found')));
   });
 });
