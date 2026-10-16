@@ -46,4 +46,18 @@ describe('figureChange — numeric provenance for a proposed edit', () => {
 	it('does flag a genuine value change even across formats', () => {
 		expect(figureChange('$4.2M', '$4.3M')).not.toBeNull();
 	});
+	// A model reply that respells a billion is a reformat, not a figure change. The chart
+	// readers settled B / bn / Bn / BN as billions (lib/core/chart-values.js MAGNITUDE).
+	it('does NOT flag a respelled billion, and still flags a changed one', () => {
+		for (const after of ['$5bn', '$5Bn', '$5BN', '$5b']) expect(figureChange('$5B', after)).toBeNull();
+		expect(figureChange('$5bn', '$5B')).toBeNull();
+		expect(figureChange('$5bn', '$6bn')).not.toBeNull();
+		expect(figureChange('$5bn', '$5m')).not.toBeNull();
+	});
+	it('reads T as trillions: a dropped or swapped magnitude is a change, a reformat is not', () => {
+		expect(figureChange('GDP $5T', 'GDP $5')).not.toBeNull();
+		expect(figureChange('GDP $5T', 'GDP $5M')).not.toBeNull();
+		expect(figureChange('GDP $5T', 'GDP $5,000B')).toBeNull();
+		expect(figureChange('GDP $5T', 'GDP $5,000bn')).toBeNull();
+	});
 });
