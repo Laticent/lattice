@@ -139,8 +139,6 @@ describe('every Studio save goes through the seam', () => {
 		const { readFileSync, readdirSync, statSync } = await import('node:fs');
 		const { join, relative } = await import('node:path');
 		const root = join(__dirname, '..');
-		// A standalone demo page; the desktop app opens /studio/ and never links to it.
-		const outsideTheApp = new Set(['pages/vetrina.astro']);
 		const bypass = /\.download\s*=|setAttribute\(\s*['"]download['"]|\.writeFile\s*\(/;
 		const offenders: string[] = [];
 		const walk = (dir: string) => {
@@ -151,7 +149,7 @@ describe('every Studio save goes through the seam', () => {
 				const rel = relative(root, path);
 				// The seam's two halves: download.js clicks the browser's link and sends a desktop
 				// save to lib/platform.js, which shows the native dialog.
-				if (rel === 'lib/platform.js' || rel === 'components/studio/download.js' || outsideTheApp.has(rel)) continue;
+				if (rel === 'lib/platform.js' || rel === 'components/studio/download.js') continue;
 				readFileSync(path, 'utf8').split('\n').forEach((line, i) => {
 					if (bypass.test(line) && !/^\s*(\/\/|\*)/.test(line)) offenders.push(`${rel}:${i + 1}`);
 				});
@@ -202,5 +200,32 @@ describe('download.js in the desktop app', () => {
 		expect(invoke.mock.calls[0][0]).toBe('save_file');
 		expect(click).not.toHaveBeenCalled();
 		click.mockRestore();
+	});
+
+	it('downloadText saves through the dialog too', async () => {
+		const { downloadText } = await import('@/components/studio/download');
+		invoke.mockResolvedValueOnce(true);
+		downloadText('deck.md', '# Hi');
+		await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+		expect(new TextDecoder().decode(invoke.mock.calls[0][1])).toBe('# Hi');
+	});
+
+	it('a failed save raises the Try again toast, and Try again saves again with the same onSaved', async () => {
+		const { downloadBlob } = await import('@/components/studio/download');
+		const raised: { message: string; opts: { label: string; onClick: () => void } }[] = [];
+		const listen = (e: Event) => raised.push((e as CustomEvent).detail);
+		window.addEventListener('lattice:notify-action', listen);
+		const onSaved = vi.fn();
+		invoke.mockRejectedValueOnce(new Error('disk full'));
+		downloadBlob('backup.zip', new Blob(['zip']), { onSaved });
+		await vi.waitFor(() => expect(raised).toHaveLength(1));
+		expect(raised[0].message).toBe('Could not save backup.zip.');
+		expect(raised[0].opts.label).toBe('Try again');
+		expect(onSaved).not.toHaveBeenCalled();
+		invoke.mockResolvedValueOnce(true);
+		raised[0].opts.onClick();
+		await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+		expect(invoke).toHaveBeenCalledTimes(2);
+		window.removeEventListener('lattice:notify-action', listen);
 	});
 });

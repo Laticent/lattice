@@ -300,8 +300,9 @@ export function FinishStudio({
 			`${slug}.finish.css`,
 			`/* Lattice finish "${slug}" — apply per slide with <!-- _class: ${cls} --> or deck-wide with class: ${cls} */\n${css}\n`,
 			'text/css',
+			// Said once the file exists: the desktop app's save dialog can be dismissed.
+			{ onSaved: () => notify(`Exported ${slug}.finish.css — apply with _class: ${cls}.`) },
 		);
-		notify(`Exported ${slug}.finish.css — apply with _class: ${cls}.`);
 	};
 
 	const save = async () => {

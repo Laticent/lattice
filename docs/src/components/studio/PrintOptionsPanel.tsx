@@ -38,7 +38,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // (studio-panels.ts).
 import { authoring } from '@/playground/authoring-door.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
-import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
+import { downloadBlob, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';

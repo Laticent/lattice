@@ -49,7 +49,8 @@ export function revokeLater(url) {
 
 /** Point an existing link at `blob`, named `filename` — for a link the user clicks
  *  themselves rather than one we click for them. Returns the URL so the caller can
- *  revoke it when the link is re-armed. */
+ *  revoke it when the link is re-armed. BROWSER ONLY: a desktop webview ignores the link,
+ *  so nothing inside the Studio uses this; its one caller is the Vetrina demo page. */
 /** @param {HTMLAnchorElement} a @param {string} filename @param {Blob} blob @returns {string} */
 export function armDownloadLink(a, filename, blob) {
 	const url = namedFileUrl(blob, filename);
@@ -105,9 +106,11 @@ export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platfor
 	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);
 }
 
-/** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL.
+/** Click a link to an already-made URL (from `namedFileUrl`) as `filename`. BROWSER ONLY and
+ *  private on purpose: a desktop webview drops the click, so every save goes through
+ *  `downloadBlob`, which checks for the app first.
  *  @param {string} url @param {string} filename */
-export function downloadUrl(url, filename) {
+function downloadUrl(url, filename) {
 	if (typeof document === 'undefined') return;
 	const a = document.createElement('a');
 	a.href = url;

@@ -430,7 +430,9 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 				downloadBlob('lattice-motion-scenes.zip', bundle);
 				if (unreadable) notify(`Ready: ${valid.length} scene(s).${unreadableNote}`);
 			} else {
-				// Said once the file exists: the desktop app's save dialog can be dismissed.
+				// What could not be read is about the library, not the save: said now, so a
+				// dismissed desktop dialog does not swallow it. "Downloaded" waits for the file.
+				if (unreadable) notify(`${unreadable} scene(s) could not be read — they stay in your library and in every backup.`);
 				downloadBlob('lattice-motion-scenes.zip', bundle, { onSaved: () => notify(`Downloaded ${valid.length} scene(s).${unreadableNote}`) });
 			}
 		} catch (e) {
