@@ -52,9 +52,10 @@ const popcount = (m: number): number => {
 // ── affine nodes ──────────────────────────────────────────────────────────────────────
 // A leaf is an item: at height h its width is a·h. Two nodes join in one of two ways (inlined in
 // `enumerate`):
-//   V, side by side (equal heights): widths add, one gap between.   p = pl + pr, q = ql + qr + g
-//   H, stacked (equal widths): heights add with one gap; invert the sum to get width(h).
-//                                    p = 1 / (1/pl + 1/pr),   q = p · (ql/pl + qr/pr − g)
+//   V, side by side (equal heights): widths add, one column gap gx between.
+//                                    p = pl + pr,             q = ql + qr + gx
+//   H, stacked (equal widths): heights add with one row gap gy; invert the sum to get width(h).
+//                                    p = 1 / (1/pl + 1/pr),   q = p · (ql/pl + qr/pr − gy)
 function leaf(i: number, a: number): TreeLeaf {
   return { leaf: true, i, m: 1 << i, p: a, q: 0 };
 }
@@ -65,8 +66,8 @@ export function canon(n: TreeNode): string {
   return n.c;
 }
 
-/** Lay a node out in the box (x, y, w, h), gap g between siblings, writing one rect per tile. */
-export function layout(n: TreeNode, x: number, y: number, w: number, h: number, g: number, out: Rect[]): void {
+/** Lay a node out in the box (x, y, w, h), gaps gx across and gy down, writing one rect per tile. */
+export function layout(n: TreeNode, x: number, y: number, w: number, h: number, gx: number, gy: number, out: Rect[]): void {
   if (n.leaf) {
     out[n.i] = { x, y, w, h };
     return;
@@ -74,31 +75,31 @@ export function layout(n: TreeNode, x: number, y: number, w: number, h: number, 
   const l = n.l;
   if (n.cut === 'V') {
     const wl = l.p * h + l.q;
-    layout(l, x, y, wl, h, g, out);
-    layout(n.r, x + wl + g, y, w - wl - g, h, g, out);
+    layout(l, x, y, wl, h, gx, gy, out);
+    layout(n.r, x + wl + gx, y, w - wl - gx, h, gx, gy, out);
   } else {
     const hl = (w - l.q) / l.p;
-    layout(l, x, y, w, hl, g, out);
-    layout(n.r, x, y + hl + g, w, h - hl - g, g, out);
+    layout(l, x, y, w, hl, gx, gy, out);
+    layout(n.r, x, y + hl + gy, w, h - hl - gy, gx, gy, out);
   }
 }
 
 // The same walk as `layout`, keeping only each tile's area. Same arithmetic, same order.
-function areasOf(n: TreeNode, w: number, h: number, g: number, out: Float64Array): void {
+function areasOf(n: TreeNode, w: number, h: number, gx: number, gy: number, out: Float64Array): void {
   if (n.leaf) out[n.i] = w * h;
-  else areasOfJoin(n.cut, n.l, n.r, w, h, g, out);
+  else areasOfJoin(n.cut, n.l, n.r, w, h, gx, gy, out);
 }
 
 // The join taken apart (cut, left, right), so a candidate is measured before a node is allocated.
-function areasOfJoin(cut: 'V' | 'H', l: TreeNode, r: TreeNode, w: number, h: number, g: number, out: Float64Array): void {
+function areasOfJoin(cut: 'V' | 'H', l: TreeNode, r: TreeNode, w: number, h: number, gx: number, gy: number, out: Float64Array): void {
   if (cut === 'V') {
     const wl = l.p * h + l.q;
-    areasOf(l, wl, h, g, out);
-    areasOf(r, w - wl - g, h, g, out);
+    areasOf(l, wl, h, gx, gy, out);
+    areasOf(r, w - wl - gx, h, gx, gy, out);
   } else {
     const hl = (w - l.q) / l.p;
-    areasOf(l, w, hl, g, out);
-    areasOf(r, w, h - hl - g, g, out);
+    areasOf(l, w, hl, gx, gy, out);
+    areasOf(r, w, h - hl - gy, gx, gy, out);
   }
 }
 
@@ -119,15 +120,15 @@ interface Mirror {
 // alone dropped the layout a hero needed (a 53% empty result where another leaves 6%).
 // Both terms are rounded to 1e-4, so the pair packs into one number; anything not finite keeps
 // the string the key was always built from.
-function signature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: number, m: number, g: number, hero: number, buf: Float64Array): number | string {
-  rawSignature(cut, l, r, p, q, m, g, hero, buf);
+function signature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: number, m: number, gx: number, gy: number, hero: number, buf: Float64Array): number | string {
+  rawSignature(cut, l, r, p, q, m, gx, gy, hero, buf);
   return packSignature(RAW[0], RAW[1]);
 }
 
 // The two signature terms before rounding (×1e4), written to RAW.
 const RAW = new Float64Array(2);
-function rawSignature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: number, m: number, g: number, hero: number, buf: Float64Array): void {
-  areasOfJoin(cut, l, r, p + q, 1, g, buf);
+function rawSignature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: number, m: number, gx: number, gy: number, hero: number, buf: Float64Array): void {
+  areasOfJoin(cut, l, r, p + q, 1, gx, gy, buf);
   let lo = Infinity;
   let hi = 0;
   let sum = 0;
@@ -177,7 +178,7 @@ const isRun = (m: number): boolean => {
 };
 
 /** Every arrangement of all items; one kept per distinct outer shape and score signature. */
-export function enumerate(aspects: number[], ordered: boolean, g: number, hero: number): TreeNode[] {
+export function enumerate(aspects: number[], ordered: boolean, gx: number, gy: number, hero: number): TreeNode[] {
   const n = aspects.length;
   const full = (1 << n) - 1;
   const memo: TreeNode[][] = new Array(full + 1);
@@ -200,7 +201,7 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
     const groups = new Map<number | string, TreeJoin | TreeJoin[]>();
     const out: TreeNode[] = [];
     const sigOf = (node: TreeJoin): number | string => {
-      if (node.s === undefined) node.s = signature(node.cut, node.l, node.r, node.p, node.q, node.m, g, hero, buf);
+      if (node.s === undefined) node.s = signature(node.cut, node.l, node.r, node.p, node.q, node.m, gx, gy, hero, buf);
       return node.s;
     };
     const offer = (cut: 'V' | 'H', L: TreeNode, R: TreeNode, p: number, q: number, sig?: number | string): void => {
@@ -211,7 +212,7 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
         node = { leaf: false, cut, l: L, r: R, m, p, q, s: sig };
         groups.set(k, node);
       } else {
-        if (sig === undefined) sig = signature(cut, L, R, p, q, m, g, hero, buf);
+        if (sig === undefined) sig = signature(cut, L, R, p, q, m, gx, gy, hero, buf);
         if (Array.isArray(group)) {
           for (const kept of group) if (sigOf(kept) === sig) return;
           node = { leaf: false, cut, l: L, r: R, m, p, q, s: sig };
@@ -235,7 +236,7 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
     const mirrors: Mirror[] = [];
     // A gutter as tall as the box makes the subtractions cancel badly enough that the last-bits
     // bound above no longer holds, so every mirror is queued, which is exactly the old search.
-    const allMirrors = g >= 1;
+    const allMirrors = gx >= 1 || gy >= 1;
     for (let s = (m - 1) & m; s > 0 && (s & top) === top; s = (s - 1) & m) {
       const t = m ^ s;
       // ordered: the left part must be a prefix of the written order within this subset
@@ -248,18 +249,18 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
           const R = right[iR];
           // joinV and joinH, inlined so a dropped candidate allocates nothing.
           const pv = L.p + R.p;
-          const qv = L.q + R.q + g;
+          const qv = L.q + R.q + gx;
           const ph = 1 / (1 / L.p + 1 / R.p);
-          const qh = ph * (L.q / L.p + R.q / R.p - g);
+          const qh = ph * (L.q / L.p + R.q / R.p - gy);
           if (ordered) {
             offer('V', L, R, pv, qv);
             offer('H', L, R, ph, qh);
             continue;
           }
-          rawSignature('V', L, R, pv, qv, m, g, hero, buf);
+          rawSignature('V', L, R, pv, qv, m, gx, gy, hero, buf);
           if (allMirrors || nearHalf(RAW[0]) || (hero >= 0 && nearHalf(RAW[1]))) mirrors.push({ t, iR, iL, cut: 0, L, R });
           offer('V', L, R, pv, qv, packSignature(RAW[0], RAW[1]));
-          rawSignature('H', L, R, ph, qh, m, g, hero, buf);
+          rawSignature('H', L, R, ph, qh, m, gx, gy, hero, buf);
           if (allMirrors || nearHalf(RAW[0]) || (hero >= 0 && nearHalf(RAW[1]))) mirrors.push({ t, iR, iL, cut: 1, L, R });
           offer('H', L, R, ph, qh, packSignature(RAW[0], RAW[1]));
         }
@@ -271,10 +272,10 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
     for (const { cut, L, R } of mirrors) {
       // The mirror joins R then L, in the arithmetic the subset loop used for it.
       if (cut === 0) {
-        offer('V', R, L, R.p + L.p, R.q + L.q + g);
+        offer('V', R, L, R.p + L.p, R.q + L.q + gx);
       } else {
         const p = 1 / (1 / R.p + 1 / L.p);
-        offer('H', R, L, p, p * (R.q / R.p + L.q / L.p - g));
+        offer('H', R, L, p, p * (R.q / R.p + L.q / L.p - gy));
       }
     }
     memo[m] = out;
@@ -339,11 +340,11 @@ export interface TreeChoice {
 export function chooseTree(
   aspects: number[],
   F: number,
-  opts: { ordered: boolean; fit: 'tight' | 'fill'; stretch: number; gap: number; hero: number; weights: Required<TreeWeights> },
+  opts: { ordered: boolean; fit: 'tight' | 'fill'; stretch: number; columnGap: number; rowGap: number; hero: number; weights: Required<TreeWeights> },
 ): TreeChoice | null {
-  const { ordered, fit, stretch, gap: g, hero, weights: W } = opts;
+  const { ordered, fit, stretch, columnGap: gx, rowGap: gy, hero, weights: W } = opts;
   const n = aspects.length;
-  const roots = enumerate(aspects, ordered, g, hero);
+  const roots = enumerate(aspects, ordered, gx, gy, hero);
   const first = roots.map((node) => {
     const { empty, crop } = fitStats(node.p + node.q, F, fit, stretch);
     return { node, empty, crop };
@@ -359,7 +360,7 @@ export function chooseTree(
     scored++;
     const A = c.node.p + c.node.q;
     const rects: Rect[] = [];
-    layout(c.node, 0, 0, A, 1, g, rects);
+    layout(c.node, 0, 0, A, 1, gx, gy, rects);
     let lo = Infinity;
     let hi = -Infinity;
     for (let i = 0; i < n; i++) {
@@ -372,7 +373,7 @@ export function chooseTree(
     let score = W.empty * c.empty + c.crop + W.smallTile * Math.max(0, W.smallTileFloor - ratio);
     if (hero >= 0 && hero < n && areas[hero] < hi - 1e-9) score += W.hero;
     if (best && score - best.score > SKIP_MARGIN) continue;
-    if (!tracksValid(rects, g, 'x') || !tracksValid(rects, g, 'y')) continue;
+    if (!tracksValid(rects, gx, 'x') || !tracksValid(rects, gy, 'y')) continue;
     const tree = canon(c.node);
     if (!best || score < best.score - TIE || (Math.abs(score - best.score) <= TIE && tree < best.tree)) {
       best = { node: c.node, A, rects, ratio, empty: c.empty, crop: c.crop, score, tree, work: { arrangements: 0, scored: 0 } };

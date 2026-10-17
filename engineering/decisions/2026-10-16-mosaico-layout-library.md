@@ -465,6 +465,36 @@ WebKit phone): four mixed marks draw within 3% of one area, in one row.
 **Measured on a CLI render at 1280×720** (drawn SVG boxes): a 4:1, 1:1, 1:2 and 3:1 mark went from 3.57×
 max/min area to 1.00× (default) and from 2.75× to 1.00× (`dense`, six marks).
 
+### 8.3 Spacing and placement, as built (2026-10-17)
+
+The owner asked whether Mosaico lets a host set the gap and the container's padding, and what other controls
+were missing. It had `gap` (and `rowGap` for `rows`), and nothing else: no padding, one gap for both axes in
+`tree`, gaps in fractions of the height for `tree` but of the width for `rows`, and no say over where a
+layout sits in the space it leaves. Every host drew the layout itself and redid the centering (the demo page
+did it twice). Four options and two outputs close that, before the npm release fixes the API:
+
+| Added | What it does |
+|---|---|
+| `padding` | space inside the container's edges: one length, or `{ top, right, bottom, left }` |
+| `columnGap`, `rowGap` | separate gutters across and down, for both strategies (`gap` sets both) |
+| `align` | where the layout sits in the space it leaves: `start`, `center` (default), `end`; `rows` also `justify`, with `lastRow` for its last row |
+| `container.width`, `.height` | a size in any unit; every length option is then read in that unit |
+| `result.frame` | where the layout sits in the container, in the container's units |
+| `result.placed` | one box per item in the container's units: what to draw |
+
+**One unit rule.** Without a size, lengths stay fractions, as before: of the height for `tree`, of the width
+for `rows`. With a size, they are in its unit, pixels or anything else, so a host with a 16 px gutter passes
+16 and needs to know nothing about the strategy. `rects` and `cells` stay in layout units, because `toGrid`
+reads them.
+
+**Exact gutters when the layout is width-limited.** A `tree` layout wider than the box used to be scaled
+down whole, gutters with it. `placed` solves the root's width line for the height instead, so every gutter
+keeps its size there too. The score is unchanged: it still reads the layout at height 1.
+
+**Nothing moved for existing callers.** With none of the new options, the arithmetic is the old arithmetic
+(a division by 1, an offset of 0), so the collage golden file (4,128 layouts) and the logo-wall tests pass
+unchanged. `test/unit/mosaico/spacing.test.js` pins the new behavior.
+
 ## 9. Decisions
 
 **Settled (owner, 2026-10-16):**

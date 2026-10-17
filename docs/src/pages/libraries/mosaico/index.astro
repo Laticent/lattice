@@ -83,6 +83,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				border-radius: 999px; padding: 6px 11px; cursor: pointer; min-height: 32px; }
 			.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
 			.chip:disabled { opacity: .4; cursor: default; }
+			.slider input { accent-color: var(--accent); width: 104px; margin: 0; }
+			.slider output { font: 12px var(--mono); color: var(--ink); min-width: 4.5ch; }
 
 			.frame { margin: 20px auto 0; background: var(--panel); border: 1px dashed var(--line); border-radius: 10px;
 				position: relative; width: 100%; max-height: 62vh; overflow: hidden; }
@@ -93,6 +95,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			.frame .box:disabled { cursor: default; filter: none; }
 			@media (max-width: 560px) { .frame .box { font-size: 10px; } }
 			.frame .box.warm { background: linear-gradient(150deg, var(--glow-bg), color-mix(in srgb, var(--glow-bg) 70%, var(--glow))); color: var(--glow); }
+			.frame .inset { position: absolute; border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent); border-radius: 4px; pointer-events: none; }
 			.frame .cell { position: absolute; border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 6px; }
 			.stats { margin: 14px 0 0; display: flex; gap: 8px 20px; flex-wrap: wrap; font: 12px var(--mono); color: var(--muted); }
 			.stats b { color: var(--ink); font-weight: 600; }
@@ -165,11 +168,14 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 							<button class="chip" id="free" aria-pressed="true" type="button">free</button>
 							<button class="chip" id="ordered" aria-pressed="false" type="button">ordered</button>
 						</div>
+						<div class="group" id="treeAlign" aria-label="Align"><span class="lbl">Align</span></div>
+						<label class="group slider"><span class="lbl">Gap</span><input type="range" id="treeGap" min="0" max="0.08" step="0.005" /><output id="treeGapOut" for="treeGap"></output></label>
+						<label class="group slider"><span class="lbl">Padding</span><input type="range" id="treePad" min="0" max="0.12" step="0.01" /><output id="treePadOut" for="treePad"></output></label>
 						<button class="chip" id="clear" type="button">clear</button>
 					</div>
 					<div class="frame" id="treeFrame"></div>
 					<div class="stats" id="treeStats" role="status" aria-live="polite"></div>
-					<p class="note">Every box keeps its exact shape, and whatever the container's shape leaves over becomes empty margin, never a crop. Click a box to remove it. Up to six boxes: the search tries every guillotine arrangement. Lattice's <code>collage</code> layout is this strategy.</p>
+					<p class="note">Every box keeps its exact shape, and whatever the container's shape leaves over becomes empty margin, never a crop; <b>Align</b> says where the margin goes. Gap and padding are shares of the box's height here; give the container a <code>width</code> and <code>height</code> and they are pixels. <code>columnGap</code> and <code>rowGap</code> set the two directions apart. Click a box to remove it. Up to six boxes: the search tries every guillotine arrangement. Lattice's <code>collage</code> layout is this strategy.</p>
 				</section>
 
 				<section class="panel" id="panelRows" role="tabpanel" aria-labelledby="tabRows" hidden>
@@ -179,11 +185,14 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 							<button class="chip" id="cells" aria-pressed="false" type="button">equal cells</button>
 							<button class="chip" id="area" aria-pressed="true" type="button">equal area</button>
 						</div>
+						<div class="group" id="rowsAlign" aria-label="Align"><span class="lbl">Align</span></div>
+						<label class="group slider"><span class="lbl">Gap</span><input type="range" id="rowsGap" min="0" max="0.1" step="0.005" /><output id="rowsGapOut" for="rowsGap"></output></label>
+						<label class="group slider"><span class="lbl">Padding</span><input type="range" id="rowsPad" min="0" max="0.12" step="0.01" /><output id="rowsPadOut" for="rowsPad"></output></label>
 						<button class="chip" id="clearMarks" type="button">reset</button>
 					</div>
 					<div class="frame" id="rowsFrame"></div>
 					<div class="stats" id="rowsStats" role="status" aria-live="polite"></div>
-					<p class="note">Equal cells draw each box as large as its cell allows, so a wide box takes the room. Equal area gives every box the same area, unless that would stand it taller than a cap. Rows are balanced and centered. Lattice's <code>logo-wall</code> layout is this strategy.</p>
+					<p class="note">Equal cells draw each box as large as its cell allows, so a wide box takes the room. Equal area gives every box the same area, unless that would stand it taller than a cap. Rows are balanced, and <b>Align</b> places each one; <b>justify</b> spreads a row across the width and starts the last row at the left. Gap and padding are shares of the width here. Lattice's <code>logo-wall</code> layout is this strategy.</p>
 				</section>
 			</div>
 
@@ -308,33 +317,66 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			$('#ordered').addEventListener('click', () => { ordered = true; render(); });
 			$('#clear').addEventListener('click', () => { items = []; render(); });
 
+			// Spacing: the library's own options, in shares of the box (tree: of its height, rows: of its width).
+			type Align = 'start' | 'center' | 'end' | 'justify';
+			const RGAP_DEFAULT = 0.045, RPAD_DEFAULT = 0.04;
+			let treeGap = GAP, treePad = 0, treeAlign: Align = 'center';
+			let rowsGap = RGAP_DEFAULT, rowsPad = RPAD_DEFAULT, rowsAlign: Align = 'center';
+			const resetSpacing = () => { treeGap = GAP; treePad = 0; treeAlign = 'center'; rowsGap = RGAP_DEFAULT; rowsPad = RPAD_DEFAULT; rowsAlign = 'center'; };
+			const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
+			const slider = (id: string, get: () => number, set: (v: number) => void) => {
+				const input = $(`#${id}`) as HTMLInputElement;
+				input.addEventListener('input', () => { set(Number(input.value)); render(); });
+				return () => { input.value = String(get()); $(`#${id}Out`).textContent = pct(get()); };
+			};
+			const alignChips = (id: string, options: Align[], get: () => Align, set: (a: Align) => void) => {
+				const chips = options.map((a) => { const b = chip(a, () => { set(a); render(); }); $(`#${id}`).append(b); return [b, a] as const; });
+				return () => { for (const [b, a] of chips) b.setAttribute('aria-pressed', String(a === get())); };
+			};
+			const syncTree = [
+				slider('treeGap', () => treeGap, (v) => { treeGap = v; }),
+				slider('treePad', () => treePad, (v) => { treePad = v; }),
+				alignChips('treeAlign', ['start', 'center', 'end'], () => treeAlign, (a) => { treeAlign = a; }),
+			];
+			const syncRows = [
+				slider('rowsGap', () => rowsGap, (v) => { rowsGap = v; }),
+				slider('rowsPad', () => rowsPad, (v) => { rowsPad = v; }),
+				alignChips('rowsAlign', ['start', 'center', 'end', 'justify'], () => rowsAlign, (a) => { rowsAlign = a; }),
+			];
+			// A dashed line where the padding ends, in shares of the frame.
+			const inset = (frame: HTMLElement, l: number, t: number, w: number, h: number) => {
+				const el = document.createElement('div');
+				el.className = 'inset';
+				Object.assign(el.style, { left: `${l * 100}%`, top: `${t * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` });
+				frame.append(el);
+			};
+
 			function renderTree() {
 				const frame = $('#treeFrame');
 				for (const [b, a] of boxChips) b.setAttribute('aria-pressed', String(a === box));
 				$('#free').setAttribute('aria-pressed', String(!ordered));
 				$('#ordered').setAttribute('aria-pressed', String(ordered));
 				for (const b of shapesEl.querySelectorAll('button')) (b as HTMLButtonElement).disabled = items.length >= 6;
+				for (const sync of syncTree) sync();
 				frame.style.aspectRatio = String(box);
 				frame.style.maxWidth = `calc(62vh * ${box})`;
 				frame.replaceChildren();
 				const stats = $('#treeStats');
 				if (!items.length) { stats.textContent = 'Add a box to start.'; $('#gridCss').textContent = '/* add a box to see its grid */'; return; }
 				const t0 = performance.now();
-				const res = pack(items, { aspect: box }, { gap: GAP, order: ordered ? 'ordered' : 'free' });
+				const res = pack(items, { aspect: box }, { gap: treeGap, padding: treePad, align: treeAlign, order: ordered ? 'ordered' : 'free' });
 				const ms = performance.now() - t0;
 				if (!res.ok) { stats.textContent = `No layout: ${res.reason}`; return; }
-				// The layout is 1 tall and res.aspect wide; center it in the box (the leftover is matte).
-				const scale = Math.min(1, box / res.aspect);
-				const lw = (res.aspect * scale) / box, lh = scale;
-				const ox = (1 - lw) / 2, oy = (1 - lh) / 2;
-				res.rects.forEach((r, i) => {
+				if (treePad > 0) inset(frame, treePad / box, treePad, 1 - (2 * treePad) / box, 1 - 2 * treePad);
+				// `placed` is in the container's units: the box is `box` wide and 1 tall.
+				res.placed.forEach((r, i) => {
 					const el = document.createElement('button');
 					el.type = 'button';
 					el.className = 'box' + (i === 0 ? ' warm' : '');
-					el.style.left = `${(ox + (r.x / res.aspect) * lw) * 100}%`;
-					el.style.top = `${(oy + r.y * lh) * 100}%`;
-					el.style.width = `${(r.w / res.aspect) * lw * 100}%`;
-					el.style.height = `${r.h * lh * 100}%`;
+					el.style.left = `${(r.x / box) * 100}%`;
+					el.style.top = `${r.y * 100}%`;
+					el.style.width = `${(r.w / box) * 100}%`;
+					el.style.height = `${r.h * 100}%`;
 					el.textContent = ratio(items[i]);
 					el.setAttribute('aria-label', `Box ${i + 1}, ${ratio(items[i])}: remove`);
 					el.addEventListener('click', () => { items = items.filter((_, k) => k !== i); render(); });
@@ -355,11 +397,12 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					'  display: grid;',
 					`  aspect-ratio: ${res.aspect.toFixed(3)};`,
 					`  height: 360px;  <span class="c">/* any height; the width follows the aspect */</span>`,
-					`  gap: ${+(360 * res.gap).toFixed(2)}px;  <span class="c">/* the gutter: ${res.gap} of the height */</span>`,
+					`  gap: ${+(360 * res.rowGap).toFixed(2)}px;  <span class="c">/* the gutter: ${+res.rowGap.toFixed(4)} of the grid's height */</span>`,
 					`  grid-template-columns: ${fr(g.cols)};`,
 					`  grid-template-rows: ${fr(g.rows)};`,
 					'}',
 					...g.areas.map((a, i) => `.box-${i + 1} { grid-area: ${a.join(' / ')}; }  <span class="c">/* ${ratio(items[i])} */</span>`),
+					...(treePad > 0 ? ['<span class="c">/* the padding goes on the box that holds the grid */</span>'] : []),
 				];
 				$('#gridCss').innerHTML = lines.join('\n');
 			}
@@ -374,49 +417,55 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			for (const [name, a] of MARKS) marksEl.append(chip(name, () => { if (marks.length < 16) { marks = [...marks, a]; render(); } }));
 			$('#cells').addEventListener('click', () => { equalArea = false; render(); });
 			$('#area').addEventListener('click', () => { equalArea = true; render(); });
-			$('#clearMarks').addEventListener('click', () => { marks = [...START]; render(); });
+			$('#clearMarks').addEventListener('click', () => { marks = [...START]; rowsGap = RGAP_DEFAULT; rowsPad = RPAD_DEFAULT; rowsAlign = 'center'; render(); });
 
 			function renderRows() {
 				const frame = $('#rowsFrame');
 				$('#cells').setAttribute('aria-pressed', String(!equalArea));
 				$('#area').setAttribute('aria-pressed', String(equalArea));
+				for (const sync of syncRows) sync();
 				frame.replaceChildren();
 				frame.style.maxWidth = '';
-				const cell = (1 - (COLS - 1) * RGAP) / COLS;
+				// Every length here is a share of the frame's width (the container is 1 wide).
+				const pad = rowsPad, gap = rowsGap, iw = 1 - 2 * pad;
+				const cell = (iw - (COLS - 1) * gap) / COLS, band = BAND * iw;
 				const rects: { x: number; y: number; w: number; h: number }[] = [];
 				const cells: { x: number; y: number; w: number; h: number }[] = [];
-				let height = 0;
+				let H = 0;
 				const t0 = performance.now();
 				if (equalArea) {
-					const res = pack(marks, {}, { strategy: 'rows', gap: RGAP, heightCap: BAND * Math.SQRT2, minHeightCap: BAND, maxPerRow: COLS, minCell: cell });
-					if (!res.ok) return;
-					rects.push(...res.rects);
-					cells.push(...(res.cells || []));
-					height = 1 / res.aspect;
+					const res = pack(marks, {}, { strategy: 'rows', gap, heightCap: band * Math.SQRT2, minHeightCap: band, maxPerRow: COLS, minCell: cell, padding: pad, align: rowsAlign });
+					if (!res.ok) { $('#rowsStats').textContent = `No layout: ${res.reason}`; return; }
+					rects.push(...res.placed);
+					// `cells` are in layout units (the width inside the padding is 1).
+					cells.push(...(res.cells || []).map((c) => ({ x: pad + c.x * iw, y: pad + c.y * iw, w: c.w * iw, h: c.h * iw })));
+					H = res.frame.h + 2 * pad;
 				} else {
-					// The old wall: equal cells, each mark drawn `contain` in a cell under the band.
+					// The old wall: equal cells, each mark drawn `contain` in a cell under the band, placed
+					// by the same align rule.
 					const rowsN = Math.ceil(marks.length / COLS);
 					marks.forEach((a, i) => {
 						const r = Math.floor(i / COLS), inRow = Math.min(COLS, marks.length - r * COLS);
-						const x0 = (1 - (inRow * cell + (inRow - 1) * RGAP)) / 2 + (i % COLS) * (cell + RGAP);
-						const y0 = r * (BAND + RGAP);
-						const w = Math.min(cell, BAND * a), h = w / a;
-						cells.push({ x: x0, y: y0, w: cell, h: BAND });
-						rects.push({ x: x0 + (cell - w) / 2, y: y0 + (BAND - h) / 2, w, h });
+						let align = r === rowsN - 1 && rowsAlign === 'justify' ? 'start' : rowsAlign;
+						if (align === 'justify' && inRow < 2) align = 'start';
+						const slack = iw - (inRow * cell + (inRow - 1) * gap);
+						const step = cell + gap + (align === 'justify' ? slack / (inRow - 1) : 0);
+						const x0 = pad + slack * ({ start: 0, center: 0.5, end: 1, justify: 0 } as const)[align] + (i % COLS) * step;
+						const y0 = pad + r * (band + gap);
+						const w = Math.min(cell, band * a), h = w / a;
+						cells.push({ x: x0, y: y0, w: cell, h: band });
+						rects.push({ x: x0 + (cell - w) / 2, y: y0 + (band - h) / 2, w, h });
 					});
-					height = rowsN * BAND + (rowsN - 1) * RGAP;
+					H = rowsN * band + (rowsN - 1) * gap + 2 * pad;
 				}
 				const ms = performance.now() - t0;
-				// Inset the wall by `pad` of the frame's width on all four sides.
-				const pad = 0.04;
-				const s = 1 - 2 * pad;
-				const H = height * s + 2 * pad;
 				frame.style.aspectRatio = String(1 / H);
+				if (pad > 0) inset(frame, pad, pad / H, iw, 1 - (2 * pad) / H);
 				const place = (el: HTMLElement, r: { x: number; y: number; w: number; h: number }) => {
-					el.style.left = `${(pad + r.x * s) * 100}%`;
-					el.style.width = `${r.w * s * 100}%`;
-					el.style.top = `${((pad + r.y * s) / H) * 100}%`;
-					el.style.height = `${((r.h * s) / H) * 100}%`;
+					el.style.left = `${r.x * 100}%`;
+					el.style.width = `${r.w * 100}%`;
+					el.style.top = `${(r.y / H) * 100}%`;
+					el.style.height = `${(r.h / H) * 100}%`;
 				};
 				cells.forEach((c) => { const el = document.createElement('div'); el.className = 'cell'; place(el, c); frame.append(el); });
 				rects.forEach((r, i) => {
@@ -469,6 +518,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				text.textContent = t.text;
 				b.append(title, text);
 				b.addEventListener('click', () => {
+					// Each set is described at the default spacing.
+					resetSpacing();
 					t.run();
 					// Focus follows the view: the selected tab, so a keyboard reader lands on the demo.
 					$('.tab[aria-selected="true"]').focus({ preventScroll: true });

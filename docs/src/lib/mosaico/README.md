@@ -43,7 +43,42 @@ if (result.ok) {
 ```
 
 The grid adapter emits `fr` tracks, so the browser fits the grid to whatever box it gets. Mosaico
-needs only the container's shape, not its size.
+needs only the container's shape, not its size. To draw boxes yourself (canvas, SVG, absolute
+positioning), read `result.placed` instead: see the next section.
+
+## Spacing, padding and units
+
+```ts
+// The same three photos in a 1280 × 720 box, in pixels: 24 px of padding, 12 px across, 20 px down.
+const r = pack([1.5, 0.67, 1], { width: 1280, height: 720 }, {
+  padding: 24,           // or { top, right, bottom, left }
+  columnGap: 12,         // between boxes side by side
+  rowGap: 20,            // between boxes stacked (gap sets both)
+  align: 'start',        // where the layout sits in the space it leaves: start | center | end
+});
+r.frame;   // { x, y, w, h }: where the layout sits in the container, in pixels
+r.placed;  // [{ x, y, w, h }, …]: each box in pixels, ready to draw
+```
+
+**The unit rule.** Give the container a size (`width` and `height` for `tree`, `width` for `rows`)
+and every length option is read in that unit: `gap`, `columnGap`, `rowGap`, `padding`, and for
+`rows` `heightCap`, `minHeightCap`, `maxHeight`, `minCell` and `area` (squared). Without a size,
+lengths are fractions, as before: of the container's height for `tree` (the container is `aspect`
+wide and 1 tall), of its width for `rows` (the container is 1 wide). Units are only a scale: the same
+box in fractions or in pixels gives the same layout.
+
+**Two kinds of rectangle.** `placed` and `frame` are in the container's units, padding and
+alignment applied: draw these. `rects` (and `rows`' `cells`) are in layout units, the layout 1 tall
+for `tree` and 1 wide for `rows`, inside the padding: `toGrid` reads them. `result.columnGap` and
+`result.rowGap` are the gaps in those layout units.
+
+**Exact gutters at any size.** When a `tree` layout is wider than its box, `placed` shrinks it to the
+width by solving the tree's width line for its height, so each gutter keeps its size rather than
+shrinking with the boxes.
+
+**Under `fit: 'fill'`** the frame stretches to close the margin, by up to `stretch`. A placed box is
+then the visible part of its item, and the item overflows it by at most that much: crop it, e.g.
+with `object-fit: cover`.
 
 ## Rows: equal visual weight
 
@@ -55,6 +90,7 @@ and grows downward, so pass `{}` and read every length as a fraction of its widt
 const wall = pack([4, 1, 0.5, 3], {}, {
   strategy: 'rows',      // goal 'equal-weight' is its default and only goal
   gap: 0.0556,           // between cells, and between rows unless rowGap is set
+  // align: 'justify',   // spread each row across the width; the last row starts at the left
   heightCap: 0.127,      // the tallest an item may be
   minHeightCap: 0.09,    // how far the cap may fall before every area shrinks
   // area: 0.0081,       // the area to start from, when the host already knows it
@@ -64,8 +100,9 @@ const wall = pack([4, 1, 0.5, 3], {}, {
   minCell: 0.208,        // the narrowest cell: keeps a column rhythm
 });
 wall.rows;   // [[0, 1, 2, 3]]
-wall.rects;  // each item's box, centered in its cell and its row
+wall.rects;  // each item's box, centered in its cell, each row placed by align (centered by default)
 wall.cells;  // each item's cell, as tall as its row
+wall.placed; // the boxes in the container's units, padding applied
 ```
 
 The area is the largest at which an item of aspect max(narrowest, `aspectFloor`, default 0.5) is
@@ -80,14 +117,24 @@ most even ones. Forty items pack in under a millisecond.
 
 ## Options
 
-Options for `tree`:
+Options for both strategies:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `gap` | `0` | gutter between items, across and down |
+| `columnGap` | `gap` | gutter between items side by side |
+| `rowGap` | `gap` | gutter between items stacked, or between rows |
+| `padding` | `0` | space inside the container's edges: one length, or `{ top, right, bottom, left }` |
+| `align` | `'center'` | where the layout sits in the space it leaves: `'start'`, `'center'`, `'end'`; `rows` also takes `'justify'`, which spreads each row's leftover width into its gaps |
+| `lastRow` | `align` | `rows`: how the last row sits; `'start'` when `align` is `'justify'` |
+
+Lengths follow the unit rule above. Options for `tree`:
 
 | Option | Default | Meaning |
 |---|---|---|
 | `order` | `'free'` | `'free'` may reorder items; `'ordered'` keeps them in written order, read left to right, top to bottom |
 | `fit` | `'tight'` | `'tight'` never crops; `'fill'` may stretch the layout by up to `stretch` to close empty space, and the stretch is reported as `crop` |
 | `stretch` | `0.08` | the most a `'fill'` layout may stretch |
-| `gap` | `0` | gutter between items, as a fraction of the container height |
 | `hero` | `-1` | index of an item that must hold the largest tile |
 | `weights` | `DEFAULT_TREE_WEIGHTS` | `{ empty, smallTile, smallTileFloor, hero }`: the score is `empty·empty + crop + smallTile·max(0, smallTileFloor − smallest/largest area) + hero` (when the hero is not largest) |
 
@@ -96,8 +143,9 @@ is read as 1:1, the stand-in for an item whose shape is not known yet.
 
 `pack` refuses with `{ ok: false, reason }` instead of throwing: `'empty'` for no items,
 `'too-many'` for more than `MAX_TREE_ITEMS` (6), and `'no-valid-layout'` when every arrangement
-would leave a grid track of zero size. A container without a positive finite `aspect` is a caller
-error and throws a `RangeError`.
+would leave a grid track of zero size. A `tree` container without a positive finite `aspect` (or `width` and `height`) is a caller
+error and throws a `RangeError`, and so does padding that leaves no room, or an `align` the strategy
+does not take (`tree` has nothing to justify).
 
 ## Speed
 
