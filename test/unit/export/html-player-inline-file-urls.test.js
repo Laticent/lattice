@@ -42,3 +42,30 @@ test("the engine's informational --background-image string is dropped, not inlin
   assert.doesNotMatch(r.html, /file:\/\//);
   assert.equal((r.html.match(/data:image\/jpeg/g) || []).length, 1, 'one copy, not two');
 });
+
+// The serializer writes `"` as `&quot;` in TEXT too, so a CSS sample an author SHOWS looks exactly like
+// a style attribute to a pattern run over the whole document. Only CSS contexts are rewritten: the
+// checker's repro baked a named file's bytes into the shared player in place of the author's code sample.
+test('a url(file://…) shown in text, inline code or a code fence is left as written', () => {
+  const shown = `url(&quot;${photo}&quot;)`;
+  const html = `<p>Write <code>background-image:${shown}</code> like this.</p><pre><code class="language-css">.x{background-image:${shown}}\n.y{--background-image:&quot;url(\\&quot;${photo}\\&quot;)&quot;;color:red}</code></pre><p>${shown}</p>`;
+  const r = inlineFileUrls(html);
+  assert.equal(r.count, 0);
+  assert.equal(r.html, html);
+});
+
+test('a <style> body is CSS and is inlined, but a <script> or <textarea> body is not', () => {
+  const css = `.x{background-image:url(&quot;${photo}&quot;)}`;
+  const r = inlineFileUrls(`<style>.x{background-image:url("${photo}")}</style><script>var s = 'url("${photo}")';</script><textarea>${css}</textarea>`);
+  assert.equal(r.count, 1);
+  assert.equal((r.html.match(/data:image\/jpeg/g) || []).length, 1, 'only the <style> body');
+  assert.ok(r.html.includes(`<script>var s = 'url("${photo}")';</script>`), 'the <script> body is untouched');
+});
+
+test('the --background-image string is dropped even when the path holds a semicolon, and only in a style value', () => {
+  const odd = pathToFileURL('/x/a;b.jpg').href;
+  const attr = `<section style="--background-image:&quot;url(\\&quot;${odd}\\&quot;)&quot;;background-size:cover;"></section>`;
+  assert.equal(inlineFileUrls(attr).html, '<section style="background-size:cover;"></section>');
+  const shown = `<pre>--background-image:&quot;url(\\&quot;${odd}\\&quot;)&quot;;color:red</pre>`;
+  assert.equal(inlineFileUrls(shown).html, shown, 'a code sample is not a declaration');
+});
