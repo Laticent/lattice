@@ -2727,3 +2727,19 @@ test('prunePlayerCss safelist splits compounds and functional pseudos, never sub
 	assert.doesNotMatch(keep('#anima-live{a:4}', ['.anima-live']), /anima-live/);
 	assert.doesNotMatch(keep('p.accent-body{a:5}', ['body']), /accent-body/);
 });
+
+// A relative `url()` in a deck someone sent you must not reach outside the deck's folder: the
+// inliner bakes whatever file it resolves to into the shared player. Found by the #2739 red team.
+test('resolveStyleUrls stays inside the deck folder, and the inliner embeds pictures only', () => {
+	const { resolveStyleUrls, fileToDataUri } = require('../../../lib/export/html-player.js');
+	const base = 'file:///decks/talk/';
+	const out = resolveStyleUrls('<div style="background:url(&quot;../secret.txt&quot;)"></div><div style="background:url(pic.svg)"></div>', base);
+	assert.ok(out.includes('url(&quot;../secret.txt&quot;)'), 'a path out of the folder is left unresolved');
+	assert.ok(out.includes('url(file:///decks/talk/pic.svg)'), 'a path inside it resolves');
+	const os = require('node:os');
+	const fs = require('node:fs');
+	const path = require('node:path');
+	const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mime-')), 'notes.txt');
+	fs.writeFileSync(f, 'private');
+	assert.equal(fileToDataUri(f), null, 'a file that is not a picture is never embedded');
+});

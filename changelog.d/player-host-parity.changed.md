@@ -4,5 +4,6 @@
   inlined transport kernels, so its script and CSP hash differed. Both hosts run one prune
   orchestration (`lib/export/player-prune.js` `prunePlayerHtml`) and one assembler tail
   (`lib/export/player-seal.mjs` `sealPlayer`), and a new integration test asserts the same bytes from
-  each on a fixture that fires every pass. The CLI's `--player` output is unchanged. The Studio's
+  each on a fixture that fires every pass. Moving the packing into shared modules left the CLI's
+  bytes as they were (the other entries for this release change them). The Studio's
   export date is pinned to the epoch, as the CLI's is.

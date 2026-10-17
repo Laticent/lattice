@@ -1428,7 +1428,11 @@ const layoutCSS = inlinedFaces.css;
 // keying on `cssIsDefault` alone shipped the source spelling there while `tools/palette-sweep.js`
 // composed from the minified build, so the sweep's identity check refused every render.
 const layoutIsShipped = cssIsDefault || path.resolve(cssFile) === path.resolve(PKG_ROOT, 'dist', 'lattice.css');
-const deckSheetLayout = (layoutIsShipped && shippedSheetText(PKG_ROOT, 'layout')) || layoutCSSLinked;
+const shippedLayout = layoutIsShipped ? shippedSheetText(PKG_ROOT, 'layout') : null;
+// Loud, because the fallback is silent otherwise: without the minified build the deck sheet composes
+// from the source spelling, and the player file stops matching the Studio's (`npm run build` makes it).
+if (layoutIsShipped && !shippedLayout && !QUIET) console.warn('  ⚠ dist/lattice-min.css is missing — the deck sheet composes from dist/lattice.css, so a --player file will not match the Studio\'s. Run `npm run build`.');
+const deckSheetLayout = shippedLayout || layoutCSSLinked;
 const CLI_THEMES = cliThemeStore(deckSheetLayout, paletteChain.map((n, i) => ({
   name: n, css: (!(installedTheme && n === paletteName) && shippedSheetText(PKG_ROOT, 'palette', n)) || readFileOrDie(paletteFiles[i], `palette '${n}'`),
 })));
@@ -5582,10 +5586,12 @@ function attachableSource(src) {
   // repeat claims a distinction ("on the pre-Mermaid source rather than the rendered one") that
   // does not exist for that deck. Two warnings for one fault is how the real one stops being
   // read, which is the same failure this guard's own no-op regression had. Once per run.
-  if (!cut.measured && md !== rawMd && !attachableMemo.size) {
+  // `--player` alone does not warn here: pass 2 already reported the same block boundary for it, and
+  // this message advises dropping a flag, which for the player would be the export itself.
+  if (!cut.measured && md !== rawMd && !attachableMemo.size && (EMBED_SOURCE || REOPENABLE)) {
     // Names the flags that are on and the format, as `strippedSlidesOrAuthored` does: an author
     // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`.
-    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable', PLAYER && '--player'].filter(Boolean).join(' / ');
+    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean).join(' / ');
     console.warn(
       `  WARNING: the deck source embedded in the .${OUT_FORMAT} could not have a note or say comment `
       + 'removed without changing the deck. This is the block-boundary case --strip-notes '

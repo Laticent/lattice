@@ -6,10 +6,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { firstCssUrl } = require('../../../lib/core/css-url');
-const { bytesToDataUri } = require('../../../lib/core/data-uri');
 
+// An author's own data URI, written by hand: our encoder (lib/core/data-uri.js) escapes `'` and the
+// parens now, but a deck can carry any spelling, and the reader must not truncate one.
 test('a quoted SVG data URI comes back whole, parens and apostrophes included', () => {
-	const svg = bytesToDataUri(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg"><circle fill="url(#glow)" class='x'/></svg>`), 'image/svg+xml');
+	const svg = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E%3Ccircle fill=%22url(%23glow)%22 class='x'/%3E%3C/svg%3E";
 	assert.match(svg, /\(%23glow\)/, 'the fixture carries the paren that broke the old reader');
 	assert.equal(firstCssUrl(`url("${svg}")`), svg);
 	assert.equal(firstCssUrl(`background-image: url("${svg}"); color: red`), svg);

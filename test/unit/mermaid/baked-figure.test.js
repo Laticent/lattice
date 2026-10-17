@@ -6,8 +6,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  mermaidKindLabel, labelDiagramSvg, collapseSankeyText, bakedFigureOpenTag, stampFigureIndex, DIAGRAM_STAGE_WIDTH,
+  mermaidKindLabel, labelDiagramSvg, collapseSankeyText, DIAGRAM_STAGE_WIDTH,
 } = require('../../../lib/plugins/mermaid/shared/baked-figure.js');
+const { bakedFigureOpenTag, stampFigureIndex } = require('../../../lib/plugins/mermaid/shared/baked-figure-tag.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 

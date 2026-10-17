@@ -431,6 +431,9 @@ export async function shareHtmlPlayer(
 	// `settle: false` is the CLI's own setting, so both hosts emit the same pages. A no-op at
 	// landscape. Without it a `size: story` deck exported 8 slides here and 32 from the CLI.
 	// The strip-notes candidate below re-renders through the same cut, so it compares like-for-like.
+	// Loud when the bundle lacks it: the export would quietly ship each multi-element slide as one
+	// crowded page, and a portrait deck as a different file from the CLI's.
+	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
 	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
 		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
 	out = splitLikeCli(out, source);
@@ -582,7 +585,7 @@ export async function shareHtmlPlayer(
 			// Through the resolver the CLI and the Marp bundle use, so a stored `off` (never a valid
 			// standing default) or a junk value falls back to `reader` instead of silencing every clip.
 			overflowMarker: await webpageOverflowMarker(),
-		});
+		}, { playerBake: true });
 		// Slide-count parity is the correctness gate: notes, narration cues and the
 		// manifest are all indexed by slide, so a bake that lost or gained a section
 		// would silently mis-bind them. Mismatch → use the static render.

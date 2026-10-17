@@ -16,8 +16,8 @@
   frozen diagrams nobody could edit. It now carries the deck exactly as written, as the Studio's does.
 - **Fixed: Mermaid drop shadows draw in a CLI `--player` file.** The file's HTML pass lowercased the
   `feDropShadow` filter element, which SVG then ignored.
-- **Fixed: a tagged card in a deck exported from the Studio as a Webpage keeps its room under the
-  tag.** The export dropped the measured tag height the card's padding reads.
 - **Fixed: a diagram in the Studio's preview and exports has an accessible name.** A diagram
   without `accTitle:` reached a screen reader as an anonymous graphic; it is now named for its
   type ("Pie chart", "Flowchart"), as CLI exports already named it.
+- **Fixed: a Mermaid label containing the text "my-svg" keeps it.** The CLI's diagram renderer
+  rewrote every "my-svg" in the drawing, label text included, to its internal id.

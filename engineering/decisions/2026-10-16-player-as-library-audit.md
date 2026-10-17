@@ -957,7 +957,7 @@ was everything around the drawing, plus three measurement contexts:
 
 | Fix | What it closed |
 |---|---|
-| The Studio's bake ships each drawn figure in the `figure-baked` shape (`div.mermaid-svg[data-mmd-idx]`, the manifest's player surface), built by `bakedFigureOpenTag` in a new `lib/plugins/mermaid/shared/baked-figure.js` the CLI bake uses too | the spent source `<pre>` and the live `.mermaid` sibling, and the stylesheet rules the prune kept for them |
+| The Studio's bake ships each drawn figure in the `figure-baked` shape (`div.mermaid-svg[data-mmd-idx]`, the manifest's player surface), built by `bakedFigureOpenTag` in a new `lib/plugins/mermaid/shared/baked-figure-tag.js` the CLI bake uses too | the spent source `<pre>` and the live `.mermaid` sibling, and the stylesheet rules the prune kept for them |
 | One svg id prefix (`lattice-mmd-N`) on every path; the accessible-name floor (`aria-label="Pie chart"`) and the sankey label collapse moved into the shared module and applied by the browser pass too | the root's id, a name the live preview and the Studio never gave a diagram, and a label newline |
 | The Studio's bake sets the root's background and declares the xlink namespace, as the CLI's worker does | the root `style` and `xmlns:xlink` |
 | The browser's token reader returns a literal hex as written, and a `light-dark()` token as the hex of the side its probe resolved | `fill="rgb(…)"` against the CLI's `fill="#C2E6C8"` |

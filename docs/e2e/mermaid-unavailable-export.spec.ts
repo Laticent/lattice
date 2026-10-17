@@ -109,10 +109,13 @@ const DECK = [
 async function showDiagramSlide(viewer: import('@playwright/test').Page): Promise<void> {
 	await viewer.keyboard.press('ArrowRight');
 	await viewer.waitForFunction(() => {
-		const pre = document.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
-		const frame = pre ? pre.closest('.lp-frame') : null;
+		// The source <pre> while a fence is undrawn, or the baked figure the Webpage export ships
+		// once it drew (`div.mermaid-svg`, the CLI's `figure-baked` shape — deck-export.js
+		// `bakedMermaidFigures`).
+		const fig = document.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle], .mermaid-svg[data-lattice-figure="mermaid"]');
+		const frame = fig ? fig.closest('.lp-frame') : null;
 		// No frames at all (a flat document) is not a failure — nothing is paging anything.
-		return frame ? frame.classList.contains('lp-active') : !!pre;
+		return frame ? frame.classList.contains('lp-active') : !!fig;
 	}, { timeout: 30_000 });
 }
 
@@ -289,22 +292,18 @@ test('@smoke a diagram that draws INSIDE the bake window still exports as a draw
 	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
 	await showDiagramSlide(viewer);
 	const drawn = await viewer.evaluate(() => {
-		const pre = document.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
-		const box = pre?.nextElementSibling;
+		const fig = document.querySelector('.mermaid-svg[data-lattice-figure="mermaid"]');
 		return {
-			state: pre?.getAttribute('data-lattice-settle') ?? null,
-			final: pre?.hasAttribute('data-lattice-final') ?? null,
-			svg: !!box?.querySelector('svg'),
-			preDisplay: pre ? getComputedStyle(pre).display : null,
+			svg: !!fig?.querySelector(':scope > svg'),
+			source: !!document.querySelector('pre[data-lattice-hydrate="mermaid"], marp-pre[data-lattice-hydrate="mermaid"]'),
 		};
 	});
 	await viewer.close();
 
-	// It drew, it was never released, and the source is hidden behind the drawing.
-	expect(drawn.state).toBe('rendered');
-	expect(drawn.final).toBe(false);
+	// It drew, and it ships as the drawing: the baked figure is there and the source is not. A
+	// release would have left the source <pre> and no figure (the give-up arms above).
 	expect(drawn.svg).toBe(true);
-	expect(drawn.preDisplay).toBe('none');
+	expect(drawn.source).toBe(false);
 });
 
 test('the same export is unchanged when Mermaid loads', async ({ page, context }, testInfo) => {
@@ -328,8 +327,9 @@ test('the same export is unchanged when Mermaid loads', async ({ page, context }
 	await showDiagramSlide(viewer);
 	const r = await viewer.evaluate(fenceReadback);
 	expect(r.svgTexts, 'the diagram baked, labels and all').toContain(SENTINEL);
-	expect(r.state, 'the fence is spent, not handed back').toBe('rendered');
-	expect(r.display, 'and the spent source stays hidden').toBe('none');
+	// A drawn fence ships as the baked figure alone, as from the CLI: no source <pre> rides along.
+	expect(r.state, 'no source left behind').toBe(null);
+	expect(await viewer.locator('.mermaid-svg[data-lattice-figure="mermaid"] > svg').count(), 'the baked figure').toBe(1);
 	await viewer.close();
 });
 
