@@ -95,12 +95,22 @@
 /* Under a chart finish the share is re-painted, so the finish sets --tower-ink from
  * the body it paints (tools/build-chart-finish-css.js), and that ink wins. */
 :is(section.tower, figure.chart-frame) .tower-share-value {
-  fill: var(--tower-ink, var(--text-heading));
+  --tower-share-ink: var(--tower-ink, var(--text-heading));
+  fill: var(--tower-share-ink);
 }
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
   :is(section.tower, figure.chart-frame) .tower-share-value {
-    fill: var(--tower-ink, oklch(from var(--mark-body, var(--chart-cat-1-body)) clamp(0, (0.565 - l) * 999, 1) 0 0));
+    --tower-share-ink: var(--tower-ink, oklch(from var(--mark-body, var(--chart-cat-1-body)) clamp(0, (0.565 - l) * 999, 1) 0 0));
   }
+}
+/* Under the Present Guide a focused layer's figures keep the ink their own segment
+ * clears. The Guide paints focused SVG text in the accent (base.focus.css), which is
+ * right for text on the canvas and wrong for text ON a mark: measured live, a focused
+ * layer's `25%` went accent blue on a blue share and all but vanished. The layer is
+ * still named by its outlined shares and its accented name. One step above the Guide's
+ * (0,2,3) rule. */
+section[data-guide] svg text.tower-share-value:is(.lat-guide-focus, .lat-guide-highlight) {
+  fill: var(--tower-share-ink);
 }
 
 /* Carry the baseline onto the <tspan>, which the engine will not do for us:
