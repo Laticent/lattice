@@ -47,11 +47,11 @@ each own a renderer for good reasons (§4). The library coordinates *which* unit
 
 | Surface | Code | Shows | Mounts how | Map | Move |
 |---|---|---|---|---|---|
-| Studio editor | `DeckPreview.tsx` (949), `FocusedPreview.tsx` (81), `single-slide-render.ts` (2,498) | one slide | one pooled iframe, re-pointed | `SlideRail.tsx` (152): text pills | pills, keys, swipe, wheel, pinch-zoom |
+| Studio editor | `DeckPreview.tsx` (949), `FocusedPreview.tsx` (81), `single-slide-render.ts` (2,498) | one slide | one iframe, patched or restyled in place (no pool) | `SlideRail.tsx` (152): text pills | pills, keys, swipe, wheel, pinch-zoom |
 | Playground | `deck-render.js`, `virtual-window.js` (106), `preview-virtual.js` | all slides, scrolling | **one** iframe; unseen slides are `<div data-lv-ph>` placeholders | none; a step dropdown and the Walk bar (`WalkBar.tsx`) in Explore | scroll, keys |
 | Present | `PresentOverlay.tsx` (2,435), `PresentRail.tsx` (245), `stage-window.js` (952) | one slide, fit to the screen | stage document; the room's copy is a second window | `PresentRail`: segments grouped by section | keys, swipe, wheel |
 | Slide overview | `SlideOverview.tsx` (126) | grid of every slide | `PreviewPool` (a fixed set of frames) | is the map | click a tile |
-| Add slide, Reshape | `SlidePicker.tsx` (720), `ReshapePicker.tsx` | component skeletons | the same `PreviewPool` | tiles | click |
+| Add slide, Reshape | `SlidePicker.tsx` (720), `ReshapePicker.tsx` | component skeletons (add slide); the author's own slide in each look (Reshape) | the same `PreviewPool` | tiles | click |
 | Exported player | `lib/export/player-core.mjs` (3,445) | Present, Slides and Article views | **no iframe**; sections in one document | `#lp-toc`; `#lp-nav` | keys, swipe, wheel, `#lp-top`/`#lp-bottom` buttons |
 
 The shared kernels that already exist:
@@ -71,8 +71,9 @@ four jobs, and each surface wrote the glue between them by hand.
 ## 3. What is actually missing
 
 **F1. The main stage has no picture map.** The Studio's pills carry a class label or a title
-(`SlideRail.tsx`), not a picture. Pictures exist only in the full-screen overview (`g` in Present)
-and the add-slide and reshape pickers. To find slide 47 by sight you leave the editor.
+(`SlideRail.tsx`), not a picture. Navigable pictures exist only in the full-screen overview (`g` in
+Present) and the add-slide and reshape pickers. Other pooled previews exist (print N-up, chat
+figures, the preset picker), but none is a navigator. To find slide 47 by sight you leave the editor.
 
 **F2. Two windowing strategies that cannot share code.** The Playground keeps all slides in *one*
 iframe and swaps unseen ones for empty `<div>`s. The grids keep a *pool* of iframes and re-point
@@ -93,7 +94,7 @@ still unfinished.
 **F5. The poster tier was measured and shelved.** `2026-09-13-gallery-preview-memory.md` §5 found
 that a poster costs **+25 MB for 33 tiles against +600 to +1,300 MB for 33 live frames**, at
 about 13 KB of WebP per 1280x720 capture and 148 ms (Chromium) or 284 ms (WebKit) to capture. It
-was not built because the add-slide gallery was the only consumer. A shared map is a second consumer, and
+was not built; the note lists the open design work (§5) but does not give a reason. My inference is that the add-slide gallery was the only consumer. A shared map is a second consumer, and
 the main one: a 500-slide deck cannot show 500 live frames, and it cannot afford a text pill
 either if you want to see the slide.
 
@@ -205,7 +206,7 @@ the owner.
 |---|---|---|
 | DOM nodes in a 522-slide stage | 722 (virtual) vs 25,494 (all mounted) | stay within 10% of 722 |
 | First slide, 522 slides, 1x CPU | 3,408 ms (virtual) | no regression |
-| Map of 500 slides | none; the overview mounts a pool of 16 | nodes O(window); a fling stays under 50 ms p95 |
+| Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
 | 500 posters resident | ~13 KB each, ~6.5 MB encoded | under 40 MB decoded on WebKit; measure |
 | Live frames | pool of a fixed N | N does not grow with the deck |
 | Keystroke cost | outliner returns the same unit ids, so a keystroke touches one unit | zero re-renders on units the edit did not touch |
@@ -270,7 +271,7 @@ I recommended the first option in each.
    arithmetic; (b) measured sizes from the start. (a), with the interface leaving room.
 4. **Does the exported player adopt it?** (a) Not in v1, but keep the core inlinable; (b) plan the
    player's Slides and Present views onto it now. (a): the player's host-parity work comes first
-   (`followups.d/2728-p1-player-host-parity.md`) and its size budget is measured in bytes.
+   (`followups.d/2728-p1-player-host-parity.md`) and the player audit is measured in export bytes.
 
 Also open, smaller: the poster store (memory only, or IndexedDB across sessions). Memory only for
 the first slice; the key already carries the engine version, so a later persistent store can reuse it.
