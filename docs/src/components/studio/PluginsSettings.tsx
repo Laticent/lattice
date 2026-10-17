@@ -78,14 +78,14 @@ export function PluginsSettings({ source, onWrite, installed = [], stamp = '', o
 					reasons={(admission as { reasons?: Record<string, Reason[]> }).reasons?.[g.name] ?? []}
 					titleOf={titleOf}
 					onListed={(on) => setListed(g.name, on)}
-					last={i === rows.length - 1 && !unknown.length && !installed.length && !embedded.length}
+					last={i === rows.length - 1 && !unknown.length && !installed.length}
 				/>
 			))}
 			{installed.map((p, i) => (
 				<InstalledRow key={p.id} plugin={p} listed={listed.includes(p.name)} stamp={stamp} last={i === installed.length - 1 && !unknown.length} onListed={(on) => setListed(p.name, on)} onRemove={() => onRemove?.(p.id)} />
 			))}
 			{unknown.map(({ name }: { name: string }, i: number) => (
-				<UnknownRow key={name} name={name} last={i === unknown.length - 1 && !embedded.length} onRemove={() => setListed(name, false)} />
+				<UnknownRow key={name} name={name} last={i === unknown.length - 1} onRemove={() => setListed(name, false)} />
 			))}
 			{embedded.length > 0 && (
 				<p data-plugins-embedded="" className="border-t border-border pt-2.5 text-[11px] leading-snug text-muted-foreground">

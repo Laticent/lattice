@@ -264,3 +264,10 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
   nothing, so naming an embedded plugin is a CLI error. **Measured:** all 284 pill-bearing example decks and galleries render
   to byte-identical HTML against the pre-change tree, apart from the absolute asset paths of the comparison worktree and
   one Mermaid git graph whose commit ids are random in both trees.
+- **2026-10-17, real-surface checks.** Driven in a real browser (Playwright, desktop Chromium, the e2e build of the docs site):
+  the Studio's Plugins tab shows no pills row and one quiet "Always on: Pills" line at 1440, 820 and 390 px (a double hairline
+  above the line was fixed and the check is now permanent in `docs/e2e/plugins-tab.spec.ts`); the six Studio specs for plugin
+  admission, the Compose pill editor, the pill grammar, the Marp mirror and the Plugins tab pass (33 passed, 1 evidence-only
+  skip). One Compose spec (copying a pill to another slide) failed once in a parallel batch and passed twice alone and in
+  the next full batch; it is recorded as a load flake, not proven on `main`. Not yet driven: the exported player, a real
+  Export-to-Marp download opened in a browser, and the touch and WebKit projects.
