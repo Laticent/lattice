@@ -48,3 +48,9 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                paragraph, beside another value, or a plain-number record under a valued parent on bar, line, slope or stacked-bar
                stays a pill (as on main); bullet and radar read every nested row as detail, so bullet's keyword rows and radar's
                nested rows written as records keep their pills and lint warns. The reader in step 2 lifts these.
+           10. Sixth round (2026-10-17, independent checker on 55073a6): the runtime now remembers the source of a pill it draws, so a
+               badge (`{1, circle, c5}`) earlier in a row no longer makes a later record a pill there only; a raw `<ul>`/`<table>`
+               ahead of the chart's counts as the first list on every path; the source bridge ends a heading item's lead. Left: a
+               pill the ENGINE drew is read back from its shape and label (a bare label pill is a value, anything else is not), which
+               matches the engine except for a pill whose label alone reads as a value by another rule; the narrator reads LF-normalized
+               text when it rewrites a CRLF slide, which narrates where main returned null (an improvement, off the path).

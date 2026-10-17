@@ -94,6 +94,27 @@ describe('runtime: the DOM mirror leaves the record to the chart', () => {
   }
 });
 
+describe('runtime: a pill drawn earlier in the row does not change who owns the record', () => {
+  const md = new MarkdownIt();
+  const boot = async (cls, body) => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body><section class="${cls}">${md.render(`## A\n\n${body}`)}</section></body></html>`, {
+      url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
+    });
+    dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
+    const el = dom.window.document.createElement('script');
+    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
+    dom.window.document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 300));
+    return dom.window.document.querySelector('section').innerHTML;
+  };
+  test('a badge `{1, circle, c5}` before the record is a pill and not a value, as in the engine', async () => {
+    const body = '- North `{1, circle, c5}` grew `{4}`\n- South `{2}`';
+    const engineHtml = engine.render(deck('bar', body), {}).html;
+    assert.match(engineHtml, /data-value="4"/, 'control: the engine draws North');
+    assert.match(await boot('bar', body), /data-value="4"/);
+  });
+});
+
 describe('ownership: the claim is narrow', () => {
   const place = { lastInRow: true, depth: 1 };
   test('only the row\'s last span, only a record the chart reads, only where it is data', () => {
@@ -353,6 +374,30 @@ describe('the paths agree on the data row', () => {
       assert.ok(typeof rows.bridgeRecordsSource(src, ['bar']) === 'string', end);
     }
     assert.equal(rows.bridgeRecordsSource('- Q1\n\n  about `{6}`\n', ['bar']), '- Q1\n\n  about `{6}`\n');
+  });
+
+  test('a raw list or table ahead of the chart\'s own makes it the second one on every path', () => {
+    const raw = (cls, rows) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## R\n\n<ul><li>raw</li></ul>\n\n${rows}\n`;
+    const html = engine.render(raw('bar', '- EMEA `{4.2}`\n- APAC `{1.8}`'), {}).html;
+    assert.doesNotMatch(html, /<code>\{4\.2\}<\/code>/, 'no raw braces');
+    assert.match(html, /lat-pill/, 'a pill, as on main');
+    const grid = engine.render(`---\nmarp: true\n---\n\n<!-- _class: heatmap -->\n\n## R\n\n<table><tr><td>x</td></tr></table>\n\n| | Mon |\n|---|---|\n| AM | \`{3}\` |\n`, {}).html;
+    assert.doesNotMatch(grid, /<code>\{3\}<\/code>/);
+    assert.ok(findings(raw('bar', '- EMEA `{4.2}`')).length === 0, 'lint agrees it is a pill');
+  });
+
+  test('a record after a heading item is a second block: the narrator leaves it, as the pass does', () => {
+    const src = '- EMEA `{3}`\n- ## North\n  `{7}`\n';
+    assert.equal(rows.bridgeRecordsSource(src, ['bar']), '- EMEA `3`\n- ## North\n  `{7}`\n');
+    assert.equal(rows.bridgeRecordsSource('- ## North `{7}`\n', ['bar']), '- ## North `7`\n', 'on the heading line it is the lead');
+  });
+
+  test('lint says a record in a later paragraph of a row is not read', () => {
+    const [f, ...rest] = findings(deck('bar', '- EMEA\n\n  `{4.2}`\n- APAC `3`'));
+    assert.equal(rest.length, 0);
+    assert.match(f.message, /later paragraph/);
+    assert.deepEqual(findings(deck('bar', '- EMEA `5`\n\n  note `{LIVE}`')), [], 'a pill in a later paragraph is fine');
+    assert.deepEqual(findings(deck('bar', '- EMEA `5`\n\n  `{+3%}`\n- APAC `3`')), [], 'the row already has its value');
   });
 
   test('the source bridge reads CRLF', () => {
