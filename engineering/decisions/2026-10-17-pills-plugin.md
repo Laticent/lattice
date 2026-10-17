@@ -116,7 +116,8 @@ checker that already runs.
 
 ### 4.5 Embedded plugins (the second new host capability)
 
-**Three classes of plugin: embedded, essential, external (owner, 2026-10-17).**
+**Three classes of plugin: embedded, essential, external. Decided and locked (owner, 2026-10-17).** Reopening a name
+needs a new note.
 
 | Class | Who owns it | Loads | Can an author or host switch it off? | Today |
 |---|---|---|---|---|
@@ -126,8 +127,9 @@ checker that already runs.
 
 The three names say how close the plugin sits to the engine. An embedded plugin is part of the engine's body. An
 essential plugin is Lattice's own and a deck normally wants it, but a deck can go without. An external plugin comes
-from outside. Essential is what the specs and the README call a "shipped plugin" today; the word changes, the
-behavior does not. The manifest needs one new field, `embedded`. An essential plugin is "in-tree and not embedded",
+from outside. **"Essential" means Lattice's own and expected in a deck. It does not mean required:** only an embedded
+plugin is required, and it is the only class that cannot be switched off. Essential is what the specs and the
+README call a "shipped plugin" today; the word changes, the behavior does not. The manifest needs one new field, `embedded`. An essential plugin is "in-tree and not embedded",
 and an external plugin is "not in-tree", so neither needs a field of its own. The bare words "core" and "built-in"
 stay out of this vocabulary: `lib/core/` (the kernel), Segno's "core slots" and the inline door's "built-in
 `@kind{…}`" already use them for other things.
@@ -209,6 +211,8 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
 3. Move the ten kernel importers to the services layer; delete the re-export.
 4. Embedded admission on every surface (§4.5), with the tests in §7.
 5. `docs/src/content/catalog/plugins/pills.md`, the hub entry, and the `lib/plugins/README.md` and `base.docs.md` edits.
+   The same commit replaces "shipped plugin" with "essential plugin" in `spec/LPM.md`, the README and the catalog, and adds the
+   three-class table to `lib/plugins/README.md`, so the vocabulary lives in the canonical docs and not only in this note.
 6. The plugin gaps from §5 that no component needs first: `--lat-pill-case`, `--lat-pill-tracking`, `--lat-pill-edge-w`,
    the `tone` axis, the `pill-tag` pass.
 7. `checkHandRolledPills` with a measured allowlist of the 15.
