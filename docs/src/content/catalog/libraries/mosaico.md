@@ -88,8 +88,8 @@ const r = pack([1.5, 0.67, 1], { width: 1280, height: 720 }, {
 // r.placed: each photo's box in pixels, padding and alignment applied, ready to draw
 ```
 
-Every gutter stays exact, even when the layout is too wide for its box and has to shrink: Mosaico
-shrinks the boxes, not the gutters.
+Gutters stay exact even when the layout is too wide for its box and has to shrink, and when `fill`
+stretches it to close the margin: Mosaico resizes the boxes, not the gutters.
 
 ## Where else it fits
 

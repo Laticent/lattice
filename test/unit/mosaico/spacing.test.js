@@ -137,3 +137,24 @@ test('rows: column and row gaps are separate, and the container height caps the 
   const capped = pack(marks, { width: 1000, height: 200 }, { strategy: 'rows', gap: 10, heightCap: 100, maxPerRow: 4, padding: 20 });
   assert.ok(capped.frame.h <= 160 + 1e-7, `fits inside the padded height: ${capped.frame.h}`);
 });
+
+test('tree: fill with gutters stretches no box past `stretch`, keeps gutters, and never shrinks', () => {
+  const items = [0.28, 0.77, 0.46, 0.54, 0.26];
+  const r = pack(items, { width: 1280, height: 720 }, { gap: 24, fit: 'fill' });
+  r.placed.forEach((p, i) => {
+    const s = p.w / p.h / items[i];
+    assert.ok(Math.max(s, 1 / s) <= 1.08 + 1e-9, `box ${i} stretched ${s}`);
+  });
+  const tight = pack([3.705, 3.455], { width: 1000, height: 1600 }, { rowGap: 100 });
+  const fill = pack([3.705, 3.455], { width: 1000, height: 1600 }, { rowGap: 100, fit: 'fill' });
+  assert.ok(fill.frame.h >= tight.frame.h, `fill grew the frame: ${tight.frame.h} -> ${fill.frame.h}`);
+  const wide = pack([1, 1], { width: 2000, height: 720 }, { gap: 24, fit: 'fill', stretch: 0.3 });
+  const [a, b] = [...wide.placed].sort((p, q) => p.x - q.x);
+  near(b.x - right(a), 24, 'gutter keeps its size under fill', 1e-9);
+});
+
+test('tree: a winner too wide to draw yields to the next arrangement instead of refusing', () => {
+  const r = pack([1.0946, 0.2217, 0.1411, 0.1806, 0.8711], { aspect: 0.75 }, { gap: 0.332 });
+  assert.equal(r.ok, true);
+  for (const p of r.placed) assert.ok(p.w > 0 && p.h > 0);
+});

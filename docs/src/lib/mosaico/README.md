@@ -76,9 +76,14 @@ for `tree` and 1 wide for `rows`, inside the padding: `toGrid` reads them. `resu
 width by solving the tree's width line for its height, so each gutter keeps its size rather than
 shrinking with the boxes.
 
-**Under `fit: 'fill'`** the frame stretches to close the margin, by up to `stretch`. A placed box is
-then the visible part of its item, and the item overflows it by at most that much: crop it, e.g.
-with `object-fit: cover`.
+**Under `fit: 'fill'`** the frame closes the margin the way a CSS grid of `fr` tracks would: the
+tracks along the short axis grow by one factor, up to 1 + `stretch`, and the gutters keep their size.
+A placed box is then the visible part of its item, and the item overflows it by at most `stretch`:
+crop it, e.g. with `object-fit: cover`. `empty`, `crop` and `score` are the search's figures, read at
+the layout's natural height; `frame` is what is drawn.
+
+A layout whose gutters are nearly as wide as the box is the one exception to exact gutters: when a
+box would get no room at the drawn height, `placed` scales the layout down whole instead.
 
 ## Rows: equal visual weight
 
@@ -126,7 +131,7 @@ Options for both strategies:
 | `rowGap` | `gap` | gutter between items stacked, or between rows |
 | `padding` | `0` | space inside the container's edges: one length, or `{ top, right, bottom, left }` |
 | `align` | `'center'` | where the layout sits in the space it leaves: `'start'`, `'center'`, `'end'`; `rows` also takes `'justify'`, which spreads each row's leftover width into its gaps |
-| `lastRow` | `align` | `rows`: how the last row sits; `'start'` when `align` is `'justify'` |
+| `lastRow` | `align` | `rows`: how the last row sits; `'start'` when `align` is `'justify'`, so a one-row wall needs `lastRow: 'justify'` to spread |
 
 Lengths follow the unit rule above. Options for `tree`:
 
@@ -143,7 +148,8 @@ is read as 1:1, the stand-in for an item whose shape is not known yet.
 
 `pack` refuses with `{ ok: false, reason }` instead of throwing: `'empty'` for no items,
 `'too-many'` for more than `MAX_TREE_ITEMS` (6), and `'no-valid-layout'` when every arrangement
-would leave a grid track of zero size. A `tree` container without a positive finite `aspect` (or `width` and `height`) is a caller
+would leave a grid track of zero size, or, wider than the box, no height once its gutters span the
+box's width. A `tree` container without a positive finite `aspect` (or `width` and `height`) is a caller
 error and throws a `RangeError`, and so does padding that leaves no room, or an `align` the strategy
 does not take (`tree` has nothing to justify).
 

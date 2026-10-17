@@ -57,6 +57,7 @@ export interface TreeWeights {
   hero?: number;
 }
 
+/** Every length option follows the unit rule on `Container`: a fraction of it, or its own unit when it has a size. */
 export interface PackOptions {
   /**
    * `tree` (default): every guillotine arrangement, for up to six items. `rows`: an ordered list
@@ -97,12 +98,12 @@ export interface PackOptions {
   hero?: number;
   /** `tree`: score weights. */
   weights?: TreeWeights;
-  /** `rows`: the tallest an item may be, as a fraction of the width (default 0.1). */
+  /** `rows`: the tallest an item may be (default: 0.1 of the width inside the padding). */
   heightCap?: number;
   /** `rows`: the lowest the cap may fall, before every area shrinks, to fit `maxRows` and `maxHeight` (default: `heightCap`). */
   minHeightCap?: number;
   /**
-   * `rows`: the area every item starts from, as a fraction of the width squared (default: the
+   * `rows`: the area every item starts from, in the container's units squared (default: the
    * largest at which an item of aspect max(narrowest, `aspectFloor`) is exactly `heightCap` tall,
    * and never more than a square at the cap). Set it when the host knows the size it wants, e.g. a
    * wall that must keep the size it had before: `heightCap` still holds every item, and the area
@@ -113,9 +114,9 @@ export interface PackOptions {
   maxPerRow?: number;
   /** `rows`: most rows; the area shrinks until the items fit (default: no limit). */
   maxRows?: number;
-  /** `rows`: the tallest the layout may be, as a fraction of the width; the area shrinks until it fits (default: no limit). */
+  /** `rows`: the tallest the layout may be; the area shrinks until it fits (default: no limit). */
   maxHeight?: number;
-  /** `rows`: the narrowest cell, as a fraction of the width (default 0). */
+  /** `rows`: the narrowest cell (default 0). */
   minCell?: number;
   /** `rows`: items narrower than this aspect are held at `heightCap` instead of shrinking every item (default 0.5). */
   aspectFloor?: number;
@@ -155,8 +156,10 @@ export interface PackResult {
   frame: Rect;
   /**
    * One box per item, in written order, in the container's units: what to draw. Under
-   * `fit: 'fill'` the layout is stretched to close the margin, so a box is the visible part of
-   * its item and the item overflows it by at most `stretch` (crop it, e.g. `object-fit: cover`).
+   * `fit: 'fill'` the tracks along the short axis grow by one factor, up to 1 + `stretch`, with the
+   * gutters kept: a box is the visible part of its item, which overflows it by at most `stretch`
+   * (crop it, e.g. `object-fit: cover`). `empty`, `crop` and `score` are the search's figures,
+   * read at the layout's natural height; `frame` is what is drawn.
    */
   placed: Rect[];
   /**

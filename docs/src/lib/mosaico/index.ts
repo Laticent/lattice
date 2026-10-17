@@ -70,6 +70,27 @@ function alignOf(v: unknown, fallback: Align, name: string, strategy: 'tree' | '
 // Where `align` puts a box in the space it leaves: none of it before (start), half, or all.
 const SHARE: Record<Align, number> = { start: 0, center: 0.5, end: 1, justify: 0 };
 
+// Grow the tracks along one axis by one factor, at most `most` and never below 1, until the layout
+// reaches `room` along it; gutters keep their size.
+function stretchTracks(rects: Rect[], axis: 'x' | 'y', room: number, most: number, g: number): Rect[] {
+  const { sizes, span } = tracksFor(rects, g, axis);
+  const gutters = (sizes.length - 1) * g;
+  const sum = sizes.reduce((t, v) => t + v, 0);
+  const k = Math.min(most, Math.max(1, (room - gutters) / sum));
+  const start: number[] = [];
+  let at = 0;
+  for (const v of sizes) {
+    start.push(at);
+    at += v * k + g;
+  }
+  const pos = axis === 'x' ? 'x' : 'y';
+  const len = axis === 'x' ? 'w' : 'h';
+  return rects.map((r, i) => {
+    const [a, b] = span[i];
+    return { ...r, [pos]: start[a], [len]: start[b - 1] + sizes[b - 1] * k - start[a] };
+  });
+}
+
 /**
  * Pack `items` into `container`.
  *
@@ -117,33 +138,30 @@ export function pack(items: ReadonlyArray<Item | number>, container: Container, 
 
   // Draw it: at full height when the layout is narrower than the box, else at full width. The
   // node's width is a line in its height, gutters included, so the second case solves that line
-  // for the height and every gutter stays exactly its size.
+  // for the height and every gutter stays exactly its size (the search kept only roots that have
+  // room at that height).
   const { node, A } = best;
   const wide = A > F;
   const hL = wide ? (F - node.q) / node.p : 1;
-  const wL = wide ? F : A;
-  // Gutters wider than the box leave the items no height at all.
-  if (!(hL > 0)) return { ok: false, reason: 'no-valid-layout' };
-  const natural: Rect[] = [];
-  layout(node, 0, 0, wL, hL, columnGap, rowGap, natural);
-  let fw = wL * ih;
-  let fh = hL * ih;
-  // `fill` stretches the layout to close the margin, by up to `stretch`; a drawn box is then the
-  // visible part of its item.
-  let sx = 1;
-  let sy = 1;
-  if (fit === 'fill') {
-    const ae = Math.min(Math.max(F, A / (1 + stretch)), A * (1 + stretch));
-    if (wide) {
-      sy = Math.min(ih, iw / ae) / fh;
-      fh *= sy;
-    } else {
-      sx = Math.min(iw, ih * ae) / fw;
-      fw *= sx;
-    }
+  let natural: Rect[] = [];
+  let [gx, gy] = [columnGap, rowGap];
+  layout(node, 0, 0, wide ? F : A, hL, gx, gy, natural);
+  // Gutters close to the box's width can leave a box no room at that height. Then scale the
+  // layout down whole instead, gutters with it: every box keeps its shape and a positive size.
+  if (natural.some((r) => !(r.w > 0 && r.h > 0))) {
+    const k = F / A;
+    natural = best.rects.map((r) => ({ x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k }));
+    [gx, gy] = [gx * k, gy * k];
   }
+  // `fill` closes the margin the way a CSS grid of `fr` tracks does: the tracks along the short
+  // axis grow by one factor k, up to 1 + `stretch`, and the gutters keep their size. A box spans
+  // whole tracks and gutters, so no box stretches by more than k; a drawn box is then the visible
+  // part of its item.
+  const drawn = fit === 'fill' ? stretchTracks(natural, wide ? 'y' : 'x', wide ? 1 : F, 1 + stretch, wide ? gy : gx) : natural;
+  const fw = Math.max(...drawn.map((r) => r.x + r.w)) * ih;
+  const fh = Math.max(...drawn.map((r) => r.y + r.h)) * ih;
   const frame = { x: pad.left + (iw - fw) * SHARE[align], y: pad.top + (ih - fh) * SHARE[align], w: fw, h: fh };
-  const placed = natural.map((r) => ({ x: frame.x + r.x * ih * sx, y: frame.y + r.y * ih * sy, w: r.w * ih * sx, h: r.h * ih * sy }));
+  const placed = drawn.map((r) => ({ x: frame.x + r.x * ih, y: frame.y + r.y * ih, w: r.w * ih, h: r.h * ih }));
   return {
     ok: true,
     rects: best.rects,
@@ -230,7 +248,8 @@ function packRows(aspects: number[], container: Container, options: PackOptions)
  * them as `minmax(0, Nfr)` with N scaled up, e.g. by 1000: the tracks sum to 1 minus the gutters,
  * and `fr` factors that sum below 1 leave part of the grid empty) and one grid area per item. A
  * grid built this way fits whatever box the browser gives it, so it works before the container is
- * laid out. Set the grid's `column-gap` and `row-gap` to `columnGap` and `rowGap` times its height.
+ * laid out. Set the grid's `column-gap` and `row-gap` to the result's `columnGap` and `rowGap` times
+ * the grid's height for `tree`, or its width for `rows` (the layout units each strategy uses).
  */
 export function toGrid(result: PackResult): GridTracks {
   const X = tracksFor(result.rects, result.columnGap ?? result.gap, 'x');

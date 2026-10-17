@@ -336,7 +336,10 @@ export interface TreeChoice {
   work: { arrangements: number; scored: number };
 }
 
-/** Pick the best-scoring valid root, or null when every root leaves a zero-size track. */
+/**
+ * Pick the best-scoring valid root, or null when every root leaves a zero-size track or, wider
+ * than the box, no height for its items once its gutters span the box's width.
+ */
 export function chooseTree(
   aspects: number[],
   F: number,
@@ -374,6 +377,12 @@ export function chooseTree(
     if (hero >= 0 && hero < n && areas[hero] < hi - 1e-9) score += W.hero;
     if (best && score - best.score > SKIP_MARGIN) continue;
     if (!tracksValid(rects, gx, 'x') || !tracksValid(rects, gy, 'y')) continue;
+    // A layout wider than the box is drawn at the box's width, which shortens it while every
+    // gutter keeps its size. Gutters as wide as the box leave its items no height there.
+    if (A > F) {
+      const h = (F - c.node.q) / c.node.p;
+      if (!(h > 0)) continue;
+    }
     const tree = canon(c.node);
     if (!best || score < best.score - TIE || (Math.abs(score - best.score) <= TIE && tree < best.tree)) {
       best = { node: c.node, A, rects, ratio, empty: c.empty, crop: c.crop, score, tree, work: { arrangements: 0, scored: 0 } };

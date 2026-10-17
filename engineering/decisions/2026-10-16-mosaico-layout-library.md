@@ -491,9 +491,21 @@ reads them.
 down whole, gutters with it. `placed` solves the root's width line for the height instead, so every gutter
 keeps its size there too. The score is unchanged: it still reads the layout at height 1.
 
-**Nothing moved for existing callers.** With none of the new options, the arithmetic is the old arithmetic
-(a division by 1, an offset of 0), so the collage golden file (4,128 layouts) and the logo-wall tests pass
-unchanged. `test/unit/mosaico/spacing.test.js` pins the new behavior.
+**`fill` stretches tracks, not the drawing.** It grows the tracks along the short axis by one factor, up to
+1 + `stretch`, with the gutters kept, as a CSS grid of `fr` tracks does. Scaling the finished drawing instead
+(the first cut) stretched boxes past `stretch` once there were gutters, sometimes shrank the frame, and
+scaled the gutters; the checker found all three.
+
+**Nothing moved for Lattice.** With none of the new options the arithmetic is the old arithmetic (a division
+by 1, an offset of 0), so the collage golden file (4,128 layouts) and the logo-wall tests pass unchanged. Two
+edges move for other callers, both found by the checker's differential fuzz against the previous build:
+`toGrid` on a `rows` result now uses `rowGap` for the row tracks, and the search skips a root wider than the
+box whose gutters span its whole width (it has no height to draw at), so such a call gets the next
+arrangement that has room, or `no-valid-layout` when none has. Rerun after the fix over the same 4,000
+calls, the fuzz refused only calls whose gap was at least the box's own height (1 and 1.5); the 0.332 case
+it first found now gets a layout. Requiring every track to stay positive at the drawn
+height as well would have moved collage layouts, so where a box would get no room at that height `placed`
+scales the layout down whole instead. `test/unit/mosaico/spacing.test.js` pins all of it.
 
 ## 9. Decisions
 
