@@ -9,6 +9,7 @@
  *
  *   node tools/player-contrast-select.js --since <sha>   # galleries a diff <sha>..HEAD could move
  *   node tools/player-contrast-select.js --full          # every component gallery
+ *   node tools/player-contrast-select.js --examples [N]  # the weekly sample of examples/ (default 40)
  *
  * Prints one gallery path per line on stdout (nothing at all when nothing render-affecting
  * changed) and the reason on stderr.
@@ -87,10 +88,45 @@ function selectGalleries(changed, galleries, { full = false } = {}) {
 	return { files, reason: files.length ? `${files.length} of ${all.length} galleries changed` : 'nothing render-affecting changed' };
 }
 
+/**
+ * A deterministic sample of `examples/*.md` for the weekly composed-deck sweep (owner ruling
+ * 2026-10-17: sampled, not all 280; the galleries cover every component on indaco, so this covers
+ * what they cannot: other themes and composed finish and register mixes). Three strata, in order:
+ * (1) every deck on a theme other than indaco, (2) every deck that sets `finish:` or `mode:`,
+ * (3) the rest, taken at an even stride until `n` is reached. No randomness, so the baseline's keys
+ * stay put from week to week; a new example joins the sample only through a stratum or the stride.
+ * @param {string} [root]
+ * @param {number} [n] target size; strata 1 and 2 are always kept whole
+ * @returns {string[]} repo-relative paths, sorted
+ */
+function sampleExamples(root = ROOT, n = 40) {
+	const dir = path.join(root, 'examples');
+	const decks = fs.readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md').sort();
+	const head = (f) => fs.readFileSync(path.join(dir, f), 'utf8').split(/\r\n?|\n/).slice(0, 25).join('\n');
+	const chosen = new Set();
+	const rest = [];
+	for (const f of decks) {
+		const h = head(f);
+		const theme = /^theme:\s*['"]?([\w-]+)/m.exec(h)?.[1] || 'indaco';
+		if (theme !== 'indaco' || /^(?:finish|mode):/m.test(h)) chosen.add(f);
+		else rest.push(f);
+	}
+	const need = Math.max(0, n - chosen.size);
+	for (let i = 0; i < need && rest.length; i++) chosen.add(rest[Math.floor(((i + 0.5) * rest.length) / need)]);
+	return [...chosen].sort().map((f) => `examples/${f}`);
+}
+
 function main() {
 	const argv = process.argv.slice(2);
 	const galleries = readGalleries();
 	let result;
+	if (argv.includes('--examples')) {
+		const n = Number(argv[argv.indexOf('--examples') + 1]) || 40;
+		const files = sampleExamples(ROOT, n);
+		console.error(`player-contrast-select: ${files.length} sampled examples`);
+		process.stdout.write(`${files.join('\n')}\n`);
+		return;
+	}
 	if (argv.includes('--full')) result = selectGalleries([], galleries, { full: true });
 	else {
 		const since = argv[argv.indexOf('--since') + 1];
@@ -105,6 +141,6 @@ function main() {
 	if (result.files.length) process.stdout.write(`${result.files.join('\n')}\n`);
 }
 
-module.exports = { selectGalleries, readGalleries, NON_RENDER };
+module.exports = { selectGalleries, readGalleries, sampleExamples, NON_RENDER };
 
 if (require.main === module) main();
