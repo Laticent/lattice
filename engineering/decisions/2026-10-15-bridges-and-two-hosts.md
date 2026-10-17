@@ -23,7 +23,7 @@ flattening, the veto reproduces on every deck.
 gallery deck alone (§3.1). And **an author's own CSS loses**: a deck's `style:` front matter and
 `<style>` blocks, which win today, lose to the flattened Lattice rules, at export and after it
 (§4.4). The benefit is a real specificity tax whose decisive part, the cross-file share, is
-measured in §3.7 (2026-10-17): layers would retire about none of the bumps. This note recommends
+measured in §3.7 (2026-10-17): on the gallery and 22 example decks, layers would retire none of the needed bumps. This note recommends
 adopting the bridge model now, and deciding activation on the arguments that survive that
 measurement.
 
@@ -264,7 +264,7 @@ deck CSS would win by being unlayered rather than by specificity.
 ### 3.7 The three D2 measurements (2026-10-17)
 
 The owner adopted `@layer` on 2026-10-16 and asked for its value to be validated before activation.
-These are the three measurements D2 named, taken on `main` at `1828726` (Chromium 1194, marp-cli
+These are the three measurements D2 named, taken on `main` at `1828726` plus this branch's first two commits (`cf92e6d`, which the results files record) (Chromium 1194, marp-cli
 4.2.3, flattener 6.0.2). Nothing was activated and no shipped CSS changed. The scripts and results
 are in `2026-10-15-bridges-and-two-hosts/` (`layer-delta-census.cjs`, `layer-delta-aggregate.cjs`,
 `layer-delta-results.json`, `author-css-designs.cjs`, `author-css-results.json`). The census
@@ -274,9 +274,9 @@ sheets are byte-identical to `layer-census.cjs`'s.
 **(a) How much of the specificity tax would layers retire?** Little.
 
 - **Bumps.** The tree has 204 rules that raise their own specificity: a class repeated in one compound
-  (`.x.x`, 261 selectors) or a repeated attribute (8 selectors, one file), in 33 files. The tree has no `#id` bumps, no
+  (`.x.x`: 232 selectors, 261 repeated class tokens) or a repeated attribute (8 selectors, one file), in 33 files. The tree has no `#id` bumps, no
   never-matching `:not()` and no `html`/`body` prefixes. Across the gallery and 22 example decks, the
-  census found **19 cases where a bump was needed** (the rule loses without it). **Zero of the 19**
+  census found **19 cases where a bump was needed** (the rule loses without it; element–property instances from 3 distinct bumped selectors). **Zero of the 19**
   are cross-file against an earlier layer, which is the only kind layers retire: 15 are against the same
   file and 4 against a rule in a later layer. Removing every bump from the layered sheet changes
   **0 elements** on the gallery and on all 22 decks. Only 56 of the 204 bumped rules match any
@@ -302,7 +302,7 @@ compares them with today.
 | C (the bridge as built) | flatten Lattice only | `finish-override`, `backdrop-register`: same as today. **`finish-backdrops`: newly loses 271 of 1,649 pairs** |
 | 1 | author CSS stays unlayered (the Lattice host) | same as today on all three |
 | 2 | lower early layers with `:where()` | same as today on all three, but cannot be exact in general: it drops within-layer specificity, and it moved 0, 4 and 1 elements of Lattice's own meaning |
-| 3/4 | raise existing author CSS above the top rank at export (3), and document the raised form for CSS written after export (4) | same as today on all three |
+| 3/4 | raise existing author CSS above the top rank at export (3), and document the raised form for CSS written after export (4) | design 3 same as today on all three; **design 4 was not rendered separately** (the script reuses design 3's render), so CSS written after export is unmeasured |
 
 By construction: designs 3 and 4 make author CSS beat every engine rule wherever it matches, which can
 newly win where the engine wins today; design 1 makes an author's `!important` lose to every layered
@@ -329,22 +329,25 @@ separate fixes. Today's winner → the layered winner: `title.styles.css` → `b
 (font family, size, style and weight on 190 elements), `diagram.styles.css` → `forms/cell/stage/stage.css`
 (gap, 137), `state-chart.styles.css` → `chart-family.styles.css` (stroke width, 107),
 `collage.styles.css` → `base.modifiers.css` (border radius, 62), `split-panel.styles.css` →
-`base.modifiers.css` (color, 61), `closing.styles.css` → `base.modifiers.css` (60). The pattern is
-one: a component's own rule beating a `base.modifiers.css` rule by specificity, which layers reverse.
+`base.modifiers.css` (color, 61), `closing.styles.css` → `base.modifiers.css` (60). Each count is
+elements for that one property; a pair's total is larger (state-chart 161, collage 76, split-panel 83,
+closing 72). The pattern: mostly a component's own rule beating a later-layer universal or
+semi-universal rule by specificity, which layers reverse. `base.modifiers.css` is the layered winner
+for 539 of the 1,237 flipped elements (44%); `chart-family.styles.css` and `stage.css` take most of the rest.
 
 **Limits.** The method sees only rules that matched an element in what rendered. The de-bump experiment
-(C vs C0) and the specificity-tax walk ran on the 22 largest decks and the gallery, not all 282; the
+(C vs C0) and the specificity-tax walk ran on 22 example decks (the first shard, not chosen by size) and the gallery, not all 282; the
 count in (c) ran on all of them. Whether `print-mode` and `slide-class-forms` change nearly every element
-is not investigated here. One earlier reading of the census was disturbed by other jobs on the machine
+is not investigated here. `author-css-designs.cjs` was edited after its results were written (a scan replaced a `<style>` regex to satisfy CodeQL); one deck, `finish-override`, was re-run and gave the same numbers, and the other two were not. One earlier reading of the census was disturbed by other jobs on the machine
 (an animation caught mid-frame), which is why a stability repeat was added.
 
 **What the three numbers say, in plain words, with a recommendation.** Adopting `@layer` would not pay
-for itself through the specificity tax (a): the bumps are not cross-file. It would cost real migration work (c):
+for itself through the specificity tax (a): on the gallery and 22 decks, none of the 19 needed bumps is against an earlier layer, the only kind layers retire (148 of the 204 bumped rules matched nothing there, so this is a lower bound on what the tree holds). It would cost real migration work (c):
 about 3.3% of elements across the examples change, concentrated in a short list of rule pairs that
 all follow one pattern. The author-CSS problem (b) has a workable answer at each host. If the owner's
 case for `@layer` is the zip-plugin and author-wins arguments rather than the tax, the work is bounded
 and listable. **I recommend deciding D2 on those two arguments, not on the tax**, and starting with
-the `base.modifiers.css` pair, which accounts for most of the flips.
+the `base.modifiers.css` pairs, which take the largest share of the flips (44% of flipped elements).
 
 ## 4. The bridge model
 
@@ -601,7 +604,7 @@ items in §4.4.
 | # | Decision | Recommendation |
 |---|---|---|
 | D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | ~~**yes**. Worth having without `@layer`~~ **Decided 2026-10-16 by the owner: no presets.** One bundle carries everything both VS Code and marp-cli need; Marp users are assumed able to use both. What it owes instead is a README that walks a technical newcomer through both routes, every step verified on the real tools, and a folder that opens as a VS Code project (#2745). |
-| D2 | Activate `@layer` behind a flattening bridge | **Decided 2026-10-16 by the owner: yes, adopt it, but validate its value first.** The validation is the three measurements below; activation waits on their numbers. Original recommendation: **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 125 on the gallery alone). **Measured 2026-10-17, §3.7:** (a) layers retire none of the 19 needed bumps; (b) design 1 for Lattice, design 3 plus 4 for the Marp bridge; (c) 3,923 of 117,299 elements (3.3%) across 282 decks |
+| D2 | Activate `@layer` behind a flattening bridge | **Decided 2026-10-16 by the owner: yes, adopt it, but validate its value first.** The validation is the three measurements below; activation waits on their numbers. Original recommendation: **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 125 on the gallery alone). **Measured 2026-10-17, §3.7:** (a) on the gallery and 22 decks, layers retire none of the 19 needed bumps; (b) design 1 for Lattice, design 3 plus 4 for the Marp bridge; (c) 3,923 of 117,299 elements (3.3%) across 282 decks |
 | D3 | VS Code presets for drawn plugins | **Decided 2026-10-16 by the owner: scripts allowed.** With no presets (D1), the bundle ships the live runtime and the README walks the reader to VS Code's *Disable* level; there is no frozen or as-is VS Code variant. Original recommendation: **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which works today in the owner's VS Code. *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
 | D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **Decided 2026-10-16 by the owner: yes, simplify first.** Original recommendation: **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
 | D5 | ~~Merge the code-plugin branch first, or adopt §5.3 first~~ | **Settled**: the code plugin merged (#2710) with `codeRenderer: true`. P2+P3 migrate it with the rest |
