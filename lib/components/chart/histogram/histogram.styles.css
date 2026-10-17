@@ -26,10 +26,21 @@
   overflow: visible;
 }
 
-/* A band. The canvas-colored hairline is the family separator (stacked-bar,
- * tower): bands touch, and two of one hue would otherwise read as one bar. */
+/* A band, drawn as a bar is (bar.styles.css): the kernel's wash for the fill, which a
+ * `fill` here would beat and throw away, and the saturated ink edge. Bands touch, so a
+ * canvas-colored seam (stacked-bar, tower) left a solid run of one hue reading as one
+ * shape; the edge plus a wash that restarts at each band separate them, and the chart
+ * reads as the bar chart's sibling. */
 :is(section.histogram, figure.chart-frame) .histogram-band {
-  fill: var(--mark-body, var(--chart-cat-1-body));
+  stroke: var(--chart-cat-1-ink);
+  /* stroke-width: the family edge rule (chart-family.styles.css) names this mark. */
+}
+
+/* The seam between two touching bands (histogram.transform.js § THE SEAMS): the canvas
+ * color, wide enough to cover both bands' ink edges where they meet, so a shared edge
+ * reads as a cut whatever paints the bands. */
+:is(section.histogram, figure.chart-frame) .histogram-seam {
   stroke: var(--bg);
-  stroke-width: 0.6;
+  stroke-width: calc(2 * var(--chart-hairline));
+  vector-effect: non-scaling-stroke;
 }

@@ -66,6 +66,19 @@ describe('histogram row model', () => {
 });
 
 describe('histogram kernel', () => {
+  test('bands wear the bar\'s wash, and a canvas seam cuts only where two bands meet', () => {
+    // Bands 0..10 and 10..20 meet; 30..40 leaves a gap, so it gets no seam.
+    const svg = buildHistogram(parseHistogram(li([['', '0..10', '40%'], ['', '10..20', '20%'], ['', '30..40', '10%']])), {});
+    for (const a of tags(svg, 'histogram-band')) assert.match(a('fill'), /^url\(#.*histogram-fill-1-/);
+    assert.match(svg, /<defs><linearGradient id="[^"]*histogram-fill-1-/);
+    const seams = tags(svg, 'histogram-seam');
+    assert.equal(seams.length, 1);
+    const [, b] = tags(svg, 'histogram-band');
+    assert.equal(num(seams[0], 'x1'), num(b, 'x'), 'the seam sits on the shared edge');
+    assert.equal(num(seams[0], 'y1'), num(b, 'y'), 'and stops at the lower band\'s top');
+    assert.equal(seams[0]('data-hue'), null, 'no finish repaints it');
+  });
+
   test('a band carries the mark contract, so a `chart-finish:` repaints it', () => {
     const svg = buildHistogram(parseHistogram(li([['', '0..10', '40%'], ['', '10..20', '20%']])), {});
     for (const a of tags(svg, 'histogram-band')) {

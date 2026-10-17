@@ -59,8 +59,6 @@ const KNOCKOUTS = {
   'risk-cell': 'risk-matrix',
   'risk-marker': 'risk-matrix',
   'risk-key-marker': 'risk-matrix',
-  // Histogram bands touch, so the canvas hairline between them is a separator.
-  'histogram-band': 'histogram',
   // An EP curve's dots are knocked out of the other curve where two cross, as line's are.
   'ep-dot': 'ep-curve',
   'quadrant-trail-after': 'quadrant',
