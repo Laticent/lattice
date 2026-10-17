@@ -517,6 +517,21 @@ must be drawn by the map (which already draws the slide number) or excluded from
 slide's HTML differed between two page loads because the diagram had not finished drawing, so a key or
 capture taken before it settles is unstable.
 
+**6. The playground (an interactive build of the ladder; 4K gallery deck, 120 slides).** Scrolling the map
+fast, baker off, so only tile binding is measured (frames over 50 ms, out of about 100):
+
+| Tile kind | Chromium | WebKit |
+|---|---|---|
+| pills, posters (no wireframe fallback) | 0 | 0 to 1 |
+| wireframes measured at bind | 0 | 1 to 4 (p95 46 to 48 ms) |
+| live DOM at tile size | 0 | **7 frames in the whole scroll, about 465 ms each** |
+
+Live DOM tiles are unaffordable in a scrolling map on WebKit even with a pooled list of 10, which is the
+case for the ladder: the map must not use live tiles outside a small window. Wireframe measurement at bind
+time costs WebKit a few frames, so it belongs in the idle queue, not in the bind path. In the same page,
+inserting a slide at the top kept **120 of 120** cached posters valid on WebKit and 102 of 102 on Chromium,
+against 0 with raw-HTML keys. Baking back-to-back while scrolling gave 31 to 66 frames over 50 ms in 148.
+
 **What this changes in the design**
 
 1. Capture at the slide's native size and build the pyramid by canvas downscale. (Constraint 4 now says so.)
