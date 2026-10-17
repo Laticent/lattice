@@ -6,7 +6,7 @@
     "component": 75,
     "finish": 9,
     "motion": 4,
-    "plugin": 9
+    "plugin": 10
   },
   "packages": [
     {
@@ -1430,6 +1430,20 @@
         "hydrate.js",
         "manifest.json",
         "styles.css"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "pills",
+      "path": "lib/plugins/pills",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
+        "services.js",
+        "syntax.mjs"
       ],
       "code": true
     },

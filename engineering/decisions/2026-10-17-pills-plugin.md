@@ -224,3 +224,20 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
 
 - Whether the counter pills in `redline` and `regulatory-update` keep their numbering in CSS and ask the plugin for
   only the shape is decided in that component's commit. The §5 row is the default.
+
+## 11. Progress
+
+- **2026-10-17, skeleton (commit 2 of §9, kernel only).** The `pills` plugin exists: manifest (`embedded`, an `untagged`
+  inline kind, `optional: ["icons"]`), syntax probe, services, docs and fixtures, and the kernel moved to
+  `lib/plugins/pills/pills.inline.js` with `lib/core/inline-pills.js` as a re-export. The schema, the resolver
+  (`checkInlineClaims`, the embedded-requires rule), `admitPlugins`, the generator and the zip importer
+  (`refusePluginCode`) know the two new fields; the dispatcher's pill row comes from the registry and keeps its place
+  between the marks and the sparks. **Measured:** `examples/inline-pills.md` and `examples/universal-pill.md` render
+  to byte-identical HTML and the compiled `lattice-default.css` is byte-identical to the pre-change baseline
+  (rendering is deterministic across runs). The unit suite, `lint`, `build:check` and `build:check:all` pass. With
+  `plugins.defaults: []`, with `disabled: ['pills']` and with both, a deck still draws its pills on the engine path.
+  Not yet done: the styles move (commit 3, where the cascade-order risk is measured), the four importers, the
+  runtime/Compose/lint off-switch checks beyond the engine, the docs page and the components.
+  Found while building: `lint-core` ran the generic plugin-kind diagnostic on the pill row and double-reported
+  `pill-literal`; it now skips an untagged row. `pluginAdmission` (the Playground's pass-on list) leaves embedded
+  plugins out, since they load whatever list a host passes.

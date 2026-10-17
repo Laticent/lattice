@@ -417,6 +417,11 @@ describe('the gate for a plugin’s one script', () => {
     assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'inline', 'styles', 'diagnostics']);
   });
 
+  test('refuses `embedded`: a plugin that arrives as data never loads on every render with no off switch', () => {
+    assert.match(refusePluginCode(plugin({}, { embedded: true })), /declares `embedded`, which only a plugin in this repository may hold/);
+    assert.match(refusePluginCode(plugin({}, { embedded: false })), /declares `embedded`/, 'even false: the key is the repository\'s alone');
+  });
+
   test('refuses render.exec (hydrate "pass", a bake), payload and vendor by rule, not by prose', () => {
     assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { hydrate: 'pass' } } })), /render\.exec/);
     assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { bake: 'subprocess' } } })), /render\.exec/);

@@ -53,7 +53,8 @@ function corpusSpans() {
   // one, so it has no "before" to equal; the plugin's fixtures pin those. Every other span — TeX's
   // `^{o}` included — must come out exactly as before, with the plugin ON.
   const { KINDS } = require('../../../lib/core/inline-code-directives.js');
-  const pluginReads = (t) => KINDS.some((k) => k.plugin && (k.resolve(t) || k.diagnose(t)));
+  // The pill is a plugin row too, but it is the one the hand list DID draw, so it stays in the corpus.
+  const pluginReads = (t) => KINDS.some((k) => k.plugin && !k.untagged && (k.resolve(t) || k.diagnose(t)));
   // The named form (`@spark{…}`, the inline door) is new too, and the alias test below pins it.
   const named = (t) => table.canonicalText(t.replace(/^\\/, '')) !== t.replace(/^\\/, '');
   return [...spans].filter((s) => !/\bicon\s*=/.test(s) && !pluginReads(s) && !pluginReads(s.replace(/^\\/, '')) && !named(s));
@@ -66,9 +67,17 @@ describe('the inline-code table — first-party rows are byte-identical to the h
   // by switching their plugins off, so this holds whatever plugins ship.
   const off = new Set(table.KINDS.filter((k) => k.plugin).map((k) => k.plugin));
 
-  test('the first-party rows are marks and pills, in that order', () => {
-    assert.deepEqual(firstParty, ['state', 'pill']);
-    assert.deepEqual(table.KINDS.slice(0, 2), [...table.FIRST_PARTY]);
+  test('the first-party row is the state mark; the pill is the embedded pills plugin\'s row, asked right after it', () => {
+    // The pill left FIRST_PARTY when it became a plugin (2026-10-17-pills-plugin.md), and the dispatcher keeps its row
+    // right after the marks, so the order the hand list had is unchanged.
+    assert.deepEqual(firstParty, ['state']);
+    assert.deepEqual(table.KINDS.slice(0, 2).map((k) => k.name), ['state', 'pill']);
+    const [state, pill] = table.KINDS;
+    assert.equal(state, table.FIRST_PARTY[0]);
+    assert.equal(pill.plugin, 'pills');
+    assert.equal(pill.untagged, true);
+    assert.equal(pill.sigil, null);
+    assert.equal(pill.lead, 0x7b);
   });
 
   test('the sparks plugin\'s row draws every corpus spark exactly as the first-party row did', () => {
@@ -159,7 +168,9 @@ describe('the inline-code table — the lead table and the probe flags', () => {
 
   test('every row has an ASCII lead, or asks regardless', () => {
     for (const k of KINDS) assert.ok(k.lead === -1 || (Number.isInteger(k.lead) && k.lead >= 0 && k.lead < 128), `${k.name}: ${k.lead}`);
-    assert.deepEqual(KINDS.filter((k) => k.plugin).map((k) => [k.name, k.lead]), KINDS.filter((k) => k.plugin).map((k) => [k.name, k.sigil.charCodeAt(0)]));
+    // A tagged plugin row's lead is its sigil; the untagged pill declares its own (`{`).
+    const tagged = KINDS.filter((k) => k.plugin && !k.untagged);
+    assert.deepEqual(tagged.map((k) => [k.name, k.lead]), tagged.map((k) => [k.name, k.sigil.charCodeAt(0)]));
   });
 
   test('a row never renders or accepts a span that does not open with its lead', () => {
@@ -302,7 +313,8 @@ describe('the inline-code table — the lead table and the probe flags', () => {
 describe('the inline-code table — plugin rows', () => {
   test('every plugin row names its plugin, a tag sigil and the four functions', () => {
     for (const k of table.KINDS.filter((r) => r.plugin)) {
-      assert.match(k.sigil, /^[~^!]$/, k.name);
+      if (k.untagged) assert.equal(k.sigil, null, `${k.name} is untagged`);
+      else assert.match(k.sigil, /^[~^!]$/, k.name);
       for (const fn of ['resolve', 'html', 'element', 'diagnose']) assert.equal(typeof k[fn], 'function', `${k.name}.${fn}`);
     }
   });
@@ -321,7 +333,7 @@ describe('the inline-code table — plugin rows', () => {
 
   test('the resolver\'s copy of the host rows matches the table', () => {
     const { HOST_INLINE } = require('../../../lib/plugins/resolve');
-    assert.deepEqual([...HOST_INLINE.kinds], table.FIRST_PARTY.map((k) => k.name));
+    assert.deepEqual([...HOST_INLINE.kinds], table.FIRST_PARTY.map((k) => k.name), 'the pill is a plugin row now, not a host kind');
     assert.deepEqual({ ...HOST_INLINE.sigils }, Object.fromEntries(table.FIRST_PARTY.filter((k) => k.sigil).map((k) => [k.sigil, k.name])));
   });
 });

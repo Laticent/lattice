@@ -1,0 +1,32 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "pills",
+  "api": 1,
+  "title": "Pills",
+  "description": "Shaped, colored labels written in inline code: `{LIVE}` draws a capsule, `{BETA, tag, c4}` a sharp tag in the fourth categorical color, `{3, circle}` a numbered badge. A label comes first, then shape, color and size words in any order (or by name: `shape=tag`), and a pill sizes itself from the text around it. Pills are part of how Lattice draws a slide, so this plugin is embedded: it loads on every render and has no off switch. Components that show a status, an audience or a count author a pill or translate their content into one and pass in only a color, a size or a case.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {"ink": "line", "d": "M36 40H92A24 24 0 0 1 92 88H36A24 24 0 0 1 36 40Z", "width": 7},
+      {"ink": "accent", "d": "M52 64H76", "width": 9}
+    ]
+  },
+  "embedded": true,
+  "optional": ["icons"],
+  "contributes": {
+    "inline": {
+      "pill": {
+        "untagged": true
+      }
+    },
+    "services": [
+      "reads"
+    ]
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}
