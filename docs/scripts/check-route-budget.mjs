@@ -130,6 +130,27 @@ export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
 // `export{b}from"./x.js"`. Not `import("./x.js")`: the `(` never matches.
 const STATIC_IMPORT = /(?<![\w$.])(?:import|export)\s*(?:[^'"()]*?\bfrom\s*)?["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
 
+// TWO HASHES MOVE WITH ANY ENGINE CHANGE AND GZIP DIFFERENTLY (followups.d/2718-p5).
+//   • The asset version, `/playground/v/<12 hex>/`, which sync-playground-assets.mjs hashes from
+//     every staged asset. Two `_astro` chunks carry it (authoring-door, code-record-source).
+//   • Rollup's chunk file names, `name.<8 chars>.js`. Those two chunks are content-hashed, so a new
+//     version renames them, and the rename cascades: every chunk that imports or preloads them
+//     names a different file, and so do the chunks that import THOSE. A bundle-free PR then moved
+//     StudioIsland +3, architect -2 and so on, and an over-soft route owed a declaration for it
+//     (#2708, #2718). Found by building one tree twice with only the version changed: the version
+//     string is in no EAGER chunk, so replacing it alone changed zero bytes.
+// The gate gzips each chunk with both replaced by a fixed string of the SAME LENGTH. Only the
+// measured copy changes: STATIC_IMPORT and every file lookup still read the real text, and the
+// fixed lengths mean no real size move is hidden. Zeros gzip a little smaller than random
+// characters, so absolute numbers fall about 1% (studio 508630 against 514320 on one build), well
+// inside STALE_SLACK_PCT; base and PR are measured by this same code, so the allowance is unaffected.
+const ASSET_VERSION = /\/playground\/v\/[a-f0-9]{12}\//g;
+const ASSET_VERSION_FIXED = '/playground/v/000000000000/';
+const CHUNK_HASH = /\.[A-Za-z0-9_-]{8}\.js(?![\w-])/g;
+const CHUNK_HASH_FIXED = '.00000000.js';
+export const withFixedHashes = (buf) =>
+	Buffer.from(buf.toString('latin1').replace(ASSET_VERSION, ASSET_VERSION_FIXED).replace(CHUNK_HASH, CHUNK_HASH_FIXED), 'latin1');
+
 /**
  * Walk a module graph from `entries` (paths relative to `dist`), following static imports
  * only, and return the gzip total of every file reached that is not in `exclude`, plus the
@@ -148,7 +169,7 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 			throw new Error(`check-route-budget: ${owner} needs /${rel}, which is not in dist/ — the build is broken, not smaller.`);
 		}
 		const src = fs.readFileSync(file);
-		if (!exclude.has(rel)) gz += zlib.gzipSync(src, { level: 6 }).length;
+		if (!exclude.has(rel)) gz += zlib.gzipSync(withFixedHashes(src), { level: 6 }).length;
 		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
 			const next = path.posix.join(path.posix.dirname(rel), m[1]);
 			if (!seen.has(next)) {
