@@ -4,7 +4,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { planWall, stampWall, aspectOfMarkHtml, stageShare, captionShare, EYEBROW, LOGO_BAND, LOGO_GAP, LOGO_ROW_GAP, LOGO_COLS, MIN_AREA_SHARE, COMPACT_SPACING } = require('../../../lib/core/logo-wall-pack');
+const { planWall, stampWall, aspectOfMarkHtml, stageShare, captionShare, EYEBROW, LOGO_BAND, SP_2XL, SP_XL, LOGO_COLS, MIN_AREA_SHARE, COMPACT_SPACING } = require('../../../lib/core/logo-wall-pack');
+const { familyFor, canvasScaleFor } = require('../../../lib/adaptive/families');
 
 const CSS = fs.readFileSync(path.join(__dirname, '../../../lib/components/inventory/logo-wall/logo-wall.styles.css'), 'utf8');
 const areas = (plan) => plan.result.rects.map((r) => r.w * r.h);
@@ -26,8 +27,11 @@ test('the band and column counts are the ones the stylesheet uses', () => {
   // list 90 section-cqi wide.
   assert.match(base, /--logo-gap:\s*var\(--sp-2xl\)/);
   assert.match(dense, /--logo-gap:\s*var\(--sp-xl\)/);
-  assert.ok(Math.abs(LOGO_GAP.default - 5 / 90) < 1e-4);
-  assert.ok(Math.abs(LOGO_GAP.dense - 3.75 / 90) < 1e-4);
+  assert.equal(SP_2XL, 5 / 90);
+  assert.equal(SP_XL, 3.75 / 90);
+  // The tall and strip reflow: --sp-xl between columns, --sp-2xl between rows.
+  const reflow = CSS.slice(CSS.indexOf('column-gap: var(--sp-xl)') - 400, CSS.indexOf('column-gap: var(--sp-xl)') + 40);
+  assert.match(reflow, /row-gap:\s*var\(--sp-2xl\)/);
 
 });
 
@@ -39,19 +43,67 @@ test('4:1, 1:1 and 1:2 marks get equal area, default and dense', () => {
   }
 });
 
-test('a wall of one shape keeps its old size, with or without captions', () => {
-  const cell = (1 - 3 * LOGO_GAP.default) / 4;
-  const band = LOGO_BAND.default;
-  // 3:1 wordmarks filled their cells' width; squares and crests stood at the band.
-  for (const captions of [false, true]) {
-    for (const n of [4, 8]) {
-      const words = planWall(new Array(n).fill(3), { captions });
-      for (const r of words.result.rects) assert.ok(Math.abs(r.w - cell) < 1e-6, `captions=${captions} n=${n}: ${r.w} vs ${cell}`);
+// The old wall's gaps on a canvas: the spacing tokens times --canvas-scale, or 0.75 of the 16:9
+// tokens in compact.
+const oldGaps = (slideAspect, { dense, compact } = {}) => {
+  const reflow = ['tall', 'strip'].includes(familyFor(slideAspect));
+  const s = compact ? COMPACT_SPACING : canvasScaleFor(slideAspect);
+  return { reflow, gap: s * (reflow || dense ? SP_XL : SP_2XL), rowGap: s * (!reflow && dense ? SP_XL : SP_2XL) };
+};
+const CANVASES = [16 / 9, 4 / 3, 1, 0.8, 0.5625, 1080 / 2340];
+
+test('a wall of one shape keeps its old size on every canvas, in every variant', () => {
+  // The old wall drew each mark `contain` in a column-wide cell under the band. A wall of one row
+  // fits every canvas, so nothing may shrink it.
+  for (const slideAspect of CANVASES) {
+    for (const dense of [false, true]) {
+      for (const compact of [false, true]) {
+        for (const captions of [false, true]) {
+          const { reflow, gap } = oldGaps(slideAspect, { dense, compact });
+          const cols = reflow ? (dense ? LOGO_COLS.reflowDense : LOGO_COLS.reflowDefault) : dense ? LOGO_COLS.dense : LOGO_COLS.default;
+          const band = dense ? LOGO_BAND.dense : LOGO_BAND.default;
+          const cell = (1 - (cols - 1) * gap) / cols;
+          for (const a of [5, 3, 1.5, 1, 0.5, 0.25]) {
+            const plan = planWall(new Array(cols).fill(a), { slideAspect, dense, compact, captions, family: familyFor(slideAspect) });
+            const w = Math.min(cell, a * band);
+            const tag = `aspect ${slideAspect.toFixed(2)} dense=${dense} compact=${compact} captions=${captions} mark ${a}`;
+            // A mark too small to read keeps the old grid, which is its old size by definition.
+            if (w * (w / a) < MIN_AREA_SHARE * band * band) {
+              assert.equal(plan.mode, 'fallback', tag);
+              continue;
+            }
+            assert.equal(plan.mode, 'packed', tag);
+            for (const r of plan.result.rects) assert.ok(Math.abs(r.w - w) < 1e-9 && Math.abs(r.h - w / a) < 1e-9, `${tag}: ${r.w} vs ${w}`);
+          }
+        }
+      }
     }
-    for (const r of planWall([1, 1, 1, 1], { captions }).result.rects) assert.ok(Math.abs(r.h - band) < 1e-6 || !captions, `square ${r.h}`);
   }
-  for (const r of planWall([1, 1, 1, 1], { captions: true }).result.rects) assert.ok(Math.abs(r.h - band) < 1e-6, `captioned square ${r.h}`);
-  for (const r of planWall([0.5, 0.5, 0.5], { captions: true }).result.rects) assert.ok(Math.abs(r.h - band) < 1e-6, `captioned crest ${r.h}`);
+});
+
+test('the planned gaps are the old wall\'s on every canvas', () => {
+  for (const slideAspect of CANVASES) {
+    for (const dense of [false, true]) {
+      for (const compact of [false, true]) {
+        const { gap, rowGap } = oldGaps(slideAspect, { dense, compact });
+        const plan = planWall([3, 1, 0.5], { slideAspect, dense, compact, family: familyFor(slideAspect) });
+        assert.equal(plan.listStyle, `--logo-gx:${Math.floor(gap * 1e5) / 1e5};--logo-gy:${Math.floor(rowGap * 1e5) / 1e5}`);
+      }
+    }
+  }
+  // Measured on the base renders: square 0.0917, portrait 0.0812 / 0.1083, mobile 0.0954 / 0.1272.
+  assert.match(planWall([1], { slideAspect: 1 }).listStyle, /--logo-gx:0\.0916/);
+  assert.match(planWall([1], { slideAspect: 0.8, family: 'tall' }).listStyle, /--logo-gx:0\.0812.*--logo-gy:0\.1083/);
+});
+
+test('a mixed wall shares one area inside the range of the old marks\' areas', () => {
+  const band = LOGO_BAND.default;
+  // With a 1:2 crest in the set, every mark gets the area of a square at the band.
+  const plan = planWall([4, 1, 0.5], {});
+  for (const x of areas(plan)) assert.ok(Math.abs(x - band * band) < 1e-12, String(x));
+  // Squares beside 3:1 wordmarks never pass the wordmarks' old area.
+  const cell = (1 - 3 * SP_2XL) / 4;
+  for (const x of areas(planWall([3, 1, 3, 1], {}))) assert.ok(x <= cell * cell / 3 + 1e-12, String(x));
 });
 
 test('never more rows or more per row than the old wall, and never taller than the stage', () => {
@@ -66,8 +118,7 @@ test('never more rows or more per row than the old wall, and never taller than t
     const plan = planWall(aspects, { dense, family, captions });
     const cols = family ? (dense ? 3 : 2) : dense ? 6 : 4;
     const band = dense ? LOGO_BAND.dense : LOGO_BAND.default;
-    const gap = family ? LOGO_GAP.reflow : dense ? LOGO_GAP.dense : LOGO_GAP.default;
-    const rowGap = family ? LOGO_ROW_GAP.reflow : dense ? LOGO_ROW_GAP.dense : LOGO_ROW_GAP.default;
+    const { gap, rowGap } = family ? { gap: SP_XL, rowGap: SP_2XL } : oldGaps(16 / 9, { dense });
     const rows = Math.ceil(n / cols);
     const stage = (stageShare(16 / 9) - EYEBROW) / 0.9 / (16 / 9) - (captions ? rows * (captionShare(16 / 9) * (9 / 16)) / 0.9 : 0);
     // With no room left once the row gaps (and captions) are paid for, the wall keeps the old grid.
@@ -99,8 +150,8 @@ test('compact shrinks both gaps as the spacing scale does, so its cells widen as
   const two = (sel) => Number(new RegExp(`${sel}:\\s*calc\\(([\\d.]+)`).exec(shared)[1]);
   assert.ok(Math.abs(two('--sp-2xl') / 5 - COMPACT_SPACING) < 1e-9, 'compact --sp-2xl is 0.75 of the 5 section-cqi default');
   const plan = planWall([3, 3, 3, 3], { compact: true });
-  assert.match(plan.listStyle, /--logo-gx:0\.0417/);
-  const cell = (1 - 3 * LOGO_GAP.default * COMPACT_SPACING) / 4;
+  assert.match(plan.listStyle, /--logo-gx:0\.04166/);
+  const cell = (1 - 3 * SP_2XL * COMPACT_SPACING) / 4;
   for (const r of plan.result.rects) assert.ok(Math.abs(r.w - cell) < 1e-6, `${r.w} vs ${cell}`);
 });
 
@@ -129,6 +180,13 @@ test('the stage estimate follows the measured canvases and stays below them', ()
   assert.ok(stageShare(1.5) < 0.706 && stageShare(1.5) > 0.608);
 });
 
+test('the caption allowance is the measured one per canvas, with no margin', () => {
+  // Measured on the base renders, mark foot to item foot, as a share of the slide's short side.
+  for (const [aspect, measured] of [[16 / 9, 0.078], [4 / 3, 0.059], [1, 0.075], [0.8, 0.098], [0.5625, 0.1], [0.4615, 0.101]]) {
+    assert.ok(Math.abs(captionShare(aspect) - measured) < 1e-9, String(aspect));
+  }
+});
+
 test('a nonsense slide aspect is ignored, not planned for', () => {
   const plain = JSON.stringify(planWall([4, 1, 0.5], {}).itemStyles);
   for (const slideAspect of [784 / 120, 0, -1, NaN]) assert.equal(JSON.stringify(planWall([4, 1, 0.5], { slideAspect }).itemStyles), plain, String(slideAspect));
@@ -148,7 +206,7 @@ const section = (cls, items) => `<section class="${cls}" data-family="wide"><div
 test('stampWall stamps the list and each top-level item, and is idempotent', () => {
   const html = section('logo-wall', [`<li>${mark(320, 80, 'A')}</li>`, `<li>${mark(120, 120, 'B')}\n<ul>\n<li>B</li>\n<li><code>Seed</code></li>\n</ul>\n</li>`, `<li>${mark(80, 160, 'C')}</li>`]);
   const out = stampWall(html, 16 / 9);
-  assert.match(out, /<ul data-logo-wall="packed" style="--logo-gx:0\.0556;--logo-gy:0\.0556">/);
+  assert.match(out, /<ul data-logo-wall="packed" style="--logo-gx:0\.05555;--logo-gy:0\.05555">/);
   const styled = [...out.matchAll(/<li style="(--logo-cell[^"]*)"/g)].map((m) => m[1]);
   assert.equal(styled.length, 3, 'the caption list items are not marks');
   assert.deepEqual(styled, planWall([4, 1, 0.5], { captions: true, family: 'wide', slideAspect: 16 / 9 }).itemStyles);

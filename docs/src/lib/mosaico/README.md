@@ -55,7 +55,7 @@ const wall = pack([4, 1, 0.5, 3], {}, {
   gap: 0.0556,           // between cells, and between rows unless rowGap is set
   heightCap: 0.127,      // the tallest an item may be
   minHeightCap: 0.09,    // how far the cap may fall before every area shrinks
-  // areaCap: 0.127,     // size the items from a higher cap than heightCap holds them to
+  // area: 0.0081,       // the area to start from, when the host already knows it
   maxPerRow: 4,
   maxRows: 1,
   maxHeight: 0.34,       // rows and row gaps together
@@ -67,7 +67,8 @@ wall.cells;  // each item's cell, as tall as its row
 ```
 
 The area is the largest at which an item of aspect max(narrowest, `aspectFloor`, default 0.5) is
-exactly `heightCap` tall, and never more than a square at the cap. An item narrower than
+exactly `heightCap` tall, and never more than a square at the cap; a host that knows the size it
+wants passes `area` instead (the logo wall passes the size its marks had before). An item narrower than
 `aspectFloor` stands at the cap and gets less area, so one 1:5 crest cannot shrink every item. When
 the rows exceed `maxRows` or `maxHeight`, the cap falls toward `minHeightCap` first, then every
 area shrinks. Breaks come from dynamic programming over break points: the fewest rows, then the

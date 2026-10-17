@@ -352,7 +352,8 @@ release waits for.
 **The strategy** (`docs/src/lib/mosaico/rows.ts`). Units are fractions of the container's width. Each item
 sits in a cell at least `minCell` wide and centered in it; a row holds at most `maxPerRow` cells. The area is
 the largest at which an item of aspect max(narrowest, `aspectFloor`) stands exactly at `heightCap`, never more
-than a square at the cap; narrower items stand at the cap with less area. If the rows exceed `maxRows` or
+than a square at the cap, unless the host passes its own `area` (clamped at 1 / narrowest, above which a
+larger area changes nothing); narrower items stand at the cap with less area. If the rows exceed `maxRows` or
 `maxHeight`, the cap falls toward `minHeightCap` with the area held, then the area falls, both by bisection.
 Every answer fits (a value is kept only after it passes); it is the largest fitting one when fitting is
 monotone, which holds for the row count but not strictly for the height, because the most even breaks can
@@ -360,23 +361,44 @@ regroup rows as cells shrink. A layout that fits only at zero area is refused. B
 rows then least squared slack, ties to the earliest break. Forty items: 0.7 ms median, 1.0 ms p95.
 
 **How §4.3's rule became numbers for the logo wall** (`lib/core/logo-wall-pack.js`).
-The first anchoring, area set by the narrowest mark at the old band, shrank the common case: a 3:1 wordmark
-went from 240 px to 127 px wide. So the cap is the old band × √2 (with a 1:2 crest present, a square keeps its
-old 104 px) and may fall back to the band; `minCell` is the old column width, `maxRows` the old row count. A
-wall of one shape then keeps its old size exactly (four 3:1 wordmarks: 240×80 px, as before). Captioned walls
-hold every mark to the band but size the marks from the same anchor (`areaCap` = band × √2): a first version
-computed the area from the band itself and drew a captioned wall of 3:1 wordmarks about a quarter narrower than
-the old equal cells. The cost is equality on a captioned wall with a crest: the crest stops at the band with
-half the others' area (2.0× spread, against 3.6× before). The universal `compact` modifier scales both gaps by
-its 0.75 spacing, as it scales the tokens the old wall used. Rendered against the base on both shipped
-logo-wall decks, every one of the 88 marks is within 0.1 px of its old size.
+The planner passes mosaico the area, not a formula for it. The old wall drew each mark `contain` in a
+column-wide cell under the band, so each mark had an old area; the shared area is kept inside the range of
+those old areas. Inside the range it is the area of a mark of the set's narrowest shape (at least 1:2)
+standing at the band × √2, so with a 1:2 crest present, the crest reaches the area of a square at the band.
+A wall of one shape therefore draws every mark exactly as before, on every canvas, in every variant. The cap
+starts at band × √2 and may fall back to the band; `minCell` is the old column width, `maxRows` the old row
+count. Captioned walls hold every mark to the band, so their captions line up. The cost is equality on a
+captioned wall with a crest: the crest stops at the band with half the others' area (2.0× spread, against
+3.6× before).
+
+The gaps are the old wall's, which are spacing tokens (`--sp-2xl`, `--sp-xl`) times the deck's
+`--canvas-scale`: 1 on a landscape slide, 1.65 square, 1.95 to 2.29 tall. The engine, the live runtime and
+the planner now read that scale from one function, `canvasScaleFor` in `lib/adaptive/families.js`; before,
+the engine and the runtime each carried a copy of the formula. The universal `compact` modifier redefines the
+spacing scale at 0.75 of the 16:9 tokens without the canvas scale, so its gaps are the same fraction of the
+list on every canvas.
+
+Two earlier cuts got this wrong, and the checker caught both. The first anchored the area at band × √2 for
+every wall (an `areaCap` option, since replaced by `area`), which doubled a wall of squares and took a third
+off a 3:1 wall on tall and strip canvases, `examples/adaptive-sweep.md` among them. The second used one gap per
+family for every canvas, so square canvases planned narrower gaps than they drew.
+
+**The sweep that pins it.** Seven canvases (hd, 4K, standard, square, portrait, story, mobile) × four
+one-shape walls (3:1, 4:1, 1:1, 1:2) × eight variants (plain, dense, compact, dense compact, captioned with 8
+and 12 marks, captioned compact, captioned dense), 224 walls, rendered on the base (`69b521f`) and on this
+branch. Every wall that fit on the base draws every mark within 0.5% of its old area. Nine walls overflowed the
+slide on the base (captioned walls on portrait and story, and wide 4:1 captioned walls at 16:9); all nine now
+fit. No wall newly overflows. The six shipped decks with a `logo-wall` slide (14 walls) match the base to the
+pixel.
 
 **A pre-existing overflow, fixed on the way.** The old wall did not fit three rows under an eyebrow: 439 px
 of wall in a 400 px stage at 1280×720, on `main` too. On this PR's path, so fixed here (#18): a packed row is
 as tall as its tallest mark (the CSS drops the band `min-height`), and the plan fits a stage estimated from the
 slide's shape: the stage's measured share of the slide height at each canvas (0.608 at 16:9 up to 0.85 at
 mobile, interpolated by aspect) less 0.06 for an eyebrow, and captions at their measured share of the slide's
-short side per canvas (0.061 to 0.121), plus 10%.
+short side per canvas (0.059 to 0.101, measured from the mark's foot to the item's foot). A captioned wall's
+rows never stand taller than the old wall's, so the caption estimate only decides how far a wall that would
+overflow shrinks. A safety margin on it only shrank walls that fit, so there is none.
 
 **The checker's second round** (on the uncommitted slice) found the first cut of this wall unfit to ship, and
 every finding was fixed before commit:

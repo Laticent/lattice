@@ -1,4 +1,4 @@
-- **Changed: the collage lays out about seven times faster, with the same layouts.** The collage
+- **Changed: the collage lays out about six times faster, with the same layouts.** The collage
   packer moved out of `lib/core/collage-pack.js` into a new workspace library, `@laticent/mosaico`
   (`docs/src/lib/mosaico`), and Lattice's side of it now lives beside the component in
   `lib/components/imagery/collage/collage.pack.js`. Six photos in free order pack in about 9 ms

@@ -80,6 +80,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				background: linear-gradient(150deg, var(--tile), color-mix(in srgb, var(--tile) 70%, var(--accent))); color: var(--tile-ink);
 				display: grid; place-items: center; font: 600 12px var(--mono); transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease, filter .12s ease; }
 			.frame .box:hover { filter: brightness(1.04); }
+			.frame .box:disabled { cursor: default; filter: none; }
 			@media (max-width: 560px) { .frame .box { font-size: 10px; } }
 			.frame .box.warm { background: linear-gradient(150deg, var(--glow-bg), color-mix(in srgb, var(--glow-bg) 70%, var(--glow))); color: var(--glow); }
 			.frame .cell { position: absolute; border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 6px; }
@@ -106,11 +107,11 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				<button class="theme" id="themeBtn" type="button">Theme</button>
 			</header>
 			<p class="promise">Every box keeps its shape, and every gutter comes out exact.</p>
-			<p class="sub">Two ways to pack boxes of any shape, both running live below. <b>Fill a box</b> searches every arrangement of up to six boxes for the one that wastes the least space. <b>Even weight</b> breaks a list into rows and gives every box the same area, so the wide ones stop dominating.</p>
+			<p class="sub">Two ways to pack boxes of any shape, both running live below. <b>Fill a box</b> searches every arrangement of up to six boxes for the one with the least empty space and crop. <b>Even weight</b> breaks a list into rows and gives every box the same area, so the wide ones stop dominating.</p>
 
 			<div class="tabs" role="tablist" aria-label="Strategy">
 				<button class="tab" role="tab" id="tabTree" aria-selected="true" aria-controls="panelTree" type="button">Fill a box · tree</button>
-				<button class="tab" role="tab" id="tabRows" aria-selected="false" aria-controls="panelRows" type="button">Even weight · rows</button>
+				<button class="tab" role="tab" id="tabRows" aria-selected="false" aria-controls="panelRows" tabindex="-1" type="button">Even weight · rows</button>
 			</div>
 
 			<div class="stage">
@@ -167,15 +168,26 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 
 			// Tabs.
 			const tabs = [['#tabTree', '#panelTree'], ['#tabRows', '#panelRows']] as const;
-			for (const [tab, panel] of tabs) {
-				$(tab).addEventListener('click', () => {
-					for (const [t, p] of tabs) {
-						$(t).setAttribute('aria-selected', String(t === tab));
-						$(p).hidden = p !== panel;
-					}
-					render();
+			// The selected tab is the one in the Tab order; Left and Right move between them.
+			const selectTab = (k: number) => {
+				tabs.forEach(([t, p], j) => {
+					$(t).setAttribute('aria-selected', String(j === k));
+					$(t).tabIndex = j === k ? 0 : -1;
+					$(p).hidden = j !== k;
 				});
-			}
+				render();
+			};
+			tabs.forEach(([tab], k) => {
+				$(tab).addEventListener('click', () => selectTab(k));
+				$(tab).addEventListener('keydown', (ev) => {
+					const step = { ArrowLeft: -1, ArrowRight: 1, Home: -k, End: tabs.length - 1 - k }[(ev as KeyboardEvent).key];
+					if (step === undefined) return;
+					ev.preventDefault();
+					const next = (k + step + tabs.length) % tabs.length;
+					selectTab(next);
+					$(tabs[next][0]).focus();
+				});
+			});
 
 			const chip = (label: string, onClick: () => void) => {
 				const b = document.createElement('button');
@@ -306,13 +318,15 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					el.className = 'box' + (marks[i] >= 3 ? ' warm' : '');
 					place(el, r);
 					el.textContent = ratio(marks[i]);
-					el.setAttribute('aria-label', `Box ${i + 1}, ${ratio(marks[i])}: remove`);
-					el.addEventListener('click', () => { if (marks.length > 1) { marks = marks.filter((_, k) => k !== i); render(); } });
+					// The last box stays: a wall needs one.
+					el.disabled = marks.length <= 1;
+					el.setAttribute('aria-label', `Box ${i + 1}, ${ratio(marks[i])}${el.disabled ? '' : ': remove'}`);
+					el.addEventListener('click', () => { marks = marks.filter((_, k) => k !== i); render(); });
 					frame.append(el);
 				});
 				const areas = rects.map((r) => r.w * r.h);
 				const spread = Math.max(...areas) / Math.min(...areas);
-				$('#rowsStats').innerHTML = `<span>largest box / smallest <b>${spread.toFixed(2)}×</b></span><span>rows <b>${equalArea ? 'balanced' : 'four, then the rest'}</b></span>${equalArea ? `<span>packed in <b>${ms.toFixed(2)} ms</b></span>` : ''}`;
+				$('#rowsStats').innerHTML = `<span>largest box / smallest <b>${spread.toFixed(2)}×</b></span><span>rows <b>${equalArea ? 'balanced' : 'four, then the rest'}</b></span>${equalArea ? `<span>packed in <b>${ms < 0.1 ? 'under 0.1' : ms.toFixed(1)} ms</b></span>` : ''}`;
 			}
 
 			// A label that would spill out of its tile moves into the tile's tooltip.

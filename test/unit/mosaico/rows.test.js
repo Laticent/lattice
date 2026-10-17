@@ -58,15 +58,23 @@ test('a layout that fits only at no size at all is refused, not returned', () =>
   assert.deepEqual(rows([1, 2], { heightCap: 0.1, maxHeight: 0 }), { ok: false, reason: 'too-wide' });
 });
 
-test('areaCap sizes the items from a higher cap than heightCap holds them to', () => {
-  // Wide items keep the size the higher cap gives them; only the items the lower cap stops lose area.
-  const high = rows([3, 3, 1], { heightCap: 0.3 });
-  const held = rows([3, 3, 1], { heightCap: 0.2, areaCap: 0.3 });
+test('area sets the starting area; heightCap still holds every item', () => {
+  // Wide items take the given area; only the items the cap stops lose area.
+  const held = rows([3, 3, 1], { heightCap: 0.2, area: 0.09 });
   const plain = rows([3, 3, 1], { heightCap: 0.2 });
-  assert.equal(held.area, high.area);
-  assert.ok(Math.abs(held.rects[0].w - high.rects[0].w) < 1e-12, 'the wide item keeps its size');
-  assert.ok(held.rects[2].h <= 0.2 + 1e-12 && held.rects[2].w * held.rects[2].h < held.area, 'the square stops at the lower cap');
-  assert.ok(plain.rects[0].w < held.rects[0].w, 'without areaCap the wide items shrink too');
+  assert.equal(held.area, 0.09);
+  assert.ok(Math.abs(held.rects[0].w * held.rects[0].h - 0.09) < 1e-12, 'the wide item takes the area');
+  assert.ok(held.rects[2].h <= 0.2 + 1e-12 && held.rects[2].w * held.rects[2].h < held.area, 'the square stops at the cap');
+  assert.ok(plain.rects[0].w < held.rects[0].w, 'without area the wide items start smaller');
+});
+
+test('a huge area is clamped, so the fit still finds the largest layout', () => {
+  // Four 3:1 items in one row: the answer is the same from any starting area above it.
+  const want = rows([3, 3, 3, 3], { heightCap: 0.1, maxRows: 1, area: 10 }).rects[0].w;
+  for (const area of [1e6, 1e155, Number.MAX_VALUE]) {
+    const r = rows([3, 3, 3, 3], { heightCap: 0.1, maxRows: 1, area });
+    assert.ok(r.ok && Math.abs(r.rects[0].w - want) < 1e-9, `area ${area}`);
+  }
 });
 
 test('goals belong to their strategy', () => {
