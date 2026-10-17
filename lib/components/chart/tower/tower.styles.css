@@ -92,12 +92,14 @@
  * segment's own fill — black on a light body, white on a dark one — the same
  * relative-color idiom the status pills use, so it holds contrast on every
  * slot in both canvases instead of trusting one ink to suit eight hues. */
+/* Under a chart finish the share is re-painted, so the finish sets --tower-ink from
+ * the body it paints (tools/build-chart-finish-css.js), and that ink wins. */
 :is(section.tower, figure.chart-frame) .tower-share-value {
-  fill: var(--text-heading);
+  fill: var(--tower-ink, var(--text-heading));
 }
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
   :is(section.tower, figure.chart-frame) .tower-share-value {
-    fill: oklch(from var(--mark-body, var(--chart-cat-1-body)) clamp(0, (0.565 - l) * 999, 1) 0 0);
+    fill: var(--tower-ink, oklch(from var(--mark-body, var(--chart-cat-1-body)) clamp(0, (0.565 - l) * 999, 1) 0 0));
   }
 }
 

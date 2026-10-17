@@ -429,6 +429,56 @@ figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]) {
   --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 }
+
+/* TOWER SHARE FIGURE — the ink its share's finish body clears. */
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="1"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="1"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="2"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="2"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="3"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="3"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="4"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="4"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="5"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="5"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="6"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="6"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="7"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="7"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.tower-share-value[data-hue="8"]),
+figure.chart-finish-pigment :where(.tower-share-value[data-hue="8"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 40%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 46%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-s]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-s]) {
@@ -947,6 +997,56 @@ figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="7"]) {
 section.chart-finish-etching :where(.hub-spoke-icon[data-hue="8"]),
 figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="8"]) {
   --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+
+/* TOWER SHARE FIGURE — the ink its share's finish body clears. */
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="1"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="1"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="2"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="2"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="3"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="3"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="4"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="4"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="5"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="5"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="6"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="6"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="7"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="7"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.tower-share-value[data-hue="8"]),
+figure.chart-finish-etching :where(.tower-share-value[data-hue="8"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
 }
 }
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
@@ -1497,6 +1597,56 @@ figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="7"]) {
 section.chart-finish-tone :where(.hub-spoke-icon[data-hue="8"]),
 figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="8"]) {
   --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 9%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+
+/* TOWER SHARE FIGURE — the ink its share's finish body clears. */
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="1"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="1"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 35%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="2"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="2"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 27%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 31%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="3"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="3"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 24%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 28%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="4"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="4"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 21%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 24%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="5"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="5"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 18%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 21%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="6"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="6"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 15%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 17%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="7"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="7"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.tower-share-value[data-hue="8"]),
+figure.chart-finish-tone :where(.tower-share-value[data-hue="8"]) {
+  --tower-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 9%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 10%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
 }
 }
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {

@@ -23,6 +23,33 @@ function ul(layers) {
     '</li>').join('');
 }
 
+// Each element of class `cls`: its attributes and its first text run. A split on
+// `<`, not a `class="…"[^>]*attr=` regex, which CodeQL flags as polynomial on a run
+// of repeated marks (#2714 code scanning 423/424).
+function tags(svg, cls) {
+  const out = [];
+  const parts = svg.split('<');
+  parts.forEach((p, i) => {
+    const end = p.indexOf('>');
+    if (end < 0) return;
+    const head = p.slice(0, end);
+    if (!head.includes(`class="${cls}"`) && !head.includes(`class="${cls} `)) return;
+    const next = parts[i + 1] || '';
+    // A wrapped label carries its position on the first `<tspan>`, not the `<text>`.
+    const tspan = next.startsWith('tspan') ? next.slice(0, next.indexOf('>')) : '';
+    const read = (from, name) => {
+      const key = ` ${name}="`;
+      const a = from.indexOf(key);
+      return a < 0 ? null : from.slice(a + key.length, from.indexOf('"', a + key.length));
+    };
+    const attr = (name) => read(head, name) ?? read(tspan, name);
+    let text = p.slice(end + 1);
+    if (!text && next.startsWith('tspan')) text = next.slice(next.indexOf('>') + 1);
+    out.push({ attr, text });
+  });
+  return out;
+}
+
 const PROGRAM = [
   ['Layer 3', '$200M xs $160M', [['Acme Re', '30%'], ['Globex Re', '25%']]],
   ['Layer 2', '$70M xs $90M', [['Acme Re', '40%'], ['Vantage Re', '60%']]],
@@ -106,9 +133,9 @@ describe('tower', () => {
 
     test('prints each layer in the market notation and each boundary once', () => {
       assert.match(svg, />\$40M xs \$50M</);
-      assert.match(svg, /class="tower-note"[^>]*>(?:<tspan[^>]*>)?\$50M</, "the retention note is its size alone; the band says Retained");
+      assert.ok(tags(svg, 'tower-note').some((t) => t.text === '$50M'), 'the retention note is its size alone; the band says Retained');
       for (const edge of ['$50M', '$90M', '$160M', '$360M']) {
-        assert.equal((svg.match(new RegExp(`class="tower-edge"[^>]*>(?:<tspan[^>]*>)?\\${edge}<`, 'g')) || []).length, 1, edge);
+        assert.equal(tags(svg, 'tower-edge').filter((t) => t.text === edge).length, 1, edge);
       }
     });
 
@@ -122,8 +149,9 @@ describe('tower', () => {
     test('over-placement is drawn inside the layer and said in the description', () => {
       const m = parseTower(ul([['L1', '$10M xs $5M', [['A', '70%'], ['B', '50%']]]]));
       const out = buildTower(m, {});
-      const widths = [...out.matchAll(/class="tower-share"[^>]*width="([\d.]+)"/g)].map((x) => Number(x[1]));
-      const rect = out.match(/class="tower-share"[^>]*x="([\d.]+)"/)[1];
+      const shares = tags(out, 'tower-share');
+      const widths = shares.map((t) => Number(t.attr('width')));
+      const rect = shares[0].attr('x');
       assert.ok(widths.reduce((a, b) => a + b, 0) <= 320 - Number(rect), 'never spills past the column');
       assert.match(out, /over-placed at 120%/);
     });
@@ -152,6 +180,84 @@ describe('tower', () => {
 
     test('speaks the eyebrow first', () => {
       assert.ok(said.startsWith('Cat program · 2027.'));
+    });
+  });
+
+  // The independent checker's repros on #2714, each pinned so it cannot come back.
+  describe('the checker repros', () => {
+    const { readTowerSize } = require('../../../lib/core/tower-size');
+
+    test('a malformed size is dropped, never read as a retention', () => {
+      for (const bad of ['$40M xs', 'xs $50M', '40 xs 50 xs 60', '40% xs 50%', '$40M xs -$10M', '0', '-$5M']) {
+        assert.equal(readTowerSize(bad), null, bad);
+      }
+      assert.equal(readTowerSize('USD 40mn x/s USD 50mn').attach, 50e6);
+    });
+
+    test('shares a hair under 100 leave no phantom Open', () => {
+      const m = parseTower(ul([['L1', '$10M xs $5M', [['A', '33.33%'], ['B', '33.33%'], ['C', '33.33%']]]]));
+      assert.equal(m.layers[0].open, 0);
+      assert.doesNotMatch(buildTower(m, {}), /tower-open|Open/);
+    });
+
+    test('a reinsurer written twice in a layer is summed into one segment', () => {
+      const m = parseTower(ul([['L1', '$10M xs $5M', [['Acme', '30%'], ['Acme', '20%']]]]));
+      assert.deepEqual(m.layers[0].segs.map((x) => [x.name, x.pct]), [['Acme', 50]]);
+    });
+
+    test('a gap or an overlap prints each figure against its own band, and says so', () => {
+      const edgesOf = (svg) => tags(svg, 'tower-edge').map((t) => [t.text, Number(t.attr('y'))]);
+      const gap = buildTower(parseTower(ul([['Upper', '$50M xs $100M'], ['Lower', '$40M xs $50M']])), {});
+      const ys = edgesOf(gap).map(([, y]) => y);
+      assert.equal(new Set(ys).size, ys.length, 'no two boundary figures share a y');
+      assert.match(gap, /Uncovered from \$90M to \$100M/);
+      const over = buildTower(parseTower(ul([['A', '$50M xs $50M'], ['B', '$50M xs $80M']])), {});
+      assert.match(over, /B overlaps A from \$80M to \$100M/);
+    });
+
+    test('the key swatch carries the mark contract a finish keys on', () => {
+      const svg = buildTower(parseTower(ul(PROGRAM)), {});
+      assert.match(svg, /class="chart-key-swatch tower-swatch" data-hue="1" data-encodes="hue" data-paint="fill"/);
+    });
+
+    test('the popover and the description name who Others is', () => {
+      const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+      const out = buildTower(parseTower(ul([['L1', '$10M xs $5M', names.map((n) => [n, '10%'])]])), {});
+      assert.match(out, /<li>Others 20% \(F 10%, G 10%\)<\/li>/);
+      assert.match(out.match(/<desc>[^<]*<\/desc>/)[0], /Others 20% \(F 10%, G 10%\)/);
+    });
+
+    test('a crowded tower in a small pane prints no names across each other', () => {
+      const layers = Array.from({ length: 11 }, (_, i) => [`L${i}`, `$10M xs $${10 * (i + 1)}M`]);
+      const svg = buildTower(parseTower(ul(layers)), { paneView: { w: 140, h: 72 } });
+      assert.doesNotMatch(svg, /class="tower-name"/);
+      assert.doesNotMatch(svg, /Ret…/);
+    });
+  });
+
+  describe('narration mirrors the kernel', () => {
+    const { narrateChart } = require('../../../lib/core/chart-narration');
+    const say = (body) => narrateChart(['<!-- _class: tower -->', '', '## T.', '', ...body, ''].join('\n'));
+
+    test('a dropped pill is not said, and marks keep the kernel order', () => {
+      const out = say(['- Bad `$40M xs -$10M`', '- Layer 1 `$40M xs $50M`', '- Retention `$50M`']);
+      assert.doesNotMatch(out, /Bad|down ten/);
+      assert.ok(out.indexOf('Retention') < out.indexOf('Layer 1'));
+    });
+
+    test('only the first list is the tower', () => {
+      const out = say(['- Layer 1 `$40M xs $50M`', '- Retention `$50M`', '', 'Notes:', '', '- Prior year `$30M xs $20M`']);
+      assert.doesNotMatch(out, /Prior year: thirty/);
+    });
+
+    test('`*` bullets narrate, and a share nested a level deeper is not a share', () => {
+      const out = say(['* Layer 1 `$40M xs $50M`', '  * Acme Re `60%`', '    * Acme line `20%`', '* Retention `$50M`']);
+      assert.match(out, /Acme Re sixty percent, open forty percent/);
+    });
+
+    test('over-placement is said, as the description says it', () => {
+      const out = say(['- Layer 1 `$40M xs $50M`', '  - A `70%`', '  - B `50%`']);
+      assert.match(out, /over-placed at one hundred twenty percent/);
     });
   });
 
