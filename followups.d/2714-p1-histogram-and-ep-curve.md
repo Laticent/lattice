@@ -1,16 +1,17 @@
 ---
 origin: 2714
-priority: P2
+priority: P1
 recorded: 2026-10-17
 area: chart
 severity: medium
 swimlane: engineering/decisions/2026-10-15-business-deck-gaps.md
+source: https://github.com/Laticent/lattice/pull/2714#issuecomment-6234364708
 ---
 
 # `histogram` and `ep-curve` charts, the reinsurance beta's last item
 
 ```text
-  P2 · [no ticket] Two new chart components: a histogram for loss distributions, and an
+  P1 · [no ticket] Two new chart components: a histogram for loss distributions, and an
        exceedance-probability (EP) curve whose return-period axis is a log scale.
        why now   — §7.4 of the business-deck gaps note; loss distributions and return periods
                    (1-in-10 to 1-in-250) are what a reinsurance deck prices from, and no chart
