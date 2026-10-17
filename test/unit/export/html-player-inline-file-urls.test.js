@@ -69,3 +69,28 @@ test('the --background-image string is dropped even when the path holds a semico
   const shown = `<pre>--background-image:&quot;url(\\&quot;${odd}\\&quot;)&quot;;color:red</pre>`;
   assert.equal(inlineFileUrls(shown).html, shown, 'a code sample is not a declaration');
 });
+
+// Found by the second independent checker on the scanner itself.
+test("a style='…' written inside ANOTHER attribute's value (an image's alt text) is not a style attribute", () => {
+  const html = `<img alt="CSS sample style='background:url(${photo})'" src="data:image/png;base64,AAAA">`;
+  const r = inlineFileUrls(html);
+  assert.equal(r.count, 0);
+  assert.equal(r.html, html);
+});
+
+test('a style attribute still reads when other attributes come first, are boolean, or are unquoted', () => {
+  const r = inlineFileUrls(`<div hidden data-x=1 class="a" style="background-image:url(&quot;${photo}&quot;)"></div>`);
+  assert.equal(r.count, 1);
+  assert.match(r.html, /<div hidden data-x=1 class="a" style="background-image:url\(&quot;data:image\/jpeg/);
+});
+
+test('a </stylex inside a <style> body does not end it early', () => {
+  const r = inlineFileUrls(`<style>.a{content:"</stylex"} .b{background:url(${photo})}</style>`);
+  assert.equal(r.count, 1);
+  assert.doesNotMatch(r.html, /file:\/\//);
+});
+
+test('a malformed --background-image string is left alone, never allowed to eat the next declarations', () => {
+  const html = `<section style="--background-image:&quot;url(\\&quot;${photo};color:red;background:url(&quot;x&quot;);--x:&quot;\\&quot;)&quot;;"></section>`;
+  assert.match(inlineFileUrls(html).html, /color:red/);
+});
