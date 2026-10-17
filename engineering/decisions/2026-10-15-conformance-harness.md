@@ -712,3 +712,20 @@ Still extra: `columns`, `glossary`, `journey`, `obligation-matrix`, `redline`, `
 (grids of equal cells). Neither rate is good enough to gate anything, so the trigger stays
 report-only. Bite tests pin the three changes (`decision` and `stats` hit, `policy-recommendation`
 misses).
+
+### 13.10 `rows` slide 4 fits; the render tier keeps counting stress slides (2026-10-17)
+
+`rows` was credited zero slides until §13.8, then reported `overflow on 1 slide(s)`. The slide is the
+gallery's `stress-slide`: progress over a four-column table with the Key Insight below both. The
+probe read `scrollH 2192` against `clientH 2148` at the 4K matrix size, and the cause was the table
+pane: the default 50/50 split gave it 313 px of stage for 357 px of table. The fix is the one the
+component's own docs give for evidence under a header (`rows ratio-35-65`), at a milder ratio:
+`rows ratio-45-55` on that slide. The probe now reads `over: false`, the export prints no
+`OVERFLOW` line, and the panes stay stacked. (`ratio-35-65` flipped the engine to side-by-side
+panes on this content, so it is not the answer here.)
+
+**The harness does not skip `stress-slide` slides.** A stress slide shows the most a component seats,
+so it is expected to fit at that ceiling; the 65 galleries that carry one all fit except those the
+nightly lists. A slide whose point is to overflow would need its own marker, and none exists. Skipping
+the marker would also have hidden this slide, which was a real defect: the table lost 44 px of
+content at 4K.
