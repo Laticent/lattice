@@ -269,10 +269,17 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 	}
 	// Only the slide's first list is the chart's (`spliceFirstList`): no list before this one in the slide.
 	let firstList = true;
-	if (!cell && $at.depth >= 2) {
+	if ($at.depth >= 2) {
 		const slide = $at.node(1);
 		const here = $at.index(1);
-		for (let i = 0; i < here; i++) if (/_list$/.test(slide.child(i).type.name)) firstList = false;
+		// A list inside an earlier quote counts, as it does for the engine; a grid chart owns the first table only.
+		const kind = cell ? /^table$/ : /_list$/;
+		for (let i = 0; i < here; i++) {
+			const child = slide.child(i);
+			let found = kind.test(child.type.name);
+			if (!found && child.type.name === 'blockquote') child.descendants((n) => { if (kind.test(n.type.name)) found = true; return !found; });
+			if (found) firstList = false;
+		}
 	}
 	return kernels.ownsChartRecord(classTokens(directives), node.text ?? '', {
 		cell,

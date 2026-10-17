@@ -141,7 +141,7 @@ describe('the inline object node', () => {
 		// A span wrapped in emphasis is not the row's last child in the engine, so it is a pill.
 		expect(texts(mount(src('bar', '- EMEA **`{4.2}`**')))).toEqual(['{4.2}']);
 		// A record under a valued row is detail, where a pill is a pill.
-		expect(texts(mount(src('bar', '- North `40`\n  - Renewals `{12}`')))).toEqual(['{12}']);
+		expect(texts(mount(src('piechart', '- Direct `60%`\n  - Online `{40%}`')))).toEqual(['{40%}']);
 		// Only the slide's first list is the chart's.
 		expect(texts(mount(src('bar', '- EMEA `{4.2}`\n\nStatus:\n\n1. Shipped `{12}`')))).toEqual(['{12}']);
 	});

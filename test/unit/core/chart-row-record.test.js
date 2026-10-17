@@ -103,6 +103,8 @@ describe('ownership: the claim is narrow', () => {
     assert.equal(rows.ownsRecordSpan(['bar'], '{4.2}', { ...place, quoted: true }), false, 'inside a description');
     assert.equal(rows.ownsRecordSpan(['bar'], '{4.2}', { ...place, afterCode: true }), false, 'after another code span');
     assert.equal(rows.ownsRecordSpan(['radar'], '{4.2}', place), false, 'a radar series row draws no mark');
+    assert.equal(rows.ownsRecordSpan(['piechart'], '{4.2}', { ...place, depth: 2, ancestors: ['60%'] }), false, 'detail on a fields chart');
+    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: ['24'] }), true, 'data on a series chart');
     assert.equal(rows.ownsRecordSpan(['list'], '{4.2}', place), false, 'a slide outside the model');
     assert.equal(rows.ownsRecordSpan(['heatmap'], '{4}', { cell: true, lastInRow: true }), true);
     assert.equal(rows.ownsRecordSpan(['heatmap'], '{4}', place), false, 'a list row on a grid chart');
@@ -115,8 +117,8 @@ describe('ownership: the claim is narrow', () => {
     assert.match(html('list', '- Row `{4}`\n  > a note `{LIVE}`'), /lat-pill/);
   });
   test('a record in a detail bullet under a valued row is not converted', () => {
-    const detail = '<ul><li>North <code>40</code><ul><li>Renewals <code>{12}</code></li></ul></li></ul>';
-    assert.equal(rows.bridgeRecordsHtml(detail, ['bar']), detail);
+    const detail = '<ul><li>Direct <code>60%</code><ul><li>Online <code>{40%}</code></li></ul></li></ul>';
+    assert.equal(rows.bridgeRecordsHtml(detail, ['piechart']), detail);
   });
 });
 
@@ -178,12 +180,17 @@ describe('the paths agree on the data row', () => {
     same('bar', '- EMEA `4.2`\n\n  more text\n- APAC `1.8`', '- EMEA `{4.2}`\n\n  more text\n- APAC `{1.8}`', 'a second paragraph');
   });
 
-  test('a record in a detail bullet stays a pill, as before', () => {
-    const html = render(deck('bar', '- North `40`\n  - Renewals `{12}`\n- South `20`'));
+  test('a record in a detail bullet stays a pill on a fields chart, and is data on a series chart', () => {
+    // piechart: a bullet under a valued slice is its detail, where a pill is a pill (main's behavior).
+    const html = render(deck('piechart', '- Direct `60%`\n  - Online `{40%}`\n- Partner `40%`'));
     assert.match(html, /lat-pill/);
-    assert.doesNotMatch(html, /<code>\{12\}<\/code>/);
-    // Control: under a row with no value, the same span is the data.
-    assert.doesNotMatch(render(deck('stacked-bar', '- FY24\n  - Licenses `{19}`\n  - Services `9`\n- FY25\n  - Licenses `20`\n  - Services `7`')), /<code>\{19\}<\/code>/);
+    assert.doesNotMatch(html, /<code>\{40%\}<\/code>/);
+    // stacked-bar: a valued category (the authored total) over its segments; the segments are the data,
+    // exactly as `18` and `6` are in the old form.
+    const old = '- FY23 `24`\n  - Licenses `18`\n  - Services `6`\n- FY24 `30`\n  - Licenses `20`\n  - Services `10`';
+    same('stacked-bar', old, '- FY23 `{24}`\n  - Licenses `{18}`\n  - Services `{6}`\n- FY24 `{30}`\n  - Licenses `{20}`\n  - Services `{10}`', 'a valued category');
+    // Control: the segments are drawn in both.
+    assert.match(render(deck('stacked-bar', old)), /Licenses/);
   });
 
   test('a second list on a chart slide keeps its pills; only the first list is the chart\'s', () => {
@@ -220,5 +227,43 @@ describe('the paths agree on the data row', () => {
     const lintPills = (src) => lintCore.lintTextWith(src, vocab).filter((f) => /^pill-/.test(f.rule)).length;
     // A record the engine would make a pill (not last: a comment follows) is the pill lint's to judge.
     assert.equal(lintPills(deck('bar', '- EMEA `{4.2, c9}` <!-- c -->')) >= 0, true);
+  });
+
+  // The second review round (2026-10-17), each with its control.
+  test('an HTML comment that mentions a tag does not switch the bridge off', () => {
+    for (const note of ['<!-- avoid a <blockquote> here -->', '<!-- see <pre> -->', '<!-- wrap values in <code> -->']) {
+      const old = `${note}\n\n- A \`3\`\n- B \`4\``;
+      assert.match(render(deck('bar', old)), /chart-frame/, `control: the old form draws (${note})`);
+      same('bar', old, `${note}\n\n- A \`{3}\`\n- B \`{4}\``, note);
+    }
+  });
+
+  test('a comment, a heading or a setext rule after the record does not end the lead early', () => {
+    same('bar', '- A `3`\n  <!-- check -->\n- B `4`', '- A `{3}`\n  <!-- check -->\n- B `{4}`', 'an indented comment');
+    same('bar', '- ## A `3`\n- B `4`', '- ## A `{3}`\n- B `{4}`', 'a heading in the item');
+    same('bar', '- A `3`\n  ---\n- B `4`', '- A `{3}`\n  ---\n- B `{4}`', 'a setext rule');
+  });
+
+  test('a total in a later paragraph of an item is not the item\'s lead', () => {
+    const body = (v) => `- FY23\n\n  total ${v('24.6')}\n\n  - Licenses ${v('18.4')}\n  - Services ${v('6.2')}\n- FY24\n  - Licenses ${v('19.1')}\n  - Services ${v('7.0')}`;
+    same('stacked-bar', body((n) => `\`${n}\``), body((n) => `\`{${n}}\``), 'a total in the second paragraph');
+  });
+
+  test('a comment cannot make the bridge quadratic', () => {
+    const src = deck('bar', `- A \`{3}\`\n- B \`{4}\`\n\n<!-- ${'<a ""'.repeat(20000)}' -->`);
+    const t = Date.now();
+    render(src);
+    assert.ok(Date.now() - t < 1500, `rendered in ${Date.now() - t} ms`);
+  });
+
+  test('a grid chart owns the first table only, and not a quoted one', () => {
+    const two = '<table><tr><td><code>{3}</code></td></tr></table><table><tr><td><code>{7}</code></td></tr></table>';
+    assert.equal(rows.bridgeRecordsHtml(two, ['heatmap']), '<table><tr><td>3</td></tr></table><table><tr><td><code>{7}</code></td></tr></table>');
+    const quoted = '<blockquote><table><tr><td><code>{3}</code></td></tr></table></blockquote>';
+    assert.equal(rows.bridgeRecordsHtml(quoted, ['heatmap']), quoted);
+    // Control: a description quote that closed before the table does not switch the chart off.
+    assert.match(rows.bridgeRecordsHtml('<blockquote><p>note</p></blockquote><table><tr><td><code>{3}</code></td></tr></table>', ['heatmap']), /<td>3<\/td>/);
+    const html = engine.render(deck('matrix-grid', '> | | A |\n> |---|---|\n> | S | `{done}` |'), {}).html;
+    assert.match(html, /lat-pill|<code>/, 'a quoted matrix-grid table keeps its span');
   });
 });

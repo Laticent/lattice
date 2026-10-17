@@ -26,7 +26,10 @@ where     — 1. The `{> …}` production and the table description (model note 
                them, lint `chart-row-record-unread` is what keeps a record that carries one from losing it silently.
             4. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the census
                counts 78 grouped funnel values: the codemod writes `1200` and the chart shows it grouped.
-            5. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
+            5. Lint's `recordPlace` and `bridgeRecordsSource` read a row's lead per line, so a record on a continuation line, or after a
+               bullet-character switch, can differ from the engine (no visible effect found); the narrator picks its chart by the first
+               class token (`pictureDataClass`), not in dispatch order. Both go away when the kernels read `readRecord`.
+            6. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
                finding 7, 2026-10-16); and `chart-table-unescaped-pipe` misses a row that does not grow
                (`| AM | 3 `{> a | b}` |` under a three-column header), and its `\|` fix still meets `pill-literal`.
 done when — no transform or narrator parses a row's spans itself; the bridge and `legacySpans` are deleted

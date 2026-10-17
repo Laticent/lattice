@@ -251,23 +251,30 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    rewrites a data row's record to the spans each transform reads (`legacySpans`). `bridgeRecordsSource` does the
    same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. The
    bridge asks `ownsRecordSpan` the same question, so a span the pill pass left alone is a span it rewrites; a record in a
-   detail bullet is neither, and stays a pill. Grid
-   charts convert through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut
+   detail bullet of a FIELDS chart (pie, funnel, bullet, progress, waterfall, map, word-cloud) is neither, and stays a pill.
+   On a SERIES chart (bar, line, stacked-bar, slope, radar) no row is detail by ancestry, because the kernels read a numeric child of a
+   valued row as a series point (stacked-bar's authored total `- FY23 `24`` over its segments), so the same record there is data. Grid
+      charts convert through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut
    table), and matrix-grid's cell decoder, which runs before any bridge, reads the same text. The transforms themselves are
    untouched, which is why parity is exact; phase 4 deletes the bridge with the old spellings. (3) **Lint**:
    `chart-row-record-unread` is no longer a stopgap for the spans; it reports only what the chart still cannot draw
-   (a field with no span form: bullet's `band=` and `floor=`, progress's `note=`, and a record that follows another
-   code span). `chart-table-unescaped-pipe` (followups 2723) warns on a bare `|` inside a table cell's `{> …}`
+   (a field with no span form: bullet's `band=` and `floor=`, progress's `note=`; a record that follows another
+   code span; and a record Segno refuses that is not a pill either, such as `{3, targt=5}`, which used to vanish from the chart
+   without a word).    code span). `chart-table-unescaped-pipe` (followups 2723) warns on a bare `|` inside a table cell's `{> …}`
    description. Evidence: the same rows written both ways render identical HTML on the engine and the runtime bundle
-   and narrate identically, for all 16 charts (`test/unit/core/chart-row-record.test.js`), a fidelity probe pins
-   engine against runtime, and 786 chart-class slides (every slide of a git-tracked `.md` whose `_class:` names one of the
-   24 chart layouts, split on `---`) render, narrate and lint byte-identically to `main`. A first cut had the paths
-   disagree about the data row (the red team, the inversion and the independent checker each found a visible regression:
-   a detail bullet's pill shown as `{+12%}`, a `quadrant radar` slide, a later list, a loose item, `&nbsp;`); the shared decision and
-   `the paths agree on the data row` in that test are the fix. Two things the format does not express yet, found on the way: a grouped number (`1,200`) is not a record
+   and narrate identically, for all 16 charts (`test/unit/core/chart-row-record.test.js`); a GENERATED differential
+   (`chart-row-record-differential.test.js`: seeded random slides on 10 charts, tight and loose, ordered, nested, with totals and
+   descriptions, 4,000 of them in the review run) holds the record form equal to the old form; a fidelity probe pins engine against
+   runtime; a Playwright spec drives Compose in Chromium; and about 800 chart-class slides in tracked Markdown (786 by the harness
+   used here, 796 to 819 by three other splits) render, narrate and lint byte-identically to `main`. Two rounds of the adversarial trio (red team, inversion, independent checker)
+   found the first cut's paths disagreeing about the data row, and each finding has a case in the test file. What the record changes
+   for authors who never write one: a `{N}` that is the LAST span of a chart's data row used to be a pill the chart ignored, and is now the row's value, as `N` was.
+   Known residual, no visible effect found: lint and the narrators' source bridge measure a row's lead per line, so a record on a
+   continuation line, or after a bullet-character switch, can differ from the engine; the narrator picks its chart by the first
+   class token, not in dispatch order. Two things the format does not express yet, found on the way: a grouped number (`1,200`) is not a record
    value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into two items, so phase 4's codemod must write
-   `1200` and show it grouped (the census counts 78 grouped funnel values). One pill changes: on a matrix-grid slide a
-   sole-cell `{DONE}` (any case) is the state `done`, because Segno reads it as `state=done`; it was a label pill.
+   `1200` and show it grouped (the census counts 78 grouped funnel values); and on a matrix-grid slide a sole-cell `{DONE}` (any case) is the
+   state `done`, because Segno reads it as `state=done`; it was a label pill.
 
    **Phase 2, still to do.** The `{> …}` production (§9) and the table description it needs; each transform and
    narrator reading the record through `readRecord` instead of the bridge and its private parser (the census note §3
