@@ -213,7 +213,7 @@ the owner.
 | DOM nodes in a 522-slide stage | 722 (virtual) vs 25,494 (all mounted) | stay within 10% of 722 |
 | First slide, 522 slides, 1x CPU | 3,408 ms (virtual) | no regression |
 | Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
-| 500 posters resident | ~27 KB each (§11b), ~13 MB encoded; decoded size depends on capture size | tile-size captures, decoded only inside the map window; under 40 MB decoded on WebKit; measure |
+| 500 posters resident | ~27 KB each (§11b), ~13 MB encoded; decoded size depends on capture size | tile-size captures; measured 0.2 to 0.5 MB per tile (§11b), so 500 tiles is +86 MB Chromium, +258 MB WebKit; bound the number created, since releasing is unreliable |
 | Live frames | pool of a fixed N | N does not grow with the deck |
 | Keystroke cost | today every deck-context tile re-renders on every keystroke (`DeckPreview.tsx:543` keys on the whole deck) | per-unit invalidation only where the unit needs no deck context; whole-tail invalidation on a position shift |
 
@@ -402,10 +402,25 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
 - **Finding: the SVG was 2.1 MB**, almost all of it the 18 embedded font faces. A real capture
   must carry only the faces the slide uses (the player already has a prune that does this).
   Unmeasured: the time saved by pruning.
-- **Decoded size is the number that matters, and it is unmeasured.** A 1280x720 poster decodes to
-  about 3.7 MB; the earlier note's +25 MB for 33 tiles implies about 0.75 MB each, so tiles were
-  small. A map should capture at tile size (a 320x180 poster decodes to about 230 KB) and release
-  decoded images outside its window. **P0 still owes this measurement on WebKit.**
+- **Decoded memory, measured (500 posters as `<img>` in a scrolling grid, whole process RSS).**
+  Each row is a delta over a baseline of 530 to 770 MB; the earlier note put run-to-run noise at
+  about 200 MB, so only the large gaps count.
+
+  | Engine | Poster size | Encoded | After mounting and scrolling all 500 | After dropping `src` on 475 |
+  |---|---|---|---|---|
+  | Chromium 131 | 1280x720 | 14.6 MB | +471 MB | +475 MB |
+  | Chromium 131 | 320x180 | 2.7 MB | +86 MB | +89 MB |
+  | Linux WebKit | 1280x720 | 14.6 MB | +1,340 MB | +880 MB |
+  | Linux WebKit | 320x180 | 2.7 MB | +258 MB | +208 MB |
+
+  **Capture at tile size.** A tile-size poster costs about 5x less than a full-size one on both
+  engines, a gap well beyond the noise. At about 0.2 to 0.5 MB per tile it is also 40 to 100 times
+  cheaper than the 18 to 40 MB per live frame implied by the earlier note's +600 to +1,300 MB for
+  33 frames. **Do not count on `removeAttribute('src')` to hand memory back:** it freed nothing on
+  Chromium and some on WebKit within 2.5 s. Removing the `<img>` nodes themselves was not tested.
+  So the map must bound how many posters it ever creates, not rely on releasing decoded ones.
+  **Not measured:** a 2x (retina) tile at 640x360, which should land near 4x the tile-size cost,
+  and any memory-pressure behavior (Linux has no iOS jetsam).
 - **The two lists differ rarely but really.** Across 281 example and baseline decks, the clear
   cases where the outline's slide count differs from the rendered section count are `focus.md`
   (11 authored, 14 rendered), `split-headings.md` (heading splits) and `auto-glossary.md`
@@ -413,8 +428,8 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   floor on certainty, not a rate. It does show the rendered index is needed for correctness, not
   for most decks.
 
-**Still unmeasured:** decoded memory on WebKit, author images in a capture, iOS Safari, pruned
-capture time, and any of the window, tier or hub work (nothing of Veduta itself is built).
+**Still unmeasured:** a 2x tile, node removal as the release path, author images in a capture, iOS
+Safari, pruned capture time, and any of the window, tier or hub work (nothing of Veduta itself is built).
 
 ## 12. Next step
 
