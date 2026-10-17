@@ -1089,8 +1089,27 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   ancestor. Each had a `section….lattice-exporting` sibling that does the work, so they were
   deleted, not rewritten. Computed style on an exporting split slide, old sheet vs new, was
   identical in the packed and CLI forms (0 properties differ).
-- **Guard:** `test/unit/engine/css-scope.test.js` packs every `lib/` and `themes/` stylesheet
-  and fails on a packed `section :where(section…)` or `section :where(…) section`
-  (one `:where()`, one level of nested parens; `:where(.a) > section.x` and `:where(:root)` slip past it).
+- **`:where(:root)` looks like the same trap and is not one: leave it dead.** Each light theme writes
+  `:where(:root) { color-scheme: light; }` as a zero-specificity DOCUMENT default. The packer scopes
+  it to `article.lattice > section :where(:where(section):not([\20 root]))`, which matches nothing,
+  so preview slides compute `color-scheme: normal` where the CLI computes `light`. Pixels are the
+  same (`light-dark()` reads `normal` as light), and the dead arm is the right one. In the CLI the
+  rule lands on `<html>` and slides inherit it. In the preview the frame's `<html>` belongs to the
+  host, which forces `:root{color-scheme:dark}` for dark mode. A packer that moved the rule onto the
+  slide (tried in catalog-followups-3, reverted) put `color-scheme: light` ON each slide, which
+  stops it inheriting from `<html>`. Measured: a palette with no `-dark` sibling rendered a white
+  slide under a forced-dark frame, and every CLI export of a deck with
+  `style: ":root{color-scheme:dark}"` came out white (the export copies only `--*` properties onto the
+  slide, so the author's dark stays on `<html>`). Rule: **never put `color-scheme` on the slide from a
+  root rule.** Dark themes and `section.dark` set it on the slide on purpose, with their own selector.
+- **Guard:** `test/unit/engine/css-scope.test.js` packs every `lib/` and `themes/` stylesheet and
+  fails on any packed selector that puts a `section` type selector below the slide compound
+  (`nestsSlide`: a structural parse of compounds and combinators; `:where()`/`:is()` arms followed,
+  `:not()`/`:has()` not). It catches `:where(section.x) .a`, `:where(.a) > section.x`, `.x section.x`,
+  `:is(.a) section.x` and a descendant after `+`/`~`; each was proven to fail on the previous guard.
+  Two arms are sanctioned with their justification in `SANCTIONED_NESTED_SLIDE`: the themes'
+  `:where(:root)` default (above) and `:root[data-lattice-view="fluid"] section[…]`, which only
+  exists in an exported page that ships the flat sheet. The scan fails on a stale sanction.
 - **Commits:** #2705 (code plugin), the catalog follow-ups PR (base.finish.css), the
-  catalog-followups-2 PR (the nine `.lattice-exporting` arms).
+  catalog-followups-2 PR (the nine `.lattice-exporting` arms), catalog-followups-3 (the structural
+  guard; `:where(:root)` recorded as dead on purpose).

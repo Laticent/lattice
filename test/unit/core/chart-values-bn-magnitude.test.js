@@ -3,7 +3,8 @@
 // dollars": the picture and the voice disagreed by a factor of a billion.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseValue, unitKey, spokenValue } = require('../../../lib/core/chart-values.js');
+const { parseValue, unitKey } = require('../../../lib/core/chart-values.js');
+const { spokenValue } = require('../../../lib/core/chart-values-speech.js');
 const { toSpokenText } = require('@laticent/cadenza');
 
 test('every billion spelling reads the same value and unit', () => {

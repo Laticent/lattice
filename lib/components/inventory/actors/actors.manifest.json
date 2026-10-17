@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "actors",
+  "cards": { "default": "center" },
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",
@@ -35,7 +36,7 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "the ledger reads cleanly up to about six rows"
+    "note": "the ledger reads cleanly up to about six rows; from five each row collapses to one line, so seven fit when each body is one line (about 10 words)"
   },
   "density": {
     "axis": "item",

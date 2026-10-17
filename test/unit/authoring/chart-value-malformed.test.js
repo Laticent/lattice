@@ -11,7 +11,8 @@ const { buildVocab } = require('../../../lib/authoring/lint');
 const { loadAll } = require('../../../lib/components');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
-const { isValuePill, parseValue, signedValue, spokenValue } = require('../../../lib/core/chart-values.js');
+const { isValuePill, parseValue, signedValue } = require('../../../lib/core/chart-values.js');
+const { spokenValue } = require('../../../lib/core/chart-values-speech.js');
 
 const vocab = buildVocab(loadAll(path.join(__dirname, '../../../lib/components')));
 const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;

@@ -754,8 +754,9 @@ export type PdfWriter = 'text' | 'photo';
 // A workspace preference rather than a deck key, deliberately: one deck source is
 // previewed while authoring, exported for a recipient, and printed to PDF, and those
 // three want different answers — so it is a property of what you are producing, not
-// of the deck. Same altitude as `pdfPages` above. It reaches Share → Marp bundle and
-// nothing else — the other export formats have their own options steps.
+// of the deck. Same altitude as `pdfPages` above. It reaches Share → Marp bundle (as the
+// per-export step's default) and Share → Webpage (as the level its bake runs at, so a player
+// never ships the authoring ring to its reader); the image exports have their own steps.
 //
 // `off` is a valid LEVEL but never a valid STANDING default (the Workspace card does
 // not offer it, and lib/core/resolve-overflow-marker.js rejects it there): a silence

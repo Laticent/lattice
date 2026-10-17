@@ -1,0 +1,188 @@
+{
+	"restrained": [
+		{
+			"said": "Six reinsurers carry $310M above a $50M retention.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each layer sits on the one below it, split across the reinsurers who took a share of it.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Retention: fifty million dollars, kept by the client.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Layer 1: forty million dollars excess of fifty million dollars; Globex Re sixty percent, Meridian Re forty percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Layer 2: seventy million dollars excess of ninety million dollars; Acme Re forty percent, Vantage Re thirty-five percent, Umbra Re twenty-five percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Layer 3: two hundred million dollars excess of one hundred sixty million dollars; Acme Re thirty percent, Globex Re twenty-five percent, Helios Re twenty percent, open twenty-five percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"3\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Six reinsurers carry $310M above a $50M retention.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each layer sits on the one below it, split across the reinsurers who took a share of it.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Retention: fifty million dollars, kept by the client.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Layer 1: forty million dollars excess of fifty million dollars; Globex Re sixty percent, Meridian Re forty percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Layer 2: seventy million dollars excess of ninety million dollars; Acme Re forty percent, Vantage Re thirty-five percent, Umbra Re twenty-five percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Layer 3: two hundred million dollars excess of one hundred sixty million dollars; Acme Re thirty percent, Globex Re twenty-five percent, Helios Re twenty percent, open twenty-five percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"3\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Six reinsurers carry $310M above a $50M retention.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each layer sits on the one below it, split across the reinsurers who took a share of it.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Retention: fifty million dollars, kept by the client.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Layer 1: forty million dollars excess of fifty million dollars; Globex Re sixty percent, Meridian Re forty percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Layer 2: seventy million dollars excess of ninety million dollars; Acme Re forty percent, Vantage Re thirty-five percent, Umbra Re twenty-five percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"2\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Layer 3: two hundred million dollars excess of one hundred sixty million dollars; Acme Re thirty percent, Globex Re twenty-five percent, Helios Re twenty percent, open twenty-five percent.",
+			"act": "visit",
+			"unit": "layer",
+			"select": "[data-mark=\"3\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

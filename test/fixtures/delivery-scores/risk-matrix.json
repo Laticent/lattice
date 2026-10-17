@@ -1,0 +1,248 @@
+{
+	"restrained": [
+		{
+			"said": "Cyber and hurricane risk sit in the red; both have a plan.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each risk sits in the cell for its likelihood and impact, and the cell's shade is its severity.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cyber outage, risk one: likelihood likely, impact critical, rated critical; mitigation takes it to likelihood unlikely, impact severe, medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Hurricane season, risk two: likelihood possible, impact critical, rated critical; mitigation takes it to likelihood possible, impact major, medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Reserve shortfall, risk three: likelihood possible, impact severe, rated high.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FX swing, risk four: likelihood likely, impact moderate, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Key person loss, risk five: likelihood unlikely, impact major, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Pandemic, risk six: likelihood rare, impact critical, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"5\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Cyber and hurricane risk sit in the red; both have a plan.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each risk sits in the cell for its likelihood and impact, and the cell's shade is its severity.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Cyber outage, risk one: likelihood likely, impact critical, rated critical; mitigation takes it to likelihood unlikely, impact severe, medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Hurricane season, risk two: likelihood possible, impact critical, rated critical; mitigation takes it to likelihood possible, impact major, medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Reserve shortfall, risk three: likelihood possible, impact severe, rated high.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "FX swing, risk four: likelihood likely, impact moderate, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Key person loss, risk five: likelihood unlikely, impact major, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Pandemic, risk six: likelihood rare, impact critical, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"5\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Cyber and hurricane risk sit in the red; both have a plan.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each risk sits in the cell for its likelihood and impact, and the cell's shade is its severity.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cyber outage, risk one: likelihood likely, impact critical, rated critical; mitigation takes it to likelihood unlikely, impact severe, medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Hurricane season, risk two: likelihood possible, impact critical, rated critical; mitigation takes it to likelihood possible, impact major, medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Reserve shortfall, risk three: likelihood possible, impact severe, rated high.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"2\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FX swing, risk four: likelihood likely, impact moderate, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"3\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Key person loss, risk five: likelihood unlikely, impact major, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"4\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Pandemic, risk six: likelihood rare, impact critical, rated medium.",
+			"act": "visit",
+			"unit": "risk",
+			"select": "[data-mark=\"5\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

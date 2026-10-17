@@ -5655,6 +5655,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // sentence is about ("Q1 2025: …"). Declares no value, so a mark that corroborates outranks it.
   ['components/chart/_chart-family/cartesian.js', true, false],
   ['components/chart/funnel/funnel.transform.js', true, true],
+  // A tower names each layer, and each reinsurer's share as `Layer · Reinsurer` with its percentage.
+  ['components/chart/tower/tower.transform.js', true, true],
+  // A risk matrix names each risk on its marker, with its likelihood and impact.
+  ['components/chart/risk-matrix/risk-matrix.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
   // A hub-spoke names its hub, every satellite, and (tiered) every branch and leaf — each
@@ -7320,6 +7324,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/conformance-render.js',
+    why: 'reads REPO-COMMITTED, generated `lib/components/**/*.gallery.md`, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance for '
+       + 'a locally CRLF-saved file; the front matter it strips is the gallery\'s own, and the '
+       + 'deck it builds is rendered by the engine, which normalizes its own input.',
+  },
+  {
     file: 'tools/build-capabilities.js',
     why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '
@@ -7764,12 +7775,13 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
  *     OUT  section::after{content:"</style>"}
  *
  * So whatever guarded the document upstream is undone at the re-wrap, and the re-wrap owes
- * the call itself. There are two such sites and they are twins: the CLI's
- * (`lattice.js`) and the browser's (`player-prune-browser.ts`, whose output
- * `share-export.ts` mounts in a same-origin frame and then hands to a recipient). The
- * first cut of this work guarded one of the two, and a red-team pass drove the other to a
- * real cross-origin fetch from the shipped artifact — which is exactly the kind of
- * one-twin fix a gate exists to stop happening a third time.
+ * the call itself. There used to be two such sites, twins: the CLI's (`lattice.js`) and the
+ * browser's (`player-prune-browser.ts`, whose output `share-export.ts` mounts in a
+ * same-origin frame and then hands to a recipient). The first cut of this work guarded one
+ * of the two, and a red-team pass drove the other to a real cross-origin fetch from the
+ * shipped artifact — which is exactly the kind of one-twin fix a gate exists to stop
+ * happening a third time. Since 2026-10-16 both hosts call one kernel,
+ * `lib/export/player-prune.js` `prunePlayerHtml`, which owns the only re-wrap.
  *
  * Scope is `DOC_STYLE_SINK_ROOTS`, and the marker is the MECHANISM: a file that calls a
  * prune AND rebuilds a `<style>` element. A prune consumer that only reads sizes owes
@@ -8902,6 +8914,24 @@ function checkTramaBoundary(errors, dir = TRAMA_DIR) {
   });
 }
 
+// ── Mosaico (docs/src/lib/mosaico) — the box-packing library ────────────────
+// Mosaico's core is numbers in, rectangles out: the same code packs a collage on the CLI, in the
+// browser and in a worker, so it has NO dependencies, not even `node:`. Measuring images and
+// watching a container belong to adapters that arrive in a later slice
+// (engineering/decisions/2026-10-16-mosaico-layout-library.md §1, §5).
+const MOSAICO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'mosaico');
+function checkMosaicoBoundary(errors, dir = MOSAICO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Mosaico folder. Mosaico's core is pure and ` +
+      `dependency-free so it runs the same on the CLI, in the browser and in a worker: every ` +
+      `import must resolve inside docs/src/lib/mosaico/ ` +
+      `(engineering/decisions/2026-10-16-mosaico-layout-library.md §5).`,
+  });
+}
+
 // ── Calco (docs/src/lib/calco) — the office-export library ──────────────────
 // Calco's reader ships into a headless page as `fn.toString()` source, so a value import
 // would be a free variable inside the shipped function. Like Trama it has NO dependencies,
@@ -9481,6 +9511,8 @@ const SANCTIONED_DENSITY_EXEMPT = {
     slope: 'data viz — series, not prose',
     'stacked-bar': 'data viz — series, not prose',
     waterfall: 'data viz — series, not prose',
+    tower: 'data viz — layers and shares, not prose',
+    'risk-matrix': 'data viz — a register of placed risks, not prose',
   heatmap: 'data viz — a numeric matrix, not prose',
   gantt: 'data viz — schedule, not prose',
   journey: 'data viz — stage map, not prose bodies',
@@ -13589,6 +13621,7 @@ function run() {
   checkCalcoBoundary(errors);
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
+  checkMosaicoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -13656,6 +13689,7 @@ module.exports = {
   specPartProblems,
   checkTavolaBoundary,
   checkFuocoBoundary,
+  checkMosaicoBoundary,
   checkReadingRole,
   readingRoleCountsIn,
   readingRoleFindings,

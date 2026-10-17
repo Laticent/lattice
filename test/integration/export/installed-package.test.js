@@ -8,7 +8,7 @@
  * would get, without the network:
  *
  * - the root package's files are exactly the tarball's (`npm pack --dry-run --json`), and so
- *   are the five workspace libraries it depends on, copied into a scratch node_modules;
+ *   are the workspace libraries it depends on, copied into a scratch node_modules;
  * - every other entry in that node_modules is a link to the repo's copy of a package the root
  *   DECLARES in `dependencies` or `optionalDependencies`, and nothing else. A require from the
  *   copied files resolves only through that folder, so an undeclared package fails as it would

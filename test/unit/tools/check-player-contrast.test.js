@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 // export, so it lives in the nightly; what is unit-testable is the part that decides what
 // counts as the same finding and what counts as a regression — which is precisely the part
 // that can be wrong while every render is perfect.
-const { collapse, diffBaseline, findingKey, over, ratio, HIDE_INK, blessRatchet } = require('../../../tools/check-player-contrast.js');
+const { collapse, diffBaseline, findingKey, over, ratio, HIDE_INK, blessRatchet, resolveWidth } = require('../../../tools/check-player-contrast.js');
 
 const row = (over_) => ({ deck: 'd', state: 'as exported', page: '5', cls: 'kanban', tag: 'span', text: 'growth', need: 4.5, ...over_ });
 
@@ -121,4 +121,47 @@ test('there is NO slack, and the asymmetry with diffBaseline is deliberate', () 
 	const held = (now, was) => blessRatchet(collapse([row({ text: 'a', r: now })]), { 'd|as exported|5|kanban|span|a': was }).held.length;
 	assert.equal(held(3.19, 3.20), 1, 'a hundredth down is still down');
 	assert.equal(held(3.20, 3.20), 0, 'equal is not a loosening');
+});
+
+// A PARTIAL sweep (the nightly audits only the galleries that changed) must not read a deck it
+// never opened as fixed, and a bless over a subset must not erase the rest of the baseline.
+const scoped = (deck, text, r) => ({ deck, state: 'as exported', page: 1, cls: '', tag: 'p', text, r, need: 4.5 });
+
+test('diffBaseline scoped to audited decks does not call an unaudited deck FIXED', () => {
+	const baseline = { [findingKey(scoped('a', 'x', 3))]: 3, [findingKey(scoped('b', 'y', 3))]: 3 };
+	const full = diffBaseline([], baseline);
+	assert.equal(full.fixed.length, 2, 'a full sweep that finds nothing has fixed both');
+	const partial = diffBaseline([], baseline, { decks: new Set(['a']) });
+	assert.deepEqual(partial.fixed, [findingKey(scoped('a', 'x', 3))], 'only the audited deck can have been fixed');
+});
+
+test('diffBaseline scoped still reports NEW and WORSE rows in an audited deck', () => {
+	const baseline = { [findingKey(scoped('a', 'x', 3))]: 3 };
+	const { added, worse } = diffBaseline([scoped('a', 'x', 2), scoped('a', 'z', 2)], baseline, { decks: new Set(['a']) });
+	assert.equal(added.length, 1);
+	assert.equal(worse.length, 1);
+});
+
+test('blessRatchet scoped rewrites only the audited decks and carries the rest through', () => {
+	const prior = { [findingKey(scoped('a', 'x', 3))]: 3, [findingKey(scoped('b', 'y', 3))]: 3 };
+	const { blessed, dropped } = blessRatchet(collapse([]), prior, { decks: new Set(['a']) });
+	assert.deepEqual(Object.keys(blessed), [findingKey(scoped('b', 'y', 3))], "deck a's fixed row is dropped; deck b's row is untouched");
+	assert.equal(dropped.length, 1);
+	const all = blessRatchet(collapse([]), prior);
+	assert.deepEqual(Object.keys(all.blessed), [], 'an unscoped bless of an empty sweep still clears everything');
+});
+
+test('resolveWidth: a number, auto, and garbage all give a usable pool size', () => {
+	assert.equal(resolveWidth('3'), 3);
+	assert.equal(resolveWidth('0'), 1);
+	assert.equal(resolveWidth('nope'), 1);
+	assert.ok(resolveWidth('auto') >= 1 && resolveWidth('auto') <= 4);
+});
+
+test('sweepExitCode: a deck that could not be audited fails the sweep, as a new finding does', () => {
+  const { sweepExitCode } = require('../../../tools/check-player-contrast.js');
+  assert.equal(sweepExitCode({ added: 0, worse: 0, errored: 0 }), 0);
+  assert.equal(sweepExitCode({ added: 1, worse: 0, errored: 0 }), 1);
+  assert.equal(sweepExitCode({ added: 0, worse: 1, errored: 0 }), 1);
+  assert.equal(sweepExitCode({ added: 0, worse: 0, errored: 1 }), 1, 'an export that crashed has no findings but is not green');
 });

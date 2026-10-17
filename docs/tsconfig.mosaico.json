@@ -1,0 +1,26 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Mosaico library. It compiles ONLY the pure core with no DOM lib and `types: []` (no repo tsconfig, no @types/node): the core is numbers in, rectangles out, and runs on the CLI, in the browser and in a worker alike. If it ever reaches for the DOM or Node, this fails. Run: `npm run check:mosaico`. The import-boundary gate (tools/check-ownership.js checkMosaicoBoundary) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": [
+      "@laticent/source"
+    ],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/lib/mosaico/**/*.ts"
+  ],
+  "exclude": [
+    "src/lib/mosaico/**/*.test.ts"
+  ]
+}

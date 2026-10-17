@@ -1,0 +1,168 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "risk-matrix",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "risks"
+    ]
+  },
+  "function": "evidence",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "focusAxes": [
+    "mark"
+  ],
+  "renderNote": "The grid, the markers, the arrows and the key are one `<svg>`. A risk is placed by two whole numbers, so the grid is drawn in one coordinate system and the key reads its numbers off the same markers.",
+  "kernel": {
+    "figureClass": "risk-matrix-figure",
+    "marks": [
+      {
+        "class": "risk-cell",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "risk-marker",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "risk-key-marker",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "risk-target",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each risk sits in the cell for its likelihood and impact, and the cell's shade is its severity",
+    "figure": "svg",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "bucket": "chart",
+  "tags": [
+    "risk",
+    "assessment",
+    "board-deck",
+    "prioritize"
+  ],
+  "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first.",
+  "purpose": "Use for a risk register a board or risk committee reviews: enterprise risk, a project's top risks, an underwriting portfolio's exposures. Each risk is placed by its likelihood and impact (1 to 5); the cell's shade is its band (low, medium, high, critical from likelihood × impact); an optional second position shows where mitigation should take it.",
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading — name what is in the red and what is being done ('Cyber and hurricane risk sit in the red; both have a plan'), not 'Risk matrix'."
+    },
+    "risks": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per risk: its name, then a point record `{likelihood, impact}`, each a whole number from 1 to 5 — `Cyber outage \\`{4, 5}\\``. An optional second record is where mitigation takes it: `\\`{4, 5}\\` \\`{2, 4}\\``. Risks are numbered in the order written; the key lists them worst first."
+    },
+    "detail": {
+      "selector": "li > ul",
+      "required": false,
+      "description": "Optional nested sublist under a risk: the owner, the mitigation, the date. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
+    }
+  },
+  "skeleton": "<!-- _class: risk-matrix -->\n\n## Where our top risks sit.\n\n- Risk one `{4, 5}`\n- Risk two `{3, 3}`\n- Risk three `{2, 4}`\n",
+  "anatomyBlock": "funnel",
+  "sample": "<!-- _class: risk-matrix -->\n\n`Enterprise risk register · Q4 2026`\n\n## Cyber and hurricane risk sit in the red; both have a plan.\n\n- Cyber outage `{4, 5}` `{2, 4}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`\n- Pandemic `{1, 5}`\n",
+  "stressDoc": {
+    "summary": "Ten risks, three sharing one cell, two with a planned move.",
+    "sample": "<!-- _class: risk-matrix -->\n\n## Ten risks, three in the same cell.\n\n- Cyber outage `{4, 5}` `{2, 4}`\n- Ransomware `{4, 5}`\n- Cloud provider failure `{4, 5}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- Regulatory fine `{2, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`\n- Pandemic `{1, 5}`\n- Office flood `{1, 2}`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "A register the board reviews",
+      "body": "A risk matrix earns its slide when the question is which risks are severe and whether they are moving. For a ranked list with owners and dates, use a `table`; for two arbitrary axes, use `quadrant`."
+    },
+    {
+      "title": "Three to ten risks",
+      "body": "The key lists every risk beside the grid, so past ten the rows tighten and the type with them. Show the top ten here and the full register in an appendix table."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Scores that are not 1 to 5",
+      "body": "The grid is five by five. A 1-to-10 or percentage scale has to be mapped to five bands first; a value outside 1 to 5 is not placed."
+    },
+    {
+      "title": "Using it as a scatter",
+      "body": "Positions snap to whole cells, so two risks a decimal apart land together. When the exact position matters, use `scatter` or `quadrant`."
+    }
+  ],
+  "related": [
+    {
+      "name": "heatmap",
+      "when": "a grid of numbers shaded by value, not a register of named risks"
+    },
+    {
+      "name": "quadrant",
+      "when": "items placed on two continuous axes with four named zones"
+    },
+    {
+      "name": "table",
+      "when": "the full register, with owners, controls and dates"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing impact first (`{5, 4}` for likelihood 4, impact 5).",
+      "fix": "The record is `{likelihood, impact}`: likelihood runs across the bottom, impact up the side, the way the grid is drawn."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Each record is two whole numbers from 1 to 5. A decimal, a 0 or a 6 is not placed, and the row is left out of the grid and the key.",
+    "Bands come from likelihood × impact: 1–4 low, 5–9 medium, 10–14 high, 15–25 critical."
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 5,
+        "hard": 8
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "note": "Counted in RISKS (top-level items). Editorial: every risk is a row of the key beside the grid, so a pane holds fewer before the rows tighten."
+    },
+    "review": "side 25 measured, 35 reviewed: the key beside the grid cramps at 25%, as the tower's does; stack 30 measured, 50 reviewed: in a band under half the stage the five rows of cells shrink below a readable marker."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "part",
+    "units": {
+      "risk": {
+        "select": "[data-mark=\"{mark}\"]",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      }
+    },
+    "key": "last"
+  }
+}

@@ -1,0 +1,485 @@
+{
+ "measuredAt": {
+  "commit": "cf92e6d",
+  "date": "2026-10-17"
+ },
+ "status": "Three example decks measured, plus the gallery fixture (`style: h2 { color: rgb(1,2,3) }` and a `<style scoped>` h2 rule rgb(4,5,6)), re-run on 2026-10-17 after three script fixes: author CSS found as whole-rule insertions among Marp's trailing rules (an earlier character diff could shift a piece onto the next Marp rule and made design 1's counts wrong), computed styles read in chunks, and the per-element comparison sampled to every tenth element (`sampled`) with the inherited `--style` carrier property left out of the pair counts. Pair counts on the gallery are over the sample; the h2 colors are over every h2. One residual: design 1's reference build shows the scoped rgb(4,5,6) h2 as rgb(1,2,3), unlike today and designs 2 and 3, which is probably the build and is unverified. The three example decks were re-run with the same fixed script (stable census per page) and gave the same pair counts as the first run, which used the older character diff.",
+ "decks": [
+  {
+   "deck": "examples/finish-override.md",
+   "palette": "indaco",
+   "elements": 137,
+   "raiseK": 15,
+   "authorCssBytes": 3206,
+   "unstablePages": [],
+   "designs": {
+    "D": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    }
+   },
+   "sampled": {
+    "affectedElements": 137,
+    "compared": 137,
+    "every": 1
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "C-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "C2-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "C3-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "A1-auth": {
+     "rgb(10, 22, 40)": 4
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 0,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 102
+  },
+  {
+   "deck": "examples/finish-backdrops.md",
+   "palette": "indaco",
+   "elements": 357,
+   "raiseK": 15,
+   "authorCssBytes": 1221,
+   "unstablePages": [],
+   "designs": {
+    "D": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 26,
+     "affectedPairs": 1378,
+     "same": 1378,
+     "otherValue": 0,
+     "newlyLoses": 271,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [
+       "section.finish.finish-meridian.form.content --fin-mark-text: today \"Q3\"",
+       "section.finish.finish-meridian.form.content ::before--fin-mark-text: today \"Q3\"",
+       "section.finish.finish-meridian.form.content ::after--fin-mark-text: today \"Q3\"",
+       "section.finish.finish-meridian.form.content ::marker--fin-mark-text: today \"Q3\"",
+       "div.backdrop --fin-mark-text: today \"Q3\"",
+       "div.backdrop ::beforecontent: today \"Q3\"",
+       "div.backdrop ::before--fin-mark-text: today \"Q3\"",
+       "div.backdrop ::after--fin-mark-text: today \"Q3\""
+      ],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    }
+   },
+   "sampled": {
+    "affectedElements": 93,
+    "compared": 93,
+    "every": 1
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "C-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "C2-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "C3-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "A1-auth": {
+     "rgb(10, 22, 40)": 12
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 4,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 105
+  },
+  {
+   "deck": "examples/backdrop-register.md",
+   "palette": "indaco",
+   "elements": 186,
+   "raiseK": 15,
+   "authorCssBytes": 1706,
+   "unstablePages": [],
+   "designs": {
+    "D": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    }
+   },
+   "sampled": {
+    "affectedElements": 63,
+    "compared": 63,
+    "every": 1
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "C-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "C2-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "C3-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "A1-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 1,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 88
+  }
+ ],
+ "gallery": [
+  {
+   "deck": "/tmp/census/matrix/fixture/gallery-authored.md",
+   "palette": "mustard",
+   "elements": 5699,
+   "raiseK": 15,
+   "authorCssBytes": 184,
+   "unstablePages": [],
+   "designs": {
+    "D": {
+     "affectedElements": 5699,
+     "affectedPairs": 384,
+     "same": 384,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 5699,
+     "affectedPairs": 0,
+     "same": 0,
+     "otherValue": 0,
+     "newlyLoses": 384,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [
+       "h2 border-block-end-color: today rgb(1, 2, 3)",
+       "h2 border-block-start-color: today rgb(1, 2, 3)",
+       "h2 border-bottom-color: today rgb(1, 2, 3)",
+       "h2 border-inline-end-color: today rgb(1, 2, 3)",
+       "h2 border-inline-start-color: today rgb(1, 2, 3)",
+       "h2 border-left-color: today rgb(1, 2, 3)",
+       "h2 border-right-color: today rgb(1, 2, 3)",
+       "h2 border-top-color: today rgb(1, 2, 3)"
+      ],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 5699,
+     "affectedPairs": 496,
+     "same": 384,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 112,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [
+       "h2 border-block-end-color: rgb(1, 2, 3)",
+       "h2 border-block-start-color: rgb(1, 2, 3)",
+       "h2 border-bottom-color: rgb(1, 2, 3)",
+       "h2 border-inline-end-color: rgb(1, 2, 3)",
+       "h2 border-inline-start-color: rgb(1, 2, 3)",
+       "h2 border-left-color: rgb(1, 2, 3)",
+       "h2 border-right-color: rgb(1, 2, 3)",
+       "h2 border-top-color: rgb(1, 2, 3)"
+      ],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 5699,
+     "affectedPairs": 496,
+     "same": 384,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 112,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [
+       "h2 border-block-end-color: rgb(1, 2, 3)",
+       "h2 border-block-start-color: rgb(1, 2, 3)",
+       "h2 border-bottom-color: rgb(1, 2, 3)",
+       "h2 border-inline-end-color: rgb(1, 2, 3)",
+       "h2 border-inline-start-color: rgb(1, 2, 3)",
+       "h2 border-left-color: rgb(1, 2, 3)",
+       "h2 border-right-color: rgb(1, 2, 3)",
+       "h2 border-top-color: rgb(1, 2, 3)"
+      ],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 5699,
+     "affectedPairs": 496,
+     "same": 384,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 112,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [
+       "h2 border-block-end-color: rgb(1, 2, 3)",
+       "h2 border-block-start-color: rgb(1, 2, 3)",
+       "h2 border-bottom-color: rgb(1, 2, 3)",
+       "h2 border-inline-end-color: rgb(1, 2, 3)",
+       "h2 border-inline-start-color: rgb(1, 2, 3)",
+       "h2 border-left-color: rgb(1, 2, 3)",
+       "h2 border-right-color: rgb(1, 2, 3)",
+       "h2 border-top-color: rgb(1, 2, 3)"
+      ],
+      "otherValue": []
+     }
+    }
+   },
+   "sampled": {
+    "affectedElements": 5699,
+    "compared": 570,
+    "every": 10
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(4, 5, 6)": 1,
+     "rgb(79, 61, 28)": 2,
+     "rgb(1, 2, 3)": 85,
+     "rgb(255, 255, 255)": 2,
+     "rgb(240, 229, 200)": 11,
+     "rgb(42, 26, 6)": 10,
+     "rgba(255, 255, 255, 0.98)": 1,
+     "color(srgb 1 1 1 / 0.92)": 2,
+     "rgb(212, 168, 72)": 1
+    },
+    "C-auth": {
+     "rgb(240, 229, 200)": 18,
+     "rgb(79, 61, 28)": 2,
+     "rgb(42, 26, 6)": 89,
+     "rgb(255, 255, 255)": 2,
+     "rgba(255, 255, 255, 0.98)": 1,
+     "color(srgb 1 1 1 / 0.92)": 2,
+     "rgb(212, 168, 72)": 1
+    },
+    "C2-auth": {
+     "rgb(4, 5, 6)": 1,
+     "rgb(1, 2, 3)": 114
+    },
+    "C3-auth": {
+     "rgb(4, 5, 6)": 1,
+     "rgb(1, 2, 3)": 114
+    },
+    "A1-auth": {
+     "rgb(1, 2, 3)": 115
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 74,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 868
+  }
+ ]
+}

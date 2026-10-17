@@ -90,7 +90,7 @@
   ],
   "stressDoc": {
     "summary": "Progress over a four-column table, with the slide's Key Insight below both.",
-    "sample": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired | Open |\n|---|---|---|---|\n| Engineering | 120 | 118 | 2 |\n| Sales | 60 | 55 | 5 |\n\n> Sales is the one function still hiring into Q4.\n"
+    "sample": "<!-- _class: rows ratio-45-55 -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired | Open |\n|---|---|---|---|\n| Engineering | 120 | 118 | 2 |\n| Sales | 60 | 55 | 5 |\n\n> Sales is the one function still hiring into Q4.\n"
   },
   "pane": {
     "side": false,

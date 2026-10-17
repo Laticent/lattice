@@ -93,6 +93,8 @@ let runAll = false;
 
 for (const f of process.argv.slice(2)) {
   const rel = f.replace(/^\.\//, '');
+  // A gallery is Markdown, but the component contract reads it (every variant must be drawn).
+  if (/^lib\/components\/.*\.gallery\.md$/.test(rel)) { scripts.add('test:conformance'); continue; }
   if (isSkippable(rel)) continue;
 
   if (FULL_SUITE_TRIGGER.has(rel)) { runAll = true; break; }
@@ -100,13 +102,23 @@ for (const f of process.argv.slice(2)) {
   // lib/components/<name>/* — component-folder migration target.
   // Manifest / styles / transform / example / README all belong to one
   // component; component-manifest + per-transform tests cover the lot.
+  // test:conformance too: the component contract reads every folder's manifest and stylesheet
+  // (lib/conformance/kinds/component.contract.js), so a component edit can break a clause.
   if (rel.startsWith('lib/components/') && !rel.endsWith('index.js')) {
     scripts.add('test:components');
+    scripts.add('test:conformance');
     continue;
   }
   // lib/components/index.js — the loader + vocabularies. Cross-cutting.
   if (rel === 'lib/components/index.js') {
     scripts.add('test:components');
+    scripts.add('test:conformance');
+    continue;
+  }
+
+  // test/conformance/* — fixtures, the debt ledger and the card-row corpus the contracts read.
+  if (rel.startsWith('test/conformance/')) {
+    scripts.add('test:conformance');
     continue;
   }
 

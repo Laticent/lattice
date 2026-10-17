@@ -188,6 +188,10 @@ tightened at runtime, never loosened.
 The default stays what ships today, zero remote. One honest limit: consent cannot persist
 reliably for a file opened from disk, so it is asked each time the file is opened.
 
+*As shipped (§11.4):* the policy grants `connect-src` for the declared origins and never `img-src`,
+the script fetches each picture after consent, and the per-picture links sit in the banner rather
+than on each placeholder.
+
 **Also found.** Under `--allow-remote` the CLI probably ships remote `<img>` URLs that its
 own CSP then blocks: a broken image rather than a placeholder. This is inferred from the
 code, not run. Two comments contradict the source about the CSP (`inline-url-media.mjs:8`
@@ -506,6 +510,500 @@ package, no product name and no public page until a second producer commits to u
 **What flips the verdict.** A real second producer (an outside user, or a Laticent product
 that ships non-Lattice HTML) commits to the assembler: then publish (B). If that producer also
 wants views and transport rather than bringing its own, reopen (A).
+
+## 11. Host parity, the assembler's first step (2026-10-16)
+
+The owner ruled host parity first (§7, §10 point 3). The work landed in one PR, one commit per
+item, and this section records each result.
+
+### 11.1 One packer for both hosts (P1)
+
+**What moved.**
+
+- **The prune orchestration** is one function, `prunePlayerHtml(html, openPage, opts)` in
+  `lib/export/player-prune.js`. Each host supplies only a page: `lattice.js` opens a scratch
+  Chromium tab and runs the probes with `page.evaluate`; the Studio's `player-prune-browser.ts`
+  mounts an offscreen iframe and calls the same probes in-process with the frame's document.
+  The three probes (`probeFontUse`, `probeUsedSelectors`, `probeGate`) read nothing from module
+  scope, so they survive being shipped to a page as text. `opts.safelist` and
+  `opts.skipStyleIds` default to today's constants; they are the first connector seam (§10).
+- **The assembler's tail** is one function, `sealPlayer({ html, scriptHashes, media }, caps)` in
+  `lib/export/player-seal.mjs`: it writes the CSP, glyph-subsets the fonts and hoists repeated
+  pictures. `assemblePlayer` leaves a slot for the policy and hands the document over. It knows
+  nothing about slides.
+- **The Studio now subsets fonts.** `subsetEmbeddedFonts` moved to `lib/export/player-fonts.js`,
+  and the player-prune bundle carries it with `subset-font`, HarfBuzz's glue and the woff2 codec.
+  The Studio fetches HarfBuzz's wasm and hands it over. Measured: the browser subset of
+  `outfit-400.woff2` is byte-identical to Node's.
+
+**A divergence nobody had listed.** The Studio's bundle of `player-core.mjs` re-printed the
+transport kernels the player inlines with `${fn.toString()}`: esbuild turns tabs into spaces,
+`undefined` into `void 0`, and renames a colliding binding `keyAction2`. So the Studio's player
+script, and the CSP hash over it, differed from the CLI's for every deck. `build-player-core.js`
+now replaces each such call in the bundle with the text Node itself returns, as a string literal
+that no later minifier can rename. In the production docs build, the Studio export of
+`examples/html-player.md` now carries the CLI's player script byte for byte (sha256 prefix
+`ad0b78e8131d`); before, it did not (`12e273602179`).
+
+**Evidence.**
+
+| Check | Result |
+|---|---|
+| Second golden (`test/fixtures/player-stages`), blessed on the code BEFORE the move | subset, hoist (2), CSS prune (5/433 rules), font prune (3/4), merge (1) all fire; SHA `5c2afbe1…`, 101,757 bytes |
+| The same golden after the move, CLI host | identical |
+| The same golden, the Studio's own modules bundled into Chromium | identical (failed at 101,837 bytes with the `.toString()` fix reverted) |
+| Gallery `--player`, `SOURCE_DATE_EPOCH=0`, before and after | identical, `0b26848b…`, 2,357,094 bytes |
+| Studio export of `examples/html-player.md` (production build) | 1,095,824 → 918,858 bytes (−16%), from the subset |
+
+The CLI's bytes did not move. The Studio's did, so this needs the export sign-off.
+
+**What it costs the Studio.** The player-prune chunk, which loads only on a Webpage export, grows
+from 236,531 to 1,638,297 bytes minified (685,802 gzipped, unminified source), almost all of it
+the woff2 codec, and the export fetches HarfBuzz's wasm (634,892 bytes). Subsetting the
+`examples/html-player.md` export's twelve faces takes 0.55–0.77 s on the main thread in headless
+Chromium, during the export's existing "Optimizing…" step. The wasm comes from the docs install and
+the glue from the root install, so `test/unit/export/player-subset-wasm-pin.test.js` fails when the
+two lockfiles pin different HarfBuzz releases.
+
+**What the subset changes on screen.** Old against new Studio export, in Present, Read · Slides
+and Read · Article, light and dark: WebKit pixel-identical; Chromium identical except 18 pixels of
+anti-aliasing in one toolbar label in dark Read · Slides; Firefox draws the Playfair headline a
+few pixels narrower in every view (4,220–8,149 changed pixels per view). A control of one file
+against a copy of itself differed nowhere. Subsetting the OLD file in Node reproduces the
+Firefox difference exactly, so it is the subset itself, which every CLI export has always carried;
+the glyph advances at `wght` 700 are identical in both files (checked with fontTools), so it is
+Firefox's rasterizer treating the subset file differently, not a metric change. Logged as a
+followup rather than fixed here.
+
+**What is still not at parity.** The packer is; the renderers are not. The CLI renders a deck to
+`docHtml` in its own Chromium page and the Studio renders it in the author's browser, and those
+documents differ (a different engine bundle, the Studio's minified flat sheet, the Studio's
+second font set, §11.2). The provenance stamp differs too (`build: 'studio'`). So "the same deck at
+the same epoch gives the same SHA from both hosts" holds at the packer seam and is asserted there;
+from markdown to file it does not hold yet, and closing that gap means one front end.
+`now` is pinned to the epoch in the Studio as it is in the CLI.
+
+### 11.2 The Studio's dead font faces (P2)
+
+**Cause.** `assemblePlayer` removed the deck sheet's own `@font-face` rules with a regex that
+matched only `url(fonts/…)`, the CLI's spelling. The Studio's sheet spells them
+`url(/playground/v/<hash>/themes/fonts/…)`, so they shipped. Under `font-src data:` they can only
+fail. The fix is one rule for both hosts, `stripUnloadableFontFaces` in `player-core.mjs`: drop a
+face whose every source is a non-`data:` URL, unless it also names a `local()` source; never touch
+`#lattice-embedded-fonts`.
+
+The checker found that the first cut ran the strip on each `<style>` element's markup, before the
+step that sanitizes and minifies its CSS. Deleting a face can join `</sty` and `le>` around it into
+a live terminator, and the text after it then parsed as markup in the shipped file (a reproduced
+breakout, HARD RULE #22; the old `fonts/`-only regex had the same hole). The strip now runs on the
+CSS inside that step, before `sanitizeStyleText`, and a scanner that skips strings and comments
+replaced the regex, so a quoted `}` in a family name no longer cuts a rule short.
+`test/unit/export/player-dead-font-faces.test.js` pins both, and fails on the first placement.
+
+**Evidence**, on the production docs build, Studio export of `examples/html-player.md`:
+
+| | P1 export | P2 export |
+|---|---|---|
+| Bytes | 918,858 | 735,536 (−20%; −33% against the 1,095,824 base) |
+| `@font-face` outside `#lattice-embedded-fonts` | 37 | 0 |
+| `error` faces in `document.fonts` (Chromium / WebKit / Firefox) | 8 / 0 / 8 | 0 / 0 / 0 |
+| Faces shipped | 12 | 6: Outfit 300–700 and JetBrains Mono 400–600 each declared once |
+| Pixels against the P1 export, 3 engines × 3 views × light/dark | | identical in all 18 |
+
+The CLI's bytes did not move (gallery `0b26848b…`; `examples/html-player.md` `55801c3d…`, both
+before and after). The Studio's merge goes further than the CLI's on the same deck (Outfit's five
+weights become one face, where the CLI merges only 500–600) because the Studio bundles different
+font files, which is the front-end difference §11.1 names, not a packer one.
+
+### 11.3 The reveal.js falsifier (P3)
+
+The trio's test (§10, point 1): if a plain reveal.js export cannot pass the prune gate on declared
+data plus a few-line state driver, the contract is the shell player under another name.
+
+**The file.** A hand-written six-slide reveal.js 5.1.0 deck (seven slides counting one vertical
+stack, with fragments, a `data-background-color` slide, a quote, code and a table), with
+`reveal.css`, the white theme and `reveal.js` inlined: 168,207 bytes. It lives in the session's
+scratch, not the repo; reveal.js is not a dependency.
+
+**What the kernel needed first.** `prunePlayerHtml` hardcoded the Lattice player: the gate
+snapshotted `#lp-app *` and drove `data-lp-view`. The declarations are now data with Lattice's as
+the default (`LATTICE_CONNECTOR`): a `root`, a list of `states` (each a list of
+`[selector, attribute, value]` writes, with `+class` / `-class`), a `reset`, the font block's id,
+the sheet-size floor, a `safelist`, the skipped style ids, and `freezeMotion`. The CLI's bytes did
+not move.
+
+**What the run found, in order.**
+
+1. **Under the Lattice declaration the gate passed on nothing.** No `#lp-app`, so both snapshots
+   were empty and equal: the prune kept 73 of 373 rules and every state but the first rendered
+   differently (14,549–921,584 changed pixels). The gate now refuses when its root matches no
+   elements.
+2. **With a reveal root and one state, the gate passed and the file still broke.** Rules for
+   classes reveal adds while presenting (`past`, a fragment's `visible`) were dropped, and the
+   gate never entered those states. So selectors are now matched in every declared state too.
+3. **The first state driver let states accumulate**, so the gate's second pass ran on a different
+   DOM. Each state now starts from the page as loaded.
+4. **Reveal's transitions made the gate refuse** (a fragment snapshotted mid-fade). `freezeMotion`
+   stops transitions and animations while the probes drive states. A small synthetic deck did not
+   reproduce reveal's timing, so the evidence for it is this run, not a test.
+5. **Three more rounds of pixel diffs found the rest**: the navigation arrows' `enabled` /
+   `fragmented` / `highlight` and `.reveal`'s `has-dark-background` / `has-light-background`.
+
+**Verdict: the gate passes, and the contract is not Lattice-specific, with one condition.** The
+final declaration is ten states (fourteen attribute writes) plus `freezeMotion`:
+
+```json
+{ "root": ".reveal", "freezeMotion": true, "minSheetChars": 20000, "skipStyleIds": ["theme"],
+  "states": [[], [[".reveal .slides section","-class","present"],[".reveal .slides section","+class","past"]],
+    [[".fragment","+class","visible"],[".fragment","+class","current-fragment"]],
+    [[".reveal","+class","overview"]], [[".reveal","+class","paused"]],
+    [[".reveal .controls button","+class","enabled"]],
+    [[".reveal .controls button","+class","enabled"],[".reveal .controls button","+class","fragmented"]],
+    [[".reveal .controls button","+class","highlight"]],
+    [[".reveal","+class","has-dark-background"]], [[".reveal","+class","has-light-background"]]] }
+```
+
+With it, the gate passes, the prune keeps 100 of 373 rules (168,207 → 127,787 bytes), and the
+pruned file is pixel-identical to the full one in all twelve states the walk drives through
+reveal's own API (every slide and fragment step, the overview, and pause); a control of the full
+file against itself was also zero everywhere. The condition: **the gate checks only the states it
+is told about.** It passed with one state while slides broke, and the declaration took three rounds
+of diffing to complete. So a connector's declaration has to be authored by someone who knows the
+runtime's class vocabulary, and it should ship with a walk like this one, through the runtime's own
+API, as its proof. That is what freezing the connector contract needs: a declared-states field and
+a required runtime walk, not a shell player.
+
+**The guard.** `assemblePlayer` now throws when the document has no `section[data-lattice-slide]`.
+The reveal file made a 120,508-byte player with zero slides before; now the CLI reports
+"--player assembly failed". The engine renders at least one slide for every deck, an empty one
+included, so no Lattice deck reaches it.
+
+`test/integration/export/player-connector.test.js` pins items 1–3 on a small foreign deck, reading
+the page itself after each probe (no state class or freeze style left behind, a gate with no
+declared state refuses), and `test/unit/export/player-zero-frames.test.js` pins the guard. The
+checker found the first cut of those tests could not fail on the restore or the freeze cleanup;
+both now fail when either is disabled. It also had `root` wrapped in `:is()` (a comma in it split
+the gate's selector), an `undefined` override keep its default instead of erasing it, and the
+freeze style excluded from the gate's choice of sheet.
+
+### 11.4 Viewer consent for remote pictures (P4)
+
+**What ships.** `--player-consent <origins>` (CLI). Each web picture from a declared origin ships
+as the drawn placeholder `blockWebImages` already writes, its address kept inert in
+`data-lattice-web-src`. A banner names the sites and says what loading sends them ("your IP address
+and the time you opened this file"), with **Load pictures** and **Not now** styled alike. On Load,
+the hash-pinned script fetches each address once (CORS, no cookies, no referrer), checks the answer
+is a picture, and swaps it into every copy (the slide and the Read · Article figure) as a blob URL.
+With scripting off nothing loads, the banner lists each picture as a plain link, and a checkbox
+closes it. It is hidden in print and in a video recording. A deck that declares no origin, or one
+it never uses, ships byte-identical to before.
+
+**Shipped differently from §4.3, because the trio broke the first cut.**
+
+- **The policy never names a picture site in `img-src`.** The first cut granted
+  `img-src data: <origin>`. The red team then loaded from the declared site on open, before
+  consent and with scripting off, in Chromium, WebKit and Firefox, through deck CSS the placeholder
+  pass does not rewrite: `image-set()`, a CSS-escaped `url`, and an SVG `<feImage>`. With the site
+  in `img-src`, the policy was no longer a backstop for it. The shipped policy is
+  `img-src data: blob:; connect-src <origins>`: deck markup and CSS cannot open a `connect-src`
+  request, so only the script can, after the reader presses Load. Re-run against the red team's own
+  deck: zero requests before consent in all three engines, with and without scripting; after
+  consent only the declared site is contacted, and a redirect to an undeclared port is refused.
+- **The cost of that design:** the picture's host must allow a cross-origin read (it sends
+  `Access-Control-Allow-Origin`). When it does not, the request still reaches the site, the picture
+  stays a placeholder, and the banner says so and shows the links. The docs and `--help` say this.
+- **`--allow-remote` now embeds.** The inversion pass found the better answer to most authors' need
+  already in the repo: under `--allow-remote` the CLI embeds every web picture it can fetch
+  (`inline-url-media.mjs`, as the Studio's "Embed pictures from other sites" does), and one it
+  cannot fetch ships as the placeholder with a note. Before, such a player shipped
+  `<img src="https://…">` under `img-src data:`, a broken image. Consent mode is for pictures that
+  must stay live.
+- **The checker's fixes:** Space on a focused banner button turned the slide (the Present keymap
+  listens on the window) and now presses the button; at 390 px the banner covered the slide arrows
+  and now sits above them; the CLI refused `https://X.com/`, which is an origin; the failure line
+  says "the pictures" when none loaded; `--player-consent` without `--player` now prints the same
+  note `--player-mode` does.
+
+**Evidence.** Driven through Playwright in Chromium, WebKit and Firefox, on a CLI export whose
+"remote" site is a local server that counts requests:
+
+| Check | Chromium | WebKit | Firefox |
+|---|---|---|---|
+| Requests on open, scripts on | 0 | 0 | 0 |
+| Requests on open, scripts off | 0 | 0 | 0 |
+| After Load pictures (host sends CORS): pictures shown, requests | 2 of 2, 1 | 2 of 2, 1 | 2 of 2, 1 |
+| After Load pictures (host sends no CORS): banner shows the links | yes | yes | yes |
+| Space on a focused Load pictures | loads, slide unchanged | same | same |
+| No-JS Close | hides the banner | same | same |
+| Red team's leak deck, before consent, scripts on and off | 0 | 0 | 0 |
+
+**Scope left out, stated.** Pictures only. A web `![bg]` becomes a hatch at render and loses its
+address; video, audio and embeds are not offered, and the export says when a declared site carries
+any of them. The Studio has no way to declare origins yet, so this is CLI-only; the logic sits in
+`assemblePlayer`, so the Studio needs only the setting. Consent is asked each time the file opens.
+
+### 11.5 Why Firefox takes half a minute to open the gallery player (P5)
+
+**The cause is the no-JS dark-mode switch.** The player ships a hidden checkbox (`#lp-nj-flip`)
+so a reader with scripting off (iOS Quick Look) can still flip the theme, and the dark block
+(`#lattice-dual-mode`) repeats every scheme rule under a root that tests it:
+`:root:not([data-lp-scheme=dark]):where(:not(.lp-js):has([id=lp-nj-flip]:checked)) …`. The
+gallery's dark block carries 326 such rules (695 `:has()` selectors). A `:has()` anchored on the
+root makes Firefox re-match those rules as the parser inserts each node, so parsing the
+2.36 MB file takes about half a minute; DOMContentLoaded and load land together.
+
+**Measured** with Playwright Firefox 142, 15 interleaved loads of each file from disk:
+
+| File | Median load | Min | Max |
+|---|---|---|---|
+| The shipped gallery player | 32,241 ms | 30,961 | 33,599 |
+| The same file, flip rules rewritten as `[id=lp-nj-flip]:checked~* …` (sibling, no `:has()`) | 718 ms | 207 | 860 |
+| The same file with the 326 flip rules removed | 609 ms | 219 | 849 |
+| `examples/html-player.md`'s player, for scale | about 220 ms | | |
+
+Bisecting got there in three steps: removing every `<style>` took the load to 0.3 s; of the
+blocks, only removing the dark block did (0.7 s); of its 800 rules, the 326 with `:has()` carry
+all of it. Scripts, pictures and fonts made no difference. Chromium opens the same file in under a
+second.
+
+**Not fixed here, and why.** The rewrite above is a measurement, not a candidate. The flip rules
+hold the same specificity as `:root[data-lp-scheme=dark]` on purpose (the `:has()` sits inside
+`:where()`), so each wins or loses exactly as the rule it mirrors; a sibling form adds the
+checkbox's specificity. And the rules that restyle `:root` itself (the token arms, the page
+background, `color-scheme`) cannot follow a sibling combinator, because the root is not a sibling
+of anything. A real fix redesigns the no-JS floor (likely: move the token arms to a wrapper that
+follows the checkbox, and keep `:root` for what only the root can carry), changes every export's
+bytes, and needs the scheme matrix and an export sign-off of its own. It is a followup.
+
+### 11.6 A `![bg]` on a slide that is not `image` (P6)
+
+**What the followup saw was a CLI bug, not an authoring error.** The shared engine draws a
+`![bg](x)` on a slide that is not `image` as the slide's own full-bleed background
+(lib/engine/background-image.js, Marp's behavior), and the Studio showed it. The CLI did not:
+`lattice.js` lifted EVERY `![bg]` into a `.lattice-bg` div before render, and only the `image`
+layout positions that div, so on any other slide the picture drew nothing, in the PDF, the HTML
+and the player. A lint telling the author to add `image` would have taught a workaround for that
+bug, and told Studio authors something false.
+
+**Fixed at the root (HARD RULE #1):** the CLI now lifts with the engine's own class-aware
+`liftImageBgImages`, so both hosts draw the same thing. That function also learned the running
+`<!-- class: image -->` directive, which the CLI used to get right only by lifting everything; a
+slide's own `_class:` overrides it. No committed deck has a `![bg]` on a slide that is not `image`,
+and six decks that use `![bg]` (`adaptive-image`, `sample-images`, `marp-export-fidelity`,
+`pdf-export-portability`, `finish-canvas-light-half`, `slide-edge`) render byte-identical HTML
+before and after. The player half of this (the section background's `url(&quot;…&quot;)` was not
+inlined) is §11.7, which landed first so this never shipped a `file://` reference.
+
+**The lint, for what still silently fails** (`lint-core.js` rule 14e, registered in
+spec/diagnostics.md):
+
+- `bg-side-unread`: `left` / `right` or a ratio on a slide that is not `image`. The picture fills
+  the slide behind the text; fix: add `<!-- _class: image -->`.
+- `bg-ratio-unread`: a ratio such as `![bg left:40%]` on an `image` slide. The lift does not read
+  it, so the slide loses its panel; fix: write `![bg left]`.
+
+The checker found two defects in the first cut of the running-class reading, both now pinned by
+tests: a quoted `_class: "image"` was not read as `image` (the engine strips the quotes), and a
+class directive written inside a code fence was taken as real, which in the running form switched
+every later slide to `image`. The lift now walks lines outside code and unquotes the value. (It
+cannot reuse the linter's scanner: the playground build keeps the engine off the linter's boundary
+parser.)
+
+A plain `![bg]` is not flagged: it works. Both rules fire on the repros, stay silent on every
+committed deck (`lint:deck --all`: no new findings), and `test/unit/authoring/bg-keyword-lint.test.js`
+pins them and the running-class lift. Demo deck: `examples/bg-on-any-slide.md`.
+
+### 11.7 A relative section background reached the player un-inlined (P7)
+
+**Reproduced.** `![bg left:40%](a.jpg)` on an `image` slide: the lift reads only `left` / `right`
+(lib/core/bg-directive.js `BG_RE` takes word characters), so the slide falls through to the
+engine's section background, `style="background-image:url(&quot;a.jpg&quot;)"`. The CLI renders
+with no base URL (its PDF resolves relative paths against the deck folder), and the player's
+inliner matched `url(file://…)` with `'` or `"` only. The exported file carried `a.jpg` twice, a
+path that points at nothing once the file leaves the folder, and the run reported
+"0 image(s) inlined" with no warning. The same seam carried an absolute `file://` background
+un-inlined, and the engine's informational `--background-image:"url(\"file://…\")"` copy put
+the author's folder path into the shared file.
+
+**Fixed, in the player adapter (`html-player.js`):** relative `url()` in `style` attributes now
+resolves against the deck folder before inlining (`resolveStyleUrls`); the inliner reads the
+`&quot;` / `&#39;` forms; and the informational copy is dropped when it names a local file (nothing
+reads it back; lib/engine/background-image.js says so). The asset hoist also reads `&quot;`, so a
+picture used as two slides' backgrounds ships once. On the repro: "1 image(s) inlined", "stored 1
+repeated background picture(s) once, 101 KB saved", no `file:` anywhere in the file, and a missing
+picture is now listed in the report. The gallery and `examples/html-player.md` players are
+byte-identical. `test/unit/export/player-style-urls.test.js` pins it.
+
+Not fixed: the ratio itself. `left:40%` still renders a full-bleed background rather than the image
+layout's panel; reading Marp's split ratios is a feature of its own (a followup). P6 makes the lint
+say so.
+
+**After the rebase onto #2748.** main had fixed the same relative-background gap with its own
+inliner (`mapPlayerContexts`, a tag scanner), so the two were merged, and the checker found four
+defects where they met:
+
+- `resolveStyleUrls` still ran a pattern over the whole document. Chromium writes `"` raw in text,
+  so a code sample such as `<div style="background:url(pic.jpg)">` in inline code was rewritten to
+  the author's absolute `file://` path, and the inliner then rightly left that text alone. The
+  resolver now runs inside `mapPlayerContexts`, on `style` attributes only.
+- The resolver checked only that a path existed, so a folder named `x.png` also leaked its path. It
+  now requires a regular file.
+- `liftImageBgImages` read a class directive one line at a time and missed
+  `<!--\n_class: image\n-->`, which the engine applies. A comment that opens a line and stays open
+  now runs to its first `-->`, as markdown-it's HTML block does: a `---` inside it is not a slide
+  break, and only a directive that opens it counts. A `<!--` in the middle of prose is text, as it
+  is to the engine (the checker's second pass caught the first cut hiding later slide breaks).
+- main seeded the lift from a front-matter `class:` line, including one that never closed. The
+  deck-class register (`lib/core/deck-class-register.js`) refuses a component name such as `image`
+  as a deck class, so the engine rendered those slides `content form` and the lift drew an empty
+  panel. The seed is now `deckClassTokensFromFrontMatter` of a closed block, the tokens the engine
+  itself admits.
+
+Still open: a setext underline (`Title\n---`) reads as a slide break to the lift but as a heading
+to the engine (followups.d/2739-p10-bg-lift-setext-underline.md).
+
+### 11.8 The Studio's player shipped the authoring overflow marker to its reader
+
+**Found while measuring §11.9**, and older than this work: the `main` export of
+`examples/html-player.md` already carried it. Every player the Studio made stamped
+`data-lattice-overflow-marker="author"` on every slide and kept the type-floor `illegible-tab` node.
+On a deck with a clipped slide, the reader of the shared file saw the red ring, an "OVERFLOWS" tag
+and a yellow "Fix Me" chip. The CLI's player of the same deck shows the calm "Content clipped" pill.
+`lib/core/resolve-overflow-marker.js` states the contract this broke: "nothing a READER receives has
+it".
+
+**Cause.** The Webpage export bakes its slides in the Studio's capture frame, which runs the
+runtime. The runtime tells an export from an authoring surface by the export-settings block
+(`lib/core/export-settings.js`). The frame carried none, so the runtime drew the authoring signal.
+The CLI never had the problem: it bakes at its resolved level and then runs a strip in
+`page.evaluate`, a strip the Studio had no copy of.
+
+**Fixed, one mechanism per host and one function for both.** `withExportSettings` in
+`deck-export.js` writes the standard block into the capture frame's head, so the runtime draws the
+export's level. It lives in the export module rather than in `buildSrcdoc`: the first cut put it in
+`deck-preview.js`, which loads with every preview, and the route budget measured +444, +378 and +374
+bytes of gzipped eager JavaScript on the studio, playground and home routes. Moved, the three routes
+measure what `main` does. The
+Webpage bake passes the workspace's `overflowMarker` setting through `resolveExportOverflowMarker`,
+the resolver the CLI and the Marp bundle use, so a stored `off` or a junk value falls back to
+`reader` instead of silencing every clip (`loadSettings()` does not validate it). The strip moved out
+of lattice.js into `stripMarkerForLevel` in the kernel, which the CLI hands to `page.evaluate` and the
+Studio calls on its frame. `resolveExportOverflowMarker` moved into the same kernel, re-exported from
+`marp-bundle.js`, because that kernel requires nothing and the docs dev server's CommonJS shim serves
+only such a file. The independent checker caught the first cut importing `export-settings.js` and a
+named export from CommonJS: both break `npm run dev` and neither shows in a production build. The
+modules now load on the dev server. A full export there stays blocked by followup `2710-p5`, which
+predates this work. The CLI's player bytes are unchanged on the overflow repro and on
+`examples/html-player.md`. `test/unit/core/resolve-overflow-marker.test.js` pins the strip per level,
+and `docs/e2e/webpage-export.spec.ts` drives the real Share → Webpage flow and asserts the reader
+marker, the visible pill and no "Fix Me" chip.
+
+Not changed: the Studio's PDF, PNG and PowerPoint exports rasterize through the same frame without
+a level, as before. Whether they show the authoring marker is a separate question; it is a followup,
+not part of this player fix.
+
+### 11.9 What still separates the two hosts' files
+
+§11.1 put the packer at parity and asserts it. From markdown to file, the same deck still gives two
+different files, and the owner's acceptance test (same deck, same epoch, same SHA) holds only at the
+seam. Measured on `examples/html-player.md` at epoch 0, the CLI's player against the Studio's real
+Share → Webpage export:
+
+| Part of the file | Same? | What differs |
+|---|---|---|
+| Player script (33,453 bytes) | yes | `ad0b78e8…` from both |
+| Player stylesheet (21,111 bytes) | yes | |
+| Embedded fonts | no | The Studio vendors its own woff2 copies (`docs/src/playground/fonts/`). Five carry different bytes from the canonical `assets/fonts/`: Caveat 700, Outfit 400 and 700, Shantell 400 and 700. So the hosts draw those weights from different files, and the prune keeps 9 faces from the CLI and 6 from the Studio |
+| Deck stylesheet | rules and order same | The Studio fetches `dist/lattice-min.css`; the CLI reads `dist/lattice.css`. Different minifiers: `.15625` against `0.15625`, quote style, `[data-cards=center]`. 2 rules apart (155 and 153) |
+| Dark/light stylesheet | 583 rules each, same order | the same minifier difference |
+| Slide markup | no | The Studio defines 6 more texture pattern sets (onyx, concrete); its bake serializes `style` through the browser and keeps the runtime's `--_sec-1cqi` stamps; and, before §11.8, the marker level |
+| Deck record | no | The Studio stamps `build: 'studio'` and `playerVersion: 'studio'`, and sends no `config` |
+
+Each row is a change to exported bytes in one host or both, and the font row also changes what the
+Studio's own preview draws. Followup `2739-p1` carries this table as its work list.
+
+**The definition, ruled by the owner on 2026-10-17.** Parity is the same content and the same
+metadata from both hosts, ignoring three things: the time stamp (`generatedAt`), the signing hashes
+(the policy's script hashes, which follow from the script), and which host made the file (the new
+`host` record field, `cli` or `studio`). Formatting counts. The owner asked for the whole gap,
+diagrams included, in this PR.
+
+**Measured on a 12-deck corpus** (`.scratch` comparator: record fields, policy, scripts, every
+stylesheet by bytes and by meaning, fonts per face, slide markup with sorted attributes, visible
+text), after the first round of fixes:
+
+| Fix | What it closed |
+|---|---|
+| Both hosts compose the deck sheet from the minified builds (`shippedSheetText`, also `tools/palette-sweep.js`) | every stylesheet byte difference on decks without math or diagrams. The CLI's PDF pages rasterize to identical PNGs (html-player, a11y, chart-family-coverage) |
+| The Studio builds its document from `exportDeckStyleText` and the CLI's texture selection; the `style:` packing moved to `lib/export/author-css.js` | the page-number rule, `position:relative`, the notes and description rules; six unused texture sets |
+| Six Studio woff2 copied from `assets/fonts/`, held by a new byte check in `fonts:check`; `GLYPH_UPPER_FONTS` re-pinned (`fonts:measure`: 0 under) | Outfit 400/700, Caveat 400/700, Shantell 400/700 |
+| `PLAYER_VERSION` in one module, `ENGINE_BUILD` from `package.json` into the Studio bundle, `config` from the engine's parser, `host` added | the record |
+| The bake restores each slide's engine `style` attribute | the browser's re-serialized style and the `--_sec-1cqi` stamps |
+
+**Second round.** A byte-strict check (whole file, normalizing only the three exclusions) replaced
+the semantic one as the bar:
+
+| Fix | What it closed |
+|---|---|
+| One `data:` encoder (`lib/core/data-uri.js`): SVG percent-encoded, the rest base64 | collage and avatars pictures |
+| A quote-aware `url()` reader for the runtime (`lib/core/css-url.js`) | the bake frame cut a percent-encoded SVG at its first `)` and lost the image slide's size bucket |
+| KaTeX made self-contained by one transform (`lib/export/katex-inline.js`) | the Studio's math players shipped no KaTeX faces at all |
+| The Studio renders the deck's declared theme, not its `-dark` twin | `data-theme` on every slide of a dark deck |
+| The bake frame lays slides out at one to one | function-plot drew 6% small |
+| function-plot draws with a seeded `Math.random` | random clip ids, which also made two CLI runs differ |
+| The packer sorts every slide element's attributes | the order the CLI's string pass and the Studio's runtime wrote them |
+| One `@font-face` rule and the manifest's order (`lib/fonts/face-rule.js`) | the font block |
+| The bake drops the runtime's image-text bookkeeping mark | one attribute |
+
+**Byte-identical now, apart from the three exclusions:** html-player, marp-export-fidelity,
+chart-family-coverage, collage, build, studio-present, backdrop-register, math-bare-equation and
+avatars (9 of 12). Still open: Mermaid (a11y, carbone-curation: two pipelines, and the CLI
+envelope's baked "source"), `size: story` (adaptive-sizing), and the player's default mode when
+the deck sets no `color-mode:`.
+
+**Third round: the structural split.** A deck at `square`, `portrait`, `story` or `mobile` is cut
+into cover, one page per element, and closing (lib/core/structural-split.js). The CLI's `--player`
+made that cut; the Studio's Webpage export did not, so `adaptive-sizing` shipped 32 slides from the
+CLI and 8 from the Studio.
+
+| Fix | What it closed |
+|---|---|
+| The Studio export runs `PG.splitForPreview` with `settle: false`, the CLI's own setting, on the render and on the strip-notes candidate | the page count |
+| The Studio's slide numbering keeps a number the split already wrote (`2.2`, page 2 of slide 2) | every split page's `data-lattice-slide` |
+| `roleOpenTag` (lib/core/split-envelope.js) drops `data-cards` / `data-cards-coda` when the swapped class names no card-row component | the cover inherited its source slide's stamp. The Studio's bake runs the runtime, which drops it; the CLI's export page runs no runtime and kept it. The attribute was visually inert on a `content` cover (nothing there reads `--cards-align`), so no PDF moves |
+
+**Byte-identical now:** the nine above plus adaptive-sizing (10 of 12), and auto-split,
+cover-paginate and inventory-split-portrait on a second split corpus. Still open: Mermaid.
+
+**Fourth round: diagrams.** The two hosts draw a Mermaid diagram with the same library build and
+the same kernel (`renderDiagrams`), and the drawings already had identical geometry. What differed
+was everything around the drawing, plus three measurement contexts:
+
+| Fix | What it closed |
+|---|---|
+| The Studio's bake ships each drawn figure in the `figure-baked` shape (`div.mermaid-svg[data-mmd-idx]`, the manifest's player surface), built by `bakedFigureOpenTag` in a new `lib/plugins/mermaid/shared/baked-figure-tag.js` the CLI bake uses too | the spent source `<pre>` and the live `.mermaid` sibling, and the stylesheet rules the prune kept for them |
+| One svg id prefix (`lattice-mmd-N`) on every path; the accessible-name floor (`aria-label="Pie chart"`) and the sankey label collapse moved into the shared module and applied by the browser pass too | the root's id, a name the live preview and the Studio never gave a diagram, and a label newline |
+| The Studio's bake sets the root's background and declares the xlink namespace, as the CLI's worker does | the root `style` and `xmlns:xlink` |
+| The browser's token reader returns a literal hex as written, and a `light-dark()` token as the hex of the side its probe resolved | `fill="rgb(…)"` against the CLI's `fill="#C2E6C8"` |
+| The Studio's Webpage bake frame writes `playerBake: true` into its export settings block, and a browser render that sees it (`ctx.isPlayerBake()`) takes the export's Mermaid config and draws in a 784 px stage, the box the CLI's worker draws in (`DIAGRAM_STAGE_WIDTH`) | flowchart roots in px, a 1280-wide Gantt against 784, xychart positions a few millionths apart |
+| The bake restores each slide's engine `style` before it measures, re-runs the card-tag equalizer (the kernel the CLI injects), and runs strip, restore, bake and read with no `await` between them | label `y` noise from the fit agent's transform; `--card-tag-block`, a layout input the round-one restore had dropped (a regression this PR introduced and this round fixes); `illegible` berths the live runtime re-minted during the wait, and only under load |
+| The CLI's envelope carries the deck as authored (`md`), and its record's `config` is parsed from the same text | baked SVG as the re-import "source" (the 2026-08-05 note's user-visible win), and the `glossary: auto` key the auto-glossary strips |
+| The CLI's finished player file restores `feDropShadow`, which jsdom's HTML parser lowercases | a dead `<fedropshadow>` element: every Mermaid drop shadow in a CLI player file drew nothing |
+
+**Byte-identical now, across 25 decks:** every deck above, plus system-design-foundations (234
+slides at 4K, 32 diagrams), sequence-narration, mindmap-branch-colors, mermaid-sketch-labels,
+xychart-narration, containment-tier, chart-body-tier, hub-spoke-sketch, plugin-system-phase-b and
+card-tag-placements. Measured with both hosts on one Chromium build (141). The CLI's default browser
+in this sandbox is Chrome 131, and two Chromium versions spell some computed colors differently
+(`oklch(0.47 0.017 259.53)` against `oklch(0.47 0.017 none)` for the same `color-mix()`), so the
+claim is per browser build. A Studio export made in Safari or Firefox will differ from the CLI's
+wherever the bake reads a computed style.
+
+**The default mode is a UI choice, not a pipeline gap.** With the Studio preview in light, every
+deck above opens in the same mode from both hosts. With the preview in dark, a deck with no
+`color-mode:` exports dark from the Studio by default. The export panel deliberately defaults to
+what the preview shows (`WebpageOptionsPanel`, "a plain deck is WYSIWYG"), and the author can pick
+any mode, as `--player-mode` does for the CLI. Changing that default is the owner's call.
 
 ## 9. Stale claims found along the way
 

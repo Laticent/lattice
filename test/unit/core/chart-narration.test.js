@@ -2131,7 +2131,7 @@ test('narrateDataSeries: strips the markdown a label carries rather than reading
 // in a diff.
 const PICTURE_DATA_ROSTER = [
   'bar', 'bullet', 'funnel', 'heatmap', 'hub-spoke', 'line', 'map', 'piechart',
-  'quadrant', 'radar', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'word-cloud',
+  'quadrant', 'radar', 'scatter', 'risk-matrix', 'slope', 'stacked-bar', 'tower', 'waterfall', 'word-cloud',
 ];
 
 test('narrateDataSeries: exactly the declared picture-data components narrate, and no others', () => {

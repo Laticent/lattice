@@ -115,8 +115,14 @@ describe('an author cannot write the host\'s figure markers', () => {
     for (const dir of fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory())) {
       const f = path.join(root, dir.name, `${dir.name}.bake.js`);
       if (!fs.existsSync(f)) continue;
-      const src = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-      for (const m of src.matchAll(/data-lattice-[a-z-]+/g)) written.add(m[0]);
+      // The bake AND the plugin's own shared modules it requires: Mermaid's bake builds its figure
+      // tag in shared/baked-figure.js, which the Studio's export shares (HARD RULE #1).
+      const bakeSrc = fs.readFileSync(f, 'utf8');
+      const files = [f, ...[...bakeSrc.matchAll(/require\('\.\/(shared\/[\w-]+)(?:\.js)?'\)/g)].map((m) => path.join(root, dir.name, `${m[1]}.js`))];
+      for (const file of files) {
+        const src = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+        for (const m of src.matchAll(/data-lattice-[a-z-]+/g)) written.add(m[0]);
+      }
     }
     assert.ok(written.size >= 1, 'read no marker from any bake — the census is not reading anything');
     for (const a of written) {

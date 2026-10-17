@@ -17,6 +17,15 @@ const FONT = `data:font/woff2;base64,${b64('c')}`;
 const doc = (head, body) => `<!DOCTYPE html><html><head>${head}</head><body>${body}</body></html>`;
 
 describe('hoistRepeatedAssets', () => {
+	test("a picture written with the serializer's &quot; quotes (a plain slide's ![bg]) is stored once too", async () => {
+		const { hoistRepeatedAssets } = await load();
+		const slide = `<section style="background-image:url(&quot;${JPEG}&quot;);background-size:cover;"></section>`;
+		const { html, hoisted } = hoistRepeatedAssets(doc('', slide.repeat(3)));
+		assert.equal(hoisted, 1);
+		assert.equal(html.split(JPEG).length - 1, 1, 'exactly one copy of the bytes remains');
+		assert.equal(html.split('background-image:var(--lp-asset-0);background-size:cover;').length - 1, 3);
+	});
+
 	test('a picture used on several slides is stored once and referenced by var()', async () => {
 		const { hoistRepeatedAssets } = await load();
 		const slide = `<div style="background-image:url('${JPEG}')"></div>`;
@@ -42,6 +51,17 @@ describe('hoistRepeatedAssets', () => {
 		const { html, hoisted } = hoistRepeatedAssets(doc('', body));
 		assert.equal(hoisted, 1);
 		assert.equal(html.split(PNG).length - 1, 1);
+	});
+
+	// The engine's own section background for a `![bg]` that is not lifted is serialized with the
+	// quote escaped (`url(&quot;…&quot;)`); a picture on two such slides shipped twice (§11.7).
+	test('the attribute-escaped quote is hoisted too', async () => {
+		const { hoistRepeatedAssets } = await load();
+		const body = `<section style="background-image:url(&quot;${JPEG}&quot;)"></section><section style="background-image:url(&quot;${JPEG}&quot;)"></section>`;
+		const { html, hoisted } = hoistRepeatedAssets(doc('', body));
+		assert.equal(hoisted, 1);
+		assert.equal(html.split(JPEG).length - 1, 1);
+		assert.match(html, /style="background-image:var\(--lp-asset-0\)"/);
 	});
 
 	test('stylesheets are left alone: the CSS prune may still drop the rule', async () => {

@@ -1,0 +1,124 @@
+/* risk-matrix — a 5 × 5 likelihood × impact grid shaded by severity band, with
+ * each risk as a numbered marker and a key beside the grid.
+ * Contract: risk-matrix.manifest.json.
+ *
+ * The kernel (risk-matrix.transform.js) emits no color: a cell and a marker carry
+ * `data-band="low|medium|high|critical"` and this file paints them from the
+ * family's semantic state hues (chart-family.styles.css), so a theme that tunes
+ * its status colors tunes the grid. Low is pass, medium warn, high the fail fill,
+ * critical the fail hue at full strength: four bands on three hues, where the
+ * step from high to critical is strength, not a fourth color.
+ *
+ * Unlayered like every component file, and anchored on
+ * `:is(section.risk-matrix, figure.chart-frame)` so the fills resolve in the
+ * Read·Article re-host too. Font sizes are viewBox user units, MIRRORED in
+ * risk-matrix.transform.js `FS` (gated by risk-matrix.test.js). */
+
+:is(section.risk-matrix, figure.chart-frame) .risk-matrix-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(section.risk-matrix, figure.chart-frame) .risk-matrix-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The cells. The canvas-colored hairline is the family separator: without it two
+ * cells of one band read as one block and the grid loses its count. */
+:is(section.risk-matrix, figure.chart-frame) .risk-cell {
+  stroke: var(--bg);
+  stroke-width: 1.2;
+}
+/* Each band mixes its hue toward the canvas on light and toward BLACK on dark, the
+ * construction the family's own status fills use (`--state-*-fill`): mixed into a
+ * navy `--bg` instead, the red bands came out purple and the grid read as mud.
+ *
+ * THE STRENGTHS RISE WITH SEVERITY, in both modes, so the order survives grayscale
+ * print: on light each band is a stronger mix than the one below it, on dark a
+ * brighter one. An earlier cut gave high a weaker mix than medium on both canvases,
+ * and `--print` drew medium and high the same gray (independent checker, #2714). */
+:is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="low"] {
+  fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 34%, black));
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="medium"] {
+  fill: light-dark(color-mix(in oklab, var(--state-warn-hue) 42%, var(--bg)), color-mix(in oklab, var(--state-warn-hue) 50%, black));
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="high"] {
+  fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 58%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 66%, black));
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="critical"] {
+  fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 88%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 92%, black));
+}
+
+/* A marker is the canvas's heading ink with the canvas color for its number:
+ * the one pairing that holds contrast over every band in both modes, so a risk
+ * never depends on the cell under it to be read. */
+:is(section.risk-matrix, figure.chart-frame) :is(.risk-marker, .risk-key-marker) {
+  fill: var(--text-heading);
+  stroke: var(--bg);
+  stroke-width: 1;
+}
+:is(section.risk-matrix, figure.chart-frame) :is(.risk-number, .risk-key-number) {
+  font-size: 6px;
+  font-weight: 700;
+  fill: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+/* Under the Present Guide a focused risk's number keeps the canvas ink of its disk.
+ * The Guide paints focused SVG text in the accent (base.focus.css), right for text on
+ * the canvas and wrong for text ON a mark: measured, indaco's accent on the heading-ink
+ * disk is 3.31:1 light and 1.85:1 dark. The risk is still named by its accented key
+ * label and its outline. One step above the Guide's (0,2,3) rule. */
+section[data-guide] svg text:is(.risk-number, .risk-key-number):is(.lat-guide-focus, .lat-guide-highlight) {
+  fill: var(--bg);
+}
+
+/* Where a risk is meant to land once mitigated: a dashed ring, and the arrow to it. */
+:is(section.risk-matrix, figure.chart-frame) .risk-target {
+  fill: none;
+  stroke: var(--text-heading);
+  stroke-width: 1;
+  stroke-dasharray: 2 1.4;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-path {
+  stroke: var(--text-heading);
+  stroke-width: 1;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-arrowhead {
+  fill: var(--text-heading);
+}
+
+:is(section.risk-matrix, figure.chart-frame) .risk-tick {
+  font-size: 6px;
+  fill: var(--text-muted);
+  dominant-baseline: central;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-tick-x {
+  dominant-baseline: hanging;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-axis {
+  font-size: 6px;
+  fill: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-key-label {
+  font-size: 7px;
+  fill: var(--text-body);
+  dominant-baseline: central;
+}
+
+/* Carry the baseline onto the <tspan>: WebKit resolves a tspan's own `auto`
+ * against the alphabetic baseline (#2297,
+ * engineering/decisions/2026-09-22-webkit-tspan-baseline.md). */
+:is(section.risk-matrix, figure.chart-frame) :is(.risk-tick, .risk-key-label) tspan {
+  dominant-baseline: central;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-tick-x tspan {
+  dominant-baseline: hanging;
+}

@@ -29,8 +29,10 @@ section.actors > .cell-stage > ol {
    * last card. With it the rows distribute into the stage and every card stays on
    * canvas. */
   flex:1; min-height:0;
-  justify-content:flex-start;
+  justify-content:var(--cards-align);
 }
+/* `safe`: if the rows ever outgrow the stage, lose the tail, never the head (the token's `center` has no `safe`). */
+section.actors[data-cards="center"] > .cell-stage > :is(ul, ol) { justify-content: safe center; }
 section.actors > .cell-stage > ul > li,
 section.actors > .cell-stage > ol > li {
   /* flex mirror of `grid-template-columns:1fr auto` + a full-width second row: the header
@@ -45,7 +47,9 @@ section.actors > .cell-stage > ol > li {
   /* Rows distribute to fill the bounded stage (flex cell-tree §6) — uniform card
    * heights that fit the shorter stage instead of natural-height rows that overran
    * it. min-height:0 lets a dense deck compress gracefully rather than clip. */
-  flex:1; min-height:0;
+  /* Rows hug their content and sit where `cards` says; `stretch` (the pre-register look) grows
+   * them to fill the stage. The fallbacks are that pre-register look for an unstamped section. */
+  flex:var(--cards-grow, 1) 1 var(--cards-basis, 0%); min-height:0;
   padding:var(--sp-sm) var(--sp-lg);
   background:var(--bg-alt);
   border:1px solid var(--border);
@@ -132,6 +136,29 @@ section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell
   margin-left: 0;
 }
 
+
+/* ── Dense roster (five rows or more) ─────────────────────────────────────
+ * Measured at hd: a two-line row is 101px (two lines + gap + padding), so the stage seats four
+ * (4 × 101 + gaps = 428 of 435px). Five rows needed 537px, and flex-shrink squeezed each row
+ * below its own content, so every title overprinted its body. From five rows the row becomes ONE
+ * line — responsibility, body, chip — which is 50px, so seven rows need 386px and fit.
+ * That holds while each body stays on one line (about 10 words at hd). A body that wraps makes
+ * its row 83px, and seven rows then outgrow the stage; the export's OVERFLOW line and the render
+ * tier's overflow probe report it (nothing here does). Tall and strip decks keep their stacked
+ * reflow above (their stage is shaped for it). */
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li {
+  flex-wrap:nowrap;
+  padding-block:var(--sp-xs);
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > strong {
+  order:1; flex:0 0 22%;
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > :is(ul, ol) {
+  order:2; flex:1 1 0; min-width:0;
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > code {
+  order:3;
+}
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

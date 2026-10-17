@@ -60,8 +60,8 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
-	it('lists every workspace library, Trama, Segno, Calco, Tavola and Fuoco included, and LTT under Specs', () => {
-		expect(labels(librariesNav(url))).toEqual(['Suono', 'Cadenza', 'Vetrina', 'Lente', 'Trama', 'Segno', 'Calco', 'Tavola', 'Fuoco']);
+	it('lists every workspace library, Trama, Segno, Calco, Tavola, Fuoco and Mosaico included, and LTT under Specs', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Cadenza', 'Vetrina', 'Lente', 'Trama', 'Segno', 'Calco', 'Tavola', 'Fuoco', 'Mosaico']);
 		expect(labels(specsNav(url))).toEqual(['LFM 1.0', 'Diagnostic Protocol', 'LTT 1.0']);
 		for (const s of specsNav(url)) expect(s.href).toMatch(/\/spec\/[a-z]+\/$/);
 	});

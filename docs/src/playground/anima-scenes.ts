@@ -158,7 +158,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   function sigOf(s: Element, deck: DeckMotion): string {
     if (s.matches(SCENE_SEL)) return `scene|${s.getAttribute('data-scene-spec') ?? ''}`;
     const svg = s.querySelector('svg');
-    // A Mermaid SVG carries its own `<style>`, keyed by a per-render id (`#lattice-mermaid-7 …`), so
+    // A Mermaid SVG carries its own `<style>`, keyed by a per-render id (`#lattice-mmd-7 …`), so
     // its whole textContent changes on every fresh render of an unchanged diagram. Read only the
     // words it draws — the `<text>` and `<foreignObject>` labels — so an unrelated edit does not
     // replay it. A chart's text is all `<text>` already, so a chart keys exactly as before.

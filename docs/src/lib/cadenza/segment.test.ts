@@ -346,3 +346,13 @@ describe('splitWords', () => {
     ]);
   });
 });
+
+// `4,2 Mio. € and…` split at the abbreviation's period, so `€` opened a new cue and was read as
+// a bare glyph (engineering/decisions/2026-10-15-business-deck-gaps.md §7.3).
+describe('a German magnitude word does not end the sentence before its currency', () => {
+	it('keeps `Mio. €` and `Mrd. €` in one sentence, and still splits before a capital', () => {
+		expect(splitSentences('A deck carries 4,2 Mio. € and USD 250mn.')).toEqual(['A deck carries 4,2 Mio. € and USD 250mn.']);
+		expect(splitSentences('Revenue hit 3 Mrd. € last year.')).toEqual(['Revenue hit 3 Mrd. € last year.']);
+		expect(splitSentences('Revenue hit 5 Mio. Then it fell.')).toEqual(['Revenue hit 5 Mio.', 'Then it fell.']);
+	});
+});

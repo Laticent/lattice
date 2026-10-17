@@ -503,6 +503,26 @@ jobs:
           # cannot leave a file in no leg or in two.
           SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: npm run test:integration:shard
+      # COMPONENT CONFORMANCE, RENDER TIER, PER PR (report-only; owner ruling 2026-10-16).
+      # Only the components this PR's diff touches, every cheap probe, and the contrast sweep on
+      # three palettes (light, dark, concrete); the nightly runs all 33
+      # (engineering/decisions/2026-10-15-conformance-harness.md section 13.2-13.3). Measured:
+      # 8 s measured for `list-steps` (about 25 s extrapolated for `map`), and a PR that touches no component
+      # exits at once. It runs on shard 1 only, and `continue-on-error` keeps a finding, or the
+      # step itself failing, off the PR's result: this prints into the job summary and blocks nothing.
+      - name: Component conformance, changed components (render tier, report-only)
+        if: github.event_name == 'pull_request' && matrix.shard == 1
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          {
+            echo '### Component conformance (render tier, changed components, report-only)'
+            echo '```'
+            node tools/conformance-render.js --changed="origin/$BASE_REF" 2>&1
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload Marp renders on failure
         # The marp-kit render gate exists because every defect it guards was
         # VISIBLE ON THE FIRST PAGE OF A PDF. A red run that leaves nothing to look

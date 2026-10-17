@@ -53,7 +53,7 @@ const {
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
   narrateBullet, narrateWordCloud, narrateDataSeries,
 } = require('./chart-narration.js');
-const { spokenValue } = require('./chart-values.js');
+const { spokenValue } = require('./chart-values-speech.js');
 export {
   buildReadAlong, emphasisForResolved, mergeNarration, plainSay, readAlongToVtt, readAlongToVttParts,
   slideToSpeech,

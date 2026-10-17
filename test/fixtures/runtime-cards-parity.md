@@ -424,3 +424,39 @@ function after() {
   return 'new';
 }
 ```
+
+---
+
+<!-- _class: stats -->
+
+## stats
+
+1. 4
+   - stats per row
+2. 8
+   - words, soft
+3. 5
+   - the soft ceiling
+
+---
+
+<!-- _class: actors -->
+
+## actors
+
+- **Owns the budget**
+  - Keeps the plan inside the envelope.
+  - `Finance`
+- **Owns the launch**
+  - Sets the date.
+  - `Product`
+
+---
+
+<!-- _class: quote -->
+
+## quote
+
+> A component with no `cards` entry is left exactly as it was.
+
+— the ungoverned control

@@ -31,12 +31,15 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 - **Writing a caption's pill as plain nested text instead of backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
 - **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
+- **An SVG mark whose viewBox carries empty margin around the logo.** Equal weight is measured on the mark's box, not its ink, so the margin counts as mark and the logo draws smaller than its neighbors. Crop each SVG's `viewBox` to its ink.
+- **Packing more marks than the slide can hold at a readable size.** A wall that would fit only with marks too small to read keeps the equal-cell grid, and the export flags its overflow. Split the roster across two slides, or drop the captions.
 
 ## When to use
 
 - **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognizable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'
 - **Marks read as one texture.** Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colors. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground.
 - **Eight to eighteen marks.** Enough to signal breadth, few enough that each is legible. Fewer than six looks thin; past eighteen the marks shrink below recognition — curate to the most recognizable names or split across two slides.
+- **Marks of mixed shapes.** Marks share one area, kept between the smallest and largest of their old areas, and no mark stands taller than the old row: beside a 1:2 crest, wordmarks come down to a square badge's area and the crest keeps its own, 2× apart (a 4:1 wordmark used to get 2.7× the crest's area, a 3:1 wordmark 3.6×). A wall that fit before still fits; rows are balanced and centered (ten marks break 4/3/3). A wall of one shape keeps its old size. The wall sizes from SVG marks (a local file, `sample:` or a `data:` SVG); a raster or remote mark keeps the equal-cell grid. Demo deck: `examples/logo-wall-equal-weight.md`.
 
 ## When NOT to use
 

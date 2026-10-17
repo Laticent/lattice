@@ -141,9 +141,9 @@ describe('resolve-cards', () => {
 
   // ── the component's own declaration ──────────────────────────────────────────
   test('a component with no manifest entry is not governed at all', () => {
-    assert.equal(governedComponent(['kpi', 'form']), null);
-    assert.equal(componentCardsAlign('kpi'), null);
-    assert.equal(resolveCardsAlign({ classes: ['kpi', 'form'] }), null,
+    assert.equal(governedComponent(['quote', 'form']), null);
+    assert.equal(componentCardsAlign('quote'), null);
+    assert.equal(resolveCardsAlign({ classes: ['quote', 'form'] }), null,
       'null means the engine stamps nothing and that component is untouched');
   });
 

@@ -1,0 +1,1 @@
+- A Mermaid pie's legend and wedge percentages are larger: 20px and 22px in the diagram's own units, up from 13px and 14px. On a diagram slide with a callout the legend now draws near 12px instead of 8px, in Lattice and in the Marp bundle. Demo: `examples/mermaid-pie-legibility.md`.

@@ -47,6 +47,8 @@ beforeEach(() => {
 			marpConfigCjs: () => 'module.exports = { options: { math: false } };',
 			packageJson: (name: string) => ({ name }),
 			vscodeSettings: (themes: string[]) => JSON.stringify({ themes }),
+			vscodeExtensions: () => '{}',
+			vscodeTasks: () => '{}',
 			readme: ({ palette }: { palette: string }) => `palette: ${palette}`,
 			agentsMd: undefined,
 		},
