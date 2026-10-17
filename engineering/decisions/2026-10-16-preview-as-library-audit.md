@@ -808,6 +808,27 @@ core first and publish only after the Playground adopts it with no core change (
 decouple the styles brief from the poster tier, run only its baseline and the sheet-size test, and stamp at
 `splitForPreview`. Posters are a tile kind in the design, so adding them later is an addition, not a rework.
 
+## 11f. The owner's rulings after the inversion (2026-10-17)
+
+These replace the matching 2026-10-17 rulings in section 9 and the phase order in section 10.
+
+1. **Posters last.** The first Studio map ships on live, wireframe and pill tiles (and segments). Posters return as one
+   more tile kind after the falsifiers in section 11e show decks over the pool cap hurt, so the foundation does not
+   change when they arrive.
+2. **Publish later, but build it as a complete library now.** `@laticent/veduta` gets everything a sibling has before it
+   is published: a name, a mark, a README, a catalog entry, a live demo page and a guide page on the docs site, a build
+   script and a boundary gate. The npm publish itself waits until the Playground has adopted the core with no change to
+   it (the section 11 tripwire).
+3. **The on-demand styles brief is decoupled from Veduta.** Run only its baseline (E0) and the stylesheet-size
+   isolation test first; do not start the byte-identical split (E1) on an untested inference. Stamping source lines
+   happens in `splitForPreview`, which never reaches an export, not in the engine, so no phase changes exported bytes
+   and the export sign-off gate does not apply.
+
+**Order of work (by what each unblocks):** the core with its property tests; the Fuoco fix
+(`followups.d/2704-p3-fuoco-report-defects.md`); the rendered index and stamping at `splitForPreview`; the library's
+trappings (mark, catalog, docs, demo, guide, build, gate); then the Studio picture-in-picture on live, wireframe and
+pill tiles; posters last.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
