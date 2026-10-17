@@ -66,6 +66,15 @@ describe('histogram row model', () => {
 });
 
 describe('histogram kernel', () => {
+  test('a band carries the mark contract, so a `chart-finish:` repaints it', () => {
+    const svg = buildHistogram(parseHistogram(li([['', '0..10', '40%'], ['', '10..20', '20%']])), {});
+    for (const a of tags(svg, 'histogram-band')) {
+      assert.deepEqual([a('data-hue'), a('data-encodes'), a('data-paint')], ['1', 'hue', 'fill']);
+    }
+    const mark = require('../../../lib/components/chart/histogram/histogram.manifest.json').kernel.marks[0];
+    assert.deepEqual([mark.encodes, mark.paint, mark.bears], ['hue', 'fill', false], 'the values print above a band, never on it');
+  });
+
   test('equal bands draw as a gapless bar chart: heights in the ratio of the values', () => {
     const svg = buildHistogram(parseHistogram(li([['', '0..10', '40%'], ['', '10..20', '20%']])), {});
     const [a, b] = tags(svg, 'histogram-band');

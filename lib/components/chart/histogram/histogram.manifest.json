@@ -22,8 +22,8 @@
       {
         "class": "histogram-band",
         "paint": "fill",
-        "encodes": "none",
-        "bears": true
+        "encodes": "hue",
+        "bears": false
       }
     ]
   },

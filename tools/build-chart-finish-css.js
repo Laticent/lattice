@@ -188,7 +188,7 @@ const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
  * kept its category hue is a mark that no longer matches its own series. Pigment and etching
  * keep a dot's hue, so they may repaint it.
  */
-const STROKE_MEMBERS = ['line', 'slope'];
+const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
 
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
 const SHARED_CLASSES = new Set(['chart-key-swatch']);
