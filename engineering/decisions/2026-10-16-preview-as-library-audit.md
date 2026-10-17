@@ -114,7 +114,7 @@ These are the failures the library must not rediscover. Each cites its note.
 3. **One document or many is a safety choice.** One shared document is cheapest (~60 MB for 69
    tiles), but a local component's `extraCss` would then style every tile. Per-tile documents keep
    isolation (`preview-pool.tsx`). The library must let the connector choose.
-4. **A poster capture needs CDATA, and every `url()` inlined as `data:`.** The engine stylesheet holds 147 literal `<`, which kills an
+4. **A poster capture needs CDATA, every `url()` inlined as `data:`, and must be taken at native size (never scaled inside the SVG; §11c).** The engine stylesheet holds 147 literal `<`, which kills an
    SVG `foreignObject` (XHTML) but not an HTML `<style>`. Wrap the CSS in CDATA
    (`2026-09-13-gallery-preview-memory.md` §5). The cache key must include component skeleton,
    theme, palette, mode, `@size`, front matter, engine version and `extraCss`; miss one and the map
@@ -446,6 +446,91 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
 
 **Still unmeasured:** a 2x tile, node removal as the release path, author images in a capture, iOS
 Safari, pruned capture time, and any of the window, tier or hub work (nothing of Veduta itself is built).
+
+## 11c. A throwaway prototype of the fidelity ladder (2026-10-17)
+
+The owner asked to prototype the ideas borrowed from games and CGI (proxies, tile pyramids, derived-data
+caches, budgeted streaming) and measure them. Scratch scripts only, not committed; Chromium 131 and
+Linux WebKit, not iOS. Decks: `focus.md` in two themes (14 slides) and the 120-slide gallery, rendered
+by the CLI. Every number below is a median-ish of 4 slides or one run; treat differences under about 2x
+as noise.
+
+**1. Capture at native size, then downscale. Never scale inside the SVG.** Against a real element
+screenshot of the same slide (mean absolute pixel error, 0 to 255):
+
+| Capture | Chromium | WebKit |
+|---|---|---|
+| native 1280x720, downscaled on a canvas to 320x180 | 0 | 0.01 to 0.27 |
+| scaled to 320x180 inside the SVG (`viewBox`) | 0.75 to 1.8 | **4.2 to 17.7** |
+
+This explains the earlier gotcha about scaled `foreignObject` on WebKit, and it settles the tile pyramid:
+one native capture plus canvas downscales is **more correct** than capturing each size, and on Chromium 2 to
+3 times faster than three captures (180 to 200 ms against 390 to 670 ms). It also retires the first
+spike's "derived vs direct" comparison, whose direct side was the scaled, wrong one.
+
+**2. Pruning the stylesheet saves bytes, not yet time.** Pruning font faces to the used families cut the SVG
+17% (2,135 to 1,778 KB) with identical pixels. Pruning to the CSS rules the slide matches cut it **58% (to
+about 900 KB)**, also pixel-identical, but computing the used rules cost 60 to 165 ms per slide, about what
+it saved. It pays only with an index built once per theme and class set, as the export player's prune
+effectively has. Not built.
+
+**3. A poster cannot be captured in the background without jank.** Baking 40 tiles while the page scrolled
+(frame gaps measured with a `requestAnimationFrame` probe; `longtask` is not available in WebKit):
+
+| Mode | Chromium frames over 50 ms | WebKit frames over 50 ms |
+|---|---|---|
+| scroll only (control) | 0 | 0 |
+| bake back-to-back | 39 | 53 |
+| bake, 16 ms gap | 39 | 66 |
+| bake, 100 ms gap | 39 | 75 |
+| bake with used-CSS capture, back-to-back / 16 ms gap | 39 / 39 | 44 / 72 |
+
+**Pacing spreads the hitches, it does not remove them.** Each capture is one 150 to 300 ms main-thread task
+(decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms), so no scheduler can hide it; only
+the *number of consecutive* long frames changes. A budgeted scheduler is still right, but its job is to
+bake only while the user is idle, one capture at a time, so a hitch is at worst one frame at the moment an
+input arrives.
+
+**4. A wireframe tier is cheap, and only a partial stand-in.** A layout-only SVG from the rendered boxes,
+coloured by tokens: **0.8 to 2.5 KB, 0.3 to 2 ms** to generate, against 150 to 300 ms for a poster. Its
+likeness to the real slide is moderate (luminance correlation 0.44 to 0.66 on Chromium, 0.30 to 0.52 on
+WebKit; mean error 12 to 32), and my flat-gray baseline has zero variance, so the correlation comparison
+against it is uninformative. After a theme switch (indaco to cuoio) the recolored wireframe was off by 11
+to 20; the stale poster was off by 10 on three slides and 48 on the title slide, so a wireframe beats a
+stale poster only where the theme changes the slide a lot. (The WebKit stale-poster rows used the scaled
+capture from finding 1 and are not usable.) **Verdict: keep it as the tier for cold start and for
+interaction time, when a poster cannot be afforded; do not treat it as a poster replacement.** It still
+needs a look-at-it check before it ships.
+
+**5. Content-addressed keys work if position is normalized.** Hashing all 120 slides took 50 ms. One text
+edit changed exactly 1 of 120 keys. Inserting a slide at the top of the gallery is the real test:
+
+| Key | Old keys still valid after the insert |
+|---|---|
+| raw `outerHTML` | **0 of 120** |
+| without the slide index, `id` and pagination attributes | 14 of 120 |
+| also with the visible page number (`<span class="lat-pagination">`) blanked | 107 of 120 |
+
+The remaining 13 differ only in position-numbered ids inside generated SVG (`lat-svgt-79-1`), so a fuller
+normalization should reach nearly all. Two consequences: (a) the poster's page number is deck-derived and
+must be drawn by the map (which already draws the slide number) or excluded from the capture; (b) a diagram
+slide's HTML differed between two page loads because the diagram had not finished drawing, so a key or
+capture taken before it settles is unstable.
+
+**What this changes in the design**
+
+1. Capture at the slide's native size and build the pyramid by canvas downscale. (Constraint 4 now says so.)
+2. The poster excludes position chrome, or its key blanks it; the map draws the number.
+3. The baker is single-flight and gated on user idleness; "no jank" is not claimed, only "at most one
+   hitch at input onset", and it must be measured in the first real build.
+4. The wireframe is the interaction-time tier, behind a visual check. The ladder reads placeholder,
+   wireframe, poster, live.
+5. Static content (the component gallery) and exports are baked off the user's machine (CI, export), because
+   foreground baking costs a hitch per tile.
+6. The used-rule CSS index is a candidate optimization, not a given.
+
+**Not measured:** iOS Safari; capture time for the wireframe-to-poster crossfade; author images; decoded
+memory of the pyramid sizes beyond §11b; a bundled build; any of Veduta itself.
 
 ## 12. Next step
 
