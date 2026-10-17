@@ -33,6 +33,7 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
+import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -42,6 +43,8 @@ import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
+import bakedFigureCore from '../../../../../lib/plugins/mermaid/shared/baked-figure.js';
+import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
@@ -51,6 +54,9 @@ import { downloadBlob } from '../download.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
+const { bakedFigureOpenTag } = bakedFigureCore;
+const { equalizeCardTags } = cardTagEqualizeCore;
+const { authorPinsTheme } = initDirectiveCore;
 
 /** The type lib/core/export-settings.js writes and the runtime reads (`EXPORT_SETTINGS_TYPE`). */
 const EXPORT_SETTINGS_BLOCK = dataBlockCore.dataBlock('application/lattice-export-settings');
@@ -459,7 +465,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -508,7 +514,9 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// than the authoring one. Only the Webpage bake passes a level today; the rasterizers keep
 		// their behavior. Added here, not in buildSrcdoc, because that module loads with every
 		// preview and this one only on export (`withExportSettings`).
-		const frameDoc = overflowMarker ? withExportSettings(srcdoc, { overflowMarker: resolveOverflowMarker(overflowMarker) }) : srcdoc;
+		const frameDoc = overflowMarker || playerBake
+			? withExportSettings(srcdoc, { overflowMarker: overflowMarker ? resolveOverflowMarker(overflowMarker) : undefined, playerBake: playerBake || undefined })
+			: srcdoc;
 		// Every settle await below is BOUNDED — an unbounded wait could hang the
 		// export forever (a srcdoc whose load never fires, or a `fonts.ready` that
 		// stalls on a slow/failed face), leaving the mobile progress card stuck with
@@ -715,6 +723,38 @@ async function slideChannelRecord(html) {
 
 /** Each top-level slide's `style` attribute as the engine wrote it (null when it has none), in
  *  order, read with the depth-aware section walker so a `<section>` nested in a slide is not a slide. */
+// EVERY DRAWN MERMAID FIGURE LEAVES IN THE `figure-baked` SHAPE, the CLI's (lib/plugins/mermaid/
+// shared/baked-figure.js): one `div.mermaid-svg[data-lattice-figure][data-mmd-idx]` holding the baked
+// svg, in place of the live pair the browser pass draws into (the source `<pre>` and its sibling
+// `.mermaid`). The pair shipped here until 2026-10-17, and it was the only difference left between
+// the two hosts' files for a deck with diagrams (decisions/2026-10-16-player-as-library-audit.md
+// §11.9). mermaid.styles.css styles both shapes, so the figure keeps its look.
+//
+// `data-mmd-idx` is the figure's place in the shared kernel's walk (lib/core/render-diagrams.js),
+// which runs in document order and counts EVERY fence, drawn or not: the CLI pushes each walked
+// fence before it renders (mermaid.bake.js `MERMAID_REBAKE_DEFS`). So it is the fence's index among
+// all Mermaid fences in the document, not the svg's id number: the browser pass refuses an over-long
+// fence before it takes a counter value, so `lattice-mmd-<n>` and the index part ways after one. A
+// figure that did not draw keeps its source `<pre>`, as it ships from the CLI (`mermaidFallbackPre`),
+// and is already counted as failed; such a deck is not byte-identical across hosts in any case.
+function bakedMermaidFigures(doc) {
+	const fences = [...doc.querySelectorAll('pre[data-lattice-hydrate="mermaid"]')];
+	fences.forEach((pre, idx) => {
+		if (pre.getAttribute('data-lattice-settle') !== 'rendered') return;
+		const fig = pre.nextElementSibling;
+		if (fig?.getAttribute('data-lattice-figure') !== 'mermaid') return;
+		const svg = fig.querySelector(':scope > svg');
+		if (!svg) return;
+		const holder = doc.createElement('div');
+		holder.innerHTML = `${bakedFigureOpenTag({ name: 'mermaid', pinned: authorPinsTheme(pre.textContent || ''), idx })}</div>`;
+		const wrap = holder.firstElementChild;
+		if (!wrap) return;
+		wrap.append(svg);
+		pre.replaceWith(wrap);
+		fig.remove();
+	});
+}
+
 async function slideStyleAttrs(html) {
 	// No slide, nothing to restore, and no reason to load the authoring bundle for it.
 	if (!/<section\b/i.test(String(html || ''))) return [];
@@ -770,7 +810,7 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  */
 export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 	const authoredStyles = await slideStyleAttrs(render.html);
-	const { frame, dispose } = await createCaptureFrame({ ...render, framePadding: 0 }, { releaseDiagrams: false });
+	const { frame, dispose } = await createCaptureFrame({ ...render, framePadding: 0, playerBake: true }, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
 		if (!doc) return null;
@@ -787,12 +827,69 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// `share-export.ts` already turns that into "N figure(s) ship as source, not as
 		// drawings" for the author. A second channel would report the same fences twice.
 		await waitForDiagrams(doc, 12000);
-		// The level's strip, the same function the CLI runs before it takes its player DOM.
+		// Loaded BEFORE anything below touches the frame, so everything from the first style restore
+		// to the serialization is ONE synchronous run. The frame's runtime is live: a mutation queues
+		// its observer, and an `await` in the middle let that pass land part-way through — under load
+		// it re-measured the slides between the restore and the read and stamped `illegible` tabs
+		// that an unloaded export never had.
+		const { bakeSvg } = await import('../../../playground/standalone-svg.generated.js');
+		// The level's strip, the same function the CLI runs before it takes its player DOM. Inside
+		// the synchronous run too: stripped before the import's `await`, the runtime's fit watcher
+		// minted the `reader` level's removed `illegible-tab` berths back onto three slides of
+		// system-design-foundations before the read.
 		if (render.overflowMarker) stripMarkerForLevel(resolveOverflowMarker(render.overflowMarker), doc);
 		const sections = [...doc.querySelectorAll('.lattice > section')];
 		if (!sections.length) return null;
 		let diagrams = 0;
 		let failed = 0;
+		for (const sec of sections) {
+			// Counted BEFORE `bakedMermaidFigures` swaps each drawn Mermaid pair for the baked
+			// figure, while the source `<pre>` still carries the settle state.
+			//
+			// Counted by the host's markup, like the wait: every runtime-drawn figure, whichever
+			// plugin drew it, is `rendered` or it ships as source.
+			for (const fig of sec.querySelectorAll('[data-lattice-hydrate][data-lattice-settle]')) {
+				if (fig.getAttribute('data-lattice-settle') === 'rendered') diagrams++;
+				else failed++;
+			}
+		}
+		// The baked shape BEFORE the bake measures: the bake turns each HTML label into SVG text at
+		// the position it measures on the live svg, and that svg lays out under the wrapper's CSS.
+		// Measured inside the live `.mermaid` it sat at another scale from the CLI's, which measures
+		// inside `.mermaid-svg`, and every converted label's `y` came out a few millionths apart.
+		bakedMermaidFigures(doc);
+		// Every inline style the frame wrote onto a slide is frame chrome — the FIT agent's
+		// transform, the runtime's `--_sec-1cqi` / `--_sec-1cqh` size stamps — and none of it
+		// belongs in a file. Restoring the engine's own attribute drops all of it at once and keeps
+		// the engine's spelling: `removeProperty` made the browser re-serialize the whole attribute
+		// (`--theme: "indaco"; …`), so the same slide shipped differently from the CLI, whose page
+		// never touches it (decisions/2026-10-16-player-as-library-audit.md §11.9). A deck whose
+		// frame holds another slide count than its render falls back to removing the FIT props.
+		const restore = authoredStyles && authoredStyles.length === sections.length;
+		const restoreSlideStyles = () =>
+			sections.forEach((sec, i) => {
+				if (restore) {
+					if (authoredStyles[i] == null) sec.removeAttribute('style');
+					else sec.setAttribute('style', authoredStyles[i]);
+				} else {
+					for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
+					if (!sec.getAttribute('style')) sec.removeAttribute('style');
+				}
+			});
+		restoreSlideStyles();
+		// …and the card-tag equalizer's section stamp put back, by the same kernel the CLI injects
+		// into its page (lattice.js `equalizeCardTagsInPage`). `--card-tag-block` is a measured
+		// LAYOUT input (base.card-tag.css reserves the tag's height from it), not frame chrome, and
+		// the restore above dropped it with the rest, so a tagged card's body in the Studio's player
+		// lost its reserve under the tag. Run after the restore, so it
+		// writes the property the way the CLI's page does, and inside the synchronous run, so the
+		// live runtime cannot interleave.
+		equalizeCardTags(doc);
+		// BEFORE the bake, not after it: the bake turns each Mermaid HTML label into SVG text at a
+		// position it measures in SCREEN space, so the fit agent's transform leaked float noise into
+		// every converted label (`y="9.99996…"` here, `y="10.00005…"` from the CLI's page, which runs
+		// no runtime and so carries no transform). Restored first, the frame measures each slide as
+		// the CLI's page lays it out.
 		// Bake each Mermaid svg into a SELF-STYLED one with native <text> labels. The
 		// player sanitizes its slide DOM and that sanitizer bars both things a Mermaid
 		// svg leans on — its own injected `<style>` (all of mermaid's type + paint) and
@@ -804,7 +901,6 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// player ships, and freezing their computed colors would pin them to the
 		// export-time scheme, killing the player's dark/light toggle and Read·Article's
 		// `figure.chart-frame` recolor. Mermaid bakes its colors at render time anyway.
-		const { bakeSvg } = await import('../../../playground/standalone-svg.generated.js');
 		const win = frame.contentWindow;
 		// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the
 		// player's sanitizer strips it, and the diagram ships as shapes with no words —
@@ -814,6 +910,17 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// The host's figure marker (plugin-system phase D), written by every drawn plugin's runtime pass
 		// and bake alike — never a plugin's own output class.
 		const svgs = doc.querySelectorAll('[data-lattice-figure] > svg');
+		// A MERMAID ROOT IS FINISHED THE WAY THE CLI'S WORKER FINISHES IT, before the bake reads it:
+		// the worker sets the root's background (lib/plugins/mermaid/shared/render-worker.js, kept for
+		// the image set's standalone files), which also makes the browser re-write the root's whole
+		// `style` attribute, and its XMLSerializer declares the xlink namespace. Both ride into the
+		// CLI's file, so the same diagram shipped differently from here
+		// (decisions/2026-10-16-player-as-library-audit.md §11.9).
+		for (const svg of svgs) {
+			if (svg.parentElement?.getAttribute('data-lattice-figure') !== 'mermaid') continue;
+			svg.style.backgroundColor = 'transparent';
+			svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xlink', 'http://www.w3.org/1999/xlink');
+		}
 		for (const svg of svgs) {
 			try {
 				const flat = bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens });
@@ -825,43 +932,10 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		if (unbaked) {
 			console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
 		}
-		// Every inline style the frame wrote onto a slide is frame chrome — the FIT agent's
-		// transform, the runtime's `--_sec-1cqi` / `--_sec-1cqh` size stamps — and none of it
-		// belongs in a file. Restoring the engine's own attribute drops all of it at once and keeps
-		// the engine's spelling: `removeProperty` made the browser re-serialize the whole attribute
-		// (`--theme: "indaco"; …`), so the same slide shipped differently from the CLI, whose page
-		// never touches it (decisions/2026-10-16-player-as-library-audit.md §11.9). A deck whose
-		// frame holds another slide count than its render falls back to removing the FIT props.
-		const restore = authoredStyles && authoredStyles.length === sections.length;
-		sections.forEach((sec, i) => {
-			if (restore) {
-				if (authoredStyles[i] == null) sec.removeAttribute('style');
-				else sec.setAttribute('style', authoredStyles[i]);
-			} else {
-				for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
-				if (!sec.getAttribute('style')) sec.removeAttribute('style');
-			}
-		});
 		// Runtime BOOKKEEPING is not deck content: `data-lattice-image-text` is the image-text fold's
 		// "decided already" mark (lib/core/bg-image.js), written by a DOM pass the CLI's page does not
 		// run, so it shipped in the Studio's file alone (§11.9).
 		for (const sec of sections) sec.removeAttribute('data-lattice-image-text');
-		for (const sec of sections) {
-			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
-			// CLI's player carries none (mmdc replaces the fence outright). It is already
-			// `display:none`, and both the visibility and the SVG sizing rules are written as
-			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + [data-lattice-figure]`
-			// in mermaid.styles.css / highlight-js.css) — removing the <pre> would unstyle the very
-			// diagram this step exists to ship. Read·Article is unaffected: the prose
-			// projection re-hosts the first `svg` under the stage, which is the rendered one.
-			//
-			// Counted by the host's markup, like the wait: every runtime-drawn figure, whichever
-			// plugin drew it, is `rendered` or it ships as source.
-			for (const fig of sec.querySelectorAll('[data-lattice-hydrate][data-lattice-settle]')) {
-				if (fig.getAttribute('data-lattice-settle') === 'rendered') diagrams++;
-				else failed++;
-			}
-		}
 		return { sections: sections.map((s) => s.outerHTML), diagrams, failed };
 	} finally {
 		dispose();

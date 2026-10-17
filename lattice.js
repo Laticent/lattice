@@ -1422,7 +1422,13 @@ const layoutCSS = inlinedFaces.css;
 // (`shippedSheetText`), so both hosts pack the same spelling (§11.9 of
 // decisions/2026-10-16-player-as-library-audit.md). A caller's `--css`, an installed theme, or a
 // missing build keeps the source. The token readers still read `layoutCSS` / `paletteCSS`.
-const deckSheetLayout = (cssIsDefault && shippedSheetText(PKG_ROOT, 'layout')) || layoutCSSLinked;
+//
+// "The default layout" means the package's own `dist/lattice.css`, however it was named: the
+// test helpers and scripts pass it explicitly (`lattice.js deck.md dist/lattice.css out.pdf`), and
+// keying on `cssIsDefault` alone shipped the source spelling there while `tools/palette-sweep.js`
+// composed from the minified build, so the sweep's identity check refused every render.
+const layoutIsShipped = cssIsDefault || path.resolve(cssFile) === path.resolve(PKG_ROOT, 'dist', 'lattice.css');
+const deckSheetLayout = (layoutIsShipped && shippedSheetText(PKG_ROOT, 'layout')) || layoutCSSLinked;
 const CLI_THEMES = cliThemeStore(deckSheetLayout, paletteChain.map((n, i) => ({
   name: n, css: (!(installedTheme && n === paletteName) && shippedSheetText(PKG_ROOT, 'palette', n)) || readFileOrDie(paletteFiles[i], `palette '${n}'`),
 })));
@@ -2376,10 +2382,11 @@ function strippedSlidesOrAuthored() {
     if (source === rawMd) { scrubBoundaryMeasured = true; return slidesAsAuthored; }
     const rendered = engineSlides(source);
     if (matches(rendered)) {
-      // The source that SHIPS is the source that was rendered. It used to be recomputed
+      // The cut that was measured is the cut every shipped source uses. It used to be recomputed
       // independently for the envelope, so a fallback shipped authored slides beside a
       // restructured source and the "verbatim source for lossless re-import" re-imported as a
-      // different deck.
+      // different deck. The player envelope and `--embed-source` both ship `md`, not this
+      // document, and so go through `attachableSource`, which checks the cut on `md` itself.
       scrubBoundary = boundary;
       scrubBoundaryMeasured = true;
       return rendered;
@@ -2411,8 +2418,8 @@ function strippedSlidesOrAuthored() {
 }
 // THE PDF ATTACHMENT IS A DIFFERENT DOCUMENT FROM THE ONE THAT WAS MEASURED, and until this
 // guard nothing said so. `strippedSlidesOrAuthored` measures the cut against `rawMd` — after the
-// Mermaid pre-render and the auto-glossary append — because that is what pass 2 renders and what
-// the player envelope ships. `--embed-source` attaches `md`: the deck as the author wrote it, so
+// Mermaid pre-render and the auto-glossary append — because that is what pass 2 renders.
+// `--embed-source`, `--reopenable` and the player envelope ship `md`: the deck as the author wrote it, so
 // the artifact round-trips to an editable deck rather than to machine-expanded output. That is
 // the right thing to attach and it is why the two differ. Applying `scrubBoundary` to `md`
 // applied a measurement taken on one document to another one, which the fidelity guard never saw.
@@ -4837,7 +4844,15 @@ async function renderBody(browser, g, closeBrowser) {
         // from the render; say lines match the `say:` prefix), so the shared file leaks
         // no speaker text and/or no say text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
-        source: stripSharedSource(rawMd, noteStripSet),
+        //
+        // `md`, the deck as authored, NOT `rawMd`: the plugins' bakes have replaced every
+        // ```mermaid fence in `rawMd` with its drawn SVG and appended the auto-glossary, so a
+        // re-import got frozen diagrams instead of their source
+        // (decisions/2026-08-05-bake-before-render-ordering.md), and the Studio, which ships the
+        // editor's text, shipped a different source for the same deck (2026-10-16 audit §11.9).
+        // Through `attachableSource`, the guard for exactly this: the strip cut was measured on
+        // `rawMd`, and it re-checks that cut on `md` (and warns once when neither cut reproduces it).
+        source: attachableSource(md),
         // `false` FORCES the still; `undefined` inherits the deck's own registers
         // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
         // only suppress, never force motion on — a deck that says `motion: off` means it.
@@ -4857,7 +4872,12 @@ async function renderBody(browser, g, closeBrowser) {
         // surfaces as `""`), so `config` normally carries no say text — but an inline
         // `say: {…}` form would echo here. Under `--strip-say` drop the key outright
         // so the envelope config can't carry ANY say-labeled text (privacy, not just the map).
-        config: STRIP_SAY ? { ...deckFm, say: undefined, captions: undefined } : deckFm,
+        //
+        // Parsed from `md`, the deck as authored, like `source` above: `deckFm` reads `rawMd`, whose
+        // `glossary: auto` trigger the auto-glossary strips once it has run, so the record described
+        // a deck its own source contradicted, and the Studio's (parsed from the editor's text) said
+        // otherwise (decisions/2026-10-16-player-as-library-audit.md §11.9).
+        config: STRIP_SAY ? { ...parseFm(md).directives, say: undefined, captions: undefined } : parseFm(md).directives,
         // Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
         // `!STRIP_NOTES` was a one-bit answer to "did the author run the privacy flag?", sitting
         // in plain base64 at the bottom of a file you email to someone: a deck that never had a
@@ -5565,7 +5585,7 @@ function attachableSource(src) {
   if (!cut.measured && md !== rawMd && !attachableMemo.size) {
     // Names the flags that are on and the format, as `strippedSlidesOrAuthored` does: an author
     // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`.
-    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean).join(' / ');
+    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable', PLAYER && '--player'].filter(Boolean).join(' / ');
     console.warn(
       `  WARNING: the deck source embedded in the .${OUT_FORMAT} could not have a note or say comment `
       + 'removed without changing the deck. This is the block-boundary case --strip-notes '

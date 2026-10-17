@@ -95,7 +95,7 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * KEYED ON `aria-roledescription`, which every Mermaid family writes on the svg root and
  * none of our chart SVGs carry — a chart is token-driven and must keep filling its band.
  * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
- * from the CLI, `lattice-mermaid-N` from the browser).
+ * on every path, which also prefixes the svg's internal ids).
  *
  * THE FLOOR. The contract above scales down without limit, so a wide LR flowchart drew
  * 3.4px labels on a phone. The prose-projection kernel now writes natural width, floor

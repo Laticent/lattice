@@ -11,3 +11,13 @@
 - **Fixed: a portrait, square, story or mobile deck exported from the Studio as a Webpage is cut
   into pages, as the CLI's `--player` cuts it.** The Studio shipped each multi-element slide as one
   crowded page, so a `size: story` deck had 8 slides from the Studio and 32 from the CLI.
+- **Fixed: a CLI `--player` file carries the deck's diagrams as source, not as drawings.** Its
+  embedded source had every Mermaid fence replaced by the drawn SVG, so re-importing the file gave
+  frozen diagrams nobody could edit. It now carries the deck exactly as written, as the Studio's does.
+- **Fixed: Mermaid drop shadows draw in a CLI `--player` file.** The file's HTML pass lowercased the
+  `feDropShadow` filter element, which SVG then ignored.
+- **Fixed: a tagged card in a deck exported from the Studio as a Webpage keeps its room under the
+  tag.** The export dropped the measured tag height the card's padding reads.
+- **Fixed: a diagram in the Studio's preview and exports has an accessible name.** A diagram
+  without `accTitle:` reached a screen reader as an anonymous graphic; it is now named for its
+  type ("Pie chart", "Flowchart"), as CLI exports already named it.

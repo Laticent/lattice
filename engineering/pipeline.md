@@ -408,9 +408,17 @@ differently, so the guard refuses the merge. Record: `decisions/2026-10-16-playe
 
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
-Studio's own modules bundled into Chromium. That covers the packer, not the renderers: the CLI and
-the Studio still render a deck to different `docHtml`, so the same deck does not yet give the same
-file. Record: `decisions/2026-10-16-player-as-library-audit.md` §11.
+Studio's own modules bundled into Chromium. That covers the packer.
+
+**And the two hosts render the same deck to the same file.** The Studio's Share → Webpage export and
+the CLI's `--player` write identical bytes for one deck, apart from three things the owner ruled out:
+the record's `generatedAt`, its `host` field (`cli` or `studio`), and the policy's script hashes.
+`docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, with the Studio
+suite), on a plain deck, a Mermaid deck and a portrait split; 25 example decks were measured identical
+when it landed. **The claim is per browser build:** both hosts read computed styles, and two Chromium
+versions spell some computed colors differently, so the spec runs the CLI on the Chromium the suite
+uses, and a Studio export made in Safari or Firefox will differ. Record:
+`decisions/2026-10-16-player-as-library-audit.md` §11.9.
 
 **This is same-machine reproducibility, and the cross-machine gap is much bigger
 than people expect.** Skia's rasterization is CPU-dispatched and not

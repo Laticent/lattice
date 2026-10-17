@@ -951,6 +951,30 @@ CLI and 8 from the Studio.
 **Byte-identical now:** the nine above plus adaptive-sizing (10 of 12), and auto-split,
 cover-paginate and inventory-split-portrait on a second split corpus. Still open: Mermaid.
 
+**Fourth round: diagrams.** The two hosts draw a Mermaid diagram with the same library build and
+the same kernel (`renderDiagrams`), and the drawings already had identical geometry. What differed
+was everything around the drawing, plus three measurement contexts:
+
+| Fix | What it closed |
+|---|---|
+| The Studio's bake ships each drawn figure in the `figure-baked` shape (`div.mermaid-svg[data-mmd-idx]`, the manifest's player surface), built by `bakedFigureOpenTag` in a new `lib/plugins/mermaid/shared/baked-figure.js` the CLI bake uses too | the spent source `<pre>` and the live `.mermaid` sibling, and the stylesheet rules the prune kept for them |
+| One svg id prefix (`lattice-mmd-N`) on every path; the accessible-name floor (`aria-label="Pie chart"`) and the sankey label collapse moved into the shared module and applied by the browser pass too | the root's id, a name the live preview and the Studio never gave a diagram, and a label newline |
+| The Studio's bake sets the root's background and declares the xlink namespace, as the CLI's worker does | the root `style` and `xmlns:xlink` |
+| The browser's token reader returns a literal hex as written, and a `light-dark()` token as the hex of the side its probe resolved | `fill="rgb(…)"` against the CLI's `fill="#C2E6C8"` |
+| The Studio's Webpage bake frame writes `playerBake: true` into its export settings block, and a browser render that sees it (`ctx.isPlayerBake()`) takes the export's Mermaid config and draws in a 784 px stage, the box the CLI's worker draws in (`DIAGRAM_STAGE_WIDTH`) | flowchart roots in px, a 1280-wide Gantt against 784, xychart positions a few millionths apart |
+| The bake restores each slide's engine `style` before it measures, re-runs the card-tag equalizer (the kernel the CLI injects), and runs strip, restore, bake and read with no `await` between them | label `y` noise from the fit agent's transform; `--card-tag-block`, a layout input the round-one restore had dropped (a regression this PR introduced and this round fixes); `illegible` berths the live runtime re-minted during the wait, and only under load |
+| The CLI's envelope carries the deck as authored (`md`), and its record's `config` is parsed from the same text | baked SVG as the re-import "source" (the 2026-08-05 note's user-visible win), and the `glossary: auto` key the auto-glossary strips |
+| The CLI's finished player file restores `feDropShadow`, which jsdom's HTML parser lowercases | a dead `<fedropshadow>` element: every Mermaid drop shadow in a CLI player file drew nothing |
+
+**Byte-identical now, across 25 decks:** every deck above, plus system-design-foundations (234
+slides at 4K, 32 diagrams), sequence-narration, mindmap-branch-colors, mermaid-sketch-labels,
+xychart-narration, containment-tier, chart-body-tier, hub-spoke-sketch, plugin-system-phase-b and
+card-tag-placements. Measured with both hosts on one Chromium build (141). The CLI's default browser
+in this sandbox is Chrome 131, and two Chromium versions spell some computed colors differently
+(`oklch(0.47 0.017 259.53)` against `oklch(0.47 0.017 none)` for the same `color-mix()`), so the
+claim is per browser build. A Studio export made in Safari or Firefox will differ from the CLI's
+wherever the bake reads a computed style.
+
 **The default mode is a UI choice, not a pipeline gap.** With the Studio preview in light, every
 deck above opens in the same mode from both hosts. With the preview in dark, a deck with no
 `color-mode:` exports dark from the Studio by default. The export panel deliberately defaults to
