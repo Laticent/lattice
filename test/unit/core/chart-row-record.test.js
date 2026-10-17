@@ -107,6 +107,13 @@ describe('runtime: a pill drawn earlier in the row does not change who owns the 
     await new Promise((r) => setTimeout(r, 300));
     return dom.window.document.querySelector('section').innerHTML;
   };
+  test('a bold-wrapped value in the lead is a value to the runtime too, so a delta beside it stays a pill', async () => {
+    const html = await boot('bar', '- North **`40`** up `{+3%}`\n- South `30`\n- East `20`');
+    assert.match(html, /North 40 up \+3%/, 'the label keeps its delta pill');
+    const nested = await boot('bar', '- Q1 **`16`**\n  - vs plan `{-12%}`\n- Q2 `20`\n- Q3 `18`');
+    assert.doesNotMatch(nested, /<code>\{-12%\}<\/code>/, 'the detail keeps a pill, not raw braces');
+  });
+
   test('a record followed by a no-break space is still the row\'s record in the runtime', async () => {
     const body = '- EMEA `{4}` &nbsp;\n- APAC `3`';
     assert.match(engine.render(deck('bar', body), {}).html, /data-value="4"/, 'control: the engine draws EMEA');
@@ -479,6 +486,16 @@ describe('the paths agree on the data row', () => {
     rows.rawBlockCounts(`<div>${'<a'.repeat(300000)}"${'x'.repeat(2000)}`);
     rows.rawBlockCounts(`<a`.repeat(120000));
     assert.ok(Date.now() - t < 1500, `${Date.now() - t} ms`);
+  });
+
+  test('the HTML bridge reads a pill drawn earlier in the row as code and as a lead span, as the pill pass does', () => {
+    const live = '<span class="lat-pill" data-shape="pill">LIVE</span>';
+    const row = `<ul><li>North ${live} <code>{40%, at-risk}</code></li><li>South <code>60%</code> <code>on-track</code></li></ul>`;
+    assert.equal(rows.bridgeRecordsHtml(row, ['progress']), row, 'code right before: not the record');
+    const value = '<ul><li>North <span class="lat-pill" data-shape="pill">9</span> up <code>{+3%}</code></li><li>South <code>30</code></li></ul>';
+    assert.equal(rows.bridgeRecordsHtml(value, ['bar']), value, 'a bare label pill is a value: the delta stays');
+    const badge = '<ul><li>North <span class="lat-pill" data-shape="circle" data-c="c5">1</span> grew <code>{4}</code></li><li>South <code>3</code></li></ul>';
+    assert.match(rows.bridgeRecordsHtml(badge, ['bar']), /<code>4<\/code>/, 'a badge is not a value: the record is');
   });
 
   test('the source bridge reads CRLF', () => {

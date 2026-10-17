@@ -67,3 +67,10 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                cell decoder; the source bridge reads a record before `&nbsp;` and leaves a record behind a raw list alone; the DOM
                mirror ends a lead at a comment or a raw `<div>`/`<hr>`. Left, narration only and rare: a record in a double-backtick
                span is drawn but not narrated; the narrator still rewrites a record after a quoted grid table or a `|` continuation line.
+           13. Ninth round (2026-10-17, fourth independent checker on 2b98e9b): fixed here with a test each: the runtime reads a code span
+               inside an inline wrapper (`**`40`**`) as part of the row's lead, as the engine and Compose do (a delta beside it stayed
+               a pill on `main` and lost its text in the runtime); the HTML bridge reads a pill an earlier pass drew in the row as code
+               right before and as a lead span, as the pill pass does (it rewrote a record the pill pass declined, and lint's message
+               about that shape was false). Left, lint-only and no visible effect found: lint's `recordPlace` treats a trailing `&nbsp;`
+               as content, does not count a bullet-to-ordered delimiter switch, a quoted list ahead, or an inline raw `<ul>` as lists
+               ahead; Compose's `ownsRecord` does not count an inline raw `<ul>` ahead; the narrator reads CRLF text as LF once it rewrites.
