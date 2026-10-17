@@ -26,7 +26,7 @@ const num = (r) => String(Math.round(r() * 90) / 10 + 1);
 const CHARTS = {
   bar: { series: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   line: { series: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
-  'stacked-bar': { series: true, total: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
+  'stacked-bar': { series: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   slope: { series: true, nestedOnly: true, make: (r) => `${Math.round(r() * 80) + 5}%`, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   piechart: { make: (r) => `${Math.round(r() * 40) + 5}%`, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   funnel: { make: (r) => String(Math.round(r() * 900) + 50), old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
@@ -69,8 +69,14 @@ function slide(chart, r) {
       }
     } else {
       const v = c.make(r);
-      out.old.push(`${m} ${label} ${c.old(v)}`);
-      out.rec.push(`${m} ${label} ${c.rec(v)}`);
+      if (r() < 0.15) {
+        // The value on a continuation line of the same paragraph (lazy or indented), as an author wraps a long label.
+        out.old.push(`${m} ${label}`, `${pad}${c.old(v)}`);
+        out.rec.push(`${m} ${label}`, `${pad}${c.rec(v)}`);
+      } else {
+        out.old.push(`${m} ${label} ${c.old(v)}`);
+        out.rec.push(`${m} ${label} ${c.rec(v)}`);
+      }
       if (r() < 0.2) {
         // A description under the row: the chart reads it as the row's detail.
         out.old.push(`${pad}> note ${i}`);

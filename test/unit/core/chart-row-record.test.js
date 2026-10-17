@@ -104,7 +104,8 @@ describe('ownership: the claim is narrow', () => {
     assert.equal(rows.ownsRecordSpan(['bar'], '{4.2}', { ...place, afterCode: true }), false, 'after another code span');
     assert.equal(rows.ownsRecordSpan(['radar'], '{4.2}', place), false, 'a radar series row draws no mark');
     assert.equal(rows.ownsRecordSpan(['piechart'], '{4.2}', { ...place, depth: 2, ancestors: ['60%'] }), false, 'detail on a fields chart');
-    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: ['24'] }), true, 'data on a series chart');
+    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: [null] }), true, 'a segment under a category with no total');
+    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: ['24'] }), false, 'under a total it is read from the old spans until phase 4');
     assert.equal(rows.ownsRecordSpan(['list'], '{4.2}', place), false, 'a slide outside the model');
     assert.equal(rows.ownsRecordSpan(['heatmap'], '{4}', { cell: true, lastInRow: true }), true);
     assert.equal(rows.ownsRecordSpan(['heatmap'], '{4}', place), false, 'a list row on a grid chart');
@@ -185,12 +186,12 @@ describe('the paths agree on the data row', () => {
     const html = render(deck('piechart', '- Direct `60%`\n  - Online `{40%}`\n- Partner `40%`'));
     assert.match(html, /lat-pill/);
     assert.doesNotMatch(html, /<code>\{40%\}<\/code>/);
-    // stacked-bar: a valued category (the authored total) over its segments; the segments are the data,
-    // exactly as `18` and `6` are in the old form.
-    const old = '- FY23 `24`\n  - Licenses `18`\n  - Services `6`\n- FY24 `30`\n  - Licenses `20`\n  - Services `10`';
-    same('stacked-bar', old, '- FY23 `{24}`\n  - Licenses `{18}`\n  - Services `{6}`\n- FY24 `{30}`\n  - Licenses `{20}`\n  - Services `{10}`', 'a valued category');
-    // Control: the segments are drawn in both.
-    assert.match(render(deck('stacked-bar', old)), /Licenses/);
+    // stacked-bar: the authored total over plain segments is read from the old spans until phase 4, so the same
+    // segments written as records are a total's notes, and lint says so; a signed delta is a note anyway.
+    assert.match(findings(deck('stacked-bar', '- FY23 `24`\n  - Licenses `{18}`\n  - Services `{6}`'))[0].message, /read as that category's note/);
+    assert.deepEqual(findings(deck('stacked-bar', '- FY23 `24`\n  - vs plan `{+3}`')), [], 'a signed delta is a note');
+    // Control: under a category with no total the records are the segments, exactly as the old spans are.
+    same('stacked-bar', '- FY23\n  - Licenses `18`\n  - Services `6`\n- FY24\n  - Licenses `20`\n  - Services `10`', '- FY23\n  - Licenses `{18}`\n  - Services `{6}`\n- FY24\n  - Licenses `{20}`\n  - Services `{10}`', 'segments');
   });
 
   test('a second list on a chart slide keeps its pills; only the first list is the chart\'s', () => {
@@ -277,10 +278,8 @@ describe('the paths agree on the data row', () => {
     }
   });
 
-  test('what main did: stacked-bar totals and bullet keyword rows are data, as in the old form', () => {
-    same('stacked-bar', '- FY23 `24`\n  - Licenses `18`\n  - Services `6`\n- FY24 `30`\n  - Licenses `20`\n  - Services `10`',
-      '- FY23 `{24}`\n  - Licenses `{18}`\n  - Services `{6}`\n- FY24 `{30}`\n  - Licenses `{20}`\n  - Services `{10}`', 'totals');
-    same('bullet', '- Uptime `99.4`\n  - Target `99.9`\n- Cost `3` `5`', '- Uptime `{99.4}`\n  - Target `{99.9}`\n- Cost `{3, target=5}`', 'a keyword row under a valued row');
+  test('what main did: bullet keyword rows under a bare row are data, as in the old form', () => {
+    same('bullet', '- Uptime\n  - Actual `99.4`\n  - Target `99.9`\n- Cost `3` `5`', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`\n- Cost `{3, target=5}`', 'keyword rows under a row with no value');
   });
 
   test('a slide the chart declines shows the old-form list, not the braces', () => {
@@ -294,5 +293,37 @@ describe('the paths agree on the data row', () => {
   test('a total in a later paragraph reads the same in the narration', () => {
     const body = (v) => `- FY23\n\n  total ${v('24.6')}\n\n  - Licenses ${v('18.4')}\n  - Services ${v('6.2')}\n- FY24\n  - Licenses ${v('19.1')}\n  - Services ${v('7.0')}`;
     assert.equal(narrateChart(deck('stacked-bar', body((n) => `\`{${n}}\``))), narrateChart(deck('stacked-bar', body((n) => `\`${n}\``))));
+  });
+
+  // Fourth round (2026-10-17): the red team ran the working tree against main and found the rest.
+  test('bullet: a delta pill under a measure stays a pill; keyword rows under a bare row are data', () => {
+    const html = render(deck('bullet', '- EMEA `4` `5`\n  - vs plan `{+3%}`\n- APAC `3` `5`'));
+    assert.match(html, /chart-frame/);
+    assert.match(html, /lat-pill/);
+    same('bullet', '- Uptime\n  - Actual `99.4`\n  - Target `99.9`', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`', 'keyword rows under a row with no value');
+    // The documented keyword row under a measure that HAS a value is read from the old spans until phase 4; lint says so.
+    const [f, ...rest] = findings(deck('bullet', '- Uptime `99.4` `99.9`\n  - Target `{99.9}`'));
+    assert.equal(rest.length, 0);
+    assert.match(f.message, /read as that measure's note/);
+    assert.deepEqual(findings(deck('bullet', '- Uptime `99.4` `99.9`\n  - vs plan `{+3%}`')), [], 'a delta note is not a keyword row');
+  });
+
+  test('narration follows a record onto a lazy-continuation line and a second paragraph', () => {
+    const group = (v) => `- G\n  - Us\n    - Speed ${v('8')}\n    - Cost\n      ${v('6')}\n    - Fit ${v('7')}`;
+    const old = narrateChart(deck('radar quadrant', group((n) => `\`${n}\``)));
+    assert.ok(old, 'control: the old form narrates');
+    assert.equal(narrateChart(deck('radar quadrant', group((n) => `\`{${n}}\``))), old);
+    const loose = (v) => `- Q1\n\n  about ${v('6')}\n- Q2 ${v('5')}\n- Q3 ${v('4')}`;
+    assert.equal(narrateChart(deck('bar', loose((n) => `\`{${n}}\``))), narrateChart(deck('bar', loose((n) => `\`${n}\``))));
+  });
+
+  test('the source bridge reads CRLF', () => {
+    assert.equal(rows.bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\n  - P `6.9`\n');
+  });
+
+  test('the DOM mirror reads a record in a heading item, as the engine does', () => {
+    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const el = new JSDOM('<section class="slope"><ul><li>EMEA<ul><li><h3>2024 <code data-t>{55%}</code></h3></li></ul></li></ul></section>').window.document.querySelector('code[data-t]');
+    assert.equal(isOwnedRecordElement(el), true);
   });
 });

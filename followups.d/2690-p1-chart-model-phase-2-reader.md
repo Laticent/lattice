@@ -30,9 +30,12 @@ where     — 1. The `{> …}` production and the table description (model note 
                bullet-character switch, can differ from the engine (no visible effect found); the narrator picks its chart by the first
                class token (`pictureDataClass`), not in dispatch order. Both go away when the kernels read `readRecord`.
             6. Residuals found by the third review round (2026-10-17), no visible effect: lint's `recordPlace` differs from the engine after an
-               ordered-to-bullet list switch and after a margin comment; a record on `map` takes any `{word}`; the bullet kernel's keyword rows are
-               the only nested rows it reads as structure, so a record under a non-keyword nested row there is detail.
-            7. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
+               ordered-to-bullet list switch and after a margin comment; a record on `map` takes any `{word}`; a bullet keyword row (`Target`, `Floor`, `Band`)
+               written as a record under a measure that has a value is read as that measure's note (lint warns); the narrator picks its
+               chart by the first class token, not in dispatch order; a record in a map row can take any `{word}`.
+            7. Stacked-bar's authored category total over records (`- FY23 `24`` over `{18}` `{6}`) is read as a note and lint warns; the
+               chart-row reader in phase 2 step 2 should read the segments, and the delta-note ambiguity needs the reader, not a position rule.
+            8. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
                finding 7, 2026-10-16); and `chart-table-unescaped-pipe` misses a row that does not grow
                (`| AM | 3 `{> a | b}` |` under a three-column header), and its `\|` fix still meets `pill-literal`.
 done when — no transform or narrator parses a row's spans itself; the bridge and `legacySpans` are deleted

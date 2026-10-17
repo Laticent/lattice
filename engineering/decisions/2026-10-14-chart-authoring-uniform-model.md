@@ -246,10 +246,14 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    as that chart's record; it is the LAST thing in its row (a list item's lead, or a whole table cell); no code span sits right
    before it; it is outside a `>` quote; it is in the slide's first list or first table, the only ones a kernel reads; and its
    row is data. Whether a nested row is data comes from the chart's own schema, `rows.nested` (`isDetailRow`), because the
-   kernels differ: `point` (stacked-bar, whose valued category is the authored total; bullet, whose keyword rows are
-   structure), `point-unless-valued` (bar, line, slope, radar: a series point under a parent with no value of its own, and
-   detail under one that has a value, where a pill is a pill as it is on main), or `detail` (pie, funnel, map, waterfall,
-   word-cloud, progress, quadrant, scatter: every row below the first data depth). A detail row keeps its pill. Every path asks
+   kernels differ: `point-unless-valued` (bar, line,
+   slope, radar, stacked-bar, bullet: a series point under a parent with no value of its own, and detail under one that
+   has a value, where a pill is a pill as it is on main), or `detail` (pie, funnel, map, waterfall, word-cloud, progress,
+   quadrant, scatter: every row below the first data depth). Two documented shapes put a plain value under a valued
+   parent: stacked-bar's authored category total over its segments, and bullet's keyword rows (`Target`, `Floor`, `Band`)
+   under a measure. A delta note in the same place is a pill on main and cannot be told from a segment by position, so a
+   record there is read as the note, and lint `chart-row-record-unread` says so; those two shapes read from the old spans
+   until phase 4. A detail row keeps its pill. Every path asks
    this one question and measures the place its own way: the engine's `inlinePills` from tokens, the runtime's
    `isOwnedRecordElement` from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source
    line. This is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders.

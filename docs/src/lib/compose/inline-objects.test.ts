@@ -146,6 +146,12 @@ describe('the inline object node', () => {
 		expect(texts(mount(src('bar', '- EMEA `{4.2}`\n\nStatus:\n\n1. Shipped `{12}`')))).toEqual(['{12}']);
 	});
 
+	it('counts a pill already drawn before the span as code, as the engine does', () => {
+		// `{LIVE}` is an object by now; the record after it is "after another code span" in the source, so a pill.
+		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{LIVE}` `{4.2}`');
+		expect(texts(chart)).toEqual(['{LIVE}', '{4.2}']);
+	});
+
 	it('plain text copy and textContent still see the notation', () => {
 		const view = mount(DECK);
 		expect(view.state.doc.textContent).toContain('{SHIPPED, c2}');

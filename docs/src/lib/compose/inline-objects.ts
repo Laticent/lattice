@@ -244,7 +244,7 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 	const $at = doc.resolve(from);
 	const row = $at.parent;
 	const cell = row.type.name === 'table_cell';
-	const inItem = row.type.name === 'paragraph' && $at.depth >= 2 && $at.node($at.depth - 1).type.name === 'list_item';
+	const inItem = (row.type.name === 'paragraph' || row.type.name === 'heading') && $at.depth >= 2 && $at.node($at.depth - 1).type.name === 'list_item';
 	if (!cell && !inItem) return false;
 	const blank = (n: PMNode) => n.isText && !(n.text ?? '').trim();
 	let lastInRow = true;
@@ -263,7 +263,7 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 		// An enclosing item's lead span: the last child of its first paragraph, when that is a code run.
 		if (d < $at.depth - 1) {
 			const lead = anc.firstChild;
-			const last = lead?.type.name === 'paragraph' ? lead.lastChild : null;
+			const last = lead && (lead.type.name === 'paragraph' || lead.type.name === 'heading') ? lead.lastChild : null;
 			ancestors.push(last && codeMark.isInSet(last.marks) ? (last.text ?? null) : null);
 		}
 	}
@@ -288,7 +288,8 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 		quoted,
 		firstList,
 		ancestors,
-		afterCode: prev >= 0 && codeMark.isInSet(row.child(prev).marks) !== undefined,
+		// An object already drawn from an earlier span (a pill) was code in the source, as it is for the engine.
+		afterCode: prev >= 0 && (codeMark.isInSet(row.child(prev).marks) !== undefined || row.child(prev).type === objectType()),
 	});
 }
 
