@@ -97,7 +97,7 @@ describe('media-sources — a relative reference stays inside the deck folder', 
     assert.equal(ms.resolveRelative('img/../pic.jpg', base), 'file:///work/deck/pic.jpg');
   });
   test('refuses anything that resolves outside it', () => {
-    for (const ref of ['../pic.jpg', 'a/../../pic.jpg', '/etc/hostname', '%2e%2e/pic.jpg', '..%2fpic.jpg'.replace('%2f', '/'), '..\\pic.jpg', 'file:///etc/hostname', '//host/x', '../deck-evil/x.png']) {
+    for (const ref of ['../pic.jpg', 'a/../../pic.jpg', '/etc/hostname', '%2e%2e/pic.jpg', '..\\pic.jpg', 'file:///etc/hostname', '//host/x', '../deck-evil/x.png']) {
       assert.equal(ms.resolveRelative(ref, base), null, ref);
     }
   });
