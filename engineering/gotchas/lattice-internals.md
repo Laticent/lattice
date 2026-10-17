@@ -1075,19 +1075,27 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   scoped as a slide DESCENDANT, a section inside a section. The CLI reads the FLAT pack, which also
   ships each re-scoped arm as written, so the CLI still matches. It is the Marp-side trap in
   `marp.md` ("A theme rule gated on `:root[…]`"), from the engine's own packer.
-- **Fixed in the packer (2026-10-17 packer fix): a leading `:where(section…)`.** `:where(section.finish) .panel-left`
-  now packs to `article.lattice > :where(section.finish) .panel-left`: the container goes before
-  the `:where()`, so the author's zero-weight filter stays zero-weight. Measured on a fixture
-  theme (indaco plus four rules), preview vs the CLI's as-written sheet, `outline-width`: single arm
-  0px → 3px (CLI 3px), multi-arm list 0px → 4px (CLI 4px). All 33 shipped sheets (css, flat, html)
-  hash identically before and after, because no shipped selector leads with `:where(section…)`.
-  **It applies only when EVERY arm is one compound that starts with `section` and none mentions
-  `:root`.** An arm with a combinator inside it (`:where(section .wrap) .d`) filters on a descendant
-  of a section, not on the slide, so it keeps scoping as a descendant and keeps working. A mixed list
-  (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's third rule: preview 0px,
-  CLI 5px); `:where(:root)` and `:where(section:root)` stay dead on purpose, because a
-  `color-scheme` moved onto the slide stops it inheriting a forced dark mode (see the `:where(:root)` bullet
-  below). Both are pinned in `css-scope.test.js`.
+- **Fixed in the packer (2026-10-17): a leading `:where(section…)`.** `:where(section.finish) .panel-left`
+  now packs to TWO arms: `article.lattice > :where(section.finish) .panel-left` (the slide, with the
+  author's zero-weight filter still zero-weight) and `article.lattice > section :where(section.finish)
+  .panel-left` (the descendant arm this shape always packed to, kept so a raw `<section>` an author nests
+  in a slide still matches). FLAT adds the as-written arm too, as for any re-scoped arm. The result
+  matches everything the old one did and now the slide as well. A first version emitted only the slide
+  arm and lost the nested section in the preview (and, for an exact `:where(section) > .x`, the nested
+  children in the export); the independent checker found it. Measured on a fixture theme, preview vs the
+  CLI's unwrapped export sheet, `outline-width`: single arm preview 0px → 3px (export 3px), multi-arm
+  0px → 4px (export 4px), a rule hitting a nested raw section 9px before and after, `:where(section) >
+  .x` on its child 2px before and after; the export column is identical to `main`'s. All 33 shipped sheets
+  (css, flat, html) hash identically before and after, because no shipped selector leads with
+  `:where(section…)`.
+  **It applies only when EVERY arm is one compound that starts with `section` (not `section\.a`, not
+  `section|a`) and none mentions `:root`.** An arm with a combinator inside it (`:where(section .wrap) .d`)
+  filters on a descendant of a section, not on the slide, so it keeps scoping as a descendant and keeps
+  working. A mixed list (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's mixed rule:
+  preview 0px, export 5px); `:where(:root)` and `:where(section:root)` stay dead on purpose, because a
+  `color-scheme` moved onto the slide stops it inheriting a forced dark mode (see the `:where(:root)`
+  bullet below). All are pinned in `css-scope.test.js`, where the guard exempts the companion arm only
+  while its slide arm sits beside it.
   One gap, not a regression: pane twins (`widenForPanes`, `lib/core/pane-css.js`) are made only for an
   arm with a literal leading `section`, so `:where(section.list) .x` styles a list SLIDE in the
   preview but not a list PANE; the CLI makes no twin either, so the two agree.
