@@ -461,6 +461,13 @@ export const FORWARD_SCAN_LINES = Object.freeze({${ahead.length ? ` ${ahead.join
 /** Every shipped plugin's name, in dependency order — for a reader that needs only the names
  *  (lint-core's \`unknown-plugin\`), so it does not pull every plugin's grammar into a bundle. */
 export const PLUGIN_NAMES = Object.freeze(${JSON.stringify(ordered.map((p) => p.manifest.name))});
+
+/** Every fence name a plugin claims, aliases included, lower-case: a fence the code plugin does not
+ *  draw as a plain panel (lint-core's \`code-line-clipped\` leaves these out on a plain slide). Pure, so a
+ *  startup bundle that imports this file for the block rules drops it. */
+export const PLUGIN_FENCES = /* @__PURE__ */ Object.freeze(${JSON.stringify(ordered.flatMap((p) => Object.entries(p.manifest.contributes?.fences || {})
+    .flatMap(([name, f]) => [name, ...(f.aliases || []).map((a) => (typeof a === 'string' ? a : a.name))]))
+    .map((n) => String(n).toLowerCase()))});
 `;
 }
 
@@ -604,7 +611,7 @@ module.exports = { PLUGIN_STYLE_SOURCES: Object.freeze(${JSON.stringify(files)})
 
 /**
  * The plugins' INLINE kinds, in dependency order: the rows lib/core/inline-code-directives.js
- * appends to its own (marks, pills, sparks). Each row's module is light by contract — no data —
+ * appends to its own (marks, pills). Each row's module is light by contract — no data —
  * because every bundle that dispatches inline code (the linter, the runtime) carries it.
  */
 function renderInline(ordered) {

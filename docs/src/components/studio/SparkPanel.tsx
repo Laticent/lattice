@@ -5,7 +5,7 @@
 // notation-editors.md (phase 2).
 //
 //   · `SparkPanel` is the controls and nothing else. It is handed the spark's fields and reports
-//     one `SparkEdit` per change; the host writes it through `editSpark` (lib/core/inline-sparks.js),
+//     one `SparkEdit` per change; the host writes it through `editSpark` (lib/plugins/sparks/sparks.inline.js),
 //     which replaces only the words that changed or writes nothing.
 //   · The type chips come from the ENGINE's vocabulary (`kernels.spark`), narrowed to the ones that go
 //     with the data (a trend takes line, area, bar, step and win/loss; a ratio takes ring and bullet),

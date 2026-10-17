@@ -7324,6 +7324,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/conformance-render.js',
+    why: 'reads REPO-COMMITTED, generated `lib/components/**/*.gallery.md`, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance for '
+       + 'a locally CRLF-saved file; the front matter it strips is the gallery\'s own, and the '
+       + 'deck it builds is rendered by the engine, which normalizes its own input.',
+  },
+  {
     file: 'tools/build-capabilities.js',
     why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '
@@ -8903,6 +8910,24 @@ function checkTramaBoundary(errors, dir = TRAMA_DIR) {
       `pipeline as serialized source, so it has no dependencies (dagre is passed in): every ` +
       `import must resolve inside docs/src/lib/trama/ ` +
       `(engineering/decisions/2026-09-27-trama-graph-chart-library.md).`,
+  });
+}
+
+// ── Mosaico (docs/src/lib/mosaico) — the box-packing library ────────────────
+// Mosaico's core is numbers in, rectangles out: the same code packs a collage on the CLI, in the
+// browser and in a worker, so it has NO dependencies, not even `node:`. Measuring images and
+// watching a container belong to adapters that arrive in a later slice
+// (engineering/decisions/2026-10-16-mosaico-layout-library.md §1, §5).
+const MOSAICO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'mosaico');
+function checkMosaicoBoundary(errors, dir = MOSAICO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Mosaico folder. Mosaico's core is pure and ` +
+      `dependency-free so it runs the same on the CLI, in the browser and in a worker: every ` +
+      `import must resolve inside docs/src/lib/mosaico/ ` +
+      `(engineering/decisions/2026-10-16-mosaico-layout-library.md §5).`,
   });
 }
 
@@ -13595,6 +13620,7 @@ function run() {
   checkCalcoBoundary(errors);
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
+  checkMosaicoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -13662,6 +13688,7 @@ module.exports = {
   specPartProblems,
   checkTavolaBoundary,
   checkFuocoBoundary,
+  checkMosaicoBoundary,
   checkReadingRole,
   readingRoleCountsIn,
   readingRoleFindings,

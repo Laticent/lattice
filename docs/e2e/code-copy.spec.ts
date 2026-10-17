@@ -52,6 +52,30 @@ test('the Studio preview draws the buttons on a block that asks, and a click cop
 	expect(copied).toContain('answer');
 });
 
+test('in the Studio preview, hovering a copy button shows its label (followups.d/2710-p3)', async ({ page }) => {
+	// The preview box takes no pointer events, so `:hover` never reaches the frame; the Studio marks
+	// what the pointer is over (code-copy-host.js `hoverCodeCopyAt`) and the CSS reads the marker.
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	const frame = page.frameLocator(LIVE_PREVIEW);
+	const button = frame.locator('.lat-code-copy-btn[data-kind="text"]');
+	await expect(button).toHaveCount(1, { timeout: 20_000 });
+	const tipOpacity = () => button.evaluate((el) => getComputedStyle(el, '::after').opacity);
+	await expect.poll(tipOpacity, { message: 'at rest the tooltip is hidden' }).toBe('0');
+	const box = await button.boundingBox();
+	expect(box, 'the button is on screen').not.toBeNull();
+	if (!box) return;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await expect(button).toHaveAttribute('data-host-hover', '');
+	await expect.poll(tipOpacity, { message: 'hovered, the label shows' }).toBe('1');
+	await expect.poll(() => button.evaluate((el) => getComputedStyle(el, '::after').content)).toBe('"Copy code"');
+	await page.screenshot({ path: test.info().outputPath('studio-copy-tooltip.png') });
+	// The pointer leaving the preview clears the marker.
+	await page.mouse.move(2, 2);
+	await expect(button).not.toHaveAttribute('data-host-hover', '');
+	await expect.poll(tipOpacity).toBe('0');
+});
+
 test('the exported webpage carries the marker and no baked button; opened, it copies code and HTML', async ({ page, context }) => {
 	test.setTimeout(300_000);
 	await context.grantPermissions(['clipboard-read', 'clipboard-write']);

@@ -5,9 +5,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useKeyboardInset } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { codeBlockAt, currentFenceTag, fenceClassHint, setFenceTag } from '@/lib/compose/code-commands';
+import type { CodeRecordKernel } from '@/lib/compose/code-record';
 import { type FenceOption, fenceAdvice, fenceGroups, type HljsManifest } from '@/lib/compose/fence-catalog';
 import { loadHljsManifest } from '@/lib/ensure-hljs-language';
 import { cn } from '@/lib/utils';
+
+// The fence's options panel, in its own chunk: it loads the first time the caret enters a fence.
+const CodeRecordButton = React.lazy(() => import('./code-record-editor').then((m) => ({ default: m.CodeRecordButton })));
 
 // The fence LANGUAGE PICKER — one component, mounted in two places (the design's
 // Axis B): the chip on the code block itself, and the slide divider's pill while the
@@ -238,6 +242,7 @@ export function FencePicker({
  */
 export function CodeControls({ view, source }: { view: EditorView; source: string }) {
 	const tag = currentFenceTag(view.state);
+	const kernel = useCodeRecordKernel();
 	return (
 		<div className="cs-codec">
 			<FencePicker
@@ -250,6 +255,49 @@ export function CodeControls({ view, source }: { view: EditorView; source: strin
 					</button>
 				}
 			/>
+			{/* The fence's `@code{…}` options, beside its language: the same pill, the next button. */}
+			{kernel ? (
+				<React.Suspense fallback={null}>
+					<CodeRecordButton view={view} source={source} kernel={kernel} />
+				</React.Suspense>
+			) : null}
 		</div>
 	);
+}
+
+/**
+ * The engine's record reader (lib/authoring/inline-editors.js `code`), from the authoring bundle the
+ * Markdown editor and the pill editor already load, and its writer (record-edit.js), the panel's own
+ * load (code-record-source.js), so the lint core does not carry it. Both load after the Studio's first
+ * paint. Null until they land, and the options button waits for them.
+ */
+function useCodeRecordKernel(): CodeRecordKernel | null {
+	const [kernel, setKernel] = React.useState<CodeRecordKernel | null>(null);
+	React.useEffect(() => {
+		let live = true;
+		type Reader = Omit<CodeRecordKernel, 'edit' | 'problem'>;
+		type Writer = { editRecord: CodeRecordKernel['edit']; fieldProblem: CodeRecordKernel['problem'] };
+		// A writer that did not load still leaves the panel: it reads the record and refuses every change
+		// with the reason, rather than the button vanishing with only a console line to say why.
+		const unwritable: Writer = { editRecord: () => null, fieldProblem: () => 'the code options could not load their writer; reload the page' };
+		Promise.all([
+			import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
+			import('@/playground/code-record-source.js')
+				.then((src) => src.loadCodeRecordWriter())
+				.catch((e) => {
+					console.error('[compose] the code options could not load the record writer', e);
+					return unwritable;
+				}),
+		])
+			.then(([m, w]) => {
+				const reader = (m as unknown as { inlineEditors: { code: Reader } }).inlineEditors.code;
+				const writer = w as Writer;
+				if (live) setKernel({ ...reader, edit: writer.editRecord, problem: writer.fieldProblem });
+			})
+			.catch((e) => console.error('[compose] the code options could not load the record kernel', e));
+		return () => {
+			live = false;
+		};
+	}, []);
+	return kernel;
 }

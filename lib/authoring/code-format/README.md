@@ -38,6 +38,8 @@ It is not a render plugin: it adds nothing to a render, so it lives with the oth
 |---|---|
 | `format` | Keep this block formatted: the Studio formats it when you leave the editor. `format=off` keeps a block as written, under `lattice fmt`, the Studio command and a deck-wide `code: format`. |
 | `width=` | The print width in columns, 20 to 200. Default 60, what a code panel on a 16:9 slide shows. A formatter treats it as a target: none breaks a long string, so a very long literal still runs past it. |
+| `indent=` | `2`, `4` or `tab`: spaces per level, or a tab. The panel draws a tab as wide as the indent (`tab` draws four columns), not the browser's eight. Unset, each formatter keeps its own default: 2 spaces, 4 for PHP and Python. YAML forbids tabs, so its blocks indent four spaces under `indent=tab`. |
+| `quotes=` | `single` or `double`: the string quote, in the languages with a choice (JavaScript, TypeScript, CSS, SCSS, Less, YAML, PHP, Python). JSON keeps double quotes and Java its `"…"` strings, because their grammars require them, and SQL is never touched, because there a quote changes the meaning (`'text'` is a string, `"name"` an identifier). |
 | `dialect=` | SQL only: `postgresql` (the default), `mysql`, `sqlite`, `bigquery`, `tsql`, `snowflake` and the rest of sql-formatter's dialects. Name the one the code is written in: a dialect that does not know a syntax splits it, which changes what the code means. |
 
 ## Languages

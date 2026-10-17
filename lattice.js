@@ -2072,13 +2072,14 @@ function readGlobalStyle(fmText) {
 // on <html> alone and every slide shadows it (lib/export/cli-deck-sheet.js `packAuthorCss`).
 const globalStyle = packAuthorCss(readGlobalStyle(fm));
 
-// `![bg …]` half-canvas image handling — the engine path uses liftBgImages
-// (markdown pre-pass) + wrapImageText (HTML post-pass) to reproduce the
+// `![bg …]` half-canvas image handling — the engine path uses liftImageBgImages
+// (class-aware markdown pre-pass: `image` slides only; any other slide's `![bg]` is the engine's own section background) + wrapImageText (HTML post-pass) to reproduce the
 // lattice-bg/image-text panel, since lib/engine matches marp WEB mode (which
 // collapses bg left/right to a full-bleed background). See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
 const imageDimensions    = require('./lib/core/image-dimensions');
 const collageStamp       = require('./lib/core/collage-stamp');
+const logoWallPack       = require('./lib/core/logo-wall-pack');
 
 // ── P2: the markdown→slide engine (lib/engine) is the emulator's parser ─────
 // Lattice converges on ONE markdown implementation: the owned lib/engine, the
@@ -2156,7 +2157,7 @@ function engineSlides(deckSource = rawMd) {
     cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
     ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
   ]);
-  // Rewrite `![bg side](url)` to the lattice-bg div (CSS background) BEFORE render
+  // Rewrite `![bg side](url)` on `image` slides to the lattice-bg div (CSS background) BEFORE render
   // so the engine's basic-mode background ruler never collapses the split (lib/engine
   // matches marp WEB mode; the emulator's PDF path wants the half-canvas panel).
   // The deck's directory (as a file:// URL with a trailing slash) resolves
@@ -2167,7 +2168,7 @@ function engineSlides(deckSource = rawMd) {
   // `sample:<name>` images resolve into the package's one sample-art folder, wherever the
   // deck sits (lib/core/bg-image.js resolveAssetUrl; lib/samples/README.md).
   const samplesUrl = pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href;
-  const deckMd = bgImage.liftBgImages(deckSource, deckBaseUrl, samplesUrl);
+  const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl);
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
@@ -2175,7 +2176,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/packages/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, baseUrl: deckBaseUrl }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2188,7 +2189,7 @@ function engineSlides(deckSource = rawMd) {
     }
     rendered = r.rendered;
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, baseUrl: deckBaseUrl });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
@@ -2234,6 +2235,9 @@ function engineSlides(deckSource = rawMd) {
     // Collage: pack the photo grid from each photo's header size (the structure step already
     // ran in the engine render; only the CLI can read files).
     s = collageStamp.stampCollage(s, deckBaseUrl, parseFloat(_geom.width) / parseFloat(_geom.height));
+    // Logo wall: size every mark to the same area from its inlined `<svg>` (the swap above runs
+    // before this loop), the same plan the live preview makes from the fetched marks.
+    s = logoWallPack.stampWall(s, parseFloat(_geom.width) / parseFloat(_geom.height));
     // The `statement` composition (text on a scrim over a full-bleed photo) is the
     // only one that needs a contrast scrim node; every other composition carries
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's
@@ -3395,7 +3399,7 @@ async function renderBody(browser, g, closeBrowser) {
   //   • Serving each resource kind behind a deliberate delay, `load` WAITS for
   //     <img>, CSS `background-image: url()`, <link rel=stylesheet> and the webfont
   //     fetch. Those are exactly what the deck emits: author images are absolute
-  //     file:// URLs rather than inlined (`liftBgImages`, deckBaseUrl above), plus the
+  //     file:// URLs rather than inlined (`liftImageBgImages` and the engine's `baseUrl`, deckBaseUrl above), plus the
   //     KaTeX <link> and the function-plot <script src> (both inlined since).
   //   • Instrumenting five real sidecars (state-chart, function-plot, images, the
   //     58-slide jargon gallery, portrait-roadmap): ZERO requests start after the load

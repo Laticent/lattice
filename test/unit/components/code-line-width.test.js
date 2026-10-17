@@ -17,22 +17,25 @@
  * computes is the only version of this test that can catch that.
  */
 
-const { describe, test, before, after } = require('node:test');
+const { describe, test, before } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
 const core = require('../../../lib/authoring/lint-core');
 
-const ROOT = path.resolve(__dirname, '../../..');
-const vocab = { names: new Set(['compare-code', 'code', 'content']), modifiers: new Set(['dark']) };
+// The modifiers these tests put on a slide, as the real vocabulary has them.
+const vocab = {
+  names: new Set(['compare-code', 'code', 'content']),
+  modifiers: new Set(['dark', 'claim-hero', 'claim-bleed', 'claim-quiet', 'compact', 'align-center', 'align-left', 'align-right', 'stats',
+    'scale-l', 'scale-xl', 'scale-2xl', 'venue-huddle', 'venue-conference', 'venue-hall']),
+};
 
 const deck = (body, size) =>
   `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\n` : ''}---\n\n${body}`;
 const codeSlide = (token, lines, size) =>
   deck(`<!-- _class: ${token} -->\n\n\`\`\`js\n${lines.join('\n')}\n\`\`\`\n`, size);
 const clipFinding = (src) => core.lintTextWith(src, vocab).find((f) => f.rule === 'code-line-clipped');
+// The measured table, read through the rule's own lookup: a 16:9 deck (the default) is 1280x720.
+const HD = '1280x720';
+const cols = (group, classes = [], canvas = HD, family = 'wide') => core.codePaneColumns(group, classes, canvas, family);
 
 // ── Tier 1: the pure rule ────────────────────────────────────────────────────
 
@@ -66,7 +69,7 @@ describe('code-line-clipped — the column measure', () => {
 });
 
 describe('code-line-clipped — when it fires', () => {
-  const WIDE = core.CODE_LINE_BUDGET['compare-code'].wide;
+  const WIDE = cols('compare');
 
   test('fires on a compare-code line past the landscape pane budget', () => {
     const f = clipFinding(codeSlide('compare-code', ['x'.repeat(WIDE + 11)]));
@@ -123,8 +126,8 @@ describe('code-line-clipped — the box decides', () => {
 
   test('code warns in EVERY box, because it never wraps — and the budget tightens', () => {
     const seen = [];
-    for (const [size, family] of [[undefined, 'wide'], ['square', 'square'], ['portrait', 'tall'], ['mobile', 'strip']]) {
-      const budget = core.CODE_LINE_BUDGET.code[family];
+    for (const [size, family, canvas] of [[undefined, 'wide', HD], ['square', 'square', '1080x1080'], ['portrait', 'tall', '1080x1350'], ['mobile', 'strip', '1080x2340']]) {
+      const budget = cols('pane', [], canvas, family);
       assert.equal(
         clipFinding(codeSlide('code', ['x'.repeat(budget)], size)), undefined,
         `${family}: a line exactly at the budget fits`,
@@ -139,9 +142,80 @@ describe('code-line-clipped — the box decides', () => {
     assert.deepEqual(seen, [...seen].sort((a, b) => b - a), `budgets must not widen as the box narrows: ${seen}`);
   });
 
-  test('says nothing about layouts that wrap, or slides with no code', () => {
-    assert.equal(clipFinding(codeSlide('content', ['x'.repeat(300)])), undefined);
+  test('says nothing about slides with no code', () => {
     assert.equal(clipFinding(deck('<!-- _class: code -->\n\nNo fenced block here.\n')), undefined);
+  });
+});
+
+// A plain slide's fence takes the code panel since #2710, and the panel clips: this used to read
+// "content wraps", which stopped being true when every fence got the panel (measured, Tier 2).
+describe('code-line-clipped — a plain slide, and the record', () => {
+  const PLAIN = cols('pane');
+  const plain = (body, fm = '') => `---\nmarp: true\ntheme: indaco\n${fm}---\n\n# Title\n\n${body}`;
+  const fence = (lines, lang = 'js') => `\`\`\`${lang}\n${lines.join('\n')}\n\`\`\`\n`;
+
+  test('a slide with no _class is judged against the content pane, and quotes the line', () => {
+    assert.equal(clipFinding(plain(fence(['x'.repeat(PLAIN)]))), undefined);
+    const f = clipFinding(plain(fence(['y'.repeat(PLAIN + 4)])));
+    assert.ok(f, 'a plain slide clips like any panel');
+    assert.equal(f.classToken, 'content');
+    assert.match(f.line, /^y+$/, 'with no class directive, the finding quotes the long line');
+    assert.match(f.fix, /@code\{wrap\}/);
+    assert.ok(clipFinding(codeSlide('content', ['x'.repeat(PLAIN + 1)])), '`_class: content` is the same pane');
+    assert.ok(clipFinding(codeSlide('dark', ['x'.repeat(PLAIN + 1)])), 'a class of modifiers only is a content slide');
+  });
+
+  test('a tab after the numbers or diff gutter lands on the stop it would without one (measured)', () => {
+    const rec = (r, line) => plain(`\`@code{${r}}\`\n` + fence([line], 'go'));
+    // Chromium: `\tfoo` with numbers ends at 11ch, not 8 + 3 + 3 = 14 — the tab swallows the gutter.
+    assert.equal(clipFinding(rec('numbers', `\t${'x'.repeat(PLAIN - 10)}`)), undefined);
+    assert.equal(clipFinding(rec('diff', `\t${'y'.repeat(PLAIN - 9)}`)), undefined);
+    assert.equal(clipFinding(rec('diff', `+\t${'y'.repeat(PLAIN - 9)}`)), undefined);
+    assert.ok(clipFinding(rec('numbers', `\t${'x'.repeat(PLAIN - 7)}`)), 'past the panel, it is still named');
+  });
+
+  test('a fence another plugin draws is a picture, not a panel: never measured on a plain slide', () => {
+    assert.equal(clipFinding(plain(fence(['A-->'.repeat(60)], 'mermaid'))), undefined);
+    assert.ok(clipFinding(plain(fence(['x'.repeat(PLAIN + 1)], ''))), 'an untagged fence is a panel');
+    assert.ok(clipFinding(plain(fence(['x'.repeat(PLAIN + 1)], 'text'))));
+  });
+
+  test('the checker\'s cases: notes, unknown tags, a deck-wide class, an indented fence', () => {
+    const long = 'x'.repeat(PLAIN + 8);
+    // A fence inside an HTML comment (speaker notes) renders nothing.
+    assert.equal(clipFinding(plain(`<!--\n${fence([long])}-->\n`)), undefined);
+    assert.equal(clipFinding(plain(`<!-- note -->\n\n${fence([long])}`)) !== undefined, true, 'a closed comment above does not hide the fence');
+    // A tag no grammar knows is still a plain panel, and it clips.
+    assert.ok(clipFinding(plain(fence([long], 'output'))));
+    // `class: compact` in the front matter widens the stage: the deck's classes count, measured.
+    const compact = cols('pane', ['compact']);
+    assert.ok(compact > PLAIN, 'guard: compact is wider');
+    assert.equal(clipFinding(plain(fence(['x'.repeat(compact)]), 'class: compact\n')), undefined);
+    assert.ok(clipFinding(plain(fence(['x'.repeat(compact + 1)]), 'class: compact\n')));
+    // A record attaches only to a fence at its own indentation, as the engine reads it.
+    assert.ok(clipFinding(plain(`\`@code{wrap}\`\n  \`\`\`js\n  ${long}\n  \`\`\`\n`)));
+  });
+
+  test('a `wrap` block never clips, from its record or the deck default', () => {
+    const long = fence(['x'.repeat(PLAIN + 40)]);
+    assert.equal(clipFinding(plain(`\`@code{wrap}\`\n${long}`)), undefined);
+    assert.equal(clipFinding(plain(`\`@code{wrap}\`\n\n${long}`)), undefined, 'a blank line between is still its record');
+    assert.equal(clipFinding(plain(long, 'code: wrap\n')), undefined);
+    assert.ok(clipFinding(plain(`\`@code{numbers}\`\n${long}`, 'code: numbers\n')), 'a record without wrap still clips');
+    assert.ok(clipFinding(codeSlide('code', ['x'.repeat(cols('pane') + 1)])), 'guard: code clips unwrapped');
+    assert.equal(clipFinding(deck(`<!-- _class: code -->\n\n\`@code{wrap}\`\n${fence(['x'.repeat(200)])}`)), undefined);
+    // A record written under a sentence continues it, so it configures nothing (the render's reading).
+    assert.ok(clipFinding(plain(`Some words.\n\`@code{wrap}\`\n${long}`)));
+  });
+
+  test('a tab takes the record\'s indent: 4 columns for `tab` or 4, 2 for 2, 8 when unset', () => {
+    assert.equal(core.codeLineColumns('\tx', 4), 5);
+    assert.equal(core.codeLineColumns('\tx', 2), 3);
+    const tabbed = (n) => fence([`${'\t'.repeat(n)}x`]);
+    // 13 tabs + x: 105 columns at 8 (clips at 102), 53 at 4 (fits).
+    assert.ok(clipFinding(plain(tabbed(13))));
+    assert.equal(clipFinding(plain(`\`@code{indent=tab}\`\n${tabbed(13)}`)), undefined);
+    assert.equal(clipFinding(plain(tabbed(13), 'code: indent=2\n')), undefined);
   });
 });
 
@@ -151,7 +225,7 @@ describe('code-line-clipped — the box decides', () => {
 // are how a rule like this dies: the first gets it switched off, the second makes
 // it decorative.
 describe('code-line-clipped — measuring the line as it RENDERS, not as it reads', () => {
-  const WIDE = core.CODE_LINE_BUDGET['compare-code'].wide;
+  const WIDE = cols('compare');
 
   test('a CR does not count as a column — a CRLF deck is not one column over on every line', () => {
     const lf = codeSlide('compare-code', ['x'.repeat(WIDE)]);
@@ -192,199 +266,154 @@ describe('code-line-clipped — measuring the line as it RENDERS, not as it read
   });
 });
 
-describe('code-line-clipped — when the pane is not the pane the table measured', () => {
-  test('a stage-resizing modifier silences the rule rather than judging the wrong box', () => {
-    // MEASURED at wide, at `code`'s own `--fs-body-compact` size: bare code
-    // 1104px/102 cols, claim-hero and claim-bleed 1172px/109, compact 1116px/103.
-    // Judging these against 102 told the author that 7 columns were "clipped off
-    // the rendered slide" when they were on it —
-    // and examples/claim.md and two galleries ship exactly these combinations.
-    for (const mod of ['claim-hero', 'claim-bleed', 'compact']) {
-      assert.equal(
-        clipFinding(codeSlide(`code ${mod}`, ['x'.repeat(130)])), undefined,
-        `code ${mod}: the pane is wider than the table's, so the rule must stay quiet`,
-      );
+describe('code-line-clipped — every class that moves the pane is measured, not skipped', () => {
+  test('a stage class is judged against its own measured pane, never the bare one', () => {
+    // These used to silence the rule (no number for their pane). Now each has one, so a line inside
+    // it is quiet and one past it is named, on a code slide and a plain slide alike.
+    for (const mod of ['claim-hero', 'claim-bleed', 'claim-quiet', 'compact']) {
+      const n = cols('pane', [mod]);
+      assert.ok(n > cols('pane'), `${mod} widens the pane`);
+      for (const layout of ['code', 'content']) {
+        assert.equal(clipFinding(codeSlide(`${layout} ${mod}`, ['x'.repeat(n)])), undefined, `${layout} ${mod}: ${n} fits`);
+        assert.match(clipFinding(codeSlide(`${layout} ${mod}`, ['x'.repeat(n + 1)]))?.message ?? '', new RegExp(`fits about ${n},`), `${layout} ${mod}`);
+      }
     }
-    // The bare slide is still checked — the skip is scoped, not a blanket exit.
-    assert.ok(clipFinding(codeSlide('code', ['x'.repeat(130)])));
+  });
+
+  test('a venue or a spot scale narrows a plain pane, and the finding names the size', () => {
+    const plain = (fm, body) => `---\nmarp: true\ntheme: indaco\n${fm}---\n\n# T\n\n\`\`\`js\n${body}\n\`\`\`\n`;
+    const conf = cols('pane', ['venue-conference']);
+    assert.ok(conf < cols('pane'));
+    assert.equal(clipFinding(plain('venue: conference\n', 'x'.repeat(conf))), undefined);
+    const f = clipFinding(plain('venue: conference\n', 'x'.repeat(conf + 1)));
+    // `info` like every finding of this rule: the note above it says why it never blocks.
+    assert.equal(f?.severity, 'info');
+    assert.match(f.message, /characters; at conference size this pane fits about/);
+    // A spot scale is advisory, like every spot-scale finding.
+    const xl = cols('pane', ['scale-xl']);
+    assert.equal(clipFinding(codeSlide('scale-xl', ['x'.repeat(xl + 1)]))?.severity, 'info');
+    // A line past the DESIGNED size clips at every size: one info finding, at this slide's budget.
+    assert.equal(clipFinding(plain('venue: conference\n', 'x'.repeat(cols('pane') + 1)))?.severity, 'info');
+  });
+
+  test('a spot scale beside a venue replaces its size, as Chromium lays it out', () => {
+    // venue-conference alone fits 68 at 16:9; with scale-l beside it the type is set at scale-l,
+    // so more fits. Dividing by the venue's factors would call a line that renders whole cut off.
+    const both = cols('pane', ['venue-conference', 'scale-l']);
+    assert.ok(both > cols('pane', ['venue-conference']));
+    const src = `---\nmarp: true\ntheme: indaco\nvenue: conference\n---\n\n<!-- _class: scale-l -->\n\n# T\n\n\`\`\`js\n${'x'.repeat(both)}\n\`\`\`\n`;
+    assert.equal(clipFinding(src), undefined);
+  });
+
+  test('a shrink-wrapping alignment class lets the panel grow until the slide cuts it', () => {
+    for (const [mod, group] of [['align-center', 'centered'], ['stats', 'centered'], ['align-left', 'sided'], ['align-right', 'sided']]) {
+      const n = cols(group);
+      assert.ok(n > cols('pane'), `${mod}: the slide is wider than the panel was`);
+      assert.equal(clipFinding(codeSlide(mod, ['x'.repeat(n)])), undefined, mod);
+      assert.ok(clipFinding(codeSlide(mod, ['x'.repeat(n + 1)])), mod);
+      assert.equal(core.codeGroupFor('code', [mod]), group, 'a code slide shrink-wraps the same way (measured)');
+    }
+    assert.equal(core.codeGroupFor('compare-code', ['align-center']), 'compare', 'compare-code does not');
+  });
+
+  test('a canvas is judged by its own measurement, an unregistered one by its family\'s narrowest', () => {
+    // 16:9 and 4K differ by a column for a side-aligned claim-hero pane at hall size (the font draws
+    // a hair wider at 4K); the family minimum would call 87 cut off at 16:9.
+    const tight = ['claim-hero', 'venue-hall', 'scale-l'];
+    assert.equal(cols('sided', tight, HD), 87);
+    assert.equal(cols('sided', tight, '3840x2160'), 86);
+    assert.equal(cols('sided', tight, 'nope', 'wide'), 86);
+    // 4K is the 16:9 slide at 3x, so the plain compare-code pane fits 48 on both (measured 47.9998 at
+    // 4K: float error, inside the tool's twentieth-of-a-column slack).
+    assert.equal(cols('compare', [], '3840x2160'), 48);
   });
 
   test('the TIGHTEST budget wins, so the verdict does not depend on _class word order', () => {
     const a = clipFinding(codeSlide('code compare-code', ['x'.repeat(80)]));
     const b = clipFinding(codeSlide('compare-code code', ['x'.repeat(80)]));
-    assert.ok(a && b, '80 columns is past compare-code’s 57 either way round');
+    assert.ok(a && b, '80 columns is past compare-code’s pane either way round');
     assert.equal(a.message, b.message, 'same slide, same verdict, whichever token is typed first');
   });
 });
 
-// ── Tier 2: the budgets, re-measured in the browser that does the clipping ────
-
-describe('code-line-clipped — the budgets, as the browser resolves them', () => {
-  // The ONE shared probe (tools/lib/resolve-chrome.js). It returns undefined
-  // rather than throwing, so this suite keeps its own policy: skip, never fail,
-  // when there is no Chromium — `npm test` must stay render-free.
+// ── Tier 2: the table, re-measured in the browser that does the clipping ──────
+//
+// The numbers the rule judges by are MEASURED (tools/measure-code-columns.js writes
+// lib/authoring/code-pane-columns.js). A table nobody re-measures is a magic number with a
+// comment on it: the day someone retunes `--sp-md`, the type scale, the venue lift or
+// `--font-mono`, every pure test above still passes while every warning lies. So this tier
+// re-measures, through the tool's own measuring function, and compares cell by cell.
+//
+// A SAMPLE, every canvas: each group bare, each stage, venue and spot scale alone, and one venue
+// with a spot scale beside it (the cross term the table exists for), and the bar's cost at two room
+// sizes. The whole column matrix, 1,792 cells, and every bar rung,
+// is `node tools/measure-code-columns.js --check`, minutes rather than seconds. SKIPS (never
+// fails) with no Chromium, so `npm test` stays render-free there.
+describe('code-line-clipped — the table, as the browser lays it out', () => {
   const { resolveChrome: chrome } = require('../../../tools/lib/resolve-chrome');
-
-  // EVERY DISTINCT CANVAS, not one per family — the budget table is keyed by
-  // family, but the pane is not the same width at every @size inside one. The
-  // padding tokens are container-relative, so `tall` measures 893.025px at
-  // `portrait` and 883.305px at `reel`. That 9.7px was harmless while `code` read
-  // at `--fs-meta` (both floored to 49) and stopped being harmless when it took
-  // its type step: portrait fits 37, reel fits 36. Measuring `portrait` alone
-  // certified `tall: 37` as "what Chromium actually fits" while a `size: reel`
-  // deck silently shipped its 37th column clipped — the exact defect this file
-  // exists to prevent, hidden by the sampling rather than by the arithmetic.
-  //
-  // Aliases are deduped by canvas (`16:9`/`HD`/`hd` are one box; `story`/`reel`
-  // are one), since identical geometry cannot disagree.
-  const BOXES = [
-    { size: undefined, family: 'wide' }, // hd 1280×720, the default
-    { size: '4K', family: 'wide' }, //      3840×2160
-    { size: 'standard', family: 'wide' }, // 960×720
-    { size: 'square', family: 'square' }, // 1080×1080
-    { size: 'portrait', family: 'tall' }, // 1080×1350
-    { size: 'reel', family: 'tall' }, //     1080×1920
-    { size: 'mobile', family: 'strip' }, //  1080×2340
-  ];
-  /** family → layout → the TIGHTEST measurement across that family's canvases. */
-  const measured = new Map();
-  /** Every canvas measured on its own, so the fold above can itself be checked. */
-  const perCanvas = [];
-  let browser;
+  const measure = require('../../../tools/measure-code-columns.js');
+  const table = require('../../../lib/authoring/code-pane-columns.js');
+  const SAMPLE = ['||', 'claim-hero||', 'claim-quiet||', 'compact||', '|venue-huddle|', '|venue-conference|', '|venue-hall|',
+    '||scale-l', '||scale-xl', '||scale-2xl', '|venue-conference|scale-l'];
+  // The bar table (what a title or copy bar costs the pane, lib/authoring/code-pane-columns.js BAR):
+  // each group at the designed size and at conference, every canvas.
+  const BAR_SAMPLE = ['', 'venue-conference'];
+  let measured = null;
+  let bars = null;
   const exe = chrome();
 
   before(async () => {
     if (!exe) return;
     const puppeteer = require('puppeteer-core');
-    browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    // A ruler line long enough to overflow every box, in both layouts.
-    const ruler = Array.from({ length: 200 }, (_, i) => String((i + 1) % 10)).join('');
-    for (const box of BOXES) {
-      const tag = `${box.family}-${box.size || 'default'}`;
-      const src = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}.md`);
-      fs.writeFileSync(src, `---\nmarp: true\ntheme: indaco\n${box.size ? `size: ${box.size}\n` : ''}---\n\n`
-        + `<!-- _class: compare-code -->\n\n\`L\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n\`R\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n`
-        + `---\n\n<!-- _class: code -->\n\n\`\`\`js\n${ruler}\n\`\`\`\n`);
-      const base = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}`);
-      // `--keep-html`: this reads the `.html` sidecar beside the PDF, deleted on success by default (P1).
-      execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
-        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1600, height: 1000 });
-      await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120000 });
-      const atSize = await page.evaluate(() => {
-        const read = (sel) => {
-          const sec = document.querySelector(sel);
-          if (!sec) return null;
-          const pre = sec.querySelector('pre');
-          const code = pre.querySelector('code');
-          const cs = getComputedStyle(pre);
-          const content = pre.getBoundingClientRect().width
-            - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
-            - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
-          // The real advance of the real font, measured by laying out real glyphs.
-          const ccs = getComputedStyle(code);
-          const probe = document.createElement('span');
-          probe.style.font = ccs.font;
-          probe.style.letterSpacing = ccs.letterSpacing;
-          probe.style.whiteSpace = 'pre';
-          probe.style.position = 'absolute';
-          probe.style.visibility = 'hidden';
-          probe.textContent = 'M'.repeat(100);
-          code.appendChild(probe);
-          const advance = probe.getBoundingClientRect().width / 100;
-          probe.remove();
-          return { fits: Math.floor(content / advance), whiteSpace: ccs.whiteSpace, overflow: cs.overflow };
-        };
-        return { 'compare-code': read('section.compare-code'), code: read('section.code') };
-      });
-      await page.close();
-
-      perCanvas.push({ family: box.family, size: box.size || 'hd', at: atSize });
-      // Fold this canvas into its family, keeping the TIGHTEST `fits` per layout.
-      // That is what the budget table has to hold: one number covering every
-      // @size the family serves, and it can only be the smallest without
-      // under-reporting a clip on the narrowest of them.
-      const acc = measured.get(box.family) || {};
-      for (const layout of ['compare-code', 'code']) {
-        const m = atSize[layout];
-        if (!m) continue;
-        const prev = acc[layout];
-        acc[layout] = !prev || m.fits < prev.fits ? { ...m, size: box.size || 'hd' } : prev;
-      }
-      measured.set(box.family, acc);
+    const browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      measured = await measure.measureCodeColumns(browser, { combos: SAMPLE });
+      bars = await measure.measureCodeBars(browser, { rungs: BAR_SAMPLE });
+    } finally {
+      await browser.close();
     }
   });
 
-  after(async () => { if (browser) await browser.close(); });
+  test('the tool measures the canvases the table lists, in its order', () => {
+    assert.deepEqual(measure.CANVASES.map((c) => c.key), [...table.CANVASES]);
+    assert.deepEqual(Object.keys(table.COLUMNS), [...measure.GROUPS]);
+    for (const g of measure.GROUPS) assert.equal(Object.keys(table.COLUMNS[g]).length, measure.allCombos().length, g);
+  });
 
-  test('every budget in CODE_LINE_BUDGET is what Chromium fits at the family’s TIGHTEST @size', (t) => {
+  test('every sampled cell is what Chromium fits, on every canvas', (t) => {
     if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
-    for (const [layout, byFamily] of Object.entries(core.CODE_LINE_BUDGET)) {
-      for (const [family, budget] of Object.entries(byFamily)) {
-        const m = measured.get(family)?.[layout];
-        assert.ok(m, `no measurement for ${layout}@${family}`);
-        assert.equal(
-          m.fits, budget,
-          `${layout}@${family}: the table says ${budget} columns, the browser fits ${m.fits} at its `
-          + `narrowest @size (${m.size}). Re-measure EVERY @size in the family and take the smallest `
-          + '— do not edit the test to match.',
-        );
+    for (const g of measure.GROUPS) {
+      for (const combo of SAMPLE) {
+        const want = table.COLUMNS[g][combo];
+        const got = table.CANVASES.map((c) => measured[g][combo][c]);
+        assert.deepEqual(got, [...want], `${g} ${combo || 'bare'}: the table says ${want}, Chromium fits ${got}. `
+          + 'Re-run `node tools/measure-code-columns.js --write` and review the diff; do not edit the test to match.');
       }
     }
   });
 
-  test('the budget is the family MINIMUM, so no @size in a family is over-reported', (t) => {
-    if (!exe) return t.skip('no Chromium — set CHROME_PATH');
-    // The assertion above compares against the folded minimum, which would still
-    // pass if the fold itself were wrong. This one re-reads the table from the
-    // other direction: for every canvas measured, the budget its family carries
-    // must be one this canvas can actually honor. A budget generous by even one
-    // column on ONE @size is a line that lints clean and exports clipped.
-    for (const { family, size, at } of perCanvas) {
-      for (const layout of ['compare-code', 'code']) {
-        const budget = core.CODE_LINE_BUDGET[layout]?.[family];
-        if (budget == null || !at[layout]) continue;
-        assert.ok(
-          budget <= at[layout].fits,
-          `${layout}@${family}: the table's budget of ${budget} columns exceeds what @size ${size} `
-          + `actually fits (${at[layout].fits}) — a line of ${budget} columns would lint clean and `
-          + 'export clipped on that canvas.',
-        );
+  test('every sampled bar cost is what Chromium lays out, on every canvas', (t) => {
+    if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    assert.deepEqual([...table.BAR_FIELDS], [...measure.BAR_FIELDS]);
+    for (const g of Object.keys(table.BAR)) {
+      assert.deepEqual(Object.keys(table.BAR[g]), [...measure.RUNGS], g);
+      for (const rung of BAR_SAMPLE) {
+        const want = table.BAR[g][rung];
+        const got = measure.CANVASES.map((c) => bars[g][rung][c.key]);
+        assert.deepEqual(got, want.map((cell) => [...cell]), `${g} bar ${rung || 'designed'}: the table and Chromium differ. `
+          + 'Re-run `node tools/measure-code-columns.js --write` and review the diff; do not edit the test to match.');
       }
     }
   });
 
-  test('the rule stays scoped to panes that really CLIP — wrapping ones are excluded', (t) => {
-    if (!exe) return t.skip('no Chromium — set CHROME_PATH');
-    for (const { family } of BOXES) {
-      const m = measured.get(family);
-      // `code` never wraps in any box, so it must carry a budget everywhere.
-      assert.equal(m.code.whiteSpace, 'pre', `code@${family} is expected not to wrap`);
-      assert.match(m.code.overflow, /hidden|clip/, `code@${family} is expected to clip`);
-      assert.ok(core.CODE_LINE_BUDGET.code[family], `code@${family} must carry a budget`);
-      // compare-code carries one ONLY where it does not wrap. If a future change
-      // makes landscape wrap (or stops the stacked families wrapping), this flips
-      // and the table must follow — silence would be the rule warning about a
-      // clip that no longer happens, or missing one that just started.
-      const wraps = m['compare-code'].whiteSpace !== 'pre';
-      assert.equal(
-        !!core.CODE_LINE_BUDGET['compare-code'][family], !wraps,
-        `compare-code@${family}: white-space is '${m['compare-code'].whiteSpace}', so a budget `
-        + `${wraps ? 'must NOT' : 'MUST'} be declared for it`,
-      );
+  test('a panel that wraps has no number, and only compare-code wraps, off the wide canvases', () => {
+    for (const g of measure.GROUPS) {
+      for (const [combo, row] of Object.entries(table.COLUMNS[g])) {
+        table.CANVASES.forEach((canvas, i) => {
+          const wraps = g === 'compare' && table.FAMILY[canvas] !== 'wide';
+          assert.equal(row[i] == null, wraps, `${g} ${combo} @${canvas}`);
+        });
+      }
     }
   });
-});
-
-test('CODE_LIFT in lint-core matches `--venue-compact-lift` in the venue CSS', () => {
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
-  const lift = (venue) => {
-    const m = css.match(new RegExp(`section\\.venue-${venue}\\s*\\{[^}]*--venue-compact-lift:\\s*([0-9.]+)`));
-    return m ? Number(m[1]) : 1;
-  };
-  const { CODE_LIFT } = require('../../../lib/authoring/lint-core.js');
-  assert.deepEqual({ ...CODE_LIFT }, { l: lift('huddle'), xl: lift('conference'), '2xl': lift('hall') });
 });

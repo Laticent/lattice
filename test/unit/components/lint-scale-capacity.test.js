@@ -144,8 +144,9 @@ describe('capacity-scale — a code block', () => {
     assert.equal(out[0].severity, 'info');
     assert.match(out[0].message, /, so it is cut off\./);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
-    // A spot `scale-xl` carries no code lift (only a venue sets one): 102 ÷ 1.3 = 78.
-    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 characters`));
+    // A spot `scale-xl` carries no code lift (only a venue sets one): MEASURED 79 columns at 16:9
+    // (lib/authoring/code-pane-columns.js), where 102 ÷ 1.3 said 78.
+    assert.match(out[0].fix, new RegExp(`${bareXl} lines of ${core.codePaneColumns('pane', ['scale-xl'], '1280x720', 'wide')} characters`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
   });
 
@@ -218,11 +219,12 @@ describe('capacity-scale — a code block', () => {
     const wide = '```js\n' + 'x'.repeat(90) + '\n```\n';
     const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${wide}`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /a 90-character line \(the pane holds about 78\)/);
+    assert.match(out[0].message, /a 90-character line \(the pane holds about 79\)/);
   });
 
-  test('in a venue the code lift narrows the pane: 68 columns at conference, 59 at hall', () => {
-    // 102 ÷ (1.3 × 1.15) = 68 and 102 ÷ (1.5 × 1.14) = 59 (`--venue-compact-lift`, 2026-09-29).
+  test('in a venue the code lift narrows the pane: 68 columns at conference, 60 at hall', () => {
+    // MEASURED (lib/authoring/code-pane-columns.js). Dividing 102 by (1.5 × 1.14) said 59 at hall, so a
+    // 60-column line that renders whole was named; the table is what Chromium lays out.
     const cols73 = '```js\n' + 'x'.repeat(73) + '\n```\n';
     const at = (venue) => core.lintTextWith(`---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: code -->\n\n## H.\n\n${cols73}`, vocab).filter((f) => f.rule === 'capacity-scale');
     const conf = at('conference');
@@ -230,9 +232,16 @@ describe('capacity-scale — a code block', () => {
     assert.match(conf[0].message, /a 73-character line \(the pane holds about 68\)/);
     const hall = at('hall');
     assert.equal(hall.length, 1);
-    assert.match(hall[0].message, /a 73-character line \(the pane holds about 59\)/);
+    assert.match(hall[0].message, /a 73-character line \(the pane holds about 60\)/);
     // A 73-column line clips at conference too, so the hall fix must not offer it.
     assert.doesNotMatch(hall[0].fix, /venue: conference/);
+  });
+
+  test('a 60-column line at hall renders whole, so it is not named', () => {
+    const cols60 = '```js\n' + 'x'.repeat(60) + '\n```\n';
+    const hall = core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: code -->\n\n## H.\n\n${cols60}`, vocab)
+      .filter((f) => f.rule === 'capacity-scale' || f.rule === 'code-line-clipped');
+    assert.deepEqual(hall, []);
   });
 
   test('a spot `scale-xl` on a laptop deck gets no code lift, so a 73-column line fits', () => {
@@ -241,11 +250,85 @@ describe('capacity-scale — a code block', () => {
     assert.deepEqual(out, []);
   });
 
-  test('tallestCodeBlock counts the longest fence, unclosed included', () => {
-    assert.equal(core.tallestCodeBlock('```\na\nb\n```\n\n~~~\nc\n~~~'), 2);
-    assert.equal(core.tallestCodeBlock('```\na\nb\nc'), 3);
-    assert.equal(core.tallestCodeBlock('no fence'), 0);
+  // The bar and wrapped rows (#2716): a title or copy bar takes a code line or more of the pane, and a
+  // `wrap` line takes as many rows as it wraps to. Costs from the measured bar table (code-pane-columns.js).
+  const recordBlock = (record, n, line = null) => `<!-- _class: code -->\n\n## Heading.\n\n\`@code{${record}}\`\n` + '```js\n'
+    + Array.from({ length: n }, (_, i) => (i === 0 && line) || `const v${i} = f(${i});`).join('\n') + '\n```\n';
+
+  test('a copy block\'s bar costs the pane a line: a block that fits bare is named with `copy`', () => {
+    assert.deepEqual(lint(deck('scale-xl', recordBlock('focus=1', bareXl))), []);
+    const out = lint(deck('scale-xl', recordBlock('copy', bareXl)));
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, new RegExp(`${bareXl + 1} lines counting its copy bar \\(the pane holds about ${bareXl}\\)`));
   });
+
+  test('a title bar costs the pane a line, and a title that wraps costs more', () => {
+    const one = lint(deck('scale-xl', recordBlock('title=a.ts', bareXl)));
+    assert.equal(one.length, 1);
+    assert.match(one[0].message, new RegExp(`${bareXl + 1} lines`));
+    // Three rows of title at scale-xl: 108 + 2 × 84 hundredths, two whole lines.
+    const path = 'src/' + 'a'.repeat(200) + '.ts';
+    const long = lint(deck('scale-xl', recordBlock(`title="${path}"`, bareXl - 1)));
+    assert.equal(long.length, 1);
+    assert.match(long[0].message, new RegExp(`${bareXl + 1} lines`));
+  });
+
+  test('a `wrap` line counts the rows it wraps to, at the scaled width', () => {
+    const cols = core.codePaneColumns('pane', ['scale-xl'], '1280x720', 'wide');
+    // Two rows at scale-xl (first row `cols`, the next hangs 2 in), one row at the designed width.
+    const line = 'x'.repeat(cols + 10);
+    assert.deepEqual(lint(deck('scale-xl', recordBlock('wrap', bareXl - 1, line))), []);
+    const out = lint(deck('scale-xl', recordBlock('wrap', bareXl, line)));
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, new RegExp(`${bareXl + 1} lines`));
+  });
+
+  test('the numbers and diff gutters count toward a line\'s width', () => {
+    const cols = core.codePaneColumns('pane', ['scale-xl'], '1280x720', 'wide');
+    const fits = 'x'.repeat(cols - 3);
+    assert.deepEqual(lint(deck('scale-xl', recordBlock('focus=1', 3, fits))), []);
+    // `numbers` on a block under 100 lines: two digits plus one.
+    assert.equal(lint(deck('scale-xl', recordBlock('numbers', 3, fits + 'x'))).length, 1);
+    // `diff`: an unmarked line gains the marker column and its pad.
+    assert.equal(lint(deck('scale-xl', recordBlock('diff', 3, fits + 'xx'))).length, 1);
+    assert.deepEqual(lint(deck('scale-xl', recordBlock('diff', 3, `+${fits}`))), []);
+  });
+
+  test('the message names what the count added: the title bar, the wrapped rows', () => {
+    assert.match(lint(deck('scale-xl', recordBlock('title=a.ts', bareXl)))[0].message, /lines counting its title bar \(/);
+    const cols = core.codePaneColumns('pane', ['scale-xl'], '1280x720', 'wide');
+    assert.match(lint(deck('scale-xl', recordBlock('wrap', bareXl, 'x'.repeat(cols + 10))))[0].message, /lines counting its wrapped rows \(/);
+  });
+
+  test('a `wrap` block under align-center wraps at the pane\'s width, not the grown one (huddle)', () => {
+    const [, bareL] = core.CODE_LINES_AT_SCALE.bare;
+    const long = 'word '.repeat(19) + 'xx'; // 97 columns: two rows on the 89-column huddle pane
+    const body = (cls) => `<!-- _class: ${cls} -->\n\n## Heading.\n\n\`@code{wrap}\`\n\`\`\`js\n`
+      + [...Array.from({ length: bareL - 5 }, (_, i) => `x${i}`), long, long, long].join('\n') + '\n```\n';
+    const huddle = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n${body(cls)}`, vocab).filter((f) => f.rule === 'capacity-scale');
+    assert.equal(huddle('code').length, 1);
+    assert.equal(huddle('code align-center').length, 1);
+  });
+
+  test('a fence another plugin draws gets no bar, whatever the deck\'s `code:` default', () => {
+    const mermaid = `<!-- _class: code -->\n\n## Heading.\n\n\`\`\`mermaid\n${Array.from({ length: bareXl }, (_, i) => `A${i}-->B${i}`).join('\n')}\n\`\`\`\n`;
+    assert.deepEqual(lint(`---\nmarp: true\nlogo: logo.svg\nclass: scale-xl\ncode: copy\n---\n\n${mermaid}`), []);
+  });
+
+  test('a ```` fence closes only on four backticks or more (CommonMark)', () => {
+    // The ``` line is content of the outer block, so its widest line is the one after it.
+    assert.equal(core.widestCodeLine('````\na\n```\nbbbbb\n````').text, 'bbbbb');
+    // A ``` fence closes on the ``` line, so `bbbbb` is prose; an unclosed fence runs to the end.
+    assert.equal(core.widestCodeLine('```\na\n```\nbbbbb\n```').text, 'a');
+    assert.equal(core.widestCodeLine('~~~\na\nbbb').text, 'bbb');
+    assert.equal(core.widestCodeLine('no fence'), null);
+  });
+
+  test('a fence inside speaker notes is no block of the pane', () => {
+    const notes = `<!--\n${'```js\n' + 'x\n'.repeat(40) + '```'}\n-->\n`;
+    assert.deepEqual(lint(deck('scale-xl', code(bareXl) + notes)), []);
+  });
+
 });
 
 describe('the fit: register in lint', () => {

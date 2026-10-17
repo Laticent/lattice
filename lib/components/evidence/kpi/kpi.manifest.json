@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "kpi",
+  "cards": { "default": "center" },
   "function": "evidence",
   "form": "ledger",
   "substance": "structure",

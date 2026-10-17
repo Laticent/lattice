@@ -24,7 +24,7 @@ ordinary relative paths.
 |---|---|
 | `photo-` | Stand-in photographs, one per shape: `wide`, `tall`, `pano`, `square`, `column`. Each shape comes as an SVG; `wide`, `tall`, `pano` and `square` also come as a JPEG, for testing the raster path. `photo-tall-rotated.jpg` is the tall photo stored as landscape pixels with EXIF Orientation 6, for testing that a rotated JPEG measures upright. |
 | `portrait-` | Team portraits for `team-profile`. |
-| `logo-` | Brand marks for `logo-wall`. `logo-acme-mark.svg` is the deck-logo placeholder. |
+| `logo-` | Brand marks for `logo-wall`. Most are 3:1 wordmarks; `logo-pinnacle.svg` (4:1), `logo-keystone.svg` (1:1) and `logo-spire.svg` (1:2) are the mixed shapes that show the wall's equal-weight sizing. `logo-acme-mark.svg` is the deck-logo placeholder. |
 | `video-poster.svg` | The poster still for `video`. |
 
 **Rules.** The folder is flat: a name is one path segment, so `sample:people/ada.svg` is not a

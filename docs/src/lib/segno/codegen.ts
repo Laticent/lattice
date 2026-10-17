@@ -98,7 +98,7 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
 }
 
 /** Generate an ES module exporting `parse(input, rule?)` with the same contract as `compile().parse`. */
-export function generate(spec: GrammarSpec, options: { banner?: string } = {}): string {
+function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly string[] }): { source: string; kinds: readonly string[] } {
   const an = analyze(spec); // throws GrammarError exactly as compile() does
   const maxDepth = depthOf(spec);
   // Rule names become identifiers (`r_<name>`), so they must be identifiers.
@@ -121,7 +121,9 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
     return name;
   };
   const recursive = an.recursiveRules();
-  const kinds: string[] = [];
+  // `kinds` seeds the node-kind numbering, so a parser generated from a restricted grammar
+  // (grammar.ts `restrict`) numbers its nodes as the full parser does and one reader walks both trees.
+  const kinds: string[] = [...(options.kinds ?? [])];
   // Attempts become functions of their own (`t_K` tries and rewinds, `b_K` is the body), written
   // after the rules. A grammar without one is generated exactly as before.
   const attempts = new Map<Expr, number>();
@@ -354,7 +356,7 @@ function x_${k}(): GenError {
     .concat([...regexes].map(([src, name]) => `${/\\u00[01]/.test(src) ? '// biome-ignore lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n' : ''}const ${name} = ${src};`)).join('\n');
   // Parser state lives at MODULE scope, not in a closure per call: a generated parse() that
   // declared its rules inside itself allocated a closure per rule on every span.
-  return `${options.banner ?? ''}${tableDecls}
+  const source = `${options.banner ?? ''}${tableDecls}
 
 export interface GenError { at: number; expected: string; found: string | null; code?: 'stack' }
 export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[] }
@@ -426,4 +428,23 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   return OK;
 }
 `;
+  return { source, kinds };
+}
+
+/**
+ * The parser `spec` generates, as TypeScript source. `kinds` seeds the node-kind numbering (see
+ * `kindsOf`); left out, kinds are numbered in the order the generator meets them.
+ */
+export function generate(spec: GrammarSpec, options: { banner?: string; kinds?: readonly string[] } = {}): string {
+  return emit(spec, options).source;
+}
+
+/**
+ * The node kinds the parser `spec` generates numbers, in its order: kind `k` in a flat tree is
+ * `kindsOf(spec)[k]`. Read off the same generation `generate` runs, so it cannot disagree with it.
+ * For a parser of a `restrict`ed grammar that must number its nodes as the full one does:
+ * `generate(small, { kinds: kindsOf(full) })`.
+ */
+export function kindsOf(spec: GrammarSpec): readonly string[] {
+  return emit(spec, {}).kinds;
 }

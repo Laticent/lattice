@@ -2558,6 +2558,8 @@ function ComposeStyles() {
 			.cs-codec-trigger{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.04em;line-height:1;cursor:pointer;transition:color .12s,background .12s}
 			.cs-codec-trigger svg{display:block;width:13px;height:13px}
 			.cs-codec-tag{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+			.cs-codec-trigger{position:relative}
+			.cs-codec-dot{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:999px;background:var(--accent,#006fa8)}
 			.cs-codec-trigger:hover,.cs-codec-trigger[data-state=open]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			.cs-host strong{font-weight:700;color:var(--text-heading,#14243a)}
 			.cs-host em{font-style:italic}

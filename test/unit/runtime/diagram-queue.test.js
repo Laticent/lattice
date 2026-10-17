@@ -38,11 +38,11 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid',
  * Lift the queue out of the shipped runtime.
  *
  * The block spans `beginDiagramRun` … `renderDiagramJob`, and closes over
- * `configureForScope`, `attachError`, `mermaidSvgCache`, `diagramCacheKey`,
+ * `configureForScope`, `attachError`, `rememberDiagram`, `bindDiagramFunctions`,
  * `renderCounter` and `pinMermaidTooltip` — all injected here so the queue itself is the
  * only thing under test.
  */
-function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
+function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, overrides = {} }) {
   const BEGIN = '  // ── THE RENDER QUEUE';
   const END = '  // Mermaid appends `<div class="mermaidTooltip">`';
   const start = RUNTIME_SRC.indexOf(BEGIN);
@@ -64,8 +64,6 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
       if (attachErrorThrows) throw new Error('attachError blew up (Trusted Types / torn-down document)');
       preEl.dataset.latticeSettle = 'error';
     },
-    mermaidSvgCache: new Map(),
-    diagramCacheKey: (a, b) => `${a}|${b}`,
     pinMermaidTooltip: () => {},
     // The queue's failure paths ask WHERE a fence came from before resetting it — a fence
     // a reclaim took from the author goes back to `unavailable` (its source), an ordinarily
@@ -79,19 +77,26 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
     // Writes the chart motion roles on a drawn diagram (lib/plugins/mermaid/shared/motion-roles.js).
     // Motion is not what these cells are about, so it stands in as a no-op.
     tagDiagramMotion: () => {},
+    // Runs Mermaid's post-write binder (the tooltip listener). The fake renders here return
+    // no binder, so it stands in as a no-op; mermaid-cache-bindings.test.js drives the real one.
+    bindDiagramFunctions: () => {},
+    // Caches a fresh render with its replayable binder (and a gantt's link snapshot). The
+    // cache is not what these cells are about; mermaid-cache-bindings.test.js drives it.
+    rememberDiagram: () => Promise.resolve(),
     // The label-length guard is the shipped kernel itself: a fence it refuses never reaches
     // `mermaid.render` (lib/plugins/mermaid/shared/label-length.js).
     ...require('../../../lib/plugins/mermaid/shared/label-length'),
+    ...overrides,
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion, overlongLabelText, overlongMessage) {
+    `(function (configureForScope, attachError, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion, bindDiagramFunctions, rememberDiagram, overlongLabelText, overlongMessage) {
        let renderCounter = 0;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion, deps.overlongLabelText, deps.overlongMessage);
+  const q = factory(deps.configureForScope, deps.attachError, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion, deps.bindDiagramFunctions, deps.rememberDiagram, deps.overlongLabelText, deps.overlongMessage);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
@@ -243,6 +248,43 @@ describe('the diagram queue always advances', () => {
     assert.match(RUNTIME_SRC, /function resetFenceAfterFailure\(preEl\) \{\s*\n\s*if \(preEl\.dataset\.latticeSettle !== 'hydrating'\) return;/,
       'and the reset must still act only on a fence that was actually in flight');
     assert.equal(good.preEl.dataset.latticeSettle, 'rendered');
+  });
+
+  test('two gantts in one band: each binds before the next gantt parses', async () => {
+    // Mermaid's gantt db is ONE module-level object that each gantt parse refills, and its
+    // `bindFunctions` reads it when it runs. This fake renders concurrently, the way our
+    // band dispatch did, and its binder logs which gantt the shared db holds when it runs.
+    // Without the gantt turn, gantt B parses before gantt A binds, and A binds B's links.
+    const log = [];
+    let ganttDb = null;
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => {
+        log.push(`render:${source}`);
+        const gantt = source.startsWith('gantt');
+        if (gantt) ganttDb = source;
+        return new Promise((r) => {
+          setTimeout(() => r({
+            svg: '<svg></svg>',
+            diagramType: gantt ? 'gantt' : 'flowchart-v2',
+            bindFunctions: () => log.push(`bind:${source} sees ${gantt ? ganttDb : 'own db'}`),
+          }), 5);
+        });
+      },
+    };
+    const q = liftQueue({ mermaid, log, capMs: 1000, overrides: { bindDiagramFunctions: (fn) => fn?.() } });
+    const a = fence('gantt A');
+    const b = fence('gantt B');
+    const flow = fence('flowchart LR');
+    await q.run(twoBandDeck([a, flow, b], []));
+
+    assert.ok(log.includes('bind:gantt A sees gantt A'), `gantt A bound its own links (log: ${log.join(' | ')})`);
+    assert.ok(log.includes('bind:gantt B sees gantt B'), `gantt B bound its own links (log: ${log.join(' | ')})`);
+    assert.ok(log.indexOf('bind:gantt A sees gantt A') < log.indexOf('render:gantt B'),
+      `gantt B waited for gantt A to bind (log: ${log.join(' | ')})`);
+    assert.ok(log.indexOf('render:flowchart LR') < log.indexOf('bind:gantt A sees gantt A'),
+      `a flowchart does not wait in the gantt line (log: ${log.join(' | ')})`);
+    for (const f of [a, b, flow]) assert.equal(f.preEl.dataset.latticeSettle, 'rendered');
   });
 
   test('bands are configured in document order, one configure per band', async () => {

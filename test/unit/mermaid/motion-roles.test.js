@@ -150,7 +150,7 @@ describe('tagMermaidMotion — wired into every path that produces a diagram', (
     const src = fs.readFileSync(path.join(root, 'lib/plugins/mermaid/mermaid.hydrate.js'), 'utf8');
     assert.match(src, /require\('\.\/shared\/motion-roles'\)/);
     // One call after the cache write, one after the fresh render.
-    assert.equal((src.match(/target\.innerHTML = (?:cachedSvg|svg);\n\s*tagDiagramMotion\(target\);/g) || []).length, 2);
+    assert.equal((src.match(/target\.innerHTML = (?:cached\.svg|svg);\n\s*tagDiagramMotion\(target\);/g) || []).length, 2);
   });
   it('the CLI player capture tags the baked copy', () => {
     const src = fs.readFileSync(path.join(root, 'lattice.js'), 'utf8');

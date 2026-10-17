@@ -32,7 +32,7 @@ const { defineLibraryBuild } = require('./lib/build-workspace-lib.js');
 // notation.generated.ts is committed SOURCE, written by its own step (build-segno-grammar.js)
 // so that this step's write set stays wholly inside the gitignored dist/. Bundling a stale
 // one would ship a parser that disagrees with notation-grammar.ts, so refuse instead.
-const { generatedNotation, isFresh } = require('./build-segno-grammar.js');
+const { generatedNotation, generatedPlain, isFresh, PLAIN_GENERATED } = require('./build-segno-grammar.js');
 
 defineLibraryBuild({
   name: 'segno',
@@ -48,8 +48,8 @@ defineLibraryBuild({
     { entry: 'read.ts', out: 'read' },
   ],
   async preflight() {
-    if (!isFresh(await generatedNotation())) {
-      console.error('[build-segno-lib] notation.generated.ts is stale — run `node tools/build-segno-grammar.js` (or `npm run segno-lib:build`) first.');
+    if (!isFresh(await generatedNotation()) || !isFresh(await generatedPlain(), PLAIN_GENERATED)) {
+      console.error('[build-segno-lib] notation.generated.ts or notation-plain.generated.ts is stale — run `node tools/build-segno-grammar.js` (or `npm run segno-lib:build`) first.');
       process.exit(1);
     }
   },

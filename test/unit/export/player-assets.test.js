@@ -17,6 +17,15 @@ const FONT = `data:font/woff2;base64,${b64('c')}`;
 const doc = (head, body) => `<!DOCTYPE html><html><head>${head}</head><body>${body}</body></html>`;
 
 describe('hoistRepeatedAssets', () => {
+	test("a picture written with the serializer's &quot; quotes (a plain slide's ![bg]) is stored once too", async () => {
+		const { hoistRepeatedAssets } = await load();
+		const slide = `<section style="background-image:url(&quot;${JPEG}&quot;);background-size:cover;"></section>`;
+		const { html, hoisted } = hoistRepeatedAssets(doc('', slide.repeat(3)));
+		assert.equal(hoisted, 1);
+		assert.equal(html.split(JPEG).length - 1, 1, 'exactly one copy of the bytes remains');
+		assert.equal(html.split('background-image:var(--lp-asset-0);background-size:cover;').length - 1, 3);
+	});
+
 	test('a picture used on several slides is stored once and referenced by var()', async () => {
 		const { hoistRepeatedAssets } = await load();
 		const slide = `<div style="background-image:url('${JPEG}')"></div>`;

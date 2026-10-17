@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createEngine } = require('../../../lib/engine/index.js');
-const record = require('../../../lib/plugins/code/shared/record.js');
+const record = { ...require('../../../lib/plugins/code/shared/record.js'), ...require('../../../lib/plugins/code/shared/record-edit.js') };
 const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
 
 const render = (md) => createEngine().render(md).html;
@@ -38,6 +38,16 @@ describe('the record reader', () => {
     assert.equal(record.readBody('{format=off}').value.format, false);
   });
 
+  test('`indent=` takes 2, 4 or tab and `quotes=` single or double; anything else is named', () => {
+    assert.deepEqual(record.readBody('{indent=tab, quotes=single}').value, { indent: 'tab', quotes: 'single' });
+    assert.deepEqual(record.readBody('{indent=2, quotes=double}').value, { indent: '2', quotes: 'double' });
+    assert.match(record.readBody('{indent=3}').problems[0], /"3" is not one of 2, 4, tab/);
+    assert.match(record.readBody('{quotes=back}').problems[0], /"back" is not one of single, double/);
+    assert.deepEqual(record.deckDefaults('code: indent=4, quotes=single\n'), { indent: '4', quotes: 'single' });
+    // A tab is as wide as the indent; `tab` draws four columns, and unset is the caller's (CSS's 8).
+    assert.deepEqual(['2', '4', 'tab'].map(record.tabColumns), [2, 4, 4]);
+  });
+
   test('only exactly `@code{…}` is a record', () => {
     assert.equal(record.recordBody('@code{numbers}'), '{numbers}');
     assert.equal(record.recordBody('@code {numbers}'), null);
@@ -51,6 +61,13 @@ describe('the record reader', () => {
 });
 
 describe('rendering a record', () => {
+  test('`indent=` stamps the panel, so a tab draws at that width; the deck default does too', () => {
+    const tabbed = '```go\nfunc f() {\n\treturn\n}\n```\n';
+    assert.match(pre(render(`# A\n\n\`@code{indent=tab}\`\n${tabbed}`)), /^<pre class="lat-code" data-indent="tab">/);
+    assert.match(pre(render(`---\ncode: indent=2\n---\n\n# A\n\n${tabbed}`)), /^<pre class="lat-code" data-indent="2">/);
+    assert.match(pre(render(`# A\n\n${tabbed}`)), /^<pre class="lat-code">/, 'no indent, no attribute: CSS keeps 8');
+  });
+
   test('the record line renders nothing; the fence below carries it', () => {
     const html = render(`# A\n\n\`@code{numbers}\`\n\n${FENCE}`);
     assert.doesNotMatch(html, /@code/);
@@ -177,5 +194,78 @@ describe('lint rule 12c and formatting', () => {
     const found = rules('# A\n\n`@code{focus=1-20000000}`\n```ts\nx\n```\n');
     assert.ok(Date.now() - t0 < 1000, 'returns at once');
     assert.deepEqual(found.map((f) => f.rule), ['code-record']);
+  });
+});
+
+describe('a record inside a blockquote (followups.d/2710-p4)', () => {
+  const lint = (body) => lintTextWith(`---\nmarp: true\n---\n\n# A\n\n${body}`, { names: new Set(), modifiers: new Set() })
+    .filter((f) => /^code-/.test(f.rule));
+  const quoted = (q, record) => [`${q}Note`, q.trimEnd(), `${q}\`${record}\``, `${q}\`\`\`ts`, `${q}const a = 1;`, `${q}\`\`\``].join('\n');
+
+  test('the render applies it, so the lint checks it: a bad range, a bad word, at any depth', () => {
+    for (const q of ['> ', '> > ', '>']) {
+      assert.deepEqual(lint(quoted(q, '@code{focus=9}')).map((f) => f.rule), ['code-line-range'], `${JSON.stringify(q)}: range`);
+      assert.deepEqual(lint(quoted(q, '@code{numbrs}')).map((f) => f.rule), ['code-record'], `${JSON.stringify(q)}: word`);
+      assert.deepEqual(lint(quoted(q, '@code{focus=1}')), [], `${JSON.stringify(q)}: a good record says nothing`);
+    }
+  });
+
+  test('an orphan inside a quote is named, and an unquoted record is still read once', () => {
+    assert.deepEqual(lint('> `@code{numbers}`\n>\n> Just words.').map((f) => f.rule), ['code-record-orphan']);
+    assert.equal(lint(`\`@code{focus=9}\`\n\`\`\`ts\na\n\`\`\``).length, 1);
+  });
+});
+
+describe('editRecord — the writer the Compose options panel uses (followups.d/2710-p1)', () => {
+  const edit = record.editRecord;
+
+  test('changes only the word edited; every other byte the author wrote stays', () => {
+    const src = '@code{title="a, b.ts",  numbers, focus=3-5 9}';
+    assert.equal(edit(src, { numbers: false }), '@code{title="a, b.ts",  focus=3-5 9}');
+    assert.equal(edit(src, { focus: '2' }), '@code{title="a, b.ts",  numbers, focus=2}');
+    assert.equal(edit(src, { wrap: true }), `${src.slice(0, -1)}, wrap}`);
+    assert.equal(edit(src, { focus: '3-5 9' }), src, 'the same value is no change');
+  });
+
+  test('the same value in the author\'s own spelling keeps their bytes', () => {
+    assert.equal(edit('@code{format=on}', { format: true }), '@code{format=on}');
+    assert.equal(edit('@code{focus=3-5 9}', { focus: '3 4 5 9' }), '@code{focus=3-5 9}');
+  });
+
+  test('a new record, and no record when the last field goes', () => {
+    assert.equal(edit('', { numbers: true }), '@code{numbers}');
+    assert.equal(edit('@code{numbers}', { numbers: false }), '');
+    assert.equal(edit('', { numbers: false }), '');
+  });
+
+  test('on/off fields write `=off`; values that need quotes get them', () => {
+    assert.equal(edit('@code{format}', { format: false }), '@code{format=off}');
+    assert.equal(edit('@code{numbers}', { title: 'a, b}.ts' }), '@code{numbers, title="a, b}.ts"}');
+    assert.equal(edit('@code{numbers}', { indent: 'tab', quotes: 'single', width: 48 }), '@code{numbers, indent=tab, quotes=single, width=48}');
+  });
+
+  test('never a guess: a record that does not read, a field written twice, an unknown field or a bad value', () => {
+    assert.equal(edit('@code{wat}', { numbers: true }), null);
+    assert.equal(edit('@code{numbers, numbers}', { numbers: false }), null);
+    assert.equal(edit('@code{numbers}', { colour: 'red' }), null);
+    assert.equal(edit('@code{numbers}', { indent: '3' }), null);
+    assert.equal(edit('@code{numbers}', { focus: '3-' }), null);
+    assert.equal(edit('not a record', { numbers: true }), null);
+  });
+
+  test('whatever it writes, the render reads back as asked', () => {
+    const out = edit('@code{numbers}', { title: 'x', focus: '1-2', mark: '3', start: 10, copy: true });
+    assert.deepEqual({ ...record.readBody(record.recordBody(out)).value, focus: undefined, mark: undefined }, { numbers: true, title: 'x', start: 10, copy: true, focus: undefined, mark: undefined });
+  });
+});
+
+describe('fieldProblem — what the options panel says when a value does not read', () => {
+  test('names the problem, and refuses a backtick, which an inline code span cannot hold', () => {
+    assert.equal(record.fieldProblem('focus', '3-5 9'), null);
+    assert.match(record.fieldProblem('focus', '3-'), /not a line or a range/);
+    assert.match(record.fieldProblem('width', 10), /from 20 to 200/);
+    assert.match(record.fieldProblem('title', 'x`y'), /backtick/);
+    assert.equal(record.editRecord('', { title: 'x`y' }), null);
+    assert.equal(record.fieldProblem('numbers', null), null, 'removing a field is always fine');
   });
 });

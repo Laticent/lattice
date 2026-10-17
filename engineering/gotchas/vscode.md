@@ -199,6 +199,21 @@ this protocol has to record the level, or it is measuring a coin flip.
     **After the fix, on the same code-server harness: 12 of 12 live switches drew all
     seven diagrams.** The extension's strip fired in 5 of those runs, and each time the
     runtime wrote all seven back (14 writes: 7 draws, 7 restores).
+  - **Mermaid `click` behavior in the preview (#2734).** Two hosts, both at Disable with
+    marp-vscode 3.6.1: VS Code **desktop** 1.142.0 (the Electron binary under xvfb, edits made
+    by the launcher extension through `WorkspaceEdit`, because CDP keystrokes do not reach the
+    window) and **code-server** 4.141.0 (Code 1.141.0, real keystrokes). A real pointer probed
+    a deck with a `click A "url" "tooltip"` flowchart and two linked gantts, on first paint and
+    after each of three edits; every edit made the built-in extension strip all three SVGs.
+    - `main`'s runtime, desktop: first paint had the tooltip and the second gantt's link, but
+      the FIRST gantt's link was dead (two gantts in one band, see `takeGanttTurn`); after
+      every edit the tooltip and all four gantt targets were dead (the cache hand-back).
+    - `main`'s runtime, code-server: dead on first paint too, because there the strip and
+      the hand-back land before a reader can point.
+    - #2734's runtime: everything held on both hosts, first paint and after every edit.
+    The harness is the one above, plus a 25-line launcher extension (open the deck, open the
+    preview to the side, and apply an edit when a trigger file appears). None of it is
+    committed.
   - **The `bierner.markdown-mermaid` clue is not explained.** Installing it shifts what
     loads into the preview and when, which would change who wins the race, but that is a
     guess and was not tested.

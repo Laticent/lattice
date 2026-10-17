@@ -81,6 +81,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-vetrina-lib.js',
   // Its whole write set is docs/src/lib/fuoco/dist/, covered by docs/.gitignore's `dist/`.
   'build-fuoco-lib.js',
+  // Its whole write set is docs/src/lib/mosaico/dist/, covered by docs/.gitignore's `dist/`.
+  'build-mosaico-lib.js',
   'build-lente-lib.js',
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.
@@ -145,6 +147,8 @@ const EXPECTED_PR_OWNED = new Set([
   // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
   // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's
   // list text (2026-10-06) lib/core/list-text.generated.js, which leading-marker.js requires.
+  // Since followup 2718-p3 (2026-10-16) also docs/src/lib/segno/notation-plain.generated.ts, tracked:
+  // notation.ts imports it.
   'build-segno-grammar.js', // docs/src/lib/segno, lib/core
   'build-snippets.js', // .vscode
   'build-component-docs.js', // lib/components/**/*.docs.md

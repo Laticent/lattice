@@ -98,6 +98,12 @@ const wantCli = process.argv.includes('--cli');
 //          can see them; this is the only thing that measures them. ~30s.
 const wantSweep = process.argv.includes('--sweep');
 const asJson = process.argv.includes('--json');
+// `--inline-runs N`: run the inline-span timer N times and keep, per row, the run with the median
+// ratio. The nightly passes 5. One run has fat tails (a checker read 1.42 and 3.52 among 66 runs of
+// unchanged code that otherwise sat in 2.55-2.86, about 3% of runs), and the nightly compares ONE
+// figure per arm with no second pass, where `bench:check` re-runs a row that regressed. About 4 s a run.
+const inlineRunsAt = process.argv.indexOf('--inline-runs');
+const inlineRuns = inlineRunsAt > 0 ? Math.max(1, Number.parseInt(process.argv[inlineRunsAt + 1], 10) || 1) : 1;
 const wantBless = process.argv.includes('--bless');
 const wantCheck = process.argv.includes('--check');
 const BASELINE = join(ROOT, 'test/benchmark/baseline.json');
@@ -557,6 +563,58 @@ async function flowchartTier() {
   return { summary };
 }
 
+// ── COLLAGE PACK TIER (@laticent/mosaico's `tree` strategy) ──────────────────
+//
+// The collage packer searches every guillotine arrangement of up to six photos, and the live
+// path re-packs as photo sizes arrive, so one re-pack has a budget: one 60 Hz frame, 16 ms, for
+// six photos (engineering/decisions/2026-10-16-mosaico-layout-library.md §4.5). This tier times
+// the note's §3 sets through the collage's own entry point and GATES ON WORK, like the flowchart
+// tier: more arrangements kept or more roots scored for the same photos is a regression on any
+// machine. `ms` and the budget verdict are printed, never compared.
+//
+// A base worktree from before mosaico has neither the package nor the `work` counts, and the
+// tier reports itself not comparable rather than failing.
+const COLLAGE_ASPECTS = [1.5, 0.67, 1, 1.78, 0.75, 2];
+const COLLAGE_BUDGET_MS = 16;
+async function collageTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const packPath = join(ROOT, 'lib/components/imagery/collage/collage.pack.js');
+  const libPath = join(ROOT, 'docs/src/lib/mosaico/dist/index.cjs');
+  if (!existsSync(packPath) || !existsSync(libPath)) {
+    console.log('\n=== COLLAGE PACK \u00b7 not comparable (no @laticent/mosaico in this tree) ===');
+    return { summary: [] };
+  }
+  const { packCollage, STAGE_ASPECT } = req(packPath);
+  const { pack } = req(libPath);
+  const summary = [];
+  for (const [n, order] of [[4, 'free'], [5, 'free'], [6, 'free'], [6, 'ordered']]) {
+    const aspects = COLLAGE_ASPECTS.slice(0, n);
+    const opts = { order, stageAspect: STAGE_ASPECT.landscape.beside };
+    for (let i = 0; i < 10; i++) packCollage(aspects, opts); // warm
+    const ms = [];
+    for (let i = 0; i < 40; i++) {
+      const t0 = process.hrtime.bigint();
+      packCollage(aspects, opts);
+      ms.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    ms.sort((a, b) => a - b);
+    // The work counts come from the library call the collage makes, with the collage's gap.
+    const { work } = pack(aspects, { aspect: opts.stageAspect }, { order, gap: 0.012 });
+    summary.push({
+      dataset: `collage pack \u00b7 ${n} photos, ${order}`, photos: n, ...work,
+      ms: ms[ms.length >> 1], p95: ms[Math.floor(ms.length * 0.95)],
+    });
+  }
+  console.log('\n=== COLLAGE PACK \u00b7 one re-pack, the design note \u00a73 photos ===');
+  console.log(`${'dataset'.padEnd(36)}${'kept'.padStart(7)}${'scored'.padStart(8)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}  budget ${COLLAGE_BUDGET_MS} ms`);
+  for (const r of summary) {
+    const verdict = r.p95 <= COLLAGE_BUDGET_MS ? 'within' : r.ms <= COLLAGE_BUDGET_MS ? 'median within, p95 over' : 'OVER';
+    console.log(`${r.dataset.padEnd(36)}${String(r.arrangements).padStart(7)}${String(r.scored).padStart(8)}${r.ms.toFixed(2).padStart(11)}${r.p95.toFixed(2).padStart(9)}  ${verdict}`);
+  }
+  return { summary };
+}
+
 // ── INLINE-SPAN TIER (the inline-code dispatcher, per span) ──────────────────
 //
 // Every inline-code span an author writes passes through lib/core/inline-code-directives.js,
@@ -594,7 +652,21 @@ async function flowchartTier() {
 // A BASE WORKTREE MAY HAVE NONE OF THIS: perf-nightly.yml copies only this file into the base
 // commit, so the timer is absent there, and the tier reports itself skipped rather than failing.
 const INLINE_TIMER = join(ROOT, 'test/benchmark/inline-span-timer.mjs');
-async function inlineSpanTier() {
+async function inlineSpanTier(runs = 1) {
+  if (runs > 1) {
+    const all = [];
+    for (let i = 0; i < runs; i++) {
+      const r = await inlineSpanTier(1);
+      if (r.skipped) return r; // a failed or absent timer is reported as such, not outvoted
+      all.push(r.summary);
+    }
+    const summary = all[0].map((row) => {
+      const rows = all.map((s) => s.find((x) => x.dataset === row.dataset)).filter(Boolean).sort((a, b) => a.ratio - b.ratio);
+      return { ...rows[rows.length >> 1], runs: rows.length };
+    });
+    console.log(`  (median of ${runs} runs per row: ${summary.map((r) => r.ratio.toFixed(3)).join(', ')})`);
+    return { summary, skipped: null };
+  }
   const fixture = join(ROOT, 'test/benchmark/fixtures/inline-spans.json');
   if (!existsSync(fixture) || !existsSync(INLINE_TIMER)) {
     console.log('\n=== INLINE \u00b7 per-span dispatch === skipped: this tree has no inline-span fixture or timer');
@@ -1268,7 +1340,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1359,6 +1431,10 @@ function blessBaseline(summary, render, opts = {}) {
   const flowchartOut = tierRows(flowchartSummary?.length ? flowchartSummary : null, 'flowchartDatasets', (s) => ({
     calls: s.calls, routed: s.routed, bounded: s.bounded, hits: s.hits, ms: round2(s.ms),
   }));
+  // THE COLLAGE PACK TIER BLESSES ITS WORK COUNTS; `ms` is commentary, as in the flowchart tier.
+  const collageOut = tierRows(collageSummary?.length ? collageSummary : null, 'collageDatasets', (s) => ({
+    photos: s.photos, arrangements: s.arrangements, scored: s.scored, ms: round2(s.ms), p95: round2(s.p95),
+  }));
   // THE INLINE-SPAN TIER BLESSES ITS PAIRED RATIO, which is what `checkInlineRows` compares; the
   // two ns columns ride along so the diff shows the size of a change in real units.
   const inlineOut = tierRows(inlineSummary, 'inlineDatasets', (s) => ({
@@ -1426,6 +1502,8 @@ function blessBaseline(summary, render, opts = {}) {
     // The flowchart layout's replayed browser calls: full layouts routed, directions
     // ruled out by dagre alone, and cache hits, per page. Blessed on every bless.
     ...(flowchartOut ? { flowchartDatasets: flowchartOut } : {}),
+    // The collage packer per photo set: arrangements kept and roots scored. Blessed on every bless.
+    ...(collageOut ? { collageDatasets: collageOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
     // Blessed on every bless.
     ...(inlineOut ? { inlineDatasets: inlineOut } : {}),
@@ -1438,6 +1516,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (exportSummary?.length) wrote.push(`${exportSummary.length} export`);
   if (editSummary?.length) wrote.push(`${editSummary.length} edit`);
   if (flowchartSummary?.length) wrote.push(`${flowchartSummary.length} flowchart`);
+  if (collageSummary?.length) wrote.push(`${collageSummary.length} collage`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
@@ -1513,6 +1592,7 @@ function checkBaseline(summary, render, opts = {}) {
   const exportSummary = opts.exportSummary ?? null;
   const editSummary = opts.editSummary ?? null;
   const flowchartSummary = opts.flowchartSummary ?? null;
+  const collageSummary = opts.collageSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
   const confirming = opts.confirming ?? null;
@@ -1794,6 +1874,34 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE COLLAGE PACK TIER. Gates on WORK, like the flowchart tier: more arrangements kept or
+  // more roots scored for the same photos is a regression on any machine; `ms` is printed only.
+  if (collageSummary?.length) {
+    console.log('\n=== COLLAGE PACK CHECK \u00b7 search work per photo set vs committed baseline ===');
+    console.log(`${'dataset'.padEnd(36)}${'base kept'.padStart(10)}${'now'.padStart(7)}${'base scored'.padStart(12)}${'now'.padStart(7)}  verdict`);
+    for (const s2 of collageSummary) {
+      const b = base.collageDatasets?.[s2.dataset];
+      const row = (bk, bs) => `${s2.dataset.padEnd(36)}${String(bk).padStart(10)}${String(s2.arrangements).padStart(7)}${String(bs).padStart(12)}${String(s2.scored).padStart(7)}`;
+      if (!b) {
+        drift = true;
+        console.log(`${row('\u2014', '\u2014')}  NEW (re-bless)`);
+        continue;
+      }
+      const worse = s2.arrangements > b.arrangements || s2.scored > b.scored;
+      const moved = s2.arrangements !== b.arrangements || s2.scored !== b.scored;
+      const verdict = worse ? 'REGRESSION (more search work)' : moved ? 'less work \u2014 re-bless to ratchet' : 'ok';
+      if (worse) regressedDatasets.push(s2.dataset);
+      if (moved && !worse) won = true;
+      console.log(`${row(b.arrangements, b.scored)}  ${verdict}`);
+    }
+    for (const name of Object.keys(base.collageDatasets ?? {})) {
+      if (!collageSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(36)}${'\u2014'.padStart(10)}${'absent'.padStart(7)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   if (inlineSkipped === 'failed') {
     // Drift, not a timing verdict: the rows recorded nothing this run, on any machine.
     drift = true;
@@ -2032,8 +2140,10 @@ async function main() {
   const edit = await editTier();
   // In-process too (~5s), and blessed: it is the flowchart layout's HARD RULE #19 record.
   const flow = await flowchartTier();
+  // In-process (~3s), and blessed on its work counts: the collage packer's HARD RULE #19 record.
+  const collage = await collageTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
-  const inline = await inlineSpanTier();
+  const inline = await inlineSpanTier(inlineRuns);
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
@@ -2041,7 +2151,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2065,7 +2175,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -2133,7 +2243,7 @@ async function main() {
         // between two passes on the same tree. Reporting the cheap deterministic one
         // as "a browser tier" misattributes both the cost and the reason.
         // The flowchart tier gates on deterministic counts too, so it reads like the edit tier.
-        const countTier = (n) => n.startsWith('edit \u00b7 ') || n.startsWith('flowchart \u00b7 ');
+        const countTier = (n) => n.startsWith('edit \u00b7 ') || n.startsWith('flowchart \u00b7 ') || n.startsWith('collage pack \u00b7 ');
         const editRegressed = browserTierRegressed.filter(countTier);
         const trueBrowserRegressed = browserTierRegressed.filter((n) => !countTier(n));
         if (trueBrowserRegressed.length) parts.push(`${trueBrowserRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
@@ -2148,7 +2258,7 @@ async function main() {
   }
   // `cli` joins the --json dump for symmetry with the other tiers and so a future
   // head-vs-base comparator can read it. It is NOT wired into the nightly today:
-  // tools/perf-nightly-compare.mjs has arms for render/export/print only, and
+  // tools/perf-nightly-compare.mjs has arms for render/export/print/inline only, and
   // perf-nightly.yml invokes `--json --export`, never `--cli`. Wiring it there is a
   // separate change — this line only makes the data available.
   // `edit` joins the dump for the same reason `cli` does — symmetry, and so the
@@ -2157,7 +2267,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, inline, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',

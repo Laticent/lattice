@@ -32,7 +32,7 @@ function requireGeneratedConfig(src) {
 }
 const {
   STATIC_ASSETS, AGENT_ASSETS, RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CONFIG_CJS, withRuntimeScripts,
-  safeName, packageJson, vscodeSettings, readme, agentsMd, fontAssetsFor, marpScopableCss,
+  safeName, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, fontAssetsFor, marpScopableCss,
 } = require('../../../lib/core/marp-bundle');
 
 describe('marp-bundle spec', () => {
@@ -198,37 +198,96 @@ describe('marp-bundle spec', () => {
   // producers write — prose keeps the deck's own title.
   test('readme paths use the sanitized filename, prose keeps the title', () => {
     const r = readme({ name: 'My Deck', palette: 'indaco', themes: ['lattice.css'], agent: true });
-    assert.match(r, /^# My Deck — portable Marp bundle/, 'the heading keeps the real title');
-    assert.match(r, /npx @marp-team\/marp-cli My-Deck\.md /);
-    assert.match(r, /`My-Deck\.md` \| the deck/);
+    assert.match(r, /^# My Deck\n/, 'the heading keeps the real title');
+    assert.match(r, /npx @marp-team\/marp-cli@\S+ My-Deck\.md /);
+    assert.match(r, /\| `My-Deck\.md` \| The deck\. Edit this\. \|/);
+    assert.match(r, /Click `My-Deck\.md` in the Explorer/);
     assert.doesNotMatch(r, /My Deck\.md/, 'no path spells the unsanitized name');
     const a = agentsMd({ name: 'My Deck', version: '1.0.0' });
     assert.match(a, /`My-Deck\.md` — the slides/);
     assert.doesNotMatch(a, /`My Deck\.md`/);
   });
 
-  test('readme documents the VS Code + marp-cli routes and the browser-HTML fidelity note', () => {
+  // The README is a walkthrough whose every step was done on a real VS Code 1.142.0 and a
+  // fresh marp-cli install (the comment on `readme`). These pin the steps and the facts a
+  // newcomer depends on, in the words VS Code itself shows.
+  test('readme walks VS Code step by step, in the order that works', () => {
     const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css', 'themes/indaco.css'] });
-    assert.match(r, /Marp for VS Code/);
-    assert.match(r, /markdown\.marp\.themes/);
-    assert.match(r, /npm run pdf/);
-    // By hand: the config, never `--html`, which would replace the config's allowlist.
-    assert.match(r, /--config-file marp\.config\.cjs \\\n  --allow-local-files/);
+    const steps = ['**Open this folder.**', '**Trust the folder.**', '**Install Marp for VS Code.**', '**Open the deck.**', '**Open the preview.**', '**Let the deck draw its diagrams and charts.**', '**Export.**'];
+    let at = -1;
+    for (const step of steps) {
+      const i = r.indexOf(step);
+      assert.ok(i > at, `${step} is present and comes after the step before it (trust before the deck, or the theme reads as unknown)`);
+      at = i;
+    }
+    assert.match(r, /\*"Do you want to install the\s+recommended 'Marp for VS Code' extension/);
+    assert.match(r, /\*\*Trust Publisher & Install\*\*/);
+    assert.match(r, /Click \*\*Manage\*\* in the banner, then \*\*Trust\*\*/);
+    // The preview's script behavior, as measured (engineering/gotchas/vscode.md): blocked at
+    // the default Strict level, run at Disable only.
+    assert.match(r, /\*"Some content\s+has been disabled in this document"\*/);
+    assert.match(r, /choose \*\*Disable\*\* \(\*"Allow all content and script execution"\*\)/);
+    assert.match(r, /\*\*Export\s+Slide Deck…\*\*/);
+    // Measured: with the name left as demo.pdf and "HTML slide deck" picked in the dialog,
+    // marp-vscode saved a PDF. The extension in the name decides the format.
+    assert.match(r, /\*\*The name decides the format\*\*/);
+    assert.match(r, /\(`\.png` and `\.jpeg` save the first slide only\.\)/);
+    assert.match(r, /\*\*Terminal → Run Task…\*\*/);
+  });
+
+  test('readme gives the marp-cli route with the config, never --html', () => {
+    const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css'] });
+    for (const script of ['npm install', 'npm run pdf', 'npm run pptx', 'npm run html']) assert.match(r, new RegExp(script));
+    // One line: a `\` continuation does not paste into PowerShell or cmd.exe.
+    assert.match(r, /^npx @marp-team\/marp-cli@\S+ demo\.md --config-file marp\.config\.cjs --allow-local-files -o demo\.pdf$/m);
+    assert.match(r, /Do \*\*not\*\* add `--html`/);
     assert.doesNotMatch(r, /--html --allow/);
-    assert.match(r, /markdown\.marp\.html: "all"/);
     assert.doesNotMatch(r, /enableHtml/);
-    // The preview's script behavior, as measured (engineering/gotchas/vscode.md, settled
-    // 2026-09-06; reproduced on marp-vscode 3.6.1 for #2712): blocked at the default
-    // Strict level, run at Disable only, and NOT at either "Allow insecure" level.
-    assert.doesNotMatch(r, /not something we can confirm/);
-    assert.match(r, /does \*\*not\*\* run the deck's\n`<script>` tags at VS Code's default preview security level/);
-    assert.match(r, /pick\n\*\*Disable\*\*/);
-    assert.match(r, /"Allow insecure … content" levels do \*\*not\*\* run them/);
-    assert.match(r, /\.html` opens standalone in any browser/);
+    assert.match(r, /\[Node\.js\]\(https:\/\/nodejs\.org\) 18 or later/);
     // Marp-native: the README must NOT point at a bundled emulator any more.
     assert.doesNotMatch(r, /lattice-emulator|\blattice\.js\b/);
   });
 
+  test('readme states what each export is, including what a lone HTML file loses', () => {
+    const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css'] });
+    // Measured: a11y.html opened in its folder loaded the runtime; the same file copied out
+    // alone loaded nothing (runtime null, no diagrams). The old README called it standalone.
+    assert.doesNotMatch(r, /opens standalone/);
+    assert.match(r, /Moved on its own, its\s+diagrams and charts disappear/);
+    // Measured: marp-cli's .pptx carries one picture per slide and no text runs.
+    assert.match(r, /one picture per slide\. It looks the same, but you\s+cannot edit the text in PowerPoint/);
+  });
+
+  test('readme troubleshooting quotes the messages a reader will actually see', () => {
+    const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css'] });
+    assert.match(r, /\*"The specified theme … is not recognized by Marp for VS Code"\*/);
+    assert.match(r, /\*"No suitable browser found"\*/);
+    assert.match(r, /`CHROME_NO_SANDBOX=1`/);
+    // An untrusted folder is the likely cause of printed tags and broken equations, so it leads.
+    assert.match(r, /printed on the slides in VS Code \| The folder is not trusted/);
+    assert.match(r, /Fractions and superscripts collapsed onto one line[^|]*\| The folder is not trusted/);
+    assert.match(r, /`markdown\.marp\.browserPath`/);
+    // cmd.exe eats `^`, so the pasted npx line names the major only (`@4`, never `@^4.3.1`).
+    assert.match(r, /npx @marp-team\/marp-cli@\d+ /);
+    // The fidelity intro names no row the table omits (it once promised a `![bg]` row).
+    assert.doesNotMatch(r, /the `!\[bg\]` row/);
+    for (const f of ['.vscode/settings.json', '.vscode/extensions.json', '.vscode/tasks.json']) assert.match(r, new RegExp(`\\| \`${f.replaceAll('.', '\\.')}\` \\|`));
+  });
+
+  test('the bundle is a VS Code project: it recommends Marp and exports through npm tasks', () => {
+    assert.deepEqual(JSON.parse(vscodeExtensions()), { recommendations: ['marp-team.marp-vscode'] });
+    const { tasks } = JSON.parse(vscodeTasks());
+    const install = tasks.find((t) => t.script === 'install');
+    assert.ok(install, 'an install task');
+    const scripts = packageJson('demo').scripts;
+    for (const t of tasks.filter((x) => x !== install)) {
+      // The npm task type, not a shell line: `a && b` fails in Windows PowerShell 5.1.
+      assert.equal(t.type, 'npm', `${t.label} runs through VS Code's npm task type`);
+      assert.equal(t.dependsOn, install.label, `${t.label} installs marp-cli first`);
+      assert.ok(scripts[t.script], `${t.label} names a script package.json defines (${t.script})`);
+    }
+    assert.deepEqual(tasks.map((t) => t.script).sort(), ['html', 'install', 'pdf', 'pptx']);
+  });
 
   describe('font supply', () => {
     // lattice.css's @font-face srcs are stylesheet-relative `url(fonts/<file>)`.
@@ -359,11 +418,10 @@ describe('marp-bundle spec', () => {
       const base = { name: 'demo', palette: 'indaco', themes: ['lattice.css'] };
       const on = readme({ ...base, agent: true });
       assert.match(on, /Extend it with an AI agent/);
-      assert.match(on, /`AGENTS\.md`/);
-      assert.match(on, /`agent\/components\.json`/);
+      assert.match(on, /`AGENTS\.md`, `agent\/`/);
       const off = readme({ ...base, agent: false });
       assert.doesNotMatch(off, /Extend it with an AI agent/);
-      assert.doesNotMatch(off, /agent\/components\.json/);
+      assert.doesNotMatch(off, /`agent\/`/);
     });
   });
 });
