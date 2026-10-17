@@ -1,0 +1,629 @@
+{
+  "slides": [
+    {
+      "category": "layout-only",
+      "at": "examples/a11y.md#1"
+    },
+    {
+      "category": "layout+variant",
+      "at": "examples/adaptive-sizing.md#1"
+    },
+    {
+      "category": "register-heavy",
+      "at": "examples/deck-presets.md#5"
+    },
+    {
+      "category": "class+footer",
+      "at": "examples/accent-on-accent.md#1"
+    },
+    {
+      "category": "class+header+footer",
+      "at": "examples/mobile-landscape.md#5"
+    },
+    {
+      "category": "paginate",
+      "at": "examples/adaptive-image.md#1"
+    },
+    {
+      "category": "two-panes",
+      "at": "examples/chart-lead-blocks.md#5"
+    },
+    {
+      "category": "note-with-quote",
+      "at": "examples/chart-explain-narration.md#1"
+    },
+    {
+      "category": "note-multi-paragraph",
+      "at": "examples/gallery-jargon.md#57"
+    },
+    {
+      "category": "focusSteps",
+      "at": "examples/focus.md#9"
+    },
+    {
+      "category": "image-bg",
+      "at": "examples/adaptive-image.md#2"
+    },
+    {
+      "category": "stress-slide",
+      "at": "examples/authority-chain-row-fit.md#5"
+    }
+  ],
+  "candidates": {
+    "C0": {
+      "name": "<!-- _key: value --> (control)",
+      "c1_parser": {
+        "passed": 42,
+        "of": 48,
+        "failed": [
+          "footer=\"end --> here\"",
+          "footer=\"trailing \"",
+          "footer=\" leading\"",
+          "footer=\"<!-- c -->\"",
+          "note#1",
+          "note#5"
+        ]
+      },
+      "twelveRoundTrip": {
+        "passed": 12,
+        "of": 12,
+        "failed": []
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          },
+          "marked": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          },
+          "commonmark": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          },
+          "micromark": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          }
+        },
+        "meanExtraVisibleChars": 0
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": false
+          },
+          {
+            "name": "in blockquote",
+            "ok": true
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence",
+            "ok": true
+          }
+        ],
+        "passed": 8,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 2,
+        "medianChars": 92,
+        "totalChars": 1276
+      },
+      "c8_marp": {
+        "passed": 12,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 19.37997500000006,
+        "chars": 176849
+      },
+      "sideAliasedTwelve": 11,
+      "sideVerbatimValues": 38,
+      "gate1_lossless_notes": false,
+      "gate2_line_preserving": true
+    },
+    "C1": {
+      "name": "`@meta{…}`",
+      "c1_parser": {
+        "passed": 48,
+        "of": 48,
+        "failed": []
+      },
+      "twelveRoundTrip": {
+        "passed": 11,
+        "of": 12,
+        "failed": [
+          "focusSteps"
+        ]
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 97.5,
+            "tagDelta": 2.5
+          },
+          "marked": {
+            "extraVisibleChars": 97.83333333333333,
+            "tagDelta": 2.5
+          },
+          "commonmark": {
+            "extraVisibleChars": 97.5,
+            "tagDelta": 2.5
+          },
+          "micromark": {
+            "extraVisibleChars": 97.5,
+            "tagDelta": 2.5
+          }
+        },
+        "meanExtraVisibleChars": 97.58333333333333
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": true
+          },
+          {
+            "name": "in blockquote",
+            "ok": true
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence",
+            "ok": true
+          }
+        ],
+        "passed": 9,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 1,
+        "medianChars": 83,
+        "totalChars": 1207
+      },
+      "c8_marp": {
+        "passed": 11,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 7.236436000000026,
+        "chars": 175937
+      },
+      "sideAliasedTwelve": 12,
+      "sideVerbatimValues": 35,
+      "gate1_lossless_notes": true,
+      "gate2_line_preserving": true
+    },
+    "C2": {
+      "name": "@meta{…}",
+      "c1_parser": {
+        "passed": 48,
+        "of": 48,
+        "failed": []
+      },
+      "twelveRoundTrip": {
+        "passed": 11,
+        "of": 12,
+        "failed": [
+          "focusSteps"
+        ]
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 97.33333333333333,
+            "tagDelta": 1.3333333333333333
+          },
+          "marked": {
+            "extraVisibleChars": 97.66666666666667,
+            "tagDelta": 1.3333333333333333
+          },
+          "commonmark": {
+            "extraVisibleChars": 97.33333333333333,
+            "tagDelta": 1.3333333333333333
+          },
+          "micromark": {
+            "extraVisibleChars": 97.33333333333333,
+            "tagDelta": 1.3333333333333333
+          }
+        },
+        "meanExtraVisibleChars": 97.41666666666666
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": true
+          },
+          {
+            "name": "in blockquote",
+            "ok": true
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence",
+            "ok": true
+          }
+        ],
+        "passed": 9,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 1,
+        "medianChars": 77,
+        "totalChars": 1179
+      },
+      "c8_marp": {
+        "passed": 11,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 5.750091999999995,
+        "chars": 170935
+      },
+      "sideAliasedTwelve": 12,
+      "sideVerbatimValues": 35,
+      "gate1_lossless_notes": true,
+      "gate2_line_preserving": true
+    },
+    "C3": {
+      "name": "```meta fence",
+      "c1_parser": {
+        "passed": 48,
+        "of": 48,
+        "failed": []
+      },
+      "twelveRoundTrip": {
+        "passed": 12,
+        "of": 12,
+        "failed": []
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 89.33333333333333,
+            "tagDelta": 2.3333333333333335
+          },
+          "marked": {
+            "extraVisibleChars": 89.66666666666667,
+            "tagDelta": 2.3333333333333335
+          },
+          "commonmark": {
+            "extraVisibleChars": 89.33333333333333,
+            "tagDelta": 2.3333333333333335
+          },
+          "micromark": {
+            "extraVisibleChars": 89.33333333333333,
+            "tagDelta": 2.3333333333333335
+          }
+        },
+        "meanExtraVisibleChars": 89.41666666666666
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": true
+          },
+          {
+            "name": "in blockquote",
+            "ok": true
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence",
+            "ok": true
+          }
+        ],
+        "passed": 9,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 4,
+        "medianChars": 95,
+        "totalChars": 1237
+      },
+      "c8_marp": {
+        "passed": 12,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 7.155671000000098,
+        "chars": 184397
+      },
+      "sideAliasedTwelve": 12,
+      "sideVerbatimValues": 38,
+      "gate1_lossless_notes": true,
+      "gate2_line_preserving": true
+    },
+    "C4": {
+      "name": "[meta]: # \"…\"",
+      "c1_parser": {
+        "passed": 48,
+        "of": 48,
+        "failed": []
+      },
+      "twelveRoundTrip": {
+        "passed": 12,
+        "of": 12,
+        "failed": []
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          },
+          "marked": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          },
+          "commonmark": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          },
+          "micromark": {
+            "extraVisibleChars": 0,
+            "tagDelta": 0
+          }
+        },
+        "meanExtraVisibleChars": 0
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": true
+          },
+          {
+            "name": "in blockquote",
+            "ok": true
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence",
+            "ok": true
+          }
+        ],
+        "passed": 9,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 4,
+        "medianChars": 99,
+        "totalChars": 1270
+      },
+      "c8_marp": {
+        "passed": 12,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 11.552009999999882,
+        "chars": 189620
+      },
+      "sideAliasedTwelve": 12,
+      "sideVerbatimValues": 33,
+      "gate1_lossless_notes": true,
+      "gate2_line_preserving": true
+    },
+    "C5": {
+      "name": "<meta …>",
+      "c1_parser": {
+        "passed": 48,
+        "of": 48,
+        "failed": []
+      },
+      "twelveRoundTrip": {
+        "passed": 12,
+        "of": 12,
+        "failed": []
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 25,
+            "tagDelta": 1.25
+          },
+          "marked": {
+            "extraVisibleChars": 2.4166666666666665,
+            "tagDelta": 1.1666666666666667
+          },
+          "commonmark": {
+            "extraVisibleChars": 25,
+            "tagDelta": 1.25
+          },
+          "micromark": {
+            "extraVisibleChars": 25,
+            "tagDelta": 1.25
+          }
+        },
+        "meanExtraVisibleChars": 19.354166666666668
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": true
+          },
+          {
+            "name": "in blockquote",
+            "ok": true
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence",
+            "ok": true
+          }
+        ],
+        "passed": 9,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 1,
+        "medianChars": 84,
+        "totalChars": 1204
+      },
+      "c8_marp": {
+        "passed": 12,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 7.438513999999941,
+        "chars": 176621
+      },
+      "sideAliasedTwelve": 12,
+      "sideVerbatimValues": 30,
+      "gate1_lossless_notes": true,
+      "gate2_line_preserving": true
+    }
+  }
+}
