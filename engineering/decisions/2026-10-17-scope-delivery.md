@@ -91,6 +91,13 @@ reviews found:
    kept `@scope` block, where it can never match, and its token probe runs at document level where
    `:scope` is `<html>`: the instant shell paints unstyled and the broken snapshot is cached in
    localStorage.
+   *Measured, not read (Chromium, both functions bundled from source and run on a live sheet holding
+   `@scope (article.lattice) { section .lat-pill{…} section h2{…} }`, a `to (.x)` variant and an
+   `@scope` inside `@media`):* `collectPillRules` returned only the unscoped pill rule, so every
+   `@scope`-wrapped pill rule was dropped. `extractCriticalFromDoc` kept the `@scope` block but with
+   the shell prefix inside it (`@scope (article.lattice) {.pg-ssr-shell section h2{…}}`), which can
+   never match; it dropped the `to (.x)` block entirely and lost the `.lat-pill` rule from the first
+   block. Both claims hold.
 4. **The Studio's own exports use the preview sheet, not the flat one.** `share-export.ts:151` passes
    `out.css` into `DeckRender.css`, and `docs/src/components/studio/export/deck-export.js:432` (`createCaptureFrame`) rasterizes from it for the PDF, PPTX and
    PNG set. With the opt-in flag set in `render-engine.ts`, those exports already used `@scope`. An
