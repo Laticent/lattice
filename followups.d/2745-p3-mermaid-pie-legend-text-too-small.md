@@ -1,11 +1,11 @@
 ---
-origin: 2742
+origin: 2745
 priority: P3
 recorded: 2026-10-16
 area: diagram
 severity: low
 swimlane: engineering/decisions/2026-10-15-bridges-and-two-hosts.md
-source: https://github.com/Laticent/lattice/pull/2742
+source: https://github.com/Laticent/lattice/pull/2745
 ---
 
 # A Mermaid pie draws small, with legend text too small to read
