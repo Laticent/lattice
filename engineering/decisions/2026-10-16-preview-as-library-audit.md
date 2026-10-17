@@ -16,7 +16,7 @@ summary: >
 
 # The preview as a library: audit and proposal (2026-10-16)
 
-**Status: proposed.** Nothing is built. §9 holds the forks that need the owner.
+**Status: proposed.** Nothing is built. The owner ruled forks 1, 2 and 4 on 2026-10-17 (§9); fork 3 is explained and defaulted there.
 
 ## 1. The answer first
 
@@ -251,9 +251,11 @@ it cheap.
 **Does not fit:** anything whose units cannot render alone (a spreadsheet's cells), or where the
 "map" is spatial rather than sequential (a canvas).
 
-## 9. Forks for the owner
+## 9. Forks for the owner, and the 2026-10-17 rulings
 
-I recommend the first option in each.
+I recommended the first option in each.
+
+**Ruled 2026-10-17:** fork 1 = core plus the Studio's picture-in-picture (option a); fork 2 = published like its siblings (option a); fork 4 = name **Veduta**, the player adopts it later. Fork 3 is open: the owner asked what it meant. In plain words: every slide is the same shape, so the library can compute which ones are on screen with arithmetic. Things like chat messages differ in height and have to be measured first. v1 defaults to same-shaped units only (option a) unless the owner says otherwise.
 
 1. **Scope of the first slice.** (a) *Core plus the Studio's picture-in-picture with a poster map*,
    proving the idea where you feel the pain; (b) core plus every surface at once; (c) the poster tier
