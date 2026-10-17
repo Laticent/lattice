@@ -24,7 +24,7 @@ marp: true
 - ![Acme](sample:logo-acme.svg)
 `;
 
-test('the live preview draws every logo-wall mark at the same area @crosswidth @webkit-phone', async ({ page }) => {
+test('the live preview draws wordmarks and a badge at one area, and a crest at half @crosswidth @webkit-phone', async ({ page }) => {
 	// Type at desktop width, where the editor is on screen, then resize to the project's own box
 	// (as collage-lightbox.spec.ts does), so a phone project measures the phone preview.
 	const target = page.viewportSize() ?? { width: 1440, height: 900 };
@@ -47,7 +47,13 @@ test('the live preview draws every logo-wall mark at the same area @crosswidth @
 			tops: [...ul.children].map((li) => (li as HTMLElement).offsetTop),
 		}));
 		expect(areas).toHaveLength(4);
-		expect(Math.max(...areas) / Math.min(...areas)).toBeLessThan(1.03);
+		// Pinnacle 4:1, Keystone 1:1 and Acme 3:1 share one area; the Spire crest (1:2) is held to
+		// the row's height, as in the old wall, so it keeps half of it.
+		const [pinnacle, keystone, spire, acme] = areas;
+		const shared = [pinnacle, keystone, acme];
+		expect(Math.max(...shared) / Math.min(...shared)).toBeLessThan(1.03);
+		expect(spire / keystone).toBeGreaterThan(0.47);
+		expect(spire / keystone).toBeLessThan(0.53);
 		// One row, as the plan says.
 		expect(new Set(tops).size).toBe(1);
 	}).toPass({ timeout: 20_000 });
