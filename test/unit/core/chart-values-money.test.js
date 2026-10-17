@@ -5,7 +5,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { toSpokenText } = require('@laticent/cadenza');
-const { isValuePill, parseValue, spokenValue, unitKey } = require('../../../lib/core/chart-values.js');
+const { isValuePill, parseValue, unitKey } = require('../../../lib/core/chart-values.js');
+const { spokenValue } = require('../../../lib/core/chart-values-speech.js');
 
 test('every money form a global client writes is a value', () => {
   for (const [s, v] of [['EUR 4.2M', 4.2e6], ['US$4.2M', 4.2e6], ['4.2M €', 4.2e6], ['4,2 Mio. €', 4.2e6], ['USD 250mn', 2.5e8], ['4 200 €', 4200]]) {
