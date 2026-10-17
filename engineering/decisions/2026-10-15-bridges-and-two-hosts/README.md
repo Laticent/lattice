@@ -6,6 +6,8 @@
 | `layer-census-results.json` | One entry per deck, measured on `main` at `6e7c738`: palette, element count, `AvsC` (flattened vs reference) and `AvsL` (the veto) differing elements. `bundleMissingPalettes` lists palettes the deck's Marp bundle imports but does not ship (a P0 follow-up); the census read those from `dist/themes/` | §3.1 |
 | `runtime-census.cjs` | The same comparison on one deck as an author sees it: rendered through the bundle's own `marp.config.cjs` (real allowlist, runtime loaded and settled, `::marker` included), adding today's unlayered sheet (D) and the theme stylesheet's size | §3.1 |
 | `runtime-census-results/` | Its output for the gallery deck, screen and print media | §3.1 |
+| `bridge-harness-sketch.mjs` | Runs the two conformance checks of `2026-10-17-bridge-spec-and-plugin-format.md` (text and pixel, per slide) for both bridge entry points: the Marp bundle through marp-cli, and the Calco `.pptx` through LibreOffice, each against Lattice's own PDF | bridge-spec note §6 |
+| `bridge-harness-sketch-results.json` | Its output for six decks on `main` at `1828726`: per-slide recall, precision and RMSE for each bridge, and stage timings | bridge-spec note §6 |
 | `measure-manifests.mjs` | Applies §5.3's field changes to the in-tree plugin manifests (eight on `main` at `6e7c738`) and counts lines before and after | §3.4 |
 
 ## Rerunning
@@ -27,3 +29,5 @@ first) with identical results.
 `layer-census.cjs` renders CSS only (`--html=false`), so the runtime's DOM is not covered there; `runtime-census.cjs` covers it for one deck at a time (about seven minutes on the gallery). The VS Code
 run in §3.2 used a real code-server and marp-vscode; its method is the one recorded in
 `engineering/gotchas/vscode.md` §"Does the marp-vscode webview execute `<script>`?".
+
+`bridge-harness-sketch.mjs` needs Chromium (`CHROME_PATH`), pdftotext, pdftoppm, ImageMagick, LibreOffice and marp-cli 4.5.1 (not a repo dependency; pass its binary as `MARP=`). Its header gives the usage line. It exits with an error when a render, export or conversion step fails.
