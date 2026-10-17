@@ -831,12 +831,32 @@ jobs:
         run: |
           base="$(git cat-file -p HEAD | awk '/^parent/{print $2; exit}')"
           echo "ROUTE_BUDGET_BASE_SHA=$base" >> "$GITHUB_ENV"
-          bash docs/scripts/measure-route-base.sh "$base" "$RUNNER_TEMP/route-base.json"
+          ROUTE_BASE_ASSETS_OUT="$RUNNER_TEMP/route-base-assets" bash docs/scripts/measure-route-base.sh "$base" "$RUNNER_TEMP/route-base.json"
       - name: Build docs site
         run: npm run build
         working-directory: docs
         env:
           ROUTE_BUDGET_BASE_JSON: ${{ runner.temp }}/route-base.json
+      # TEMPORARY DIAGNOSTIC (followups.d/2718-p5-docs-build-still-differs-by-bytes-on-ci.md).
+      # Prints which synced playground asset differs between the base and this PR on THIS runner,
+      # so the cause of the asset-version noise can be fixed at its source. Hashes each file and
+      # compares the two lists by path (the v/<hash>/ folder name is the thing that differs, so
+      # it is stripped). Never fails the job. Remove once one bundle-free PR has reported.
+      - name: "Diagnostic: which playground asset differs from the base"
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        run: |
+          manifest() { (cd "$(ls -d "$1"/*/ | head -n1)" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum); }
+          if [ -d "$RUNNER_TEMP/route-base-assets" ] && [ -d docs/public/playground/v ]; then
+            manifest "$RUNNER_TEMP/route-base-assets" > "$RUNNER_TEMP/m-base.txt"
+            manifest docs/public/playground/v > "$RUNNER_TEMP/m-pr.txt"
+            echo "base version: $(ls "$RUNNER_TEMP/route-base-assets")  PR version: $(ls docs/public/playground/v)"
+            echo "files: base $(wc -l < "$RUNNER_TEMP/m-base.txt"), PR $(wc -l < "$RUNNER_TEMP/m-pr.txt")"
+            diff "$RUNNER_TEMP/m-base.txt" "$RUNNER_TEMP/m-pr.txt" | head -60 || true
+            echo "(end of diff; an empty diff means every synced asset is byte-identical)"
+          else
+            echo "no base assets kept; nothing to compare"
+          fi
       # Responsive guard (advisory): no page may exceed its viewport width at
       # 390/700/820/1440 — a pannable page breaks on touch — and no row named in a
       # case's `noSelfOverflow` may exceed ITSELF, which is how a toolbar loses the

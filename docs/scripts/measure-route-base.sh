@@ -64,5 +64,11 @@ start=$SECONDS
 (cd "$WT/docs" && GITHUB_STEP_SUMMARY= npm run build >/dev/null 2>&1) || true
 grep -q 'rel="modulepreload"' "$WT/docs/dist/studio/index.html" 2>/dev/null || { warn "docs build on $BASE stopped before inject-modulepreload; allowance not checked"; exit 0; }
 
+# DIAGNOSTIC (followups.d/2718-p5, remove with the ci.yml step that reads it): keep the base's
+# staged playground assets so docs-build can diff them against the PR's on one runner.
+if [ -n "${ROUTE_BASE_ASSETS_OUT:-}" ] && [ -d "$WT/docs/public/playground/v" ]; then
+	rm -rf "$ROUTE_BASE_ASSETS_OUT" && mkdir -p "$ROUTE_BASE_ASSETS_OUT" && cp -a "$WT/docs/public/playground/v/." "$ROUTE_BASE_ASSETS_OUT/" || true
+fi
+
 node "$ROOT/docs/scripts/check-route-budget.mjs" --measure "$WT/docs/dist" > "$OUT" || { warn "measuring $BASE failed"; rm -f "$OUT"; exit 0; }
 echo "measure-route-base: built and measured $BASE in $((SECONDS - start))s -> $OUT"
