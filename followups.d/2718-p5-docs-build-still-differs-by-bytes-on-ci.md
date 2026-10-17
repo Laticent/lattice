@@ -59,3 +59,18 @@ The mechanism is now known; the CI trigger is not.
    that string. That is harmless for the budget, since the string's length is fixed, and it changes
    how a merge gate measures.
 3. Both: 2 now, and 1 to find the cause.
+
+## What the first runner diagnostic measured (2026-10-17, PR #2754, run 39025809175)
+
+On one bundle-free PR, base `8e239d2fc003` against PR `15d18e66e68c`, both 899 files:
+
+- **All 29 `esm/chunk-*.js` names differ** (esbuild's content-hashed shared chunks), so the 24 `esm/chart-*.js`
+  entries, `esm/engine.js`, `esm/lint.js`, `esm/code-record.js` and `esm/chunks.json` differ in bytes because
+  they name those chunks.
+- **Three files differ that are not chunk-named:** `lattice-runtime.js`, `export/lattice-runtime-min.js` and
+  `fmt/browser.mjs`. They come from the root build (`dist/`), not from `build-playground.js`.
+- **Ruled out locally:** editing an `engineering/` doc and adding a `followups.d/` file does not change
+  `build-playground.js` output (same 30 chunks, same listing hash).
+- **Next probe:** diff the contents of one non-chunk file (`lattice-runtime.js`) between the two trees on a
+  runner (upload both as artifacts), to see what text differs. If it is a path or a timestamp, fix it at the
+  source; the chunk names probably follow from the same input.
