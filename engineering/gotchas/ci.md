@@ -545,10 +545,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   byte-identical chunk sets (553 files); a root rebuild left every root `dist/` file identical
   (365 files); a build against the exact CI base (`a64ecd5`) read +0. CI's playground asset hash
   (`039cbdbab432`) differs from the local one (`77673e351d41`), so CI builds something the cloud
-  sandbox does not. Also ruled out (2026-10-17): building the same commit in a throwaway
-  worktree, the way CI builds its base, and in the checkout gave identical bytes on all five
-  routes, so the directory path is not the cause. Not yet tried: running the docs typecheck and
-  unit tests before the build in the same checkout, as `ci.yml` does.
+  sandbox does not. Also ruled out (2026-10-17), each by a build: the same commit built in a throwaway worktree and in
+  the checkout (identical bytes on all five routes); a comment-only change to `code-sandbox.js`
+  (same playground hash `77673e351d41` with and without it); `main` against `main` plus the PR
+  merged in, the exact comparison CI makes (identical playground hash, and +0 on every metric of
+  every route, 23 numbers); the same merge after running the docs typecheck and unit tests first,
+  as `ci.yml` does (still +0). The build embeds no commit ID or timestamp (a grep of `docs/dist`
+  for the commit and for ISO dates found none), so signing and time stamps are not in the bytes.
+  The one per-build value in the bundle is the playground hash in `__LATTICE_ASSET_BASE__`; studio
+  and playground embed it and the other three routes do not, which matches where CI reads a
+  delta, but no local build produced a different hash. So the delta appears only on CI's runners
+  and its source there is unknown.
 - **Fix:** the gate's own remedy. Add `docs/route-budget.d/<slug>.md` with a `route: +N` line
   and a sentence, as `docs/route-budget.d/README.md` says. Read N from the failing log's
   `per-PR allowance` block, never from a local build. Say in the sentence that no growth is
