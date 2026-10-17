@@ -532,6 +532,30 @@ time costs WebKit a few frames, so it belongs in the idle queue, not in the bind
 inserting a slide at the top kept **120 of 120** cached posters valid on WebKit and 102 of 102 on Chromium,
 against 0 with raw-HTML keys. Baking back-to-back while scrolling gave 31 to 66 frames over 50 ms in 148.
 
+**7. Capture at a normalized size, not the authored size (the owner's `cqi` question).** The engine's font
+tokens are `calc(N * var(--_sec-1cqi, 1cqi) …)`, but it writes `--_sec-1cqi` as a pixel constant from the
+declared `size:` (38.4 px for a 4K deck), and bakes the section size into an `!important` rule. Forcing only
+the section size left 112 px headings at 1280 wide (mean error 14 to 31 against the 4K render). Overriding the
+size and the unit together (`--_sec-1cqi: 12.8px`) gave near-identical slides. A thumbnail map can therefore
+capture at 1280x720 whatever the deck declares; the live stage keeps the authored size. Twelve slides, median
+per slide, 4K against 1280x720 (960 and 640 behave like 1280 on time, and 640 is visibly worse on fidelity):
+
+| | Chromium 4K | Chromium 1280 | WebKit 4K | WebKit 1280 |
+|---|---|---|---|---|
+| poster capture | 281 ms | **228 ms** | 198 ms | **156 ms** |
+| wireframe measure, median (first cold call) | 4 ms (29) | 3.4 ms (18) | 9 ms (185) | 6 ms (116) |
+| canvas | 31.6 MB | **3.5 MB** | 31.6 MB | **3.5 MB** |
+| mean error vs the 4K capture, 320 px poster | 0 | 2.4 (2.1% pixels off) | 0 | 3.9 (3.3% off) |
+
+Capture time falls about 20%, not 9x, because the 1.8 MB stylesheet dominates it; the canvas is 9x smaller.
+**A regression found on the way:** the first version injected a `<style>` into the hidden measurer on every
+`measure()` call, and WebKit's scroll degraded from 0 to 2 frames over 50 ms to about 50 (p95 124 ms), while
+Chromium did not. Installing one persistent, `#measurer`-scoped rule fixed it (WebKit 0 to 2 frames at either
+size). **Rule for the build: never add or remove a stylesheet on a hot path.** The override reaches into
+engine internals (a private variable and an `!important` rule); the clean form is the engine's own size
+geometry rendering at a requested size. Six slides were compared by eye and by pixel; line wraps at smaller
+sizes were not audited.
+
 **What this changes in the design**
 
 1. Capture at the slide's native size and build the pyramid by canvas downscale. (Constraint 4 now says so.)
