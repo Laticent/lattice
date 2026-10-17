@@ -180,16 +180,19 @@ test/fixtures/                small .md decks for integration
 ### Contrast: two tools, one probe
 
 `tools/check-slide-contrast.js` scores the rendered DOM of a deck: fast, one scheme,
-backdrops resolved by climbing the ancestor chain. It is the one the invariants gate
+backdrops resolved by climbing the ancestor chain, reading each node's `linear-gradient`
+layers at the glyphs' own position above its `background-color` (`gradientPaintsAt`; what it
+does not evaluate is listed in its header, and `test/integration/invariants/contrast-probe-gradient.test.js`
+compares each handled form with a real pixel). It is the one the invariants gate
 imports, and its `PROBE` is the single source of truth for which runs exist, what ink
 they carry, and which AA threshold applies.
 
 `tools/check-player-contrast.js` reuses that same `PROBE` and changes three things it
 structurally cannot do: it drives the real `--player` EXPORT rather than a plain render,
 it scores BOTH scheme states (as exported, and after clicking `#lp-mode`), and it samples
-each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so a
-gradient, an image, a translucent overlay or a z-ordered rail resolves correctly because
-it is simply there. That split is what makes its report actionable: an "as exported"
+each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so an
+image, a gradient form the probe does not evaluate (radial, conic), a translucent overlay or a
+z-ordered rail resolves correctly because it is simply there. That split is what makes its report actionable: an "as exported"
 failure is in the PDF too (a deck or theme defect), while an "after the toggle" failure
 exists only in the player (a scheme defect).
 
@@ -364,6 +367,8 @@ lib/<X>.js              → SCRIPT_FOR_LIB[X]      (e.g. palette.js → test:pal
 test/unit/<scope>/*     → test:<scope>
 themes/*.css            → test:palette
 lib/conformance/*       → test:conformance
+lib/components/*        → test:components + test:conformance   (the component contract reads every folder)
+test/conformance/*      → test:conformance   (fixtures, debt ledger, card-row corpus)
 docs/, examples/, *.md  → skip — no tests needed
 lattice.js,    → full unit suite        (safe fallback;
 lattice-runtime.js,                                renderers touch everything)
@@ -1417,6 +1422,31 @@ new key is: the reader, the row (with `vocab:` naming the lint-vocab field its r
 fails on a key that is read but has no row, a row nothing reads, a value list lint disagrees with,
 a spec row or case that is missing, or a row the schema cannot express. The live matrix is
 `dist/engineering/conformance.md`.
+
+### Adding or changing a component: what the contract checks
+
+`test/unit/conformance/static.test.js` also runs the **component contract**
+(`lib/conformance/kinds/component.contract.js`) over every folder under `lib/components/`. It fails on:
+a manifest with no stylesheet (or the reverse); a stylesheet in a shared `_` folder that
+`tools/build-css.js` never names; a variant with no gallery slide, or one `lint:deck` calls an unknown
+class; a `variantAxes` member that is not a variant; a `capacity` that is out of order or an
+`escalateTo` that names nothing real; a new physical `left`/`right` declaration (use `margin-inline-*`,
+`padding-inline-*`, `inset-inline-*`, `text-align: start`/`end`, so the layout mirrors under
+`dir="rtl"`); and a component with no entry in `test/conformance/card-row-corpus.json`. A component the
+corpus marks as having a card row must declare `cards` in its manifest.
+
+Known failures are in `test/conformance/debt.json`, each with a reason. A new component cannot carry
+debt: it conforms or it does not merge. A debt entry for a count (the physical declarations) carries a
+`ceiling`; when your change lowers the count, lower the ceiling in the same commit.
+
+The **render clauses** (every variant slide fits, has no axe violation, and meets AA in every shipped
+palette; the card-row trigger agrees with the corpus) run with `npm run conformance:render`, not in
+`npm test`: they need a browser and cost minutes. `--only=<component>` runs one component's slides
+across all palettes; `--changed` runs the components your diff touches on three palettes. They are
+report-only. The nightly runs the whole matrix (about 31 minutes in CI, 48 on a slower sandbox) in its own step, and CI runs
+`--changed` on shard 1 of each PR (seconds to under a minute) and prints it in the job summary.
+`test/integration/components/component-conformance.test.js` runs the matrix when
+`CONFORMANCE_RENDER=1`; its smaller "bite" tests, which prove each probe can fail, always run.
 
 A `tint-*` or `mark-*` treatment is the same idea on a smaller scale: add it to
 `lib/base/treatments.js` with its CSS, or `unknown-treatment` calls it unknown.

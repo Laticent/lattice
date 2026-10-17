@@ -7320,6 +7320,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/conformance-render.js',
+    why: 'reads REPO-COMMITTED, generated `lib/components/**/*.gallery.md`, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance for '
+       + 'a locally CRLF-saved file; the front matter it strips is the gallery\'s own, and the '
+       + 'deck it builds is rendered by the engine, which normalizes its own input.',
+  },
+  {
     file: 'tools/build-capabilities.js',
     why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '

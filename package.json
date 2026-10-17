@@ -231,6 +231,7 @@
     "contrast:player": "node tools/check-player-contrast.js --quiet --concurrency auto --baseline test/oracle/player-contrast.json lib/components/*/*/*.gallery.md",
     "contrast:player:bless": "node tools/check-player-contrast.js --quiet --concurrency auto --bless lib/components/*/*/*.gallery.md",
     "contrast:palette-native": "node tools/palette-native.js",
+    "conformance:render": "node tools/conformance-render.js",
     "check:chart-fit": "node tools/check-chart-fit.js",
     "check:jank": "node tools/check-jank.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",

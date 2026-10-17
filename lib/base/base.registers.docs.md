@@ -885,6 +885,11 @@ single column, and either component stretches on a slide that ends in a Key Insi
 So omitting `cards:` is *not* the same as writing `cards: center`: omission takes the
 component's answer for that slide's shape, and naming a value takes that value everywhere.
 
+`stats`, `actors` and `kpi` follow the register too (2026-10-16). Their rows and tiles used to grow to fill
+the stage; they now size to their content and center, and `cards-stretch` brings the old fill back.
+`stats` was already centered, and honors `top`, `spread` and `stretch` on wide slides only: at tall, strip
+and square it stacks the numbers and fills the frame by design. Demo: `examples/cards-stats-actors-kpi.md`.
+
 Per slide, `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck, and
 `<!-- _class: cards-center -->` centers one slide in a deck that set something else (include
 the layout too, e.g. `_class: cards-grid cards-stretch`). **A per-slide token names a value;

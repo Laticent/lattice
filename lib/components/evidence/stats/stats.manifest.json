@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "stats",
+  "cards": { "default": "center" },
   "function": "evidence",
   "form": "stack",
   "substance": "structure",

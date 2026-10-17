@@ -176,6 +176,206 @@ const PROBE = () => {
   // Settled as #1722; engineering/decisions/2026-08-18-contrast-floor-deck-scale.md.
   const AA = 4.5;
 
+  // ── GRADIENT LAYERS ─────────────────────────────────────────────────────────────────────
+  // Contrast is the ink against the paint DIRECTLY BEHIND IT at the glyphs' own position, and
+  // that paint is not always a `background-color`. `topic` paints its light bottom band as a
+  // second `background-image` layer — `linear-gradient(transparent 75%, <light> 75%)`, a hard
+  // two-tone stop — on a section whose `background-color` is the dark canvas. Reading only
+  // `backgroundColor` scored its tab labels (dark ink on the light band) against the dark canvas:
+  // 1.02:1 on text that is plainly legible. So a node's paint at a point is its gradient layers
+  // (top layer first) over its `background-color`.
+  //
+  // WHAT IS EVALUATED, each form checked against a real Chromium pixel in
+  // test/integration/invariants/contrast-probe-gradient.test.js: `linear-gradient` layers with
+  // the layer's own `background-size`, `-position` (keyword, percent, px and the 4-value
+  // `right 10px bottom 5px` form) and `-repeat`; an angle or a `to <side>` / `to <corner>`
+  // direction; stops in % or px, hard stops included; interpolation PREMULTIPLIED, and in OKLab
+  // when any stop is a non-legacy color (every `color-mix(...)` computes to one, and this
+  // engine writes its gradient stops with `color-mix`), in sRGB otherwise; a CSS transform's
+  // scale on px lengths.
+  // WHAT IS NOT, and contributes no paint (the previous behavior, so nothing gets worse):
+  // `url()` rasters (see `rasterUnder`, which flags them); radial, conic and repeating gradients;
+  // color hints (`#000, 20%, #fff`); `calc()` in a stop or a position; `background-repeat: round`
+  // and `space`; `background-origin` other than padding-box; a gradient on an INLINE box that
+  // wraps across lines (its tile is laid out over the fragments, which this does not model); and
+  // `background-clip: text`. A run whose glyph box STRADDLES a hard stop is scored by its center
+  // point, the same approximation `under()` makes for sibling overlays.
+  const splitTop = (str, sep = ',') => {
+    const out = [];
+    let depth = 0;
+    let cur = '';
+    for (const ch of str) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if ((sep === ' ' ? /\s/.test(ch) : ch === sep) && !depth) { if (cur.trim()) out.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  };
+  const lenOf = (tok, ref, scale = 1) => (tok.endsWith('%') ? (parseFloat(tok) / 100) * ref : parseFloat(tok) * scale);
+  // OKLab (Ottosson), for interpolating the way Chromium does when a stop is a non-legacy color.
+  const toLin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const fromLin = (v) => 255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.max(v, 0) ** (1 / 2.4) - 0.055);
+  const toOk = ([r, g, b]) => {
+    const [lr, lg, lb] = [toLin(r), toLin(g), toLin(b)];
+    const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb);
+    const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb);
+    const sx = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb);
+    return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * sx, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * sx, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * sx];
+  };
+  const fromOk = ([L, a, b]) => {
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const sx = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * sx, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * sx, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * sx]
+      .map((v) => Math.min(255, Math.max(0, fromLin(v))));
+  };
+  const mixStops = (a, b, t, ok) => {
+    const aa = a.a + (b.a - a.a) * t;
+    if (!(aa > 0)) return { rgb: [0, 0, 0], a: 0 };
+    const pa = ok ? toOk(a.rgb) : a.rgb;
+    const pb = ok ? toOk(b.rgb) : b.rgb;
+    const pre = [0, 1, 2].map((ch) => (pa[ch] * a.a * (1 - t) + pb[ch] * b.a * t) / aa);
+    return { rgb: ok ? fromOk(pre) : pre, a: aa };
+  };
+  const gradientPaintsAt = (node, pt) => {
+    const cs = getComputedStyle(node);
+    const bi = cs.backgroundImage;
+    if (!bi || bi === 'none' || !/gradient\(/.test(bi)) return [];
+    if (node.getClientRects().length > 1) return [];
+    if (cs.webkitBackgroundClip === 'text' || cs.backgroundClip === 'text') return [];
+    const layers = splitTop(bi);
+    const sizes = splitTop(cs.backgroundSize);
+    const poss = splitTop(cs.backgroundPosition);
+    const reps = splitTop(cs.backgroundRepeat);
+    const r = node.getBoundingClientRect();
+    // A CSS transform scales the painted box but not the px lengths read from computed style.
+    const scaleX = node.offsetWidth ? r.width / node.offsetWidth : 1;
+    const scaleY = node.offsetHeight ? r.height / node.offsetHeight : 1;
+    const sx = Math.abs(scaleX - 1) > 0.01 ? scaleX : 1;
+    const sy = Math.abs(scaleY - 1) > 0.01 ? scaleY : 1;
+    const bw = (v, k) => (parseFloat(v) || 0) * k;
+    const box = { x: r.left + bw(cs.borderLeftWidth, sx), y: r.top + bw(cs.borderTopWidth, sy) };
+    box.w = r.width - bw(cs.borderLeftWidth, sx) - bw(cs.borderRightWidth, sx);
+    box.h = r.height - bw(cs.borderTopWidth, sy) - bw(cs.borderBottomWidth, sy);
+    const out = [];
+    layers.forEach((layer, i) => {
+      const m = layer.match(/^linear-gradient\(([\s\S]*)\)$/);
+      if (!m) return;
+      const size = (sizes[i % sizes.length] || 'auto').split(/\s+/);
+      const full = ['auto', 'cover', 'contain'];
+      const tw = full.includes(size[0]) ? box.w : lenOf(size[0], box.w, sx);
+      const th = size[1] === undefined || full.includes(size[1]) ? box.h : lenOf(size[1], box.h, sy);
+      if (!(tw > 0) || !(th > 0)) return;
+      // Position: `x y`, or the keyword-with-offset forms `right 10px bottom 5px` (Chromium keeps
+      // those as written). Percent offsets are of the free space; px offsets are scaled.
+      const ptoks = (poss[i % poss.length] || '0% 0%').split(/\s+/);
+      if (ptoks.some((t5) => t5.includes('calc('))) return;
+      const KW = ['left', 'right', 'top', 'bottom', 'center'];
+      let ox = null;
+      let oy = null;
+      for (let k = 0; k < ptoks.length; k++) {
+        const t5 = ptoks[k];
+        if (KW.includes(t5)) {
+          const next = ptoks[k + 1];
+          const hasOff = next !== undefined && !KW.includes(next);
+          const off = hasOff ? next : null;
+          if (hasOff) k++;
+          const horizontal = t5 === 'left' || t5 === 'right' || (t5 === 'center' && ox === null);
+          const outer = horizontal ? box.w : box.h;
+          const tile = horizontal ? tw : th;
+          const sc = horizontal ? sx : sy;
+          const o = off === null ? 0 : lenOf(off, outer - tile, sc);
+          const v = t5 === 'center' ? (outer - tile) / 2 : t5 === 'left' || t5 === 'top' ? o : outer - tile - o;
+          if (horizontal) ox = v; else oy = v;
+        } else {
+          const horizontal = ox === null;
+          const outer = horizontal ? box.w : box.h;
+          const tile = horizontal ? tw : th;
+          const v = t5.endsWith('%') ? (outer - tile) * (parseFloat(t5) / 100) : (parseFloat(t5) || 0) * (horizontal ? sx : sy);
+          if (horizontal) ox = v; else oy = v;
+        }
+      }
+      ox = ox ?? 0;
+      oy = oy ?? 0;
+      let rep = (reps[i % reps.length] || 'repeat').split(/\s+/);
+      if (rep[0] === 'repeat-x') rep = ['repeat', 'no-repeat'];
+      else if (rep[0] === 'repeat-y') rep = ['no-repeat', 'repeat'];
+      else if (rep.length === 1) rep = [rep[0], rep[0]];
+      if (rep.some((v) => v === 'round' || v === 'space')) return;
+      const wrap = (v, size2, mode) => (mode === 'no-repeat' ? v : ((v % size2) + size2) % size2);
+      const lx = wrap(pt.x - (box.x + ox), tw, rep[0]);
+      const ly = wrap(pt.y - (box.y + oy), th, rep[1]);
+      if (lx < 0 || lx >= tw || ly < 0 || ly >= th) return;
+      const args = splitTop(m[1]);
+      let deg = 180;
+      const first = args[0];
+      let stopsAt = 0;
+      if (/^to\s/.test(first)) {
+        // The magic-corner angle is atan(height / width): the gradient line is perpendicular to the
+        // diagonal through the two OTHER corners.
+        const k = Math.atan2(th, tw) * (180 / Math.PI);
+        const key = first.slice(2).trim().split(/\s+/).join(' ');
+        deg = { top: 0, right: 90, bottom: 180, left: 270, 'top right': k, 'right top': k, 'bottom right': 180 - k, 'right bottom': 180 - k, 'bottom left': 180 + k, 'left bottom': 180 + k, 'top left': 360 - k, 'left top': 360 - k }[key];
+        if (deg === undefined) return;
+        stopsAt = 1;
+      } else if (/^-?[\d.]+(deg|rad|turn|grad)$/.test(first)) {
+        const v = parseFloat(first);
+        deg = first.endsWith('rad') ? v * (180 / Math.PI) : first.endsWith('turn') ? v * 360 : first.endsWith('grad') ? v * 0.9 : v;
+        stopsAt = 1;
+      }
+      const th2 = (deg * Math.PI) / 180;
+      const L = Math.abs(tw * Math.sin(th2)) + Math.abs(th * Math.cos(th2));
+      if (!(L > 0)) return;
+      const stops = [];
+      let okSpace = false;
+      for (const a of args.slice(stopsAt)) {
+        const toks = splitTop(a, ' ');
+        const col = parse(toks[0]);
+        if (!col) return; // a color hint or an unparseable stop: not evaluated
+        if (/^(oklab|oklch|lab|lch|color)\(/i.test(toks[0])) okSpace = true;
+        const ps = toks.slice(1).map((t3) => (t3.includes('calc(') ? NaN : lenOf(t3, L, Math.hypot(Math.sin(th2) * sx, Math.cos(th2) * sy))));
+        if (ps.some(Number.isNaN)) return;
+        if (!ps.length) stops.push({ c: col, p: null });
+        for (const p2 of ps) stops.push({ c: col, p: p2 });
+      }
+      if (stops.length < 2) return;
+      if (stops[0].p === null) stops[0].p = 0;
+      if (stops[stops.length - 1].p === null) stops[stops.length - 1].p = L;
+      let run = stops[0].p;
+      for (let k = 0; k < stops.length; k++) {
+        if (stops[k].p === null) continue;
+        stops[k].p = Math.max(stops[k].p, run);
+        run = stops[k].p;
+      }
+      for (let k = 0; k < stops.length; k++) {
+        if (stops[k].p !== null) continue;
+        let j = k;
+        while (stops[j].p === null) j++;
+        const a0 = stops[k - 1].p;
+        const a1 = stops[j].p;
+        for (let q = k; q < j; q++) stops[q].p = a0 + ((a1 - a0) * (q - k + 1)) / (j - k + 1);
+      }
+      const sdir = (lx - tw / 2) * Math.sin(th2) + (ly - th / 2) * -Math.cos(th2) + L / 2;
+      let c = null;
+      if (sdir <= stops[0].p) c = stops[0].c;
+      else if (sdir >= stops[stops.length - 1].p) c = stops[stops.length - 1].c;
+      else {
+        for (let k = 1; k < stops.length; k++) {
+          if (sdir <= stops[k].p) {
+            const a = stops[k - 1];
+            const b = stops[k];
+            const span = b.p - a.p;
+            c = mixStops(a.c, b.c, span > 0 ? (sdir - a.p) / span : 1, okSpace);
+            break;
+          }
+        }
+      }
+      if (c && c.a > 0) out.push(c);
+    });
+    return out;
+  };
+
   // Climb ancestors, compositing every translucent paint and every element
   // `opacity`, down to the page. `from` seeds the stack with paints that are NOT
   // ancestors — see the two callers below; without it this function has two blind
@@ -197,7 +397,7 @@ const PROBE = () => {
   // ABOVE the first opaque paint can still carry an opacity that scales everything
   // under it, and stopping early would miss it. Absorbing further layers into a
   // saturated accumulator is a no-op, so the full walk costs nothing but is right.
-  const resolveStack = (el, from = [], ink = null) => {
+  const resolveStack = (el, from = [], ink = null, pt = null) => {
     let acc = ink && ink.a > 0 ? { rgb: ink.rgb.slice(), a: ink.a } : null;
     // KNOWN WRONG for two DIFFERENTLY-COLORED translucent layers, and stated here
     // rather than left to be rediscovered: this applies `over(acc.rgb, c.rgb, acc.a)`
@@ -234,6 +434,8 @@ const PROBE = () => {
     let node = el;
     while (node && node !== document.documentElement) {
       const cs = getComputedStyle(node);
+      // This node's gradient layers at the run's own point sit ABOVE its background-color.
+      if (pt) for (const c of gradientPaintsAt(node, pt)) absorb(c);
       absorb(parse(cs.backgroundColor));
       // Leaving this element's group: its opacity scales everything accumulated
       // inside it, ink and background alike.
@@ -436,8 +638,8 @@ const PROBE = () => {
 
   /**
    * Does a paint this tool CANNOT SAMPLE lie under the run — a raster
-   * `background-image`, or a gradient? Every backdrop here is read off
-   * `backgroundColor`, so when the answer is yes the reported ratio is not merely
+   * `background-image`, or a gradient form `gradientPaintsAt` does not evaluate? Every other
+   * backdrop is read off `backgroundColor` and the gradient layers evaluated above, so when the answer is yes the reported ratio is not merely
    * approximate, it is measuring the wrong thing: the climb sails past the picture
    * and lands on whatever opaque color sits behind it, usually the section canvas.
    *
@@ -459,8 +661,8 @@ const PROBE = () => {
    * `table`. An exemption keyed on that flag stopped meaning "over a photograph"
    * and started meaning "one run in eight", wide enough to swallow an injected 1.11:1
    * regression on `glossary th` and a 1.2:1 one on twelve `divider` headlines while the
-   * gate stayed green. A gradient is at least COMPOSED of colors this tool could in
-   * principle sample; a decoded raster is not, and the raster is the case that motivated
+   * gate stayed green. A gradient is COMPOSED of colors this tool samples (`gradientPaintsAt`
+   * evaluates the linear ones); a decoded raster is not, and the raster is the case that motivated
    * the flag. So the net is the narrow one, and the invariants gate additionally pins the
    * exact count — breadth alone is never the only thing standing between a real defect
    * and a green build.
@@ -482,7 +684,7 @@ const PROBE = () => {
   // `under()` already yields topmost-first, so composite straight down it until an
   // opaque paint closes the stack.
   // BLIND SPOT 3: an SVG SHAPE as the ground. Every paint above is a CSS
-  // `backgroundColor`, so SVG text drawn on an SVG shape — hub-spoke's hub name on its
+  // `backgroundColor` or a linear gradient layer, so SVG text drawn on an SVG shape — hub-spoke's hub name on its
   // dark disc, a label inside a filled node — climbed past the shape onto the section
   // canvas and scored white-on-white (1.00:1) for text that renders white on navy. Found
   // when hub-spoke graduated into the gallery (#2524): 20 runs at 1:1, all legible.
@@ -561,11 +763,16 @@ const PROBE = () => {
   const underlays = (el, rect) => {
     const out = svgUnderlays(el, rect);
     if (out.length && out[out.length - 1].a >= 1) return out;
+    // An overlay's gradient layers are read at the run's own point, like an ancestor's (see
+    // `gradientPaintsAt`); with no `rect` (a pseudo-element's owner) there is no point to read at.
+    const pt = rect ? { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 } : null;
     for (const node of under(el, rect)) {
+      const paints = pt ? gradientPaintsAt(node, pt) : [];
       const c = parse(getComputedStyle(node).backgroundColor);
-      if (!c || c.a <= 0) continue;
-      out.push(c);
-      if (c.a >= 1) break;
+      if (c && c.a > 0) paints.push(c);
+      let opaque = false;
+      for (const q of paints) { out.push(q); if (q.a >= 1) { opaque = true; break; } }
+      if (opaque) break;
     }
     return out;
   };
@@ -682,8 +889,9 @@ const PROBE = () => {
       // glyphs' box rather than the element's.
       const trect = tr.getBoundingClientRect();
       const unders = underlays(el, trect);
-      const bg  = resolveStack(el, unders);
-      const fgc = resolveStack(el, unders, fg);
+      const pt = { x: trect.x + trect.width / 2, y: trect.y + trect.height / 2 };
+      const bg  = resolveStack(el, unders, null, pt);
+      const fgc = resolveStack(el, unders, fg, pt);
       const w = parseInt(cs.fontWeight, 10) || 400;
       out.push({
         page, cls, tag: el.tagName.toLowerCase(),

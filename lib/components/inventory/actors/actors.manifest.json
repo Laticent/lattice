@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "actors",
+  "cards": { "default": "center" },
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",
