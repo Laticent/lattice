@@ -40,21 +40,35 @@ jobs:
           npm run pptx
           npm run html
           Get-ChildItem a11y.pdf, a11y.pptx, a11y.html | Format-Table Name, Length
-      - name: README npx line pasted into cmd.exe
+      - name: Fresh unzip for the npx route (no node_modules)
+        working-directory: probe
+        shell: bash
+        run: mkdir fresh-cmd fresh-ps fresh-sh && for d in fresh-cmd fresh-ps fresh-sh; do (cd $d && unzip -q ../a11y.zip); done
+      - name: README npx line pasted into cmd.exe (fresh folder)
         if: runner.os == 'Windows'
+        working-directory: probe/fresh-cmd/a11y
         shell: cmd
         run: |
-          npx @marp-team/marp-cli@^4.3.1 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
-          npx @marp-team/marp-cli@^4.3.1 --version
-          dir a11y.pdf
-      - name: README npx line pasted into PowerShell 5.1
+          call npx @marp-team/marp-cli@4 --version
+          npx @marp-team/marp-cli@4 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
+      - name: check cmd.exe output
         if: runner.os == 'Windows'
+        working-directory: probe/fresh-cmd/a11y
+        shell: powershell
+        run: Get-Item a11y.pdf | Format-Table Name, Length
+      - name: README npx line pasted into PowerShell 5.1 (fresh folder)
+        if: runner.os == 'Windows'
+        working-directory: probe/fresh-ps/a11y
         shell: powershell
         run: |
-          Remove-Item a11y.pdf
-          npx @marp-team/marp-cli@^4.3.1 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
-          npx @marp-team/marp-cli@^4.3.1 --version
+          npx @marp-team/marp-cli@4 --version
+          npx @marp-team/marp-cli@4 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
           Get-Item a11y.pdf | Format-Table Name, Length
+      - name: Both Windows npx runs were clean (no node_modules) and wrote a PDF
+        if: runner.os == 'Windows'
+        working-directory: probe
+        shell: bash
+        run: for d in fresh-cmd fresh-ps; do test -s $d/a11y/a11y.pdf && test ! -d $d/a11y/node_modules; done
       - name: README lines, macOS default shell
         if: runner.os == 'macOS'
         shell: zsh {0}
@@ -65,10 +79,11 @@ jobs:
           npm run pptx
           npm run html
           ls -la a11y.pdf a11y.pptx a11y.html
-          rm a11y.pdf
-          npx @marp-team/marp-cli@^4.3.1 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
-          npx @marp-team/marp-cli@^4.3.1 --version
+          cd ../../fresh-sh/a11y
+          npx @marp-team/marp-cli@4 --version
+          npx @marp-team/marp-cli@4 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
           ls -la a11y.pdf
+          test ! -d node_modules
       - uses: actions/upload-artifact@v4
         with:
           name: exports-${{ matrix.os }}
