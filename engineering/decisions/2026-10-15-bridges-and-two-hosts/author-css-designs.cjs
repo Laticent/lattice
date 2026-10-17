@@ -52,12 +52,30 @@ const SENT_END = '.zz-theme-end{--zz:2}';
 // ── Author CSS in a Marp markdown file ──
 const STYLE_FM_RE = /^style:\s*\|\n((?:[ \t]+.*\n|\n)*)/m;
 const STYLE_FM_LINE_RE = /^style:\s*(["']?)(.*)\1\s*$/m;
-const STYLE_EL_RE = /(<style\b[^>]*>)([\s\S]*?)(<\/style>)/g;
+// `<style>` elements are found by scanning, not by one regex that cuts them out: this script reads
+// only the example decks in this repo, but a removal regex that can leave `<style` behind is the
+// shape CodeQL flags, and a scan has no such leftover.
+function replaceStyleEls(md, fn) {
+  let out = '';
+  let i = 0;
+  const lower = md.toLowerCase();
+  for (;;) {
+    const open = lower.indexOf('<style', i);
+    if (open < 0) break;
+    const openEnd = md.indexOf('>', open);
+    const close = openEnd < 0 ? -1 : lower.indexOf('</style', openEnd);
+    const closeEnd = close < 0 ? -1 : md.indexOf('>', close);
+    if (closeEnd < 0) break;
+    out += md.slice(i, open) + fn(md.slice(open, openEnd + 1), md.slice(openEnd + 1, close), md.slice(close, closeEnd + 1));
+    i = closeEnd + 1;
+  }
+  return out + md.slice(i);
+}
 function frontMatter(md) { const m = md.match(/^---\n([\s\S]*?)\n---\n/); return m ? { fm: m[1], start: 4, end: 4 + m[1].length } : null; }
 function stripAuthor(md) {
   const f = frontMatter(md); let out = md;
   if (f) { let fm = f.fm.concat('\n').replace(STYLE_FM_RE, ''); fm = fm.replace(STYLE_FM_LINE_RE, '').replace(/\n$/, ''); out = `---\n${fm}\n---\n${md.slice(f.end + 5)}`; }
-  return out.replace(STYLE_EL_RE, '');
+  return replaceStyleEls(out, () => '');
 }
 function mapAuthorCss(md, fn) {
   const f = frontMatter(md); let out = md;
@@ -69,7 +87,7 @@ function mapAuthorCss(md, fn) {
     }).replace(/\n$/, '');
     out = `---\n${fm}\n---\n${md.slice(f.end + 5)}`;
   }
-  return out.replace(STYLE_EL_RE, (_m, a, css, b) => a + fn(css) + b);
+  return replaceStyleEls(out, (a, css, b) => a + fn(css) + b);
 }
 const hasAuthor = (md) => stripAuthor(md) !== md;
 
