@@ -597,6 +597,10 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   committed) that predates the commits your branch was cut from. Seen on #2747, after the branch
   was cut from an `origin/main` that was 56 commits ahead of the sandbox's last build.
 - **Fix:** `npm run build`, then push again. Never `--no-verify` (HARD RULE #14).
+- **Same family, other symptom:** after switching between branches, `npm run build:check` can
+  say "stale: guide-player bundle (engine export)" on a branch with no code changes, even with
+  your edits stashed. `npm run build` fixed it and changed no tracked file, so the committed
+  bundle was right and the local build output was not. Do not commit anything from that rebuild.
 - **Also:** the cloud sandbox's local `main` can be a stale snapshot, 50 commits ahead and 56
   behind. Cut branches from `origin/main` and do not reset local `main`.
 - **Triggered by:** cutting a branch from a newer `origin/main` than the one `dist/` was built
@@ -607,17 +611,26 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 - **Symptom:** `studio-smoke` is red while `ci` is green, or the reverse. On a markdown-only PR
   one e2e test fails.
-- **Cause:** the `ci` job's tier list is `changes`, `lint`, `unit`, `integration`, `docs-build`
-  and `player-webkit` (read from the gate's log on #2749). `studio-smoke` is not in it. I did
-  not check whether branch protection requires it.
+- **Cause:** `studio-smoke` is advisory by design. The `ci` job's `needs` are `changes`, `lint`,
+  `unit`, `integration`, `docs-build` and `player-webkit`, and `.github/workflows/ci.yml`
+  (around lines 975-982) says `golden-diff` and `studio-smoke` are "intentionally ABSENT" from
+  them: they run and report, and they do not gate. It promotes into `needs` only after a nightly
+  green streak (#800).
 - **How to tell:** open the job and read the failing test. On #2749 `studio-smoke` failed on
-  `51577ea` and `6010676` and passed on `f80571a`; only the second failure's error was read:
-  `e2e/library-images-complete.spec.ts:67` timed out waiting for editor text, and 115 other
+  `51577ea` and `6010676` and passed on `f80571a` and `9ee7827`. Only the `6010676` failure's
+  error was read: `docs/e2e/library-images-complete.spec.ts:67` timed out waiting for editor
+  text (the editor still read `<!-- _class: collage -->## Site walk- te- `), and 115 other
   tests passed.
-- **Fix:** one failing test on an unrelated diff is a candidate for a single re-run, once, and
-  the next push is that re-run. Do not edit the test. A second failure is real.
+- **That test is a known, tracked flake.** `followups.d/2649-p3-library-images-complete-flake.md`
+  records the same test failing with the same symptom on #2649 and #2673, and calls it ready for
+  a root-cause fix. Add each new repeat there (#2749 is one more) instead of re-deriving it.
+- **Fix for a PR you are driving:** a `studio-smoke` failure does not block the `ci` gate, and
+  a failure in a test your diff cannot reach is not yours to fix on that PR. Do not edit the
+  test, skip it, or quarantine it there. Name the follow-up in your stand-down note. A failure
+  in a test your diff does touch is real.
 - **Triggered by:** an intermittent e2e test.
-- **Removable when:** the flaky test is fixed, or `studio-smoke` joins the gate.
+- **Removable when:** the flaky test is fixed (`followups.d/2649-p3-library-images-complete-flake.md`)
+  and `studio-smoke` has joined the gate or this entry is trimmed to the advisory rule.
 
 ## The build fails with `Could not resolve "@laticent/<package>"` after you cut from a newer `origin/main`
 
