@@ -242,6 +242,25 @@ pinner. Two modes:
   options are splitting each line at its pictures, or leaving such a paragraph in the
   picture whole.
 
+**Layouts, shared backgrounds and roles (editable).** Each slide is photographed twice: its
+own paint alone (the fill, a `border-image` rule, a wash, a ghost numeral — the section's own
+paint plus any absolutely placed child under the content that holds no text), and its content
+over transparency. Slides whose backgrounds match (within 3 levels per channel, so a dithered
+gradient still matches) share one `.odp` master page or `.pptx` layout; a flat background is a
+solid fill, not a picture. Because the foreground picture is transparent, the background shows
+through and is not an object on any slide. A slide that blends or blurs what is behind it
+(`mix-blend-mode`, `backdrop-filter`) is checked against an opaque photograph and keeps that
+picture if the layers do not add back up; `lattice` prints how many slides did. Each frame also
+carries a `role` read from the page (`h1`/`h2`, the eyebrow and subtitle inline-code
+paragraphs, `<header>`, `<footer>`, `.lat-pagination`): the title is a title placeholder, the
+page number is a slide-number field, and a header, footer or page number that two or more
+slides share on one background moves to the layout. The slide picture is locked against moving
+and resizing in the `.odp` (honored by LibreOffice and Collabora) and in the `.pptx` markup
+(LibreOffice ignores it). The cost is one more screenshot per distinct background and one for the
+foreground: about +0.16 s per slide on `accent-finishes` (12 slides: 6.2 s → 8.1 s), with
+slides that draw the same background photographed once. Design, measurements and what is not
+verified: `engineering/decisions/2026-10-17-calco-shared-backgrounds.md`.
+
 Calco writes the zip itself, so no `soffice` is needed to export — LibreOffice is
 only the reader. Rounded corners square on both, as on the PPTX: the page sets no
 fill, so a transparent corner would show the reader's own template

@@ -62,7 +62,17 @@ export interface TextFrame {
 	lines: TextRun[][];
 	/** The group this text moves with: the index of its card in `Slide.shapes`. */
 	group?: number;
+	/**
+	 * What the text is on the slide, when the page says so: the slide's `title`, the
+	 * `eyebrow` kicker above a heading, the `subtitle` below one, the running `header` and
+	 * `footer`, and the page `number`. A writer names the box by it, and where the format has
+	 * a placeholder for it (title, footer, slide number) writes one.
+	 */
+	role?: FrameRole;
 }
+
+/** What a text frame is on the slide (see `TextFrame.role`). */
+export type FrameRole = 'title' | 'eyebrow' | 'subtitle' | 'header' | 'footer' | 'number';
 
 /** A color with its opacity. */
 export interface Paint {
@@ -116,13 +126,29 @@ export interface Shape {
 	group?: number;
 }
 
+/**
+ * What a slide paints behind its content: a flat color, or a picture of the page's own paint
+ * (its border, rules, washes and textures). Slides whose backgrounds match share one, so a
+ * writer puts it on a master page / layout once and the slides inherit it.
+ */
+export interface Background {
+	/** `#rrggbb`, when the background is one flat color. Then there is no `image`. */
+	color?: string;
+	/** PNG bytes, slide-sized, opaque. */
+	image?: Uint8Array;
+}
+
 /** A slide, read. */
 export interface Slide {
 	/**
 	 * The slide as one picture (PNG bytes). In PICTURE mode it is the whole slide; in
 	 * EDITABLE mode it is the slide with its text hidden, and `frames` carries the text.
+	 * With `background` set it is only the FOREGROUND: transparent wherever the slide
+	 * shows nothing but its background, which the master page supplies.
 	 */
 	image: Uint8Array;
+	/** Index into `Deck.backgrounds`: the background this slide inherits. Absent: none (the picture is opaque). */
+	background?: number;
 	/** Editable text. Empty in picture mode. */
 	frames: TextFrame[];
 	/**
@@ -142,6 +168,8 @@ export interface Deck {
 	width: number;
 	height: number;
 	slides: Slide[];
+	/** The backgrounds the slides share, by index (see `Slide.background`). */
+	backgrounds?: Background[];
 	title?: string;
 	subject?: string;
 	author?: string;

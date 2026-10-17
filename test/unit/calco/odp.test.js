@@ -172,3 +172,61 @@ describe('calco odp — editable text', () => {
     assert.match(await read((await open(deck)).zip, 'content.xml'), /fo:font-family="Georgia"/);
   });
 });
+
+describe('calco odp — layouts, roles and the locked picture', () => {
+  const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+  const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+  const title = (text) => frame([[{ text, style: style({ size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+  const deck = () => ({
+    width: 1280,
+    height: 720,
+    backgrounds: [{ color: '#003d66' }, { image: ONE_PX_PNG }],
+    slides: [
+      { image: ONE_PX_PNG, background: 0, frames: [title('One'), header('Deck'), num(1)] },
+      { image: ONE_PX_PNG, background: 0, frames: [title('Two'), header('Deck'), num(2)] },
+      { image: ONE_PX_PNG, background: 1, frames: [title('Three'), num(3)] },
+    ],
+  });
+
+  test('a master page per layout carries the background; a picture background is stored once and referenced by name', async () => {
+    const { zip } = await open(deck());
+    const styles = await read(zip, 'styles.xml');
+    assert.equal((styles.match(/<style:master-page /g) || []).length, 2);
+    assert.match(styles, /draw:fill="solid" draw:fill-color="#003d66"/);
+    assert.match(styles, /<draw:fill-image draw:name="Bg1" xlink:href="Pictures\/background002\.png"/);
+    assert.match(styles, /draw:fill="bitmap" draw:fill-image-name="Bg1"/);
+    assert.ok(zip.file('Pictures/background002.png'), 'the picture is in the package');
+    assert.equal(zip.file('Pictures/background001.png'), null, 'a flat color has no picture');
+    assert.match(await read(zip, 'META-INF/manifest.xml'), /Pictures\/background002\.png/);
+  });
+
+  test('slides name their master page; shared chrome is on the master as a page-number field and a header', async () => {
+    const { zip } = await open(deck());
+    const content = await read(zip, 'content.xml');
+    assert.match(content, /draw:master-page-name="Layout1"/);
+    assert.match(content, /draw:master-page-name="Layout2"/);
+    const styles = await read(zip, 'styles.xml');
+    assert.match(styles, /<text:page-number text:select-page="current">/);
+    assert.match(styles, /draw:name="Header"/);
+    assert.doesNotMatch(content, /draw:name="Header 1"/, 'the header is not repeated on the slide');
+    assert.match(content, /<text:page-number text:select-page="current">3<\/text:page-number>/, 'an unshared number is still a field');
+  });
+
+  test('a title is a presentation title object, and the content picture is protected', async () => {
+    const { zip } = await open(deck());
+    const content = await read(zip, 'content.xml');
+    assert.match(content, /presentation:class="title"/);
+    assert.match(content, /draw:name="Title 1"/);
+    assert.match(content, /style:name="grPic" style:family="graphic"><style:graphic-properties style:protect="position size"\/>/);
+    assert.match(content, /<draw:frame draw:style-name="grPic" draw:name="Slide 1"/);
+    // Master-page objects look their styles up in styles.xml.
+    assert.match(await read(zip, 'styles.xml'), /style:name="gr1" style:family="graphic"/);
+  });
+
+  test('picture mode (no roles, no backgrounds) is unchanged: the one Default master, no protection', async () => {
+    const { zip } = await open(picture(2));
+    const styles = await read(zip, 'styles.xml');
+    assert.match(styles, /<style:master-page style:name="Default"/);
+    assert.doesNotMatch(await read(zip, 'content.xml'), /protect/);
+  });
+});

@@ -505,6 +505,23 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		});
 	}
 
+	// ── ROLES. What the page says a block is, so a writer can name it and, where the format has
+	// a placeholder for it, write one: the slide's first heading is its title, a lone inline-code
+	// paragraph beside a heading is its eyebrow (above) or subtitle (below), and the engine's own
+	// chrome carries its element: `<header>`, `<footer>`, and `.lat-pagination` for the number.
+	const heading = section.querySelector('h1, h2');
+	const onlyCode = (el: Element) => el.tagName === 'P' && el.children.length === 1 && el.firstElementChild?.tagName === 'CODE' && (el.textContent || '').trim() === (el.firstElementChild.textContent || '').trim();
+	const isHeading = (el: Element | null) => !!el && /^H[1-3]$/.test(el.tagName);
+	frames.forEach((frame, i) => {
+		const block = frameBlocks[i];
+		if (block.closest('.lat-pagination')) frame.role = 'number';
+		else if (block.closest('header')?.parentElement === section) frame.role = 'header';
+		else if (block.closest('footer')) frame.role = 'footer';
+		else if (heading && block === heading) frame.role = 'title';
+		else if (onlyCode(block) && isHeading(block.nextElementSibling)) frame.role = 'eyebrow';
+		else if (onlyCode(block) && isHeading(block.previousElementSibling)) frame.role = 'subtitle';
+	});
+
 	// ── SHAPES (`shapes: true`). A box whose paint an office shape can carry exactly — a solid
 	// fill, solid borders, circular corners, one outer shadow — is lifted out of the picture:
 	// read here, hidden below with the text, drawn by the writer as a native shape. A border
@@ -1138,4 +1155,88 @@ export function restoreSlide(section: HTMLElement): void {
 		host.__calcoStill = undefined;
 		still();
 	}
+}
+
+/**
+ * Split a slide's own paint from its content, for a shared background.
+ *
+ * `which: 'background'` hides everything inside the slide, so a photograph shows only what the
+ * slide itself paints: its fill, its border and rules, its washes. `which: 'foreground'` hides
+ * that instead (its fill, border image, shadow, outline and the pseudo-elements that draw no
+ * text), so a photograph with `omitBackground` is transparent wherever the slide shows nothing
+ * but its background. The slide's own pseudo-elements that DO draw text (a page number) belong
+ * to the foreground in both. So does the slide's decorative layer, which sits in the
+ * background: an absolutely placed child under the content (negative `z-index`) that holds no
+ * text of its own, such as a finish's wash or ghost numeral. Border WIDTHS stay, so nothing
+ * moves. Undone by `restoreSplit`.
+ *
+ * Self-contained, like `readSlide`: a headless browser receives it as source.
+ */
+export function splitSlide(section: HTMLElement, which: 'background' | 'foreground'): void {
+	const doc = section.ownerDocument;
+	const win = doc.defaultView as Window & typeof globalThis;
+	const host = section as HTMLElement & { __calcoSplit?: () => void };
+	if (typeof host.__calcoSplit === 'function') host.__calcoSplit();
+	const drawsText = (pseudo: '::before' | '::after') => {
+		const content = win.getComputedStyle(section, pseudo).content;
+		return !['none', 'normal', '""', "''"].includes(content);
+	};
+	const backdrops = (Array.from(section.children) as HTMLElement[]).filter((el) => {
+		const cs = win.getComputedStyle(el);
+		return (cs.position === 'absolute' || cs.position === 'fixed') && Number(cs.zIndex) < 0 && !(el.textContent || '').trim();
+	});
+	for (const el of backdrops) el.setAttribute('data-calco-backdrop', '');
+	const style = doc.createElement('style');
+	const sel = '[data-calco-split]';
+	const rules: string[] = [`${sel}, ${sel} *, ${sel}::before, ${sel}::after { transition: none !important; animation: none !important; }`];
+	for (const pseudo of ['::before', '::after'] as const) {
+		const text = drawsText(pseudo);
+		// The background keeps a pseudo that paints without text; the foreground keeps the one with text.
+		if (which === 'background' ? text : !text) rules.push(`${sel}${pseudo} { visibility: hidden !important; }`);
+	}
+	const layer = `${sel} [data-calco-backdrop], ${sel} [data-calco-backdrop] *`;
+	if (which === 'background') rules.push(`${sel} * { visibility: hidden !important; }`, `${layer} { visibility: visible !important; }`);
+	else rules.push(`${layer} { visibility: hidden !important; }`,`${sel} { background: none !important; border-color: transparent !important; border-image: none !important; box-shadow: none !important; outline-color: transparent !important; }`);
+	style.textContent = rules.join('\n');
+	section.setAttribute('data-calco-split', which);
+	doc.head.appendChild(style);
+	// Force the style to apply before the caller photographs.
+	void section.getBoundingClientRect();
+	host.__calcoSplit = () => {
+		style.remove();
+		for (const el of backdrops) el.removeAttribute('data-calco-backdrop');
+		section.removeAttribute('data-calco-split');
+		delete host.__calcoSplit;
+	};
+}
+
+/** Undo `splitSlide`. Safe to call when nothing is split. */
+export function restoreSplit(section: HTMLElement): void {
+	const host = section as HTMLElement & { __calcoSplit?: () => void };
+	if (typeof host.__calcoSplit === 'function') host.__calcoSplit();
+}
+
+/**
+ * A key for a slide's own paint: the computed style of the slide, of its two pseudo-elements
+ * and of its decorative layer (the children `splitSlide` keeps in the background, with their
+ * markup). Two slides with the same key paint the same background, so a caller that has
+ * photographed one need not photograph the other. A key can only miss a match (a property that
+ * does not change the paint still splits keys), never invent one.
+ *
+ * Self-contained, like `splitSlide`: a headless browser receives it as source.
+ */
+export function splitKey(section: HTMLElement): string {
+	const win = section.ownerDocument.defaultView as Window & typeof globalThis;
+	const css = (el: Element, pseudo?: '::before' | '::after') => {
+		const cs = win.getComputedStyle(el, pseudo);
+		let out = '';
+		for (let i = 0; i < cs.length; i++) out += `${cs[i]}:${cs.getPropertyValue(cs[i])};`;
+		return out;
+	};
+	const parts = [css(section), css(section, '::before'), css(section, '::after')];
+	for (const el of Array.from(section.children) as HTMLElement[]) {
+		const cs = win.getComputedStyle(el);
+		if ((cs.position === 'absolute' || cs.position === 'fixed') && Number(cs.zIndex) < 0 && !(el.textContent || '').trim()) parts.push(el.outerHTML, css(el), css(el, '::before'), css(el, '::after'));
+	}
+	return parts.join('|');
 }

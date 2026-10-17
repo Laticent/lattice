@@ -32,9 +32,10 @@
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
+import { planMasters, withoutHoisted } from './masters.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
-import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
+import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
@@ -44,6 +45,14 @@ export function pptxFaceName(face: { family: string; weight: number; italic: boo
 const PX_PER_IN = 96;
 /** The name prefix that marks a group's members until tidyPptx groups them (never page text). */
 const GROUP_TAG = 'calco-group-';
+/** The name prefix that marks a title or a page number until tidyPptx makes it one (never page text). */
+const ROLE_TAG = 'calco-role-';
+/** The name prefix that marks a slide's content picture until tidyPptx locks it. */
+const LOCK_TAG = 'calco-lock|';
+/** What a role is called in the file, so a reader finds it in the selection pane. */
+const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
+/** The layout's title placeholder: PptxGenJS numbers a layout's first placeholder 100. */
+const TITLE_IDX = 100;
 const PT_PER_PX = 0.75;
 
 /** The minimal PptxGenJS surface Calco uses. */
@@ -54,7 +63,8 @@ export interface PptxGenJSLike {
 	company: string;
 	layout: string;
 	defineLayout(layout: { name: string; width: number; height: number }): void;
-	addSlide(): {
+	defineSlideMaster(master: Record<string, unknown>): void;
+	addSlide(options?: { masterName: string }): {
 		addImage(options: Record<string, unknown>): unknown;
 		addText(text: Array<{ text: string; options?: Record<string, unknown> }>, options: Record<string, unknown>): unknown;
 		addShape(shape: string, options: Record<string, unknown>): unknown;
@@ -221,12 +231,46 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	// Where a label's text sits inside its shape (null: it cannot, see labelInsets).
 	const insetsOf = (shape: Shape, frame: TextFrame) => labelInsets(shapeGeometry(shape), textOf(frame).box, frame.align);
 
-	deck.slides.forEach((slide, i) => {
-		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
-		const s = pptx.addSlide();
+	// LAYOUTS. Slides that share a background and running chrome share a layout (masters.ts):
+	// the layout holds the background, the title placeholder and the header, footer and page
+	// number that repeat, and the slide holds what is its own. A deck with no roles and no
+	// shared background keeps the single default layout, as before.
+	const useLayouts = !!deck.backgrounds?.length || deck.slides.some((sl) => sl.frames.some((f) => f.role));
+	const masters = useLayouts ? planMasters(deck) : null;
+	const layoutName = (li: number) => `Layout ${li + 1}`;
+	if (masters) {
+		masters.layouts.forEach((layout, li) => {
+			const paint = layout.paint;
+			const background = paint?.color ? { color: bareHex(paint.color) } : paint?.image ? { data: `image/png;base64,${toBase64(paint.image)}` } : undefined;
+			// The title placeholder sits where the first slide on this layout put its title.
+			const first = deck.slides.findIndex((sl, i) => masters.layoutOf[i] === li && sl.frames.some((f) => f.role === 'title' && f.group === undefined));
+			const titleFrame = first < 0 ? null : (deck.slides[first].frames.find((f) => f.role === 'title') as TextFrame);
+			const tb = titleFrame ? textOf(titleFrame).box : { x: W * 0.05, y: H * 0.08, w: W * 0.9, h: H * 0.14 };
+			const objects: Array<Record<string, unknown>> = [{ placeholder: { options: { name: 'title', type: 'title', x: inch(tb.x), y: inch(tb.y), w: inch(tb.w), h: inch(tb.h), margin: 0 }, text: 'Title' } }];
+			for (const role of ['header', 'footer'] as const) {
+				const frame = layout.chrome[role];
+				if (!frame) continue;
+				const { runs, box, options } = textOf(frame);
+				objects.push({ text: { text: runs[0].text, options: { ...runs[0].options, ...options, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0, objectName: ROLE_NAMES[role] } } });
+			}
+			const master: Record<string, unknown> = { title: layoutName(li), objects };
+			if (background) master.background = background;
+			const num = layout.chrome.number;
+			if (num) {
+				const { runs, box, options } = textOf(num);
+				master.slideNumber = { ...runs[0].options, align: options.align, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0 };
+			}
+			pptx.defineSlideMaster(master);
+		});
+	}
+
+	deck.slides.forEach((original, i) => {
+		if (!original.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
+		const slide = masters ? withoutHoisted(original, masters.hoisted[i]) : original;
+		const s = pptx.addSlide(masters ? { masterName: layoutName(masters.layoutOf[i]) } : undefined);
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
+		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}`, ...(options?.groups && masters ? { objectName: `${LOCK_TAG}Slide ${i + 1}` } : {}) });
 		const n = i + 1;
 		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
 			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.
@@ -234,24 +278,28 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 			const tag = group === undefined || !options?.groups ? '' : `${GROUP_TAG}${group + 1}|`;
 			for (const item of items) {
 				if ('frame' in item) {
-					const { runs, box, options } = textOf(item.frame);
-					s.addText(runs, { ...options, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0, objectName: `${tag}Text ${n}.${item.index + 1}` });
+					const { runs, box, options: textOptions } = textOf(item.frame);
+					const role = item.frame.role;
+					// A title becomes a placeholder and a page number a field, when tidyPptx runs.
+					const roleTag = options?.groups && group === undefined && (role === 'title' || role === 'number') ? `${ROLE_TAG}${role}|` : '';
+					const name = role ? `${ROLE_NAMES[role]} ${n}` : `Text ${n}.${item.index + 1}`;
+					s.addText(runs, { ...textOptions, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0, objectName: `${tag}${roleTag}${name}` });
 					continue;
 				}
 				const geom = shapeGeometry(item.shape);
-				const { kind, options } = shapeOf(item.shape, geom);
+				const { kind, options: shapeOptions } = shapeOf(item.shape, geom);
 				const name = `${tag}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`;
 				if (!item.label) {
-					s.addShape(kind, { ...options, objectName: name });
+					s.addShape(kind, { ...shapeOptions, objectName: name });
 					continue;
 				}
 				const text = textOf(item.label);
 				const ins = labelInsets(geom, text.box, item.label.align) as NonNullable<ReturnType<typeof labelInsets>>;
 				// Insets in points: PptxGenJS's margin is [left, right, bottom, top].
-				s.addText(text.runs, { ...text.options, ...options, shape: kind, margin: [points(ins.l), points(ins.r), 0, points(ins.t)], objectName: name });
+				s.addText(text.runs, { ...text.options, ...shapeOptions, shape: kind, margin: [points(ins.l), points(ins.r), 0, points(ins.t)], objectName: name });
 			}
 		}
-		if (slide.notes) s.addNotes(xmlSafe(slide.notes));
+		if (original.notes) s.addNotes(xmlSafe(original.notes));
 	});
 	return pptx;
 }
@@ -370,6 +418,36 @@ export function groupShapes(xml: string): string {
 }
 
 /**
+ * Make each tagged text box what its tag says: a title becomes the slide's title placeholder
+ * (its position and runs stay its own, so it draws where the browser drew it, and the layout's
+ * placeholder supplies the slide's title to Outline view and screen readers); a page number
+ * becomes a slide-number field, so it follows the slide when slides are moved. The tag comes
+ * out of the shape's name either way. PptxGenJS cannot place a placeholder or write a field
+ * inside a slide's own text box, as it cannot group. It also drops the empty placeholders
+ * PptxGenJS copies from the layout onto every slide.
+ */
+export function applyRoles(xml: string): string {
+	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes('hasCustomPrompt')) return xml;
+	// The slide's content picture stays where it is unless a reader unlocks it: it is the one
+	// object nobody means to drag, and the first one a stray touch grabs.
+	xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) =>
+		pic.includes(`name="${LOCK_TAG}`) ? pic.replace(`name="${LOCK_TAG}`, 'name="').replace(/<a:picLocks[^>]*\/>/, '<a:picLocks noChangeAspect="1" noMove="1" noResize="1"/>') : pic,
+	);
+	return xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, (sp) => {
+		// PptxGenJS copies each of the layout's placeholders onto every slide, empty, with a
+		// prompt. A slide that used one has written its own; the rest would show "Click to add".
+		if (sp.includes('hasCustomPrompt="1"') && sp.includes('<a:endParaRPr') && !sp.includes('<a:t>')) return '';
+		const m = sp.match(/<p:cNvPr id="\d+" name="calco-role-(title|number)\|/);
+		if (!m) return sp;
+		const out = sp.replace(`name="${ROLE_TAG}${m[1]}|`, 'name="');
+		if (m[1] === 'title') {
+			return out.replace(/<p:cNvSpPr[^>]*\/>/, '<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>').replace(/<p:nvPr\s*\/>|<p:nvPr>\s*<\/p:nvPr>/, `<p:nvPr><p:ph type="title" idx="${TITLE_IDX}"/></p:nvPr>`);
+		}
+		return out.replace(/<a:r>(<a:rPr[^>]*\/>|<a:rPr[^>]*>[\s\S]*?<\/a:rPr>)<a:t>([^<]*)<\/a:t><\/a:r>/, '<a:fld id="{B6F15528-21DE-4FAA-801E-634DDDAF4B2B}" type="slidenum">$1<a:t>$2</a:t></a:fld>');
+	});
+}
+
+/**
  * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
  * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
  * `p:sldMasterIdLst`, and no content-type override for a part the package does not hold.
@@ -381,7 +459,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
 	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
 		const xml = await text(name);
-		const tidy = groupShapes(onePPrPerParagraph(xml));
+		const tidy = groupShapes(applyRoles(onePPrPerParagraph(xml)));
 		if (tidy !== xml) zip.file(name, tidy);
 	}
 	if (zip.file('ppt/presentation.xml')) {

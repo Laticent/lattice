@@ -128,3 +128,74 @@ describe('calco pptx — what PptxGenJS does not escape', () => {
   });
 });
 
+
+describe('calco pptx — layouts, roles and the locked picture', () => {
+  const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+  const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+  const title = (text) => frame([[{ text, style: style({ size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+  const deck = () => ({
+    width: 1280,
+    height: 720,
+    backgrounds: [{ color: '#003d66' }, { image: ONE_PX_PNG }],
+    slides: [
+      { image: ONE_PX_PNG, background: 0, frames: [title('One'), header('Deck'), num(1)] },
+      { image: ONE_PX_PNG, background: 0, frames: [title('Two'), header('Deck'), num(2)] },
+      { image: ONE_PX_PNG, background: 1, frames: [title('Three'), num(3)] },
+    ],
+  });
+  const open = async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer', JSZip));
+    const text = (n) => zip.file(n).async('string');
+    return { zip, text };
+  };
+  const names = (xml) => [...xml.matchAll(/<p:cNvPr id="\d+" name="([^"]*)"/g)].map((m) => m[1]);
+
+  test('each shared background is written once, on a layout, and the slides point at layouts', async () => {
+    const { zip, text } = await open();
+    const layouts = Object.keys(zip.files).filter((n) => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n));
+    const withBg = [];
+    // PptxGenJS also writes its own empty default layout; ours are the ones named "Layout n".
+    for (const n of layouts) if (/<p:cSld name="Layout \d+"/.test(await text(n))) withBg.push(await text(n));
+    assert.ok(withBg.every((x) => /<p:bg>/.test(x)));
+    assert.equal(withBg.length, 2, 'one per background, none per slide');
+    assert.ok(withBg.some((x) => /<a:srgbClr val="003D66"\/>/.test(x)), 'a flat color is a solid fill');
+    assert.ok(withBg.some((x) => /<a:blip /.test(x)), 'a picture background is an image fill');
+    for (let i = 1; i <= 3; i++) assert.doesNotMatch(await text(`ppt/slides/slide${i}.xml`), /<p:bg>/, 'the slide itself paints no background');
+  });
+
+  test('a title is the slide title placeholder, drawn where the browser drew it, with no stray empty placeholders', async () => {
+    const { text } = await open();
+    const xml = await text('ppt/slides/slide1.xml');
+    assert.match(xml, /<p:ph type="title" idx="100"\/>/);
+    assert.equal((xml.match(/type="title"/g) || []).length, 1, 'one title, not the layout copy as well');
+    assert.doesNotMatch(xml, /hasCustomPrompt/);
+    assert.ok(names(xml).includes('Title 1'));
+    assert.doesNotMatch(xml, /calco-/, 'no tag leaks into the file');
+  });
+
+  test('a header and page number two slides share live on the layout; a lone page number is a slide-number field', async () => {
+    const { text } = await open();
+    const s1 = await text('ppt/slides/slide1.xml');
+    assert.ok(!names(s1).includes('Header 1'), 'the header moved to the layout');
+    assert.match(s1, /type="sldNum"/);
+    const layout = (await text('ppt/slideLayouts/slideLayout2.xml')) + (await text('ppt/slideLayouts/slideLayout3.xml'));
+    assert.match(layout, /name="Header"/);
+    assert.match(layout, /<a:t>Deck<\/a:t>/);
+    const s3 = await text('ppt/slides/slide3.xml');
+    assert.match(s3, /<a:fld [^>]*type="slidenum">/, 'unshared number is still a field');
+    assert.ok(names(s3).includes('Slide number 3'));
+  });
+
+  test('the slide content picture is locked against moving and resizing', async () => {
+    const { text } = await open();
+    assert.match(await text('ppt/slides/slide1.xml'), /<a:picLocks noChangeAspect="1" noMove="1" noResize="1"\/>/);
+  });
+
+  test('a deck with no roles and no backgrounds is written as before: no layouts, no lock', async () => {
+    const plain = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hi', style: style() }]])] }] };
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, plain, 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.doesNotMatch(xml, /noMove/);
+    assert.equal(Object.keys(zip.files).filter((n) => /slideLayout\d+\.xml$/.test(n)).length, 1);
+  });
+});
