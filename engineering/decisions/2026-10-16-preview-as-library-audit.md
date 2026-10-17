@@ -351,7 +351,7 @@ and narrowed it in three more. I reproduced the two hub defects below on the rea
    no-op scroll report cancels it (focus stays 1, wanted 3). (b) Reports made during a delivery are
    judged against stale focus (map `go(3)` ends at focus 2, origin stage). (c) `reportUnit` has no
    `quiet`, so a scroll-driven stage cannot tell its own scroll from the reader's, which is why the
-   Playground keeps a hand-written guard. Logged as `followups.d/veduta-p1-fuoco-report-defects.md`;
+   Playground keeps a hand-written guard. Logged as `followups.d/2704-p7-fuoco-report-defects.md`;
    each needs a failing arm in `hub.test.ts`. `ignoreOrigin` stops self-echo only, not a ping-pong
    between two scrolling views.
 6. **Promotion "by distance from focus" is wrong for a map.** A reader scrolls the map to slide 300
