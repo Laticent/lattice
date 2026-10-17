@@ -916,3 +916,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   unable to draw ("Waiting failed: 5000ms exceeded", `code-package-door.test.js`, 3 tests). `asPageScript` now inlines a
   `require('./sibling')` and refuses any other `require(` loudly. The two places that load `remote-ref.js` outside a bundler
   (this loader and the docs dev shim) are the full list; a third would need the same treatment.
+- 2026-10-17: the player's `file://` inliner (`lib/export/html-player.js`) took four independent checker passes. The late
+  commits fixed a CSS sample in a code block, a `style='…'` typed inside another attribute (alt text), an `<img>` whose
+  `data-src` or alt text held `src='file://…'`, scanner reads inside end tags, bogus comments and raw-text bodies, and a
+  quadratic `url(` scan (now bounded at 4096 characters). The inliner now tokenizes real start tags and reads exactly three
+  places: an `<img src>`, a `style` attribute value and a `<style>` body. Two behaviors the last checker judged off the path are
+  in `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md`. The unclosed-quote scan of the tag pattern is
+  quadratic on input no serializer produces, so it is not guarded.

@@ -94,3 +94,46 @@ test('a malformed --background-image string is left alone, never allowed to eat 
   const html = `<section style="--background-image:&quot;url(\\&quot;${photo};color:red;background:url(&quot;x&quot;);--x:&quot;\\&quot;)&quot;;"></section>`;
   assert.match(inlineFileUrls(html).html, /color:red/);
 });
+
+// Found by the fresh-eyes checker: the same "only read a real attribute" rule, for <img src> and for text a
+// browser never parses as a tag.
+test('<img>: only the src attribute is read, never data-src or a src typed inside another value', () => {
+  for (const html of [
+    `<img data-src="${photo}" alt="a">`,
+    `<img alt="y src='${photo}'" src="pic.svg">`,
+    `<img title='src="${photo}"' src="pic.svg">`,
+  ]) {
+    const r = inlineFileUrls(html);
+    assert.equal(r.count, 0, html);
+    assert.equal(r.html, html);
+  }
+  const real = inlineFileUrls(`<img class="x" src="${photo}" alt="a">`);
+  assert.equal(real.count, 1);
+  assert.match(real.html, /<img class="x" src="data:image\/jpeg;base64,/);
+});
+
+test('a style attribute inside an end tag, a bogus comment, or a non-markup body is never read', () => {
+  const css = `style='background:url(${photo})'`;
+  for (const html of [
+    `</div x="<p ${css}>">`,
+    `<?x <p ${css}>>`,
+    `<!x <p ${css}>>`,
+    `<!DOCTYPE <p ${css}>>`,
+    `<![CDATA[ <p ${css}> ]]>`,
+    `<xmp><p ${css}></p></xmp>`,
+    `<noembed><p ${css}></p></noembed>`,
+    `<iframe><p ${css}></p></iframe>`,
+    `<noframes><p ${css}></p></noframes>`,
+  ]) {
+    const r = inlineFileUrls(html);
+    assert.equal(r.count, 0, html);
+    assert.equal(r.html, html);
+  }
+});
+
+test('a hostile style value holding thousands of url(file:// starts does not stall the export', () => {
+  const html = `<p style="${'url(file://'.repeat(20000)}"></p>`;
+  const started = Date.now();
+  inlineFileUrls(html);
+  assert.ok(Date.now() - started < 3000, `took ${Date.now() - started} ms`);
+});
