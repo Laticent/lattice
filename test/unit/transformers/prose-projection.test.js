@@ -1573,6 +1573,17 @@ for (const [name, md, eyebrow, heading] of [
 	});
 }
 
+// The Wi-Fi card wraps each dt/dd pair in `div.qr-row`; the walker read only the <dl>'s direct
+// children, so narration spoke the heading and nothing else (followup 2727-p3). It now speaks the
+// network and the security, and never the password, which is a secret on the slide, not in audio.
+test('wifi card narration speaks the network name and never the password', async () => {
+	const secs = await renderedSections('<!-- _class: wifi -->\n\n## Join the room.\n\n- Acme-Guest `ssid`\n- hunter2-secret `password`\n- WPA2 `security`\n');
+	const [{ text }] = script(secs);
+	assert.match(text, /Network: Acme-Guest\./);
+	assert.match(text, /Security: WPA2\./);
+	assert.doesNotMatch(text, /hunter2|Password/i, `the password reached the voice: ${text}`);
+});
+
 // `video` builds its own card, so the lead sentence under its heading shares a stage with the
 // poster — and the media branch re-hosted only the poster, so the Read · Article view dropped a
 // sentence that narration still read (followup 2329-p3). Both card shapes carry it: `.video-lead`
