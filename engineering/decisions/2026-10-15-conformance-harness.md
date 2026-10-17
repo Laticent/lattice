@@ -729,3 +729,26 @@ so it is expected to fit at that ceiling; the 65 galleries that carry one all fi
 nightly lists. A slide whose point is to overflow would need its own marker, and none exists. Skipping
 the marker would also have hidden this slide, which was a real defect: the table lost 44 px of
 content at 4K.
+
+### 13.11 The three phase 2 leftovers (2026-10-17)
+
+§9 row 2 listed three static items that did not land with #2729. Each is now a clause or is dropped
+with its reason.
+
+- **`isEnriched`, now a clause: `component.enriched`.** `tools/build-component-docs.js` and
+  `tools/build-galleries.js` skip a manifest that has none of `sample`, `whenToUse`, `antiPatterns`,
+  `related` or `variantDocs`, and say nothing. The clause fails that component. Day-one catches: none;
+  all 75 manifests are enriched (measured). It is a guard against the next component.
+- **Manifest autocomplete from the schema, done.** The Studio's raw-JSON manifest view completed
+  from a hand-written list of 9 keys and a hand-written `adapt.mode` list. The schema has 55 keys,
+  and `adapt.mode` has three values, not two (`single-orientation` was never offered). Day-one
+  catch: that missing value. `docs/src/components/studio/manifest-complete.ts` now reads
+  `lib/components/manifest.schema.json`, and a unit test pins the derivation.
+- **`anatomy-matches-render`, dropped.** The anatomy block is an ASCII drawing authored in
+  `tools/ascii-preview.py`; a render is pixels. Comparing them needs a second, machine-readable
+  description of the same layout, and that description would be the thing that drifts. The part that
+  can rot mechanically, a block id that no longer exists, already fails the build:
+  `resolveAnatomy` throws on an unknown id (measured today: 0 unknown ids). What is left is that 12
+  manifests carry no `anatomyBlock` (`bullet`, `heatmap`, `map`, `slope`, `contact`, `wifi`,
+  `collage`, `video`, `columns`, `rows` and two more); that is a docs gap, not a conformance finding,
+  and a clause over it would be a debt list with no defect behind it.
