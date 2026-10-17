@@ -18,32 +18,42 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<link rel="icon" href="/mosaico-mark-min.svg" type="image/svg+xml" />
 		<style is:global>
 			:root {
-				--paper: #f7f3f4; --stage: #efe8ec; --ink: #24161f; --muted: #6d5d68; --line: #e0d3db;
-				--accent: #7a3b74; --accent-ink: #fff; --glow: #b96a0a; --glow-bg: #f8e6cc;
-				--panel: #fdfbfc; --tile: #e9d8e5; --tile-ink: #4a2446;
-				--shadow: 0 1px 2px rgba(36,22,31,.06), 0 8px 24px rgba(36,22,31,.06);
+				--paper: #f5f5ef; --stage: #ecede3; --ink: #1d2112; --muted: #5d6350; --line: #dcdfcf;
+				--accent: #4f5f00; --accent-ink: #fff; --glow: #07708c; --glow-bg: #d4eef5;
+				--panel: #fbfbf7; --tile: #e2e8c9; --tile-ink: #384300;
+				--mark-warm: #0994b9; --ring: #1f2600;
+				--shadow: 0 1px 2px rgba(29,33,18,.06), 0 8px 24px rgba(29,33,18,.06);
 				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
 				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 			}
 			@media (prefers-color-scheme: dark) {
 				:root {
-					--paper: #141012; --stage: #1d171b; --ink: #efe4ec; --muted: #a8949f; --line: #33282f;
-					--accent: #d08ac6; --accent-ink: #1e0c1b; --glow: #f2b252; --glow-bg: #33270f;
-					--panel: #19141a; --tile: #3a2537; --tile-ink: #f1d9ec;
+					--paper: #11130d; --stage: #191c13; --ink: #e7ebdf; --muted: #9da28e; --line: #2c3022;
+					--accent: #a9bf4a; --accent-ink: #151a04; --glow: #8ddefd; --glow-bg: #0d2a33;
+					--panel: #161910; --tile: #2e3618; --tile-ink: #e2ecc0;
+				--mark-warm: #8ddefd; --ring: #0f1300;
 					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
 				}
 			}
 			:root[data-theme="light"] {
-				--paper: #f7f3f4; --stage: #efe8ec; --ink: #24161f; --muted: #6d5d68; --line: #e0d3db;
-				--accent: #7a3b74; --accent-ink: #fff; --glow: #b96a0a; --glow-bg: #f8e6cc;
-				--panel: #fdfbfc; --tile: #e9d8e5; --tile-ink: #4a2446;
+				--paper: #f5f5ef; --stage: #ecede3; --ink: #1d2112; --muted: #5d6350; --line: #dcdfcf;
+				--accent: #4f5f00; --accent-ink: #fff; --glow: #07708c; --glow-bg: #d4eef5;
+				--panel: #fbfbf7; --tile: #e2e8c9; --tile-ink: #384300;
+				--mark-warm: #0994b9; --ring: #1f2600;
 			}
 			:root[data-theme="dark"] {
-				--paper: #141012; --stage: #1d171b; --ink: #efe4ec; --muted: #a8949f; --line: #33282f;
-				--accent: #d08ac6; --accent-ink: #1e0c1b; --glow: #f2b252; --glow-bg: #33270f;
-				--panel: #19141a; --tile: #3a2537; --tile-ink: #f1d9ec;
+				--paper: #11130d; --stage: #191c13; --ink: #e7ebdf; --muted: #9da28e; --line: #2c3022;
+				--accent: #a9bf4a; --accent-ink: #151a04; --glow: #8ddefd; --glow-bg: #0d2a33;
+				--panel: #161910; --tile: #2e3618; --tile-ink: #e2ecc0;
+				--mark-warm: #8ddefd; --ring: #0f1300;
 			}
+			/* The header mark, drawn inline so it follows the theme toggle (docs/public/mosaico-mark.svg is the same geometry). */
+			.logo .t-pri { stroke: var(--accent); }
+			.logo .t-warm { stroke: var(--mark-warm); }
+			.logo .t-hub { fill: var(--accent); }
+			.logo .t-halo { fill: var(--paper); }
+			.logo .t-ring { stroke: var(--ring); }
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
@@ -101,7 +111,11 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			<DemoBar slug="mosaico" />
 			<header>
 				<div class="brand">
-					<img class="logo" src="/mosaico-mark.svg" alt="" width="46" height="46" />
+					<svg class="logo" viewBox="0 0 128 128" fill="none" aria-hidden="true">
+						<g stroke-width="6.5" stroke-linejoin="round"><rect x="14" y="14" width="45" height="100" rx="7" class="t-pri" /><rect x="69" y="14" width="45" height="45" rx="7" class="t-warm" /><rect x="69" y="69" width="17.5" height="45" rx="7" class="t-pri" /><rect x="96.5" y="69" width="17.5" height="45" rx="7" class="t-pri" /></g>
+						<circle cx="64" cy="64" r="15" class="t-halo" /><circle cx="64" cy="64" r="12.2" class="t-hub" />
+						<circle cx="64" cy="64" r="7.6" class="t-ring" stroke-width="1.8" opacity="0.6" />
+					</svg>
 					<h1>Mosaico</h1><span class="tag">Library</span>
 				</div>
 				<button class="theme" id="themeBtn" type="button">Theme</button>

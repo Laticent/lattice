@@ -217,13 +217,23 @@ the strokes at 11 units and enlarges the hub. Assets: `docs/public/mosaico-mark.
 `mosaico-mark-min.svg` (favicon), `mosaico-lockup.svg`. The generator was kept out of tree
 (`.scratch/mosaico-brand/gen.py`), as the siblings' were.
 
-**Palette**, plum with an amber live accent, apart from every sibling (Suono's green, Lente's blue,
-Vetrina's rose, Cadenza's indigo, Trama's sienna and gold, Calco's ink blue and vermilion, Segno's
-charcoal and red, Fuoco's teal and ember):
+**Palette**, olive with a sea-glass live accent: the green stone and blue glass of a Roman floor
+mosaic. A first palette, plum with amber, failed the family's own rule: its amber sat 0.015 from
+Cadenza's (a difference in OKLab under the eye's threshold), the amber Suono, Cadenza, Vetrina and
+Lente already share, and the owner judged the plum too close to Vetrina's rose. A garnet replacement
+was rejected for the same rose. So the hues were chosen by measurement: on the OKLCH hue wheel the
+siblings fill 32–87° (reds, oranges, ambers, golds), 149–190° (greens, teals), 240–310° (blues,
+indigo, purple) and 358° (rose), which leaves two gaps, yellow-green and cerulean. Olive takes one, sea
+glass the other. The nearest sibling color is now 0.086 away (Tavola's dark-mode green), and Mosaico is
+the only library whose live accent is cool.
 
 | Class | Light | Dark |
 |---|---|---|
-| `pri` / `hub` | `#7a3b74` | `#d08ac6` |
-| `warm` | `#d9861c` | `#f2b252` |
-| `ring` | `#3a1636` | `#1e0c1b` |
+| `pri` / `hub` | `#4f5f00` | `#a9bf4a` |
+| `warm` (the live tile, sea glass) | `#0994b9` | `#8ddefd` |
+| `ring` | `#1f2600` | `#0f1300` |
+| `wm` (wordmark) | `#1d2112` | `#e7ebdf` |
+
+The `/libraries/mosaico/` header draws the mark inline from the page's tokens, so it follows the
+page's theme toggle, as Calco's and Fuoco's do.
 
