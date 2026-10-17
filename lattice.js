@@ -228,7 +228,8 @@ OPTIONS
                           mermaid,math; repeatable). The engine and the plugins' CLI
                           bakes both honor it, and so does every plugin that requires
                           one, so the PDF shows the deck's source instead. No deck can
-                          turn it back on.
+                          turn it back on. An embedded plugin (pills) cannot be switched
+                          off, and naming one is an error.
       --default-plugins N Narrow the default plugin set for this run, comma-separated,
                           or 'none' (default: every shipped plugin). A plugin outside
                           it loads only when the deck lists it in 'plugins:' or a
@@ -614,6 +615,12 @@ const PLUGINS_DISABLED = Object.freeze([...new Set(process.argv.slice(2).flatMap
   const unknown = PLUGINS_DISABLED.filter((n) => !known.includes(n));
   if (unknown.length) {
     console.error(`error: --disable-plugin: no plugin is named ${unknown.map((n) => `"${n}"`).join(', ')} (plugins: ${known.join(', ')})`);
+    process.exit(1);
+  }
+  // An EMBEDDED plugin loads on every render and nothing switches it off; saying so beats a flag that quietly does nothing.
+  const embedded = PLUGIN_GRAMMAR.filter((g) => g.embedded && PLUGINS_DISABLED.includes(g.name)).map((g) => g.name);
+  if (embedded.length) {
+    console.error(`error: --disable-plugin: ${embedded.map((n) => `"${n}"`).join(', ')} ${embedded.length > 1 ? 'are embedded plugins' : 'is an embedded plugin'}, part of how Lattice draws a slide, and cannot be switched off`);
     process.exit(1);
   }
 }

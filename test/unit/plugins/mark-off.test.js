@@ -33,6 +33,13 @@ describe('markPluginsOff', () => {
     assert.equal(markPluginsOff(d, ['mermaid'], { inline: INLINE }), 0, 'a plugin with no inline kind marks no span');
   });
 
+  test('an EMBEDDED plugin is never marked off, even when a caller lists it (the pill\'s named form included)', () => {
+    const { INLINE } = require('../../../lib/plugins/inline.generated.js');
+    const d = new JSDOM('<!doctype html><body><section><p><code>@pill{LIVE}</code> <code>{LIVE}</code></p></section></body>').window.document;
+    assert.equal(markPluginsOff(d, ['pills'], { inline: INLINE }), 0);
+    assert.equal(d.querySelectorAll('[data-lattice-off]').length, 0);
+  });
+
   test('the named form is marked with its kind\'s plugin, and a mention or another kind is not', () => {
     const { INLINE } = require('../../../lib/plugins/inline.generated.js');
     const d = new JSDOM('<!doctype html><body><section><p><code>@icon{database}</code> <code>@avatar{Ada}</code> '

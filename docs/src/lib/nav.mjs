@@ -114,6 +114,7 @@ export function pluginsNav(url) {
 		plugin(url, 'Math', 'math', 'TeX equations on any slide'),
 		plugin(url, 'Mermaid', 'mermaid', 'Diagrams from a text fence'),
 		plugin(url, 'Sparks', 'sparks', 'A chart the size of a word'),
+		plugin(url, 'Pills', 'pills', 'A label set inside your sentence'),
 		plugin(url, 'Icons', 'icons', 'Drawn icons, written in a word'),
 		plugin(url, 'Avatars', 'avatars', 'A face for every name'),
 		plugin(url, 'Function plots', 'function-plot', 'Graphs of y = f(x)'),

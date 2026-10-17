@@ -362,6 +362,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
       `    name: ${JSON.stringify(m.name)},`,
       `    title: ${JSON.stringify(m.title)},`,
       `    requires: Object.freeze(${JSON.stringify(m.requires || [])}),`,
+      `    embedded: ${m.embedded === true},`,
       `    optional: Object.freeze(${JSON.stringify(m.optional || [])}),`,
       `    degradesTo: ${JSON.stringify(m.render?.degradesTo || 'source')},`,
       `    diagnostics: Object.freeze(${JSON.stringify(m.contributes.diagnostics || {})}),`,
@@ -617,7 +618,10 @@ module.exports = { PLUGIN_STYLE_SOURCES: Object.freeze(${JSON.stringify(files)})
 function renderInline(ordered) {
   const lines = ordered.flatMap((p) => Object.entries(p.manifest.contributes.inline || {}).map(([kind, decl]) => {
     const m = p.manifest;
-    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}, sigil: ${JSON.stringify(decl.sigil)}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
+    // An untagged kind (the bare record `{…}`, the pill) has no sigil; the dispatcher keeps its row between the marks and the sparks.
+    const tag = decl.untagged ? `sigil: null, untagged: true` : `sigil: ${JSON.stringify(decl.sigil)}`;
+    const embedded = m.embedded === true ? ', embedded: true' : '';
+    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
   }));
   return `${HEADER('The plugins\' INLINE-CODE kinds, in dependency order: the rows the host\'s dispatcher appends to its own.')}
 const INLINE = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
