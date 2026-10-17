@@ -47,7 +47,8 @@ Mosaico treats layout as a search over arrangements, and makes the arrangement e
 - **`tree`** tries every guillotine layout of up to six boxes, where each cut runs all the way
   across the region it divides. Every node of the tree stores its width as a straight line in its
   height, so a tile that spans several grid tracks keeps its exact shape and the gutters need no
-  rounding. It keeps the arrangement that leaves the least empty space and crop.
+  rounding. It keeps the arrangement that leaves the least empty space without shrinking any
+  box to a sliver.
 - **`rows`** breaks a list of any length into balanced, centered rows and gives every item the
   **same area**, unless that would make it taller than a cap. A wordmark, a badge and a crest then
   carry the same weight.
