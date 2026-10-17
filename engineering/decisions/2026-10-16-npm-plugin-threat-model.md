@@ -220,7 +220,7 @@ Three more decisions came out of the red team and inversion reviews. The owner a
 |---|---|---|
 | 7 | Do npm plugins inherit "may be approved at OFF"? | **No, refuse.** An npm plugin does not run when the OS layer reads OFF. I read "the layer cannot be determined" as OFF, so a failed probe refuses too; confirm this reading. Code packages keep today's behavior (decision 6). |
 | 8 | Must an npm plugin have zero runtime dependencies? | **Reframed by the owner:** plugins are not npm packages whose dependencies Lattice installs. A plugin is a self-contained bundle built with all its dependencies, and Lattice downloads it as it is. Lattice never runs `npm install` for a plugin. |
-| 9 | Add G5, a check that Lattice never loads a plugin in Node? | **Yes.** The owner's reason: "we need to be safe." Whether G5 is also an exit criterion for phase G, like the harness, was not asked; I recommend yes. |
+| 9 | Add G5, a check that Lattice never loads a plugin in Node? | **Yes.** The owner's reason: "we need to be safe." **G5 is also an exit criterion for phase G, like the harness (owner, 2026-10-17): the npm door does not open while the G5 test is red.** |
 
 Decision 8 is a different model from the one this note started with, and it settles two of the
 gaps in §3. Gap 3 (install scripts and transitive dependencies) is closed by design, because

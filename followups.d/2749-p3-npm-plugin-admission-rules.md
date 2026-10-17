@@ -22,6 +22,7 @@ done when — (a) an npm plugin does not run at layer OFF or when the probe fail
             each; (b) admission downloads one bundle, verifies its hash, and refuses a bundle with
             anything left external, with no `npm install` anywhere on the path; (c) a test plugin
             whose `index.js` writes a file when loaded leaves no file after admission and render.
+            Test (c) is an exit criterion for phase G, like the attack test (owner, 2026-10-17).
 evidence  — the three tests, each shown red when its rule is deliberately broken and green when
             restored.
 verify    — tier 2 adversarial trio, because it decides what code runs on a user's machine.
