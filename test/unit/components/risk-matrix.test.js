@@ -173,6 +173,9 @@ describe('risk-matrix', () => {
       assert.match(say(['- _ `{4, 5}`', '- B `{2, 2}`']), /_, risk one:/);
       assert.match(say(['- ![a](x.png) `{4, 5}`', '- B `{2, 2}`']), /B, risk one:/);
       assert.match(say(['- <b></b> `{4, 5}`', '- B `{2, 2}`']), /B, risk one:/);
+      // A tag or comment spliced from what one strip leaves is stripped too (CodeQL).
+      assert.doesNotMatch(say(['- A<scr<b></b>ipt> `{4, 5}`']), /</);
+      assert.doesNotMatch(say(['- A<!<!---->-- x --> `{4, 5}`']), /<!--/);
       // A detail sublist is the hover card, never part of the name.
       assert.match(say(['- A `{4, 5}`', '  - Owner: CISO', '- B `{2, 2}`']), /A, risk one:.*B, risk two:/s);
       assert.doesNotMatch(say(['- A `{4, 5}`', '  - Owner: CISO']), /CISO, risk/);
