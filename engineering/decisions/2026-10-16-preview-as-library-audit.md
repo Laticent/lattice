@@ -213,7 +213,7 @@ the owner.
 | DOM nodes in a 522-slide stage | 722 (virtual) vs 25,494 (all mounted) | stay within 10% of 722 |
 | First slide, 522 slides, 1x CPU | 3,408 ms (virtual) | no regression |
 | Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
-| 500 posters resident | ~13 KB each, ~6.5 MB encoded | under 40 MB decoded on WebKit; measure |
+| 500 posters resident | ~27 KB each (§11b), ~13 MB encoded; decoded size depends on capture size | tile-size captures, decoded only inside the map window; under 40 MB decoded on WebKit; measure |
 | Live frames | pool of a fixed N | N does not grow with the deck |
 | Keystroke cost | today every deck-context tile re-renders on every keystroke (`DeckPreview.tsx:543` keys on the whole deck) | per-unit invalidation only where the unit needs no deck context; whole-tail invalidation on a position shift |
 
@@ -378,6 +378,43 @@ adoption (`2704-p2`), where a third writer would join the echo problem.
 honest statement is: one core, **two index models** (provisional outline, rendered index), **three
 window policies times two stage kinds**, ranked intent, and a poster that inlines its resources and
 takes its key from the renderer. P0 grows to cover items 1 and 2 before any core code.
+
+## 11b. Phase 0, first results (2026-10-17)
+
+A throwaway spike (not committed; scratch scripts only) captured posters from the real `focus.md`
+deck, rendered by the CLI, and compared each to a real element screenshot of the same slide.
+Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwright's Linux WebKit;
+**not iOS Safari**.
+
+| Variant | Chromium: mean error, pixels off by >24 | WebKit: mean error, pixels off by >24 |
+|---|---|---|
+| A. fonts embedded as `data:` | 0, 0% | 0.01 to 0.18, 0 to 0.09% |
+| B. fonts by URL, captured as-is (what the live surfaces load) | 4.9 to 10.0, 3.3 to 11.0% | 6.5 to 9.7, 4.6 to 10.8% |
+| C. fonts by URL, fetched and inlined at capture | 0, 0% | 0.01 to 0.18, 0 to 0.09% |
+
+- **The red team was right and the fix works.** B is visibly wrong on both engines; C is
+  indistinguishable from the real render. Constraint 4 stands as rewritten.
+- **Cost of the inline step:** 31 to 45 ms for the fetch-and-encode (browser-cached fonts); the
+  draw took 230 to 290 ms on both engines. That matches the earlier note's 148 ms (Chromium) and
+  284 ms (WebKit) to within the noise of a different deck.
+- **Correction to the earlier note: a poster is about 26 to 28 KB, not 13 KB**, at 1280x720 and
+  WebP quality 0.8 on this deck. So 500 posters are about 13 MB encoded, not 6.5 MB.
+- **Finding: the SVG was 2.1 MB**, almost all of it the 18 embedded font faces. A real capture
+  must carry only the faces the slide uses (the player already has a prune that does this).
+  Unmeasured: the time saved by pruning.
+- **Decoded size is the number that matters, and it is unmeasured.** A 1280x720 poster decodes to
+  about 3.7 MB; the earlier note's +25 MB for 33 tiles implies about 0.75 MB each, so tiles were
+  small. A map should capture at tile size (a 320x180 poster decodes to about 230 KB) and release
+  decoded images outside its window. **P0 still owes this measurement on WebKit.**
+- **The two lists differ rarely but really.** Across 281 example and baseline decks, the clear
+  cases where the outline's slide count differs from the rendered section count are `focus.md`
+  (11 authored, 14 rendered), `split-headings.md` (heading splits) and `auto-glossary.md`
+  (5 to 6). My separator-count estimator over-counts (a `---` inside a fence), so treat that as a
+  floor on certainty, not a rate. It does show the rendered index is needed for correctness, not
+  for most decks.
+
+**Still unmeasured:** decoded memory on WebKit, author images in a capture, iOS Safari, pruned
+capture time, and any of the window, tier or hub work (nothing of Veduta itself is built).
 
 ## 12. Next step
 
