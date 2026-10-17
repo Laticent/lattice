@@ -5,7 +5,7 @@ summary: >
   and that sentence does not cover plugin output that reaches other people, the Studio and desktop
   app where the AI key lives, transitive dependencies, or a bake that runs with full Node
   privileges. This note records those gaps and proposes a gate (catches mistakes and drift) plus
-  an adversarial harness (contains a hostile plugin) that must both pass before the npm door opens.
+  an adversarial harness (contains a hostile plugin). The owner decided on 2026-10-17 that the harness and the G5 check must pass before the npm door opens.
 ---
 
 # npm plugins: the threat model the plan does not have yet (2026-10-16)
@@ -53,11 +53,11 @@ The explicit list and the export record are good. Neither limits what an admitte
    code (`hydrate`, `payload`) runs in the browser of whoever opens a deck export. That person never
    ran `npm i`. The two exports carry different policies, and only one of them runs plugin code:
    - **`--player`** (`default-src 'none'`, the one script pinned by SHA-256,
-     `lib/export/player-core.mjs:3344-3346`). It ships no `hydrate` code: a real export of a
+     `lib/export/player-core.mjs:3344-3347`, hash at 3344, policy at 3345-3347). It ships no `hydrate` code: a real export of a
      two-slide deck has 0 mentions of it, and `playerJs` bundles first-party code only.
    - **Plain `.html`** (what every render writes beside its output, and `--fluid`). Its policy is
      only `img-src … ; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`
-     (`lib/core/subresource-csp.mjs:161-176`). It has no `default-src`, no `script-src` and no
+     (`lib/core/subresource-csp.mjs:169-176`; the `…` below hides `media-src` and `font-src`). It has no `default-src`, no `script-src` and no
      `frame-src`. It ships the runtime, so it is the export where plugin `hydrate` code runs.
 
    **Measured 2026-10-17 on real exports** (opened from `file://`; headless Chromium; a local HTTP
@@ -66,7 +66,7 @@ The explicit list and the export record are good. Neither limits what an admitte
 
    | Exit the script tries | `--player` export | Plain `.html` export |
    |---|---|---|
-   | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `Image`, CSS `url()`, form post | blocked (all three engines) | `fetch` and `Image` blocked (the others not tried here) |
+   | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `Image`, CSS `url()`, form post | blocked (all three engines) | blocked (Chromium; the control reached the listener on each) |
    | `<script src>`, `<iframe>`, CSS `@import`, `<link rel=stylesheet>`, `<link rel=prefetch>`, meta refresh | `<iframe>` blocked (all three engines); the rest not tried | **reach the listener** (`<script src>` carried the slide text) |
    | `location.href`, `window.open` | **reach the listener** (all three engines) | **reach the listener** |
    | **WebRTC** (a TURN server's username field carries the text) | **reaches the listener** (Chromium; hidden by the offline launch arguments) | not tried |
@@ -85,7 +85,7 @@ The explicit list and the export record are good. Neither limits what an admitte
    for credentials; whether the desktop app will hold this key there is not decided. If it does, a
    plugin with full Node privileges inside that app's process defeats the keychain. Any plugin
    script in the Studio page sits next to the key today. The plan says npm plugins resolve "at build time" and does not say
-   whether the Studio or the desktop app ever loads one.
+   whether the Studio or the desktop app ever loads one (answered: not in v1, §6 rows 3 and 4).
 3. **Install-time code and transitive dependencies.** A normal `npm i` runs a dependency's
    lifecycle scripts (`postinstall`) before Lattice sees anything, and a plugin's dependencies pull
    in more packages. (Measured 2026-10-16 with a throwaway tarball: a default `npm i` ran its
@@ -145,7 +145,7 @@ is refused, not sandboxed.
 Run the plugin's `render` in the existing locked page with a local listener on HTTP, WebSocket and
 UDP, the way `code-sandbox-network.test.js` already measures the code door. `hydrate` and
 `payload` do not run in the locked page; they run in a recipient's browser (§3.1), so v1 admits
-neither (§6) and part 3 covers the export. Three parts:
+neither (§6 rows 3 and 4; that reading awaits the owner's confirmation) and part 3 covers the export. Three parts:
 
 1. **A canary plugin** kept in test fixtures. It is deliberately hostile and tries every exit:
    `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, an `<img>` or CSS `url()` beacon,
@@ -185,7 +185,7 @@ neither (§6) and part 3 covers the export. Three parts:
   Edge case: if the layer probe at approval time fails, nothing is pinned, and no later render of
   that approval is refused for a weak layer.
 - Anything the plugin does through legitimate output: a misleading chart is still a chart.
-- A hostile `bake`: none runs in v1 (§6 decisions 3 and 4). A later version that admits one reopens this.
+- A hostile `bake`: none runs in v1 (§6 decisions 3 and 4, pending the owner's confirmation of the render-only reading). A later version that admits one reopens this.
 - State carried across slides: one worker serves every slide a package claims in a render, so a
   plugin can carry text from an earlier slide into later output. It stays inside one deck and
   reaches the page only as sanitized markup.
@@ -198,7 +198,7 @@ question that came out of this review.
 | # | Question | Decision |
 |---|---|---|
 | 1 | Add G1 to `build:check`? | **Yes, measure first.** Time the check, show the owner the number, and add it only if the cost is small. |
-| 2, 5 | Add the canary harness, and make it plus G1 to G3 the exit criteria for phase G? | **Yes, required.** The npm door does not open while the harness is red. The harness is a test in the integration tier, not a new CI job. |
+| 2, 5 | Add the canary harness, and make it plus G1 to G3 the exit criteria for phase G? | **Yes, required.** The npm door does not open while the harness is red. G1 is an exit criterion only if decision 1 adds it; if its measured cost is too high, the exit criteria are the harness, G2, G3 and G5. The harness is a test in the integration tier, not a new CI job. |
 | 3, 4 | Where does an npm plugin's `bake` run, and does the Studio or desktop app load an npm plugin? | **Locked page only.** npm plugins render in the locked Chromium page, as the code door does. No `bake`, and no loading in the Studio or desktop app, in v1. Read as: an npm plugin contributes `render` only. No `hydrate`, `payload` or inline code reaches an export. Confirm this reading. |
 | 6 | Should a code package be refused outright where the OS layer reads OFF? | **Keep today's behavior, and investigate.** Today the consent text names the layer, the approval is pinned to it, and the owner or user may approve at OFF. Log an investigation into what refusing OFF would break (below). |
 
