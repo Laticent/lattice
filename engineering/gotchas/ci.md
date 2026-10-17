@@ -545,8 +545,10 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   byte-identical chunk sets (553 files); a root rebuild left every root `dist/` file identical
   (365 files); a build against the exact CI base (`a64ecd5`) read +0. CI's playground asset hash
   (`039cbdbab432`) differs from the local one (`77673e351d41`), so CI builds something the cloud
-  sandbox does not. Not yet tried: running the docs typecheck and unit tests before the build in
-  the same checkout, as `ci.yml` does, or building the PR in a worktree the way the base is.
+  sandbox does not. Also ruled out (2026-10-17): building the same commit in a throwaway
+  worktree, the way CI builds its base, and in the checkout gave identical bytes on all five
+  routes, so the directory path is not the cause. Not yet tried: running the docs typecheck and
+  unit tests before the build in the same checkout, as `ci.yml` does.
 - **Fix:** the gate's own remedy. Add `docs/route-budget.d/<slug>.md` with a `route: +N` line
   and a sentence, as `docs/route-budget.d/README.md` says. Read N from the failing log's
   `per-PR allowance` block, never from a local build. Say in the sentence that no growth is
