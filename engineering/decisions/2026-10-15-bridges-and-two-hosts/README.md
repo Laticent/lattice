@@ -12,7 +12,7 @@
 | `layer-delta-aggregate.cjs` | Folds `layer-delta-census.cjs`'s per-deck lines into `layer-delta-results.json` | §3.1, §3.6 |
 | `layer-delta-results.json` | Measured 2026-10-17 at `1828726`: the gallery baseline and 282 of the 283 example decks (`data-viz-gallery.md` has no theme). Per-deck changed-element counts (D vs C), the flips grouped by property family and source-file pair. The C-vs-C0 experiment and the specificity-tax walk ran on the first 22 decks of the run (not chosen by size) and the gallery only (the other 260 decks ran without `--experiment --tax` to fit the time) | §3.1, §3.6, §9 D2 (a), (c) |
 | `author-css-designs.cjs` | Renders each deck with and without its own CSS under today's sheet and four candidate designs, and counts the (element, property) pairs the author's CSS wins in each | §4.4, §9 D2 (b) |
-| `author-css-results.json` | Its output for the three example decks that carry a `<style>`. The gallery fixture (`--gallery-fixture`) was not run | §4.4, §9 D2 (b) |
+| `author-css-results.json` | Its output for the three example decks that carry a `<style>`, and the gallery fixture (`--gallery-fixture`, per-element comparison sampled to every tenth element; read `status` in the file for what is and is not reliable) | §4.4, §9 D2 (b) |
 | `measure-manifests.mjs` | Applies §5.3's field changes to the in-tree plugin manifests (eight on `main` at `6e7c738`) and counts lines before and after | §3.4 |
 
 ## Rerunning

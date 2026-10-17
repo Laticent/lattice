@@ -307,7 +307,16 @@ compares them with today.
 By construction: designs 3 and 4 make author CSS beat every engine rule wherever it matches, which can
 newly win where the engine wins today; design 1 makes an author's `!important` lose to every layered
 `!important`. **Recommendation:** in Lattice's own render, design 1. At the Marp bridge, design 3 plus a
-documented form for CSS written after export (design 4). **Not measured:** the gallery fixture (a `style:` rule coloring `h2` rgb(1,2,3) and a `<style scoped>` rule rgb(4,5,6)). I ran it and `author-css-designs.cjs` failed on it: design 1's reference build assumes the author CSS is contiguous before Marp's trailing rules, and that fixture's two author blocks are not. So where design 1 or design 3 *newly win* is **UNVERIFIED**, and these three runs predate the stability repeat. A fix to the script is a follow-up (`followups.d/`).
+documented form for CSS written after export (design 4). **The gallery fixture** (a `style:` rule coloring every `h2` rgb(1,2,3) and a `<style scoped>` rule rgb(4,5,6)), run on 2026-10-17 after two script fixes, shows what the three-deck runs could not (pair counts are over every tenth element, 570 of 5,699; the h2 colors are over every h2):
+
+| Design | h2s the author's rule colors | Reading |
+|---|---|---|
+| Today (D) | 85 of 115 (rgb(1,2,3)), plus the 1 scoped (rgb(4,5,6)) | the author loses on about 29 h2 that Lattice's more specific rules (title, dark slides) win today |
+| Bridge as built (C) | **0** | the author's rule loses on every h2; 384 of 2,664 sampled pairs newly lost |
+| Lowered (2) and raised (3/4) | all 115 | no pair is lost, and **112 pairs newly win**: the 29 h2 that Lattice wins today now take the author's color |
+| Author unlayered (1) | all 115 | same h2 result; its pair counts (113,230) are not reliable, see below |
+
+So the question "does any design keep author CSS winning where it wins today" has a precise answer: designs 1, 2 and 3 never lose a pair, and all three also make an author's blanket rule win in the places where Lattice's more specific rule wins today. That is the layered meaning ("author CSS beats every layer"), not today's. An author who wrote `h2 { color }` and saw the title slide ignore it will see it obey after activation. **Residual risks:** design 1's reference build drops the scoped rgb(4,5,6) rule (its h2 colors show it absent), so its scoped-block behavior and its pair counts are unverified, and the 3 example decks that carry a `<style>` do not use blanket rules, which is why they matched.
 
 **(c) How many elements does layering change, across the examples, runtime loaded?** The census renders
 each deck through the bundle's own `marp.config.cjs` (real allowlist, runtime loaded and settled,

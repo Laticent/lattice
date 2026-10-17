@@ -152,10 +152,28 @@ function splice(hL, hE) {
   // After the theme, Marp writes the author CSS, then its own trailing rules. E carries the same
   // author CSS; its trailing rules are what is left after the author CSS in the noauth E render.
   return { l, e, build: (author, Q) => {
-    if (!l.post.endsWith(Q)) throw new Error('trailing Marp CSS not found');
+    authorPieces(l.post, Q); // throws unless this render's trailing CSS is Q plus author insertions
     const A = `@layer marp-base, ${M.ORDER.join(', ')};@layer marp-base{${l.pre}}${l.theme}${author}@layer marp-base{${Q}}`;
     const i = mL.index + mL[1].length; return hL.slice(0, i) + A + hL.slice(i + mL[2].length);
   } };
+}
+
+/** The text `withAuthor` has beyond `base` when `base` is `withAuthor` with insertions only. */
+function authorPieces(withAuthor, base) {
+  const PROBE = 80;
+  let i = 0, j = 0, out = '';
+  while (j < base.length) {
+    if (withAuthor.charCodeAt(i) === base.charCodeAt(j)) { i++; j++; continue; }
+    const k = withAuthor.indexOf(base.slice(j, j + PROBE), i);
+    if (k < 0) throw new Error('author CSS is not an insertion into Marp\'s trailing rules');
+    out += withAuthor.slice(i, k); i = k;
+  }
+  out += withAuthor.slice(i);
+  // The pieces must account for the whole difference, or the reference is wrong.
+  let ii = 0, rebuilt = 0;
+  for (let jj = 0; jj < base.length; jj++, ii++) { while (withAuthor[ii] !== base[jj]) ii++; rebuilt++; }
+  if (rebuilt !== base.length || out.length !== withAuthor.length - base.length) throw new Error('author CSS pieces do not add up');
+  return out;
 }
 
 async function run(deckPath, browser) {
@@ -192,8 +210,11 @@ async function run(deckPath, browser) {
   // A1 / A from the sentinel-marked L and E renders.
   const sa = splice(html['L-auth'], html['E-auth']), sn = splice(html['L-noauth'], html['E-noauth']);
   const Q = sn.e.post; // Marp's trailing rules, with no author CSS before them
-  if (!sa.e.post.endsWith(Q)) throw new Error('author CSS is not contiguous before Marp\'s trailing rules');
-  const author = sa.e.post.slice(0, sa.e.post.length - Q.length);
+  // Author CSS can sit in several places among Marp's trailing rules (a `style:` block, then a
+  // `<style scoped>` block that Marp scopes per slide). The reference needs only the author pieces,
+  // in order, unlayered: an unlayered rule beats every layered one wherever it sits, so the
+  // pieces' position among the layered Marp rules does not change the reference's meaning.
+  const author = authorPieces(sa.e.post, Q);
   html['A1-auth'] = sa.build(author, Q); html['A1-noauth'] = sn.build('', Q);
   const keys = ['D-auth', 'D-noauth', 'C-auth', 'C-noauth', 'C2-auth', 'C2-noauth', 'C3-auth', 'A1-auth', 'A1-noauth'];
   const pages = {}, res = {}, unstable = [];
@@ -205,8 +226,19 @@ async function run(deckPath, browser) {
   for (const k of Object.keys(res)) if (res[k].length !== n) throw new Error(`element count differs: ${k} ${res[k].length} vs ${n}`);
   const D = ['D', 'C', 'A1', 'C2', 'C3'];
   const eff = {}; for (const d of D) eff[d] = res[`${d}-auth`].map((h, i) => (h !== res[`${d}-noauth`][i] ? i : -1)).filter((i) => i >= 0);
-  const union = [...new Set(D.flatMap((d) => eff[d]))].sort((a, b) => a - b).slice(0, 3000);
-  const det = {}; await Promise.all(Object.keys(pages).map(async (k) => { det[k] = await M.detail(pages[k], union); }));
+  const unionAll = [...new Set(D.flatMap((d) => eff[d]))].sort((a, b) => a - b);
+  // Reading every computed property of thousands of elements on eleven pages took over 30 minutes and
+  // 7 GB on the gallery, so a large union is sampled evenly. The sample size is recorded in the result.
+  const CAP = 600, step = Math.max(1, Math.ceil(unionAll.length / CAP));
+  const union = unionAll.filter((_, i) => i % step === 0);
+  rec.sampled = { affectedElements: unionAll.length, compared: union.length, every: step };
+  // `detail` returns every computed property of each element; on the gallery one call for the whole
+  // union is over Node's 512 MB string limit (ERR_STRING_TOO_LONG), so ask in chunks.
+  const det = {};
+  await Promise.all(Object.keys(pages).map(async (k) => {
+    det[k] = [];
+    for (let c = 0; c < union.length; c += 120) det[k].push(...(await M.detail(pages[k], union.slice(c, c + 120))));
+  }));
   const pairs = (d) => { const m = new Map(); union.forEach((i, j) => { const a = det[`${d}-auth`][j].o, b = det[`${d}-noauth`][j].o; for (const p of Object.keys(a)) if (a[p] !== b[p]) m.set(`${i}|${p}`, a[p]); }); return m; };
   const today = pairs('D');
   for (const d of D) {
