@@ -6,9 +6,10 @@ the same input gives the same layout, byte for byte.**
 Mosaico takes a list of items and a container and returns one rectangle per item. This version
 ships two strategies: `rows` (below) and `tree`.
 
-The `tree` strategy it tries every guillotine layout of up to six fixed-shape items (a
-layout where every cut runs all the way across the region it divides) and keeps the one that
-leaves the least empty space and crop. Each tree node stores its width as a line in its height,
+The `tree` strategy tries every guillotine layout of up to six fixed-shape items (a layout
+where every cut runs all the way across the region it divides) and keeps the one that leaves
+the least empty space and crop, with a penalty on any tile under 0.4 of the largest one's area
+(`weights` tunes both). Each tree node stores its width as a line in its height,
 so a tile that spans several grid tracks keeps its exact aspect and the gutters need no rounding.
 The method is BRIC, Blocked Recursive Image Composition (C. Brian Atkins, ACM Multimedia 2008).
 
@@ -35,7 +36,8 @@ if (result.ok) {
   result.arrangement; // 'V(0,H(1,2))': photo 0 beside photo 1 stacked over photo 2
 
   const { cols, rows, areas } = toGrid(result);
-  // grid-template-columns: cols.map((c) => `minmax(0, ${c}fr)`).join(' ')
+  // grid-template-columns: cols.map((c) => `minmax(0, ${c * 1000}fr)`).join(' '), rows likewise
+  //   (scaled: the tracks sum to 1 minus the gutters, and fr factors under 1 leave space empty)
   // photo i: grid-area: areas[i].join(' / ')   (rowStart / colStart / rowEnd / colEnd)
 }
 ```

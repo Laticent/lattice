@@ -125,7 +125,8 @@ function packRows(aspects: number[], options: PackOptions): PackResult | PackRef
 
 /**
  * The CSS grid adapter: the result's cut lines as grid tracks (sizes in layout units, so emit
- * them as `minmax(0, Nfr)`) and one grid area per item. A grid built this way fits whatever box
+ * them as `minmax(0, Nfr)` with N scaled up, e.g. by 1000: the tracks sum to 1 minus the gutters,
+ * and `fr` factors that sum below 1 leave part of the grid empty) and one grid area per item. A grid built this way fits whatever box
  * the browser gives it, so it works before the container is laid out.
  */
 export function toGrid(result: PackResult): GridTracks {
