@@ -46,7 +46,7 @@ The 15 component stylesheets are `roadmap`, `state-chart`, `pricing`, `redline`,
 | **A. An author's `code`** | `kpi`, `cards-grid`, `cards-stack`, `logo-wall`, `policy-recommendation`, `list-tabular.register`, `roadmap` headers (`thead th > code`), `regulatory-update` and `statute-stack` (a code-only last nested item; `statute-stack` also a leading `strong > code`), and the universal trailing-`code` rule in `base.modifiers.css` | `` - `ON TRACK` `` in an item. `pill-tag.js` adds `lat-pill`, not `data-shape`, and only to a `code` that sits before a nested list; a `code` that is an item's last child gets nothing and is painted by the universal rule. Each component paints the rest itself. |
 | **B. An element the engine makes** | `state-chart` `.state-chip`, `verdict-grid` `.badge` (plus a fallback rule on the nested `li` until the badge transform runs), `glossary` `.range-pill`, `roadmap` `.horizon-meta`, `chart-family` `.chart-status` | Words the component turns into a chip. |
 | **C. A pseudo-element** | `redline` `li::before` (a counter), `regulatory-update` `::before` (`TIER n`, and a timeline mark that shows a number such as "01", not a dot) | A counter. CSS cannot give a `::before` a class. |
-| **D. Not a pill** | `inventory` reserves the height of one pill (`calc(1em + 2 * var(--pill-pad-y) + 2px)`, the same formula as `--lat-pill-h`). `pricing`'s `li > em` is the author's own "Most popular" corner ribbon. `redline`'s `sup` is an author superscript that its CSS keeps off the pill look on purpose. | `inventory` should read `--lat-pill-h`. The other two are left alone unless a later review says otherwise. |
+| **D. Not a pill** | `state-chart`'s tiles and `.state-chip` transition chips (the chips carry an event, an arrow and a destination mark; the default `lr` variant draws SVG rectangles with a list-order number, which is a label and not a pill). `inventory` reserves the height of one pill (`calc(1em + 2 * var(--pill-pad-y) + 2px)`, the same formula as `--lat-pill-h`). `pricing`'s `li > em` is the author's own "Most popular" corner ribbon. `redline`'s `sup` is an author superscript that its CSS keeps off the pill look on purpose. | `inventory` should read `--lat-pill-h`. The state-chart chips move to `--state-chart-*` tokens that reference `--radius-*`, per the owner's rule in §3. The other two are left alone unless a later review says otherwise. |
 
 ## 3. Decisions (owner, 2026-10-17)
 
@@ -57,6 +57,15 @@ The 15 component stylesheets are `roadmap`, `state-chart`, `pricing`, `redline`,
   `disabled` set removes it, and no deck needs a `plugins:` entry to get it.
 - **The plugin owns rendering and styling.** Components author a pill or translate into one. A component that needs
   something from a pill passes it in; it does not rebuild the pill.
+- **A pill and a state chart share nothing but the base radius (owner, 2026-10-17).** The `--pill-*` tokens (font, size, weight,
+  tracking, padding, radius) belong to the pills plugin and to pills only. An element that is not a pill (a state-chart tile or
+  transition chip, a ribbon, a counter badge) owns its geometry through its own tokens, and may reference only the shared base
+  (`--radius-sm | md | lg`); it never reads `--pill-*`. Today `state-chart`'s `.state-chip` reads `--pill-font`, `-fs`, `-weight`,
+  `-tracking`, `-pad-*` and `-radius` (`state-chart.styles.css:580-623`); that is a coupling to remove, not a pill to convert.
+  The test for each of the 17 sites in §2: does it share anything with a pill besides a radius? If it does not, it is not a
+  pill, and it takes its own tokens. If it does, the plugin draws it.
+- **Out of scope:** the logo wall's marks appearing late in the live preview is the mosaico packing (#2744), and the mosaico
+  owner is fixing it.
 - **No hand-rolled pills, no exceptions by default.** A component that seems to need one is a gap in the plugin (rule 3).
 
 ## 4. The model
@@ -122,7 +131,7 @@ const pill = service('pills', 'html')({ label: 'ON TRACK', shape: 'pill', color:
 
 ### 4.4 The gate
 
-`checkHandRolledPills` in `tools/check-ownership.js`, run by `build:check`: no stylesheet outside the pills plugin may
+`checkHandRolledPills` in `tools/check-ownership.js`, run by `build:check`: **no stylesheet outside the pills plugin may read a `--pill-*` token at all** (owner's rule, §3: those tokens are the plugin's), and none may
 set `border-radius`, `padding` or `font-size` from `var(--pill-radius | --pill-pad-x | --pill-pad-y | --pill-fs)`, and
 may not set a `border` or `background` on a `code`, `em`, `.badge` or pseudo-element whose declaration block also takes
 a `--pill-*` token. **Scope is every stylesheet, plugin stylesheets included:** the first draft said "component
@@ -214,6 +223,11 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
 10. The adversarial trio on the result; fixes folded in before the PR opens.
 
 ## 10. Open
+
+- **Which of the 17 sites are pills (owner's test, §3).** The default is a pill for the nine type-A `code` sites and a
+  non-pill for state-chart; `verdict-grid`'s badge, `glossary`'s range, `roadmap`'s `.horizon-meta`, `chart-family`'s
+  `.chart-status` and the counter badges are judged one at a time as each component moves, and each such judgment is put to
+  the owner with the rendered before and after, never decided in the diff.
 
 - **How a type-A `code` becomes a pill.** The widest-blast-radius question in the plan (§5). Options: (a) the plugin
   tags it `data-shape="pill"` everywhere, which restyles ordinary `code` in every deck that `pill-tag` touches;
