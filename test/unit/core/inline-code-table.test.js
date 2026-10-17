@@ -338,6 +338,18 @@ describe('the inline-code table — plugin rows', () => {
   });
 });
 
+describe('an embedded plugin\'s row ignores `off` (2026-10-17-pills-plugin.md § 4.5)', () => {
+  test('the pill draws, and its named form resolves, whatever a caller puts in `off`', () => {
+    const off = new Set(['pills', 'icons']);
+    assert.ok(table.renderHtml('{LIVE}', off), 'the bare record still draws');
+    assert.ok(table.renderHtml('@pill{LIVE}', off), 'and so does its named form');
+    assert.equal(table.dispatches('{LIVE}', off), true);
+    assert.equal(table.offPlugin('{LIVE}', off), null, 'a pill is never literal because of a plugin switch');
+    assert.deepEqual(table.rowsAsked('{LIVE}', off).map((k) => k.name), ['pill']);
+    assert.equal(table.renderHtml('^{database}', off), null, 'a non-embedded plugin in the same set is still off');
+  });
+});
+
 describe('the named form — `@kind{…}` is its alias, on both paths (2026-10-14-plugin-inline-door.md)', () => {
   const { window } = new JSDOM('<!doctype html><body></body>');
   const doc = window.document;

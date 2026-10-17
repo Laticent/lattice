@@ -241,3 +241,12 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
   Found while building: `lint-core` ran the generic plugin-kind diagnostic on the pill row and double-reported
   `pill-literal`; it now skips an untagged row. `pluginAdmission` (the Playground's pass-on list) leaves embedded
   plugins out, since they load whatever list a host passes.
+- **2026-10-17, review of the skeleton.** An independent checker found two defects, both fixed in the next commit.
+  (1) With a narrowed plugin set, a Studio Export-to-Marp left `@pill{…}` as literal code: callers derive the off list as
+  every plugin name MINUS `pluginAdmission`'s answer, and that answer had dropped the embedded plugin. It now lists what
+  the deck truly loads, and as defense in depth an embedded row ignores `off` in the dispatcher and in `markPluginsOff`.
+  (2) The Studio Plugins tab labelled the pills row "Needed by  " and offered a list checkbox that does nothing; embedded
+  plugins now have no row, and one quiet line names them. A third finding: `--disable-plugin=pills` was accepted and did
+  nothing, so naming an embedded plugin is a CLI error. **Measured:** all 284 pill-bearing example decks and galleries render
+  to byte-identical HTML against the pre-change tree, apart from the absolute asset paths of the comparison worktree and
+  one Mermaid git graph whose commit ids are random in both trees.

@@ -26,6 +26,14 @@ describe('PluginsSettings', () => {
 		for (const sw of screen.getAllByRole('checkbox')) expect(sw.getAttribute('aria-checked')).toBe('false');
 	});
 
+	it('gives an embedded plugin no row and no checkbox: one quiet line says it is always on', () => {
+		harness('# A deck\n');
+		expect(document.querySelector('[data-plugin-row="pills"]')).toBeNull();
+		expect(screen.queryByRole('checkbox', { name: /Pills/ })).toBeNull();
+		const note = document.querySelector('[data-plugins-embedded]');
+		expect(note?.textContent).toContain('Always on: Pills');
+	});
+
 	it('says why: listed in the deck, and needed by a slide class', () => {
 		harness('---\nplugins: [math]\n---\n\n<!-- _class: diagram -->\n# Flow\n');
 		expect(document.querySelector('[data-plugin-row="math"]')?.textContent).toContain('Listed in this deck');

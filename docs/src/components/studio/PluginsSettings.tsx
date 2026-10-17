@@ -22,10 +22,14 @@ import { admitPlugins } from '../../../../lib/plugins/host-grammar.mjs';
  * next to "On" said two things at once (HARD RULE #25 inversion lens, E0). A name in the list that no plugin has gets a row of its own with a Remove action, the
  * same finding `lint:deck` reports as `unknown-plugin`.
  *
+ * An EMBEDDED plugin (the pills plugin, 2026-10-17-pills-plugin.md § 4.5) has no row: it is always on and nothing here
+ * can list or unlist it, and a row that offered the list checkbox would promise a control that does nothing. One quiet
+ * line under the rows names them instead.
+ *
  * Every name, title and syntax hint comes from the registry; this file names no plugin.
  */
 
-type Reason = { kind: 'default' | 'listed' | 'component' | 'required'; component?: string; by?: string };
+type Reason = { kind: 'embedded' | 'default' | 'listed' | 'component' | 'required'; component?: string; by?: string };
 type GrammarEntry = (typeof PLUGIN_GRAMMAR)[number];
 
 /** The syntax a plugin reads, as an author types it: its fences, then its syntax triggers. */
@@ -39,6 +43,7 @@ export function pluginSyntaxHint(g: GrammarEntry): string[] {
 
 /** One reason, in words. */
 export function reasonLabel(r: Reason, titleOf: (name: string) => string): string {
+	if (r.kind === 'embedded') return 'Always on';
 	if (r.kind === 'default') return 'On by default';
 	if (r.kind === 'listed') return 'Listed in this deck';
 	if (r.kind === 'component') return `Needed by ${r.component} slides`;
@@ -60,9 +65,11 @@ export function PluginsSettings({ source, onWrite, installed = [], stamp = '', o
 			const now = deckPluginList(s);
 			return writeDeckPlugins(s, on ? [...now, name] : now.filter((n: string) => n !== name));
 		});
+	const rows = React.useMemo(() => PLUGIN_GRAMMAR.filter((g) => !g.embedded), []);
+	const embedded = React.useMemo(() => PLUGIN_GRAMMAR.filter((g) => g.embedded), []);
 	return (
 		<div className="space-y-0" data-plugins-settings="">
-			{PLUGIN_GRAMMAR.map((g, i) => (
+			{rows.map((g, i) => (
 				<PluginRow
 					key={g.name}
 					grammar={g}
@@ -71,15 +78,20 @@ export function PluginsSettings({ source, onWrite, installed = [], stamp = '', o
 					reasons={(admission as { reasons?: Record<string, Reason[]> }).reasons?.[g.name] ?? []}
 					titleOf={titleOf}
 					onListed={(on) => setListed(g.name, on)}
-					last={i === PLUGIN_GRAMMAR.length - 1 && !unknown.length && !installed.length}
+					last={i === rows.length - 1 && !unknown.length && !installed.length && !embedded.length}
 				/>
 			))}
 			{installed.map((p, i) => (
 				<InstalledRow key={p.id} plugin={p} listed={listed.includes(p.name)} stamp={stamp} last={i === installed.length - 1 && !unknown.length} onListed={(on) => setListed(p.name, on)} onRemove={() => onRemove?.(p.id)} />
 			))}
 			{unknown.map(({ name }: { name: string }, i: number) => (
-				<UnknownRow key={name} name={name} last={i === unknown.length - 1} onRemove={() => setListed(name, false)} />
+				<UnknownRow key={name} name={name} last={i === unknown.length - 1 && !embedded.length} onRemove={() => setListed(name, false)} />
 			))}
+			{embedded.length > 0 && (
+				<p data-plugins-embedded="" className="border-t border-border pt-2.5 text-[11px] leading-snug text-muted-foreground">
+					Always on: {embedded.map((g) => g.title).join(', ')}. Part of how Lattice draws every slide, so there is nothing to list.
+				</p>
+			)}
 		</div>
 	);
 }

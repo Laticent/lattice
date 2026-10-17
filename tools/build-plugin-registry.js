@@ -620,7 +620,8 @@ function renderInline(ordered) {
     const m = p.manifest;
     // An untagged kind (the bare record `{…}`, the pill) has no sigil; the dispatcher keeps its row between the marks and the sparks.
     const tag = decl.untagged ? `sigil: null, untagged: true` : `sigil: ${JSON.stringify(decl.sigil)}`;
-    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
+    const embedded = m.embedded === true ? ', embedded: true' : '';
+    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
   }));
   return `${HEADER('The plugins\' INLINE-CODE kinds, in dependency order: the rows the host\'s dispatcher appends to its own.')}
 const INLINE = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
