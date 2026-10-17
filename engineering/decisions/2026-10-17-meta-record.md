@@ -1,13 +1,15 @@
 ---
 status: proposed
 summary: >
-  Slide metadata moves out of HTML comments into one Segno record, `@meta{…}`, written on a line of its own.
-  `@meta{class=cards, footer="Q3 review"}` replaces `<!-- _class: cards -->` and `<!-- _footer: Q3 review -->`; long
-  speaker notes use a ```` ```meta ```` fence that holds the same record. A new host rule reads the records right
-  after `lattice_directives` and merges them into the same directive table, so `lattice_directives_apply` and every
-  `data-*` output stay unchanged. One reader module replaces 42 hand-rolled readers of specific comment keys and five copies of the
-  key list. The comment form is removed (hard cut, with a codemod); the Marp bridge compiles `@meta` back to comments on
-  export. Pane markers move in too. Nothing here is built.
+  Slide metadata moves out of HTML comments into one Segno record, `@meta{…}`, written on a line of its own, with a
+  ```` ```meta ```` fence for long notes. A source-level DOOR compiles authored records into one internal comment form
+  (`<!-- lat-meta: {…} -->`) before any other engine step runs, on the same line numbers; the engine's own producers
+  (focus steps, panes) write that internal form too. So `lattice_directives` and everything after it are unchanged, and
+  nothing downstream ever sees a `@meta` paragraph. Authored directive comments stop being read (hard cut, with a
+  codemod and a loud lint), and the Marp bridge compiles `@meta` back to comments on export. Order of work: consolidate
+  the readers over the existing comment grammar first (needed under any syntax), then add the door, then the cut.
+  An adversarial review (red team, inversion, checker) changed the engine design and the order; §13 records it, and its
+  strongest objection (the benefits come from consolidation, not syntax) is put to the owner as D5. Nothing is built.
 builds-on:
   - 2026-10-14-plugin-inline-door.md
   - 2026-09-28-segno-unified-inline-notation.md
@@ -29,8 +31,8 @@ An author sets a slide's metadata with one record on a line of its own:
 @meta{class=columns ratio-55-45, footer="Q3 review", paginate=false}
 ```
 
-(written as inline code: `` `@meta{…}` ``). The engine reads it, removes the paragraph, and puts the same
-`data-*` attributes on the `<section>` that the comment form puts there today. Nothing renders.
+(written as inline code: `` `@meta{…}` ``). A source door compiles it to the engine's internal comment form, and the
+engine puts the same `data-*` attributes on the `<section>` that the comment form puts there today. Nothing renders.
 
 **What this buys, in order of how sure we are:**
 
@@ -39,8 +41,10 @@ An author sets a slide's metadata with one record on a line of its own:
    (§3). A record with a declared slot gives lint, the engine, the Studio drawer and autocomplete the same parse.
 2. **Autocomplete and structured editing.** The drawer edits `_class` with a regex today. With a slot spec it edits a
    field of a record, and autocomplete offers field names and values from the same spec.
-3. **No second parse path for notes.** Speaker notes are read back out of the rendered HTML today. They become fields
-   of the same record.
+3. **One authoring surface for notes.** Notes, `say` and `describe` become fields of the same record, and a note may
+   contain `-->`, which a comment cannot. (Withdrawn from the first draft: "no second parse path for notes". Notes
+   still reach exports through the existing extractor, which reads rendered HTML; the door only changes how they are
+   written. §13.)
 
 **What it does not buy: speed.** A comment is one `html_block` token. A `@meta` line is a paragraph, an inline token, a
 code span and a Segno record parse (real directives cost 1,789 ns per span in `test/benchmark/baseline.json`). The
@@ -65,6 +69,8 @@ the variance band" (HARD RULE #19) until the numbers say otherwise.
 | D3 | Existing `<!-- _class: … -->` comments | **Hard cut with a codemod.** The engine stops reading directive comments. Only the Marp importer reads them. |
 | D4 | `_pane` markers | **In scope.** Pane markers become `@meta{pane=…}` (§5.4). The recommendation was to defer them; the owner chose to include them, and §9 lists the cost. |
 
+| D5 | Does the hard cut proceed? | **Open.** The inversion review argues every user-visible benefit comes from consolidation, not syntax (§13.3). Put to the owner with a recommendation: consolidate first, then decide the cut on a trial. |
+
 ## 3. What the audit found (2026-10-17, against `main` at `ff03320`)
 
 **Reader census, hand-checked (2026-10-17).** The rule: a tracked `.js`/`.mjs`/`.ts`/`.tsx` file under `lib/` or
@@ -79,7 +85,7 @@ matches or scans HTML comments. 61 files qualify. Reading each hit by hand split
 
 Only the 42 are migration work. The 18 stay as they are, because real prose comments still exist and still need
 stripping. The earlier figure of "about 61 readers" counted all three groups. The method is a grep for `<!--` inside
-a regex literal or `RegExp(`, then a per-file read; the file lists are in §12.
+a regex literal or `RegExp(`, then a per-file read; the file lists are in §14.
 
 **One grammar, narrow adoption.** `readDirectiveComment` (`lib/core/comment-directive.mjs:59`) is the engine's grammar.
 Five production modules call it (`slides.js`, `lint-core.js`, `class-directive-scan.mjs`, `auto-split.js`, `slide-class-spans.js`). The rest re-spell it:
@@ -136,16 +142,21 @@ the codemod is a rename, not a redesign:
 | `note`, `say`, `describe` | note comments, `say:`, `describe:` | prose; long forms use the fence (§4.4) |
 | `pane`, `panes` | `_pane`, `panes` | positional (§5.4) |
 | `carry` | the absence of `_` | flag; see §4.3 |
+| `stress-slide`, `tier`, `galleryAuthored`, `color-mode` | tooling pragmas (83 files carry `stress-slide`) | registry keys with a flag or enum type; the door emits their existing comment form, so the tools that read them are unchanged. The codemod must not turn `<!-- stress-slide -->` into a `note` |
 
 ### 4.3 Scope
 
 A `@meta` record applies to **its own slide only**. Of roughly 5,900 directive comments in the corpus, 5 use the
 carry-forward form (`<!-- class: … -->`). Deck-wide values live in front matter, which already holds them. A record that
-needs the old carry-forward behavior says so: `@meta{footer="Q3 review", carry}`. `theme`, `size`, `lang` and `marp`
-stay front-matter only (today's `GLOBAL_ONLY`), and lint says so.
+needs the old carry-forward behavior says so: `@meta{footer="Q3 review", carry}`.
 
-A slide may hold several `@meta` lines; fields merge in source order and a repeated key is a lint error, not a silent
-override.
+`theme`, `size`, `lang` and `marp` are front-matter only. **Today nothing enforces that**: `GLOBAL_ONLY`
+(`lib/engine/directives.js:90`) is defined and exported with no caller, and `theme` and `lang` apply per slide. Corpus
+use is zero, so making lint enforce it is a small, deliberate tightening, stated here rather than assumed.
+
+A slide may hold several `@meta` lines, and they may sit on adjacent lines. The door reads each line on its own and
+merges in source order. A repeated key is a lint error; the engine's behavior stays last-wins, as the comment readers are.
+The codemod merges all of a slide's directives into **one** line.
 
 ### 4.4 Notes and the fence
 
@@ -162,65 +173,87 @@ say: Thank the room.
 ````
 
 The fence body is the same record, with one field per line. Both spellings feed one reader and produce the same
-directive table. (The fence's exact line grammar is an open item, §10.) A fence is already a block the markdown parser
-leaves alone, so a note's prose never meets the comment rules or the `html_inline` guard.
+directive table. (The fence's exact line grammar is an open item, §10.) The door replaces the fence with a comment of the same
+line count, so a note's prose never meets the `html_inline` guard.
 
 ## 5. The engine
 
-### 5.1 One host rule, merged into the existing table
+### 5.1 The door: compile `@meta` to the internal form before anything else reads the source
 
-`lattice_meta` is a new core rule registered `.after('lattice_directives')` in `lib/engine/slides.js`. It finds the
-paragraphs whose only content is a `@meta` code span (and the `meta` fences), reads each with the shared reader, merges
-the fields into `meta.latticeDirectives`, and **removes the tokens**. `lattice_directives_apply` is untouched, so
-`data-class`, `data-footer`, pagination and the rest come out exactly as before. A byte-identity test pins every key.
+The first draft put a new core rule after `lattice_directives`. The review refuted that placement (§13.1): at least four
+engine steps read **source text or early tokens** before any core rule runs (`liftImageBgImages` at
+`lib/engine/index.js:537,606,971` and `lib/core/bg-image.js:177`; `lattice_focus_steps`, `plugins.js:177`; the pane
+gate `mayHavePanes`, `pane-spec.js:164`; plugin admission, `deck-plugins.mjs:139`), and a rule after `lattice_directives`
+also loses spot-versus-carry precedence, because that rule has already merged them (`slides.js:170`).
 
-It must run before `lattice_directives_apply` (so `class` still joins the section) and before
-`deck_class_propagate` and `lattice_default_component` (so the default layout reads the final class). A runtime mirror
-lands in the same change (HARD RULE #1; `renderElement` is called from `lib/runtime/index.js:1137`).
+So the design is a **door**, the same idea as `normalizePaneSyntax` (`panes.js:473`), at engine entry:
 
-Plugin admission reads classes from **source text** (`deckClassTokens`, `lib/plugins/deck-plugins.mjs:139-167`). It
-reads `@meta` through the shared reader (§5.2) or a plugin admitted by a class would stop loading.
+1. `compileMetaSource(source)` (in `lib/core/meta-record.mjs`) finds authored `@meta` lines and ```` ```meta ```` fences,
+   reads each with the shared reader, and **replaces it, on the same line numbers**, with one comment per slide
+   region: `<!-- lat-meta: {"class":"cards","footer":"Q3 review"} -->`. Same line count means no `token.map` shift. A `>`
+   inside a value is written `\u003e`, so no value can end the comment.
+2. `lattice_directives` (`slides.js:157`) reads `lat-meta` in its existing loop. Spot, carry and last-wins precedence are
+   exactly what they are today, because it is the same loop. `lattice_directives_apply` and every `data-*` output are
+   untouched.
+3. Everything that read a comment before now reads `lat-meta`: bg-image lift, focus steps, the pane gate and normalizer,
+   plugin admission. A `@meta` paragraph never reaches markdown-it, so adjacent lines, `token.map`, the ~90
+   `:has(> code:only-child)` rules and `inline-code-literal` decks stop being questions.
+4. **Authored directive comments stop being read.** The key set the engine accepts from authored text is empty;
+   `lat-meta` is accepted only from the door and from the engine's own producers. The door neutralizes any authored
+   `<!-- lat-meta` so the channel cannot be forged. An authored `<!-- _class: x -->` is a lint **error**
+   (`legacy-directive-comment`) and a build warning, which answers the review's loudest worry: a writer (human or LLM)
+   who keeps using the old form must not get a silent wrong layout.
+5. The engine's own producers (focus steps write `_focus` at `plugins.js:216`; the pane normalizer writes `_class` and
+   markers at `panes.js:476-522,620`; pane source is built at `engine/index.js:533`) write `lat-meta`, through the same
+   writer. This is the internal channel that survives the cut. It means a comment reader **does** remain inside the
+   engine. What is cut is the *authored* comment form.
+
+The runtime mirror (HARD RULE #1) is the same pure leaf, bundled into the playground engine; there is no inline-kind
+call to mirror, because `@meta` never reaches the inline dispatcher.
 
 ### 5.2 One reader
 
-`lib/core/meta-record.mjs` is a pure, fs-free leaf (HARD RULE #7), the way `comment-directive.mjs` is. It exports:
+`lib/core/meta-record.mjs` is a pure, fs-free leaf (HARD RULE #7). It exports:
 
-- `scanMetaLines(source)`: the cheap whole-line scan for the raw-text readers (lint, autocomplete, panes, plugin
-  admission, `_focusSteps`). Own-line-only (D1) is what makes it a line scan rather than a markdown parse.
+- `scanMetaSource(source)`: the line scan used by the door, lint, autocomplete and the Studio. It extends
+  `class-directive-scan.mjs`, which already tracks fences per line. (`closedComments` has **no** fence logic, contrary to
+  the first draft.)
 - `readMeta(text)`: the Segno record read, bound to the slot spec.
 - `writeMeta(text, patch)`: the structured edit the drawer uses.
+- `compileMeta(source, target)`: the door (target `internal`) and the Marp bridge (target `marp`, §7).
 
-Every consumer in §3 calls these. The key registry (`lib/core/meta-keys.mjs`) and the manifest's slot spec come from one
-place, and a test fails if a fifth copy appears.
+The key registry (`lib/core/meta-keys.mjs`) and the manifest's slot spec come from one place, and a test fails if a sixth
+hand-kept copy of the key list appears (today there are five).
 
-### 5.3 Why own-line-only decides the design
+### 5.3 What counts as an own-line record
 
-Several readers need a slide's class **before** or **without** a markdown parse: `_focusSteps` expands one slide into N
-before `lattice_slide`; pane markers split a slide's source; lint and autocomplete scan raw text on each keystroke.
-If `@meta` could sit mid-sentence, each would need a full parse. On its own line, `scanMetaLines` is a linear scan that
-shares `closedComments`' fence handling.
+The door and `scanMetaSource` agree on one narrow shape, because they run on raw text and must not disagree with
+CommonMark (a red-team finding): a line indented 0 to 3 spaces whose whole trimmed content is one code span
+`@meta{…}`, outside any fence or indented code block, and not inside a list item or blockquote. A backtick inside a value
+needs a double-backtick span, which the scanner counts. A record is **one line**; long values use the fence. Anything else
+stays code, and lint warns `meta-not-own-line` with the fix.
 
 ### 5.4 Pane markers
 
-Pane markers are positional and structural, so they need a rule (D4). `@meta{pane=bar no-title}` on its own line
-**starts a pane** at that point, naming its component and modifiers exactly as `<!-- _pane: bar no-title -->` does.
-`panes=60/40 stack no-rule` is the layout line. All other keys on any `@meta` line are slide-wide, wherever the line
-sits; only `pane` is positional. A line that mixes `pane` with slide-wide keys is a lint error (`meta-pane-mixed`), so a
-reader never has to ask which keys follow the position.
-
-`panes.js` already normalizes every authored marker into an internal form (`normalizePaneSyntax`) before any pane rule
-runs. That is the seam: the normalizer learns the `@meta` spelling and the carve downstream does not change.
+`@meta{pane=bar no-title}` on its own line starts a pane at that point, naming its component and modifiers as
+`<!-- _pane: bar no-title -->` does. `panes=60/40 stack no-rule` is the layout. The door **splits** a record that mixes
+`pane` with other keys: `pane` becomes an internal `lat-pane` marker at that line (the form `normalizePaneSyntax`
+already produces), and the other keys become `lat-meta`. So the carve downstream is unchanged, as the first draft claimed
+but did not earn, and a note stays where it is: `panes.js:606-628` copies spot directives onto every pane page and keeps
+notes on page 1, and the split preserves that. The `meta-pane-mixed` lint is dropped; mixing is legal.
 
 ### 5.5 Edge cases
 
 | Case | Behavior |
 |---|---|
-| Inside a fence (other than `meta`) | literal text, as every pill |
-| Not on its own line (mid-paragraph, heading, table cell, list item) | stays code; lint warns `meta-not-own-line` with the fix |
-| Header or footer text | not a place for `@meta`; no section to write to |
+| Inside a fence (other than `meta`) or an indented code block | literal text |
+| Not on its own line, or in a list, blockquote, heading or table cell | stays code; lint warns `meta-not-own-line` |
+| Header or footer text | not a place for `@meta` |
 | Slide with only `@meta` lines | an empty slide; lint warns |
-| Unknown key | lint error with a did-you-mean over the registry; the engine ignores it |
-| Slide that sets `inline-code-literal` | the line stays literal (the existing escape) |
+| Unknown key | lint error with a did-you-mean; the door drops it |
+| Deck or slide sets `inline-code: literal` | the door still runs, because it works on source before the inline dispatcher; `@meta` is the only way to set a class on a literal slide after the cut |
+| Repeated key | lint error; engine is last-wins |
+| `\@meta{…}` | not a record; the door skips a backslash-escaped line and the inline escape shows the literal text |
 
 ## 6. The tools that get better
 
@@ -236,23 +269,26 @@ runs. That is the seam: the normalizer learns the `@meta` spelling and the carve
 ## 7. The Marp bridge
 
 Marp reads directives only from comments and front matter, so `@meta` must not reach Marp as written. The bridge
-**compiles** it, in the producer, because VS Code runs no engine plugin (bridges note §4.2).
+**compiles** it in the producer, because VS Code runs no engine plugin (bridges note §4.2).
 
-- **Export (Lattice to Marp).** A new pass, `compileMeta`, lives in a shared kernel (`lib/core/meta-record.mjs`'s
-  neighbor, called by both `tools/export-marp.js` and the Studio's in-browser producer). Each field becomes
-  `<!-- _key: value -->`; `carry` drops the `_`; each `pane` and `panes` line becomes its marker; `note` becomes a plain
-  comment. **Where it runs matters.** `tools/export-marp.js` runs `liftImageBgImages` (`:379`), then `bakeSplits` and
-  `stripPaneMarkers` (`:386`), then `withRuntimeScriptsReport` (`:395`). The lift needs the `_class` comment in its
-  slide part, and `stripPaneMarkers` removes pane markers because Marp would read them as notes. So `compileMeta` runs
-  **before the lift**, as the first pass, and the three existing passes then see ordinary comments and behave as today.
-  Putting the rewrite inside `withRuntimeScriptsReport` (beside `withoutCodeRecords`, the `@code` precedent) would run
-  it too late: the lift would find no comment and pane lines would reach Marp as speaker notes.
-- **The trailer rule stays.** The bundle's own `Lattice:` trailer comments are still excluded from notes
-  (`marp-bundle-html.js:190-208`). The rewrite emits no comment that matches it.
-- **Import (Marp to Lattice).** There is no importer today. This change gives it a defined job: read comments and write
-  `@meta`. It is also what the codemod (§9) runs, so the two share one tested path.
-- **The bridges note.** D6's transpilation spec lists "directive comments" as its first non-CSS case. §4.1 of that note
-  said each such case "needs its own measurement before it moves"; the measurement is §3 here.
+- **One compile, first, in both producers.** `compileMeta(source, 'marp')` runs **before** `liftImageBgImages`.
+  `tools/export-marp.js` already orders lift (`:379`), `bakeSplits` and `stripPaneMarkers` (`:386`), then
+  `withRuntimeScriptsReport` (`:395`). The Studio producer does not: `deck-export.js:280` runs
+  `liftImageBgImages(stripPaneMarkers(bakeSplits(...)))`, the lift last, which is the bug the CLI comment at
+  `export-marp.js:372-378` describes. This change fixes the Studio order too, so both producers share one pass list.
+  Putting the rewrite inside `withRuntimeScriptsReport` would run it too late.
+- **Escaping, because a record is richer than a comment** (red-team finding). Segno quoting admits `-->` and `: `; a
+  comment value cannot. The compile writes `_key: value` with YAML quoting when the value has `: `, a leading `#` or
+  another YAML-significant start, **errors** on `-->` in a directive value (`meta-comment-unsafe`, a build error, never a
+  silent truncation), and rewrites `-->` in a note to `-- >`. A value that holds markup must not be able to end the
+  comment and leak into the body (HARD RULE #22 stays satisfied).
+- **Shape.** Each field becomes `<!-- _key: value -->`; `carry` drops the `_`; `pane` and `panes` become their markers;
+  `note` becomes a plain comment; pragmas become their own comment form.
+- **The trailer rule stays** (`marp-bundle-html.js:190-208`); the compile emits no comment matching `Lattice:`.
+- **Import (Marp to Lattice).** There is no importer today. The importer reads comments and writes `@meta`. It is what
+  the codemod runs, so the two share one tested path.
+- **The bridges note.** D6's transpilation spec lists "directive comments" as its first non-CSS case; §3 here is its
+  measurement.
 
 ## 8. The spec
 
@@ -264,45 +300,110 @@ Marp reads directives only from comments and front matter, so `@meta` must not r
 
 ## 9. Migration and order of work
 
-Hard cut (D3), in order. Each step lands as its own commit on one branch (HARD RULE #17).
+Reordered by the review (§13.2): the first draft moved lint and autocomplete before the other ~40 raw-text readers, put
+the codemod ahead of the bridge, and let the byte-identity proof fail on `bg-image`. **Consolidation comes first because
+it is needed under any syntax.** One branch, one commit per step (HARD RULE #17).
 
 | Step | Work | Proof |
 |---|---|---|
-| 1 | `meta-keys.mjs`, `meta-record.mjs`, the slot spec, `lattice_meta`, the runtime mirror, `@meta` accepted **next to** comments | byte-identity test: every key renders the same `<section>` as its comment; bench scenario, same-machine |
-| 2 | Lint, autocomplete and `writeMeta` | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun on `@meta` |
-| 3 | The codemod (`lattice migrate meta`) over `examples/`, galleries, component docs, `design/`, test fixtures | all 276 decks render byte-identically before and after; PDF page counts unchanged |
-| 4 | Remove the comment readers; collapse the five key lists; fix the stale claims in §3 | `build:check`; a test fails on any fifth copy of the key list |
-| 5 | The bridge: export rewrite and the shared import path | a real marp-cli render and the VS Code preview of the compiled bundle, both on a demo deck |
-| 6 | Spec 2.0 draft and conformance cases | `tools/lfm-conformance.js` |
+| 1 | **Consolidate over comments.** `meta-keys.mjs` (one registry, five lists collapse), `scanMetaSource` / `readMeta` / `writeMeta` over the **existing comment grammar**, and migrate the 42 readers onto them. Slot-driven completion. The three internal producers write one internal form | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun for every key; `build:check`; a test fails on a sixth key-list copy |
+| 2 | **The door.** `compileMetaSource`, `lat-meta` read in the `lattice_directives` loop, `@meta` and the fence accepted **next to** authored comments | byte-identity: every key renders the same `<section>` as its comment, including `_class: image` + `![bg]` (the case that broke the first draft), adjacent lines, `inline-code: literal` decks, panes and focus steps; a pin on rule order; bench scenario, same-machine (#19) |
+| 3 | Lint, autocomplete, drawer and Compose on `@meta`; `legacy-directive-comment` lint | the keystroke bench for `scanMetaSource` |
+| 4 | **The bridge**, both producers, one pass list | a real marp-cli render and the VS Code preview of a compiled demo deck; `-->` and `: ` value tests |
+| 5 | **The codemod** (`lattice migrate meta`) over `examples/`, galleries, component docs, `design/`, fixtures. The galleries go in a **separate post-review commit** (HARD RULE #8) | all 276 decks render byte-identically; page counts unchanged |
+| 6 | **The cut.** Authored comments stop being read; the changelog fragment leads with `**Breaking:**` (HARD RULE #10); a per-feature demo deck `examples/meta.md` (HARD RULE #9) | `build:check` |
+| 7 | Spec 2.0 draft and conformance cases | `tools/lfm-conformance.js` |
 
-Steps 1 to 3 can ship while comments still render, which keeps every intermediate commit green. The cut in step 4 comes
-only after step 3's byte-identity proof. Pane markers (D4) ride step 1 with their own carve test; they are the largest
-single risk because `panes.js` tests comment and marker tokens at about ten sites (`:119,187,358,394-395,429,449,473,562,568-569,614,630`).
+Steps 1 to 5 ship with comments still read, so every commit is green. **Step 1 delivers the reader, registry, completion
+and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door. That is why D5 can
+wait for evidence (§13.3).
 
-**Export changes need your inspection** (CLAUDE.md, QUALITY BAR). Step 5 changes the bytes of an exported Marp bundle;
-I will render the demo deck in dark and light mode and send both for sign-off before it merges.
+Pane markers (D4) ride step 2 behind the door's split (§5.4); they remain the largest single risk
+(`panes.js` tests comment tokens at about ten sites: `:119,187,358,394-395,429,449,473,562,568-569,614,630`).
+
+**Export changes need your inspection** (CLAUDE.md, QUALITY BAR). Step 4 changes the bytes of an exported Marp bundle; I
+will render the demo deck in dark and light mode and send both for sign-off before it merges.
 
 ## 10. Open items
 
-- **The fence line grammar.** The §4.4 example uses `key: value` with `|` blocks. Segno has no multi-line value form;
-  either the fence is YAML-shaped (a second small grammar) or each line is a Segno record body. Decide in step 1 with a
-  measurement of note lengths in the corpus.
-- **A pill-only paragraph and `:has(> code:only-child)` rules.** About ninety CSS rules match a paragraph holding only a
-  code span. `lattice_meta` removes the token before they could match, but a test must prove it on every slide shape
-  (§5.5).
-- **Per-keystroke cost of `scanMetaLines`.** Autocomplete calls the class scan on each keystroke today; the line scan
-  must not be slower. Measure it in step 2.
-- **`followups.d/2348-p3-directive-keys-in-front-matter.md`** (per-slide keys placed in front matter apply to every
-  slide) gets a better home here: front matter is deck-wide, `@meta` is per slide, and lint can say so.
+- **The fence line grammar.** Either the fence is YAML-shaped (a second small grammar, which cuts against "one
+  grammar") or each line is a Segno record body. Decide in step 2 with a measurement of note lengths in the corpus.
+- **The notes carrier.** The door emits notes as existing comment forms; `-->` is written as `--&gt;` and the extractor
+  (`noteBodiesFromHtml`) un-escapes it. `stripNotesFromSource` (`notes-core.js:816`) and `--strip-notes` must also strip
+  `@meta` note fields and `meta` fences from source, or private notes ship verbatim in exported source. Both need a test.
+- **`note` is not an applied directive** (`directives.js:96`). It must not become a `data-note` attribute; the door
+  routes it to the note channel only.
+- **Per-keystroke cost of `scanMetaSource`.** Measure in step 3.
+- **Studio file count** is stated as "not counted" in §3.
+- **`followups.d/2348-p3-directive-keys-in-front-matter.md`** gets a better home here: front matter is deck-wide,
+  `@meta` is per slide, and lint can say so.
 
-## 11. Risks the adversarial trio must test (HARD RULE #25)
+## 11. Verification this change owes (HARD RULE #25)
 
-This change touches the render kernel, the lint core, the export pipeline and a ratified spec. It earns the full trio
-once step 1 exists, applied to what ships. The attacks to run: a `@meta` line that sets a class the plugin admission
-cannot see; two `@meta` lines that disagree; `@meta` inside a `split` panel after `split-panels.js` re-emits the HTML;
-a note that contains `-->`, a backtick or `@meta{`; and a Marp round trip that changes a deck's computed style.
+The full adversarial trio has run once, on this design (§13). It owes a second pass on what ships, after step 2
+exists, with these attacks first: `_class: image` with `![bg]`; a value containing `-->`, a backtick, a brace or `@meta{`;
+two records on adjacent lines; a `@meta` in a list, blockquote and indented block; `inline-code: literal`; a pane slide
+with a mixed record; focus steps with `class` set; `--strip-notes`; the Studio and CLI export orders; and a Marp round
+trip that changes a deck's computed style.
 
-## 12. Appendix: the reader census, file by file
+## 13. Adversarial review (2026-10-17)
+
+Three agents read this note and the code: a red team (hostile and accidental input, ordering, security), a Munger
+inversion (why it fails in a year), and an independent checker (coherence and fit with the repo). They shared no
+conclusions.
+
+### 13.1 What changed because of it
+
+| Finding | Source | Disposition |
+|---|---|---|
+| A rule after `lattice_directives` cannot see precedence; `bg-image`, focus steps, the pane gate and plugin admission read source or early tokens | checker, red team | Replaced by the door (§5.1). `_class: image` + `![bg]` was run: the lift matched the comment and ignored `@meta{class=image}` |
+| Adjacent `@meta` lines merge into one paragraph the rule skips; 1,116 of 3,876 directive comments sit directly above another | red team | The door reads source lines, not paragraphs; the codemod merges a slide's directives into one line (§4.3) |
+| The engine writes directive comments itself (focus steps, panes); the hard cut would break them | red team, checker | Internal producers write `lat-meta`; authored comments are what is cut (§5.1 items 4 and 5) |
+| `inline-code-literal` contradiction | red team, checker | The door runs on source before the inline dispatcher (§5.5) |
+| Notes: `--strip-notes` leak or loss; `note` as a `data-` attribute | red team | Open items, §10 |
+| Marp compile-back corrupts values containing `: `, `#` or `-->` | red team | Escaping rules, §7 |
+| Studio export order differs from the CLI (lift last) | checker | One pass list for both, §7 |
+| Mixed pane and note records; focus steps drop other keys | red team | The door splits records (§5.4); `lat-meta` is read by its own key |
+| `GLOBAL_ONLY` is unenforced; `closedComments` has no fence logic; `stress-slide` missing | checker | Corrected in §4.2, §4.3, §5.2 |
+| Hard rules #8, #9, #10 unaddressed | checker | In §9 steps 5 and 6 |
+| Step order: reader migration must precede the codemod; bridge before codemod | checker | §9 reordered |
+| Scanner and CommonMark disagree on backticks, wrapping, lists, indented blocks | red team | One narrow own-line shape (§5.3) |
+
+Attacks that held: HTML and CSS injection through footer and note (the same exposure as comment values today, through
+`quoteDeclValue` and `realDeclValueIsSafe`, `slides.js:533-541`); the `\@meta` escape; `split: headings` pull-back; ReDoS.
+
+### 13.2 What the checker confirmed
+
+`readDirectiveComment` has 5 production callers; the census holds (43 key-aware, 18 strip-only, 61 total); rule order
+puts a rule `.after('lattice_directives')` before `_apply`; header and footer meta is set in `_apply`; the `meta` fence
+name is unclaimed; `---` inside a fence is safe because splitting works on tokens.
+
+### 13.3 The objection the design does not answer: consolidation is not syntax
+
+The inversion's verdict was **reconsider at the root.** The note diagnoses duplication (42 readers, five key lists) and
+prescribes a syntax change, but `2026-08-05-one-class-directive-reader.md` already cured that disease for `class`
+without touching syntax. Which claimed benefits need the new syntax?
+
+| Benefit | Needs `@meta`? |
+|---|---|
+| One reader instead of 42; one key list | No. A registry plus a shared reader over comments |
+| Autocomplete and structured edit | No. Slot-driven completion works on the cursor context `<!-- _` as well as `` `@meta{ ``; `writeDirective` equals `writeMeta` |
+| Notes may contain `-->` | Yes, but an additive ```` ```notes ```` fence covers it with no cut |
+| Metadata as a first-class kind with a manifest | Yes, but that is conceptual uniformity, not something an author sees |
+| Per-slide scope as the default | No. A lint can flag the 5 carry-forward uses |
+
+Costs that only the syntax change carries: a Major spec break; degradation on GitHub, the VS Code preview and other
+renderers (about 5,900 directive comments become visible code); the loss of "native Marp markdown, no import"; and the
+muscle memory of every writer and model trained on `<!-- _class: … -->`, which the legacy lint (§5.1 item 4) mitigates
+but does not remove.
+
+This is the owner's call (D5). **Recommendation: do step 1 now, because it is needed under either syntax and ships every
+user-visible benefit above except `-->` in notes. Then build the door (step 2), which makes the syntax a thin layer, and
+decide the cut (step 6) on a trial: a small set of real decks authored by people and by agents in `@meta`, measured for
+authoring errors and for how often the legacy form is still written.** The reordered plan keeps that option open at no
+extra cost.
+
+## 14. Appendix: the reader census, file by file
 
 Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one not re-spelling):
 
