@@ -937,6 +937,26 @@ avatars (9 of 12). Still open: Mermaid (a11y, carbone-curation: two pipelines, a
 envelope's baked "source"), `size: story` (adaptive-sizing), and the player's default mode when
 the deck sets no `color-mode:`.
 
+**Third round: the structural split.** A deck at `square`, `portrait`, `story` or `mobile` is cut
+into cover, one page per element, and closing (lib/core/structural-split.js). The CLI's `--player`
+made that cut; the Studio's Webpage export did not, so `adaptive-sizing` shipped 32 slides from the
+CLI and 8 from the Studio.
+
+| Fix | What it closed |
+|---|---|
+| The Studio export runs `PG.splitForPreview` with `settle: false`, the CLI's own setting, on the render and on the strip-notes candidate | the page count |
+| The Studio's slide numbering keeps a number the split already wrote (`2.2`, page 2 of slide 2) | every split page's `data-lattice-slide` |
+| `roleOpenTag` (lib/core/split-envelope.js) drops `data-cards` / `data-cards-coda` when the swapped class names no card-row component | the cover inherited its source slide's stamp. The Studio's bake runs the runtime, which drops it; the CLI's export page runs no runtime and kept it. The attribute was visually inert on a `content` cover (nothing there reads `--cards-align`), so no PDF moves |
+
+**Byte-identical now:** the nine above plus adaptive-sizing (10 of 12), and auto-split,
+cover-paginate and inventory-split-portrait on a second split corpus. Still open: Mermaid.
+
+**The default mode is a UI choice, not a pipeline gap.** With the Studio preview in light, every
+deck above opens in the same mode from both hosts. With the preview in dark, a deck with no
+`color-mode:` exports dark from the Studio by default. The export panel deliberately defaults to
+what the preview shows (`WebpageOptionsPanel`, "a plain deck is WYSIWYG"), and the author can pick
+any mode, as `--player-mode` does for the CLI. Changing that default is the owner's call.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever

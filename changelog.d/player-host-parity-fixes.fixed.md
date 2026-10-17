@@ -8,3 +8,6 @@
   stopped at the first `)` or `'`, which such an address contains, so a picture embedded that way
   failed to load wherever the runtime measured it. That included the Studio's Webpage export and
   the CLI's `--html` and `--fluid` exports.
+- **Fixed: a portrait, square, story or mobile deck exported from the Studio as a Webpage is cut
+  into pages, as the CLI's `--player` cuts it.** The Studio shipped each multi-element slide as one
+  crowded page, so a `size: story` deck had 8 slides from the Studio and 32 from the CLI.

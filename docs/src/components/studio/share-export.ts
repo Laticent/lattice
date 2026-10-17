@@ -426,6 +426,14 @@ export async function shareHtmlPlayer(
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
 	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
+	// Split on STRUCTURE, as the CLI's `--player` does (lib/core/structural-split.js): at
+	// portrait/square/mobile a multi-member slide becomes cover → one element per page → closing.
+	// `settle: false` is the CLI's own setting, so both hosts emit the same pages. A no-op at
+	// landscape. Without it a `size: story` deck exported 8 slides here and 32 from the CLI.
+	// The strip-notes candidate below re-renders through the same cut, so it compares like-for-like.
+	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
+		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
+	out = splitLikeCli(out, source);
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -522,7 +530,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => splitLikeCli(r, src)).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -619,7 +627,12 @@ export async function shareHtmlPlayer(
 		onStatus?.('Diagrams could not be rendered — exporting without them…');
 		bakeWarning = 'diagrams ship as source, not as drawings';
 	}
-	const tagged = (baked ?? recordSections).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	// A section the structural split already numbered (`2.2`, `2.3`: page k of authored slide 2) keeps
+	// its number, as `stampSlideNumbers` (lib/core/structural-split.js) keeps it for the CLI. Prepending
+	// a second attribute shadowed it, so the same split page was slide `3` here and `2.2` from the CLI.
+	const tagged = (baked ?? recordSections).map((sec, i) =>
+		/^<section\b[^>]*\sdata-lattice-slide=/i.test(sec) ? sec : sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`),
+	);
 	// Belt and braces: under `--strip-notes` the render above is already note-free, so this
 	// is a second, independent guarantee that no materialized copy carries note text.
 	const slides = materializeNotes(tagged, notesCore, noteRecord, stripNotes);
