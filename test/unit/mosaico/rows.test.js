@@ -58,6 +58,17 @@ test('a layout that fits only at no size at all is refused, not returned', () =>
   assert.deepEqual(rows([1, 2], { heightCap: 0.1, maxHeight: 0 }), { ok: false, reason: 'too-wide' });
 });
 
+test('areaCap sizes the items from a higher cap than heightCap holds them to', () => {
+  // Wide items keep the size the higher cap gives them; only the items the lower cap stops lose area.
+  const high = rows([3, 3, 1], { heightCap: 0.3 });
+  const held = rows([3, 3, 1], { heightCap: 0.2, areaCap: 0.3 });
+  const plain = rows([3, 3, 1], { heightCap: 0.2 });
+  assert.equal(held.area, high.area);
+  assert.ok(Math.abs(held.rects[0].w - high.rects[0].w) < 1e-12, 'the wide item keeps its size');
+  assert.ok(held.rects[2].h <= 0.2 + 1e-12 && held.rects[2].w * held.rects[2].h < held.area, 'the square stops at the lower cap');
+  assert.ok(plain.rects[0].w < held.rects[0].w, 'without areaCap the wide items shrink too');
+});
+
 test('goals belong to their strategy', () => {
   assert.throws(() => rows([1], { goal: 'fill' }), RangeError);
   assert.throws(() => pack([1], { aspect: 1 }, { goal: 'equal-weight' }), RangeError);

@@ -95,6 +95,7 @@ function packRows(aspects: number[], options: PackOptions): PackResult | PackRef
     rowGap: num(options.rowGap, gap),
     heightCap,
     minHeightCap: Math.min(heightCap, num(options.minHeightCap, heightCap, Number.MIN_VALUE)),
+    areaCap: num(options.areaCap, heightCap, Number.MIN_VALUE),
     maxPerRow: Number.isInteger(options.maxPerRow) && (options.maxPerRow as number) >= 1 ? (options.maxPerRow as number) : Infinity,
     maxRows: Number.isInteger(options.maxRows) && (options.maxRows as number) >= 1 ? (options.maxRows as number) : Infinity,
     maxHeight: num(options.maxHeight, Infinity),

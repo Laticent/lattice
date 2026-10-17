@@ -9,7 +9,7 @@
   equal cell as its shape allowed, so a 3:1 wordmark got 3.6× the area of a 1:2 crest (2.75× in
   `dense`). Now mosaico's new `rows` strategy gives each mark the same area, capped in height,
   in balanced, centered rows (ten marks break 4/3/3, not 4/4/2), in the CLI and the live preview
-  alike. A wall of one shape keeps its old size. The wall now also fits its stage: three rows
+  alike. A wall of one shape keeps its old size, captioned or not, in `compact` too. The wall now also fits its stage: three rows
   under an eyebrow used to spill past the slide. Three sample marks of other shapes
   (`sample:logo-pinnacle.svg` 4:1, `logo-keystone.svg` 1:1, `logo-spire.svg` 1:2) and a demo deck,
   `examples/logo-wall-equal-weight.md`, show it. `@laticent/mosaico` now has both of the users

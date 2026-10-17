@@ -9,9 +9,9 @@
  * passes its column width) and at least as wide as its item; the item is centered in it. A row
  * holds at most `maxPerRow` cells, and its cells and gaps fit the width.
  *
- * The area. Equal area makes a tall item tall, so the area is capped first by the height cap:
- * the largest area at which an item of aspect max(narrowest aspect, aspectFloor) is exactly
- * `heightCap` tall, and never more than a square at the cap. An item narrower than `aspectFloor`
+ * The area. Equal area makes a tall item tall, so the area is capped first: the largest area at
+ * which an item of aspect max(narrowest aspect, aspectFloor) is exactly `areaCap` tall (normally
+ * the height cap itself), and never more than a square at that height. An item narrower than `aspectFloor`
  * is held at the cap and gets less area; that is what the cap is for, so one 1:5 crest does not
  * shrink a whole wall.
  *
@@ -39,6 +39,8 @@ export interface RowsOptions {
   heightCap: number;
   /** The lowest the cap may fall to make the layout fit before areas shrink (≤ heightCap). */
   minHeightCap: number;
+  /** The cap the shared area is computed from (usually heightCap; may be higher, see PackOptions.areaCap). */
+  areaCap: number;
   maxPerRow: number;
   maxRows: number;
   /** The tallest the whole layout may be, rows and row gaps, as a fraction of the width. */
@@ -139,7 +141,7 @@ export function chooseRows(aspects: number[], o: RowsOptions): RowsChoice | null
     }
     return lo;
   };
-  let area = o.heightCap * o.heightCap * Math.min(1, Math.max(narrowest, o.aspectFloor));
+  let area = o.areaCap * o.areaCap * Math.min(1, Math.max(narrowest, o.aspectFloor));
   let cap = o.heightCap;
   let rows = fits(area, cap);
   let steps = 0;

@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { planWall, stampWall, aspectOfMarkHtml, stageShare, EYEBROW, CAPTION_SHORT_SIDE, LOGO_BAND, LOGO_GAP, LOGO_ROW_GAP, LOGO_COLS, MIN_AREA_SHARE } = require('../../../lib/core/logo-wall-pack');
+const { planWall, stampWall, aspectOfMarkHtml, stageShare, captionShare, EYEBROW, LOGO_BAND, LOGO_GAP, LOGO_ROW_GAP, LOGO_COLS, MIN_AREA_SHARE, COMPACT_SPACING } = require('../../../lib/core/logo-wall-pack');
 
 const CSS = fs.readFileSync(path.join(__dirname, '../../../lib/components/inventory/logo-wall/logo-wall.styles.css'), 'utf8');
 const areas = (plan) => plan.result.rects.map((r) => r.w * r.h);
@@ -39,10 +39,19 @@ test('4:1, 1:1 and 1:2 marks get equal area, default and dense', () => {
   }
 });
 
-test('a wall of one shape keeps its old size: 3:1 wordmarks still fill their cells', () => {
-  const plan = planWall([3, 3, 3, 3], {});
+test('a wall of one shape keeps its old size, with or without captions', () => {
   const cell = (1 - 3 * LOGO_GAP.default) / 4;
-  for (const r of plan.result.rects) assert.ok(Math.abs(r.w - cell) < 1e-6, `${r.w} vs ${cell}`);
+  const band = LOGO_BAND.default;
+  // 3:1 wordmarks filled their cells' width; squares and crests stood at the band.
+  for (const captions of [false, true]) {
+    for (const n of [4, 8]) {
+      const words = planWall(new Array(n).fill(3), { captions });
+      for (const r of words.result.rects) assert.ok(Math.abs(r.w - cell) < 1e-6, `captions=${captions} n=${n}: ${r.w} vs ${cell}`);
+    }
+    for (const r of planWall([1, 1, 1, 1], { captions }).result.rects) assert.ok(Math.abs(r.h - band) < 1e-6 || !captions, `square ${r.h}`);
+  }
+  for (const r of planWall([1, 1, 1, 1], { captions: true }).result.rects) assert.ok(Math.abs(r.h - band) < 1e-6, `captioned square ${r.h}`);
+  for (const r of planWall([0.5, 0.5, 0.5], { captions: true }).result.rects) assert.ok(Math.abs(r.h - band) < 1e-6, `captioned crest ${r.h}`);
 });
 
 test('never more rows or more per row than the old wall, and never taller than the stage', () => {
@@ -60,7 +69,7 @@ test('never more rows or more per row than the old wall, and never taller than t
     const gap = family ? LOGO_GAP.reflow : dense ? LOGO_GAP.dense : LOGO_GAP.default;
     const rowGap = family ? LOGO_ROW_GAP.reflow : dense ? LOGO_ROW_GAP.dense : LOGO_ROW_GAP.default;
     const rows = Math.ceil(n / cols);
-    const stage = (stageShare(16 / 9) - EYEBROW) / 0.9 / (16 / 9) - (captions ? rows * (CAPTION_SHORT_SIDE * (9 / 16)) / 0.9 : 0);
+    const stage = (stageShare(16 / 9) - EYEBROW) / 0.9 / (16 / 9) - (captions ? rows * (captionShare(16 / 9) * (9 / 16)) / 0.9 : 0);
     // With no room left once the row gaps (and captions) are paid for, the wall keeps the old grid.
     if ((rows - 1) * rowGap >= stage) {
       assert.equal(plan.mode, 'fallback', `case ${k}`);
@@ -83,6 +92,16 @@ test('never more rows or more per row than the old wall, and never taller than t
       assert.ok(used <= 1, `case ${k}: stamped row ${used}`);
     }
   }
+});
+
+test('compact shrinks both gaps as the spacing scale does, so its cells widen as the old wall\'s did', () => {
+  const shared = fs.readFileSync(path.join(__dirname, '../../../lib/shared/shared.styles.css'), 'utf8');
+  const two = (sel) => Number(new RegExp(`${sel}:\\s*calc\\(([\\d.]+)`).exec(shared)[1]);
+  assert.ok(Math.abs(two('--sp-2xl') / 5 - COMPACT_SPACING) < 1e-9, 'compact --sp-2xl is 0.75 of the 5 section-cqi default');
+  const plan = planWall([3, 3, 3, 3], { compact: true });
+  assert.match(plan.listStyle, /--logo-gx:0\.0417/);
+  const cell = (1 - 3 * LOGO_GAP.default * COMPACT_SPACING) / 4;
+  for (const r of plan.result.rects) assert.ok(Math.abs(r.w - cell) < 1e-6, `${r.w} vs ${cell}`);
 });
 
 test('rows are balanced: ten marks at four a row break 4/3/3, nine break 3/3/3', () => {

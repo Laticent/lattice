@@ -55,6 +55,7 @@ const wall = pack([4, 1, 0.5, 3], {}, {
   gap: 0.0556,           // between cells, and between rows unless rowGap is set
   heightCap: 0.127,      // the tallest an item may be
   minHeightCap: 0.09,    // how far the cap may fall before every area shrinks
+  // areaCap: 0.127,     // size the items from a higher cap than heightCap holds them to
   maxPerRow: 4,
   maxRows: 1,
   maxHeight: 0.34,       // rows and row gaps together

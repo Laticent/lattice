@@ -364,13 +364,19 @@ The first anchoring, area set by the narrowest mark at the old band, shrank the 
 went from 240 px to 127 px wide. So the cap is the old band × √2 (with a 1:2 crest present, a square keeps its
 old 104 px) and may fall back to the band; `minCell` is the old column width, `maxRows` the old row count. A
 wall of one shape then keeps its old size exactly (four 3:1 wordmarks: 240×80 px, as before). Captioned walls
-keep the band as their cap.
+hold every mark to the band but size the marks from the same anchor (`areaCap` = band × √2): a first version
+computed the area from the band itself and drew a captioned wall of 3:1 wordmarks about a quarter narrower than
+the old equal cells. The cost is equality on a captioned wall with a crest: the crest stops at the band with
+half the others' area (2.0× spread, against 3.6× before). The universal `compact` modifier scales both gaps by
+its 0.75 spacing, as it scales the tokens the old wall used. Rendered against the base on both shipped
+logo-wall decks, every one of the 88 marks is within 0.1 px of its old size.
 
 **A pre-existing overflow, fixed on the way.** The old wall did not fit three rows under an eyebrow: 439 px
 of wall in a 400 px stage at 1280×720, on `main` too. On this PR's path, so fixed here (#18): a packed row is
 as tall as its tallest mark (the CSS drops the band `min-height`), and the plan fits a stage estimated from the
 slide's shape: the stage's measured share of the slide height at each canvas (0.608 at 16:9 up to 0.85 at
-mobile, interpolated by aspect) less 0.06 for an eyebrow, and captions at 0.125 of the slide's short side.
+mobile, interpolated by aspect) less 0.06 for an eyebrow, and captions at their measured share of the slide's
+short side per canvas (0.061 to 0.121), plus 10%.
 
 **The checker's second round** (on the uncommitted slice) found the first cut of this wall unfit to ship, and
 every finding was fixed before commit:

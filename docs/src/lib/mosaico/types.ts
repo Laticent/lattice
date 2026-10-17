@@ -66,6 +66,12 @@ export interface PackOptions {
   heightCap?: number;
   /** `rows`: the lowest the cap may fall, before every area shrinks, to fit `maxRows` and `maxHeight` (default: `heightCap`). */
   minHeightCap?: number;
+  /**
+   * `rows`: the height the shared area is computed from (default: `heightCap`). Set it above
+   * `heightCap` to keep items as large as they would be under the higher cap while holding every
+   * item to the lower one: the items the lower cap stops lose area, the rest keep it.
+   */
+  areaCap?: number;
   /** `rows`: most items in one row (default: no limit). */
   maxPerRow?: number;
   /** `rows`: most rows; the area shrinks until the items fit (default: no limit). */
