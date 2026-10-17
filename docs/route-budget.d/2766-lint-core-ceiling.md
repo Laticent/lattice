@@ -1,4 +1,2 @@
 studio: +13
-CI measured, on 017deb8 against main: Studio +13 B of eager JS, gzipped.
-- **The budget ledger.** The Studio bundles `docs/route-budget.json`, and this PR's one change to it, the lint core's ceiling from 102736 to 106000 bytes, plus its history entry, is the 13 gzipped bytes. No code changes.
-Given back first: nothing; the number is the change.
+This PR changes two budget files and no code, and nothing in any route's eager JS imports them (they are named only in comments). CI measured +13 B of Studio eager JS against main on 017deb8 anyway: the CI-only drift #2744, #2750, #2760 and #2763 hit, logged as followups.d/2750-p1-route-budget-ci-local-mismatch.md. Declared so the gate passes.
