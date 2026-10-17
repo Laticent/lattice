@@ -92,6 +92,8 @@ stays "no slower than comments, within the variance band" (HARD RULE #19) until 
 | D6 | Field names | **The front-matter register names**, with no new semantics. Dark and light stay universal variants (`universal=dark`). Per-slide `finish`, `headline`, `rule`, `eyebrow`, `lift`, `spectrum-trim` override the deck's. |
 | D7 | Notes | **`note` is the speaker note; `reader` is a reader note**, labeled in the notes channel on export. Plain comments with no record **stay speaker notes** (Marp-faithful). Private working notes stay in the comments layer. |
 | D9 | What is it? | **An embedded, always-on, first-party data-provider plugin**, `meta`. Not an inline kind, and not "a directive": it renders nothing, writes `data-*` attributes on the slide, and anything may read its content (CSS, the runtime, other plugins). Its fields are the registers every plugin contributes (§5.0). |
+| D10 | Who writes the deck? | **Deck-level data lives in front matter only. A plugin never writes or changes front matter** ("there is no case for it", owner, 2026-10-17). A slide record writes slide scope, or range scope with `carry`; it never writes deck data. A plugin declares vocabulary (registers) and reads resolved values. |
+| D11 | Sanitization | **The host validates and writes all provider data; a provider only declares types.** Which field types third-party (zip, npm) plugins may declare is **deferred** to the plugin threat-model work; the host decides what it accepts. |
 | D8 | Reader-note export | **Labeled in the notes channel**: PPTX and PDF carry the speaker note, then a `Reader:` paragraph; the HTML player keeps them separate (speaker view shows speaker only, read view shows the reader note under the slide). |
 
 **How D5 was reached.** The bake-off scored seven spellings (comments with a consolidated reader; inline code with and
@@ -331,6 +333,61 @@ notes on page 1, and the split preserves that. The `meta-pane-mixed` lint is dro
 | Repeated key | lint error; engine is last-wins |
 | Authored `<!-- _class: x -->` | lint error `legacy-directive-comment`; ignored by the engine after the cut |
 
+### 5.6 Scopes: deck, range, slide
+
+One vocabulary, three scopes, resolved deck, then range, then slide, with the later one winning (Marp's model, which the
+engine already implements):
+
+| Scope | Where an author writes it | Notes |
+|---|---|---|
+| deck | front matter | the deck's own record: the same registry, types and completion as a slide record. `theme`, `size`, `lang` and `marp` are deck-only |
+| range ("from here on") | a record with `carry` | 5 uses in the corpus today |
+| slide | the record comment | the default |
+
+**A slide never writes deck data (D10).** The reasons, from weighing the alternative (a `deck.` key in a slide record):
+deck-only keys must be known before any slide is read, because `theme` picks the CSS bundle, plugin admission and fonts,
+and `lang` and `size` are the same, so a slide-level write would force a pre-scan of every slide; two places could set the
+same value and need a precedence rule; deleting, moving or splitting the slide that set the theme would change the whole
+deck silently; and Marp has no equivalent, so the bridge would have to hoist the keys. The cost is convenience: changing a
+deck setting means going to the top of the file, and a slide copied into another deck loses the deck settings it relied
+on. Plugin admission already loads a plugin from a slide's classes, which resolves most "slide needs deck" cases.
+
+**A plugin never changes front matter (D10).** A plugin reaches the deck by declaring a register
+(`contributes.registers`); the author sets it in front matter; the host emits the deck's data attributes. Derived deck data
+(an outline, a section map, a glossary, track scales) is computed by providers and exposed through the `meta` service. It
+is never written back into the source, and a render never mutates the author's file.
+
+Editing tools are not plugins. The Studio's deck settings and the codemod write front matter today and keep doing so, through
+`writeMeta` with a deck target (§5.2). Whether the drawer gains an "apply to deck" or "bake deck defaults into this slide"
+action is a tooling follow-up, not part of this design.
+
+### 5.7 The host validates and writes (D11)
+
+A provider's data reaches the page only through the host, which owns every sink. The contract:
+
+- **A provider declares; it does not write.** It receives a validated record and returns typed data. It never touches the
+  DOM, an attribute or a stylesheet.
+- **Every value is validated against its declared type at the boundary.** An invalid value is dropped with a diagnostic and
+  never passed through.
+- **Attribute names are fixed.** The host emits `data-` plus a key matching `[a-z][a-z0-9-]*`, so a provider cannot emit
+  `on*`, `style` or `class` attributes directly.
+- **Each type has one guard:**
+
+| Field type | Example | Host behavior |
+|---|---|---|
+| enum or register word | `finish`, `variant` | accepts only words from the declared set |
+| flag or number | `paginate`, `carry` | parses and range-checks |
+| text | `footer`, `note`, `reader` | rendered by the host's inline renderer under the same HTML policy as the slide body, then `sanitizeSlideHtml` on every surface |
+| CSS-valued | `style`, background colors | through the one existing style sink (`quoteDeclValue`, `realDeclValueIsSafe`, `lib/engine/slides.js:427-450`) and `sanitizeStyleText` for stylesheets (HARD RULE #22's second channel) |
+| URL | background image | a scheme allowlist; the current check has not been verified |
+
+- **No new sink.** No allowlist entry is added to `SANCTIONED_PREVIEW_BUILDERS`, `DOC_STYLE_SINK_ROOTS`,
+  `SANCTIONED_STYLE_SINK_EXEMPT` or `SANCTIONED_RUNTIME_MARKUP_SINKS`. A test should pin that the only writer of these
+  attributes is the host's apply step.
+- **Deferred:** the list of field types a third-party plugin may declare. The in-tree `meta` plugin may declare all five.
+  Until the plugin threat-model work decides the rest (`2026-10-16-npm-plugin-threat-model.md`), no zip or npm plugin
+  contributes record fields.
+
 ## 6. The tools that get better
 
 - **Autocomplete.** After `<!-- {` the editor offers keys from the registry, then values from the key's type (class
@@ -423,6 +480,8 @@ will render the demo deck in dark and light mode and send both for sign-off befo
 - **The `contributes.meta` schema and the source hook.** Define the data-provider contribution in
   `plugin.schema.json` (api bump) and the in-tree-only source hook with its ordering guarantee (before admission). The
   precedent for an in-tree-only contribution is `syntax`; `HOST_ANCHORS` shows what plugins cannot do today.
+- **Verify the URL guard.** Confirm the scheme check on background images and the logo before the URL type is relied on
+  (§5.7); `lib/core/bg-image.js` is where to start.
 - **Do plugin-contributed registers all belong in the record?** `contributes.registers` makes them fields automatically.
   Confirm that every one is meant to be set per slide (the register factory lets a slide's word evict the deck's on that
   axis only), or add an opt-out.
