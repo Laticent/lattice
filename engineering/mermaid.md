@@ -530,6 +530,14 @@ labels under the floor gets the export's `⚠ TYPE FLOOR` line and, at
 ER chain in a wide slot (`mermaid-sketch-labels` slide 5) measures 5.5px and is tagged. Only a
 label with no laid-out box still reads "not measured".
 
+**A pie's text is set in the diagram's own units, so the slot scales it.** `lib/core/mermaid-theme-map.js`
+sets `pieLegendTextSize` to 20px and `pieSectionTextSize` to 22px. A Mermaid pie is 450 units tall and
+the slide hands it a height, so on a `diagram` slide with a Key Insight callout (a 273px-tall pie on a
+720px slide, scale 0.607) the legend draws at 12.1px and the wedge percentages at 13.4px. They were 13px
+and 14px, which drew at 7.9px and 8.5px, barely above the 7.2px floor and well under the chart-family pie's
+19px key labels. Mermaid spaces legend rows 22 units apart and offers no config for it, so 20px is the
+largest legend size that keeps a clear gap between rows. Demo: `examples/mermaid-pie-legibility.md`.
+
 ## 5.2 Node Shapes Reference
 
 | Syntax     | Shape             | Use For             |
