@@ -232,3 +232,45 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
     assert.doesNotThrow(() => sweepOverflowMarkers({}));
   });
 });
+
+// The strip both hosts run on a baked export document. It lived inline in lattice.js, and the
+// Studio's Webpage export ran none, so every Studio player shipped the type-floor tab and the
+// author level (decisions/2026-10-16-player-as-library-audit.md §11.8). Pinned per level here;
+// the Studio's use of it is pinned in docs/e2e/webpage-export.spec.ts.
+describe('stripMarkerForLevel', () => {
+  const { JSDOM } = require('jsdom');
+  const { stripMarkerForLevel } = require('../../../lib/core/resolve-overflow-marker');
+  const baked = () => new JSDOM(`<body>
+    <section class="overflow clip-marked illegible"><div class="overflow-tab">Overflows</div><div class="illegible-tab">Text too small</div></section>
+    <section><div class="illegible-tab"></div></section></body>`).window.document;
+  const state = (doc) => ({
+    overflow: doc.querySelectorAll('section.overflow').length,
+    clip: doc.querySelectorAll('section.clip-marked').length,
+    illegible: doc.querySelectorAll('section.illegible').length,
+    overflowTab: doc.querySelectorAll('.overflow-tab').length,
+    illegibleTab: doc.querySelectorAll('.illegible-tab').length,
+  });
+
+  test('author keeps everything: it is the authoring signal', () => {
+    const doc = baked();
+    stripMarkerForLevel('author', doc);
+    assert.deepEqual(state(doc), { overflow: 1, clip: 1, illegible: 1, overflowTab: 1, illegibleTab: 2 });
+  });
+  test('reader keeps the clip marker (a clipped slide still says so) and drops the type-floor alarm', () => {
+    const doc = baked();
+    stripMarkerForLevel('reader', doc);
+    assert.deepEqual(state(doc), { overflow: 1, clip: 1, illegible: 0, overflowTab: 1, illegibleTab: 0 });
+  });
+  test('off drops every marker', () => {
+    const doc = baked();
+    stripMarkerForLevel('off', doc);
+    assert.deepEqual(state(doc), { overflow: 0, clip: 0, illegible: 0, overflowTab: 0, illegibleTab: 0 });
+  });
+  test('it touches nothing outside its body, so puppeteer can serialize it into a page', () => {
+    // `page.evaluate(stripMarkerForLevel, level)` re-parses the function's text in the page.
+    const reparsed = new Function(`return (${stripMarkerForLevel.toString()})`)();
+    const doc = baked();
+    reparsed('off', doc);
+    assert.deepEqual(state(doc), { overflow: 0, clip: 0, illegible: 0, overflowTab: 0, illegibleTab: 0 });
+  });
+});

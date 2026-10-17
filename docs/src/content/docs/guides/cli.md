@@ -245,6 +245,25 @@ npx lattice deck.md deck.html --player --player-mode dark
 npx lattice deck.md deck.html --player --narrate --strip-notes
 ```
 
+A player loads nothing from the web, so a picture from a web address ships as
+a placeholder. To let the reader choose, name the sites with
+`--player-consent`. The player then shows a banner that names them, and loads
+their pictures only when the reader presses **Load pictures**. It asks again
+each time the file opens. With JavaScript off nothing loads, and the banner
+lists each picture as a link instead:
+
+```sh
+npx lattice deck.md deck.html --player --player-consent https://images.example.com
+```
+
+Only pictures placed with `![](…)` are offered. A web background (`![bg](…)`)
+stays a placeholder, and the run says so. The site must allow pages to read its
+pictures from another origin (it sends an `Access-Control-Allow-Origin`
+header). If it does not, the banner says the pictures could not be loaded and
+lists their links. To put the pictures in the file itself instead, so the reader
+is never asked, export with `--allow-remote`: the player then embeds every web
+picture it can fetch.
+
 ### Publish the deck as an article
 
 `--read` writes the deck as a web article instead of a slide stack: real

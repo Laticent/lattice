@@ -7775,12 +7775,13 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
  *     OUT  section::after{content:"</style>"}
  *
  * So whatever guarded the document upstream is undone at the re-wrap, and the re-wrap owes
- * the call itself. There are two such sites and they are twins: the CLI's
- * (`lattice.js`) and the browser's (`player-prune-browser.ts`, whose output
- * `share-export.ts` mounts in a same-origin frame and then hands to a recipient). The
- * first cut of this work guarded one of the two, and a red-team pass drove the other to a
- * real cross-origin fetch from the shipped artifact — which is exactly the kind of
- * one-twin fix a gate exists to stop happening a third time.
+ * the call itself. There used to be two such sites, twins: the CLI's (`lattice.js`) and the
+ * browser's (`player-prune-browser.ts`, whose output `share-export.ts` mounts in a
+ * same-origin frame and then hands to a recipient). The first cut of this work guarded one
+ * of the two, and a red-team pass drove the other to a real cross-origin fetch from the
+ * shipped artifact — which is exactly the kind of one-twin fix a gate exists to stop
+ * happening a third time. Since 2026-10-16 both hosts call one kernel,
+ * `lib/export/player-prune.js` `prunePlayerHtml`, which owns the only re-wrap.
  *
  * Scope is `DOC_STYLE_SINK_ROOTS`, and the marker is the MECHANISM: a file that calls a
  * prune AND rebuilds a `<style>` element. A prune consumer that only reads sizes owes

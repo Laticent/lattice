@@ -271,6 +271,14 @@ OPTIONS
                           color palette. Every text token clears WCAG AA on
                           white. Any output format; also settable per-deck with
                           'color-mode: print'.
+      --player-consent O  With --player: the web origins (comma-separated, e.g.
+                          https://images.example.com) whose pictures the player
+                          may load, but only after the reader presses "Load
+                          pictures" in a banner. Each ships as the drawn
+                          placeholder until then, and with JavaScript off it
+                          stays one, listed as a plain link. The site must allow
+                          cross-origin reads (CORS); if it does not, the banner
+                          says so and lists the links. Off by default.
       --allow-remote      Let the render fetch remote images, media and fonts.
                           By default every browser this command starts is kept
                           off the network, so a web image in the deck shows
@@ -668,8 +676,8 @@ const NARRATE = !!flags.narrate;
 const PLAYER_MODE = flags['player-mode'] ?? null;
 // Both act on the self-contained player only; said here rather than silently ignored. (The
 // `player: true` front-matter key also enables it, so this reads the flag the CLI was given.)
-if ((NARRATE || PLAYER_MODE !== null) && !flags.player && !QUIET) {
-  console.warn(`note: ${NARRATE ? '--narrate' : '--player-mode'} applies to the --player export; it is ignored unless the deck asks for one (--player or 'player: true')`);
+if ((NARRATE || PLAYER_MODE !== null || flags['player-consent']) && !flags.player && !QUIET) {
+  console.warn(`note: ${NARRATE ? '--narrate' : PLAYER_MODE !== null ? '--player-mode' : '--player-consent'} applies to the --player export; it is ignored unless the deck asks for one (--player or 'player: true')`);
 }
 if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
   console.error('error: --player-mode is light, dark or system');
@@ -683,6 +691,26 @@ if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
 // must stay slide N). See the AUTOSPLIT comment below.
 const NO_SPLIT = !!flags['no-split'];
 const STRIP_NOTES = !!flags['strip-notes'];
+// --player-consent: the web origins the player may load pictures from after the reader allows it.
+// Each must be an origin (`https://host[:port]`); anything else is an error, not a silent drop.
+const PLAYER_CONSENT = (() => {
+  const raw = String(flags['player-consent'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  // An origin is a scheme, a host and an optional port: `https://Images.Example.com/` is one (the
+  // URL parser lowercases it); a path, a query, a fragment or a user name is not.
+  const bad = raw.filter((r) => {
+    try {
+      const u = new URL(r);
+      return !/^https?:$/.test(u.protocol) || u.pathname !== '/' || u.search || u.hash || u.username || u.password;
+    } catch {
+      return true;
+    }
+  });
+  if (bad.length) {
+    console.error(`error: --player-consent takes web origins like https://images.example.com, not ${bad.map((b) => `"${b}"`).join(', ')}`);
+    process.exit(1);
+  }
+  return raw.map((r) => new URL(r).origin);
+})();
 // `--strip-say`: the SEPARATE privacy strip for the say (read-as) channel —
 // orthogonal to `--strip-notes`. Notes (private, for the presenter) and say lines (public,
 // what a slide speaks) are independent channels, so each has its own strip. This scrubs the
@@ -750,10 +778,13 @@ function stripSharedSource(src, noteBodies, boundary = undefined) {
   return out;
 }
 const {
-  OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker,
+  OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker, stripMarkerForLevel,
 } = require('./lib/core/resolve-overflow-marker');
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
+const { exportDeckStyleText } = require('./lib/export/export-scaffold');
+const { exportGlobalCss } = require('./lib/export/author-css');
+const { splitKatexSheet } = require('./lib/export/katex-inline');
 const { readClassAttr } = require('./lib/core/section-walk');
 const { splitSections } = require('./lib/core/split-sections');
 // The label-drop channel's READER half — same grammar as the writer, one module
@@ -1009,7 +1040,7 @@ const {
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { sheetStartMark, SHEET_END_MARK } = require('./lib/core/export-shell-marks');
-const { cliThemeStore, cliDeckSheet, katexFamilies, katexInlineSheet, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
+const { cliThemeStore, cliDeckSheet, shippedSheetText, katexFamilies, katexInlineSheet, packInlineStyles } = require('./lib/export/cli-deck-sheet');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
@@ -1385,8 +1416,25 @@ const layoutCSS = inlinedFaces.css;
 //
 // `layoutCSS` above (unpacked, faces dropped) stays for the TOKEN READERS below — they
 // parse `:root` blocks as text, which the pack would hide behind its rewritten selectors.
-const CLI_THEMES = cliThemeStore(layoutCSSLinked, paletteChain.map((n, i) => ({
-  name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`),
+//
+// THE SAME BYTES THE STUDIO COMPOSES FROM. For the default layout sheet and a shipped theme the
+// deck sheet composes from the minified builds the docs site serves the Studio
+// (`shippedSheetText`), so both hosts pack the same spelling (§11.9 of
+// decisions/2026-10-16-player-as-library-audit.md). A caller's `--css`, an installed theme, or a
+// missing build keeps the source. The token readers still read `layoutCSS` / `paletteCSS`.
+//
+// "The default layout" means the package's own `dist/lattice.css`, however it was named: the
+// test helpers and scripts pass it explicitly (`lattice.js deck.md dist/lattice.css out.pdf`), and
+// keying on `cssIsDefault` alone shipped the source spelling there while `tools/palette-sweep.js`
+// composed from the minified build, so the sweep's identity check refused every render.
+const layoutIsShipped = cssIsDefault || path.resolve(cssFile) === path.resolve(PKG_ROOT, 'dist', 'lattice.css');
+const shippedLayout = layoutIsShipped ? shippedSheetText(PKG_ROOT, 'layout') : null;
+// Loud, because the fallback is silent otherwise: without the minified build the deck sheet composes
+// from the source spelling, and the player file stops matching the Studio's (`npm run build` makes it).
+if (layoutIsShipped && !shippedLayout && !QUIET) console.warn('  ⚠ dist/lattice-min.css is missing — the deck sheet composes from dist/lattice.css, so a --player file will not match the Studio\'s. Run `npm run build`.');
+const deckSheetLayout = shippedLayout || layoutCSSLinked;
+const CLI_THEMES = cliThemeStore(deckSheetLayout, paletteChain.map((n, i) => ({
+  name: n, css: (!(installedTheme && n === paletteName) && shippedSheetText(PKG_ROOT, 'palette', n)) || readFileOrDie(paletteFiles[i], `palette '${n}'`),
 })));
 
 // ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
@@ -1944,7 +1992,7 @@ if (FLUID_VIEW && READ_VIEW && !PLAYER) {
         : '  ⚠ --fluid and --read both set — using the fluid viewer, which shows the slides; the reading article is NOT in this file.',
   );
 }
-const PLAYER_VERSION = '1';
+const { PLAYER_VERSION } = require('./lib/export/player-version');
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
 // overflowing its box, and the slide has a seam (lib/core/auto-split.js `splitDoc`, driven
@@ -2050,27 +2098,10 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').sp
 // `style: ":root{color-scheme:dark}"` without needing a custom theme.
 // Two forms are supported: an inline string (`style: "..."`) and a YAML
 // block scalar (`style: |` followed by indented lines).
-function readGlobalStyle(fmText) {
-  const inline = fmText.match(/^\s*style:\s*(["'])([\s\S]*?)\1\s*$/m);
-  if (inline) return inline[2];
-  // `(?=^\S|$(?![\s\S]))` — stop at the next top-level YAML key or at the
-  // absolute end of the frontmatter string. JS regex has no `\Z` anchor,
-  // so we spell end-of-input as `$` with a negative lookahead for any
-  // remaining characters.
-  const block = fmText.match(/^\s*style:\s*\|\s*\r?\n([\s\S]*?)(?=^\S|$(?![\s\S]))/m);
-  if (block) {
-    return block[1]
-      .split(/\r?\n/)
-      .map((l) => l.replace(/^ {2}/, '')) // strip the YAML indent (≥2 spaces)
-      .join('\n')
-      .trimEnd();
-  }
-  return '';
-}
-// The deck's own CSS gets its `:root` arms written onto the slides too, where the flat deck
-// sheet declares the palette's tokens; otherwise a `style: ":root{--accent:…}"` override lands
-// on <html> alone and every slide shadows it (lib/export/cli-deck-sheet.js `packAuthorCss`).
-const globalStyle = packAuthorCss(readGlobalStyle(fm));
+// `readGlobalStyle` lives in lib/export/export-scaffold.js and the packing in lib/export/author-css.js
+// (`exportGlobalCss`), both shared with the Studio's Webpage export. The deck's own CSS gets its
+// `:root` arms written onto the slides too, where the flat deck sheet declares the palette's tokens;
+// otherwise a `style: ":root{--accent:…}"` override lands on <html> alone and every slide shadows it.
 
 // `![bg …]` half-canvas image handling — the engine path uses liftImageBgImages
 // (class-aware markdown pre-pass: `image` slides only; any other slide's `![bg]` is the engine's own section background) + wrapImageText (HTML post-pass) to reproduce the
@@ -2115,6 +2146,8 @@ function topLevelSectionStrings(latticeHtml) {
 // already has an `md` (the print-mode source) and shadowing it here reads as a bug.
 // Said once per run: the export re-renders the deck, and the warning is about the deck.
 let webImagesReported = false;
+// Every web reference the render swapped for a placeholder, for --player-consent's report.
+const webBlockedAtRender = [];
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2213,6 +2246,7 @@ function engineSlides(deckSource = rawMd) {
     const { blockWebImages, webOrigins } = require('./lib/core/remote-ref.js');
     const web = blockWebImages(renderedHtml);
     html = web.html;
+    webBlockedAtRender.push(...web.blocked);
     if (web.blocked.length && !webImagesReported && !QUIET) {
       webImagesReported = true;
       const sites = webOrigins(web.blocked);
@@ -2352,10 +2386,11 @@ function strippedSlidesOrAuthored() {
     if (source === rawMd) { scrubBoundaryMeasured = true; return slidesAsAuthored; }
     const rendered = engineSlides(source);
     if (matches(rendered)) {
-      // The source that SHIPS is the source that was rendered. It used to be recomputed
+      // The cut that was measured is the cut every shipped source uses. It used to be recomputed
       // independently for the envelope, so a fallback shipped authored slides beside a
       // restructured source and the "verbatim source for lossless re-import" re-imported as a
-      // different deck.
+      // different deck. The player envelope and `--embed-source` both ship `md`, not this
+      // document, and so go through `attachableSource`, which checks the cut on `md` itself.
       scrubBoundary = boundary;
       scrubBoundaryMeasured = true;
       return rendered;
@@ -2387,8 +2422,8 @@ function strippedSlidesOrAuthored() {
 }
 // THE PDF ATTACHMENT IS A DIFFERENT DOCUMENT FROM THE ONE THAT WAS MEASURED, and until this
 // guard nothing said so. `strippedSlidesOrAuthored` measures the cut against `rawMd` — after the
-// Mermaid pre-render and the auto-glossary append — because that is what pass 2 renders and what
-// the player envelope ships. `--embed-source` attaches `md`: the deck as the author wrote it, so
+// Mermaid pre-render and the auto-glossary append — because that is what pass 2 renders.
+// `--embed-source`, `--reopenable` and the player envelope ship `md`: the deck as the author wrote it, so
 // the artifact round-trips to an editable deck rather than to machine-expanded output. That is
 // the right thing to attach and it is why the two differ. Applying `scrubBoundary` to `md`
 // applied a measurement taken on one document to another one, which the fidelity guard never saw.
@@ -2485,40 +2520,8 @@ const slidesWithNotes = slides.map((sec, i) => {
 });
 
 // ── Marp-equivalent CSS for pagination and header/footer ────────────────────
-// Marp injects these styles itself; we reproduce them here since we're
-// not running through marp-core.
-//
-// Pagination uses the native Marp mechanism: the section carries a
-// `data-lattice-pagination="N"` attribute, and `section::after` consumes it
-// as the pseudo-element content. All visual styling (font, color, position)
-// lives in lattice.css on `section::after` — see the !important block there.
-// We only need the `content` rule here so the page number actually renders.
-const marpSystemCss = `
-/* Marp system styles — pagination content binding.
-   Header/footer positioning + section::after typography live in lattice.css
-   so both the CLI and the Marp VS Code preview share identical coordinates. */
-
-section { position: relative; }
-
-section[data-lattice-pagination]::after {
-  content: attr(data-lattice-pagination);
-}
-
-/* Speaker-notes channel: a hidden, non-printing per-slide aside. Pinned off
-   explicitly so a theme styling bare <aside> can never leak it into the PDF. */
-aside.lattice-notes { display: none !important; }
-
-/* Accessible-description channel: visually hidden (sr-only) so it never prints on
-   the slide or lands in the rasterized PNG, but — unlike display:none — it stays
-   in the accessibility tree for a screen reader (the WCAG SC 1.1.1 alternative). */
-.lattice-description {
-  position: absolute !important;
-  width: 1px !important; height: 1px !important;
-  padding: 0 !important; margin: -1px !important;
-  overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important; border: 0 !important;
-}
-`;
+// Marp injects these styles itself; we reproduce them since we're not running through marp-core.
+// The rules live in lib/export/export-scaffold.js (`MARP_SYSTEM_CSS`), shared with the Studio.
 
 // ── Self-hosted fonts (offline PDF embedding) ────────────────────────────────
 // The engine CSS now carries a self-hosted `@font-face` block (url('fonts/…'))
@@ -2701,8 +2704,7 @@ const slidesWithMeta2 = packInlineStyles(highlightedSlides.join('\n'));
 // Left as one 368 KB block it became that target (measured).
 const usesMath = highlightedSlides.some((s) => s.includes('class="katex'));
 const katexInline = usesMath ? katexInlineSheet(katexCssAbsPath) : '';
-const katexFaces = (katexInline.match(/@font-face\s*\{[^}]*\}/g) || []).join('');
-const katexRules = katexInline.replace(/@font-face\s*\{[^}]*\}/g, '');
+const { faces: katexFaces, rules: katexRules } = splitKatexSheet(katexInline);
 const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
 const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 const docFonts = !katexFacesCss
@@ -2843,40 +2845,7 @@ if (deckSheet.refused && !QUIET) {
     + ' verified as whole rules and were left in place. They will fail to load; the export is'
     + ' otherwise unaffected. Please report the stylesheet that triggered this.');
 }
-const deckStyleText = `@page { size: ${slideW}px ${slideH}px; margin: 0; }
-body  { margin: 0; padding: 0; }
-${sheetStartMark(deckSizeName, paletteName)}
-${deckSheet.css}
-${SHEET_END_MARK}
-section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
-${marpSystemCss}
-/* Skip link — the keyboard bypass for a deck that is otherwise a flat pile of
-   slides (WCAG 2.4.1). Off-screen rather than hidden, so it stays in the tab
-   order; revealed on focus because a sighted keyboard user has to SEE it. The
-   rules live HERE, inline, so a missing stylesheet can never leave it rendering
-   visibly. Hidden in print: the exported PDF has no tab order, and an
-   off-screen absolute box must not influence pagination. */
-.lat-skip-link{position:absolute;left:-9999px;top:0;z-index:9999;padding:10px 16px;background:var(--accent,#4338ca);color:var(--on-accent,#fff);font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}
-.lat-skip-link:focus{left:0}
-@media print{.lat-skip-link{display:none}}
-/* The deck landmark adds no box of its own — the slides keep their own geometry. */
-main#deck{margin:0;padding:0;display:block}
-/* …EXCEPT in the FLUID viewer, where interposing any element between <body> and the
-   slides is NOT layout-neutral. base.fluid-view.css makes <body> a centered flex column
-   and sizes each slide with min(100%, 100dvh * --fill-max-aspect). That percentage
-   resolves against the slide's PARENT — so once <main> sits in between, body's
-   align-items:center shrink-to-fits it, the percentage resolves against a
-   content-derived width, and every slide collapses to ZERO WIDTH. The viewer
-   self-activates on load, so a recipient double-clicking the exported .html saw a
-   blank page.
-   The ADR's §10-R4 argument for this being the one sanctioned wrap — "<main> has no UA
-   margin and the theme CSS is section-scoped" — is about MARGINS and SPECIFICITY. It
-   never considered CONTAINING BLOCKS, which is what "never wrap" (§2 reason 1)
-   actually protects. A wrapper adds no box and still changes layout.
-   Fix: make <main> transparent to the flex column — same axis, full width — so the
-   slides resolve their percentage against the same box they did before. */
-:root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
-${globalStyle ? `\n/* Front-matter style: directive */\n${widenDeckCss(globalStyle)}\n` : ''}`;
+const deckStyleText = exportDeckStyleText({ w: slideW, h: slideH, startMark: sheetStartMark(deckSizeName, paletteName), deckCss: deckSheet.css, endMark: SHEET_END_MARK, globalCss: exportGlobalCss(fm, slidesAsAuthored.join('\n')) });
 
 // The one place the deck's stylesheet exists as a finished string. Compute it
 // once: the <style> body below embeds it, and the texture <defs> are chosen from
@@ -4030,26 +3999,12 @@ async function renderBody(browser, g, closeBrowser) {
   // what the artifact shows is the `overflow-marker` setting's job, resolved above.
   // (Tab visibility keys on `.clip-marked`, not on `.overflow` — a slide can cut content
   // without overflowing — so `off` has to clear THAT class or the pill survives the strip.)
+  // `off` clears the ring so the deliverable carries no marker at all — the stderr warning
+  // above is then the author's only channel, which is why `off` is never a standing default.
+  // Below `author` the type-floor alarm goes too. One function for this host and the
+  // Studio's Webpage export (lib/core/resolve-overflow-marker.js `stripMarkerForLevel`).
   const level = OVERFLOW_MARKER.marker;
-  await g(() => page.evaluate((lvl) => {
-    // `off` — the historical behavior of this path, now a CHOICE rather than the
-    // only option: clear the ring so the deliverable carries no marker at all. The
-    // stderr warning above is then the author's only channel, which is why `off` is
-    // never a standing default (lib/core/resolve-overflow-marker.js).
-    if (lvl === 'off') {
-      for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-      for (const s of document.querySelectorAll('section.clip-marked')) s.classList.remove('clip-marked');
-      for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
-    }
-    // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:
-    // a reader cannot resize a figure, so an amber alarm reading "Text too small ·
-    // 3pt" is a QA diagnostic in front of a boardroom. The stderr warning is the
-    // author's channel for it.
-    if (lvl !== 'author') {
-      for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
-      for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
-    }
-  }, level), 'apply overflow marker level');
+  await g(() => page.evaluate(stripMarkerForLevel, level), 'apply overflow marker level');
 
   // ── Rough ink — the sketch finish's drawn lines ──────────────────────────
   // Measure in the page → generate in Node → paint back in the page. Rough.js
@@ -4862,6 +4817,20 @@ async function renderBody(browser, g, closeBrowser) {
                 // matches inside `dark-mode`, which is not the `dark` class token.
                 : csDeclares(/color-scheme\s*:\s*dark\b/) || classTokens(frontMatterValue(fm, 'class')).includes('dark') ? 'dark'
                   : 'light';
+      // Under --allow-remote the render loaded the deck's web pictures, but the player's policy loads
+      // nothing remote, so a web `<img>` shipped as a broken image. The author asked for those
+      // pictures, so they are EMBEDDED, as the Studio's "Embed pictures from other sites" does
+      // (lib/export/inline-url-media.mjs); one that cannot be fetched ships as the drawn placeholder,
+      // its address kept for --player-consent, and the run says so.
+      let playerDocHtml = inflatedDocHtml || cleanDocHtml;
+      let webEmbed = null;
+      if (flags['allow-remote']) {
+        const { inlineUrlMedia, browserFetchDataUri } = await import('./lib/export/inline-url-media.mjs');
+        webEmbed = await inlineUrlMedia(playerDocHtml, { baseUrl: pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href, origins: [], anyWebOrigin: true, fetchDataUri: browserFetchDataUri(fetch, { followRedirects: true }) });
+        const placeheld = require('./lib/core/remote-ref.js').blockWebImages(webEmbed.html);
+        playerDocHtml = placeheld.html;
+        webBlockedAtRender.push(...placeheld.blocked);
+      }
       const { html: playerHtml, report } = await buildPlayerHtml({
         // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
         // asset inliner can bake in. Without it every prose image in a shared player is a
@@ -4871,14 +4840,23 @@ async function renderBody(browser, g, closeBrowser) {
         // with state-chart / function-plot inflated to static SVG). Falls back to the
         // clean static render only if that capture failed — which also means no marker,
         // so the fallback is announced rather than silent.
-        docHtml: inflatedDocHtml || cleanDocHtml,
+        docHtml: playerDocHtml,
+        consentOrigins: PLAYER_CONSENT,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-say` that source is re-serialized WITHOUT the
         // respective comments (directive-safe: notes match only the exact bodies lifted
         // from the render; say lines match the `say:` prefix), so the shared file leaks
         // no speaker text and/or no say text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
-        source: stripSharedSource(rawMd, noteStripSet),
+        //
+        // `md`, the deck as authored, NOT `rawMd`: the plugins' bakes have replaced every
+        // ```mermaid fence in `rawMd` with its drawn SVG and appended the auto-glossary, so a
+        // re-import got frozen diagrams instead of their source
+        // (decisions/2026-08-05-bake-before-render-ordering.md), and the Studio, which ships the
+        // editor's text, shipped a different source for the same deck (2026-10-16 audit §11.9).
+        // Through `attachableSource`, the guard for exactly this: the strip cut was measured on
+        // `rawMd`, and it re-checks that cut on `md` (and warns once when neither cut reproduces it).
+        source: attachableSource(md),
         // `false` FORCES the still; `undefined` inherits the deck's own registers
         // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
         // only suppress, never force motion on — a deck that says `motion: off` means it.
@@ -4898,7 +4876,12 @@ async function renderBody(browser, g, closeBrowser) {
         // surfaces as `""`), so `config` normally carries no say text — but an inline
         // `say: {…}` form would echo here. Under `--strip-say` drop the key outright
         // so the envelope config can't carry ANY say-labeled text (privacy, not just the map).
-        config: STRIP_SAY ? { ...deckFm, say: undefined, captions: undefined } : deckFm,
+        //
+        // Parsed from `md`, the deck as authored, like `source` above: `deckFm` reads `rawMd`, whose
+        // `glossary: auto` trigger the auto-glossary strips once it has run, so the record described
+        // a deck its own source contradicted, and the Studio's (parsed from the editor's text) said
+        // otherwise (decisions/2026-10-16-player-as-library-audit.md §11.9).
+        config: STRIP_SAY ? { ...parseFm(md).directives, say: undefined, captions: undefined } : parseFm(md).directives,
         // Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
         // `!STRIP_NOTES` was a one-bit answer to "did the author run the privacy flag?", sitting
         // in plain base64 at the bottom of a file you email to someone: a deck that never had a
@@ -4917,6 +4900,7 @@ async function renderBody(browser, g, closeBrowser) {
         now: reopenableDate().getTime(),
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,
+        host: 'cli',
       });
       // P6 — used-selector CSS prune + used-family FONT prune. Authoritative Chromium
       // matching (+ a computed-style gate for CSS); a gate failure or css-tree-absent
@@ -4958,6 +4942,15 @@ async function renderBody(browser, g, closeBrowser) {
           console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
         }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
+        if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
+        if (webEmbed?.missing.length) console.warn(`  honesty: ${webEmbed.missing.length} web picture(s) could not be embedded and show as placeholders — ${webEmbed.missing.slice(0, 2).map((m) => `${m.url} (${m.reason})`).join('; ')}`);
+        // --player-consent offers pictures placed with ![](…) only. Say what else the declared sites
+        // carry that stays a placeholder (a web ![bg], a video), rather than let the author find out.
+        if (PLAYER_CONSENT.length) {
+          const unoffered = webBlockedAtRender.filter((b) => b.kind !== 'image' && PLAYER_CONSENT.includes(b.origin));
+          if (unoffered.length) console.warn(`  note: ${new Set(unoffered.map((b) => b.url)).size} web background(s) or media from ${[...new Set(unoffered.map((b) => b.origin))].join(', ')} stay placeholders: --player-consent offers pictures placed with ![](…) only.`);
+          if (!/id="lp-consent"/.test(finalPlayerHtml)) console.warn(`  note: --player-consent named ${PLAYER_CONSENT.join(', ')}, but no picture in the deck comes from there, so the player has no consent banner.`);
+        }
         if (inflatedDocHtml && (hasStateChart || hasHydratedPlugins || hasFlowchart)) console.log('  baked dynamic components (state-chart / flowchart / plugin figures) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
         for (const n of pruneNotes) console.log(n);
@@ -5094,16 +5087,11 @@ async function renderBody(browser, g, closeBrowser) {
   }
 }
 
-// P6 — used-selector CSS prune for the self-contained player. Drops the rules of
-// the ~47 components a given deck doesn't use from the inlined lattice.css block,
-// toward the "Minimal" size tier. SAFE on a frozen artifact by two guards:
-//   (1) AUTHORITATIVE matching — a scratch Chromium page holding the REAL player
-//       DOM (all three view-DOMs inline) answers `document.querySelector` for every
-//       base selector; no token heuristic.
-//   (2) A COMPUTED-STYLE GATE — full vs pruned CSS is compared across all three
-//       views for every element (+ ::before/::after); ANY diff rejects the prune
-//       and the full CSS ships. css-tree absent / parse error / a smaller-than-nothing
-//       result all fall back to the full CSS. Returns { html, applied, saved, ... }.
+// P6 — the self-contained player's CSS + font prune. The orchestration (which probes run,
+// the computed-style gate, the font merge, the guarded re-wrap) is ONE kernel shared with the
+// Studio, `prunePlayerHtml` in lib/export/player-prune.js (HARD RULE #1; decisions/
+// 2026-10-16-player-as-library-audit.md §11). This host supplies only the PAGE: a scratch
+// Chromium tab holding the real player, where the kernel's probes run via `page.evaluate`.
 //
 // Runs in its OWN short-lived hardened browser (--disable-dev-shm-usage), NOT the
 // render browser: by the time the player is assembled the render browser has
@@ -5111,209 +5099,24 @@ async function renderBody(browser, g, closeBrowser) {
 // that crashes the small-container Chromium. A dedicated hardened instance is
 // isolated from that pressure and can't perturb the deliverable render.
 async function prunePlayerCssInPage(playerHtml) {
-  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces, GATE_PROPS, PRUNE_SKIP_STYLE_IDS, isPruneSkippedStyle, fontFaceFamilies, literalFontWeights, mergeIdenticalFontFaces } = require('./lib/export/html-player.js');
-  // Two targets: the inlined lattice.css (largest non-font <style>) for the selector
-  // prune, and the base64 @font-face block (#lattice-embedded-fonts) for the font prune.
-  const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
-  let target = null;
-  let fontBlock = null;
-  for (const b of blocks) {
-    if (/lattice-embedded-fonts/.test(b[1])) {
-      fontBlock = { full: b[0], css: b[2] };
-      continue;
-    }
-    // The dark block and the hoisted-asset block are NOT the deck stylesheet and can outweigh
-    // it, so they are skipped by id, never judged by size (player-prune.js PRUNE_SKIP_STYLE_IDS).
-    if (isPruneSkippedStyle(b[1])) continue;
-    if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
-  }
-  // `legacyPseudoElements`: KaTeX's sheet writes `:before`/`:after` with one colon, which
-  // css-tree reads as a pseudo-CLASS, so the prune would test `.x:before`, match nothing and
-  // drop the rule (lib/export/player-prune.js LEGACY_PSEUDO_ELEMENTS). The computed-style
-  // gate below would then refuse the whole prune and ship the full sheet.
-  const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css, { legacyPseudoElements: true }) : [];
-  // Nothing to do without a browser-backed pass? Only bail if BOTH prunes are moot.
-  if (!bases.length && !fontBlock) return { applied: false };
-
-  const pruneOpts = {
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS],
-    headless: 'new',
-  };
-  if (CHROME_EXEC) pruneOpts.executablePath = CHROME_EXEC;
-  const pruneBrowser = await puppeteer.launch(pruneOpts);
-  const g = (op, label) => guard(pruneBrowser, op, label, RENDER_WATCHDOG_MS);
-  try {
-    // newPage() inside the try so a failure here still closes the browser.
-    const scratch = await pruneBrowser.newPage();
-    await g(() => scratch.setContent(playerHtml, { waitUntil: 'domcontentloaded', timeout: 60000 }), 'player prune: load');
-
-    // ── FONT prune: which embedded families does the deck actually use? ──────────
-    // Authoritative + honors `sketch`: a family is USED if the browser LOADED a face
-    // (lazy — only when an element needs it) OR it appears in any element's resolved
-    // `font-family` (so a deck applying the sketch hand keeps Caveat + Shantell). All
-    // three views are cycled and every element forced to lay out so no face is missed.
-    let fontResult = { applied: false };
-    let usedFonts = null;
-    if (fontBlock) {
-      usedFonts = await scratch.evaluate(async () => {
-        for (const v of ['present', 'read-slides', 'read-article']) {
-          document.getElementById('lp-app')?.setAttribute('data-lp-view', v);
-          for (const el of document.querySelectorAll('#lp-app *')) el.getBoundingClientRect();
-          try {
-            await document.fonts.ready;
-          } catch {
-            /* fonts not ready this cycle — the loaded-status + computed-family nets
-               below still run against whatever HAS loaded; worst case fewer faces
-               are marked used and MORE are kept (never fewer) */
-          }
-        }
-        const strip = (s) => String(s).trim().replace(/^["']|["']$/g, '');
-        const fams = new Set();
-        // Every computed weight, under every family the element names, for the identical-file
-        // merge's guard (player-prune.js mergeIdenticalFontFaces). Read in all three views.
-        const weights = {};
-        const note = (el, pseudo) => {
-          const cs = getComputedStyle(el, pseudo);
-          const w = Number(cs.fontWeight);
-          for (const part of (cs.fontFamily || '').split(',')) {
-            const fam = strip(part);
-            if (!fam) continue;
-            if (!pseudo) fams.add(fam);
-            const key = fam.toLowerCase();
-            if (Number.isFinite(w)) (weights[key] ||= []).push(w);
-          }
-        };
-        for (const v of ['present', 'read-slides', 'read-article']) {
-          document.getElementById('lp-app')?.setAttribute('data-lp-view', v);
-          for (const el of document.querySelectorAll('*')) for (const pseudo of [null, '::before', '::after']) note(el, pseudo);
-        }
-        for (const f of document.fonts) if (f.status === 'loaded') fams.add(strip(f.family));
-        document.getElementById('lp-app')?.setAttribute('data-lp-view', 'present');
-        for (const k of Object.keys(weights)) weights[k] = [...new Set(weights[k])];
-        return { families: [...fams], weights };
-      });
-      fontResult = prunePlayerFontFaces(fontBlock.css, usedFonts.families);
-    }
-
-    // ── CSS prune (only when the lattice.css block is present + css-tree installed) ─
-    let cssResult = { applied: false };
-    if (bases.length) {
-      // (1) authoritative match — keep a base on ANY querySelector error (conservative).
-      const used = await scratch.evaluate((sels) => {
-        const out = [];
-        for (const s of sels) {
-          try {
-            if (document.querySelector(s)) out.push(s);
-          } catch {
-            out.push(s);
-          }
-        }
-        return out;
-      }, bases);
-      const usedSet = new Set(used);
-      // The Guide's focus rules match nothing until Play, so the prune keeps them only in a player
-      // that carries the Guide (its switch is in the bar; lib/export/player-prune.js).
-      const keepGuide = /<button id="lp-guide"/.test(playerHtml);
-      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b), { legacyPseudoElements: true, keepGuide });
-      cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { applied: false };
-    }
-
-    // (2) computed-style gate across all three views (+ pseudo-elements) — CSS only.
-    const identical = !cssResult.applied ? true : await scratch.evaluate(
-      ({ prunedCss, PROPS, SKIP }) => {
-        // The pruned block is the biggest non-font <style> — same target the Node
-        // side chose, re-found here by size so we swap the right one.
-        const styleEl = [...document.querySelectorAll('style')]
-          .filter((s) => s.id !== 'lattice-embedded-fonts' && !SKIP.includes(s.id))
-          .sort((a, b) => b.textContent.length - a.textContent.length)[0];
-        const app = document.getElementById('lp-app');
-        const views = ['present', 'read-slides', 'read-article'];
-        const snap = () => {
-          const rows = [];
-          for (const el of document.querySelectorAll('#lp-app *')) {
-            for (const pseudo of [null, '::before', '::after']) {
-              const cs = getComputedStyle(el, pseudo);
-              rows.push(PROPS.map((p) => cs.getPropertyValue(p)).join('|'));
-            }
-          }
-          return rows.join('\n');
-        };
-        const before = {};
-        for (const v of views) {
-          if (app) app.setAttribute('data-lp-view', v);
-          before[v] = snap();
-        }
-        const original = styleEl.textContent;
-        styleEl.textContent = prunedCss;
-        let ok = true;
-        for (const v of views) {
-          if (app) app.setAttribute('data-lp-view', v);
-          if (snap() !== before[v]) {
-            ok = false;
-            break;
-          }
-        }
-        styleEl.textContent = original;
-        if (app) app.setAttribute('data-lp-view', 'present');
-        return ok;
-      },
-      { prunedCss: cssResult.css, PROPS: GATE_PROPS, SKIP: PRUNE_SKIP_STYLE_IDS },
-    );
-    // A CSS-gate failure drops only the CSS prune; the font prune (independent, no
-    // gate needed — it removes faces nothing paints) can still apply.
-    const cssOk = cssResult.applied && identical;
-
-    // Then declare each identical font file once, where no used weight can tell
-    // (player-prune.js mergeIdenticalFontFaces; decisions/2026-10-16-player-as-library-audit.md §3).
-    // Literal weights in the stylesheets count too, for the states the pass above never enters,
-    // and they come from the CSS that SHIPS, so this waits for the CSS verdict: the full deck
-    // sheet names every component's weights (hub-spoke's 560, 680…), and those would block
-    // every merge in a deck that draws no hub-spoke.
-    if (fontBlock && usedFonts) {
-      // The font block itself is not text styling: its own descriptors (Outfit's 500, 600)
-      // would count as weights for every family and block the Playfair merge.
-      const shipped = blocks
-        .filter((b) => b[0] !== fontBlock.full)
-        .map((b) => (cssOk && b[0] === target.full ? cssResult.css : b[2]))
-        .join('\n');
-      const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedFonts.weights, any: literalFontWeights(shipped), foreign: fontFaceFamilies(shipped) });
-      if (merged.applied) {
-        fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
-      }
-    }
-
-    if (!cssOk && !fontResult.applied) {
-      return { applied: false, gateFailed: cssResult.applied && !identical };
-    }
-
-    // Apply whichever prunes survived. Replacer FUNCTIONS, not strings — else a
-    // `$&`/`$1`/backtick in the CSS or a data-URI would be interpreted by replace().
-    // Re-sanitized on the way back in (HARD RULE #22): both strings have been through
-    // css-tree's parse→generate since the document guarded them, and a serializer is
-    // entitled to normalize an escape away. The document's own guard cannot cover CSS
-    // that left the document and came back, so the re-wrap owns it — and it is free,
-    // since the guard returns its input by identity for every real stylesheet.
-    let html = playerHtml;
-    if (cssOk) html = html.replace(target.full, () => `<style>${sanitizeStyleText(cssResult.css)}</style>`);
-    if (fontResult.applied) {
-      html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${sanitizeStyleText(fontResult.css)}</style>`);
-    }
-    return {
-      applied: true,
-      html,
-      gateFailed: cssResult.applied && !identical,
-      saved: cssOk ? target.css.length - cssResult.css.length : 0,
-      keptRules: cssResult.keptRules,
-      totalRules: cssResult.totalRules,
-      fontApplied: fontResult.applied,
-      fontSaved: fontResult.applied ? fontBlock.css.length - fontResult.css.length : 0,
-      fontsKept: fontResult.kept,
-      fontsTotal: fontResult.total,
-      fontsMerged: fontResult.merged || 0,
+  const { prunePlayerHtml } = require('./lib/export/player-prune.js');
+  return prunePlayerHtml(playerHtml, async (html) => {
+    const pruneOpts = {
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS],
+      headless: 'new',
     };
-  } finally {
-    await pruneBrowser.close().catch(() => {});
-  }
+    if (CHROME_EXEC) pruneOpts.executablePath = CHROME_EXEC;
+    const pruneBrowser = await puppeteer.launch(pruneOpts);
+    const close = () => pruneBrowser.close().catch(() => {});
+    try {
+      const scratch = await pruneBrowser.newPage();
+      await guard(pruneBrowser, () => scratch.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 }), 'player prune: load', RENDER_WATCHDOG_MS);
+      return { run: (probe, arg) => scratch.evaluate(probe, arg), close };
+    } catch (e) {
+      await close();
+      throw e;
+    }
+  });
 }
 
 // Rasterize every SVG `<img>`/`background-image` reference in the loaded deck
@@ -5785,16 +5588,19 @@ function attachableSource(src) {
   // read, which is the same failure this guard's own no-op regression had. Once per run.
   if (!cut.measured && md !== rawMd && !attachableMemo.size) {
     // Names the flags that are on and the format, as `strippedSlidesOrAuthored` does: an author
-    // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`.
-    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean).join(' / ');
+    // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`. The
+    // player embeds the deck too (its envelope), so `--player` is named, but never offered as a
+    // flag to drop: for the player that would be the export itself.
+    const dropable = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean);
+    const flagList = [...dropable, PLAYER && '--player'].filter(Boolean).join(' / ');
+    const advice = dropable.length ? `Drop ${dropable.join(' / ')}, or move the comment out of the list.` : 'Move the comment out of the list.';
     console.warn(
-      `  WARNING: the deck source embedded in the .${OUT_FORMAT} could not have a note or say comment `
+      `  WARNING: the deck source embedded in the ${PLAYER && !dropable.length ? 'player' : `.${OUT_FORMAT}`} could not have a note or say comment `
       + 'removed without changing the deck. This is the block-boundary case --strip-notes '
       + `reports, measured separately here because ${flagList} embeds the deck as you `
       + 'wrote it, before the Mermaid pre-render, which is not the document the slides were '
       + 'rendered from. The text is still removed from every copy; the embedded source will '
-      + `re-import with that block boundary changed. Drop ${flagList}, or move `
-      + 'the comment out of the list.'
+      + `re-import with that block boundary changed. ${advice}`
     );
   }
   const out = stripSharedSource(src, noteStripSet, cut.boundary);

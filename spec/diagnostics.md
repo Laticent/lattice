@@ -146,6 +146,8 @@ distinct, stable ID.
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
+| `bg-side-unread` | warning | — | A `![bg left]` / `![bg right]` (or a ratio) on a slide that is not `image`: only the image layout places a picture beside the text, so it fills the whole slide behind it instead. |
+| `bg-ratio-unread` | warning | — | A ratio such as `![bg left:40%]` on an `image` slide: the ratio is not read, so the slide falls back to a full-bleed background and loses its panel. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
 | `shell-fence-is-script` | info | — | A `shell` (or similar) fence holding a script; the language only colors terminal prompts, so it renders nearly plain. |

@@ -189,7 +189,7 @@ const bands = scope2
   ? await scope2.evaluate(() => {
       const digests = new Set();
       for (const svg of document.querySelectorAll('[data-lattice-figure] svg')) {
-        const baked = [...svg.querySelectorAll('style')].map((s) => s.textContent).join('').replace(/lattice-mermaid-\d+/g, 'ID');
+        const baked = [...svg.querySelectorAll('style')].map((s) => s.textContent).join('').replace(/lattice-mmd-\d+/g, 'ID');
         let h = 0;
         for (let i = 0; i < baked.length; i++) h = (h * 31 + baked.charCodeAt(i)) | 0;
         digests.add((h >>> 0).toString(16));
