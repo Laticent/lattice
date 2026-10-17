@@ -421,6 +421,22 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   So the map must bound how many posters it ever creates, not rely on releasing decoded ones.
   **Not measured:** a 2x (retina) tile at 640x360, which should land near 4x the tile-size cost,
   and any memory-pressure behavior (Linux has no iOS jetsam).
+- **A pooled virtual list of posters, measured (the owner's question, 2026-10-17).** The same 500
+  posters, shown through a fixed pool of 30 `<img>` elements re-pointed as the window scrolls
+  (fixed row pitch, overscan of 2 rows), then scrolled end to end:
+
+  | Engine | Poster size | Unbounded, all mounted | Pooled, 30 elements |
+  |---|---|---|---|
+  | Chromium 131 | 320x180 | +86 MB | +86 MB |
+  | Chromium 131 | 1280x720 | +471 MB | +465 MB |
+  | Linux WebKit | 320x180 | +258 MB | +145 MB |
+  | Linux WebKit | 1280x720 | +1,340 MB | +392 MB |
+
+  **Pooling bounds DOM nodes, layout and (critically) live frames, but it does not bound decoded
+  image memory on Chromium**, which keeps its own decode cache whatever the element count; it helps
+  WebKit by 44% to 71%. The levers for posters are therefore poster pixel size and a cap on how many
+  are ever created, with the pool as the DOM-side half. Memory also stayed put after scrolling back
+  to the top, so nothing here releases promptly. Same limits as above: Linux engines, not iOS.
 - **The two lists differ rarely but really.** Across 281 example and baseline decks, the clear
   cases where the outline's slide count differs from the rendered section count are `focus.md`
   (11 authored, 14 rendered), `split-headings.md` (heading splits) and `auto-glossary.md`
