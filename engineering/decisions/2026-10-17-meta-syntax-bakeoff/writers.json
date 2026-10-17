@@ -2,7 +2,8 @@
   "writers": [
     1,
     2,
-    3
+    3,
+    "c6"
   ],
   "candidates": {
     "C0": {
@@ -51,6 +52,14 @@
       "wrong": 0,
       "missing": 0,
       "of": 36,
+      "errors": []
+    },
+    "C6": {
+      "exact": 12,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 12,
       "errors": []
     }
   }
