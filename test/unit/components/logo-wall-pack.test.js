@@ -166,6 +166,21 @@ test('a wall that would pack its marks too small to read keeps the old grid, so 
   assert.deepEqual(planWall(many, { dense: true, captions: true }), { mode: 'fallback' });
 });
 
+test('a shape mosaico would read as 1:1 leaves the wall on the old grid', () => {
+  // A 1:20 rule planned as a square drew twenty times too tall.
+  for (const a of [0.05, 0.01, 20, 100]) assert.deepEqual(planWall([a, 1, 3], {}), { mode: 'fallback' }, String(a));
+  assert.equal(planWall([0.06, 1, 3, 4], {}).mode, 'packed');
+});
+
+test('wider than 16:9 the stage is the 16:9 content box, so a wall that fits keeps its size', () => {
+  // mobile-landscape (1560x720): the list stays 0.9 of a 16:9 width at this height.
+  for (const captions of [false, true]) {
+    const wide = planWall(new Array(8).fill(1), { captions, slideAspect: 1560 / 720 });
+    const hd = planWall(new Array(8).fill(1), { captions });
+    assert.equal(JSON.stringify(wide.itemStyles), JSON.stringify(hd.itemStyles), `captions=${captions}`);
+  }
+});
+
 test('an unknown mark leaves the whole wall on the old grid', () => {
   assert.deepEqual(planWall([3, null, 1], {}), { mode: 'fallback' });
   assert.deepEqual(planWall([], {}), { mode: 'fallback' });
