@@ -106,6 +106,14 @@ describe('marp fidelity ledger — the classification is complete', () => {
     assert.deepEqual([...rows].filter((r) => !names.has(r)), [], 'these ledger rows outlived their plugin package');
   });
 
+  // The bundle ships Mermaid's library and the runtime draws it, so the README's degrade table must
+  // never list it: a flip to `unmirrored` (or losing the hand row) would print "renders as a code
+  // block" in every bundle README again, which is false.
+  test('mermaid is drawn on a Marp render, so it never appears as a gap', () => {
+    assert.equal(LEDGER.find((e) => e.package === 'mermaid')?.coverage, 'moot');
+    assert.ok(!unmirroredEntries().some((e) => e.package === 'mermaid'));
+  });
+
   test('every entry is well formed', () => {
     for (const e of LEDGER) {
       const id = e.plugin || e.topic || e.package;
