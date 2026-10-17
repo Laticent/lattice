@@ -1,11 +1,11 @@
 ---
 status: in-progress
 summary: >
-  Pills become a shipped plugin, on by default. The plugin owns the `{LABEL, shape, c4}` notation, the reader,
+  Pills become a shipped, essential plugin. The plugin owns the `{LABEL, shape, c4}` notation, the reader,
   the drawing and every `.lat-pill` rule. No component paints its own pill: a component either has the author
   write a pill or translates its content into one through the plugin, and passes color, size and case in through
   the pill's custom properties. Fifteen components now hand-roll a pill look; they move one at a time, and a
-  `build:check` gate holds the count at zero. With the plugin off, a pill span is ordinary inline code.
+  `build:check` gate holds the count at zero. The plugin is essential: it cannot be switched off.
 ---
 
 # Pills as a plugin (2026-10-17)
@@ -20,7 +20,7 @@ Status: in progress. The owner's decisions are in §3. Nothing is built yet; §9
 `pill` stops being a host kind and becomes the `pills` plugin, beside `icons` and `avatars`. Three rules:
 
 1. **The plugin owns everything about a pill:** the `{…}` notation, the reader, the HTML and DOM drawing, the
-   styles, the docs page. It is in the default set, so a deck that lists nothing renders as it does today.
+   styles, the docs page. It is **essential**: it loads on every render and no switch turns it off (§4.5).
 2. **No component draws a pill.** A component gets a pill one of two ways: the author writes it, or the
    component translates its own content (a trailing `` `code` ``, a computed range, a counter) into a pill by
    calling the plugin. The component passes in only what it knows: a color, a size, a case. It may place the
@@ -51,8 +51,10 @@ The 15 are `roadmap`, `state-chart`, `pricing`, `redline`, `verdict-grid`, `kpi`
 ## 3. Decisions (owner, 2026-10-17)
 
 - **Full move.** `pill` is a shipped plugin's kind, not a host kind.
-- **Default-on.** It is in the default set; no deck needs a `plugins:` entry, and no existing deck changes.
-- **Off means literal.** With the plugin off, `` `{LIVE}` `` renders as ordinary inline code.
+- **Essential, never off.** (Revised the same day: the first cut said default-on, with `` `{LIVE}` `` rendering as
+  inline code when off.) A pill is too basic to disable: a code-styled `{LIVE}` in the middle of a deck breaks the
+  layout around it and the look of the slide. It loads on every render. No `plugins:` list, host narrowing or
+  `disabled` set removes it, and no deck needs a `plugins:` entry to get it.
 - **The plugin owns rendering and styling.** Components author a pill or translate into one. A component that needs
   something from a pill passes it in; it does not rebuild the pill.
 - **No hand-rolled pills, no exceptions by default.** A component that seems to need one is a gap in the plugin (rule 3).
@@ -89,13 +91,13 @@ A component reaches a pill through one call, never through CSS:
 
 ```js
 // in the component's transformer or kernel, string and DOM forms both
-const pill = service('pills', 'html', off)?.({ label: 'ON TRACK', shape: 'capsule', color: 'c3', size: 'sm' });
+const pill = service('pills', 'html')({ label: 'ON TRACK', shape: 'capsule', color: 'c3', size: 'sm' });
 ```
 
-- **With the plugin on,** the component gets `<span class="lat-pill" data-shape=… data-c=…>`.
-- **With it off,** `service()` returns `null` and the component leaves the author's text alone (a plain `code`).
-- **A component that cannot say anything without the pill** (a verdict badge, a state chip) declares
-  `plugins: { requires: ["pills"] }`. Every other component declares `optional: ["pills"]`.
+- **The call always answers.** The plugin is essential, so `service('pills', …)` never returns `null`, and a
+  component has no off branch to write or test.
+- **A component that calls it declares `plugins: { requires: ["pills"] }`** like any dependency, so the
+  dependency is visible in the manifest even though the plugin is always there.
 - **Inputs a component may pass:** `--lat-pill-edge`, `--lat-pill-bg`, `--lat-pill-ink` (color), `--lat-pill-scale`
   (size), plus the two new knobs `--lat-pill-case` and `--lat-pill-tracking` (§5). Placement properties on the
   pill's own box are allowed (`position`, `inset`, `align-self`, `flex`).
@@ -111,6 +113,16 @@ may not set a `border` or `background` on a `code`, `em`, `.badge` or pseudo-ele
 also takes a `--pill-*` token. Budget 0 once the last component moves; a measured allowlist until then, and an
 entry that goes stale fails the build, as the other allowlists do. The gate adds no CI job: it is a function in a
 checker that already runs.
+
+### 4.5 Essential plugins (the second new host capability)
+
+The manifest gains `"essential": true`, in-tree only: a zip plugin cannot set it, and the importer refuses one that
+does. `admitPlugins` (`lib/plugins/host-grammar.mjs`) admits an essential plugin first, as kind `essential`,
+whatever `defaults` holds and whatever `disabled` names. The same answer reaches every surface that reads
+admission (the engine, `bakeDeck`, the boundary parser, the runtime's `mark-off.mjs`, the Studio and Playground
+lint), so none of them can disagree. `--default-plugins` and `setPluginDefaults` cannot drop it. The Studio's
+Plugins tab shows it locked on, with the reason. `lint:deck` reports a `plugins:` entry or a host narrowing that
+names it as a no-op, not an error. `spec/LPM.md` §3.1 and `plugin.schema.json` change in the same commit.
 
 ## 5. Gaps in the plugin the 15 components expose
 
@@ -140,8 +152,9 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
   HTML and the compiled `lattice.css` pill rules are identical. `test/unit/core/inline-pills.test.js` and
   `inline-pills-edit.test.js` move with the kernel and pass unchanged. `marp-fidelity-render.test.js` still shows
   the engine and the runtime agree.
-- **Off is tested.** With `plugins: { defaults: [] }`, `` `{LIVE}` `` is `<code>{LIVE}</code>` on the engine path,
-  the runtime path, `lint:deck` (no pill diagnostics) and Compose (no pill editor).
+- **Essential is tested.** With `createEngine({ plugins: { defaults: [] } })`, with `disabled: ['pills']` and with a
+  deck whose front matter lists other plugins only, `` `{LIVE}` `` still draws a pill on the engine path and the
+  runtime path, `lint:deck` still reads it, and Compose still edits it. A zip manifest with `essential: true` is refused.
 - **Each component move carries before and after PNGs** at its gallery's worst case in light and dark, and
   `tools/pixel-check.js` output.
 - **The gate has a failing arm:** a fixture stylesheet that hand-rolls a pill makes `checkHandRolledPills` fail.
@@ -154,6 +167,8 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
   `require` works until the re-export is deleted, then fails loudly. The re-export's removal is its own commit.
 - **`lint-core` must stay pure and fs-free.** It reaches the plugin the way it reaches icons and avatars today, through
   the generated registry, not through a file read.
+- **An always-on plugin is a precedent.** Nothing else in the host is essential today. The flag is in-tree only and
+  the schema test pins that, so it cannot become a way for a third-party plugin to force itself onto a deck.
 - **Compose and autocomplete** already key on the inline-kind table; the pill row must keep its editor.
 - **Cascade order.** Moving the pill rules from tier 7 to the plugin slot changes their source position relative to
   `base.treatments`, `sketch`, `semi-universal` and `universal`. Phase 1's byte-diff of the pill rules does not catch
@@ -164,10 +179,10 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
 ## 9. Commit plan (one branch, one PR, one commit per item)
 
 1. This note.
-2. The `pills` plugin folder with the kernel and styles moved, the untagged-kind support in the schema, the
-   generator and `spec/LPM.md`, and the dispatcher row. Byte-identical output.
+2. The `pills` plugin folder with the kernel and styles moved, the untagged-kind and `essential` support in the
+   schema, the generator, `admitPlugins` and `spec/LPM.md`, and the dispatcher row. Byte-identical output.
 3. Move the ten kernel importers to the services layer; delete the re-export.
-4. The off path: literal code on every surface, with the tests in §7.
+4. Essential admission on every surface (§4.5), with the tests in §7.
 5. `docs/src/content/catalog/plugins/pills.md`, the hub entry, and the `lib/plugins/README.md` and `base.docs.md` edits.
 6. The plugin gaps from §5 that no component needs first: `--lat-pill-case`, `--lat-pill-tracking`, `--lat-pill-edge-w`,
    the `tone` axis, the `pill-tag` pass.
@@ -178,7 +193,5 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
 
 ## 10. Open
 
-- Whether `verdict-grid` and `state-chart` should `require` the plugin or list it `optional` is decided when each
-  component moves, from what its off state looks like.
 - Whether the counter pills in `redline` and `regulatory-update` keep their numbering in CSS and ask the plugin for
   only the shape is decided in that component's commit. The §5 row is the default.
