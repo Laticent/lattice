@@ -34,7 +34,7 @@
     },
     {
       "category": "note-multi-paragraph",
-      "at": "examples/gallery-jargon.md#57"
+      "at": "examples/kaizen-craftsmanship.md#1"
     },
     {
       "category": "focusSteps",
@@ -53,12 +53,10 @@
     "C0": {
       "name": "<!-- _key: value --> (control)",
       "c1_parser": {
-        "passed": 42,
-        "of": 48,
+        "passed": 47,
+        "of": 51,
         "failed": [
           "footer=\"end --> here\"",
-          "footer=\"trailing \"",
-          "footer=\" leading\"",
           "footer=\"<!-- c -->\"",
           "note#1",
           "note#5"
@@ -73,22 +71,23 @@
         "per": {
           "markdown-it": {
             "extraVisibleChars": 0,
-            "tagDelta": 0
+            "structureIntact": 1
           },
           "marked": {
             "extraVisibleChars": 0,
-            "tagDelta": 0
+            "structureIntact": 1
           },
           "commonmark": {
             "extraVisibleChars": 0,
-            "tagDelta": 0
+            "structureIntact": 1
           },
           "micromark": {
             "extraVisibleChars": 0,
-            "tagDelta": 0
+            "structureIntact": 1
           }
         },
-        "meanExtraVisibleChars": 0
+        "meanExtraVisibleChars": 0,
+        "structureIntactRate": 1
       },
       "c3_jank": {
         "placements": [
@@ -114,7 +113,7 @@
           },
           {
             "name": "in list item",
-            "ok": false
+            "ok": true
           },
           {
             "name": "in blockquote",
@@ -125,66 +124,71 @@
             "ok": true
           },
           {
-            "name": "in other fence",
+            "name": "in other fence (a later record must still read)",
             "ok": true
           }
         ],
-        "passed": 8,
+        "passed": 9,
         "of": 9,
         "doorLinePreserving": true
       },
       "c4_size": {
         "medianLines": 2,
         "medianChars": 92,
-        "totalChars": 1276
+        "totalChars": 1416
       },
       "c8_marp": {
         "passed": 12,
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 11.087376000000006,
+        "medianMs": 15.348967000000016,
         "chars": 176849
       },
-      "sideAliasedTwelve": 11,
       "sideVerbatimValues": 38,
+      "gate3_no_silent_loss": {
+        "passed": 4,
+        "of": 5,
+        "failed": [
+          "malformed field"
+        ]
+      },
       "gate1_lossless_notes": false,
       "gate2_line_preserving": true
     },
     "C1": {
       "name": "`@meta{…}`",
       "c1_parser": {
-        "passed": 48,
-        "of": 48,
+        "passed": 51,
+        "of": 51,
         "failed": []
       },
       "twelveRoundTrip": {
-        "passed": 11,
+        "passed": 12,
         "of": 12,
-        "failed": [
-          "focusSteps"
-        ]
+        "failed": []
       },
       "c2_rendering": {
         "per": {
           "markdown-it": {
-            "extraVisibleChars": 97.5,
-            "tagDelta": 2.5
+            "extraVisibleChars": 110.91666666666667,
+            "structureIntact": 1
           },
           "marked": {
-            "extraVisibleChars": 97.83333333333333,
-            "tagDelta": 2.5
+            "extraVisibleChars": 112.25,
+            "structureIntact": 1
           },
           "commonmark": {
-            "extraVisibleChars": 97.5,
-            "tagDelta": 2.5
+            "extraVisibleChars": 110.91666666666667,
+            "structureIntact": 1
           },
           "micromark": {
-            "extraVisibleChars": 97.5,
-            "tagDelta": 2.5
+            "extraVisibleChars": 110.91666666666667,
+            "structureIntact": 1
           }
         },
-        "meanExtraVisibleChars": 97.58333333333333
+        "meanExtraVisibleChars": 111.25,
+        "structureIntactRate": 1
       },
       "c3_jank": {
         "placements": [
@@ -221,7 +225,7 @@
             "ok": true
           },
           {
-            "name": "in other fence",
+            "name": "in other fence (a later record must still read)",
             "ok": true
           }
         ],
@@ -232,55 +236,58 @@
       "c4_size": {
         "medianLines": 1,
         "medianChars": 83,
-        "totalChars": 1207
+        "totalChars": 1372
       },
       "c8_marp": {
-        "passed": 11,
+        "passed": 12,
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 6.982081000000051,
-        "chars": 175937
+        "medianMs": 7.930526999999984,
+        "chars": 175941
       },
-      "sideAliasedTwelve": 12,
       "sideVerbatimValues": 35,
+      "gate3_no_silent_loss": {
+        "passed": 5,
+        "of": 5,
+        "failed": []
+      },
       "gate1_lossless_notes": true,
       "gate2_line_preserving": true
     },
     "C2": {
       "name": "@meta{…}",
       "c1_parser": {
-        "passed": 48,
-        "of": 48,
+        "passed": 51,
+        "of": 51,
         "failed": []
       },
       "twelveRoundTrip": {
-        "passed": 11,
+        "passed": 12,
         "of": 12,
-        "failed": [
-          "focusSteps"
-        ]
+        "failed": []
       },
       "c2_rendering": {
         "per": {
           "markdown-it": {
-            "extraVisibleChars": 97.33333333333333,
-            "tagDelta": 1.3333333333333333
+            "extraVisibleChars": 110.75,
+            "structureIntact": 1
           },
           "marked": {
-            "extraVisibleChars": 97.66666666666667,
-            "tagDelta": 1.3333333333333333
+            "extraVisibleChars": 112.08333333333333,
+            "structureIntact": 1
           },
           "commonmark": {
-            "extraVisibleChars": 97.33333333333333,
-            "tagDelta": 1.3333333333333333
+            "extraVisibleChars": 110.75,
+            "structureIntact": 1
           },
           "micromark": {
-            "extraVisibleChars": 97.33333333333333,
-            "tagDelta": 1.3333333333333333
+            "extraVisibleChars": 110.75,
+            "structureIntact": 1
           }
         },
-        "meanExtraVisibleChars": 97.41666666666666
+        "meanExtraVisibleChars": 111.08333333333333,
+        "structureIntactRate": 1
       },
       "c3_jank": {
         "placements": [
@@ -317,7 +324,7 @@
             "ok": true
           },
           {
-            "name": "in other fence",
+            "name": "in other fence (a later record must still read)",
             "ok": true
           }
         ],
@@ -328,26 +335,30 @@
       "c4_size": {
         "medianLines": 1,
         "medianChars": 77,
-        "totalChars": 1179
+        "totalChars": 1344
       },
       "c8_marp": {
-        "passed": 11,
+        "passed": 12,
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 7.612602000000038,
-        "chars": 170935
+        "medianMs": 7.263134000000036,
+        "chars": 170939
       },
-      "sideAliasedTwelve": 12,
       "sideVerbatimValues": 35,
+      "gate3_no_silent_loss": {
+        "passed": 5,
+        "of": 5,
+        "failed": []
+      },
       "gate1_lossless_notes": true,
       "gate2_line_preserving": true
     },
     "C3": {
       "name": "```meta fence",
       "c1_parser": {
-        "passed": 48,
-        "of": 48,
+        "passed": 51,
+        "of": 51,
         "failed": []
       },
       "twelveRoundTrip": {
@@ -358,23 +369,24 @@
       "c2_rendering": {
         "per": {
           "markdown-it": {
-            "extraVisibleChars": 89.33333333333333,
-            "tagDelta": 2.3333333333333335
+            "extraVisibleChars": 102.75,
+            "structureIntact": 1
           },
           "marked": {
-            "extraVisibleChars": 89.66666666666667,
-            "tagDelta": 2.3333333333333335
+            "extraVisibleChars": 104.08333333333333,
+            "structureIntact": 1
           },
           "commonmark": {
-            "extraVisibleChars": 89.33333333333333,
-            "tagDelta": 2.3333333333333335
+            "extraVisibleChars": 102.75,
+            "structureIntact": 1
           },
           "micromark": {
-            "extraVisibleChars": 89.33333333333333,
-            "tagDelta": 2.3333333333333335
+            "extraVisibleChars": 102.75,
+            "structureIntact": 1
           }
         },
-        "meanExtraVisibleChars": 89.41666666666666
+        "meanExtraVisibleChars": 103.08333333333333,
+        "structureIntactRate": 1
       },
       "c3_jank": {
         "placements": [
@@ -411,37 +423,41 @@
             "ok": true
           },
           {
-            "name": "in other fence",
-            "ok": true
+            "name": "in other fence (a later record must still read)",
+            "ok": false
           }
         ],
-        "passed": 9,
+        "passed": 8,
         "of": 9,
         "doorLinePreserving": true
       },
       "c4_size": {
         "medianLines": 4,
         "medianChars": 95,
-        "totalChars": 1237
+        "totalChars": 1402
       },
       "c8_marp": {
         "passed": 12,
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 8.011521000000016,
-        "chars": 184397
+        "medianMs": 8.613215000000082,
+        "chars": 184401
       },
-      "sideAliasedTwelve": 12,
       "sideVerbatimValues": 38,
+      "gate3_no_silent_loss": {
+        "passed": 3,
+        "of": 3,
+        "failed": []
+      },
       "gate1_lossless_notes": true,
       "gate2_line_preserving": true
     },
     "C4": {
       "name": "[meta]: # \"…\"",
       "c1_parser": {
-        "passed": 48,
-        "of": 48,
+        "passed": 51,
+        "of": 51,
         "failed": []
       },
       "twelveRoundTrip": {
@@ -452,23 +468,24 @@
       "c2_rendering": {
         "per": {
           "markdown-it": {
-            "extraVisibleChars": 0,
-            "tagDelta": 0
+            "extraVisibleChars": 23.125,
+            "structureIntact": 1
           },
           "marked": {
-            "extraVisibleChars": 0,
-            "tagDelta": 0
+            "extraVisibleChars": 23.375,
+            "structureIntact": 1
           },
           "commonmark": {
-            "extraVisibleChars": 0,
-            "tagDelta": 0
+            "extraVisibleChars": 23.125,
+            "structureIntact": 1
           },
           "micromark": {
-            "extraVisibleChars": 0,
-            "tagDelta": 0
+            "extraVisibleChars": 23.125,
+            "structureIntact": 1
           }
         },
-        "meanExtraVisibleChars": 0
+        "meanExtraVisibleChars": 23.1875,
+        "structureIntactRate": 1
       },
       "c3_jank": {
         "placements": [
@@ -505,7 +522,7 @@
             "ok": true
           },
           {
-            "name": "in other fence",
+            "name": "in other fence (a later record must still read)",
             "ok": true
           }
         ],
@@ -516,26 +533,30 @@
       "c4_size": {
         "medianLines": 4,
         "medianChars": 99,
-        "totalChars": 1270
+        "totalChars": 1439
       },
       "c8_marp": {
         "passed": 12,
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 10.35867200000007,
-        "chars": 189620
+        "medianMs": 10.800722000000178,
+        "chars": 189624
       },
-      "sideAliasedTwelve": 12,
       "sideVerbatimValues": 33,
+      "gate3_no_silent_loss": {
+        "passed": 3,
+        "of": 3,
+        "failed": []
+      },
       "gate1_lossless_notes": true,
       "gate2_line_preserving": true
     },
     "C5": {
       "name": "<meta …>",
       "c1_parser": {
-        "passed": 48,
-        "of": 48,
+        "passed": 51,
+        "of": 51,
         "failed": []
       },
       "twelveRoundTrip": {
@@ -546,23 +567,24 @@
       "c2_rendering": {
         "per": {
           "markdown-it": {
-            "extraVisibleChars": 25,
-            "tagDelta": 1.25
+            "extraVisibleChars": 41.729166666666664,
+            "structureIntact": 0.6875
           },
           "marked": {
-            "extraVisibleChars": 2.4166666666666665,
-            "tagDelta": 1.1666666666666667
+            "extraVisibleChars": 22.75,
+            "structureIntact": 0.6875
           },
           "commonmark": {
-            "extraVisibleChars": 25,
-            "tagDelta": 1.25
+            "extraVisibleChars": 41.729166666666664,
+            "structureIntact": 0.6875
           },
           "micromark": {
-            "extraVisibleChars": 25,
-            "tagDelta": 1.25
+            "extraVisibleChars": 41.729166666666664,
+            "structureIntact": 0.6875
           }
         },
-        "meanExtraVisibleChars": 19.354166666666668
+        "meanExtraVisibleChars": 36.984375,
+        "structureIntactRate": 0.6875
       },
       "c3_jank": {
         "placements": [
@@ -599,7 +621,7 @@
             "ok": true
           },
           {
-            "name": "in other fence",
+            "name": "in other fence (a later record must still read)",
             "ok": true
           }
         ],
@@ -610,18 +632,22 @@
       "c4_size": {
         "medianLines": 1,
         "medianChars": 84,
-        "totalChars": 1204
+        "totalChars": 1363
       },
       "c8_marp": {
         "passed": 12,
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 9.347402999999986,
-        "chars": 176621
+        "medianMs": 10.95429399999989,
+        "chars": 176625
       },
-      "sideAliasedTwelve": 12,
       "sideVerbatimValues": 30,
+      "gate3_no_silent_loss": {
+        "passed": 5,
+        "of": 5,
+        "failed": []
+      },
       "gate1_lossless_notes": true,
       "gate2_line_preserving": true
     }

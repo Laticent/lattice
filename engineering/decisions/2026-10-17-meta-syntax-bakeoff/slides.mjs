@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { typeClass } from './catalog.mjs';
+import { kebab, typeClass } from './catalog.mjs';
 
 const { replaceClosedComments } = createRequire(import.meta.url)('../../../lib/core/closed-comments.js');
 
@@ -29,7 +29,7 @@ export function splitSlides(text) {
 
 /** comments of a slide -> { records, comments, bodyWithoutComments } */
 export function canonical(slide) {
-  const slideRec = {}; const records = [slideRec]; const notes = [];
+  const slideRec = {}; const records = [slideRec]; const notes = []; let maxParas = 0;
   const body = replaceClosedComments(slide, (comment) => {
     const t = comment.slice(4, -3).trim();
     const m = t.match(/^(_?)([A-Za-z][\w-]*)\s*:\s*([\s\S]*)$/);
@@ -37,13 +37,13 @@ export function canonical(slide) {
       const [, , key, rawVal] = m; const val = rawVal.trim().replace(/^(["'])([\s\S]*)\1$/, '$2');
       if (key === 'class') Object.assign(slideRec, typeClass(val));
       else if (key === 'pane') records.push({ pane: val });
-      else slideRec[key] = val;
+      else slideRec[kebab(key)] = val;
     } else if (t === 'stress-slide') slideRec['stress-slide'] = 'yes';
-    else if (t) notes.push(...t.split(/\n\s*\n/).map((p) => p.split('\n').map((l) => l.trim()).join('\n').trim()).filter(Boolean));
+    else if (t) { maxParas = Math.max(maxParas, t.split(/\n\s*\n/).filter((x) => x.trim()).length); notes.push(...t.split(/\n\s*\n/).map((p) => p.split('\n').map((l) => l.trim()).join('\n').trim()).filter(Boolean)); }
     return '';
   });
   if (notes.length) slideRec.note = notes;
-  return { records: records.filter((r) => Object.keys(r).length), body: body.replace(/\n{3,}/g, '\n\n').trim() };
+  return { maxParas, records: records.filter((r) => Object.keys(r).length), body: body.replace(/\n{3,}/g, '\n\n').trim() };
 }
 
 const CATEGORIES = [
@@ -55,8 +55,8 @@ const CATEGORIES = [
   ['paginate', (r) => r.paginate],
   ['two-panes', (r, raw, recs) => recs.filter((x) => x.pane).length === 2],
   ['note-with-quote', (r) => r.note?.some((p) => p.includes('"'))],
-  ['note-multi-paragraph', (r) => r.note?.length >= 2],
-  ['focusSteps', (r) => r.focusSteps],
+  ['note-multi-paragraph', (_r, _raw, _recs, maxParas) => maxParas >= 2],
+  ['focusSteps', (r) => r['focus-steps']],
   ['image-bg', (r, raw) => /\bimage\b/.test(raw.class || '') && /!\[bg/.test('')],
   ['stress-slide', (r) => r['stress-slide']],
 ];
@@ -77,8 +77,8 @@ export function chooseTwelve(all = loadAll()) {
   const picked = [];
   for (const [name, test] of CATEGORIES) {
     for (const s of all) {
-      const raw = raws(s.source); const { records } = canonical(s.source); const r = records[0] || {};
-      let ok = test(r, raw, records);
+      const raw = raws(s.source); const { records, maxParas } = canonical(s.source); const r = records[0] || {};
+      let ok = test(r, raw, records, maxParas);
       if (name === 'image-bg') ok = /\bimage\b/.test(raw.class || '') && /!\[bg/.test(s.source);
       if (ok && !picked.some((p) => p.file === s.file && p.index === s.index)) { picked.push({ ...s, category: name }); break; }
     }

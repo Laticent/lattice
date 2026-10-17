@@ -8,7 +8,7 @@
 
 import { parse as segnoParse } from '../../../docs/src/lib/segno/dist/index.mjs';
 import { readDirectiveComment } from '../../../lib/core/comment-directive.mjs';
-import { classWords, typeClass } from './catalog.mjs';
+import { camel, classWords, kebab, typeClass } from './catalog.mjs';
 
 
 const DIRECTIVES = new Set(['class', 'footer', 'header', 'paginate', 'pane', 'focusSteps', 'focus', 'focusStyle', 'build', 'debug', 'lens', 'track', 'say', 'describe', 'tier', 'backgroundColor', 'color']);
@@ -20,17 +20,39 @@ const needsFence = (k, v) => k === 'note' ? v.length > 1 || v.some((p) => p.incl
 function scan(source, spec) {
   const lines = source.split('\n').map((l) => l.replace(/\r$/, ''));
   const items = []; const diagnostics = [];
-  let fence = null;
+  let fence = null; let listIndent = 0;
+  const openFence = (text, quote) => { const f = text.match(/^ {0,3}(`{3,}|~{3,})/); if (f) fence = { ch: f[1][0], len: f[1].length, quote }; return Boolean(f); };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const fm = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
     if (fence) {
-      if (fm && fm[1][0] === fence.ch && fm[1].length >= fence.len && !fm[2].trim()) fence = null;
+      const t = fence.quote ? line.replace(/^ {0,3}(>[ ]?)+/, '') : line;
+      const fm = t.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+      if (fm && fm[1][0] === fence.ch && fm[1].length >= fence.len) fence = null;
       continue;
     }
+    if (!line.trim()) continue;
+    const indent = line.match(/^ */)[0].length;
+    if (listIndent && indent >= listIndent) {
+      const body = line.slice(listIndent);
+      if (spec.starts(body.trim())) diagnostics.push({ line: i, kind: 'in-container' });
+      openFence(body, false);
+      continue;
+    }
+    listIndent = 0;
     if (/^( {4,}|\t)/.test(line)) continue;
-    const cm = line.match(/^(?: {0,3}(?:>[ ]?|[-*+] |\d+[.)] ))+(.*)$/);
-    if (cm && spec.starts(cm[1])) { diagnostics.push({ line: i, kind: 'in-container' }); continue; }
+    const lm = line.match(/^( {0,3})([-*+]|\d+[.)])( +)(.*)$/);
+    if (lm) {
+      listIndent = lm[1].length + lm[2].length + 1;
+      if (spec.starts(lm[4])) diagnostics.push({ line: i, kind: 'in-container' });
+      openFence(lm[4], false);
+      continue;
+    }
+    const qm = line.match(/^ {0,3}(?:>[ ]?)+(.*)$/);
+    if (qm) {
+      if (spec.starts(qm[1])) diagnostics.push({ line: i, kind: 'in-container' });
+      openFence(qm[1], true);
+      continue;
+    }
     const r = spec.read(lines, i);
     if (r) {
       if (r.diag) diagnostics.push({ line: i, kind: r.diag });
@@ -38,7 +60,8 @@ function scan(source, spec) {
       i = Math.max(i, r.end);
       continue;
     }
-    if (fm) fence = { ch: fm[1][0], len: fm[1].length };
+    if (spec.starts(line.trim())) { diagnostics.push({ line: i, kind: 'unreadable-record' }); continue; }
+    openFence(line, false);
   }
   return { items, diagnostics };
 }
@@ -90,19 +113,25 @@ function serializeBody(rec, { block }) {
 const metaFence = {
   starts: (t) => /^```meta\b/.test(t),
   read(lines, i) {
-    const m = lines[i].match(/^ {0,3}(`{3,})meta\s*(.*)$/);
+    const m = lines[i].match(/^ {0,3}(`{3,})meta(?:[ \t]+(.*))?$/);
     if (!m) return null;
     let j = i + 1;
-    while (j < lines.length && !(lines[j].trim().startsWith(m[1]) && /^`+\s*$/.test(lines[j].trim()))) j++;
+    const closer = new RegExp(`^ {0,3}\`{${m[1].length},}\\s*$`);
+    while (j < lines.length && !closer.test(lines[j])) j++;
     if (j >= lines.length) return { end: i, diag: 'unterminated-fence' };
     const { fields, diags } = parseBody(lines.slice(i + 1, j));
-    if (m[2]) { const w = m[2].split(/\s+/).filter(Boolean); /* info-string shorthand: layout then variants */ fields.layout ||= w[0]; if (w.length > 1) fields.variant ||= w.slice(1).join(' '); }
+    if (m[2]?.trim()) { const w = m[2].split(/\s+/).filter(Boolean); /* info-string shorthand: layout then variants */ fields.layout ||= w[0]; if (w.length > 1) fields.variant ||= w.slice(1).join(' '); }
     return { fields, end: j, diag: diags[0] };
   },
 };
 export const C3 = {
   id: 'C3', name: '```meta fence',
-  serialize: (rec) => ['```meta', ...serializeBody(rec, { block: true }), '```'].join('\n'),
+  serialize: (rec) => {
+    const body = serializeBody(rec, { block: true });
+    const run = Math.max(2, ...body.map((l) => (l.match(/^\s*(`+)/)?.[1] ?? '').length)) + 1;
+    const f = '`'.repeat(run);
+    return [`${f}meta`, ...body, f].join('\n');
+  },
   scan: (s) => scan(s, metaFence),
 };
 
@@ -146,7 +175,8 @@ function readRecord(text) {
   const fields = {}; let diag;
   for (const it of r.item.value.items) {
     if (!it.name || it.value.kind !== 'scalar' || !KEY.test(it.name)) { diag = 'bad-item'; continue; }
-    if (it.name === 'note') (fields.note ||= []).push(it.value.text); else fields[it.name] = it.value.text;
+    if (it.name === 'note') (fields.note ||= []).push(it.value.text);
+    else { if (it.name in fields) diag = 'duplicate-key'; fields[it.name] = it.value.text; }
   }
   return { fields, diag };
 }
@@ -192,12 +222,17 @@ export const C5 = {
       let text = lines[i].replace(/^ {0,3}/, ''); let j = i;
       const closed = (t) => { let inq = false; for (const ch of t) { if (ch === '"') inq = !inq; else if (ch === '>' && !inq) return true; } return false; };
       while (!closed(text)) { if (++j >= lines.length) return { end: i, diag: 'unterminated-tag' }; text += `\n${lines[j]}`; }
-      const fields = {}; let diag;
-      for (const m of text.slice(5).matchAll(/([a-zA-Z][\w-]*)\s*=\s*"([^"]*)"/g)) {
+      let inq = false; let tagEnd = -1;
+      for (let k = 0; k < text.length; k++) { const ch = text[k]; if (ch === '"') inq = !inq; else if (ch === '>' && !inq) { tagEnd = k; break; } }
+      const tag = text.slice(5, tagEnd); const fields = {}; let diag;
+      const attr = /([a-zA-Z][\w-]*)\s*=\s*"([^"]*)"/g;
+      for (const m of tag.matchAll(attr)) {
         const v = htmlUnesc(m[2]);
-        if (m[1] === 'note') fields.note = v.split('\n\n'); else fields[m[1]] = v;
+        if (m[1] === 'note') fields.note = v.split('\n\n'); else { if (m[1] in fields) diag = 'duplicate-key'; fields[m[1]] = v; }
       }
-      if (!Object.keys(fields).length) diag = 'empty-meta';
+      if (tag.replace(attr, '').trim()) diag = 'bad-attribute';
+      else if (text.slice(tagEnd + 1).trim()) diag = 'trailing-text';
+      else if (!Object.keys(fields).length) diag = 'empty-meta';
       return { fields, end: j, diag };
     },
   }),
@@ -213,7 +248,7 @@ export const C0 = {
       if (k === 'note') out.push(v.length === 1 && !v[0].includes('\n') ? `<!-- ${v[0]} -->` : `<!--\n${v.join('\n\n')}\n-->`);
       else if (k === 'stress-slide') out.push('<!-- stress-slide -->');
       else if (k === 'pane') out.push(`<!-- _pane: ${v} -->`);
-      else if (DIRECTIVES.has(k) && k !== 'class') out.push(`<!-- _${k}: ${v === '' ? '""' : v} -->`);
+      else if (DIRECTIVES.has(camel(k)) && k !== 'class') out.push(`<!-- _${camel(k)}: ${v === '' || /^\s|\s$/.test(v) ? `"${v}"` : v} -->`);
     }
     return out.join('\n');
   },
@@ -223,17 +258,17 @@ export const C0 = {
       if (!/^ {0,3}<!--/.test(lines[i])) return null;
       let text = lines[i].trim(); let j = i;
       while (!text.includes('-->')) { if (++j >= lines.length) return { end: i, diag: 'unterminated-comment' }; text += `\n${lines[j]}`; }
-      const end = text.indexOf('-->') + 3; text = text.slice(0, end);
+      const end = text.indexOf('-->') + 3; const trailing = text.slice(end).trim(); text = text.slice(0, end);
       const d = readDirectiveComment(text, { known: DIRECTIVES, flags: new Set() });
       const fields = {};
       if (d) {
-        if (d.key === 'class') Object.assign(fields, typeClass(d.value)); else fields[d.key] = d.value;
+        if (d.key === 'class') Object.assign(fields, typeClass(d.value)); else fields[kebab(d.key)] = d.value;
       } else {
         const inner = text.slice(4, -3).trim();
         if (inner === 'stress-slide') fields['stress-slide'] = 'yes';
         else if (inner) fields.note = inner.split(/\n\s*\n/).map((p) => p.split('\n').map((x) => x.trim()).join('\n').trim());
       }
-      return { fields, end: j };
+      return { fields, end: j, diag: trailing ? 'trailing-text' : undefined };
     },
   }),
 };
@@ -248,4 +283,11 @@ export function toRecords(items) {
     for (const [k, v] of Object.entries(fields)) { if (k === 'note') slide.note = [...(slide.note || []), ...v]; else slide[k] = v; }
   }
   return [...(Object.keys(slide).length ? [slide] : []), ...panes];
+}
+
+/** Keys that more than one item sets (G3: a repeated key must not be silently last-wins). */
+export function duplicateKeys(items) {
+  const seen = new Set(); const dups = [];
+  for (const { fields } of items) for (const k of Object.keys(fields)) { if (k === 'note' || k === 'pane') continue; if (seen.has(k)) dups.push(k); seen.add(k); }
+  return dups;
 }

@@ -9,7 +9,7 @@ export const LABELS = { S1: 'C3', S2: 'C0', S3: 'C5', S4: 'C1', S5: 'C4', S6: 'C
 const EXAMPLE = '(the example sets layout = content, footer = Q3 "review", and a note of two paragraphs "Open cold." and "Then pause.")';
 
 export const SHEETS = {
-  C0: `Records are HTML comments, one comment per field. The slide's layout, variants, modifiers and registers are written together in ONE comment as space-separated class words: <!-- _class: WORDS -->. Every other field is its own comment: <!-- _name: value -->. A bare word comment with no name (for example <!-- stress-slide -->) is a marker. A comment that is not a field is a speaker note; a note of several paragraphs is ONE comment with a blank line between paragraphs. The value is the rest of the comment up to -->. Surrounding double quotes on a value are removed. A pane field is <!-- _pane: value -->. Several records go on separate lines.
+  C0: `Records are HTML comments, one comment per field. The slide's layout, variants, modifiers and registers are written together in ONE comment as space-separated class words: <!-- _class: WORDS -->. Every other field is its own comment: <!-- _name: value -->. A bare word comment with no name (for example <!-- stress-slide -->) is a marker. A field name that has a hyphen in the spec is written camelCase in a comment (focus-steps is _focusSteps). A comment that is not a field is a speaker note; a note of several paragraphs is ONE comment with a blank line between paragraphs. The value is the rest of the comment up to -->. Surrounding double quotes on a value are removed. A pane field is <!-- _pane: value -->. Several records go on separate lines.
 Example ${EXAMPLE}:
 <!-- _class: content -->
 <!-- _footer: Q3 "review" -->
@@ -18,7 +18,7 @@ Open cold.
 
 Then pause.
 -->`,
-  C1: `A record is ONE line of inline code (single backticks) holding @meta{ name=value, name=value }. Names are used exactly as given. A value is written bare unless it contains a comma, =, {, }, [, ], a double quote or |, or starts or ends with a space, or is empty: then wrap it in double quotes, writing \\" for a quote and \\\\ for a backslash. A note paragraph is note="...". The line cannot hold a line break or a blank line, so fields with those go in a fenced block instead: three backticks and the word meta, one "key: value" per line, closed by three backticks; a note of several paragraphs is written "note: |" followed by each paragraph indented two spaces with a blank line between paragraphs. If a value contains a backtick, wrap the record in double backticks with a space inside each end. Several records go on separate lines.
+  C1: `A record is ONE line of inline code (single backticks) holding @meta{ name=value, name=value }. Names are used exactly as given. A value is written bare unless it contains a comma, =, {, }, [, ], a double quote or |, or starts or ends with a space, or is empty: then wrap it in double quotes, writing \\" for a quote and \\\\ for a backslash. A note paragraph is note="...". The line cannot hold a line break or a blank line, so fields with those go in a fenced block instead: three backticks and the word meta, one "key: value" per line, closed by three backticks; a note of several paragraphs is written "note: |" followed by each paragraph indented two spaces with a blank line between paragraphs. If a value contains a backtick, wrap the record in double backticks with a space inside each end. If the fenced block's content has a line starting with three backticks, open and close it with four. Several records go on separate lines.
 Example ${EXAMPLE}:
 \`@meta{layout=content, footer="Q3 \\"review\\""}\`
 \`\`\`meta
@@ -27,7 +27,7 @@ note: |
 
   Then pause.
 \`\`\``,
-  C2: `A record is ONE line holding @meta{ name=value, name=value } with no other markup around it. Names are used exactly as given. A value is written bare unless it contains a comma, =, {, }, [, ], a double quote or |, or starts or ends with a space, or is empty: then wrap it in double quotes, writing \\" for a quote and \\\\ for a backslash. A note paragraph is note="...". The line cannot hold a line break or a blank line, so fields with those go in a fenced block instead: three backticks and the word meta, one "key: value" per line, closed by three backticks; a note of several paragraphs is written "note: |" followed by each paragraph indented two spaces with a blank line between paragraphs. Several records go on separate lines.
+  C2: `A record is ONE line holding @meta{ name=value, name=value } with no other markup around it. Names are used exactly as given. A value is written bare unless it contains a comma, =, {, }, [, ], a double quote or |, or starts or ends with a space, or is empty: then wrap it in double quotes, writing \\" for a quote and \\\\ for a backslash. A note paragraph is note="...". The line cannot hold a line break or a blank line, so fields with those go in a fenced block instead: three backticks and the word meta, one "key: value" per line, closed by three backticks (four, if the content has a line starting with three backticks); a note of several paragraphs is written "note: |" followed by each paragraph indented two spaces with a blank line between paragraphs. Several records go on separate lines.
 Example ${EXAMPLE}:
 @meta{layout=content, footer="Q3 \\"review\\""}
 \`\`\`meta
@@ -36,7 +36,7 @@ note: |
 
   Then pause.
 \`\`\``,
-  C3: `A record is a fenced block: a line of three backticks and the word meta, the fields, then a line of three backticks. Inside, one "key: value" per line; the value is the rest of the line. A value that starts or ends with a space, starts with | or a double quote, or contains a line break must be written as a JSON string (double quotes, with \\" \\\\ \\n inside). A note of several paragraphs is written "note: |" followed by each paragraph indented two spaces, with a blank line between paragraphs; a note of one line is "note: text". Names are used exactly as given. Several records go in separate fences.
+  C3: `A record is a fenced block: a line of three backticks and the word meta, the fields, then a line of three backticks. Inside, one "key: value" per line; the value is the rest of the line. A value that starts or ends with a space, starts with | or a double quote, or contains a line break must be written as a JSON string (double quotes, with \\" \\\\ \\n inside). A note of several paragraphs is written "note: |" followed by each paragraph indented two spaces, with a blank line between paragraphs; a note of one line is "note: text". If the content has a line starting with three backticks, open and close the fence with four. Names are used exactly as given. Several records go in separate fences.
 Example ${EXAMPLE}:
 \`\`\`meta
 layout: content
@@ -69,6 +69,7 @@ function lines(rec, mode) {
     const cls = classWords(rec); const rest = {};
     for (const [k, v] of Object.entries(r)) if (!['layout', 'variant', 'universal', 'modifiers', 'unplaced'].includes(k) && !classWords({ [k]: v })) rest[k] = v;
     if (cls) out.push(`  class words = ${fmt(cls)}`);
+    if (rest['stress-slide']) { out.push('  marker comment = "stress-slide"'); delete rest['stress-slide']; }
     for (const [k, v] of Object.entries(rest)) out.push(...fieldLines(k, v));
   } else for (const [k, v] of Object.entries(r)) out.push(...fieldLines(k, v));
   return out;

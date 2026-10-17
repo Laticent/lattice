@@ -1,0 +1,57 @@
+{
+  "writers": [
+    1,
+    2,
+    3
+  ],
+  "candidates": {
+    "C0": {
+      "exact": 36,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 36,
+      "errors": []
+    },
+    "C1": {
+      "exact": 36,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 36,
+      "errors": []
+    },
+    "C2": {
+      "exact": 36,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 36,
+      "errors": []
+    },
+    "C3": {
+      "exact": 36,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 36,
+      "errors": []
+    },
+    "C4": {
+      "exact": 36,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 36,
+      "errors": []
+    },
+    "C5": {
+      "exact": 36,
+      "withDiagnostics": 0,
+      "wrong": 0,
+      "missing": 0,
+      "of": 36,
+      "errors": []
+    }
+  }
+}

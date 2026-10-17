@@ -1,0 +1,121 @@
+{
+  "total": {
+    "C0": 90.11615515771526,
+    "C1": 92.63230421686747,
+    "C2": 91.00125,
+    "C3": 88.9972149122807,
+    "C4": 89.09545138888889,
+    "C5": 93.04403645833334
+  },
+  "points": {
+    "1 parser pains (20)": {
+      "C0": 18.431372549019606,
+      "C1": 20,
+      "C2": 20,
+      "C3": 20,
+      "C4": 20,
+      "C5": 20
+    },
+    "2 rendering outside Lattice (15)": {
+      "C0": 15,
+      "C1": 9.99375,
+      "C2": 10.001249999999999,
+      "C3": 10.36125,
+      "C4": 13.9565625,
+      "C5": 11.460703125
+    },
+    "3 jank (15)": {
+      "C0": 15,
+      "C1": 15,
+      "C2": 15,
+      "C3": 13.333333333333332,
+      "C4": 15,
+      "C5": 15
+    },
+    "4 authoring size (10)": {
+      "C0": 6.684782608695652,
+      "C1": 9.638554216867469,
+      "C2": 10,
+      "C3": 5.302631578947368,
+      "C4": 5.138888888888888,
+      "C5": 9.583333333333332
+    },
+    "5 authoring correctness (15)": {
+      "C0": 15,
+      "C1": 15,
+      "C2": 15,
+      "C3": 15,
+      "C4": 15,
+      "C5": 15
+    },
+    "6 validation and completion (10)": {
+      "C0": 6,
+      "C1": 9,
+      "C2": 9,
+      "C3": 10,
+      "C4": 8,
+      "C5": 9
+    },
+    "7 house style and LFM fit (5)": {
+      "C0": 4,
+      "C1": 4,
+      "C2": 2,
+      "C3": 5,
+      "C4": 2,
+      "C5": 3
+    },
+    "8 Marp bridge (5)": {
+      "C0": 5,
+      "C1": 5,
+      "C2": 5,
+      "C3": 5,
+      "C4": 5,
+      "C5": 5
+    },
+    "9 speed (5)": {
+      "C0": 5,
+      "C1": 5,
+      "C2": 5,
+      "C3": 5,
+      "C4": 5,
+      "C5": 5
+    }
+  },
+  "gates": {
+    "C0": {
+      "G1 lossless notes": false,
+      "G2 line-preserving": true,
+      "G3 no silent loss": false
+    },
+    "C1": {
+      "G1 lossless notes": true,
+      "G2 line-preserving": true,
+      "G3 no silent loss": true
+    },
+    "C2": {
+      "G1 lossless notes": true,
+      "G2 line-preserving": true,
+      "G3 no silent loss": true
+    },
+    "C3": {
+      "G1 lossless notes": true,
+      "G2 line-preserving": true,
+      "G3 no silent loss": true
+    },
+    "C4": {
+      "G1 lossless notes": true,
+      "G2 line-preserving": true,
+      "G3 no silent loss": true
+    },
+    "C5": {
+      "G1 lossless notes": true,
+      "G2 line-preserving": true,
+      "G3 no silent loss": true
+    }
+  },
+  "writersGraded": [
+    1,
+    2,
+    3
+  ]
+}

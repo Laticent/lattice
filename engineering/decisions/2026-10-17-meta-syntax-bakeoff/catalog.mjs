@@ -32,7 +32,7 @@ const REGISTER_TO_TOKENS = new Map(); // `${register}:${value}` -> tokens[]
   let reg = null;
   for (const line of lines) {
     const h = line.match(/^\|\s*`([a-z][a-z-]*):`\s+value\s*\|/);
-    if (h) { reg = h[1]; continue; }
+    if (h) { reg = h[1] === 'preset' ? null : h[1]; continue; }
     if (!line.startsWith('|')) { reg = null; continue; }
     if (!reg || /^\|\s*-+/.test(line)) continue;
     const cells = line.split('|').map((c) => c.trim());
@@ -79,3 +79,7 @@ export function classWords(fields) {
   return out.join(' ');
 }
 export const stats = { components: COMPONENTS.size, registerTokens: TOKEN_TO_REGISTER.size };
+
+/** Canonical field names are kebab-case for every candidate (Segno folds names to lowercase). */
+export const kebab = (k) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+export const camel = (k) => k.replace(/-([a-z])/g, (_, m) => m.toUpperCase());

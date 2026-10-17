@@ -11,7 +11,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
-import { C0, CANDIDATES, toRecords } from './candidates.mjs';
+import { C0, CANDIDATES, duplicateKeys, toRecords } from './candidates.mjs';
 import { canonical, chooseTwelve, loadAll } from './slides.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -28,7 +28,7 @@ const slides = chooseTwelve();
 
 // ---------- criterion 1: adversarial suite ----------
 const VALUES = ['say "hi"', "it's", 'a `tick` b', 'back\\slash', 'end --> here', '<b>x</b>', 'A & B', '{braces}', '[brackets]', '(parens)', 'a, b', 'k=v', 'time: 10:30', '# hash', 'yes', 'no', 'on', 'off', 'null', '1e3', '0123', 'trailing ', ' leading', 'CJK 日本語', 'emoji \u{1F600}', 'é combining', 'nbsp here', 'x'.repeat(4000), '', 'ends with backslash\\', 'quote at end"', '"starts with quote', '| pipe', '- dash start', 'literal \\n here', '@meta{nested}', '```fence```', '[meta]: # "x"', '<!-- c -->'];
-const NOTES = [['one paragraph'], ['a "q" and `tick` and --> and {b}', 'second', 'third'], ['line1\nline2'], ['- starts with dash'], ['# starts with hash'], ['trailing '], ['日本語', 'emoji \u{1F600}'], ['x'.repeat(3000)]];
+const NOTES = [['one paragraph'], ['a "q" and `tick` and --> and {b}', 'second', 'third'], ['line1\nline2'], ['- starts with dash'], ['# starts with hash'], ['trailing '], ['日本語', 'emoji \u{1F600}'], ['x'.repeat(3000)], ['before', '```', 'after'], ['~~~ tilde fence line'], ['a ``` b']];
 const cases = [
   ...VALUES.map((v) => ({ name: `footer=${JSON.stringify(v).slice(0, 24)}`, rec: { layout: 'content', footer: v } })),
   ...NOTES.map((n, i) => ({ name: `note#${i}`, rec: { layout: 'content', note: n } })),
@@ -53,7 +53,7 @@ const placements = (c) => {
     { name: 'in list item', src: `- item\n\n${wrapAll(a, '- ', '  ')}\n`, expect: 'diag' },
     { name: 'in blockquote', src: wrapAll(a, '> ', '> '), expect: 'diag' },
     { name: 'indented four', src: wrapAll(a, '    ', '    '), expect: 'ignore' },
-    { name: 'in other fence', src: `\`\`\`js\n${a}\n\`\`\`\n`, expect: 'ignore' },
+    { name: 'in other fence (a later record must still read)', src: `\`\`\`js\n${a}\n\`\`\`\n\n${b}\n`, expect: 'read', want: [B] },
   ];
 };
 function placementScore(c) {
@@ -102,21 +102,35 @@ const visible = (html) => {
   }
   return out.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 };
-const tags = (html) => (html.match(/<[a-z][^>]*>/gi) || []).length;
+const STRUCT = /<(h[1-6]|ul|ol|li|table|img|blockquote|hr)[\s>/]/gi;
+const signature = (html) => {
+  const o = {};
+  for (const m of html.matchAll(STRUCT)) o[m[1].toLowerCase()] = (o[m[1].toLowerCase()] || 0) + 1;
+  return JSON.stringify(Object.entries(o).sort());
+};
+/** Each slide is rendered four ways: record + blank line + body; record directly above the body; directly above an image; directly after the body's first paragraph. */
 function rendering(c) {
-  const per = {};
+  const per = {}; let extraAll = 0; let nAll = 0; let intactAll = 0;
   for (const [pn, render] of Object.entries(parsers)) {
-    const extra = []; const tagDelta = [];
+    let extra = 0; let n = 0; let intact = 0;
     for (const s of slides) {
-      const base = render(s.body);
-      const withMeta = render(`${s.records.map((r) => c.serialize(r)).join('\n\n')}\n\n${s.body}`);
-      extra.push(Math.max(0, visible(withMeta).length - visible(base).length));
-      tagDelta.push(Math.abs(tags(withMeta) - tags(base)));
+      const meta = s.records.map((r) => c.serialize(r)).join('\n\n');
+      const layouts = [
+        [`${meta}\n\n${s.body}`, s.body],
+        [`${meta}\n${s.body}`, s.body],
+        [`${meta}\n![bg](x.png)\n\n${s.body}`, `![bg](x.png)\n\n${s.body}`],
+        [s.body.replace(/\n\n/, `\n${meta}\n\n`), s.body],
+      ];
+      for (const [withMeta, bare] of layouts) {
+        const a = render(bare); const b = render(withMeta);
+        extra += Math.max(0, visible(b).length - visible(a).length); n++;
+        if (signature(a) === signature(b)) intact++;
+      }
     }
-    per[pn] = { extraVisibleChars: extra.reduce((a, b) => a + b, 0) / extra.length, tagDelta: tagDelta.reduce((a, b) => a + b, 0) / tagDelta.length };
+    per[pn] = { extraVisibleChars: extra / n, structureIntact: intact / n };
+    extraAll += extra; nAll += n; intactAll += intact;
   }
-  const vals = Object.values(per);
-  return { per, meanExtraVisibleChars: vals.reduce((a, v) => a + v.extraVisibleChars, 0) / vals.length };
+  return { per, meanExtraVisibleChars: extraAll / nAll, structureIntactRate: intactAll / nAll };
 }
 
 // ---------- criterion 4: size ----------
@@ -148,19 +162,33 @@ function speed(c) {
   return { medianMs: median(t), chars: doc.length };
 }
 
-/** Side measurement, NOT scored: Segno folds names to lowercase, so camelCase keys need a kebab alias. */
-const kebab = (k) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-const camel = (k) => k.replace(/-([a-z])/g, (_, m) => m.toUpperCase());
-const KEBAB_KEYS = new Set(['focusSteps', 'focusStyle', 'backgroundColor']);
-const mapKeys = (rec, f) => Object.fromEntries(Object.entries(rec).map(([k, v]) => [f(k), v]));
-const aliased = (c) => slides.filter((s) => {
-  const text = s.records.map((r) => c.serialize(mapKeys(r, (k) => (KEBAB_KEYS.has(k) ? kebab(k) : k)))).join('\n\n');
-  const back = toRecords(c.scan(text).items).map((r) => mapKeys(r, (k) => (KEBAB_KEYS.has(camel(k)) ? camel(k) : k)));
-  return same(back, s.records);
-}).length;
-
 /** Side measurement, NOT scored: how many of the 39 single-line values appear verbatim in the serialized record (no escaping needed). */
 const verbatim = (c) => VALUES.filter((v) => v !== '' && !v.includes('\n')).filter((v) => c.serialize({ layout: 'content', footer: v }).includes(v)).length;
+
+// ---------- gate G3: no silent loss ----------
+const recA = { footer: 'Q3' }; const recB = { header: 'H' };
+const bad = {
+  C0: { malformed: '<!-- _footer Q3 -->', dup: '<!-- _footer: a -->\n<!-- _footer: b -->', trailing: '<!-- _footer: a --> trailing' },
+  C1: { malformed: '`@meta{layout=content, footer}`', dup: '`@meta{footer=a, footer=b}`', trailing: '`@meta{footer=a}` trailing' },
+  C2: { malformed: '@meta{layout=content, footer}', dup: '@meta{footer=a, footer=b}', trailing: '@meta{footer=a} trailing' },
+  C3: { malformed: '```meta\nfooter Q3\n```', dup: '```meta\nfooter: a\nfooter: b\n```', trailing: null },
+  C4: { malformed: '[meta]: # "\nfooter Q3\n"', dup: '[meta]: # "\nfooter: a\nfooter: b\n"', trailing: null },
+  C5: { malformed: '<meta footer=a>', dup: '<meta footer="a" footer="b">', trailing: '<meta footer="a"> trailing' },
+};
+function gate3(c) {
+  const probes = [];
+  const exactOrDiag = (name, src, want) => {
+    const r = c.scan(src); const recs = toRecords(r.items);
+    probes.push({ name, ok: (want && same(recs, want)) || r.diagnostics.length > 0 || duplicateKeys(r.items).length > 0 });
+  };
+  exactOrDiag('unterminated record', `${c.serialize(recA).slice(0, -1)}\n\nBody\n`);
+  const a1 = c.serialize(recA); const b1 = c.serialize(recB);
+  if (!a1.includes('\n') && !b1.includes('\n')) exactOrDiag('two records on one line', `${a1} ${b1}\n`, [{ ...recA, ...recB }]);
+  exactOrDiag('malformed field', `${bad[c.id].malformed}\n`);
+  exactOrDiag('duplicate key', `${bad[c.id].dup}\n`);
+  if (bad[c.id].trailing) exactOrDiag('text after the record on the same line', `${bad[c.id].trailing}\n`);
+  return { passed: probes.filter((p) => p.ok).length, of: probes.length, failed: probes.filter((p) => !p.ok).map((p) => p.name) };
+}
 
 const results = { slides: slides.map((s) => ({ category: s.category, at: `${s.file}#${s.index}` })), candidates: {} };
 for (const c of CANDIDATES) {
@@ -178,13 +206,13 @@ for (const c of CANDIDATES) {
     c4_size: size(c),
     c8_marp: marp(c),
     c9_speed: speed(c),
-    sideAliasedTwelve: aliased(c),
     sideVerbatimValues: verbatim(c),
+    gate3_no_silent_loss: gate3(c),
     gate1_lossless_notes: roundTrip(c, G1),
     gate2_line_preserving: doorOk(c),
   };
 }
 writeFileSync(path.join(HERE, 'results.json'), `${JSON.stringify(results, null, 2)}\n`);
 for (const [id, r] of Object.entries(results.candidates)) {
-  console.log(id, r.name.padEnd(30), 'c1', `${r.c1_parser.passed}/${r.c1_parser.of}`, '12rt', `${r.twelveRoundTrip.passed}/12`, 'c2 vis', r.c2_rendering.meanExtraVisibleChars.toFixed(1), 'c3', `${r.c3_jank.passed}/${r.c3_jank.of}`, 'lines', r.c4_size.medianLines, 'chars', r.c4_size.medianChars, 'marp', `${r.c8_marp.passed}/12`, 'ms', r.c9_speed.medianMs.toFixed(2), 'G1', r.gate1_lossless_notes, 'G2', r.gate2_line_preserving);
+  console.log(id, r.name.padEnd(30), 'c1', `${r.c1_parser.passed}/${r.c1_parser.of}`, '12rt', `${r.twelveRoundTrip.passed}/12`, 'c2 vis', r.c2_rendering.meanExtraVisibleChars.toFixed(1), 'intact', r.c2_rendering.structureIntactRate.toFixed(2), 'G3', `${r.gate3_no_silent_loss.passed}/${r.gate3_no_silent_loss.of}`, 'c3', `${r.c3_jank.passed}/${r.c3_jank.of}`, 'lines', r.c4_size.medianLines, 'chars', r.c4_size.medianChars, 'marp', `${r.c8_marp.passed}/12`, 'ms', r.c9_speed.medianMs.toFixed(2), 'G1', r.gate1_lossless_notes, 'G2', r.gate2_line_preserving);
 }
