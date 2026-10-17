@@ -223,6 +223,15 @@ describe('bg-image — liftImageBgImages carries a class run to later slides', (
     assert.match(out, /lattice-bg-left[^>]*a\.svg/);
     assert.match(out, /!\[bg left\]\(b\.svg\)/, 'and, as a spot class, stays on its slide');
   });
+  test('a `<!--` in the middle of prose is text: the slides after it still split', () => {
+    const out = lifted('# s1\n\nUse <!-- to open a comment.\n\n---\n\n![bg left](a.svg)\n\n---\n\n<!-- _class: image -->\n\n![bg left](b.svg)\n');
+    assert.match(out, /!\[bg left\]\(a\.svg\)/, 'the slide that is not image keeps its background');
+    assert.match(out, /lattice-bg-left[^>]*b\.svg/);
+  });
+  test('a directive inside an open comment is part of the comment, as the engine reads it', () => {
+    assert.match(lifted('# s1\n\n<!-- unclosed\n\n---\n\n<!-- _class: image -->\n\n![bg left](b.svg)\n'), /!\[bg left\]\(b\.svg\)/);
+    assert.match(lifted('<!--\nnote\n--> text <!-- _class: image -->\n\n![bg left](a.svg)\n'), /!\[bg left\]\(a\.svg\)/);
+  });
   test('a `---` inside an open comment is not a slide break', () => {
     const out = lifted('<!-- _class: image\n---\n-->\n\n![bg left](a.svg)\n');
     assert.match(out, /lattice-bg-left[^>]*a\.svg/);

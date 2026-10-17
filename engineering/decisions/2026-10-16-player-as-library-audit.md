@@ -849,8 +849,10 @@ defects where they met:
 - The resolver checked only that a path existed, so a folder named `x.png` also leaked its path. It
   now requires a regular file.
 - `liftImageBgImages` read a class directive one line at a time and missed
-  `<!--\n_class: image\n-->`, which the engine applies. An open comment now runs to its `-->`, and a
-  `---` inside it is not a slide break.
+  `<!--\n_class: image\n-->`, which the engine applies. A comment that opens a line and stays open
+  now runs to its first `-->`, as markdown-it's HTML block does: a `---` inside it is not a slide
+  break, and only a directive that opens it counts. A `<!--` in the middle of prose is text, as it
+  is to the engine (the checker's second pass caught the first cut hiding later slide breaks).
 - main seeded the lift from a front-matter `class:` line, including one that never closed. The
   deck-class register (`lib/core/deck-class-register.js`) refuses a component name such as `image`
   as a deck class, so the engine rendered those slides `content form` and the lift drew an empty
