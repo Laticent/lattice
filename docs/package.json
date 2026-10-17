@@ -17,6 +17,7 @@
     "check:vetrina": "tsc -p tsconfig.vetrina.json",
     "check:fuoco": "tsc -p tsconfig.fuoco.json",
     "check:lente": "tsc -p tsconfig.lente.json",
+    "check:mosaico": "tsc -p tsconfig.mosaico.json",
     "check:segno": "tsc -p tsconfig.segno.json",
     "test": "vitest run",
     "test:watch": "vitest",

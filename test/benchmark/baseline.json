@@ -207,6 +207,36 @@
       "ms": 700.33
     }
   },
+  "collageDatasets": {
+    "collage pack · 4 photos, free": {
+      "photos": 4,
+      "arrangements": 52,
+      "scored": 5,
+      "ms": 0.25,
+      "p95": 0.4
+    },
+    "collage pack · 5 photos, free": {
+      "photos": 5,
+      "arrangements": 472,
+      "scored": 13,
+      "ms": 0.79,
+      "p95": 1.57
+    },
+    "collage pack · 6 photos, free": {
+      "photos": 6,
+      "arrangements": 5484,
+      "scored": 1114,
+      "ms": 10.51,
+      "p95": 13.51
+    },
+    "collage pack · 6 photos, ordered": {
+      "photos": 6,
+      "arrangements": 394,
+      "scored": 62,
+      "ms": 0.52,
+      "p95": 1.39
+    }
+  },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4946,

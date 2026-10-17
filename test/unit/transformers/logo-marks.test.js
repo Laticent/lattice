@@ -55,3 +55,33 @@ describe('logo-marks — applyToHtml', () => {
     assert.match(out, /<span class="logo-mark" role="img" style=/);
   });
 });
+
+describe('logo-marks — the live stamp packs the same lists the CLI stamp does', () => {
+  const { JSDOM } = require('jsdom');
+  const { stampWall } = require('../../../lib/core/logo-wall-pack');
+  // A mark as a data: SVG mask, which both paths read without a fetch.
+  const mark = (w, h) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"/>`;
+    return `<li><span class="logo-mark" role="img" style="--logo-mask:url('data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}')"></span></li>`;
+  };
+  const list = `<ul>${mark(240, 80)}${mark(80, 80)}${mark(80, 160)}${mark(320, 80)}</ul>`;
+  const section = (lede) => `<section class="logo-wall"><h2>Trusted by</h2><div class="cell-stage">${lede}${list}</div></section>`;
+  const live = async (html) => {
+    const { document } = new JSDOM(`<body>${html}</body>`).window;
+    t.applyToDom(document);
+    await new Promise((r) => setTimeout(r, 50));
+    return document.querySelector('.cell-stage > ul').getAttribute('data-logo-wall');
+  };
+  const cli = (html) => /<ul[^>]*data-logo-wall="([^"]*)"/.exec(stampWall(html))?.[1] ?? null;
+
+  test('a list that opens the stage is packed on both paths', async () => {
+    assert.equal(cli(section('')), 'packed');
+    assert.equal(await live(section('')), 'packed');
+  });
+
+  test('a list after a lede paragraph keeps the old grid on both paths', async () => {
+    const html = section('<p>Forty partners trust the platform.</p>');
+    assert.equal(cli(html), null);
+    assert.equal(await live(html), null);
+  });
+});

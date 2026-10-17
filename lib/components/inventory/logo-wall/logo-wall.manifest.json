@@ -69,6 +69,10 @@
     {
       "title": "Eight to eighteen marks",
       "body": "Enough to signal breadth, few enough that each is legible. Fewer than six looks thin; past eighteen the marks shrink below recognition — curate to the most recognizable names or split across two slides."
+    },
+    {
+      "title": "Marks of mixed shapes",
+      "body": "Marks share one area, kept between the smallest and largest of their old areas, and no mark stands taller than the old row: beside a 1:2 crest, wordmarks come down to a square badge's area and the crest keeps its own, 2× apart (a 4:1 wordmark used to get 2.7× the crest's area, a 3:1 wordmark 3.6×). A wall that fit before still fits; rows are balanced and centered (ten marks break 4/3/3). A wall of one shape keeps its old size. The wall sizes from SVG marks (a local file, `sample:` or a `data:` SVG); a raster or remote mark keeps the equal-cell grid. Demo deck: `examples/logo-wall-equal-weight.md`."
     }
   ],
   "antiPatterns": [
@@ -127,6 +131,14 @@
     {
       "mistake": "Placing the eyebrow paragraph after the headline instead of before it.",
       "fix": "The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker."
+    },
+    {
+      "mistake": "An SVG mark whose viewBox carries empty margin around the logo.",
+      "fix": "Equal weight is measured on the mark's box, not its ink, so the margin counts as mark and the logo draws smaller than its neighbors. Crop each SVG's `viewBox` to its ink."
+    },
+    {
+      "mistake": "Packing more marks than the slide can hold at a readable size.",
+      "fix": "A wall that would fit only with marks too small to read keeps the equal-cell grid, and the export flags its overflow. Split the roster across two slides, or drop the captions."
     }
   ],
   "variantDecisionRule": [

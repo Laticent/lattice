@@ -1,12 +1,14 @@
 ---
-status: proposed
+status: in-progress
 summary: Design for mosaico, a general box-packing library grown out of the collage packer. Each item is a size rule (fixed shape, a shape range, one-axis stretch, a flexible pane, or not-yet-measured), the container may be fully known, width-only, shape-only or not laid out, and three strategies (tree, rows, template) serve three goals (fill, equal visual weight, equal size). Proves the exact-gutter math still holds when items have ranges instead of one shape, measures today's packer (92-113 ms at six photos, half of it in one function), maps six Lattice surfaces onto it, and records the owner's eight decisions.
 ---
 
 # mosaico: a box-packing library grown from the collage packer (2026-10-16)
 
-**Status: proposed.** The owner settled all eight forks on 2026-10-16 (§9). Nothing is built. Slice 1 (§8) is
-the first code.
+**Status: in progress.** The owner settled all eight forks on 2026-10-16 (§9). Slice 1 (§8) is built:
+`@laticent/mosaico` exists with `tree` + `fill` for fixed shapes, and `collage` runs on it (§8.1).
+Slice 3 is built too: `rows` + `equal-weight`, and `logo-wall` runs on it (§8.2). Slice 2 (range items,
+`template`, panes) is next.
 
 ## 1. The answer first
 
@@ -257,6 +259,211 @@ Each slice ships on its own, with its own gates.
 5. **v2:** height-depends-on-width items, then `team-profile`.
 6. **Later:** the pinwheel and named mosaic templates; several images on a plain slide after #2727.
 7. **Publish to npm**, after slice 3 (§9, decision 8). The owner triggers the release.
+
+### 8.1 Slice 1, as built (2026-10-16)
+
+**API.** `pack(items, container, options)` returns `{ ok: true, rects, aspect, empty, crop, ratio, score,
+arrangement, gap, work }` or `{ ok: false, reason }` with reason `empty`, `too-many` or `no-valid-layout`.
+An item is a number or `{ aspect }`; the container is `{ aspect }`. `toGrid(result)` is the CSS grid adapter.
+Options: `order`, `fit`, `stretch`, `gap`, `hero`, `weights` (`empty`, `smallTile`, `smallTileFloor`, `hero`).
+The collage's bleed tuning is a `weights` override it passes in, not a library mode. `rects` are in layout
+units (the layout is 1 tall), not container units as §4.6 sketched: slice 1 has only the shape of the
+container, and the grid adapter is what fits the real box. Container units arrive with the width-and-height
+container.
+
+**Where Lattice's side lives.** `lib/core/collage-pack.js` moved to
+`lib/components/imagery/collage/collage.pack.js` and now holds only what is Lattice's: `STAGE_ASPECT`,
+`DEFAULT_GAP`, `FILL_MAX`, the bleed weights, the even-grid fallback and the result shape the transform
+emits. The one-photo case keeps its old shortcut (`crop: 0` even under `fill`) so the output stays the same.
+
+**Byte-identical gate.** `test/fixtures/collage-golden/` holds an FNV-1a hash of `packCollage`'s output for
+4,128 cases: 240 seeded random sets of 0 to 7 photos, 12 sets of repeated shapes and 6 sets on a rounding
+boundary, each in 16 variants (order × fit × hero × bleed), captured from the packer at 69b521f. All 4,128
+match. Mutations of the built library show the gate can fail: dropping the tile-balance term from the dedupe
+changes 114 cases, reversing the tie-break 55 (only the repeated-shape sets reach it; with random sets alone it
+changed none), over-pruning the lower bound by 1e-3 changes 10, and never building mirrors changes 16 (only the
+boundary sets reach it).
+
+**The checker's find.** The first cut skipped every mirror, on the claim that a mirror always repeats a key
+already seen. The independent checker refuted it: a mirror computes its tile areas along a different chain of
+additions, so they can differ in the last bits, and where a rounded key term sits exactly on a .5 boundary the
+mirror gets a different key. 3:2 beside 16:9 balances at exactly 8437.5, so `packCollage([1.5, 16/9])` swapped
+the two photos. It changed 480 of 37,800 two-photo and 1,807 of 567,000 three-photo cases against the old
+packer, and the first golden passed because no case reached a boundary. The boundary sets are in the golden
+now, and the rule below replaced the skip.
+
+**What made it fast.** Three changes, each checked against the old packer directly as well as by the gate:
+every two- and three-photo case over 15 common shapes and 7 stages (604,800 cases), 4,608 four- and five-photo
+sets around the boundary pair, 1,500 random four- to six-photo sets and 81,808 edge cases (gutters from 0 to
+`Number.MAX_VALUE`, odd heroes and stages) all return the same bytes.
+
+- **Mirrors only near a rounding boundary.** In free order the subset loop visited every split twice. The
+  first pass now takes only the splits holding the subset's top item, computes each candidate's two key terms
+  before rounding, and queues the mirror of any candidate whose term lies within 1e-5 of a .5 boundary
+  (measured error between a node and its mirror: about 1e-12 of a term). The queued mirrors are offered
+  afterwards in the order the subset loop met them, so the dedupe keeps exactly the nodes it always kept. A
+  gutter as tall as the box (`gap ≥ 1`) breaks that error bound, so there every mirror is queued: the old
+  search, at the old cost.
+- **Packed keys, no allocation for a dropped candidate.** Keys are packed integers (with the old string as
+  the fallback outside their range), and a node is allocated only when kept. In `ordered` mode, which has no
+  mirrors, the tile-balance walk runs only when a second node shares an outline.
+- **Bounds before work at the root.** `W.empty·empty + crop` is a lower bound on the score, known before any
+  layout; the full score is a lower bound before the two track passes. A root that loses on either bound by
+  more than 4e-12 is skipped. At six free photos 1,114 of 5,484 roots are laid out, and about 12 reach the
+  track check. The bound holds only for non-negative weights, so `pack` refuses a negative one.
+
+`ordered` visits only contiguous runs, which is the interval DP §3 proposed with the split order kept.
+
+**Measured.** `node` 22 on the 4-core sandbox, one harness for both columns: 10 warm-ups, then 40 timed
+runs of `packCollage` with the §3 aspects, the landscape `beside` stage, the default gap and `fit: tight`
+(`fill` reads the same). Before is the 69b521f packer. Median / p95, in ms:
+
+| Photos | Free, before | Free, after | Ordered, before | Ordered, after |
+|---|---|---|---|---|
+| 4 | 0.76 / 1.24 | 0.20 / 0.58 | 0.12 / 0.27 | 0.04 / 0.22 |
+| 5 | 4.14 / 6.60 | 0.94 / 1.50 | 0.61 / 1.04 | 0.11 / 0.29 |
+| 6 | 58.0 / 95.9 | 9.1 / 12.6 | 3.31 / 3.68 | 0.37 / 0.73 |
+
+The §4.5 budget (one re-pack ≤16 ms for `tree` at six items) holds at the median and at p95. §3's 92-113 ms
+for the same packer came from a different harness (a mean of five runs after one warm-up), so compare within
+this table, not across. The bench tier `collage pack` (`test/benchmark/engine-bench.mjs`) gates on the
+deterministic work counts and prints the milliseconds.
+
+**Compared on the same machine** (median ms / p95 ms, 1.41 container, gap 0.012 for mosaico):
+
+| Items | mosaico free | mosaico ordered | diorama 2.0.18 `findSolution` | justified-layout 4.1.0 |
+|---|---|---|---|---|
+| 4 | 0.21 / 0.46 | 0.04 / 0.27 | 0.13 / 0.59 | 0.01 / 0.02 |
+| 5 | 0.86 / 1.55 | 0.08 / 0.21 | 0.16 / 0.52 | 0.01 / 0.04 |
+| 6 | 8.19 / 12.11 | 0.39 / 0.58 | 0.43 / 0.98 | 0.01 / 0.02 |
+| 40 | — | — | — | 0.05 / 0.11 |
+
+Read it as three different jobs. Below ten pictures diorama enumerates only ordered trees, with no gutters
+and no dedupe, so its row compares with mosaico's ordered column, where the two are level. mosaico's free
+column searches every order, which diorama does not attempt. justified-layout solves rows, the job slice 3's
+`rows` strategy takes, and its speed is the bar that strategy should meet. diorama's current release (2.0.21)
+ships an empty worker file and cannot run; 2.0.18 is the last release that does.
+
+### 8.2 Slice 3, as built (2026-10-16)
+
+Built before slice 2 because `rows` needs only fixed shapes and `logo-wall` is the second user the npm
+release waits for.
+
+**The strategy** (`docs/src/lib/mosaico/rows.ts`). Units are fractions of the container's width. Each item
+sits in a cell at least `minCell` wide and centered in it; a row holds at most `maxPerRow` cells. The area is
+the largest at which an item of aspect max(narrowest, `aspectFloor`) stands exactly at `heightCap`, never more
+than a square at the cap, unless the host passes its own `area` (clamped at 1 / narrowest, above which a
+larger area changes nothing); narrower items stand at the cap with less area. If the rows exceed `maxRows` or
+`maxHeight`, the cap falls toward `minHeightCap` with the area held, then the area falls, both by bisection.
+Every answer fits (a value is kept only after it passes); it is the largest fitting one when fitting is
+monotone, which holds for the row count but not strictly for the height, because the most even breaks can
+regroup rows as cells shrink. A layout that fits only at zero area is refused. Breaks: dynamic programming, fewest
+rows then least squared slack, ties to the earliest break. Forty items: 0.7 ms median, 1.0 ms p95.
+
+**How §4.3's rule became numbers for the logo wall** (`lib/core/logo-wall-pack.js`).
+The planner passes mosaico the area, not a formula for it. The old wall drew each mark `contain` in a
+column-wide cell under the band, so each mark had an old area; the shared area is kept inside the range of
+those old areas. Inside the range it is two squares at the band, halved per halving of the narrowest shape
+down to 1:2. A wall of one shape therefore draws every mark exactly as before, on every canvas, in every
+variant. `minCell` is the old column width, `maxRows` the old row count.
+
+**No mark stands taller than the band.** A first cut let the cap rise to band × √2 when the stage estimate
+said there was room, so a crest beside wordmarks reached the area of a square at the band. The estimate
+cannot see the heading: the fourth checker round wrapped a heading to two lines and a mixed wall that fits on
+`main` overflowed (+1.5 px at 16:9, +113 px on a story slide). Nothing bounds a heading's length, so the only
+height the plan can spend safely is the height the old wall spent. Holding every mark to the band keeps every
+row at most the old row's height, so a wall that fit before fits after, whatever its heading does. The owner
+chose this over keeping 1.00× with a reserve for one wrapped line (2026-10-17). The cost is equality with a
+tall mark in the set: a crest stops at the band with half the others' area, a 2.0× spread against 3.6× before.
+The shared area stays between the smallest and largest of the marks' old areas, so a mark can still move
+either way inside that range: a mark whose old area was above two squares at the band comes down (a 2.3:1
+mark beside 6:1 strips to 0.87 of its old area), and a thin wide mark grows toward it (that 6:1 strip to
+2.25×, still within the band). A square beside 3:1 wordmarks keeps its old size and the wordmarks keep theirs
+(1.79×, as on `main`); only a wall of one shape is guaranteed to draw exactly as before.
+
+**Rows stand band-tall when the wall fits.** A packed row first stood at its tallest mark, which moved the rows of
+every shipped wall closer together (the fifth checker round measured 8k to 214k changed pixels per wall at the same
+mark sizes). Now a wall whose band-tall rows fit its stage stamps each mark padded to the band, so its rows sit
+where the old rows did; only a wall that must shrink to fit stands each row at its tallest mark. The same
+round found the live preview packing a wall whose list follows a lede paragraph, which the CLI leaves on the old
+grid; both now pack only a list that opens the stage.
+
+The gaps are the old wall's, which are spacing tokens (`--sp-2xl`, `--sp-xl`) times the deck's
+`--canvas-scale`: 1 on a landscape slide, 1.65 square, 1.95 to 2.29 tall. The engine, the live runtime and
+the planner now read that scale from one function, `canvasScaleFor` in `lib/adaptive/families.js`; before,
+the engine and the runtime each carried a copy of the formula. The universal `compact` modifier redefines the
+spacing scale at 0.75 of the 16:9 tokens without the canvas scale, so its gaps are the same fraction of the
+list on every canvas.
+
+Two earlier cuts got this wrong, and the checker caught both. The first anchored the area at band × √2 for
+every wall (an `areaCap` option, since replaced by `area`), which doubled a wall of squares and took a third
+off a 3:1 wall on tall and strip canvases, `examples/adaptive-sweep.md` among them. The second used one gap per
+family for every canvas, so square canvases planned narrower gaps than they drew.
+
+**The sweeps that pin it**, each rendered with the CLI on the base (`69b521f`) and on this branch, every drawn
+mark measured. Canvases: every size the CLI offers (hd, 4K, standard, square, portrait, story, mobile,
+mobile-landscape).
+
+- *One shape:* four walls (3:1, 4:1, 1:1, 1:2) × eight variants (plain, dense, compact, dense compact,
+  captioned with 8 and 12 marks, captioned compact, captioned dense), 256 walls. All 228 that fit on the base
+  draw every mark within 0.5% of its old area. Of the 28 that overflowed, 10 now fit and 18 fall below the
+  legibility floor and keep the old grid, drawn and flagged as before. None newly overflows.
+- *Mixed shapes, short and long headings:* four sets (4:1/1:1/1:2/3:1, 3:1/1:1, 1:1/1:2, 3:1/1:2) × six
+  variants × a one-line and a three-line heading, 384 walls. None newly overflows, none overflows further, and
+  no mark stands taller than the base's tallest. With a crest in the set the median spread falls from 3.57× to
+  2.00×; 3:1 beside 1:1 stays at 1.79×.
+- *Shipped decks:* the six with a `logo-wall` slide (14 walls), compared as screenshots of each wall at
+  the deck's own size. Every row and mark sits where it did and draws at its old size; what remains is edge
+  anti-aliasing from rounded paddings (marks 0.03 to 0.1 px apart), about 0.1% of a wall's pixels.
+
+The fourth round also found that a slide wider than 16:9 (mobile-landscape) shrank captioned walls, because
+the planner converted the stage with the slide's own aspect while the engine keeps a 16:9 content box there,
+and that a mark outside mosaico's 1:20 to 20:1 range, which mosaico reads as 1:1, drew twenty times too tall.
+The planner now reads the stage at 16:9 above it, and such a mark leaves the wall on the old grid.
+
+**A pre-existing overflow, fixed on the way.** The old wall did not fit three rows under an eyebrow: 439 px
+of wall in a 400 px stage at 1280×720, on `main` too. On this PR's path, so fixed here (#18): a packed row is
+as tall as its tallest mark (the CSS drops the band `min-height`), and the plan fits a stage estimated from the
+slide's shape: the stage's measured share of the slide height at each canvas (0.608 at 16:9 up to 0.85 at
+mobile, interpolated by aspect) less 0.06 for an eyebrow, and captions at their measured share of the slide's
+short side per canvas (0.059 to 0.101, measured from the mark's foot to the item's foot). A captioned wall's
+rows never stand taller than the old wall's, so the caption estimate only decides how far a wall that would
+overflow shrinks. A safety margin on it only shrank walls that fit, so there is none.
+
+**The checker's second round** (on the uncommitted slice) found the first cut of this wall unfit to ship, and
+every finding was fixed before commit:
+
+- *Overloaded walls shrank to dots and lost the overflow flag.* A 24-mark captioned dense wall packed to 5 px
+  marks, silently. Now a wall that would pack below 0.35 of a square at the band keeps the old grid, whose
+  overflow the export flags as before.
+- *Tall and strip decks.* The plan assumed the `--sp-*` gaps scale with the list's width; on a mobile deck the
+  row gap is 3× what it budgeted, which made a new overflow. A packed wall now stamps both gaps and the CSS
+  reads them in `cqi` of the stage, so the plan's spacing is the drawn spacing on every canvas.
+- *CLI and preview disagreed* on raster and remote marks (the preview packed them, the CLI could not). The
+  preview now reads only what the CLI can: an inline or data: SVG, or a same-origin SVG URL.
+- *A hidden section planned as 16:9.* The preview now reads the slide's shape from its computed size.
+- Smaller: `rows` returned `ok` for zero-area layouts; a list's own style was overwritten (preview) or the
+  list skipped (CLI); rounding could push an exactly full row past the width (values now round down).
+
+Checked against the old tree on seven canvases (hd, 4K, standard, square, portrait, story, mobile) with the
+checker's edge decks: no slide that rendered cleanly now overflows; walls that overflowed before and now pack
+(three crest rows under an eyebrow at hd and 4K, twenty marks at square and mobile) fit; the rest fall back
+to the old grid and overflow exactly as before.
+
+**Rendering.** The CSS reads stamped fractions of the list's width: a percentage width, padding and column
+gap all resolve against it. The first and last cells of a row carry the row's leftover width as inline
+padding, which centers the row and fills the line, so the browser breaks exactly where the plan does. Each
+mark is padded to its row's height (mask and inline SVG draw in the content box), so captions line up.
+
+**Both paths.** The CLI stamps after `lattice.js` inlines each mark's SVG, reading the aspect from the inline
+`<svg>` (the shared `aspectFromSvgTag`); the live preview (`logo-marks.js` `applyToDom`) fetches same-origin
+SVG marks and parses them with the same function, and stamps once, with a 4 s cap like the collage's. In a
+served page running the real `dist/lattice-runtime.js`, the live stamp matched the CLI's for all 10 marks of a
+two-wall deck, and `docs/e2e/logo-wall-equal-weight.spec.ts` drives the real Studio (desktop, mobile and
+WebKit phone): four mixed marks draw within 3% of one area, in one row.
+
+**Measured on a CLI render at 1280×720** (drawn SVG boxes): a 4:1, 1:1, 1:2 and 3:1 mark went from 3.57×
+max/min area to 1.00× (default) and from 2.75× to 1.00× (`dense`, six marks).
 
 ## 9. Decisions
 

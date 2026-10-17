@@ -2079,6 +2079,7 @@ const globalStyle = packAuthorCss(readGlobalStyle(fm));
 const bgImage            = require('./lib/core/bg-image');
 const imageDimensions    = require('./lib/core/image-dimensions');
 const collageStamp       = require('./lib/core/collage-stamp');
+const logoWallPack       = require('./lib/core/logo-wall-pack');
 
 // ── P2: the markdown→slide engine (lib/engine) is the emulator's parser ─────
 // Lattice converges on ONE markdown implementation: the owned lib/engine, the
@@ -2234,6 +2235,9 @@ function engineSlides(deckSource = rawMd) {
     // Collage: pack the photo grid from each photo's header size (the structure step already
     // ran in the engine render; only the CLI can read files).
     s = collageStamp.stampCollage(s, deckBaseUrl, parseFloat(_geom.width) / parseFloat(_geom.height));
+    // Logo wall: size every mark to the same area from its inlined `<svg>` (the swap above runs
+    // before this loop), the same plan the live preview makes from the fetched marks.
+    s = logoWallPack.stampWall(s, parseFloat(_geom.width) / parseFloat(_geom.height));
     // The `statement` composition (text on a scrim over a full-bleed photo) is the
     // only one that needs a contrast scrim node; every other composition carries
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's
