@@ -386,9 +386,10 @@ family for every canvas, so square canvases planned narrower gaps than they drew
 **The sweep that pins it.** Seven canvases (hd, 4K, standard, square, portrait, story, mobile) × four
 one-shape walls (3:1, 4:1, 1:1, 1:2) × eight variants (plain, dense, compact, dense compact, captioned with 8
 and 12 marks, captioned compact, captioned dense), 224 walls, rendered on the base (`69b521f`) and on this
-branch. Every wall that fit on the base draws every mark within 0.5% of its old area. Nine walls overflowed the
-slide on the base (captioned walls on portrait and story, and wide 4:1 captioned walls at 16:9); all nine now
-fit. No wall newly overflows. The six shipped decks with a `logo-wall` slide (14 walls) match the base to the
+branch. All 200 walls that fit on the base draw every mark within 0.5% of its old area. Of the 24 that
+overflowed the slide on the base, nine now pack and fit (captioned walls on portrait and story, and a 4:1
+captioned wall at 16:9 and 4K); the other 15 fall below the legibility floor and keep the old grid, drawn and
+flagged exactly as before. No wall newly overflows. The six shipped decks with a `logo-wall` slide (14 walls) match the base to the
 pixel.
 
 **A pre-existing overflow, fixed on the way.** The old wall did not fit three rows under an eyebrow: 439 px
