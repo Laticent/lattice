@@ -296,8 +296,8 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    because Segno reads it as `state=…`.
 
    **Known residual, no visible effect found.** Lint and the narrators' source bridge measure a row's lead per line, so a record
-   on a continuation line, after a bullet-character or ordered-to-bullet switch, or after a margin comment can differ from the
-   engine; the narrator picks its chart by the first class token, not in dispatch order. Two things the format does not express
+   on a continuation line, or after a margin comment, can differ from the engine (a bullet-character or ordered-delimiter switch
+   is counted as a new list on every path since the seventh review round); the narrator picks its chart by the first class token, not in dispatch order. Two things the format does not express
    yet: a grouped number (`1,200`) is not a record value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into
    two items, so phase 4's codemod must write `1200` and show it grouped (the census counts 78 grouped funnel values); and a
    record under a valued row on bar or line stays a pill, so a series point written that way needs its parent without a value. Bullet's keyword rows (`Target`, `Floor`, `Band`) and stacked-bar's authored total read from the old spans until phase 4; lint says so.

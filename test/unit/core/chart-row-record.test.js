@@ -107,6 +107,13 @@ describe('runtime: a pill drawn earlier in the row does not change who owns the 
     await new Promise((r) => setTimeout(r, 300));
     return dom.window.document.querySelector('section').innerHTML;
   };
+  test('a record followed by a no-break space is still the row\'s record in the runtime', async () => {
+    const body = '- EMEA `{4}` &nbsp;\n- APAC `3`';
+    assert.match(engine.render(deck('bar', body), {}).html, /data-value="4"/, 'control: the engine draws EMEA');
+    const html = await boot('bar', body);
+    assert.match(html, /<desc>EMEA 4; APAC 3<\/desc>/);
+    assert.doesNotMatch(html, /\{4\}/);
+  });
   test('a badge `{1, circle, c5}` before the record is a pill and not a value, as in the engine', async () => {
     const body = '- North `{1, circle, c5}` grew `{4}`\n- South `{2}`';
     const engineHtml = engine.render(deck('bar', body), {}).html;
@@ -398,6 +405,40 @@ describe('the paths agree on the data row', () => {
     assert.match(f.message, /later paragraph/);
     assert.deepEqual(findings(deck('bar', '- EMEA `5`\n\n  note `{LIVE}`')), [], 'a pill in a later paragraph is fine');
     assert.deepEqual(findings(deck('bar', '- EMEA `5`\n\n  `{+3%}`\n- APAC `3`')), [], 'the row already has its value');
+  });
+
+  // Seventh round (2026-10-17): the second independent checker's confirmed defects.
+  test('a different bullet or ordered delimiter starts a new list, so its `{N}` is a pill and the narrator leaves it', () => {
+    for (const second of ['* Note `{7}`', '+ Note `{7}`']) {
+      const src = `- EMEA \`4\`\n- APAC \`3\`\n${second}`;
+      assert.equal(rows.bridgeRecordsSource(src, ['bar']), src, second);
+    }
+    const ordered = '- EMEA `4`\n2) X `{4}`';
+    assert.equal(rows.bridgeRecordsSource(ordered, ['bar']), ordered);
+    assert.equal(rows.bridgeRecordsSource('- EMEA `4`\n- APAC `{3}`', ['bar']), '- EMEA `4`\n- APAC `3`', 'control: the same list');
+  });
+
+  test('the bridge sees the lead end behind a no-break space, as the DOM mirror does', () => {
+    assert.equal(rows.bridgeRecordsHtml('<ul><li>EMEA <code>{4}</code> &nbsp;</li><li>APAC <code>{3}</code></li></ul>', ['bar']),
+      '<ul><li>EMEA <code>4</code> &nbsp;</li><li>APAC <code>3</code></li></ul>');
+  });
+
+  test('a `<ul>` in a comment or an attribute is not a list', () => {
+    assert.deepEqual(rows.rawBlockCounts('<!-- <ul> --><div title="<ul>">x</div>'), { lists: 0, tables: 0 });
+    assert.deepEqual(rows.rawBlockCounts('<ul><li><ul></ul></li></ul><table></table>'), { lists: 1, tables: 1 });
+  });
+
+  test('a heatmap cell with a named field is no claim: the bridge cannot spell it, so it stays what it was', () => {
+    assert.equal(rows.ownsRecordSpan(['heatmap'], '{value=3}', { cell: true, lastInRow: true }), false);
+    assert.equal(rows.ownsRecordSpan(['heatmap'], '{3}', { cell: true, lastInRow: true }), true);
+  });
+
+  test('a row of many spans stays linear in lint and in the pill pass', () => {
+    const src = deck('bar', `- R ${'`{1}` '.repeat(12000)}`);
+    const t = Date.now();
+    findings(src);
+    render(src);
+    assert.ok(Date.now() - t < 3000, `lint and render in ${Date.now() - t} ms`);
   });
 
   test('the source bridge reads CRLF', () => {

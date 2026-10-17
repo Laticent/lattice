@@ -54,3 +54,9 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                pill the ENGINE drew is read back from its shape and label (a bare label pill is a value, anything else is not), which
                matches the engine except for a pill whose label alone reads as a value by another rule; the narrator reads LF-normalized
                text when it rewrites a CRLF slide, which narrates where main returned null (an improvement, off the path).
+           11. Seventh round (2026-10-17, second independent checker on 2745994): fixed here with a test each: a bullet-character or
+               ordered-delimiter switch starts a new list in the source bridge; the bridge sees a lead end behind `&nbsp;`; a `<ul>` in a
+               comment or an attribute is not a raw list; a heatmap `{value=3}` is no claim (the bridge cannot spell it); lint and the
+               pill pass are linear on a row of many spans. Left: lint's `chart-row-record-unread` is silent on a heatmap `{value=3}`
+               and on a `<code>{9}</code>` written in raw HTML after the chart's list (a pill in the runtime only, on `main` too);
+               the narrator narrates a CRLF record row that the old form leaves null (an improvement, off the path).
