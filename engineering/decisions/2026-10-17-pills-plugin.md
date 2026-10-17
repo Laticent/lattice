@@ -116,10 +116,22 @@ checker that already runs.
 
 ### 4.5 Essential plugins (the second new host capability)
 
-**Essential is a class, not a pills exception.** A Lattice-owned plugin may be essential: it ships in this repository
-and it draws something a slide breaks without. Pills are the first and, today, the only one. Making a second plugin
-essential is an owner decision with its own note, because every essential plugin costs every deck its load and
-removes an author's ability to switch it off. A third-party plugin can never qualify.
+**Three tiers of plugin, named once (owner, 2026-10-17).**
+
+| Tier | Who owns it | Loads | Can an author or host switch it off? | Today |
+|---|---|---|---|---|
+| **Essential** | Lattice, in this repository | On every render | No | `pills` |
+| **Core** | Lattice, in this repository | By default | Yes: a host narrows the default set, `disabled` removes one | `math`, `mermaid`, `function-plot`, `anima`, `icons`, `avatars`, `chart-family`, `code` |
+| **Third-party** | An author, as a zip or npm package | Only when the deck lists it and the author approves its code | Yes | none shipped |
+
+Core is what the specs and the README call a "shipped plugin" today; the word changes, the behavior does not. The
+manifest needs one new field, `essential`. A core plugin is "in-tree and not essential", and a third-party plugin
+is "not in-tree", so neither needs a field of its own. "Core plugin" is always two words in docs, because `lib/core/`
+(the kernel) and Segno's "core slots" already use the bare word for something else; the pill's slot stops being
+one of those when the plugin takes it over.
+
+Making a second plugin essential is an owner decision with its own note: it costs every deck its load and removes
+an author's off switch. A third-party plugin can never qualify.
 
 The manifest gains `"essential": true`, in-tree only: a zip plugin cannot set it, and the importer refuses one that
 does. `admitPlugins` (`lib/plugins/host-grammar.mjs`) admits an essential plugin first, as kind `essential`,
