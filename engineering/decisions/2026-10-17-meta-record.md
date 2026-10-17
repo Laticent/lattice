@@ -86,7 +86,7 @@ stays "no slower than comments, within the variance band" (HARD RULE #19) until 
 |---|---|---|
 | D1 | Where may a record appear? | **Own line only.** A comment that opens on its own line, 0 to 3 spaces in, outside a fence, and not inside a list or blockquote. |
 | D2 | Long text (multi-paragraph notes) | **Inside the same comment**, on `key: |` lines after the record. (An earlier draft used a ```` ```meta ```` fence; the carrier change makes it unnecessary.) |
-| D3 | Existing `<!-- _class: … -->` comments | **Hard cut with a codemod.** Authored directive comments stop being read; a lint error and a build warning catch the old form. Only the Marp importer reads them. **Under review after the second adversarial pass: soft cut until GA (§13.4).** |
+| D3 | Existing `<!-- _class: … -->` comments | **Hard cut with a codemod, confirmed after the second adversarial pass (owner, 2026-10-17).** Authored directive comments stop being read. The old form gets a lint **warning with a fix**: `lint:deck --fix` and the Studio quick fix rewrite the comment into a record, and `lattice migrate meta` converts whole files. Only the Marp importer reads the old form. |
 | D4 | `_pane` markers | **In scope.** Pane markers become `pane=` records (§5.4). |
 | D5 | Spelling | **A comment carries the record.** `<!-- {…} -->` is canonical, `<!-- @meta{…} -->` is accepted. Chosen by the owner after the bake-off (below). |
 | D6 | Field names | **The front-matter register names**, with no new semantics. Dark and light stay universal variants (`universal=dark`). Per-slide `finish`, `headline`, `rule`, `eyebrow`, `lift`, `spectrum-trim` override the deck's. |
@@ -296,7 +296,7 @@ So the design is a **door**, the same idea as `normalizePaneSyntax` (`panes.js:4
    would blank the door's own output. One guard, run first, then the door emits the internal forms.) **The internal reader
    validates every value by its declared type regardless of origin**, and rejects deck-only keys (`theme`, `lang`, `size`,
    `marp`) in a slide record, so even a forged `lat-meta` gains nothing. An authored `<!-- _class: x -->` is a lint
-   **error** (`legacy-directive-comment`) and a build warning (§13.4 asks whether the engine should still read it).
+   **warning** (`legacy-directive-comment`) that carries an autofix converting the comment to a record (D3), and the build prints the same warning.
    An unconsumed `lat-meta` (for example one folded into a larger `html_block`, §5.5) must never reach the speaker note:
    `notes-core.js` treats `lat-*` comments as tooling, like `isDirectiveComment` treats directives.
 5. The engine's own producers (focus steps write `_focus` at `plugins.js:216`; the pane normalizer writes `_class` and
@@ -362,7 +362,7 @@ notes on page 1, and the split preserves that. The `meta-pane-mixed` lint is dro
 | Unknown key | lint error with a did-you-mean; the door drops it |
 | Deck or slide sets `inline-code: literal` | the door still runs, because it works on source before the inline dispatcher |
 | Repeated key | lint error; engine is last-wins |
-| Authored `<!-- _class: x -->` | lint error `legacy-directive-comment`. After a hard cut it is ignored by the engine, remains in the rendered HTML, and is exported as a speaker note unless the notes extractor also skips it (§13.4) |
+| Authored `<!-- _class: x -->` | lint warning `legacy-directive-comment`, with a fix. After the hard cut it is ignored by the engine, remains in the rendered HTML, and is exported as a speaker note unless the notes extractor also skips it (§13.4) |
 
 ### 5.6 Scopes: deck, range, slide
 
@@ -487,7 +487,7 @@ per step (HARD RULE #17).
 | 3 | Lint, autocomplete, drawer and Compose on records; the D11 gate (`check-ownership`: the only writer of provider attributes is the host's apply step); the URL scheme allowlist (§5.7) | the keystroke bench for `scanMetaSource`; the gate fails a deliberate violation |
 | 4 | **The bridge**, both producers, one pass list | a real marp-cli render and the VS Code preview of a compiled demo deck; `-->` and `: ` value tests; the reader note shows labeled in PPTX notes |
 | 5 | **The codemod** (`lattice migrate meta`) over `examples/`, galleries, component docs, `design/`, fixtures, writing one record per scope. The galleries go in a **separate post-review commit** (HARD RULE #8) | all 276 decks render with identical class sets and pixels; page counts unchanged |
-| 6 | **The cut** (or the warning, if §13.4 chooses a soft cut). The changelog fragment leads with `**Breaking:**` (HARD RULE #10); a per-feature demo deck `examples/meta.md` (HARD RULE #9) | `build:check` |
+| 6 | **The cut.** The engine stops reading authored directive comments; the lint warning and its autofix (D3) are the safety net. The changelog fragment leads with `**Breaking:**` (HARD RULE #10); a per-feature demo deck `examples/meta.md` (HARD RULE #9) | `build:check` |
 | 7 | Spec 2.0 draft, `spec/LPM.md`, and conformance cases | `tools/lfm-conformance.js` |
 
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
@@ -596,7 +596,7 @@ grammar**, needed under any syntax, and the syntax layer sits on a single door. 
 owner's wish for a typed record and for note kinds, which comments with loose directives cannot give. The owner chose
 (D5) to proceed with a typed record and, after a seven-candidate bake-off (`2026-10-17-meta-syntax-bakeoff.md`), to
 carry it in a comment. The trade the inversion named is accepted knowingly: a Major spec break, and every writer and model
-trained on `<!-- _class: … -->` must learn the record, which the `legacy-directive-comment` lint makes loud instead of
+trained on `<!-- _class: … -->` must learn the record, which the `legacy-directive-comment` warning and its autofix make loud instead of
 silent.
 
 ### 13.4 A second adversarial pass, on the final design (2026-10-17)
@@ -629,14 +629,14 @@ The red team, an inversion and a checker ran again, on the comment-carrier and p
 | The scored carrier (C6, lowest total) is not supported by the bake-off | inversion | Stated honestly in §10; the owner chose on requirements, not on the total (D5) |
 | `reader` in the notes channel is a downgrade on export | inversion | Kept as the owner's choice (D8); a render check before step 2 merges is an open item (§10) |
 
-**Two decisions are put back to the owner** because this pass found new information:
+**Decisions put back to the owner, and the answers (2026-10-17):**
 
 1. **D3, hard cut or soft cut.** The inversion's strongest new point is that every model and every Marp user writes
    `<!-- _class: … -->`, so after a hard cut a generated deck renders with the default layout until someone reads a
-   lint, and the Playground is where that shows. A **soft cut** keeps the engine reading the authored form through the
-   consolidated reader, reports a diagnostic for each use, converts the repo's decks with the codemod, and removes the
-   reading at GA as a one-commit change. The cost is a dual-read period; the benefit is that no generated deck silently
-   changes. A cold-start writer test would size the risk (§10).
+   lint, and the Playground is where that shows. A soft cut would keep the engine reading the old form with a diagnostic
+   until GA. **The owner chose the hard cut, with a linter warning and a fix.** The risk the inversion named stays
+   recorded: the warning is a gate on the CLI and in the Studio, not on a pasted reply, and a cold-start writer test
+   (§10) would size it. If that test shows most models emit the old form, the soft cut is a one-commit reversal.
 2. **Automatic or opt-in plugin registers** (§10), which can wait for the first third-party plugin.
 
 ## 14. Appendix: the reader census, file by file
