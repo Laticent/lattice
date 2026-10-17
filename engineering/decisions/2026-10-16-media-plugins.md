@@ -911,3 +911,8 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   entries, all with the same answer as before, plus a fuzzed set that is never looser. The fuzzed set does contain stricter
   strings (`sample:a<TAB>b`, `<U+0001>sample:a`: the table parses the raw string where the old code parsed it after the URL
   parser's clean-up, so these are now remote). The red team's 3M-string fuzz over every code point to U+2FFFF found none looser.
+- 2026-10-17: CI caught what the slice's three reviewers did not: `lib/packages/code-door-worker.js` injects `remote-ref.js`
+  into the sanitizer page as a raw script (no module system), so its new `require('./media-sources')` left every code package
+  unable to draw ("Waiting failed: 5000ms exceeded", `code-package-door.test.js`, 3 tests). `asPageScript` now inlines a
+  `require('./sibling')` and refuses any other `require(` loudly. The two places that load `remote-ref.js` outside a bundler
+  (this loader and the docs dev shim) are the full list; a third would need the same treatment.
