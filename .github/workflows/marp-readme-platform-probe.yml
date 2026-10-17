@@ -1,0 +1,78 @@
+# THROWAWAY PROBE — lives only on branch claude/marp-readme-platform-probe, never merged.
+# Runs the Export-to-Marp README's command-line steps, verbatim, on real Windows and macOS.
+name: marp-readme-platform-probe
+on:
+  push:
+    branches: [claude/marp-readme-platform-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: probe/a11y
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Unzip the bundle (Windows Expand-Archive, as File Explorer's Extract All does)
+        if: runner.os == 'Windows'
+        working-directory: probe
+        shell: powershell
+        run: Expand-Archive a11y.zip -DestinationPath .
+      - name: Unzip the bundle (macOS)
+        if: runner.os == 'macOS'
+        working-directory: probe
+        run: unzip -q a11y.zip
+      - name: README line, Windows PowerShell 5.1 (npm install + three npm run)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $PSVersionTable.PSVersion
+          npm install
+          npm run pdf
+          npm run pptx
+          npm run html
+          Get-ChildItem a11y.pdf, a11y.pptx, a11y.html | Format-Table Name, Length
+      - name: README npx line pasted into cmd.exe
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          npx @marp-team/marp-cli@^4.3.1 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
+          npx @marp-team/marp-cli@^4.3.1 --version
+          dir a11y.pdf
+      - name: README npx line pasted into PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Remove-Item a11y.pdf
+          npx @marp-team/marp-cli@^4.3.1 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
+          npx @marp-team/marp-cli@^4.3.1 --version
+          Get-Item a11y.pdf | Format-Table Name, Length
+      - name: README lines, macOS default shell
+        if: runner.os == 'macOS'
+        shell: zsh {0}
+        run: |
+          set -e
+          npm install
+          npm run pdf
+          npm run pptx
+          npm run html
+          ls -la a11y.pdf a11y.pptx a11y.html
+          rm a11y.pdf
+          npx @marp-team/marp-cli@^4.3.1 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
+          npx @marp-team/marp-cli@^4.3.1 --version
+          ls -la a11y.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exports-${{ matrix.os }}
+          path: |
+            probe/a11y/a11y.pdf
+            probe/a11y/a11y.pptx
+            probe/a11y/a11y.html
