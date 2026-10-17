@@ -1,0 +1,311 @@
+{
+ "measuredAt": {
+  "commit": "cf92e6d",
+  "date": "2026-10-17"
+ },
+ "status": "Three example decks measured. The gallery fixture (style: h2 rgb(1,2,3), <style scoped> h2 rgb(4,5,6)) was run on 2026-10-17 and FAILED: design 1's reference build assumes the author CSS is contiguous before Marp's trailing rules, and the gallery fixture's front-matter style and scoped block are not (\"author CSS is not contiguous before Marp's trailing rules\", author-css-designs.cjs:177). So the rgb(1,2,3) / rgb(4,5,6) check, and any 'newly wins' measurement, is UNVERIFIED. These three runs used a single census per page (before stableCensus was added); each ran with one other census job on the machine.",
+ "decks": [
+  {
+   "deck": "examples/finish-override.md",
+   "palette": "indaco",
+   "elements": 137,
+   "raiseK": 15,
+   "authorCssBytes": 3206,
+   "designs": {
+    "D": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 137,
+     "affectedPairs": 5948,
+     "same": 5948,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    }
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "C-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "C2-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "C3-auth": {
+     "rgb(10, 22, 40)": 4
+    },
+    "A1-auth": {
+     "rgb(10, 22, 40)": 4
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 0,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 98
+  },
+  {
+   "deck": "examples/finish-backdrops.md",
+   "palette": "indaco",
+   "elements": 357,
+   "raiseK": 15,
+   "authorCssBytes": 1221,
+   "designs": {
+    "D": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 26,
+     "affectedPairs": 1378,
+     "same": 1378,
+     "otherValue": 0,
+     "newlyLoses": 271,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [
+       "section.finish.finish-meridian.form.content --fin-mark-text: today \"Q3\"",
+       "section.finish.finish-meridian.form.content ::before--fin-mark-text: today \"Q3\"",
+       "section.finish.finish-meridian.form.content ::after--fin-mark-text: today \"Q3\"",
+       "section.finish.finish-meridian.form.content ::marker--fin-mark-text: today \"Q3\"",
+       "div.backdrop --fin-mark-text: today \"Q3\"",
+       "div.backdrop ::beforecontent: today \"Q3\"",
+       "div.backdrop ::before--fin-mark-text: today \"Q3\"",
+       "div.backdrop ::after--fin-mark-text: today \"Q3\""
+      ],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 93,
+     "affectedPairs": 1649,
+     "same": 1649,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    }
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "C-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "C2-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "C3-auth": {
+     "rgb(10, 22, 40)": 12
+    },
+    "A1-auth": {
+     "rgb(10, 22, 40)": 12
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 4,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 107
+  },
+  {
+   "deck": "examples/backdrop-register.md",
+   "palette": "indaco",
+   "elements": 186,
+   "raiseK": 15,
+   "authorCssBytes": 1706,
+   "designs": {
+    "D": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "A1": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C2": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    },
+    "C3": {
+     "affectedElements": 63,
+     "affectedPairs": 3300,
+     "same": 3300,
+     "otherValue": 0,
+     "newlyLoses": 0,
+     "newlyWins": 0,
+     "examples": {
+      "newlyLoses": [],
+      "newlyWins": [],
+      "otherValue": []
+     }
+    }
+   },
+   "h2Colors": {
+    "D-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "C-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "C2-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "C3-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    },
+    "A1-auth": {
+     "rgb(10, 22, 40)": 7,
+     "rgb(255, 255, 255)": 2
+    }
+   },
+   "engineFidelity": {
+    "C2vsC_noAuthor": 1,
+    "A1vsC_noAuthor": 0
+   },
+   "seconds": 76
+  }
+ ]
+}

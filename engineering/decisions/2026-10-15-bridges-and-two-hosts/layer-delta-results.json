@@ -1,0 +1,6059 @@
+{
+ "measuredAt": {
+  "commit": "cf92e6d",
+  "date": "2026-10-17"
+ },
+ "method": "layer-delta-census.cjs: Marp bundle through its own marp.config.cjs, runtime loaded and settled, screen media, Playwright Chromium 1194; D = today, C = layered then flattened (equals the reference A, §3.1), C0 = C with every specificity bump removed before flattening.",
+ "summary": {
+  "exampleDecks": 283,
+  "measured": 282,
+  "skipped": [
+   {
+    "deck": "examples/data-viz-gallery.md",
+    "why": "no theme: in front matter (Marp renders its own default theme)"
+   }
+  ],
+  "errors": [],
+  "elements": 117299,
+  "changedElements_DvsC": 3923,
+  "decksWithZeroChanges": 36,
+  "decksWithChanges": 246,
+  "elementsWithDirectFlip": 1237,
+  "experiment": {
+   "CvsC0_total": 0,
+   "decksWhereDebumpMatters": [],
+   "DvsC0_total": 768
+  },
+  "secondsSummed": {
+   "render": 3966,
+   "census": 10984,
+   "attribution": 1272,
+   "tax": 1363
+  },
+  "top20Decks": [
+   {
+    "deck": "examples/slide-class-forms.md",
+    "DvsC": 632,
+    "of": 822
+   },
+   {
+    "deck": "examples/system-design-foundations.md",
+    "DvsC": 220,
+    "of": 12157
+   },
+   {
+    "deck": "examples/print-mode.md",
+    "DvsC": 166,
+    "of": 166
+   },
+   {
+    "deck": "examples/chart-explain-narration.md",
+    "DvsC": 156,
+    "of": 567
+   },
+   {
+    "deck": "examples/chart-hue-collapse-print.md",
+    "DvsC": 124,
+    "of": 124
+   },
+   {
+    "deck": "examples/deck-class-register.md",
+    "DvsC": 120,
+    "of": 436
+   },
+   {
+    "deck": "examples/collage.md",
+    "DvsC": 107,
+    "of": 288
+   },
+   {
+    "deck": "examples/gallery-jargon.md",
+    "DvsC": 93,
+    "of": 2457
+   },
+   {
+    "deck": "examples/finish-canvas-print-face.md",
+    "DvsC": 91,
+    "of": 91
+   },
+   {
+    "deck": "examples/finish-backdrops.md",
+    "DvsC": 67,
+    "of": 357
+   },
+   {
+    "deck": "examples/collage-canvases.md",
+    "DvsC": 66,
+    "of": 159
+   },
+   {
+    "deck": "examples/math-form-frame.md",
+    "DvsC": 62,
+    "of": 2418
+   },
+   {
+    "deck": "examples/status-word-agreement.md",
+    "DvsC": 56,
+    "of": 455
+   },
+   {
+    "deck": "examples/deck-logo-dark-theme.md",
+    "DvsC": 53,
+    "of": 212
+   },
+   {
+    "deck": "examples/seq-ramp-canvas-aware.md",
+    "DvsC": 51,
+    "of": 218
+   },
+   {
+    "deck": "examples/universal-pill.md",
+    "DvsC": 50,
+    "of": 248
+   },
+   {
+    "deck": "examples/read-article-chart-paints.md",
+    "DvsC": 47,
+    "of": 432
+   },
+   {
+    "deck": "examples/spectrum-ramp-floor.md",
+    "DvsC": 47,
+    "of": 153
+   },
+   {
+    "deck": "examples/plugin-system-phase-b.md",
+    "DvsC": 46,
+    "of": 527
+   },
+   {
+    "deck": "examples/chart-hue-collapse.md",
+    "DvsC": 45,
+    "of": 288
+   }
+  ]
+ },
+ "gallery": {
+  "elements": 5699,
+  "DvsC": 125,
+  "CvsC0": 0,
+  "DvsC0": 125,
+  "elementsWithFlip": 48,
+  "tax": {
+   "instances": {
+    "specDecided": {
+     "loser-in-later-layer": 576,
+     "same-file": 42,
+     "same-layer-other-file": 308
+    },
+    "bumpNecessary": {
+     "same-file": 1
+    },
+    "bumpNecessaryByTechnique": {
+     "repeated-class|same-file": 1
+    },
+    "loweringNecessary": {
+     "loser-in-later-layer": 298,
+     "same-file": 30,
+     "loser-in-earlier-layer": 317,
+     "same-layer-other-file": 1
+    }
+   },
+   "distinctRulePairs": {
+    "specDecided": {
+     "loser-in-later-layer": 45,
+     "same-file": 16,
+     "same-layer-other-file": 4
+    },
+    "bumpNecessary": {
+     "same-file": 1
+    },
+    "loweringNecessary": {
+     "loser-in-later-layer": 7,
+     "same-file": 8,
+     "loser-in-earlier-layer": 2,
+     "same-layer-other-file": 1
+    }
+   },
+   "coverage": {
+    "bumpedRulesMatched": 25,
+    "loweredRulesMatched": 127
+   },
+   "bumpNecessaryPairs": [
+    {
+     "cat": "same-file",
+     "n": 1,
+     "W": {
+      "src": "lib/components/evidence/kpi/kpi.styles.css",
+      "sel": "section.kpi.kpi.kpi[data-cards=\"center\"] > .cell-stage > ol"
+     },
+     "X": {
+      "src": "lib/components/evidence/kpi/kpi.styles.css",
+      "sel": "section.kpi.kpi.kpi > .cell-stage > ol"
+     }
+    }
+   ],
+   "loweringNecessaryPairs": [
+    {
+     "cat": "loser-in-earlier-layer",
+     "n": 315,
+     "W": {
+      "src": "lib/plugins/chart-family/chart-family.styles.css",
+      "sel": "section.chart-frame .chart-eyebrow > code"
+     },
+     "X": {
+      "src": "lib/base/base.modifiers.css",
+      "sel": "section p:has(> code:only-child):not(:where([data-prose])):has(+ :is(h2, marp-h2)) > code"
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 144,
+     "W": {
+      "src": "lib/components/inventory/cards-grid/cards-grid.styles.css",
+      "sel": "section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > code"
+     },
+     "X": {
+      "src": "lib/base/base.modifiers.css",
+      "sel": "section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(."
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 39,
+     "W": {
+      "src": "lib/components/anchor/title/title.styles.css",
+      "sel": "section.title :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code"
+     },
+     "X": {
+      "src": "lib/base/base.modifiers.css",
+      "sel": "section :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code"
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 39,
+     "W": {
+      "src": "lib/components/anchor/closing/closing.styles.css",
+      "sel": "section.closing :is(h2, marp-h2) + p:has(> code:only-child):not(:where([data-prose])) > code"
+     },
+     "X": {
+      "src": "lib/base/base.modifiers.css",
+      "sel": "section :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code"
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 30,
+     "W": {
+      "src": "lib/components/code/compare-code/compare-code.styles.css",
+      "sel": "section.compare-code :is(pre, marp-pre)"
+     },
+     "X": {
+      "src": "lib/plugins/code/code.styles.css",
+      "sel": "section :where(:is(:is(pre, marp-pre), marp-pre):not(.lat-code, [data-lattice-hydrate], [data-lattice-settle]):has(> code))"
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 28,
+     "W": {
+      "src": "lib/components/inventory/actors/actors.styles.css",
+      "sel": "section.actors > .cell-stage > ul > li > code"
+     },
+     "X": {
+      "src": "lib/base/base.modifiers.css",
+      "sel": "section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(."
+     }
+    },
+    {
+     "cat": "same-file",
+     "n": 15,
+     "W": {
+      "src": "lib/base/base.elements.css",
+      "sel": "section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-o"
+     },
+     "X": {
+      "src": "lib/base/base.elements.css",
+      "sel": "section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td"
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 15,
+     "W": {
+      "src": "lib/components/code/code/code.styles.css",
+      "sel": "section.code :is(pre, marp-pre)"
+     },
+     "X": {
+      "src": "lib/plugins/code/code.styles.css",
+      "sel": "section :where(:is(:is(pre, marp-pre), marp-pre):not(.lat-code, [data-lattice-hydrate], [data-lattice-settle]):has(> code))"
+     }
+    },
+    {
+     "cat": "same-file",
+     "n": 5,
+     "W": {
+      "src": "lib/base/base.elements.css",
+      "sel": "section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td:first-child"
+     },
+     "X": {
+      "src": "lib/base/base.elements.css",
+      "sel": "section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td"
+     }
+    },
+    {
+     "cat": "same-file",
+     "n": 3,
+     "W": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section.diagram > .cell-stage > .mermaid"
+     },
+     "X": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section :where(:is(:is(pre, marp-pre), marp-pre):where([data-lattice-hydrate])[data-lattice-settle=\"rendered\"] + [data-lattice-figure])"
+     }
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "n": 3,
+     "W": {
+      "src": "lib/components/diagram/diagram/diagram.styles.css",
+      "sel": "section.diagram [data-lattice-figure]"
+     },
+     "X": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section :where(:is(:is(pre, marp-pre), marp-pre):where([data-lattice-hydrate])[data-lattice-settle=\"rendered\"] + [data-lattice-figure])"
+     }
+    },
+    {
+     "cat": "same-file",
+     "n": 3,
+     "W": {
+      "src": "lib/components/comparison/decision/decision.styles.css",
+      "sel": "section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > ul"
+     },
+     "X": {
+      "src": "lib/components/comparison/decision/decision.styles.css",
+      "sel": "section.decision:where(:not(.compare-prose)) :is(ul,ol) > li > strong ~ *"
+     }
+    },
+    {
+     "cat": "loser-in-earlier-layer",
+     "n": 2,
+     "W": {
+      "src": "lib/forms/cell/stage/stage.css",
+      "sel": "section.form > .cell-stage"
+     },
+     "X": {
+      "src": "lib/components/comparison/decision/decision.styles.css",
+      "sel": "section.decision:where(:not(.compare-prose)) > .cell-stage"
+     }
+    },
+    {
+     "cat": "same-file",
+     "n": 1,
+     "W": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section.diagram > .cell-stage > .mermaid"
+     },
+     "X": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section :is(pre, marp-pre):where([data-lattice-hydrate=\"mermaid\"])[data-lattice-settle=\"rendered\"] + .mermaid"
+     }
+    },
+    {
+     "cat": "same-file",
+     "n": 1,
+     "W": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section.diagram > .cell-stage > .mermaid svg"
+     },
+     "X": {
+      "src": "lib/plugins/mermaid/mermaid.styles.css",
+      "sel": "section :is(pre, marp-pre):where([data-lattice-hydrate])[data-lattice-settle=\"rendered\"] + [data-lattice-figure] > svg"
+     }
+    }
+   ],
+   "sanity": {
+    "orderViolations": 0,
+    "specChecked": 10566,
+    "specMismatch": 0
+   }
+  },
+  "migration": {
+   "note": "A flip is a property whose winning rule differs between today (D) and layered (C) on one element. \"elements\" counts elements with at least one flip of that key.",
+   "byPropertyFamilyAndFiles": [
+    {
+     "key": "inset | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+     "elements": 12,
+     "propertyFlips": 12
+    },
+    {
+     "key": "color | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+     "elements": 6,
+     "propertyFlips": 6
+    },
+    {
+     "key": "line-height | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+     "elements": 6,
+     "propertyFlips": 6
+    },
+    {
+     "key": "stroke-width | lib/components/chart/hub-spoke/hub-spoke.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 5,
+     "propertyFlips": 5
+    },
+    {
+     "key": "padding | lib/components/inventory/actors/actors.styles.css → lib/base/base.modifiers.css",
+     "elements": 4,
+     "propertyFlips": 16
+    },
+    {
+     "key": "padding | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "border-color | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 8
+    },
+    {
+     "key": "border-color | lib/components/code/compare-code/compare-code.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 8
+    },
+    {
+     "key": "color | lib/components/code/compare-code/compare-code.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "letter-spacing | lib/components/code/compare-code/compare-code.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "padding | lib/components/code/compare-code/compare-code.styles.css → lib/plugins/code/code.styles.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "stroke-width | lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "color | lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "inset | lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "font-family | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-size | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-style | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-weight | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "gap | lib/components/diagram/diagram/diagram.styles.css → lib/forms/cell/stage/stage.css",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "align-items | lib/components/evidence/stats/stats.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "text-align | lib/components/evidence/stats/stats.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "align-items | lib/components/progression/list-steps/list-steps.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "text-align | lib/components/progression/list-steps/list-steps.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-family | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-size | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-style | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "font-weight | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "padding | lib/components/code/code/code.styles.css → lib/plugins/code/code.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "align-items | lib/components/chart/gantt/gantt.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "align-items | lib/components/chart/kanban/kanban.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "justify-content | lib/components/chart/kanban/kanban.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "align-items | lib/components/chart/progress/progress.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "--chart-panel-y | lib/components/chart/timeline-list/timeline-list.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "justify-content | lib/components/chart/timeline-list/timeline-list.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "flex-basis | lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "justify-content | lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "line-height | lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "padding | lib/components/legal/regulatory-update/regulatory-update.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "border-color | lib/components/legal/regulatory-update/regulatory-update.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 4
+    },
+    {
+     "key": "color | lib/components/legal/regulatory-update/regulatory-update.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 1
+    }
+   ],
+   "byFilePair": [
+    {
+     "key": "lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+     "elements": 16,
+     "propertyFlips": 34
+    },
+    {
+     "key": "lib/components/chart/hub-spoke/hub-spoke.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 5,
+     "propertyFlips": 5
+    },
+    {
+     "key": "lib/components/inventory/actors/actors.styles.css → lib/base/base.modifiers.css",
+     "elements": 4,
+     "propertyFlips": 16
+    },
+    {
+     "key": "lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 3,
+     "propertyFlips": 4
+    },
+    {
+     "key": "lib/components/code/compare-code/compare-code.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 12
+    },
+    {
+     "key": "lib/components/code/compare-code/compare-code.styles.css → lib/plugins/code/code.styles.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "lib/components/chart/timeline-list/timeline-list.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 5
+    },
+    {
+     "key": "lib/components/legal/regulatory-update/regulatory-update.styles.css → lib/base/base.modifiers.css",
+     "elements": 2,
+     "propertyFlips": 6
+    },
+    {
+     "key": "lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 4
+    },
+    {
+     "key": "lib/components/diagram/diagram/diagram.styles.css → lib/forms/cell/stage/stage.css",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "lib/components/evidence/stats/stats.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "lib/components/progression/list-steps/list-steps.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+     "elements": 1,
+     "propertyFlips": 4
+    },
+    {
+     "key": "lib/components/code/code/code.styles.css → lib/plugins/code/code.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "lib/components/chart/gantt/gantt.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "lib/components/chart/kanban/kanban.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "lib/components/chart/progress/progress.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "lib/components/math/math/math.styles.css → lib/forms/cell/stage/stage.css",
+     "elements": 1,
+     "propertyFlips": 3
+    }
+   ],
+   "bySelectorPair": [
+    {
+     "key": "section.split-panel:not([data-orientation=\"portrait\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) footer",
+     "elements": 6,
+     "propertyFlips": 11
+    },
+    {
+     "key": "section.split-panel:not([data-orientation=\"portrait\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+     "elements": 5,
+     "propertyFlips": 5
+    },
+    {
+     "key": "section.hub-spoke .hub-spoke-svg :is(.hub-spoke-node, .hub-spoke-leaf)[data-emph=\"true\"] ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) svg :is( .bar-mark, .chart-key-swatch, .bullet-measure, .bullet-offscale",
+     "elements": 5,
+     "propertyFlips": 5
+    },
+    {
+     "key": "section.actors > .cell-stage > ul > li > code ⟶ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.",
+     "elements": 4,
+     "propertyFlips": 16
+    },
+    {
+     "key": "section.split-panel.watermark .panel-left > p:has(> code:only-child):not(:where([data-prose])) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) p:has(> code:only-child):not(:where([data-prose])):has(+ :is(h2, marp-h2))",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.split-panel.watermark .panel-left > p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) p:has(> code:only-child):not(:where([data-prose])):has(+ :is(h2, marp-h2)) > code",
+     "elements": 2,
+     "propertyFlips": 10
+    },
+    {
+     "key": "section.compare-code .code-col p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) p:has(> code:only-child):not(:where([data-prose])):has(+ :is(pre, marp-pre)) > code",
+     "elements": 2,
+     "propertyFlips": 12
+    },
+    {
+     "key": "section.compare-code :is(pre, marp-pre) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :where(:is(:is(pre, marp-pre), marp-pre):not(.lat-code, [data-lattice-hydrate], [dat",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.split-panel :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.split-panel :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) footer",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.title :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code",
+     "elements": 1,
+     "propertyFlips": 4
+    },
+    {
+     "key": "section.form.diagram > .cell-stage ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) > .cell-stage",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.form.stats:where(:not(.math)) .cell-masthead .masthead-lede ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .cell-masthead .masthead-lede",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.form.list-steps.timeline .cell-masthead .masthead-lede ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .cell-masthead .masthead-lede",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.closing :is(h2, marp-h2) + p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :is(h2, marp-h2) + p:has(> code:only-child):not(:where([data-prose])) > code",
+     "elements": 1,
+     "propertyFlips": 4
+    },
+    {
+     "key": "section.code :is(pre, marp-pre) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :where(:is(:is(pre, marp-pre), marp-pre):not(.lat-code, [data-lattice-hydrate], [dat",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.split-panel.mirror:not([data-orientation=\"portrait\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.split-panel.mirror:not([data-orientation=\"portrait\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) footer",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.gantt.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.kanban.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.progress.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.timeline-list.chart-frame ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#)",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.timeline-list.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.state-chart.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+     "elements": 1,
+     "propertyFlips": 2
+    },
+    {
+     "key": "section.state-chart .state-node-shape[data-kind=\"start\"] ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) svg :is( .bar-mark, .chart-key-swatch, .bullet-measure, .bullet-offscale",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.state-chart .state-node-shape[data-kind=\"terminal\"] ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) svg :is( .bar-mark, .chart-key-swatch, .bullet-measure, .bullet-offscale",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.split-compare :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.split-compare:not([data-orientation=\"portrait\"]):not([data-orientation=\"square\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.split-compare :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) footer",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "section.split-compare:not([data-orientation=\"portrait\"]):not([data-orientation=\"square\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) footer",
+     "elements": 1,
+     "propertyFlips": 2
+    }
+   ],
+   "byPropertyFamily": [
+    {
+     "key": "inset",
+     "elements": 14,
+     "propertyFlips": 14
+    },
+    {
+     "key": "color",
+     "elements": 11,
+     "propertyFlips": 11
+    },
+    {
+     "key": "padding",
+     "elements": 10,
+     "propertyFlips": 22
+    },
+    {
+     "key": "line-height",
+     "elements": 7,
+     "propertyFlips": 7
+    },
+    {
+     "key": "stroke-width",
+     "elements": 7,
+     "propertyFlips": 7
+    },
+    {
+     "key": "align-items",
+     "elements": 5,
+     "propertyFlips": 5
+    },
+    {
+     "key": "border-color",
+     "elements": 5,
+     "propertyFlips": 20
+    },
+    {
+     "key": "justify-content",
+     "elements": 3,
+     "propertyFlips": 3
+    },
+    {
+     "key": "font-family",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "font-size",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "font-style",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "font-weight",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "gap",
+     "elements": 2,
+     "propertyFlips": 4
+    },
+    {
+     "key": "text-align",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "letter-spacing",
+     "elements": 2,
+     "propertyFlips": 2
+    },
+    {
+     "key": "--chart-panel-y",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "flex-basis",
+     "elements": 1,
+     "propertyFlips": 1
+    },
+    {
+     "key": "display",
+     "elements": 1,
+     "propertyFlips": 1
+    }
+   ],
+   "todayWinnerFile": [
+    [
+     "lib/components/statement/split-panel/split-panel.styles.css",
+     16
+    ],
+    [
+     "lib/components/chart/hub-spoke/hub-spoke.styles.css",
+     5
+    ],
+    [
+     "lib/components/code/compare-code/compare-code.styles.css",
+     4
+    ],
+    [
+     "lib/components/inventory/actors/actors.styles.css",
+     4
+    ],
+    [
+     "lib/components/chart/state-chart/state-chart.styles.css",
+     3
+    ],
+    [
+     "lib/components/chart/timeline-list/timeline-list.styles.css",
+     2
+    ],
+    [
+     "lib/components/comparison/split-compare/split-compare.styles.css",
+     2
+    ],
+    [
+     "lib/components/legal/regulatory-update/regulatory-update.styles.css",
+     2
+    ],
+    [
+     "lib/components/anchor/title/title.styles.css",
+     1
+    ],
+    [
+     "lib/components/diagram/diagram/diagram.styles.css",
+     1
+    ],
+    [
+     "lib/components/evidence/stats/stats.styles.css",
+     1
+    ],
+    [
+     "lib/components/progression/list-steps/list-steps.styles.css",
+     1
+    ],
+    [
+     "lib/components/anchor/closing/closing.styles.css",
+     1
+    ],
+    [
+     "lib/components/code/code/code.styles.css",
+     1
+    ],
+    [
+     "lib/components/chart/gantt/gantt.styles.css",
+     1
+    ],
+    [
+     "lib/components/chart/kanban/kanban.styles.css",
+     1
+    ],
+    [
+     "lib/components/chart/progress/progress.styles.css",
+     1
+    ],
+    [
+     "lib/components/math/math/math.styles.css",
+     1
+    ]
+   ],
+   "layeredWinnerFile": [
+    [
+     "lib/base/base.modifiers.css",
+     28
+    ],
+    [
+     "lib/plugins/chart-family/chart-family.styles.css",
+     13
+    ],
+    [
+     "lib/plugins/code/code.styles.css",
+     3
+    ],
+    [
+     "lib/forms/cell/stage/stage.css",
+     2
+    ],
+    [
+     "lib/forms/cell/masthead-lede/masthead-lede.css",
+     2
+    ]
+   ]
+  }
+ },
+ "migration": {
+  "note": "A flip is a property whose winning rule differs between today (D) and layered (C) on one element. \"elements\" counts elements with at least one flip of that key.",
+  "byPropertyFamilyAndFiles": [
+   {
+    "key": "font-size | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+    "elements": 190,
+    "propertyFlips": 190
+   },
+   {
+    "key": "font-style | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+    "elements": 190,
+    "propertyFlips": 190
+   },
+   {
+    "key": "font-weight | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+    "elements": 190,
+    "propertyFlips": 190
+   },
+   {
+    "key": "font-family | lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+    "elements": 186,
+    "propertyFlips": 186
+   },
+   {
+    "key": "gap | lib/components/diagram/diagram/diagram.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 137,
+    "propertyFlips": 274
+   },
+   {
+    "key": "stroke-width | lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 107,
+    "propertyFlips": 107
+   },
+   {
+    "key": "border-radius | lib/components/imagery/collage/collage.styles.css → lib/base/base.modifiers.css",
+    "elements": 62,
+    "propertyFlips": 248
+   },
+   {
+    "key": "color | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+    "elements": 61,
+    "propertyFlips": 61
+   },
+   {
+    "key": "font-family | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+    "elements": 60,
+    "propertyFlips": 60
+   },
+   {
+    "key": "font-size | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+    "elements": 60,
+    "propertyFlips": 60
+   },
+   {
+    "key": "font-style | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+    "elements": 60,
+    "propertyFlips": 60
+   },
+   {
+    "key": "font-weight | lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+    "elements": 60,
+    "propertyFlips": 60
+   },
+   {
+    "key": "flex-basis | lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 54,
+    "propertyFlips": 54
+   },
+   {
+    "key": "justify-content | lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 54,
+    "propertyFlips": 54
+   },
+   {
+    "key": "inset | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+    "elements": 51,
+    "propertyFlips": 51
+   },
+   {
+    "key": "border-color | lib/base/base.sketch.css → lib/forms/cell/masthead/masthead.css",
+    "elements": 45,
+    "propertyFlips": 45
+   },
+   {
+    "key": "padding | lib/components/code/code/code.styles.css → lib/plugins/code/code.styles.css",
+    "elements": 30,
+    "propertyFlips": 30
+   },
+   {
+    "key": "gap | lib/components/math/math/math.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 27,
+    "propertyFlips": 51
+   },
+   {
+    "key": "line-height | lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+    "elements": 26,
+    "propertyFlips": 26
+   },
+   {
+    "key": "align-items | lib/components/chart/gantt/gantt.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 24,
+    "propertyFlips": 24
+   },
+   {
+    "key": "border-color | lib/base/base.elements.css → lib/base/base.sketch.css",
+    "elements": 24,
+    "propertyFlips": 24
+   },
+   {
+    "key": "color | lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+    "elements": 22,
+    "propertyFlips": 22
+   },
+   {
+    "key": "align-items | lib/components/evidence/stats/stats.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+    "elements": 21,
+    "propertyFlips": 21
+   },
+   {
+    "key": "text-align | lib/components/evidence/stats/stats.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+    "elements": 21,
+    "propertyFlips": 21
+   },
+   {
+    "key": "padding | lib/components/anchor/topic/topic.styles.css → lib/base/base.modifiers.css",
+    "elements": 21,
+    "propertyFlips": 24
+   },
+   {
+    "key": "inset | lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+    "elements": 20,
+    "propertyFlips": 20
+   },
+   {
+    "key": "display | lib/components/math/math/math.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 20,
+    "propertyFlips": 20
+   },
+   {
+    "key": "padding | lib/components/inventory/actors/actors.styles.css → lib/base/base.modifiers.css",
+    "elements": 18,
+    "propertyFlips": 72
+   },
+   {
+    "key": "fill | lib/components/chart/slope/slope.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 18,
+    "propertyFlips": 18
+   },
+   {
+    "key": "--border | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--text-body | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--syntax-markup | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--syntax-string | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--chart-cat8-ink | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--bg | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--diagram-active-mark | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--text-display | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--cat-5-mark | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--chart-cat3 | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--cat-4-fill | lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 16
+   }
+  ],
+  "byFilePair": [
+   {
+    "key": "lib/components/anchor/title/title.styles.css → lib/base/base.modifiers.css",
+    "elements": 190,
+    "propertyFlips": 756
+   },
+   {
+    "key": "lib/components/chart/state-chart/state-chart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 161,
+    "propertyFlips": 215
+   },
+   {
+    "key": "lib/components/diagram/diagram/diagram.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 137,
+    "propertyFlips": 274
+   },
+   {
+    "key": "lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.modifiers.css",
+    "elements": 83,
+    "propertyFlips": 170
+   },
+   {
+    "key": "lib/components/imagery/collage/collage.styles.css → lib/base/base.modifiers.css",
+    "elements": 76,
+    "propertyFlips": 276
+   },
+   {
+    "key": "lib/components/anchor/closing/closing.styles.css → lib/base/base.modifiers.css",
+    "elements": 72,
+    "propertyFlips": 300
+   },
+   {
+    "key": "lib/base/base.sketch.css → lib/forms/cell/masthead/masthead.css",
+    "elements": 45,
+    "propertyFlips": 45
+   },
+   {
+    "key": "lib/components/anchor/topic/topic.styles.css → lib/base/base.modifiers.css",
+    "elements": 38,
+    "propertyFlips": 106
+   },
+   {
+    "key": "lib/components/code/code/code.styles.css → lib/plugins/code/code.styles.css",
+    "elements": 30,
+    "propertyFlips": 30
+   },
+   {
+    "key": "lib/components/math/math/math.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 27,
+    "propertyFlips": 71
+   },
+   {
+    "key": "lib/components/chart/gantt/gantt.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 24,
+    "propertyFlips": 24
+   },
+   {
+    "key": "lib/components/chart/timeline-list/timeline-list.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 24,
+    "propertyFlips": 26
+   },
+   {
+    "key": "lib/base/base.elements.css → lib/base/base.sketch.css",
+    "elements": 24,
+    "propertyFlips": 24
+   },
+   {
+    "key": "lib/components/comparison/split-compare/split-compare.styles.css → lib/base/base.modifiers.css",
+    "elements": 22,
+    "propertyFlips": 50
+   },
+   {
+    "key": "lib/components/evidence/stats/stats.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+    "elements": 21,
+    "propertyFlips": 42
+   },
+   {
+    "key": "lib/components/imagery/collage/collage.styles.css → lib/forms/cell/masthead/masthead.css",
+    "elements": 19,
+    "propertyFlips": 20
+   },
+   {
+    "key": "lib/components/inventory/actors/actors.styles.css → lib/base/base.modifiers.css",
+    "elements": 18,
+    "propertyFlips": 80
+   },
+   {
+    "key": "lib/components/chart/slope/slope.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 18,
+    "propertyFlips": 22
+   },
+   {
+    "key": "lib/base/base.modifiers.css → themes/indaco",
+    "elements": 16,
+    "propertyFlips": 1744
+   },
+   {
+    "key": "lib/components/chart/flowchart/flowchart.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 15,
+    "propertyFlips": 30
+   },
+   {
+    "key": "lib/components/statement/split-panel/split-panel.styles.css → lib/base/base.finish.css",
+    "elements": 15,
+    "propertyFlips": 30
+   },
+   {
+    "key": "lib/components/chart/progress/progress.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 13,
+    "propertyFlips": 13
+   },
+   {
+    "key": "lib/components/chart/hub-spoke/hub-spoke.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 12,
+    "propertyFlips": 12
+   },
+   {
+    "key": "lib/components/progression/list-steps/list-steps.styles.css → lib/forms/cell/masthead-lede/masthead-lede.css",
+    "elements": 10,
+    "propertyFlips": 20
+   },
+   {
+    "key": "lib/base/base.modifiers.css → lib/base/base.modifiers.css",
+    "elements": 10,
+    "propertyFlips": 10
+   },
+   {
+    "key": "lib/components/code/compare-code/compare-code.styles.css → lib/base/base.modifiers.css",
+    "elements": 10,
+    "propertyFlips": 60
+   },
+   {
+    "key": "lib/components/code/compare-code/compare-code.styles.css → lib/plugins/code/code.styles.css",
+    "elements": 10,
+    "propertyFlips": 10
+   },
+   {
+    "key": "lib/base/base.modifiers.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 9,
+    "propertyFlips": 9
+   },
+   {
+    "key": "lib/components/inventory/agenda/agenda.styles.css → lib/base/base.sketch.css",
+    "elements": 9,
+    "propertyFlips": 9
+   },
+   {
+    "key": "lib/components/legal/regulatory-update/regulatory-update.styles.css → lib/base/base.modifiers.css",
+    "elements": 8,
+    "propertyFlips": 24
+   },
+   {
+    "key": "lib/components/chart/kanban/kanban.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 8,
+    "propertyFlips": 16
+   },
+   {
+    "key": "lib/components/diagram/diagram/diagram.styles.css → lib/forms/cell/masthead/masthead.css",
+    "elements": 8,
+    "propertyFlips": 12
+   },
+   {
+    "key": "lib/components/chart/matrix-grid/matrix-grid.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 6,
+    "propertyFlips": 6
+   },
+   {
+    "key": "lib/plugins/mermaid/mermaid.styles.css → marp/author/runtime (untagged)",
+    "elements": 6,
+    "propertyFlips": 6
+   },
+   {
+    "key": "lib/components/legal/citation-card/citation-card.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 5,
+    "propertyFlips": 10
+   },
+   {
+    "key": "none → lib/base/base.modifiers.css",
+    "elements": 5,
+    "propertyFlips": 45
+   },
+   {
+    "key": "none → marp/author/runtime (untagged)",
+    "elements": 5,
+    "propertyFlips": 10
+   },
+   {
+    "key": "lib/components/chart/word-cloud/word-cloud.styles.css → lib/plugins/chart-family/chart-family.styles.css",
+    "elements": 5,
+    "propertyFlips": 35
+   },
+   {
+    "key": "lib/components/imagery/collage/collage.styles.css → lib/forms/cell/stage/stage.css",
+    "elements": 5,
+    "propertyFlips": 15
+   },
+   {
+    "key": "lib/components/diagram/diagram/diagram.styles.css → lib/plugins/mermaid/mermaid.styles.css",
+    "elements": 5,
+    "propertyFlips": 6
+   }
+  ],
+  "bySelectorPair": [
+   {
+    "key": "section.title :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :is(h1, marp-h1) + p:has(> code:only-child):not(:where([data-prose])) > code",
+    "elements": 190,
+    "propertyFlips": 756
+   },
+   {
+    "key": "section.form.diagram > .cell-stage ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) > .cell-stage",
+    "elements": 137,
+    "propertyFlips": 274
+   },
+   {
+    "key": "section.collage .collage-list > li > img ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) img:not(.emoji):not(.deck-logo)",
+    "elements": 62,
+    "propertyFlips": 248
+   },
+   {
+    "key": "section.closing :is(h2, marp-h2) + p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :is(h2, marp-h2) + p:has(> code:only-child):not(:where([data-prose])) > code",
+    "elements": 60,
+    "propertyFlips": 240
+   },
+   {
+    "key": "section.state-chart .state-node-shape[data-kind=\"terminal\"] ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) svg :is( .bar-mark, .chart-key-swatch, .bullet-measure, .bullet-offscale",
+    "elements": 55,
+    "propertyFlips": 55
+   },
+   {
+    "key": "section.state-chart.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+    "elements": 54,
+    "propertyFlips": 108
+   },
+   {
+    "key": "section.state-chart .state-node-shape[data-kind=\"start\"] ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) svg :is( .bar-mark, .chart-key-swatch, .bullet-measure, .bullet-offscale",
+    "elements": 52,
+    "propertyFlips": 52
+   },
+   {
+    "key": "section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .cell-masthead",
+    "elements": 45,
+    "propertyFlips": 45
+   },
+   {
+    "key": "section.code :is(pre, marp-pre) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) :where(:is(:is(pre, marp-pre), marp-pre):not(.lat-code, [data-lattice-hydrate], [dat",
+    "elements": 30,
+    "propertyFlips": 30
+   },
+   {
+    "key": "section.split-panel:not([data-orientation=\"portrait\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+    "elements": 30,
+    "propertyFlips": 30
+   },
+   {
+    "key": "section.gantt.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+    "elements": 24,
+    "propertyFlips": 24
+   },
+   {
+    "key": "section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-o ⟶ section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) > :whe",
+    "elements": 24,
+    "propertyFlips": 24
+   },
+   {
+    "key": "section.split-panel :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+    "elements": 22,
+    "propertyFlips": 22
+   },
+   {
+    "key": "section.form.stats:where(:not(.math)) .cell-masthead .masthead-lede ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .cell-masthead .masthead-lede",
+    "elements": 21,
+    "propertyFlips": 42
+   },
+   {
+    "key": "section.split-panel:not([data-orientation=\"portrait\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) footer",
+    "elements": 19,
+    "propertyFlips": 36
+   },
+   {
+    "key": "section.actors > .cell-stage > ul > li > code ⟶ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.",
+    "elements": 18,
+    "propertyFlips": 72
+   },
+   {
+    "key": "section.topic > p:first-of-type:has(> code:only-child):not(:where([data-prose])) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) p:has(> code:only-child):not(:where([data-prose])):has(+ :is(h2, marp-h2))",
+    "elements": 18,
+    "propertyFlips": 18
+   },
+   {
+    "key": "section.print ⟶ :where(section):not([\\20 root]):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#)",
+    "elements": 16,
+    "propertyFlips": 1744
+   },
+   {
+    "key": "section.flowchart.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+    "elements": 15,
+    "propertyFlips": 30
+   },
+   {
+    "key": "section.collage.collage.collage > .cell-masthead + p::before ⟶ section:is( .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist, .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle, ",
+    "elements": 14,
+    "propertyFlips": 14
+   },
+   {
+    "key": "section.progress.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+    "elements": 13,
+    "propertyFlips": 13
+   },
+   {
+    "key": "section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage ⟶ section.form:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) > .cell-stage",
+    "elements": 13,
+    "propertyFlips": 35
+   },
+   {
+    "key": "section.topic > p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) p:has(> code:only-child):not(:where([data-prose])):has(+ :is(h2, marp-h2)) > code",
+    "elements": 13,
+    "propertyFlips": 65
+   },
+   {
+    "key": "section.split-compare :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+    "elements": 12,
+    "propertyFlips": 12
+   },
+   {
+    "key": "section.split-compare:not([data-orientation=\"portrait\"]):not([data-orientation=\"square\"]) > :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+    "elements": 12,
+    "propertyFlips": 12
+   },
+   {
+    "key": "section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) :is(header, footer) ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) header",
+    "elements": 12,
+    "propertyFlips": 12
+   },
+   {
+    "key": "section.closing :is(h2, marp-h2) + p:has(> code:only-child):not(:where([data-prose])) > code ⟶ section:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code",
+    "elements": 12,
+    "propertyFlips": 60
+   },
+   {
+    "key": "section.hub-spoke .hub-spoke-svg :is(.hub-spoke-node, .hub-spoke-leaf)[data-emph=\"true\"] ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) svg :is( .bar-mark, .chart-key-swatch, .bullet-measure, .bullet-offscale",
+    "elements": 12,
+    "propertyFlips": 12
+   },
+   {
+    "key": "section.timeline-list.chart-frame ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#)",
+    "elements": 11,
+    "propertyFlips": 11
+   },
+   {
+    "key": "section.timeline-list.chart-frame .chart-body ⟶ section.chart-frame:not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#):not(#\\#) .chart-body",
+    "elements": 11,
+    "propertyFlips": 11
+   }
+  ],
+  "byPropertyFamily": [
+   {
+    "key": "font-weight",
+    "elements": 262,
+    "propertyFlips": 262
+   },
+   {
+    "key": "font-family",
+    "elements": 251,
+    "propertyFlips": 251
+   },
+   {
+    "key": "font-size",
+    "elements": 250,
+    "propertyFlips": 250
+   },
+   {
+    "key": "font-style",
+    "elements": 250,
+    "propertyFlips": 250
+   },
+   {
+    "key": "gap",
+    "elements": 192,
+    "propertyFlips": 366
+   },
+   {
+    "key": "color",
+    "elements": 138,
+    "propertyFlips": 138
+   },
+   {
+    "key": "padding",
+    "elements": 123,
+    "propertyFlips": 196
+   },
+   {
+    "key": "stroke-width",
+    "elements": 119,
+    "propertyFlips": 119
+   },
+   {
+    "key": "border-color",
+    "elements": 118,
+    "propertyFlips": 259
+   },
+   {
+    "key": "justify-content",
+    "elements": 89,
+    "propertyFlips": 89
+   },
+   {
+    "key": "align-items",
+    "elements": 85,
+    "propertyFlips": 85
+   },
+   {
+    "key": "inset",
+    "elements": 71,
+    "propertyFlips": 71
+   },
+   {
+    "key": "flex-basis",
+    "elements": 69,
+    "propertyFlips": 69
+   },
+   {
+    "key": "border-radius",
+    "elements": 62,
+    "propertyFlips": 248
+   },
+   {
+    "key": "line-height",
+    "elements": 39,
+    "propertyFlips": 39
+   },
+   {
+    "key": "display",
+    "elements": 35,
+    "propertyFlips": 35
+   },
+   {
+    "key": "text-align",
+    "elements": 34,
+    "propertyFlips": 34
+   },
+   {
+    "key": "::beforecontent",
+    "elements": 26,
+    "propertyFlips": 26
+   },
+   {
+    "key": "fill",
+    "elements": 20,
+    "propertyFlips": 20
+   },
+   {
+    "key": "letter-spacing",
+    "elements": 18,
+    "propertyFlips": 18
+   },
+   {
+    "key": "--border",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--text-body",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--syntax-markup",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--syntax-string",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--chart-cat8-ink",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--bg",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--diagram-active-mark",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--text-display",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--cat-5-mark",
+    "elements": 16,
+    "propertyFlips": 16
+   },
+   {
+    "key": "--chart-cat3",
+    "elements": 16,
+    "propertyFlips": 16
+   }
+  ],
+  "todayWinnerFile": [
+   [
+    "lib/components/anchor/title/title.styles.css",
+    190
+   ],
+   [
+    "lib/components/chart/state-chart/state-chart.styles.css",
+    161
+   ],
+   [
+    "lib/components/diagram/diagram/diagram.styles.css",
+    154
+   ],
+   [
+    "lib/components/imagery/collage/collage.styles.css",
+    100
+   ],
+   [
+    "lib/components/statement/split-panel/split-panel.styles.css",
+    98
+   ],
+   [
+    "lib/components/anchor/closing/closing.styles.css",
+    72
+   ],
+   [
+    "lib/base/base.sketch.css",
+    45
+   ],
+   [
+    "lib/components/anchor/topic/topic.styles.css",
+    38
+   ],
+   [
+    "lib/base/base.modifiers.css",
+    35
+   ],
+   [
+    "lib/components/code/code/code.styles.css",
+    30
+   ],
+   [
+    "lib/components/math/math/math.styles.css",
+    27
+   ],
+   [
+    "lib/components/comparison/split-compare/split-compare.styles.css",
+    26
+   ],
+   [
+    "lib/components/chart/gantt/gantt.styles.css",
+    24
+   ],
+   [
+    "lib/components/chart/timeline-list/timeline-list.styles.css",
+    24
+   ],
+   [
+    "lib/base/base.elements.css",
+    24
+   ],
+   [
+    "lib/components/evidence/stats/stats.styles.css",
+    22
+   ],
+   [
+    "lib/components/code/compare-code/compare-code.styles.css",
+    20
+   ],
+   [
+    "lib/components/inventory/actors/actors.styles.css",
+    18
+   ],
+   [
+    "lib/components/chart/slope/slope.styles.css",
+    18
+   ],
+   [
+    "lib/components/chart/flowchart/flowchart.styles.css",
+    15
+   ],
+   [
+    "lib/components/chart/progress/progress.styles.css",
+    13
+   ],
+   [
+    "lib/components/progression/list-steps/list-steps.styles.css",
+    12
+   ],
+   [
+    "lib/components/chart/hub-spoke/hub-spoke.styles.css",
+    12
+   ],
+   [
+    "none",
+    10
+   ],
+   [
+    "lib/components/inventory/agenda/agenda.styles.css",
+    9
+   ]
+  ],
+  "layeredWinnerFile": [
+   [
+    "lib/base/base.modifiers.css",
+    539
+   ],
+   [
+    "lib/plugins/chart-family/chart-family.styles.css",
+    298
+   ],
+   [
+    "lib/forms/cell/stage/stage.css",
+    179
+   ],
+   [
+    "lib/forms/cell/masthead/masthead.css",
+    74
+   ],
+   [
+    "lib/plugins/code/code.styles.css",
+    40
+   ],
+   [
+    "lib/forms/cell/masthead-lede/masthead-lede.css",
+    34
+   ],
+   [
+    "lib/base/base.sketch.css",
+    33
+   ],
+   [
+    "lib/base/base.finish.css",
+    22
+   ],
+   [
+    "themes/indaco",
+    16
+   ],
+   [
+    "marp/author/runtime (untagged)",
+    11
+   ],
+   [
+    "lib/plugins/mermaid/mermaid.styles.css",
+    5
+   ],
+   [
+    "lib/forms/cell/coda/coda.css",
+    4
+   ],
+   [
+    "lib/plugins/sparks/sparks.styles.css",
+    3
+   ]
+  ]
+ },
+ "tax": {
+  "decks": 22,
+  "instances": {
+   "specDecided": {
+    "loser-in-later-layer": 2025,
+    "same-file": 402,
+    "same-layer-other-file": 67
+   },
+   "bumpNecessary": {
+    "same-file": 14,
+    "loser-in-later-layer": 4
+   },
+   "loweringNecessary": {
+    "loser-in-later-layer": 1367,
+    "loser-in-earlier-layer": 667,
+    "same-file": 975
+   }
+  },
+  "distinctRulePairsSummedPerDeck": {
+   "specDecided": {
+    "loser-in-later-layer": 115,
+    "same-file": 47,
+    "same-layer-other-file": 4
+   },
+   "bumpNecessary": {
+    "same-file": 5,
+    "loser-in-later-layer": 1
+   },
+   "loweringNecessary": {
+    "loser-in-later-layer": 40,
+    "loser-in-earlier-layer": 21,
+    "same-file": 58
+   }
+  },
+  "bumpedSelectorsWinningSomewhere": 39,
+  "bumpedSelectorsByWhatTheBumpWasNeededAgainst": {
+   "bump never needed on the DOM measured": 36,
+   "same-file": 2,
+   "loser-in-later-layer + same-file": 1
+  },
+  "bumpedRulesMatchedAnywhere": 56,
+  "topFilePairs": {
+   "specDecided": [
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/anchor/title/title.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 624
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/plugins/mermaid/mermaid.styles.css",
+     "loserFile": "lib/plugins/mermaid/mermaid.styles.css",
+     "instances": 322
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/anchor/closing/closing.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 273
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/diagram/diagram/diagram.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 168
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/diagram/diagram/diagram.styles.css",
+     "loserFile": "lib/plugins/mermaid/mermaid.styles.css",
+     "instances": 168
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/code/compare-code/compare-code.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 160
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/code/code/code.styles.css",
+     "loserFile": "lib/plugins/code/code.styles.css",
+     "instances": 150
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/statement/split-panel/split-panel.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 136
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/inventory/actors/actors.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 81
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/code/compare-code/compare-code.styles.css",
+     "loserFile": "lib/plugins/code/code.styles.css",
+     "instances": 60
+    },
+    {
+     "cat": "same-layer-other-file",
+     "winnerFile": "lib/components/comparison/compare-prose/compare-prose.styles.css",
+     "loserFile": "lib/base/base.card-tag.css",
+     "instances": 52
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/legal/regulatory-update/regulatory-update.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 33
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/base/base.sketch.css",
+     "loserFile": "lib/forms/cell/masthead/masthead.css",
+     "instances": 25
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/chart/state-chart/state-chart.styles.css",
+     "loserFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "instances": 22
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/chart/word-cloud/word-cloud.styles.css",
+     "loserFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "instances": 21
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/chart/matrix-grid/matrix-grid.styles.css",
+     "loserFile": "lib/components/chart/matrix-grid/matrix-grid.styles.css",
+     "instances": 15
+    },
+    {
+     "cat": "same-layer-other-file",
+     "winnerFile": "lib/components/progression/list-steps/list-steps.styles.css",
+     "loserFile": "lib/base/base.card-tag.css",
+     "instances": 15
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/math/math/math.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 14
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/comparison/decision/decision.styles.css",
+     "loserFile": "lib/components/comparison/decision/decision.styles.css",
+     "instances": 12
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/chart/timeline-list/timeline-list.styles.css",
+     "loserFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "instances": 12
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/base/base.elements.css",
+     "loserFile": "lib/base/base.sketch.css",
+     "instances": 11
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/base/base.sketch.css",
+     "loserFile": "lib/base/base.sketch.css",
+     "instances": 11
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/chart/piechart/piechart.styles.css",
+     "loserFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "instances": 10
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/legal/citation-card/citation-card.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 9
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/comparison/compare-prose/compare-prose.styles.css",
+     "loserFile": "lib/components/comparison/compare-prose/compare-prose.styles.css",
+     "instances": 8
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/legal/citation-card/citation-card.styles.css",
+     "loserFile": "lib/components/legal/citation-card/citation-card.styles.css",
+     "instances": 7
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/imagery/scene/scene.styles.css",
+     "loserFile": "lib/components/imagery/scene/scene.styles.css",
+     "instances": 6
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/inventory/team-profile/team-profile.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 6
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/chart/gantt/gantt.styles.css",
+     "loserFile": "lib/components/chart/gantt/gantt.styles.css",
+     "instances": 6
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/chart/kanban/kanban.styles.css",
+     "loserFile": "lib/components/chart/kanban/kanban.styles.css",
+     "instances": 6
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/base/base.modifiers.css",
+     "loserFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "instances": 4
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/base/base.finish.css",
+     "loserFile": "lib/base/base.finish.css",
+     "instances": 4
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/evidence/kpi/kpi.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 4
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/evidence/stats/stats.styles.css",
+     "loserFile": "lib/forms/cell/masthead-lede/masthead-lede.css",
+     "instances": 4
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/evidence/stats/stats.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 4
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/statement/content/content.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 4
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/inventory/agenda/agenda.styles.css",
+     "loserFile": "lib/base/base.sketch.css",
+     "instances": 4
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/evidence/kpi/kpi.styles.css",
+     "loserFile": "lib/plugins/sparks/sparks.styles.css",
+     "instances": 3
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/chart/progress/progress.styles.css",
+     "loserFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "instances": 2
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/chart/state-chart/state-chart.styles.css",
+     "loserFile": "lib/components/chart/state-chart/state-chart.styles.css",
+     "instances": 2
+    }
+   ],
+   "bumpNecessary": [
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/statement/content/content.styles.css",
+     "loserFile": "lib/components/statement/content/content.styles.css",
+     "instances": 8
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/evidence/kpi/kpi.styles.css",
+     "loserFile": "lib/components/evidence/kpi/kpi.styles.css",
+     "instances": 6
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/statement/content/content.styles.css",
+     "loserFile": "lib/forms/cell/stage/stage.css",
+     "instances": 4
+    }
+   ],
+   "loweringNecessary": [
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/anchor/title/title.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 624
+    },
+    {
+     "cat": "loser-in-earlier-layer",
+     "winnerFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 609
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/base/base.elements.css",
+     "loserFile": "lib/base/base.elements.css",
+     "instances": 595
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/plugins/mermaid/mermaid.styles.css",
+     "loserFile": "lib/plugins/mermaid/mermaid.styles.css",
+     "instances": 280
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/anchor/closing/closing.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 273
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/diagram/diagram/diagram.styles.css",
+     "loserFile": "lib/plugins/mermaid/mermaid.styles.css",
+     "instances": 168
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/code/code/code.styles.css",
+     "loserFile": "lib/plugins/code/code.styles.css",
+     "instances": 150
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/inventory/actors/actors.styles.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 81
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/components/code/compare-code/compare-code.styles.css",
+     "loserFile": "lib/plugins/code/code.styles.css",
+     "instances": 60
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/comparison/decision/decision.styles.css",
+     "loserFile": "lib/components/comparison/decision/decision.styles.css",
+     "instances": 38
+    },
+    {
+     "cat": "loser-in-earlier-layer",
+     "winnerFile": "lib/base/base.sketch.css",
+     "loserFile": "lib/base/base.elements.css",
+     "instances": 34
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/base/base.sketch.css",
+     "loserFile": "lib/base/base.sketch.css",
+     "instances": 23
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/chart/bullet/bullet.styles.css",
+     "loserFile": "lib/components/chart/bullet/bullet.styles.css",
+     "instances": 16
+    },
+    {
+     "cat": "loser-in-earlier-layer",
+     "winnerFile": "lib/plugins/chart-family/chart-family.styles.css",
+     "loserFile": "lib/components/chart/bullet/bullet.styles.css",
+     "instances": 16
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/math/math/math.styles.css",
+     "loserFile": "lib/components/math/math/math.styles.css",
+     "instances": 13
+    },
+    {
+     "cat": "loser-in-later-layer",
+     "winnerFile": "lib/base/base.elements.css",
+     "loserFile": "lib/base/base.sketch.css",
+     "instances": 11
+    },
+    {
+     "cat": "loser-in-earlier-layer",
+     "winnerFile": "lib/forms/cell/stage/stage.css",
+     "loserFile": "lib/components/comparison/decision/decision.styles.css",
+     "instances": 8
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/chart/matrix-grid/matrix-grid.styles.css",
+     "loserFile": "lib/components/chart/matrix-grid/matrix-grid.styles.css",
+     "instances": 5
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/components/evidence/kpi/kpi.styles.css",
+     "loserFile": "lib/components/evidence/kpi/kpi.styles.css",
+     "instances": 4
+    },
+    {
+     "cat": "same-file",
+     "winnerFile": "lib/base/base.modifiers.css",
+     "loserFile": "lib/base/base.modifiers.css",
+     "instances": 1
+    }
+   ]
+  },
+  "sanity": {
+   "orderViolations": 0,
+   "specChecked": 42399,
+   "specMismatch": 0
+  }
+ },
+ "decks": [
+  {
+   "deck": "examples/a11y.md",
+   "palette": "a11y-deuteranopia",
+   "elements": 311,
+   "DvsC": 19,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 26,
+    "attribution": 6,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/accent-finishes.md",
+   "palette": "indaco",
+   "elements": 298,
+   "DvsC": 1,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 25,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/accent-on-accent.md",
+   "palette": "atelier-dark",
+   "elements": 156,
+   "DvsC": 10,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/accessible-descriptions.md",
+   "palette": "indaco",
+   "elements": 62,
+   "DvsC": 6,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 13,
+    "census": 9,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/adaptive-image.md",
+   "palette": "indaco",
+   "elements": 124,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 17,
+    "census": 15,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/adaptive-sizing.md",
+   "palette": "indaco",
+   "elements": 178,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 21,
+    "census": 18,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/adaptive-sweep.md",
+   "palette": "indaco",
+   "elements": 1260,
+   "DvsC": 44,
+   "CvsC0": 0,
+   "DvsC0": 44,
+   "elementsWithFlip": 13,
+   "seconds": {
+    "render": 18,
+    "census": 115,
+    "attribution": 10,
+    "tax": 50
+   }
+  },
+  {
+   "deck": "examples/anima-chart.md",
+   "palette": "indaco",
+   "elements": 291,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 23,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/anima-heatmap.md",
+   "palette": "indaco",
+   "elements": 475,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 11,
+    "census": 37,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/anima-scene.md",
+   "palette": "indaco",
+   "elements": 99,
+   "DvsC": 2,
+   "CvsC0": 0,
+   "DvsC0": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 17,
+    "census": 14,
+    "attribution": 1,
+    "tax": 3
+   }
+  },
+  {
+   "deck": "examples/authority-chain-rail.md",
+   "palette": "indaco",
+   "elements": 311,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 30,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/authority-chain-row-fit.md",
+   "palette": "indaco",
+   "elements": 246,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 12,
+    "census": 19,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/auto-glossary.md",
+   "palette": "indaco",
+   "elements": 144,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 11,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/auto-split.md",
+   "palette": "indaco",
+   "elements": 125,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/autosplit-coverage.md",
+   "palette": "indaco",
+   "elements": 346,
+   "DvsC": 10,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 21,
+    "census": 31,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/avatars-dress.md",
+   "palette": "indaco",
+   "elements": 1521,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 106,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/avatars.md",
+   "palette": "indaco",
+   "elements": 1650,
+   "DvsC": 21,
+   "CvsC0": 0,
+   "DvsC0": 21,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 22,
+    "census": 140,
+    "attribution": 6,
+    "tax": 62
+   }
+  },
+  {
+   "deck": "examples/backdrop-register.md",
+   "palette": "indaco",
+   "elements": 186,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/bloom-engineering-journey.md",
+   "palette": "indaco",
+   "elements": 401,
+   "DvsC": 17,
+   "elementsWithFlip": 11,
+   "seconds": {
+    "render": 13,
+    "census": 29,
+    "attribution": 6,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/build.md",
+   "palette": "indaco",
+   "elements": 163,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 16,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/carbone-curation.md",
+   "palette": "carbone",
+   "elements": 736,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 18,
+    "census": 70,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/carbone-light-face.md",
+   "palette": "carbone",
+   "elements": 286,
+   "DvsC": 6,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 18,
+    "census": 26,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/card-stack-vertical-alignment.md",
+   "palette": "indaco",
+   "elements": 196,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 16,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/card-tag-placements.md",
+   "palette": "indaco",
+   "elements": 185,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 15,
+    "census": 15,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/card-tags.md",
+   "palette": "indaco",
+   "elements": 239,
+   "DvsC": 2,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 20,
+    "census": 22,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/cards-register-catalog.md",
+   "palette": "indaco",
+   "elements": 235,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 14,
+    "census": 25,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/cards-register-coverage.md",
+   "palette": "cuoio",
+   "elements": 224,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 14,
+    "census": 24,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/cards-stats-actors-kpi.md",
+   "palette": "cuoio",
+   "elements": 289,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 32,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/cat-ink-tier.md",
+   "palette": "atelier",
+   "elements": 653,
+   "DvsC": 3,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 14,
+    "census": 54,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-axis-grammar.md",
+   "palette": "indaco",
+   "elements": 692,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 16,
+    "census": 64,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-billion-spellings.md",
+   "palette": "indaco",
+   "elements": 255,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 16,
+    "census": 25,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-body-tier.md",
+   "palette": "indaco",
+   "elements": 256,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 19,
+    "census": 24,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-detail-reveal.md",
+   "palette": "indaco",
+   "elements": 706,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 18,
+    "census": 104,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-european-numbers.md",
+   "palette": "indaco",
+   "elements": 472,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 17,
+    "census": 41,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-explain-narration.md",
+   "palette": "indaco",
+   "elements": 567,
+   "DvsC": 156,
+   "CvsC0": 0,
+   "DvsC0": 156,
+   "elementsWithFlip": 14,
+   "seconds": {
+    "render": 19,
+    "census": 62,
+    "attribution": 46,
+    "tax": 29
+   }
+  },
+  {
+   "deck": "examples/chart-family-all-svg.md",
+   "palette": "indaco",
+   "elements": 516,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 43,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-family-coverage.md",
+   "palette": "cuoio",
+   "elements": 581,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 52,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-finish.md",
+   "palette": "indaco",
+   "elements": 672,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 61,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-hue-collapse-print.md",
+   "palette": "indaco",
+   "elements": 124,
+   "DvsC": 124,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 16,
+    "census": 19,
+    "attribution": 46,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-hue-collapse.md",
+   "palette": "indaco",
+   "elements": 288,
+   "DvsC": 45,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 19,
+    "census": 39,
+    "attribution": 15,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-icons.md",
+   "palette": "indaco",
+   "elements": 546,
+   "DvsC": 10,
+   "elementsWithFlip": 9,
+   "seconds": {
+    "render": 16,
+    "census": 49,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-key-text-values.md",
+   "palette": "indaco",
+   "elements": 1689,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 166,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-lead-blocks.md",
+   "palette": "indaco",
+   "elements": 301,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 19,
+    "census": 42,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-lead-paragraphs.md",
+   "palette": "indaco",
+   "elements": 238,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 18,
+    "census": 35,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-legends.md",
+   "palette": "indaco",
+   "elements": 870,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 96,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-malformed-numbers.md",
+   "palette": "indaco",
+   "elements": 226,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 12,
+    "census": 30,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/chart-narration.md",
+   "palette": "indaco",
+   "elements": 462,
+   "DvsC": 5,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 14,
+    "census": 44,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/checkbox-semantics.md",
+   "palette": "indaco",
+   "elements": 404,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 16,
+    "census": 31,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/claim.md",
+   "palette": "indaco",
+   "elements": 322,
+   "DvsC": 1,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 16,
+    "census": 32,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/code-plugin.md",
+   "palette": "indaco",
+   "elements": 272,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 20,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/code-record-followups.md",
+   "palette": "indaco",
+   "elements": 191,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 23,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/collage-canvases.md",
+   "palette": "indaco",
+   "elements": 159,
+   "DvsC": 66,
+   "elementsWithFlip": 35,
+   "seconds": {
+    "render": 14,
+    "census": 15,
+    "attribution": 17,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/collage.md",
+   "palette": "indaco",
+   "elements": 288,
+   "DvsC": 107,
+   "elementsWithFlip": 60,
+   "seconds": {
+    "render": 15,
+    "census": 29,
+    "attribution": 33,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/color-mode.md",
+   "palette": "cuoio",
+   "elements": 140,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/containment-tier.md",
+   "palette": "indaco",
+   "elements": 688,
+   "DvsC": 6,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 19,
+    "census": 54,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/content-capacity.md",
+   "palette": "indaco",
+   "elements": 182,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 12,
+    "census": 13,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/contrast-floor-dimming.md",
+   "palette": "indaco",
+   "elements": 235,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 24,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/converge-band-contrast.md",
+   "palette": "cuoio",
+   "elements": 172,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 21,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/counter-baseline-alignment.md",
+   "palette": "indaco",
+   "elements": 89,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 10,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/cover-paginate.md",
+   "palette": "indaco",
+   "elements": 327,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 11,
+    "census": 22,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/cycle.md",
+   "palette": "indaco",
+   "elements": 170,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 20,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/dark-canvas-ownership.md",
+   "palette": "indaco",
+   "elements": 139,
+   "DvsC": 7,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 14,
+    "census": 13,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/dark-diagram-fills.md",
+   "palette": "laguna-dark",
+   "elements": 340,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 36,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/data-viz-gallery.md",
+   "skipped": "no theme: in front matter (Marp renders its own default theme)"
+  },
+  {
+   "deck": "examples/debug.md",
+   "palette": "indaco",
+   "elements": 150,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 17,
+    "census": 15,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/deck-class-register.md",
+   "palette": "indaco",
+   "elements": 436,
+   "DvsC": 120,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 14,
+    "census": 44,
+    "attribution": 37,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/deck-class-tokens.md",
+   "palette": "indaco",
+   "elements": 228,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 26,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/deck-logo-canvas.md",
+   "palette": "indaco",
+   "elements": 186,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 16,
+    "census": 16,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/deck-logo-dark-theme.md",
+   "palette": "indaco-dark",
+   "elements": 212,
+   "DvsC": 53,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 16,
+    "census": 23,
+    "attribution": 17,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/deck-presets.md",
+   "palette": "indaco",
+   "elements": 194,
+   "DvsC": 1,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 19,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/default-slide-layout.md",
+   "palette": "indaco",
+   "elements": 172,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 16,
+    "census": 14,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/delivery-scenes.md",
+   "palette": "indaco",
+   "elements": 517,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 50,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/delivery-spark.md",
+   "palette": "indaco",
+   "elements": 237,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 24,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/diagram-narration.md",
+   "palette": "indaco",
+   "elements": 1026,
+   "DvsC": 9,
+   "CvsC0": 0,
+   "DvsC0": 9,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 19,
+    "census": 128,
+    "attribution": 2,
+    "tax": 37
+   }
+  },
+  {
+   "deck": "examples/divider-numbered.md",
+   "palette": "indaco",
+   "elements": 303,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 13,
+    "census": 25,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/drawn-not-typed.md",
+   "palette": "indaco",
+   "elements": 246,
+   "DvsC": 1,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 11,
+    "census": 23,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/emphasis-narration.md",
+   "palette": "indaco",
+   "elements": 176,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 11,
+    "census": 22,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/finish-backdrops.md",
+   "palette": "indaco",
+   "elements": 357,
+   "DvsC": 67,
+   "CvsC0": 0,
+   "DvsC0": 67,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 19,
+    "census": 32,
+    "attribution": 18,
+    "tax": 13
+   }
+  },
+  {
+   "deck": "examples/finish-canvas-light-half.md",
+   "palette": "indaco",
+   "elements": 137,
+   "DvsC": 2,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 12,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/finish-canvas-print-face.md",
+   "palette": "indaco",
+   "elements": 91,
+   "DvsC": 91,
+   "elementsWithFlip": 14,
+   "seconds": {
+    "render": 14,
+    "census": 10,
+    "attribution": 26,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/finish-override.md",
+   "palette": "indaco",
+   "elements": 137,
+   "DvsC": 3,
+   "CvsC0": 0,
+   "DvsC0": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 18,
+    "census": 17,
+    "attribution": 1,
+    "tax": 4
+   }
+  },
+  {
+   "deck": "examples/finish-per-slide.md",
+   "palette": "indaco",
+   "elements": 94,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/finish-split-covers.md",
+   "palette": "indaco",
+   "elements": 122,
+   "DvsC": 4,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 14,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/flowchart.md",
+   "palette": "indaco",
+   "elements": 1013,
+   "DvsC": 8,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 15,
+    "census": 102,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/fluid-box.md",
+   "palette": "indaco",
+   "elements": 161,
+   "DvsC": 9,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 11,
+    "census": 19,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/focus-chart-marks.md",
+   "palette": "indaco",
+   "elements": 368,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 46,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/focus.md",
+   "palette": "indaco",
+   "elements": 451,
+   "DvsC": 3,
+   "CvsC0": 0,
+   "DvsC0": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 16,
+    "census": 37,
+    "attribution": 2,
+    "tax": 16
+   }
+  },
+  {
+   "deck": "examples/font-scale.md",
+   "palette": "cuoio",
+   "elements": 286,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 22,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/footer-cell.md",
+   "palette": "indaco",
+   "elements": 154,
+   "DvsC": 4,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 19,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/form.md",
+   "palette": "cuoio",
+   "elements": 236,
+   "DvsC": 8,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 25,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/frame-chrome-and-notes.md",
+   "palette": "indaco",
+   "elements": 169,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 18,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/funnel.md",
+   "palette": "indaco",
+   "elements": 209,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 26,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/gallery-jargon.md",
+   "palette": "crepuscolo",
+   "elements": 2457,
+   "DvsC": 93,
+   "CvsC0": 0,
+   "DvsC0": 93,
+   "elementsWithFlip": 29,
+   "seconds": {
+    "render": 18,
+    "census": 241,
+    "attribution": 22,
+    "tax": 84
+   }
+  },
+  {
+   "deck": "examples/gantt-component-redesign.md",
+   "palette": "indaco",
+   "elements": 564,
+   "DvsC": 8,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 12,
+    "census": 48,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/gantt-lane-packing.md",
+   "palette": "indaco",
+   "elements": 642,
+   "DvsC": 9,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 16,
+    "census": 60,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/gantt-status-key.md",
+   "palette": "indaco",
+   "elements": 376,
+   "DvsC": 3,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 17,
+    "census": 37,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/global-south.md",
+   "palette": "indaco",
+   "elements": 2409,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 266,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/graph-chart-rearrange.md",
+   "palette": "indaco",
+   "elements": 921,
+   "DvsC": 11,
+   "elementsWithFlip": 11,
+   "seconds": {
+    "render": 12,
+    "census": 88,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/guide-gestures.md",
+   "palette": "indaco",
+   "elements": 246,
+   "DvsC": 11,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 15,
+    "census": 20,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/guide-storyboards.md",
+   "palette": "indaco",
+   "elements": 491,
+   "DvsC": 2,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 40,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/headline-alignment.md",
+   "palette": "indaco",
+   "elements": 178,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 13,
+    "census": 13,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/heatmap-label-sets.md",
+   "palette": "indaco",
+   "elements": 699,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 66,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/heatmap-row-names.md",
+   "palette": "indaco",
+   "elements": 630,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 73,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/heatmap.md",
+   "palette": "indaco",
+   "elements": 702,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 60,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/html-player.md",
+   "palette": "indaco",
+   "elements": 128,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 15,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/hub-spoke-icons.md",
+   "palette": "indaco",
+   "elements": 390,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 17,
+    "census": 36,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/hub-spoke-sketch.md",
+   "palette": "indaco",
+   "elements": 421,
+   "DvsC": 11,
+   "elementsWithFlip": 10,
+   "seconds": {
+    "render": 14,
+    "census": 54,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/hub-spoke.md",
+   "palette": "indaco",
+   "elements": 618,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 16,
+    "census": 53,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/image-set-export.md",
+   "palette": "indaco",
+   "elements": 311,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 28,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inline-code-contrast.md",
+   "palette": "indaco",
+   "elements": 158,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 20,
+    "census": 18,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inline-code-literal.md",
+   "palette": "indaco",
+   "elements": 190,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 17,
+    "census": 17,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inline-icons.md",
+   "palette": "indaco",
+   "elements": 645,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 51,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inline-pills.md",
+   "palette": "indaco",
+   "elements": 299,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 19,
+    "census": 23,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inline-sparks.md",
+   "palette": "indaco",
+   "elements": 898,
+   "DvsC": 35,
+   "CvsC0": 0,
+   "DvsC0": 35,
+   "elementsWithFlip": 10,
+   "seconds": {
+    "render": 20,
+    "census": 86,
+    "attribution": 12,
+    "tax": 32
+   }
+  },
+  {
+   "deck": "examples/insight-labels.md",
+   "palette": "indaco",
+   "elements": 186,
+   "DvsC": 8,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 13,
+    "census": 14,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inventory-insight-fit.md",
+   "palette": "indaco",
+   "elements": 169,
+   "DvsC": 15,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 15,
+    "census": 18,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inventory-split-portrait.md",
+   "palette": "indaco",
+   "elements": 107,
+   "DvsC": 6,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 12,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/inventory.md",
+   "palette": "cuoio",
+   "elements": 135,
+   "DvsC": 12,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 13,
+    "census": 17,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/journey-label-sets.md",
+   "palette": "indaco",
+   "elements": 519,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 48,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/journey-stage-contrast.md",
+   "palette": "indaco",
+   "elements": 671,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 80,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/kaizen-craftsmanship.md",
+   "palette": "ardesia",
+   "elements": 396,
+   "DvsC": 11,
+   "CvsC0": 0,
+   "DvsC0": 11,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 17,
+    "census": 31,
+    "attribution": 4,
+    "tax": 14
+   }
+  },
+  {
+   "deck": "examples/kanban-chart-redesign.md",
+   "palette": "indaco",
+   "elements": 365,
+   "DvsC": 8,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 13,
+    "census": 42,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/key-insight-gap-spacing.md",
+   "palette": "indaco",
+   "elements": 187,
+   "DvsC": 7,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 13,
+    "census": 16,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/kpi-allowance.md",
+   "palette": "indaco",
+   "elements": 209,
+   "DvsC": 4,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 16,
+    "census": 22,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/kpi-row-rules.md",
+   "palette": "indaco",
+   "elements": 262,
+   "DvsC": 0,
+   "CvsC0": 0,
+   "DvsC0": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 18,
+    "census": 30,
+    "attribution": 0,
+    "tax": 12
+   }
+  },
+  {
+   "deck": "examples/kpi-stats-lift.md",
+   "palette": "indaco",
+   "elements": 140,
+   "DvsC": 7,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 13,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/label-attribution.md",
+   "palette": "indaco",
+   "elements": 455,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 41,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/legend-below-portrait.md",
+   "palette": "indaco",
+   "elements": 533,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 56,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/light-dark-scheme-fixes.md",
+   "palette": "indaco",
+   "elements": 267,
+   "DvsC": 13,
+   "elementsWithFlip": 11,
+   "seconds": {
+    "render": 13,
+    "census": 29,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/line-motion.md",
+   "palette": "indaco",
+   "elements": 508,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 41,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/list-alignment-and-counters.md",
+   "palette": "indaco",
+   "elements": 156,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 21,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/list-tabular-responsive.md",
+   "palette": "indaco",
+   "elements": 193,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/list-takeaway-criteria.md",
+   "palette": "indaco",
+   "elements": 202,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 25,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/locale-guard.md",
+   "palette": "indaco",
+   "elements": 98,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 13,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/logo-wall-equal-weight.md",
+   "palette": "indaco",
+   "elements": 215,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 22,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/logo-wall.md",
+   "palette": "indaco",
+   "elements": 250,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 13,
+    "census": 28,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/ltt-timing-track.md",
+   "palette": "indaco",
+   "elements": 98,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 13,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/map.md",
+   "palette": "indaco",
+   "elements": 1082,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 112,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mark-visibility.md",
+   "palette": "indaco",
+   "elements": 131,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 11,
+    "census": 16,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/marker-corner.md",
+   "palette": "indaco",
+   "elements": 162,
+   "DvsC": 6,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 14,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/marp-export-fidelity.md",
+   "palette": "indaco",
+   "elements": 294,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 25,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/math-bare-equation.md",
+   "palette": "indaco",
+   "elements": 1111,
+   "DvsC": 16,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 14,
+    "census": 91,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/math-form-frame.md",
+   "palette": "indaco",
+   "elements": 2418,
+   "DvsC": 62,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 12,
+    "census": 191,
+    "attribution": 15,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/math-split-structure.md",
+   "palette": "indaco",
+   "elements": 1930,
+   "DvsC": 29,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 12,
+    "census": 150,
+    "attribution": 10,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/matrix-grid-label-sets.md",
+   "palette": "indaco",
+   "elements": 254,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 12,
+    "census": 25,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/matrix-grid-rendering-jank.md",
+   "palette": "indaco",
+   "elements": 404,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 15,
+    "census": 37,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mermaid-diagram-surface.md",
+   "palette": "indaco",
+   "elements": 522,
+   "DvsC": 4,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 12,
+    "census": 46,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mermaid-init-merge.md",
+   "palette": "indaco",
+   "elements": 480,
+   "DvsC": 4,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 18,
+    "census": 39,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mermaid-label-fit.md",
+   "palette": "indaco",
+   "elements": 492,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 13,
+    "census": 42,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mermaid-motion.md",
+   "palette": "indaco",
+   "elements": 518,
+   "DvsC": 5,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 18,
+    "census": 46,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mermaid-pie-legibility.md",
+   "palette": "indaco",
+   "elements": 258,
+   "DvsC": 5,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 18,
+    "census": 19,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mermaid-sketch-labels.md",
+   "palette": "indaco",
+   "elements": 1313,
+   "DvsC": 15,
+   "CvsC0": 0,
+   "DvsC0": 15,
+   "elementsWithFlip": 15,
+   "seconds": {
+    "render": 16,
+    "census": 131,
+    "attribution": 4,
+    "tax": 53
+   }
+  },
+  {
+   "deck": "examples/mermaid-tilde-fences.md",
+   "palette": "indaco",
+   "elements": 463,
+   "DvsC": 7,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 15,
+    "census": 40,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mindmap-branch-colors.md",
+   "palette": "indaco",
+   "elements": 2403,
+   "DvsC": 11,
+   "CvsC0": 0,
+   "DvsC0": 11,
+   "elementsWithFlip": 10,
+   "seconds": {
+    "render": 20,
+    "census": 255,
+    "attribution": 3,
+    "tax": 91
+   }
+  },
+  {
+   "deck": "examples/mobile-landscape.md",
+   "palette": "indaco",
+   "elements": 326,
+   "DvsC": 6,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 13,
+    "census": 42,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/mode-frontmatter.md",
+   "palette": "carta",
+   "elements": 189,
+   "DvsC": 16,
+   "elementsWithFlip": 10,
+   "seconds": {
+    "render": 12,
+    "census": 12,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/motion-asset.md",
+   "palette": "indaco",
+   "elements": 140,
+   "DvsC": 4,
+   "CvsC0": 0,
+   "DvsC0": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 21,
+    "census": 20,
+    "attribution": 3,
+    "tax": 6
+   }
+  },
+  {
+   "deck": "examples/muted-tier-and-syntax.md",
+   "palette": "indaco",
+   "elements": 193,
+   "DvsC": 5,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 14,
+    "census": 20,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/narration-bookends.md",
+   "palette": "indaco",
+   "elements": 96,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 12,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/obligation-matrix-label-sets.md",
+   "palette": "indaco",
+   "elements": 274,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 16,
+    "census": 29,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/one-page-number.md",
+   "palette": "indaco",
+   "elements": 169,
+   "DvsC": 6,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 12,
+    "census": 20,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/one-reading-size-per-venue.md",
+   "palette": "indaco",
+   "elements": 273,
+   "DvsC": 7,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 14,
+    "census": 30,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/overflow-fix-me.md",
+   "palette": "indaco",
+   "elements": 151,
+   "DvsC": 44,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 12,
+    "census": 19,
+    "attribution": 11,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/overflow-guards.md",
+   "palette": "indaco",
+   "elements": 120,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 10,
+    "census": 16,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/palette-cascade-flip.md",
+   "palette": "indaco",
+   "elements": 262,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 14,
+    "census": 19,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/pane-layouts.md",
+   "palette": "indaco",
+   "elements": 198,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 20,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/panes-mermaid.md",
+   "palette": "indaco",
+   "elements": 620,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 52,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/panes-radar.md",
+   "palette": "indaco",
+   "elements": 297,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 34,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/panes-row-labels.md",
+   "palette": "indaco",
+   "elements": 293,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 20,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/panes-sketch.md",
+   "palette": "indaco",
+   "elements": 214,
+   "DvsC": 19,
+   "elementsWithFlip": 18,
+   "seconds": {
+    "render": 18,
+    "census": 18,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/panes.md",
+   "palette": "indaco",
+   "elements": 284,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 16,
+    "census": 26,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/pdf-export-portability.md",
+   "palette": "indaco",
+   "elements": 110,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 20,
+    "census": 12,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/per-slide-diagram-band.md",
+   "palette": "onyx",
+   "elements": 556,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 15,
+    "census": 49,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/pie-detail-notes.md",
+   "palette": "indaco",
+   "elements": 310,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 36,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/plugin-system-phase-b.md",
+   "palette": "indaco",
+   "elements": 527,
+   "DvsC": 46,
+   "elementsWithFlip": 9,
+   "seconds": {
+    "render": 16,
+    "census": 43,
+    "attribution": 12,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/policy-recommendation.md",
+   "palette": "indaco",
+   "elements": 134,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/portrait-gantt-statechart.md",
+   "palette": "indaco",
+   "elements": 417,
+   "DvsC": 8,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 13,
+    "census": 39,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/portrait-journey.md",
+   "palette": "indaco",
+   "elements": 422,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 14,
+    "census": 44,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/portrait-prose-deboost.md",
+   "palette": "indaco",
+   "elements": 209,
+   "DvsC": 16,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 14,
+    "census": 18,
+    "attribution": 7,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/portrait-roadmap.md",
+   "palette": "indaco",
+   "elements": 244,
+   "DvsC": 23,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 15,
+    "census": 25,
+    "attribution": 7,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/portrait-split-chrome.md",
+   "palette": "indaco",
+   "elements": 137,
+   "DvsC": 44,
+   "elementsWithFlip": 14,
+   "seconds": {
+    "render": 12,
+    "census": 16,
+    "attribution": 13,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/premise-component-overflow.md",
+   "palette": "indaco",
+   "elements": 200,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 17,
+    "census": 15,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/present-mode.md",
+   "palette": "indaco",
+   "elements": 111,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 16,
+    "census": 14,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/present-narration-delivery.md",
+   "palette": "indaco",
+   "elements": 114,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 13,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/pricing.md",
+   "palette": "indaco",
+   "elements": 222,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 15,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/print-fast-flip.md",
+   "palette": "indaco",
+   "elements": 146,
+   "DvsC": 4,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 16,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/print-handouts.md",
+   "palette": "indaco",
+   "elements": 148,
+   "DvsC": 4,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/print-mode.md",
+   "palette": "indaco",
+   "elements": 166,
+   "DvsC": 166,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 11,
+    "census": 21,
+    "attribution": 57,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/proposal-charts-expansion.md",
+   "palette": "indaco",
+   "elements": 597,
+   "DvsC": 24,
+   "elementsWithFlip": 12,
+   "seconds": {
+    "render": 15,
+    "census": 53,
+    "attribution": 10,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/prose-code-paragraphs.md",
+   "palette": "indaco",
+   "elements": 105,
+   "DvsC": 2,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 15,
+    "census": 12,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/prose-density.md",
+   "palette": "indaco",
+   "elements": 165,
+   "DvsC": 8,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 14,
+    "census": 17,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/q-and-a.md",
+   "palette": "indaco",
+   "elements": 255,
+   "DvsC": 4,
+   "CvsC0": 0,
+   "DvsC0": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 16,
+    "census": 20,
+    "attribution": 2,
+    "tax": 8
+   }
+  },
+  {
+   "deck": "examples/qa-component-jank.md",
+   "palette": "indaco",
+   "elements": 217,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 20,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/qr-cards.md",
+   "palette": "cuoio",
+   "elements": 165,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 15,
+    "census": 19,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/qr.md",
+   "palette": "indaco",
+   "elements": 119,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 16,
+    "census": 17,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/quadrant-label-sizing.md",
+   "palette": "indaco",
+   "elements": 409,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 16,
+    "census": 45,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/radar-narration.md",
+   "palette": "indaco",
+   "elements": 257,
+   "DvsC": 7,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 17,
+    "census": 20,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/read-across-carousel.md",
+   "palette": "indaco",
+   "elements": 295,
+   "DvsC": 12,
+   "CvsC0": 0,
+   "DvsC0": 12,
+   "elementsWithFlip": 8,
+   "seconds": {
+    "render": 21,
+    "census": 29,
+    "attribution": 5,
+    "tax": 11
+   }
+  },
+  {
+   "deck": "examples/read-along-captions.md",
+   "palette": "indaco",
+   "elements": 166,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/read-article-chart-paints.md",
+   "palette": "indaco",
+   "elements": 432,
+   "DvsC": 47,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 20,
+    "census": 42,
+    "attribution": 14,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/reflow-legal.md",
+   "palette": "indaco",
+   "elements": 240,
+   "DvsC": 11,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 17,
+    "census": 23,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/retire-automatic-scale-fit.md",
+   "palette": "indaco",
+   "elements": 164,
+   "DvsC": 6,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 16,
+    "census": 18,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/roadmap-label-sets.md",
+   "palette": "indaco",
+   "elements": 328,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 38,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/sample-images.md",
+   "palette": "indaco",
+   "elements": 156,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 17,
+    "census": 17,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/scene.md",
+   "palette": "indaco",
+   "elements": 154,
+   "DvsC": 2,
+   "CvsC0": 0,
+   "DvsC0": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 15,
+    "census": 18,
+    "attribution": 1,
+    "tax": 5
+   }
+  },
+  {
+   "deck": "examples/segno-phase-2.md",
+   "palette": "indaco",
+   "elements": 669,
+   "DvsC": 7,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 12,
+    "census": 52,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/seq-ramp-canvas-aware.md",
+   "palette": "indaco",
+   "elements": 218,
+   "DvsC": 51,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 11,
+    "census": 24,
+    "attribution": 15,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/sequence-narration.md",
+   "palette": "indaco",
+   "elements": 874,
+   "DvsC": 10,
+   "elementsWithFlip": 9,
+   "seconds": {
+    "render": 14,
+    "census": 66,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/seven-steps-problem-to-code.md",
+   "palette": "cuoio",
+   "elements": 593,
+   "DvsC": 18,
+   "elementsWithFlip": 13,
+   "seconds": {
+    "render": 14,
+    "census": 42,
+    "attribution": 6,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/shared-deck-voice.md",
+   "palette": "indaco",
+   "elements": 186,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 18,
+    "census": 22,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/shell-highlighting.md",
+   "palette": "indaco",
+   "elements": 232,
+   "DvsC": 19,
+   "elementsWithFlip": 12,
+   "seconds": {
+    "render": 15,
+    "census": 22,
+    "attribution": 5,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/sketch-ledger.md",
+   "palette": "indaco",
+   "elements": 162,
+   "DvsC": 8,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 12,
+    "census": 16,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/sketch.md",
+   "palette": "carta",
+   "elements": 740,
+   "DvsC": 31,
+   "CvsC0": 0,
+   "DvsC0": 31,
+   "elementsWithFlip": 26,
+   "seconds": {
+    "render": 17,
+    "census": 82,
+    "attribution": 9,
+    "tax": 42
+   }
+  },
+  {
+   "deck": "examples/slide-class-forms.md",
+   "palette": "indaco",
+   "elements": 822,
+   "DvsC": 632,
+   "elementsWithFlip": 13,
+   "changedTruncated": 232,
+   "seconds": {
+    "render": 13,
+    "census": 66,
+    "attribution": 135,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/slide-context-editor.md",
+   "palette": "indaco",
+   "elements": 148,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 14,
+    "census": 19,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/slide-corners.md",
+   "palette": "indaco",
+   "elements": 149,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 16,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/slide-edge.md",
+   "palette": "indaco",
+   "elements": 140,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 14,
+    "census": 16,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/slide-planes.md",
+   "palette": "indaco",
+   "elements": 157,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 17,
+    "census": 12,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/social-grid.md",
+   "palette": "indaco",
+   "elements": 238,
+   "DvsC": 3,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 16,
+    "census": 23,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/social-mobile.md",
+   "palette": "indaco",
+   "elements": 126,
+   "DvsC": 6,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 14,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/social-portrait.md",
+   "palette": "indaco",
+   "elements": 126,
+   "DvsC": 6,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 12,
+    "census": 15,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/social-square.md",
+   "palette": "indaco",
+   "elements": 126,
+   "DvsC": 6,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/social-story.md",
+   "palette": "indaco",
+   "elements": 126,
+   "DvsC": 6,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 14,
+    "census": 15,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/sovereign-bookend-measures.md",
+   "palette": "indaco",
+   "elements": 95,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 13,
+    "census": 12,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/speaker-notes.md",
+   "palette": "indaco",
+   "elements": 121,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 15,
+    "census": 15,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/spectrum-canvas-ownership.md",
+   "palette": "indaco",
+   "elements": 142,
+   "DvsC": 4,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 15,
+    "census": 15,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/spectrum-ramp-floor.md",
+   "palette": "indaco",
+   "elements": 153,
+   "DvsC": 47,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 14,
+    "census": 20,
+    "attribution": 16,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/spectrum-slide-overrides.md",
+   "palette": "indaco",
+   "elements": 94,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 14,
+    "census": 14,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/speech-symbols.md",
+   "palette": "indaco",
+   "elements": 178,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 14,
+    "census": 21,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-decision.md",
+   "palette": "indaco",
+   "elements": 114,
+   "DvsC": 4,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 11,
+    "census": 12,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-envelope.md",
+   "palette": "indaco",
+   "elements": 251,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 17,
+    "census": 21,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-frame-tone-edge.md",
+   "palette": "indaco",
+   "elements": 132,
+   "DvsC": 5,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 15,
+    "census": 13,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-headings.md",
+   "palette": "indaco",
+   "elements": 163,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 12,
+    "census": 15,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-horizontal.md",
+   "palette": "indaco",
+   "elements": 123,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 11,
+    "census": 11,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-panels-jank.md",
+   "palette": "carbone",
+   "elements": 241,
+   "DvsC": 32,
+   "elementsWithFlip": 30,
+   "seconds": {
+    "render": 15,
+    "census": 22,
+    "attribution": 9,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-pricing.md",
+   "palette": "indaco",
+   "elements": 185,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-relationship.md",
+   "palette": "indaco",
+   "elements": 251,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 12,
+    "census": 23,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-structure.md",
+   "palette": "indaco",
+   "elements": 244,
+   "DvsC": 38,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 11,
+    "census": 26,
+    "attribution": 11,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-tone-edge-story.md",
+   "palette": "indaco",
+   "elements": 65,
+   "DvsC": 3,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 12,
+    "census": 10,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/split-tone-rail-story.md",
+   "palette": "indaco",
+   "elements": 87,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 10,
+    "census": 13,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/stage-console-split.md",
+   "palette": "cuoio",
+   "elements": 164,
+   "DvsC": 7,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 13,
+    "census": 17,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/stage-inset.md",
+   "palette": "indaco",
+   "elements": 419,
+   "DvsC": 6,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 12,
+    "census": 26,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/staged-flow.md",
+   "palette": "indaco",
+   "elements": 160,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 15,
+    "census": 19,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/stamp-mark-and-bar.md",
+   "palette": "indaco",
+   "elements": 123,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 18,
+    "census": 13,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-chart-branching.md",
+   "palette": "indaco",
+   "elements": 623,
+   "DvsC": 15,
+   "elementsWithFlip": 15,
+   "seconds": {
+    "render": 13,
+    "census": 68,
+    "attribution": 7,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-chart-paint.md",
+   "palette": "indaco",
+   "elements": 460,
+   "DvsC": 13,
+   "elementsWithFlip": 13,
+   "seconds": {
+    "render": 11,
+    "census": 48,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-chart-polish-followups.md",
+   "palette": "indaco",
+   "elements": 493,
+   "DvsC": 12,
+   "elementsWithFlip": 12,
+   "seconds": {
+    "render": 15,
+    "census": 48,
+    "attribution": 6,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-chart-polish.md",
+   "palette": "indaco",
+   "elements": 1316,
+   "DvsC": 22,
+   "elementsWithFlip": 22,
+   "seconds": {
+    "render": 11,
+    "census": 128,
+    "attribution": 9,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-chart-stress.md",
+   "palette": "indaco",
+   "elements": 1757,
+   "DvsC": 43,
+   "elementsWithFlip": 43,
+   "seconds": {
+    "render": 15,
+    "census": 124,
+    "attribution": 11,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-chart.md",
+   "palette": "indaco",
+   "elements": 751,
+   "DvsC": 17,
+   "elementsWithFlip": 17,
+   "seconds": {
+    "render": 8,
+    "census": 42,
+    "attribution": 4,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/state-marks.md",
+   "palette": "cuoio",
+   "elements": 246,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 12,
+    "census": 22,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/status-markers.md",
+   "palette": "indaco",
+   "elements": 188,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 12,
+    "census": 20,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/status-word-agreement.md",
+   "palette": "indaco",
+   "elements": 455,
+   "DvsC": 56,
+   "elementsWithFlip": 15,
+   "seconds": {
+    "render": 11,
+    "census": 43,
+    "attribution": 13,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/struck-elevation.md",
+   "palette": "indaco",
+   "elements": 262,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 8,
+    "census": 19,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/studio-present.md",
+   "palette": "cuoio",
+   "elements": 192,
+   "DvsC": 7,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 13,
+    "census": 15,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/svg-chart-labels-motion.md",
+   "palette": "indaco",
+   "elements": 521,
+   "DvsC": 6,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 12,
+    "census": 52,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/svg-native-pie-legend.md",
+   "palette": "indaco",
+   "elements": 1106,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 8,
+    "census": 91,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/system-design-foundations.md",
+   "palette": "indaco",
+   "elements": 12157,
+   "DvsC": 220,
+   "CvsC0": 0,
+   "DvsC0": 220,
+   "elementsWithFlip": 52,
+   "seconds": {
+    "render": 19,
+    "census": 1026,
+    "attribution": 69,
+    "tax": 737
+   }
+  },
+  {
+   "deck": "examples/table-component.md",
+   "palette": "indaco",
+   "elements": 731,
+   "DvsC": 4,
+   "CvsC0": 0,
+   "DvsC0": 4,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 17,
+    "census": 78,
+    "attribution": 2,
+    "tax": 36
+   }
+  },
+  {
+   "deck": "examples/table-outer-edge.md",
+   "palette": "indaco",
+   "elements": 320,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 8,
+    "census": 24,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/team-profile.md",
+   "palette": "indaco",
+   "elements": 473,
+   "DvsC": 21,
+   "CvsC0": 0,
+   "DvsC0": 21,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 19,
+    "census": 37,
+    "attribution": 5,
+    "tax": 16
+   }
+  },
+  {
+   "deck": "examples/topic-layout-highlight.md",
+   "palette": "indaco",
+   "elements": 117,
+   "DvsC": 11,
+   "elementsWithFlip": 10,
+   "seconds": {
+    "render": 10,
+    "census": 13,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/topic-shelf-floor.md",
+   "palette": "onyx-dark",
+   "elements": 77,
+   "DvsC": 8,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 16,
+    "census": 12,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/topic.md",
+   "palette": "indaco",
+   "elements": 140,
+   "DvsC": 9,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 8,
+    "census": 13,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/typed-diagram-narration.md",
+   "palette": "indaco",
+   "elements": 829,
+   "DvsC": 8,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 9,
+    "census": 45,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/typography-categories.md",
+   "palette": "indaco",
+   "elements": 201,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 10,
+    "census": 19,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-pill.md",
+   "palette": "indaco",
+   "elements": 248,
+   "DvsC": 50,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 11,
+    "census": 18,
+    "attribution": 14,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-table.md",
+   "palette": "indaco",
+   "elements": 397,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 8,
+    "census": 27,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens-p2-structural.md",
+   "palette": "indaco",
+   "elements": 435,
+   "DvsC": 7,
+   "elementsWithFlip": 5,
+   "seconds": {
+    "render": 9,
+    "census": 26,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens-p3-status.md",
+   "palette": "indaco",
+   "elements": 269,
+   "DvsC": 6,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 11,
+    "census": 27,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens-p4-surfaces.md",
+   "palette": "indaco",
+   "elements": 102,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 14,
+    "census": 11,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens-p5-sequential.md",
+   "palette": "indaco",
+   "elements": 115,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 9,
+    "census": 13,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens-p6-chart-cat.md",
+   "palette": "indaco",
+   "elements": 230,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 8,
+    "census": 20,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens-p7-system.md",
+   "palette": "indaco",
+   "elements": 142,
+   "DvsC": 5,
+   "elementsWithFlip": 3,
+   "seconds": {
+    "render": 11,
+    "census": 16,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/universal-tokens.md",
+   "palette": "indaco",
+   "elements": 399,
+   "DvsC": 8,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 14,
+    "census": 38,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/venue-marker-boxes.md",
+   "palette": "indaco",
+   "elements": 230,
+   "DvsC": 40,
+   "elementsWithFlip": 6,
+   "seconds": {
+    "render": 8,
+    "census": 20,
+    "attribution": 10,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/venue.md",
+   "palette": "indaco",
+   "elements": 156,
+   "DvsC": 4,
+   "elementsWithFlip": 2,
+   "seconds": {
+    "render": 7,
+    "census": 14,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/video-title-in-card.md",
+   "palette": "indaco",
+   "elements": 168,
+   "DvsC": 8,
+   "elementsWithFlip": 4,
+   "seconds": {
+    "render": 10,
+    "census": 16,
+    "attribution": 2,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/video.md",
+   "palette": "indaco",
+   "elements": 92,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 15,
+    "census": 14,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/web-images.md",
+   "palette": "indaco",
+   "elements": 130,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 7,
+    "census": 12,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/white-label-spectrum.md",
+   "palette": "indaco",
+   "elements": 126,
+   "DvsC": 0,
+   "elementsWithFlip": 0,
+   "seconds": {
+    "render": 7,
+    "census": 12,
+    "attribution": 0,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/word-cloud-portrait.md",
+   "palette": "indaco",
+   "elements": 336,
+   "DvsC": 2,
+   "elementsWithFlip": 1,
+   "seconds": {
+    "render": 11,
+    "census": 28,
+    "attribution": 1,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "examples/xychart-narration.md",
+   "palette": "indaco",
+   "elements": 510,
+   "DvsC": 8,
+   "elementsWithFlip": 7,
+   "seconds": {
+    "render": 14,
+    "census": 35,
+    "attribution": 3,
+    "tax": 0
+   }
+  },
+  {
+   "deck": "test/integration/baseline-decks/gallery.md",
+   "palette": "mustard",
+   "elements": 5699,
+   "DvsC": 125,
+   "CvsC0": 0,
+   "DvsC0": 125,
+   "elementsWithFlip": 48,
+   "seconds": {
+    "render": 20,
+    "census": 513,
+    "attribution": 33,
+    "tax": 357
+   }
+  }
+ ]
+}
