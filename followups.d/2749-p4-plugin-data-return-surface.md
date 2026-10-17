@@ -20,9 +20,10 @@ where     — engineering/decisions/2026-10-16-npm-plugin-threat-model.md §6 de
             contribution points); lib/plugins/resolve.js (declared equals contained);
             docs/src/lib/sanitize-slide-html.js and lib/core/sanitize-style-text.mjs (HARD RULE
             #22).
-done when — the owner accepts or changes the five proposed bounds; the plugin plan names the new
-            contribution point; the canary's data-return case exists and goes red when a bound is
-            removed.
+done when — the limits on attachable data are fixed (names, lengths, which elements; the owner decided on 2026-10-17 that the host sanitizes and attaches, never the plugin); the plugin plan names the new
+            contribution point; the host disables a plugin that injects script and alerts the user; CSS from a plugin
+            goes through sanitizeStyleText; the canary's data-return case exists and goes red when a
+            bound is removed.
 evidence  — the owner's recorded decision, then the canary run red with a bound removed and green
             with it restored.
 verify    — tier 2 adversarial trio, because it adds a channel into the page that bypasses the
