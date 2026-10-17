@@ -21,4 +21,14 @@ done when — (1) the quote group reads every numeric spelling of `"` and `'` (d
             entity-decoded before the match; (2) a decision records whether `<template>` content is a CSS context, and a test pins it.
             The trust boundary stays as documented above `inlineFileUrls`: a hosted bake of an untrusted deck must gate `file://`
             to an allowlisted root first.
+also      — A fifth fresh checker pass found no stranger-text leak and recorded these, all needing raw hand-written HTML, none reaching
+            the output (jsdom and DOMPurify drop them after the inliner has read the file): the inliner READS the named file for an
+            SVG `<style>` child's attribute, for `<plaintext></plaintext><img src=…>`, for `<img <src=…>` and `<img =src=…>`
+            (attributes a browser names `<src` and `=src`), for an `<img>` inside a `<script><!--<script>` nest, and for a `url(file://…)`
+            inside a CSS comment or string; and called directly with hand-written HTML it also inlines from a duplicate `src` or
+            `style` attribute and from `<img\0 src=…>`. Two stall cases stay: a 1 MB `style` or `<style>` body of repeated
+            `url(file://` takes about 3.7 s (linear, bounded at 4096 characters per start; main's pattern was unbounded), and a
+            deck of repeated unclosed quotes (`<a "`) is quadratic in the tag pattern. The engine takes minutes on those same decks.
+            A full fix is a hand-written linear tokenizer in place of `TAG_OR_COMMENT`; done when it reads only real positions,
+            leaves a document with no `file://` byte-identical, and a 1 MB hostile deck costs under 3 s.
 verify    — render a deck with `style='background:url(&#34;file://…&#34;)'` and read the player for the local path.

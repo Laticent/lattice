@@ -137,3 +137,28 @@ test('a hostile style value holding thousands of url(file:// starts does not sta
   inlineFileUrls(html);
   assert.ok(Date.now() - started < 3000, `took ${Date.now() - started} ms`);
 });
+
+// Fifth fresh pass: comments are skipped the way a browser skips them, in linear time.
+test('a comment hides a style or img from the scanner; an unterminated one hides the rest of the document', () => {
+  const css = `style='background:url(${photo})'`;
+  for (const html of [`<!-- <p ${css}> -->`, `<!-- <img src="${photo}"> -->`, `<!-- x <img src="${photo}">`, `<!-- <p ${css}>`]) {
+    const r = inlineFileUrls(html);
+    assert.equal(r.count, 0, html);
+    assert.equal(r.html, html);
+  }
+});
+
+test('an abruptly closed empty comment (<!--> and <!--->) ends there, so what follows is read', () => {
+  for (const empty of ['<!-->', '<!--->']) {
+    const r = inlineFileUrls(`${empty}<img src="${photo}">`);
+    assert.equal(r.count, 1, empty);
+    assert.match(r.html, /^<!--(?:-)?><img src="data:image\/jpeg/);
+  }
+});
+
+test('a deck of 170,000 unterminated <!-- openers is scanned in linear time', () => {
+  const html = `<div>${'<!--x>'.repeat(170000)}`;
+  const started = Date.now();
+  inlineFileUrls(html);
+  assert.ok(Date.now() - started < 2000, `took ${Date.now() - started} ms`);
+});
