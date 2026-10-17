@@ -471,7 +471,7 @@ spike's "derived vs direct" comparison, whose direct side was the scaled, wrong 
 **2. Pruning the stylesheet saves bytes, not yet time.** Pruning font faces to the used families cut the SVG
 17% (2,135 to 1,778 KB) with identical pixels. Pruning to the CSS rules the slide matches cut it **58% (to
 about 900 KB)**, also pixel-identical, but computing the used rules cost 60 to 165 ms per slide, about what
-it saved. It pays only with an index built once per theme and class set, as the export player's prune
+it saved on average (per slide, Chromium gained time and WebKit lost it). It pays only with an index built once per theme and class set, as the export player's prune
 effectively has. Not built.
 
 **3. A poster cannot be captured in the background without jank.** Baking 40 tiles while the page scrolled
