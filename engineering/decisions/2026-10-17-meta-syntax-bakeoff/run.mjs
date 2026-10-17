@@ -194,7 +194,17 @@ function gate3(c) {
 
 /** Side measurement, NOT scored: what real Marp does with the record when a deck is opened WITHOUT the bridge compile. */
 const marpEngine = new Marp({ html: true });
-const marpVisible = (html) => visible(html.replace(/<(script|style)[\s\S]*?<\/\1>/g, ''));
+/** Drops every `<tag …>…</tag>` element by scanning (Marp inlines a script and a style block into its output). */
+const dropElement = (html, tag) => {
+  let out = ''; let at = 0;
+  for (let i = html.indexOf(`<${tag}`); i >= 0; i = html.indexOf(`<${tag}`, at)) {
+    const close = html.indexOf(`</${tag}>`, i);
+    if (close < 0) break;
+    out += html.slice(at, i); at = close + tag.length + 3;
+  }
+  return out + html.slice(at);
+};
+const marpVisible = (html) => visible(dropElement(dropElement(html, 'script'), 'style'));
 function marpUncompiled(c) {
   let vis = 0; let notes = 0;
   for (const s of slides) {

@@ -142,7 +142,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 14.562563999999952,
+        "medianMs": 20.605679999999666,
         "chars": 176849
       },
       "sideVerbatimValues": 38,
@@ -247,7 +247,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 11.684946000000082,
+        "medianMs": 13.28715000000011,
         "chars": 175941
       },
       "sideVerbatimValues": 35,
@@ -350,7 +350,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 11.489708000000064,
+        "medianMs": 12.99519599999985,
         "chars": 170939
       },
       "sideVerbatimValues": 35,
@@ -453,7 +453,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 6.884915000000092,
+        "medianMs": 14.547236999999768,
         "chars": 184401
       },
       "sideVerbatimValues": 38,
@@ -556,7 +556,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 10.485206999999718,
+        "medianMs": 16.687564000000748,
         "chars": 189624
       },
       "sideVerbatimValues": 33,
@@ -659,7 +659,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 11.998193000000356,
+        "medianMs": 19.364432000000306,
         "chars": 176625
       },
       "sideVerbatimValues": 30,
@@ -766,7 +766,7 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 11.11943599999995,
+        "medianMs": 17.61401399999886,
         "chars": 192953
       },
       "sideVerbatimValues": 35,
