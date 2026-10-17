@@ -132,3 +132,22 @@ A candidate that fails a gate is disqualified from the recommendation, and is st
 
 The syntax for the slide record, or the decision to keep comments (G4). It does not decide the record's fields, the
 door, the reader consolidation or the step order; those are in the parent note and hold under any winner.
+
+## 10. Amendment: C6 added at the owner's request (2026-10-17, after the first results)
+
+After the first round was scored and reported, the owner proposed one more candidate and asked for it to be evaluated:
+
+| ID | Spelling | Reader |
+|---|---|---|
+| C6 | an HTML comment whose first content line is `@meta{…}`: `<!--` / `@meta{…}` / `-->` on three lines; long notes as `key: value` lines after the record, inside the same comment | real Segno for the record, the shared line grammar for the rest |
+
+What this amendment keeps and changes, so it cannot be mistaken for moving the goalposts:
+
+- **Unchanged:** the weights, the gates, the G4 rule, the slide set, the adversarial suite and the rubrics' items.
+  C6 is scored by exactly the code that scored C0 to C5.
+- **Changed, and disclosed:** C6 enters after the first table was read. The first table stays in the history
+  (`f6f4160`) and the results note shows both. The writer test uses **one** writer agent, not three, because the three
+  earlier writers each scored 36 of 36 on every syntax and a second round adds cost without discriminating power.
+- **New side measurement, not scored:** what real Marp (`@marp-team/marp-core`) does with each syntax when a deck is
+  opened without the bridge compile (visible characters on the slide, and speaker-note characters). It is reported for
+  all seven candidates, because it is the case C6 raises and the first round did not measure it.

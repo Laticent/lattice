@@ -142,10 +142,14 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 15.348967000000016,
+        "medianMs": 14.562563999999952,
         "chars": 176849
       },
       "sideVerbatimValues": 38,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 14.166666666666666,
+        "extraNoteChars": 52.833333333333336
+      },
       "gate3_no_silent_loss": {
         "passed": 4,
         "of": 5,
@@ -243,10 +247,14 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 7.930526999999984,
+        "medianMs": 11.684946000000082,
         "chars": 175941
       },
       "sideVerbatimValues": 35,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 110.91666666666667,
+        "extraNoteChars": 0
+      },
       "gate3_no_silent_loss": {
         "passed": 5,
         "of": 5,
@@ -342,10 +350,14 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 7.263134000000036,
+        "medianMs": 11.489708000000064,
         "chars": 170939
       },
       "sideVerbatimValues": 35,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 110.75,
+        "extraNoteChars": 0
+      },
       "gate3_no_silent_loss": {
         "passed": 5,
         "of": 5,
@@ -441,10 +453,14 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 8.613215000000082,
+        "medianMs": 6.884915000000092,
         "chars": 184401
       },
       "sideVerbatimValues": 38,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 102.75,
+        "extraNoteChars": 0
+      },
       "gate3_no_silent_loss": {
         "passed": 3,
         "of": 3,
@@ -540,10 +556,14 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 10.800722000000178,
+        "medianMs": 10.485206999999718,
         "chars": 189624
       },
       "sideVerbatimValues": 33,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 0,
+        "extraNoteChars": 0
+      },
       "gate3_no_silent_loss": {
         "passed": 3,
         "of": 3,
@@ -639,16 +659,127 @@
         "of": 12
       },
       "c9_speed": {
-        "medianMs": 10.95429399999989,
+        "medianMs": 11.998193000000356,
         "chars": 176625
       },
       "sideVerbatimValues": 30,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 38.166666666666664,
+        "extraNoteChars": 0
+      },
       "gate3_no_silent_loss": {
         "passed": 5,
         "of": 5,
         "failed": []
       },
       "gate1_lossless_notes": true,
+      "gate2_line_preserving": true
+    },
+    "C6": {
+      "name": "<!-- @meta{…} -->",
+      "c1_parser": {
+        "passed": 48,
+        "of": 51,
+        "failed": [
+          "footer=\"end --> here\"",
+          "footer=\"<!-- c -->\"",
+          "note#1"
+        ]
+      },
+      "twelveRoundTrip": {
+        "passed": 12,
+        "of": 12,
+        "failed": []
+      },
+      "c2_rendering": {
+        "per": {
+          "markdown-it": {
+            "extraVisibleChars": 0,
+            "structureIntact": 1
+          },
+          "marked": {
+            "extraVisibleChars": 0,
+            "structureIntact": 1
+          },
+          "commonmark": {
+            "extraVisibleChars": 0,
+            "structureIntact": 1
+          },
+          "micromark": {
+            "extraVisibleChars": 0,
+            "structureIntact": 1
+          }
+        },
+        "meanExtraVisibleChars": 0,
+        "structureIntactRate": 1
+      },
+      "c3_jank": {
+        "placements": [
+          {
+            "name": "first line",
+            "ok": true
+          },
+          {
+            "name": "after paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before paragraph, no blank",
+            "ok": true
+          },
+          {
+            "name": "before ![bg] image",
+            "ok": true
+          },
+          {
+            "name": "adjacent twin",
+            "ok": true
+          },
+          {
+            "name": "in list item",
+            "ok": false
+          },
+          {
+            "name": "in blockquote",
+            "ok": false
+          },
+          {
+            "name": "indented four",
+            "ok": true
+          },
+          {
+            "name": "in other fence (a later record must still read)",
+            "ok": true
+          }
+        ],
+        "passed": 7,
+        "of": 9,
+        "doorLinePreserving": true
+      },
+      "c4_size": {
+        "medianLines": 3,
+        "medianChars": 100,
+        "totalChars": 1458
+      },
+      "c8_marp": {
+        "passed": 12,
+        "of": 12
+      },
+      "c9_speed": {
+        "medianMs": 11.11943599999995,
+        "chars": 192953
+      },
+      "sideVerbatimValues": 35,
+      "sideMarpUncompiled": {
+        "extraVisibleChars": 0,
+        "extraNoteChars": 110.83333333333333
+      },
+      "gate3_no_silent_loss": {
+        "passed": 4,
+        "of": 4,
+        "failed": []
+      },
+      "gate1_lossless_notes": false,
       "gate2_line_preserving": true
     }
   }

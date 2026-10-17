@@ -273,7 +273,58 @@ export const C0 = {
   }),
 };
 
-export const CANDIDATES = [C0, C1, C2, C3, C4, C5];
+// ---------- C6: <!-- @meta{…} --> (the owner's proposal: a comment is the carrier, the record is the grammar) ----------
+export const C6 = {
+  id: 'C6',
+  name: '<!-- @meta{…} -->',
+  serialize(rec) {
+    const line = recordText(rec);
+    const long = {};
+    for (const [k, v] of entries(rec)) if (needsFence(k, v)) long[k] = v;
+    const body = [];
+    if (line) body.push(line);
+    if (Object.keys(long).length) body.push(...serializeBody(long, { block: true }));
+    return ['<!--', ...body, '-->'].join('\n');
+  },
+  scan: (s) =>
+    scan(s, {
+      starts: (t) => /^<!--\s*@meta\b/.test(t),
+      read(lines, i) {
+        const m = lines[i].match(/^ {0,3}<!--(.*)$/);
+        if (!m) return null;
+        let text = m[1];
+        let j = i;
+        while (!text.includes('-->')) {
+          if (++j >= lines.length) return /^\s*(@meta\b|$)/.test(m[1]) ? { end: i, diag: 'unterminated-comment' } : null;
+          text += `\n${lines[j]}`;
+        }
+        const end = text.indexOf('-->');
+        const trailing = text.slice(end + 3).trim();
+        const inner = text.slice(0, end).split('\n');
+        const at = inner.findIndex((l) => l.trim());
+        if (at < 0 || !/^@meta\b/.test(inner[at].trim())) return null;
+        const fields = {};
+        let diag;
+        const rec = inner[at].trim().match(/^@meta(\{.*\})$/);
+        if (rec) {
+          const r = readRecord(rec[0]);
+          Object.assign(fields, r.fields);
+          diag = r.diag;
+        } else diag = 'bad-record';
+        const rest = parseBody(inner.slice(at + 1));
+        for (const [k, v] of Object.entries(rest.fields)) {
+          if (k === 'note') fields.note = [...(fields.note || []), ...v];
+          else {
+            if (k in fields) diag = 'duplicate-key';
+            fields[k] = v;
+          }
+        }
+        return { fields, end: j, diag: diag || rest.diags[0] || (trailing ? 'trailing-text' : undefined) };
+      },
+    }),
+};
+
+export const CANDIDATES = [C0, C1, C2, C3, C4, C5, C6];
 
 /** Merge a scan's items into the slide's canonical shape: [slideRecord?, ...paneRecords]. */
 export function toRecords(items) {

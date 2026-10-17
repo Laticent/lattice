@@ -21,6 +21,7 @@ const MarkdownIt = req('../../../node_modules/markdown-it');
 const { marked } = ext('marked');
 const commonmark = ext('commonmark');
 const { micromark } = ext('micromark');
+const { Marp } = ext('@marp-team/marp-core');
 
 const same = (a, b) => { try { assert.deepStrictEqual(a, b); return true; } catch { return false; } };
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
@@ -174,6 +175,7 @@ const bad = {
   C3: { malformed: '```meta\nfooter Q3\n```', dup: '```meta\nfooter: a\nfooter: b\n```', trailing: null },
   C4: { malformed: '[meta]: # "\nfooter Q3\n"', dup: '[meta]: # "\nfooter: a\nfooter: b\n"', trailing: null },
   C5: { malformed: '<meta footer=a>', dup: '<meta footer="a" footer="b">', trailing: '<meta footer="a"> trailing' },
+  C6: { malformed: '<!--\n@meta{layout=content, footer}\n-->', dup: '<!--\n@meta{footer=a, footer=b}\n-->', trailing: '<!-- @meta{footer=a} --> trailing' },
 };
 function gate3(c) {
   const probes = [];
@@ -188,6 +190,19 @@ function gate3(c) {
   exactOrDiag('duplicate key', `${bad[c.id].dup}\n`);
   if (bad[c.id].trailing) exactOrDiag('text after the record on the same line', `${bad[c.id].trailing}\n`);
   return { passed: probes.filter((p) => p.ok).length, of: probes.length, failed: probes.filter((p) => !p.ok).map((p) => p.name) };
+}
+
+/** Side measurement, NOT scored: what real Marp does with the record when a deck is opened WITHOUT the bridge compile. */
+const marpEngine = new Marp({ html: true });
+const marpVisible = (html) => visible(html.replace(/<(script|style)[\s\S]*?<\/\1>/g, ''));
+function marpUncompiled(c) {
+  let vis = 0; let notes = 0;
+  for (const s of slides) {
+    const base = marpEngine.render(s.body); const withMeta = marpEngine.render(`${s.records.map((r) => c.serialize(r)).join('\n\n')}\n\n${s.body}`);
+    vis += Math.max(0, marpVisible(withMeta.html).length - marpVisible(base.html).length);
+    notes += Math.max(0, withMeta.comments.flat().join('').length - base.comments.flat().join('').length);
+  }
+  return { extraVisibleChars: vis / slides.length, extraNoteChars: notes / slides.length };
 }
 
 const results = { slides: slides.map((s) => ({ category: s.category, at: `${s.file}#${s.index}` })), candidates: {} };
@@ -207,6 +222,7 @@ for (const c of CANDIDATES) {
     c8_marp: marp(c),
     c9_speed: speed(c),
     sideVerbatimValues: verbatim(c),
+    sideMarpUncompiled: marpUncompiled(c),
     gate3_no_silent_loss: gate3(c),
     gate1_lossless_notes: roundTrip(c, G1),
     gate2_line_preserving: doorOk(c),

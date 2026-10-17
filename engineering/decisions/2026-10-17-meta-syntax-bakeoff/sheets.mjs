@@ -5,10 +5,19 @@
  */
 import { classWords } from './catalog.mjs';
 
-export const LABELS = { S1: 'C3', S2: 'C0', S3: 'C5', S4: 'C1', S5: 'C4', S6: 'C2' };
+export const LABELS = { S1: 'C3', S2: 'C0', S3: 'C5', S4: 'C1', S5: 'C4', S6: 'C2', S7: 'C6' };
 const EXAMPLE = '(the example sets layout = content, footer = Q3 "review", and a note of two paragraphs "Open cold." and "Then pause.")';
 
 export const SHEETS = {
+  C6: `A record is an HTML comment whose first line of content is @meta{ name=value, name=value }. The comment is written on three lines: <!-- alone, the @meta{...} line, then --> alone. Names are used exactly as given. A value is written bare unless it contains a comma, =, {, }, [, ], a double quote or |, or starts or ends with a space, or is empty: then wrap it in double quotes, writing \\" for a quote and \\\\ for a backslash. A note paragraph is note="...". The @meta line cannot hold a line break or a blank line, so fields with those go on the lines AFTER it inside the same comment, one "key: value" per line; a note of several paragraphs is written "note: |" followed by each paragraph indented two spaces with a blank line between paragraphs. The text -->  cannot appear inside the comment. Several records go in separate comments.
+Example ${EXAMPLE}:
+<!--
+@meta{layout=content, footer="Q3 \\"review\\""}
+note: |
+  Open cold.
+
+  Then pause.
+-->`,
   C0: `Records are HTML comments, one comment per field. The slide's layout, variants, modifiers and registers are written together in ONE comment as space-separated class words: <!-- _class: WORDS -->. Every other field is its own comment: <!-- _name: value -->. A bare word comment with no name (for example <!-- stress-slide -->) is a marker. A field name that has a hyphen in the spec is written camelCase in a comment (focus-steps is _focusSteps). A comment that is not a field is a speaker note; a note of several paragraphs is ONE comment with a blank line between paragraphs. The value is the rest of the comment up to -->. Surrounding double quotes on a value are removed. A pane field is <!-- _pane: value -->. Several records go on separate lines.
 Example ${EXAMPLE}:
 <!-- _class: content -->
@@ -103,4 +112,22 @@ Rule sheets (presented in your own order):
 ${sheet}
 
 OUTPUT: write one JSON file to ${outPath} with the shape {"S1": {"1": "text", "2": "text", ... "12": "text"}, "S2": {...}, ... "S6": {...}}. Each value is the exact text for that slide in that syntax, with newlines as \\n. Write the file with a tool, not as chat text. When finished, reply with one line: done.`;
+}
+
+/** The writer prompt for ONE syntax (the amendment that adds C6). */
+export function writerPromptSingle({ slides, label, outPath }) {
+  return `You are a careful technical writer. Below is a rule sheet for one way of writing per-slide metadata records (label ${label}), and 12 slide specs. Use ONLY this sheet; do not read any other file in any repository.
+
+For EACH slide, write exactly the text that records that slide's fields in this syntax (metadata text only, no slide body, no commentary). Where a slide has more than one record, write all of them. Follow the sheet's escaping rules exactly; the text will be read back by a strict program, and anything it cannot read exactly counts as a mistake.
+
+Slide specs (field = value pairs; values are JSON strings, so decode them):
+
+${specText(slides, 'typed')}
+
+Rule sheet:
+
+### ${label}
+${SHEETS[LABELS[label]]}
+
+OUTPUT: write one JSON file to ${outPath} with the shape {"${label}": {"1": "text", "2": "text", ... "12": "text"}}. Each value is the exact text for that slide, with newlines as \\n. Write the file with a tool, not as chat text. When finished, reply with one line: done.`;
 }

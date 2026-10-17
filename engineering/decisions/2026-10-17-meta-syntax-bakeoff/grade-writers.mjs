@@ -19,12 +19,13 @@ const same = (a, b) => { try { assert.deepStrictEqual(a, b); return true; } catc
 
 const out = { writers: [], candidates: {} };
 for (const c of CANDIDATES) out.candidates[c.id] = { exact: 0, withDiagnostics: 0, wrong: 0, missing: 0, of: 0, errors: [] };
-for (const n of [1, 2, 3]) {
+for (const n of [1, 2, 3, 'c6']) {
   const file = path.join(DIR, `writer-${n}.json`);
   if (!existsSync(file)) continue;
   const data = JSON.parse(readFileSync(file, 'utf8')); out.writers.push(n);
   for (const [label, id] of Object.entries(LABELS)) {
     const tally = out.candidates[id];
+    if (!data[label]) continue;
     slides.forEach((s, i) => {
       tally.of++;
       const text = data[label]?.[String(i + 1)];

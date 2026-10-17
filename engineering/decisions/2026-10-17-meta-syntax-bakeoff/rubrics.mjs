@@ -26,6 +26,10 @@ const y = (reason) => ({ yes: true, reason });
 const n = (reason) => ({ yes: false, reason });
 
 export const RUBRIC = {
+  C6: {
+    c6: [y('slot spec types each field'), y('completion after `@meta{` inside a comment'), y('did-you-mean over the slot'), y('rewrite one item'), y('a comment opens on its own line'), y('`-->` ends it'), y('only through the lines after the record inside the comment, a second spelling'), n('a quote needs `\\"`'), y('named'), y('same names')],
+    c7: [y('HTML comment'), n('two spellings: the @meta line and the key: value lines for long notes'), y('comments are LFM\'s directive carrier today; the record is the inline-door shape'), n('reserves a comment that starts with @meta, and changes what every comment reader treats as a note'), y('reads as words')],
+  },
   C0: {
     c6: [n('`_class` carries positional class words; only a catalog split types them'), n('completion offers words, not per-field values'), y('unknown-class lint exists today'), y('writeDirective edits one comment'), y('a comment opens on its own line'), y('`-->` ends it'), y('a comment may hold blank lines (but not `-->`)'), y('quotes need no escaping'), n('`_class` words are positional'), n('class tokens (`head-left`, `lifted`) differ from register names')],
     c7: [y('HTML comment'), y('one spelling'), y('the current LFM form'), y('nothing new'), n('`_class: cards-grid three finish-strata head-center` is not plain words')],
