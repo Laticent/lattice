@@ -3,7 +3,7 @@
   "commit": "cf92e6d",
   "date": "2026-10-17"
  },
- "status": "Three example decks measured, plus the gallery fixture (`style: h2 { color: rgb(1,2,3) }` and a `<style scoped>` h2 rule rgb(4,5,6)) measured on 2026-10-17 after two script fixes (author CSS found as insertions at several places among Marp's trailing rules, and the per-element comparison sampled to 600 elements, recorded in `sampled`). The gallery run sampled the affected elements, so its pair counts are over the sample; the h2 colors are over every h2. The A1 pair counts on the gallery (113,230, of which 110,566 'newly win') are not reliable: the reference build's author pieces differ from the other designs' on the scoped block (its h2 colors show the scoped rgb(4,5,6) rule absent), so quote h2 colors for design 1 on the gallery, not its pair counts. The three-deck runs used a single census per page (before stableCensus was added) with one other census job running.",
+ "status": "Three example decks measured, plus the gallery fixture (`style: h2 { color: rgb(1,2,3) }` and a `<style scoped>` h2 rule rgb(4,5,6)), re-run on 2026-10-17 after three script fixes: author CSS found as whole-rule insertions among Marp's trailing rules (an earlier character diff could shift a piece onto the next Marp rule and made design 1's counts wrong), computed styles read in chunks, and the per-element comparison sampled to every tenth element (`sampled`) with the inherited `--style` carrier property left out of the pair counts. Pair counts on the gallery are over the sample; the h2 colors are over every h2. One residual: design 1's reference build shows the scoped rgb(4,5,6) h2 as rgb(1,2,3), unlike today and designs 2 and 3, which is probably the build and is unverified. The three example decks were re-run with the same fixed script (stable census per page) and gave the same pair counts as the first run, which used the older character diff.",
  "decks": [
   {
    "deck": "examples/finish-override.md",
@@ -11,6 +11,7 @@
    "elements": 137,
    "raiseK": 15,
    "authorCssBytes": 3206,
+   "unstablePages": [],
    "designs": {
     "D": {
      "affectedElements": 137,
@@ -78,6 +79,11 @@
      }
     }
    },
+   "sampled": {
+    "affectedElements": 137,
+    "compared": 137,
+    "every": 1
+   },
    "h2Colors": {
     "D-auth": {
      "rgb(10, 22, 40)": 4
@@ -99,7 +105,7 @@
     "C2vsC_noAuthor": 0,
     "A1vsC_noAuthor": 0
    },
-   "seconds": 98
+   "seconds": 102
   },
   {
    "deck": "examples/finish-backdrops.md",
@@ -107,6 +113,7 @@
    "elements": 357,
    "raiseK": 15,
    "authorCssBytes": 1221,
+   "unstablePages": [],
    "designs": {
     "D": {
      "affectedElements": 93,
@@ -183,6 +190,11 @@
      }
     }
    },
+   "sampled": {
+    "affectedElements": 93,
+    "compared": 93,
+    "every": 1
+   },
    "h2Colors": {
     "D-auth": {
      "rgb(10, 22, 40)": 12
@@ -204,7 +216,7 @@
     "C2vsC_noAuthor": 4,
     "A1vsC_noAuthor": 0
    },
-   "seconds": 107
+   "seconds": 105
   },
   {
    "deck": "examples/backdrop-register.md",
@@ -212,6 +224,7 @@
    "elements": 186,
    "raiseK": 15,
    "authorCssBytes": 1706,
+   "unstablePages": [],
    "designs": {
     "D": {
      "affectedElements": 63,
@@ -278,6 +291,11 @@
       "otherValue": []
      }
     }
+   },
+   "sampled": {
+    "affectedElements": 63,
+    "compared": 63,
+    "every": 1
    },
    "h2Colors": {
     "D-auth": {
@@ -305,7 +323,7 @@
     "C2vsC_noAuthor": 1,
     "A1vsC_noAuthor": 0
    },
-   "seconds": 76
+   "seconds": 88
   }
  ],
  "gallery": [
@@ -319,8 +337,8 @@
    "designs": {
     "D": {
      "affectedElements": 5699,
-     "affectedPairs": 2664,
-     "same": 2664,
+     "affectedPairs": 384,
+     "same": 384,
      "otherValue": 0,
      "newlyLoses": 0,
      "newlyWins": 0,
@@ -332,8 +350,8 @@
     },
     "C": {
      "affectedElements": 5699,
-     "affectedPairs": 2280,
-     "same": 2280,
+     "affectedPairs": 0,
+     "same": 0,
      "otherValue": 0,
      "newlyLoses": 384,
      "newlyWins": 0,
@@ -354,30 +372,30 @@
     },
     "A1": {
      "affectedElements": 5699,
-     "affectedPairs": 113230,
-     "same": 2664,
+     "affectedPairs": 496,
+     "same": 384,
      "otherValue": 0,
      "newlyLoses": 0,
-     "newlyWins": 110566,
+     "newlyWins": 112,
      "examples": {
       "newlyLoses": [],
       "newlyWins": [
-       "section.title block-size: 720px",
-       "section.title font-size: 21.376px",
-       "section.title height: 720px",
-       "section.title inline-size: 1280px",
-       "section.title line-height: 34.2016px",
-       "section.title padding-block-end: 88px",
-       "section.title padding-block-start: 88px",
-       "section.title padding-bottom: 88px"
+       "h2 border-block-end-color: rgb(1, 2, 3)",
+       "h2 border-block-start-color: rgb(1, 2, 3)",
+       "h2 border-bottom-color: rgb(1, 2, 3)",
+       "h2 border-inline-end-color: rgb(1, 2, 3)",
+       "h2 border-inline-start-color: rgb(1, 2, 3)",
+       "h2 border-left-color: rgb(1, 2, 3)",
+       "h2 border-right-color: rgb(1, 2, 3)",
+       "h2 border-top-color: rgb(1, 2, 3)"
       ],
       "otherValue": []
      }
     },
     "C2": {
      "affectedElements": 5699,
-     "affectedPairs": 2776,
-     "same": 2664,
+     "affectedPairs": 496,
+     "same": 384,
      "otherValue": 0,
      "newlyLoses": 0,
      "newlyWins": 112,
@@ -398,9 +416,9 @@
     },
     "C3": {
      "affectedElements": 5699,
-     "affectedPairs": 2776,
+     "affectedPairs": 496,
      "same": 384,
-     "otherValue": 2280,
+     "otherValue": 0,
      "newlyLoses": 0,
      "newlyWins": 112,
      "examples": {
@@ -415,13 +433,7 @@
        "h2 border-right-color: rgb(1, 2, 3)",
        "h2 border-top-color: rgb(1, 2, 3)"
       ],
-      "otherValue": [
-       "section.title --style: today h2 { color: rgb(1, 2, 3); } | h2:not(#\\#):not(#\\#):not(#\\#):",
-       "section.title ::before--style: today h2 { color: rgb(1, 2, 3); } | h2:not(#\\#):not(#\\#):not(#\\#):",
-       "section.title ::after--style: today h2 { color: rgb(1, 2, 3); } | h2:not(#\\#):not(#\\#):not(#\\#):",
-       "section.title ::marker--style: today h2 { color: rgb(1, 2, 3); } | h2:not(#\\#):not(#\\#):not(#\\#):",
-       "div.slide-edge --style: today h2 { color: rgb(1, 2, 3); } | h2:not(#\\#):not(#\\#):not(#\\#):"
-      ]
+      "otherValue": []
      }
     }
    },
@@ -467,7 +479,7 @@
     "C2vsC_noAuthor": 74,
     "A1vsC_noAuthor": 0
    },
-   "seconds": 850
+   "seconds": 868
   }
  ]
 }

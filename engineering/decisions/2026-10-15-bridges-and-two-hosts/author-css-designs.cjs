@@ -158,21 +158,33 @@ function splice(hL, hE) {
   } };
 }
 
-/** The text `withAuthor` has beyond `base` when `base` is `withAuthor` with insertions only. */
-function authorPieces(withAuthor, base) {
-  const PROBE = 80;
-  let i = 0, j = 0, out = '';
-  while (j < base.length) {
-    if (withAuthor.charCodeAt(i) === base.charCodeAt(j)) { i++; j++; continue; }
-    const k = withAuthor.indexOf(base.slice(j, j + PROBE), i);
-    if (k < 0) throw new Error('author CSS is not an insertion into Marp\'s trailing rules');
-    out += withAuthor.slice(i, k); i = k;
+/** Top-level rules (and at-rules) of a stylesheet, as strings, by brace depth. */
+function topLevelRules(css) {
+  const out = [];
+  let depth = 0, start = 0;
+  for (let k = 0; k < css.length; k++) {
+    const ch = css[k];
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) { out.push(css.slice(start, k + 1)); start = k + 1; } }
   }
-  out += withAuthor.slice(i);
-  // The pieces must account for the whole difference, or the reference is wrong.
-  let ii = 0, rebuilt = 0;
-  for (let jj = 0; jj < base.length; jj++, ii++) { while (withAuthor[ii] !== base[jj]) ii++; rebuilt++; }
-  if (rebuilt !== base.length || out.length !== withAuthor.length - base.length) throw new Error('author CSS pieces do not add up');
+  if (start < css.length) out.push(css.slice(start));
+  return out;
+}
+
+/**
+ * The rules `withAuthor` has beyond `base`, when `base` is `withAuthor` with whole rules inserted.
+ * Compares whole top-level rules, not characters: a character diff can shift an inserted piece onto
+ * the start of the next Marp rule when the two begin with the same text (`section`).
+ */
+function authorPieces(withAuthor, base) {
+  const a = topLevelRules(withAuthor), b = topLevelRules(base);
+  let i = 0, out = '';
+  for (const rule of b) {
+    while (i < a.length && a[i] !== rule) out += a[i++];
+    if (i >= a.length) throw new Error('author CSS is not an insertion of whole rules into Marp\'s trailing rules');
+    i++;
+  }
+  while (i < a.length) out += a[i++];
   return out;
 }
 
@@ -239,7 +251,8 @@ async function run(deckPath, browser) {
     det[k] = [];
     for (let c = 0; c < union.length; c += 120) det[k].push(...(await M.detail(pages[k], union.slice(c, c + 120))));
   }));
-  const pairs = (d) => { const m = new Map(); union.forEach((i, j) => { const a = det[`${d}-auth`][j].o, b = det[`${d}-noauth`][j].o; for (const p of Object.keys(a)) if (a[p] !== b[p]) m.set(`${i}|${p}`, a[p]); }); return m; };
+  // `--style` carries the author's CSS text itself and is inherited by every element, so it is not styling.
+  const pairs = (d) => { const m = new Map(); union.forEach((i, j) => { const a = det[`${d}-auth`][j].o, b = det[`${d}-noauth`][j].o; for (const p of Object.keys(a)) if (a[p] !== b[p] && !p.endsWith('--style')) m.set(`${i}|${p}`, a[p]); }); return m; };
   const today = pairs('D');
   for (const d of D) {
     const v = d === 'D' ? today : pairs(d);
