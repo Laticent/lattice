@@ -16,6 +16,17 @@ machine allows it; the consent text names the layer (on, on by platform default,
 approval is pinned to the bytes and the layer; a render whose browser gives only a weaker layer
 than the one approved is refused. An approval at OFF is allowed (contract note §9).
 
+History    — the owner decided on 2026-09-26: "(c) where the CLI can arrange it, else (b)" (run the
+            browser as an unprivileged user with the OS sandbox on where possible; else run with
+            it off and say so). lib/core/os-sandbox.js implements it and quotes this file for it.
+            Measured 2026-10-17 as root in the cloud container: a Chromium under /root reads OFF
+            (renderer runs as root); a Chromium under /opt/pw-browsers reads ON (as nobody).
+            Edge: if the layer probe fails at approval time, nothing is pinned and no later
+            render is refused for a weak layer.
+Also       — lib/packages/code-door.js:6 and lib/packages/code-bundle.js:36 cite this file for text
+            it does not hold ("the doors must carry", how an installed CLI gets a bundler). Find
+            where that text went, or fix the two comments.
+
 why now   — a Chromium escape on a machine whose layer reads OFF lands with that machine's full
             reach, and the desktop app will run packages on machines nobody measured.
 where     — lib/core/os-sandbox.js (launchCodeSandbox, offReason, offRemedy), lib/packages/trust.js,

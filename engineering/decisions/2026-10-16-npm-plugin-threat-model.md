@@ -158,17 +158,24 @@ code door. Three parts:
 
 - A Chromium renderer exploit on a machine where the OS layer reads OFF. The code sandbox's two
   walls are browser policy. Under them, `lib/core/os-sandbox.js` turns Chromium's own OS sandbox
-  on wherever the machine allows it (as root in a container it runs the browser as `nobody`; owner
+  on wherever the machine allows it (as root on Linux it runs the browser as `nobody`; owner
   decision 2026-09-26) and reports which layer it got. Where the layer reads OFF, the consent text
   says so and the approval is pinned to that layer (contract note §9). An escape there is not
-  contained. The "NOT CLAIMED HERE" header in `code-sandbox.js` predates `os-sandbox.js` and the
-  first draft of this note repeated it as if no OS layer existed; that was wrong and is fixed.
+  contained. The "NOT CLAIMED HERE" header in `code-sandbox.js` was stale next to `os-sandbox.js` (the
+  contract note's §4 has the same stale line, now annotated), and the first draft of this note
+  repeated it as if no OS layer existed; that was wrong and is fixed.
+  **Measured 2026-10-17 in this cloud container (root), with the real launcher:** a Chromium under
+  `/root` read OFF with the renderer running as root (`nobody` gets `EACCES`); a world-readable
+  Chromium under `/opt/pw-browsers` read ON, measured, with the renderer running as `nobody`.
+  Edge case: if the layer probe at approval time fails, nothing is pinned, and no later render of
+  that approval is refused for a weak layer.
 - Anything the plugin does through legitimate output: a misleading chart is still a chart.
 - A hostile `bake`, until §6 decision 3 settles where a bake runs.
 
 ## 6. Decisions
 
-The owner answered on 2026-10-17. The numbers are the original question numbers.
+The owner answered on 2026-10-17. Rows 1 to 5 keep the original question numbers; row 6 is a new
+question that came out of this review.
 
 | # | Question | Decision |
 |---|---|---|
