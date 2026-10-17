@@ -43,7 +43,6 @@
 // SYNC scroll math (window.scrollY) and content-visibility virtualization both
 // keep measuring against the document viewport.
 
-import dataBlockMod from '../../../lib/core/data-block.js';
 import { fontGateAgent, onFontsReady } from '../../../lib/core/preview-font-gate.mjs';
 import {
 	buildPrintCss,
@@ -65,13 +64,6 @@ import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
 import { previewCspMeta } from './preview-csp.js';
 import { splitSections } from './preview-virtual.js';
-
-// The export-settings block a capture frame carries (buildSrcdoc `exportSettings`). Built from the
-// data-block kernel rather than lib/core/export-settings.js, because that file `require`s, and the
-// dev server's CommonJS shim serves only a file that requires nothing (vite-cjs-lib-dev.mjs). The
-// TYPE must equal export-settings.js's `EXPORT_SETTINGS_TYPE`, which the runtime reads by;
-// deck-preview.export-settings.test.ts asserts the runtime's own reader finds this block.
-export const EXPORT_SETTINGS_BLOCK = dataBlockMod.dataBlock('application/lattice-export-settings');
 
 // Re-exported so callers that already reach for it here keep working; the policy itself
 // lives in its own dependency-free module (see preview-csp.js for why).
@@ -501,12 +493,6 @@ export function buildSrcdoc({
 	// find no stylesheet, no renderer, or a policy that kept a wildcard it should have
 	// withheld. `{ katex, drawn, dagre, blocked }`, from the full render; null → read `html`.
 	deck = /** @type {{katex:boolean,drawn:boolean,dagre:boolean,blocked:Array<{origin:string}>}|null} */ (null),
-	// THE EXPORT'S DECISIONS, for a frame whose bytes become an artifact (lib/core/export-settings.js).
-	// The runtime reads this block at boot to tell an export from an authoring surface; a frame
-	// without it is an authoring surface and draws the AUTHOR overflow marker. The Studio's
-	// Webpage bake passes `{ overflowMarker }`, so the player it makes carries the reader marker
-	// the CLI's does. Null (every preview) writes nothing.
-	exportSettings = /** @type {{overflowMarker?: string}|null} */ (null),
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -571,9 +557,6 @@ export function buildSrcdoc({
 		// is a silent no-op, not a visible failure. `preview-font-gate.test.js` pins
 		// the order at every call site for exactly that reason.
 		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
-		// Inert JSON (`type` is not a script type), written outside the sanitized `html` because
-		// the sanitizer removes every `<script>`; the payload escapes `<` (lib/core/data-block.js).
-		(exportSettings ? EXPORT_SETTINGS_BLOCK.write(exportSettings) : '') +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
 		(needsDrawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
 		'</head><body>' +

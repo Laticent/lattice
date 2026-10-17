@@ -34,10 +34,11 @@
 import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
-import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
-import remoteRef from '../../../../../lib/core/remote-ref.js';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import dataBlockCore from '../../../../../lib/core/data-block.js';
+import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
+import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
@@ -50,6 +51,27 @@ import { downloadBlob } from '../download.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
+
+/** The type lib/core/export-settings.js writes and the runtime reads (`EXPORT_SETTINGS_TYPE`). */
+const EXPORT_SETTINGS_BLOCK = dataBlockCore.dataBlock('application/lattice-export-settings');
+
+/**
+ * A frame document carrying the EXPORT's decisions (lib/core/export-settings.js). The runtime reads
+ * the block at boot to tell an export from an authoring surface; a frame without one is an authoring
+ * surface and draws the AUTHOR overflow marker, which is how every Studio Webpage export shipped the
+ * red ring and the "Fix Me" chips to its reader (decisions/2026-10-16-player-as-library-audit.md §11.8).
+ *
+ * Inserted right after `<meta charset>`, the first fixed thing in buildSrcdoc's head and ahead of any
+ * author content, so no stylesheet text can ever precede it. Inert JSON (`type` is not a script type),
+ * `<` escaped by data-block.js. Built from data-block.js rather than export-settings.js, which
+ * `require`s and so is refused by the dev server's CommonJS shim (vite-cjs-lib-dev.mjs).
+ */
+export function withExportSettings(srcdoc, settings) {
+	const at = srcdoc.indexOf('<meta charset="utf-8">');
+	if (at < 0) throw new Error('withExportSettings: the frame document has no <meta charset>');
+	const end = at + '<meta charset="utf-8">'.length;
+	return srcdoc.slice(0, end) + EXPORT_SETTINGS_BLOCK.write(settings) + srcdoc.slice(end);
+}
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -467,10 +489,6 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
 			...(dagreUrl ? { dagreUrl } : {}),
 			webOrigins: webOrigins || [],
-			// An EXPORT frame says so: with the block the runtime draws the export's marker level
-			// rather than the authoring one (buildSrcdoc `exportSettings`). Only the Webpage bake
-			// passes a level today; the rasterizers keep their behavior.
-			...(overflowMarker ? { exportSettings: { overflowMarker: resolveOverflowMarker(overflowMarker) } } : {}),
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
 			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
@@ -482,12 +500,17 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// and this is an explicit `visibility:hidden` on a descendant <code>.
 			diagrams: false,
 			contentVisibility: false, cursor: false, sync: false, printRules: false });
+		// An EXPORT frame says so: with the block the runtime draws the export's marker level rather
+		// than the authoring one. Only the Webpage bake passes a level today; the rasterizers keep
+		// their behavior. Added here, not in buildSrcdoc, because that module loads with every
+		// preview and this one only on export (`withExportSettings`).
+		const frameDoc = overflowMarker ? withExportSettings(srcdoc, { overflowMarker: resolveOverflowMarker(overflowMarker) }) : srcdoc;
 		// Every settle await below is BOUNDED — an unbounded wait could hang the
 		// export forever (a srcdoc whose load never fires, or a `fonts.ready` that
 		// stalls on a slow/failed face), leaving the mobile progress card stuck with
 		// no error and no Retry. A slightly-early capture is safe: sectionsOf →
 		// ensureFontsLoaded re-waits afterward with the embedded data-URI faces.
-		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = srcdoc; }), 10000);
+		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = frameDoc; }), 10000);
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');

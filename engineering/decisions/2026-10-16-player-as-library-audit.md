@@ -854,8 +854,12 @@ runtime. The runtime tells an export from an authoring surface by the export-set
 The CLI never had the problem: it bakes at its resolved level and then runs a strip in
 `page.evaluate`, a strip the Studio had no copy of.
 
-**Fixed, one mechanism per host and one function for both.** `buildSrcdoc` takes `exportSettings`
-and writes the standard block into the frame's head, so the runtime draws the export's level. The
+**Fixed, one mechanism per host and one function for both.** `withExportSettings` in
+`deck-export.js` writes the standard block into the capture frame's head, so the runtime draws the
+export's level. It lives in the export module rather than in `buildSrcdoc`: the first cut put it in
+`deck-preview.js`, which loads with every preview, and the route budget measured +444, +378 and +374
+bytes of gzipped eager JavaScript on the studio, playground and home routes. Moved, the three routes
+measure what `main` does. The
 Webpage bake passes the workspace's `overflowMarker` setting through `resolveExportOverflowMarker`,
 the resolver the CLI and the Marp bundle use, so a stored `off` or a junk value falls back to
 `reader` instead of silencing every clip (`loadSettings()` does not validate it). The strip moved out
