@@ -784,6 +784,7 @@ const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { exportDeckStyleText } = require('./lib/export/export-scaffold');
 const { exportGlobalCss } = require('./lib/export/author-css');
+const { splitKatexSheet } = require('./lib/export/katex-inline');
 const { readClassAttr } = require('./lib/core/section-walk');
 const { splitSections } = require('./lib/core/split-sections');
 // The label-drop channel's READER half — same grammar as the writer, one module
@@ -2692,8 +2693,7 @@ const slidesWithMeta2 = packInlineStyles(highlightedSlides.join('\n'));
 // Left as one 368 KB block it became that target (measured).
 const usesMath = highlightedSlides.some((s) => s.includes('class="katex'));
 const katexInline = usesMath ? katexInlineSheet(katexCssAbsPath) : '';
-const katexFaces = (katexInline.match(/@font-face\s*\{[^}]*\}/g) || []).join('');
-const katexRules = katexInline.replace(/@font-face\s*\{[^}]*\}/g, '');
+const { faces: katexFaces, rules: katexRules } = splitKatexSheet(katexInline);
 const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
 const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 const docFonts = !katexFacesCss

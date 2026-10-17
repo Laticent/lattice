@@ -80,8 +80,8 @@ const CENSUS = {
 			'escape, so these own the terminator outright.',
 	},
 	'docs/src/components/studio/share-export.ts': {
-		guards: 3,
-		why: 'the self-contained doc (fonts + composed sheet) and the finish block spliced into shared markdown.',
+		guards: 5,
+		why: 'the self-contained doc (fonts, the composed deck sheet, and KaTeX made self-contained as the CLI makes it: its rules in #lattice-katex and its faces in the font block) and the finish block spliced into shared markdown.',
 	},
 	'docs/src/components/studio/export/deck-export.js': {
 		guards: 2,

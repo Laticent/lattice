@@ -459,7 +459,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -489,6 +489,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
 			...(dagreUrl ? { dagreUrl } : {}),
 			webOrigins: webOrigins || [],
+			// A bake frame lays slides out at ONE TO ONE, as the CLI's page does: with the default padding
+			// the FIT agent scaled every slide by (frame - padding) / slide, and anything that measures its
+			// box at mount — a function-plot sizes its SVG from it — baked 6% small (§11.9).
+			...(framePadding != null ? { padding: framePadding } : {}),
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
 			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
@@ -712,6 +716,8 @@ async function slideChannelRecord(html) {
 /** Each top-level slide's `style` attribute as the engine wrote it (null when it has none), in
  *  order, read with the depth-aware section walker so a `<section>` nested in a slide is not a slide. */
 async function slideStyleAttrs(html) {
+	// No slide, nothing to restore, and no reason to load the authoring bundle for it.
+	if (!/<section\b/i.test(String(html || ''))) return [];
 	const { splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
 	return splitSectionsCore(String(html || ''))
 		.filter((p) => p.type === 'section')
@@ -764,7 +770,7 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  */
 export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 	const authoredStyles = await slideStyleAttrs(render.html);
-	const { frame, dispose } = await createCaptureFrame(render, { releaseDiagrams: false });
+	const { frame, dispose } = await createCaptureFrame({ ...render, framePadding: 0 }, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
 		if (!doc) return null;
@@ -836,6 +842,10 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 				if (!sec.getAttribute('style')) sec.removeAttribute('style');
 			}
 		});
+		// Runtime BOOKKEEPING is not deck content: `data-lattice-image-text` is the image-text fold's
+		// "decided already" mark (lib/core/bg-image.js), written by a DOM pass the CLI's page does not
+		// run, so it shipped in the Studio's file alone (§11.9).
+		for (const sec of sections) sec.removeAttribute('data-lattice-image-text');
 		for (const sec of sections) {
 			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
 			// CLI's player carries none (mmdc replaces the fence outright). It is already

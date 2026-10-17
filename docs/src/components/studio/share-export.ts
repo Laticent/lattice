@@ -216,11 +216,11 @@ function escAttr(s: string): string {
  * skip link and `<main>` the CLI's page also carries never reach a player, so they are left out.
  * Offline by construction — the `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
  */
-function buildSelfContainedDoc(p: { lang: string; title: string; fontCss: string; deckStyle: string; a11yDefs: string; slides: string; katexLink: string }): string {
+function buildSelfContainedDoc(p: { lang: string; title: string; fontCss: string; katexFacesCss: string; deckStyle: string; a11yDefs: string; slides: string; katexLink: string }): string {
 	return `<!DOCTYPE html>
 <html lang="${escAttr(p.lang)}"><head><meta charset="utf-8">
 <title>${escHtml(p.title)}</title>
-<style id="lattice-embedded-fonts">${sanitizeStyleText(p.fontCss)}</style>
+<style id="lattice-embedded-fonts">${sanitizeStyleText(p.fontCss)}${p.katexFacesCss}</style>
 ${p.katexLink}
 <style>
 ${p.deckStyle}
@@ -339,6 +339,10 @@ type PlayerCore = {
 	/** The texture pattern sets the page references, as the CLI selects them (lib/core/accessibility-textures.js). */
 	texturePatternDefs: (only?: string[]) => string;
 	texturePrefixesReferencedIn: (text: string) => string[];
+	/** KaTeX's sheet made self-contained, as the CLI makes it (lib/export/katex-inline.js). */
+	katexFontFiles: (css: string) => string[];
+	inlineKatexFonts: (css: string, base64Of: (file: string) => string | null) => string;
+	splitKatexSheet: (inlined: string) => { faces: string; rules: string };
 	/** The engine's front-matter parser (lib/engine/directives.js). */
 	parseFrontMatter: (src: string) => { directives: Record<string, unknown>; body: string };
 	/** The engine version, from the root package.json at build time. */
@@ -412,7 +416,12 @@ export async function shareHtmlPlayer(
 ): Promise<string | undefined> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
-	const theme = await ensureTheme(options, palette, mode, extra, source);
+	// The deck's own theme, never its `-dark` twin. The CLI renders the theme the deck declares and
+	// lets `color-mode:` set the slides' `dark` class; the Studio rendered `<palette>-dark` whenever
+	// its PREVIEW was dark, so the same deck exported under two theme names (§11.9 of
+	// decisions/2026-10-16-player-as-library-audit.md). The player carries both modes either way
+	// (its dark block), and `scheme` below picks the one it opens in.
+	const theme = await ensureTheme(options, palette, 'light', extra, source);
 	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
@@ -552,7 +561,7 @@ export async function shareHtmlPlayer(
 		const result = await ex.bakeDeckSections({
 			html: playerHtml,
 			css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
-			mode,
+			mode: 'light', // the render's own mode (above); the frame forces no scheme on the slides
 			geom: { w: out.width || 1280, h: out.height || 720 },
 			runtimeUrl: options.runtimeUrl,
 			fontCss,
@@ -660,6 +669,34 @@ export async function shareHtmlPlayer(
 				katexText = null; // core drops the link + reports it; math ships unstyled
 			}
 		}
+	}
+	// SELF-CONTAINED, as the CLI makes it (lib/export/katex-inline.js): each woff2 the sheet names is
+	// fetched from beside it and inlined, the faces join the font block and the rules ride in
+	// `#lattice-katex`. Linked instead, the sheet's relative font urls could not load in a shared file,
+	// the dead faces were stripped, and every Studio math player drew its math in fallback type
+	// (decisions/2026-10-16-player-as-library-audit.md §11.9). A font that cannot be fetched keeps its
+	// relative url, inert, exactly as the CLI keeps a font it cannot read.
+	let katexFaces = '';
+	let katexRules = '';
+	if (katexText != null && options.katexUrl) {
+		const files = coreMod.katexFontFiles(katexText);
+		const b64 = new Map<string, string | null>(
+			await Promise.all(
+				files.map(async (f): Promise<[string, string | null]> => {
+					try {
+						const res = await fetch(new URL(`fonts/${f}`, new URL(options.katexUrl as string, document.baseURI)).href);
+						if (!res.ok) return [f, null];
+						const bytes = new Uint8Array(await res.arrayBuffer());
+						let bin = '';
+						for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+						return [f, btoa(bin)];
+					} catch {
+						return [f, null];
+					}
+				}),
+			),
+		);
+		({ faces: katexFaces, rules: katexRules } = coreMod.splitKatexSheet(coreMod.inlineKatexFonts(katexText, (f) => b64.get(f) ?? null)));
 	}
 
 	// Narration. Projected from THESE sections rather than from a second render, so
@@ -769,7 +806,9 @@ export async function shareHtmlPlayer(
 		deckStyle,
 		a11yDefs: coreMod.texturePatternDefs(coreMod.texturePrefixesReferencedIn(`${deckStyle}\n${slides}`)),
 		slides,
-		katexLink: needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
+		// As the CLI writes them: the rules in `#lattice-katex`, the faces after the text faces in the one font block.
+		katexLink: katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
+		katexFacesCss: katexFaces ? sanitizeStyleText(katexFaces) : '',
 	});
 
 	// The packer's browser half: the shared prune kernel's page and the CLI's own glyph subsetter

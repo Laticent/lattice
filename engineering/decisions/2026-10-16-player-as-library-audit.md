@@ -916,10 +916,26 @@ text), after the first round of fixes:
 | `PLAYER_VERSION` in one module, `ENGINE_BUILD` from `package.json` into the Studio bundle, `config` from the engine's parser, `host` added | the record |
 | The bake restores each slide's engine `style` attribute | the browser's re-serialized style and the `--_sec-1cqi` stamps |
 
-Full parity now on html-player, chart-family-coverage, build, studio-present and backdrop-register.
-Still open, in order: KaTeX (the Studio's math player ships no KaTeX font faces), Mermaid (two
-pipelines, and the CLI envelope's baked "source", the re-import bug the 2026-08-05 note records),
-the `size: story` deck, and small markup differences on collage and avatars.
+**Second round.** A byte-strict check (whole file, normalizing only the three exclusions) replaced
+the semantic one as the bar:
+
+| Fix | What it closed |
+|---|---|
+| One `data:` encoder (`lib/core/data-uri.js`): SVG percent-encoded, the rest base64 | collage and avatars pictures |
+| A quote-aware `url()` reader for the runtime (`lib/core/css-url.js`) | the bake frame cut a percent-encoded SVG at its first `)` and lost the image slide's size bucket |
+| KaTeX made self-contained by one transform (`lib/export/katex-inline.js`) | the Studio's math players shipped no KaTeX faces at all |
+| The Studio renders the deck's declared theme, not its `-dark` twin | `data-theme` on every slide of a dark deck |
+| The bake frame lays slides out at one to one | function-plot drew 6% small |
+| function-plot draws with a seeded `Math.random` | random clip ids, which also made two CLI runs differ |
+| The packer sorts every slide element's attributes | the order the CLI's string pass and the Studio's runtime wrote them |
+| One `@font-face` rule and the manifest's order (`lib/fonts/face-rule.js`) | the font block |
+| The bake drops the runtime's image-text bookkeeping mark | one attribute |
+
+**Byte-identical now, apart from the three exclusions:** html-player, marp-export-fidelity,
+chart-family-coverage, collage, build, studio-present, backdrop-register, math-bare-equation and
+avatars (9 of 12). Still open: Mermaid (a11y, carbone-curation: two pipelines, and the CLI
+envelope's baked "source"), `size: story` (adaptive-sizing), and the player's default mode when
+the deck sets no `color-mode:`.
 
 ## 9. Stale claims found along the way
 

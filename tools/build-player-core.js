@@ -53,6 +53,7 @@ export { exportDeckStyleText } from './export-scaffold.js';
 export { exportGlobalCss } from './author-css.js';
 export { texturePatternDefs, texturePrefixesReferencedIn } from '../core/accessibility-textures.js';
 export { PLAYER_VERSION } from './player-version.js';
+export { katexFontFiles, inlineKatexFonts, splitKatexSheet } from './katex-inline.js';
 export { parseFrontMatter } from '../engine/directives.js';
 // The engine's version, which the CLI reads from package.json and the browser cannot: the record's
 // \`build\` field (lattice-doc.js), so a Studio export stamps the same engine version a CLI one does.

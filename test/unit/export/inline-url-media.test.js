@@ -288,3 +288,26 @@ test('inlineUrlMedia fetches at most maxPictures distinct pictures and reports t
 	assert.equal(r.count, 1);
 	assert.match(r.missing[0].reason, /1-picture limit/);
 });
+
+// An SVG embeds as percent-encoded UTF-8, the CLI's encoding (lib/core/data-uri.js), and that form
+// can carry `'`, parens and spaces. A bare `url()` around it would end at the first `)`, so the
+// inliner quotes it with `"`, which the encoding escapes; a base64 URI still stands bare
+// (decisions/2026-10-16-player-as-library-audit.md §11.9).
+test('a percent-encoded SVG in a bare url() is quoted; a base64 one is not', async () => {
+	const { inlineUrlMedia } = await load();
+	const { bytesToDataUri } = require('../../../lib/core/data-uri.js');
+	const SVG = bytesToDataUri(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg"><g transform='scale(2)'/></svg>`), 'image/svg+xml');
+	assert.match(SVG, /^data:image\/svg\+xml;charset=utf-8,.*\(/, 'the fixture carries a paren, as a real SVG does');
+	const fetchDataUri = fakeFetch({ 'https://studio.test/a.svg': { dataUri: SVG }, 'https://studio.test/p.png': { dataUri: PNG } });
+	const r = await inlineUrlMedia('<style>.a{background:url(/a.svg)} .b{background:url(/p.png)}</style>', { baseUrl: BASE, origins: ORIGINS, fetchDataUri });
+	assert.ok(r.html.includes(`.a{background:url("${SVG}")}`), 'the SVG is quoted');
+	assert.ok(r.html.includes(`.b{background:url(${PNG})}`), 'base64 stays bare');
+});
+
+test('bytesToDataUri is the CLI encoding: SVG percent-encoded with spaces kept (and a BOM kept), the rest base64', () => {
+	const { bytesToDataUri } = require('../../../lib/core/data-uri.js');
+	const svg = Buffer.from('﻿<svg>a b</svg>', 'utf8');
+	assert.equal(bytesToDataUri(svg, 'image/svg+xml'), `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.toString('utf8')).replace(/%20/g, ' ')}`);
+	const png = Buffer.from([0, 1, 254, 255]);
+	assert.equal(bytesToDataUri(png, 'image/png'), `data:image/png;base64,${png.toString('base64')}`);
+});

@@ -1706,7 +1706,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Then the no-JS page states a concrete color-scheme per baked scheme, as the script
 	// stamps it, where it used to inherit the sheet's `light dark` (found by the new
 	// integration test's style comparison).
-	assert.equal(sha, '22a355ea43e72b8b0843dca640f30288b9a8387c0c5c6e4b11acfe37c282ca11', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for canonical ATTRIBUTE ORDER (2026-10-17, host parity §11.9): every element in a
+	// slide now takes its attributes in name order, so the CLI and the Studio serialize a slide the
+	// same way whatever wrote them. Diffed: exactly three lines move, two <section> tags and one
+	// <aside>, each the same attributes reordered; nothing else.
+	assert.equal(sha, 'e4861b03e066275d67b35a33425aacfeca0232cba48393d1b4c46777a2081b03', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
