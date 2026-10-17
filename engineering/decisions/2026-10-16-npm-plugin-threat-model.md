@@ -24,12 +24,15 @@ sandbox), `spec/LPM.md` (a draft until the npm door opens).
   starts calling `fetch`, an unlisted package, an undeclared contribution. It cannot stop a
   hostile author, because `globalThis['fe'+'tch']` passes any identifier scan.
 - A **harness** is a test that runs plugin code inside the locked page and tries to get data out.
-  It is what contains a hostile plugin. The repo already has the walls for it
+  It proves the walls hold against the exits it tries. It does not prove a plugin is benign: a
+  hostile plugin can test where it runs (the worker's `blob:null` origin, `navigator.webdriver`, a
+  date) and behave only in a real export, so the canary proves the walls and a conformance run
+  proves nothing about intent. The repo already has the walls for it
   (`lib/core/code-sandbox.js`), and `test/integration/export/plugin-fence-door.test.js` already runs a
   stranger's zip plugin through the locked page with a network log that must read 0 (fetch,
   WebSocket, `sendBeacon`). The npm door has no equivalent test; the harness builds on that one.
 
-The boundary does the protecting. The gate only keeps honest contributors honest.
+The boundary does the protecting, and it protects only on the surface where the code really runs. The gate only keeps honest contributors honest.
 
 ## 2. What the plan says today
 
@@ -46,34 +49,36 @@ The explicit list and the export record are good. Neither limits what an admitte
 
 ## 3. Why "installing it is the trust decision" is not enough here
 
-1. **Plugin output travels.** A `hydrate` or `payload` runs in the browser of whoever opens the
-   deck or its HTML export. That person never ran `npm i`. The export pins its one script by
-   SHA-256 and the hash is computed from the assembled bytes (`2026-09-27` §4.8,
-   `lib/export/player-core.mjs:3344`), so the hash certifies the plugin's code rather than
-   constrains it. What constrains the page is the rest of the policy:
-   `default-src 'none'; … img-src data:; font-src data:; base-uri 'none'; form-action 'none'`.
-   **Measured 2026-10-16 on a real export** (`lattice deck.md deck.html --player`, opened from
-   `file://`, in Chromium, WebKit and Firefox through Playwright). Each attempt ran inside the page,
-   so the CSP shipped in the file decided. The file's policy matched the one in
-   `player-core.mjs:3346` exactly, apart from the hash. A copy with the CSP `<meta>` removed was the
-   control, and it reached a local listener on every attempt in every engine, so no cell below is
-   empty by accident:
+1. **Plugin output travels, and Lattice writes two different HTML exports.** A plugin's browser
+   code (`hydrate`, `payload`) runs in the browser of whoever opens a deck export. That person never
+   ran `npm i`. The two exports carry different policies, and only one of them runs plugin code:
+   - **`--player`** (`default-src 'none'`, the one script pinned by SHA-256,
+     `lib/export/player-core.mjs:3344-3346`). It ships no `hydrate` code: a real export of a
+     two-slide deck has 0 mentions of it, and `playerJs` bundles first-party code only.
+   - **Plain `.html`** (what every render writes beside its output, and `--fluid`). Its policy is
+     only `img-src … ; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`
+     (`lib/core/subresource-csp.mjs:161-176`). It has no `default-src`, no `script-src` and no
+     `frame-src`. It ships the runtime, so it is the export where plugin `hydrate` code runs.
 
-   | Exit the script tries | Reached the listener (all three engines) |
-   |---|---|
-   | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` | no |
-   | `new Image().src`, CSS `url()`, `<iframe>`, form post | no |
-   | **`location.href = 'http://…?x=…'`** | **yes** |
-   | **`window.open('http://…')`** | **yes** |
+   **Measured 2026-10-17 on real exports** (opened from `file://`; headless Chromium; a local HTTP
+   and UDP listener; each attempt ran inside the page; a control copy with the policy removed
+   reached the listener on every attempt, so no cell is empty by accident, except where noted):
 
-   An earlier replay of the same policy in Chromium alone also saw no request from `<a ping>` or
-   `<link rel=prefetch>` (their controls fired); the real-export run did not repeat those two.
+   | Exit the script tries | `--player` export | Plain `.html` export |
+   |---|---|---|
+   | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `Image`, CSS `url()`, form post | blocked (all three engines) | `fetch` and `Image` blocked (the others not tried here) |
+   | `<script src>`, `<iframe>`, CSS `@import`, `<link rel=stylesheet>`, `<link rel=prefetch>`, meta refresh | `<iframe>` blocked (all three engines); the rest not tried | **reach the listener** (`<script src>` carried the slide text) |
+   | `location.href`, `window.open` | **reach the listener** (all three engines) | **reach the listener** |
+   | **WebRTC** (a TURN server's username field carries the text) | **reaches the listener** (Chromium; hidden by the offline launch arguments) | not tried |
 
-   So the export's policy closes every request a script can send, and leaves **navigation** open.
-   A hostile `hydrate` can send the page's text (including the speaker notes and glossary in the
-   envelope) to a server by redirecting the page. It cannot do it silently, since the page
-   visibly leaves. A real browser also blocks a popup without a user gesture, which these headless
-   runs do not model, so `window.open` is the weaker of the two exits.
+   So the earlier reading, that the export's policy "closes every request a script can send", was
+   wrong. `--player` leaves navigation, `window.open` and WebRTC open; the plain export, which is
+   the one that runs plugin code, leaves nearly everything open. A freeze of `location` would not
+   close WebRTC. The WebRTC leak is a UDP packet to a server the page names, with no visible sign.
+   An earlier replay in Chromium alone also saw no request from `<a ping>` or `<link rel=prefetch>`
+   on the `--player` policy; the real-export run did not repeat those two. Changing either policy
+   changes the bytes of an exported artifact, so it needs the owner's inspection (CLAUDE.md,
+   QUALITY BAR); this note proposes nothing there.
 2. **The Studio and the desktop app are not `npm i` projects.** The Studio keeps the user's
    OpenRouter key in same-origin `localStorage` (`lattice-db-or-key`, read in four places on
    2026-10-16). The Tauri exploration note (`2026-05-10-tauri-exploration.md`) mentions the system keychain
@@ -127,15 +132,15 @@ is refused, not sandboxed.
 |---|---|---|
 | **G1. Purity scan** of plugin and component code: no network, storage, or key-name identifiers; an allowlist entry needs a justification and fails when stale | An in-tree contributor adding `fetch` by accident | Obfuscation passes. For npm it is a tripwire, not a defense |
 | **G2. npm admission**: explicit list, exact versions, package integrity hash, plugin packages installed with `--ignore-scripts` | A typosquat, a silent update, an install-time script | Does not read the code. A reviewed version can still be hostile |
-| **G3. Declared equals contained**: the manifest names every contribution (`hydrate`, `bake`, `payload`) and the build fails both ways (already enforced in-tree by `lib/plugins/resolve.js`: a bake declared with no file, and a file
-shipped but not declared) | A plugin carrying a surface it did not declare | A declared surface can still misbehave |
+| **G3. Declared equals contained**: the manifest names every contribution (`hydrate`, `bake`, `payload`) and the build fails both ways (already enforced in-tree by `lib/plugins/resolve.js`: a bake declared with no file, and a file shipped but not declared) | A plugin carrying a surface it did not declare | A declared surface can still misbehave |
 | **G4. Export record** (already planned, §4.10): name plus SHA-256 per non-shipped plugin | Nothing at run time; it makes an incident traceable | After the fact |
 
 ### 5.2 The harness (dynamic)
 
-Run the plugin's `render`, `hydrate` and `payload` in the existing locked page with a local
-listener on HTTP, WebSocket and UDP, the way `code-sandbox-network.test.js` already measures the
-code door. Three parts:
+Run the plugin's `render` in the existing locked page with a local listener on HTTP, WebSocket and
+UDP, the way `code-sandbox-network.test.js` already measures the code door. `hydrate` and
+`payload` do not run in the locked page; they run in a recipient's browser (§3.1), so v1 admits
+neither (§6) and part 3 covers the export. Three parts:
 
 1. **A canary plugin** kept in test fixtures. It is deliberately hostile and tries every exit:
    `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, an `<img>` or CSS `url()` beacon,
@@ -147,12 +152,17 @@ code door. Three parts:
 2. **A conformance run per admitted npm plugin**: the same locked page, the plugin's real fixtures,
    zero network, and output that passes `sanitizeSlideHtml` and `sanitizeStyleText` unchanged
    (HARD RULE #22: markup and stylesheet are separate channels).
-3. **An export check**: render a deck that uses the plugin to HTML and confirm the exported file
-   makes no request when opened offline (`lib/core/offline-chromium.js` already supplies the
-   dead-proxy arguments). The check must include navigation and `window.open`, the two exits the
-   export's CSP leaves open (§3.1). Closing them needs a design choice, not a header: a policy
-   cannot forbid navigation, so the options are a script that freezes `location` before plugin
-   code runs, or accepting it as visible and documenting it.
+3. **An export check**: render a deck that uses the plugin to each HTML export and open it with
+   NORMAL browser arguments and a listener on HTTP and UDP, including a TURN responder for WebRTC.
+   Do not use `lib/core/offline-chromium.js`'s arguments here: they set
+   `--webrtc-ip-handling-policy=disable_non_proxied_udp`, which hid the WebRTC leak in §3.1. The
+   check passes only when navigation, `window.open`, WebRTC and the subresource exits all read
+   zero. Today they do not, so the check cannot pass without an export change (owner sign-off), and
+   it must not pass by recording the exit and accepting it. Accepting an exit is a separate owner
+   decision.
+4. **Keep the canary open-ended.** It is pinned to the listener and policy surface, not to a fixed
+   list. Any exit a reviewer names is added before the door opens, and the canary runs in
+   Chromium, WebKit and Firefox as §3.1 did.
 
 ### 5.3 What neither covers
 
@@ -170,7 +180,10 @@ code door. Three parts:
   Edge case: if the layer probe at approval time fails, nothing is pinned, and no later render of
   that approval is refused for a weak layer.
 - Anything the plugin does through legitimate output: a misleading chart is still a chart.
-- A hostile `bake`, until §6 decision 3 settles where a bake runs.
+- A hostile `bake`: none runs in v1 (§6 decisions 3 and 4). A later version that admits one reopens this.
+- State carried across slides: one worker serves every slide a package claims in a render, so a
+  plugin can carry text from an earlier slide into later output. It stays inside one deck and
+  reaches the page only as sanitized markup.
 
 ## 6. Decisions
 
@@ -181,7 +194,7 @@ question that came out of this review.
 |---|---|---|
 | 1 | Add G1 to `build:check`? | **Yes, measure first.** Time the check, show the owner the number, and add it only if the cost is small. |
 | 2, 5 | Add the canary harness, and make it plus G1 to G3 the exit criteria for phase G? | **Yes, required.** The npm door does not open while the harness is red. The harness is a test in the integration tier, not a new CI job. |
-| 3, 4 | Where does an npm plugin's `bake` run, and does the Studio or desktop app load an npm plugin? | **Locked page only.** npm plugins render in the locked Chromium page, as the code door does. No `bake`, and no loading in the Studio or desktop app, in v1. |
+| 3, 4 | Where does an npm plugin's `bake` run, and does the Studio or desktop app load an npm plugin? | **Locked page only.** npm plugins render in the locked Chromium page, as the code door does. No `bake`, and no loading in the Studio or desktop app, in v1. Read as: an npm plugin contributes `render` only. No `hydrate`, `payload` or inline code reaches an export. Confirm this reading. |
 | 6 | Should a code package be refused outright where the OS layer reads OFF? | **Keep today's behavior, and investigate.** Today the consent text names the layer, the approval is pinned to it, and the owner or user may approve at OFF. Log an investigation into what refusing OFF would break (below). |
 
 **Decision 6 in plain terms.** Lattice runs a code package in a browser with no network. Under that
@@ -195,8 +208,21 @@ current behavior and to measure first. The investigation is `followups.d/2314-p4
 count how often the layer reads OFF in the places packages run (CI, containers, the Studio, the
 future desktop app) and report what refusing OFF would break.
 
-This note does not edit `2026-09-13` Axis 2. Decisions 3 and 4 mean that row's npm line ("code,
-Node-side, resolved at build time") no longer describes the plan. Superseding it is a follow-up.
+**Open, and not decided by this note.** The red team and inversion reviews raised three questions
+that the owner has not answered. Each comes with a recommendation:
+
+- **Q7. Do npm plugins inherit "may be approved at OFF"?** Recommend no: refuse an npm plugin when
+  the OS layer reads OFF or the probe fails, whatever the code-package policy is. An npm plugin
+  can change under a version range, which a one-time approval of a zip package cannot.
+- **Q8. Must an npm plugin have zero runtime dependencies?** Recommend yes, checked at admission
+  (one bundled file). `--ignore-scripts` applies to one install command, not to a package, and
+  Lattice does not control how a user runs `npm i`.
+- **Q9. Add G5: the host reads npm plugin files as bytes and never `require`s or `import`s the
+  package?** Recommend yes, with a test where an npm `index.js` with a side effect never runs.
+  Otherwise the plugin runs in Node before any sandbox exists.
+
+This note does not edit `2026-09-13` Axis 2 beyond a pointer. Decisions 3 and 4 mean that row's npm line ("code,
+Node-side, resolved at build time") no longer describes the plan. Superseding it is `followups.d/2749-p1-supersede-plugin-architecture-axis2-npm-row.md`.
 
 ## 7. What is not verified
 
@@ -206,9 +232,18 @@ Node-side, resolved at build time") no longer describes the plan. Superseding it
 - The `postinstall` measurement used one tarball with no transitive dependencies. It shows the mechanism, not how a real plugin's dependency tree behaves.
 - Whether the desktop app will keep the OpenRouter key in the OS keychain is undecided (§3.2).
 - Gap 6 (the `@qr` Wi-Fi case) comes from another session's report, not from a reproduction here.
-- The §3.1 measurement drove one real export of a two-slide deck with no plugin hydrate in it,
-  in headless Chromium, WebKit and Firefox on Linux. It ran each attempt through `page.evaluate`,
-  which stands in for plugin code allowed by the hash. It did not run an actual plugin's hydrate,
-  and it did not run Safari, Chrome or Firefox on a user's machine. The probe script lives in the
-  session scratchpad, not in the repo. If the harness in §5.2 is built, this probe becomes its
-  export check.
+- The §3.1 measurements drove real exports of a two-slide deck with no plugin `hydrate` in it, on
+  Linux, in headless browsers. Each attempt ran through `page.evaluate`, which stands in for plugin
+  code. The `--player` rows were run in Chromium, WebKit and Firefox; the plain-export rows and the
+  WebRTC row were run in Chromium only. `<a ping>` and `<link rel=prefetch>` on `--player` were
+  not repeated on real exports. Nothing ran an actual plugin's `hydrate`, and
+  nothing ran Safari, Chrome or Firefox on a user's machine. The probe scripts live in the session
+  scratchpad, not in the repo. If the harness in §5.2 is built, they become its export check.
+- Two review findings were read and not run: that the sanitizer's `FORBID_TAGS`
+  (`lib/core/sanitize-slide-html.mjs:40`) strips `meta`, `link`, `style`, `form`, `iframe`, `base`
+  and `input` from plugin markup, and that the Studio's code-package frame runs `allow-scripts`
+  without `allow-same-origin`, so it cannot reach `lattice-db-or-key` (`runner.ts`).
+- That a plugin could stay dormant under the harness is reasoned, not run.
+- Which exports run plugin code comes from the shipped files (a real `--player` export has no
+  `hydrate`; the plain export does) and from `player-core.mjs`, not from a run of an npm plugin,
+  because none exists yet.
