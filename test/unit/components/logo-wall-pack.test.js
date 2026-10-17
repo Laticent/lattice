@@ -9,7 +9,6 @@ const { familyFor, canvasScaleFor } = require('../../../lib/adaptive/families');
 
 const CSS = fs.readFileSync(path.join(__dirname, '../../../lib/components/inventory/logo-wall/logo-wall.styles.css'), 'utf8');
 const areas = (plan) => plan.result.rects.map((r) => r.w * r.h);
-const spread = (xs) => Math.max(...xs) / Math.min(...xs);
 
 test('the band and column counts are the ones the stylesheet uses', () => {
   const block = (sel) => {
