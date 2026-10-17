@@ -5,7 +5,7 @@ summary: >
   `@meta{class=cards, footer="Q3 review"}` replaces `<!-- _class: cards -->` and `<!-- _footer: Q3 review -->`; long
   speaker notes use a ```` ```meta ```` fence that holds the same record. A new host rule reads the records right
   after `lattice_directives` and merges them into the same directive table, so `lattice_directives_apply` and every
-  `data-*` output stay unchanged. One reader module replaces about 61 hand-rolled comment regexes and four copies of the
+  `data-*` output stay unchanged. One reader module replaces about 61 hand-rolled comment regexes and five copies of the
   key list. The comment form is removed (hard cut, with a codemod); the Marp bridge compiles `@meta` back to comments on
   export. Pane markers move in too. Nothing here is built.
 builds-on:
@@ -34,8 +34,8 @@ An author sets a slide's metadata with one record on a line of its own:
 
 **What this buys, in order of how sure we are:**
 
-1. **One reader instead of about 61.** One grammar (`readDirectiveComment`) exists today, and 6 production modules call
-   it. About 61 other runtime modules carry their own comment regex, and the key list is copied by hand in four places
+1. **One reader instead of about 61.** One grammar (`readDirectiveComment`) exists today, and 5 production modules call
+   it. About 61 other runtime modules carry their own comment regex, and the key list is copied by hand in five places
    (§3). A record with a declared slot gives lint, the engine, the Studio drawer and autocomplete the same parse.
 2. **Autocomplete and structured editing.** The drawer edits `_class` with a regex today. With a slot spec it edits a
    field of a record, and autocomplete offers field names and values from the same spec.
@@ -70,7 +70,7 @@ the variance band" (HARD RULE #19) until the numbers say otherwise.
 The counts below come from a grep heuristic and were not hand-checked module by module.
 
 **One grammar, narrow adoption.** `readDirectiveComment` (`lib/core/comment-directive.mjs:59`) is the engine's grammar.
-Six production modules call it. The rest re-spell it:
+Five production modules call it (`slides.js`, `lint-core.js`, `class-directive-scan.mjs`, `auto-split.js`, `slide-class-spans.js`). The rest re-spell it:
 
 | Surface | Where | Reads |
 |---|---|---|
@@ -81,10 +81,10 @@ Six production modules call it. The rest re-spell it:
 | Render: split panels | `lib/core/split-panels.js:238-260` | drops and re-emits every comment in **rendered HTML** |
 | Lint and autocomplete | `lib/authoring/lint-core.js`, `lib/core/class-directive-scan.mjs` | own regexes for `_focus*`, `paginate`, `class`, `header`, `footer`, `_debug`; autocomplete runs per keystroke |
 | Notes | `lib/authoring/notes-core.js` | key-list copy (`:328`), reads **rendered HTML** (`:555`), then `strip*FromSource` re-reads the source |
-| Studio | `slide-directives.ts`, `slide-notes.ts`, `slide-say.ts`, `slide-descriptions.ts`, `comment-block.ts`, and about 25 more | key-list copy (`DIRECTIVE_KEYS`), in-place regex edits |
+| Studio | `slide-directives.ts`, `slide-notes.ts`, `slide-say.ts`, `slide-descriptions.ts`, `comment-block.ts`, and more (not counted) | key-list copy (`DIRECTIVE_KEYS`), in-place regex edits |
 | Marp bridge | `lib/core/marp-bundle.js` | passes every comment through verbatim; Marp turns non-directive comments into speaker notes |
 
-**Four hand-kept key lists:** `directives.js:38`, `notes-core.js:328`, `slide-directives.ts:17`, `grammar-vocab.js:12` (plus
+**Five hand-kept key lists:** `lib/engine/directives.js:38`, `lib/authoring/notes-core.js:328`, `docs/src/components/studio/slide-directives.ts:17`, `docs/src/playground/grammar-vocab.js:12`, and `lib/packages/slide-facts.mjs:73` (`FACT_DIRECTIVES`, pinned to `APPLIED_DIRECTIVES` by a unit test), plus
 a partial one in `split-slide.ts:29`).
 
 **Stale claims found on the way** (HARD RULE #18, on the path, fixed in Phase 4): `directives.js:5,165` calls
@@ -111,7 +111,7 @@ spaces, so `class=columns ratio-55-45` needs no quotes; a value with a comma, `=
 
 ### 4.2 Keys
 
-One registry, one file (`lib/core/meta-keys.mjs`, §5.2), replaces the four lists. Spelling follows the comment keys so
+One registry, one file (`lib/core/meta-keys.mjs`, §5.2), replaces the five lists. Spelling follows the comment keys so
 the codemod is a rename, not a redesign:
 
 | Key | Was | Notes |
@@ -164,7 +164,7 @@ the fields into `meta.latticeDirectives`, and **removes the tokens**. `lattice_d
 
 It must run before `lattice_directives_apply` (so `class` still joins the section) and before
 `deck_class_propagate` and `lattice_default_component` (so the default layout reads the final class). A runtime mirror
-lands in the same change (HARD RULE #1; `renderElement` is called from `lib/runtime/index.js:260`).
+lands in the same change (HARD RULE #1; `renderElement` is called from `lib/runtime/index.js:1137`).
 
 Plugin admission reads classes from **source text** (`deckClassTokens`, `lib/plugins/deck-plugins.mjs:139-167`). It
 reads `@meta` through the shared reader (§5.2) or a plugin admitted by a class would stop loading.
@@ -214,7 +214,7 @@ runs. That is the seam: the normalizer learns the `@meta` spelling and the carve
 
 - **Autocomplete.** After `` `@meta{ `` the editor offers keys from the registry, then values from the key's type (class
   names from the catalog, `paginate` words, etc.). This needs the slot-parameter completion that does not exist yet:
-  `inlineCodeCompletions` offers kind names only (`lint-core.js:3355`).
+  `inlineCodeCompletions` (`lint-core.js:3355`) offers kind names, icon names and hard-coded pill and spark words, but nothing driven by a kind's slot spec.
 - **Lint.** One check against the slot replaces the per-key regexes. `unknown-class`, `paginate` and `_focus` checks read
   fields, not text.
 - **Deck settings and the drawer.** `writeMeta` patches one field; nobody regex-edits a comment.
@@ -226,11 +226,15 @@ runs. That is the seam: the normalizer learns the `@meta` spelling and the carve
 Marp reads directives only from comments and front matter, so `@meta` must not reach Marp as written. The bridge
 **compiles** it, in the producer, because VS Code runs no engine plugin (bridges note §4.2).
 
-- **Export (Lattice to Marp).** `withRuntimeScriptsReport` in `lib/core/marp-bundle.js` gains a `@meta` rewrite beside
-  `withoutCodeRecords` (precedent: `@code` records are stripped there). Each field becomes `<!-- _key: value -->`;
-  `carry` drops the `_`; each `pane` and `panes` line becomes its marker; `note` becomes a plain comment. The order
-  matters: `liftImageBgImages` in `tools/export-marp.js` needs the `_class` comment in its slide part, so the rewrite runs
-  first. The Studio's in-browser producer shares the function.
+- **Export (Lattice to Marp).** A new pass, `compileMeta`, lives in a shared kernel (`lib/core/meta-record.mjs`'s
+  neighbor, called by both `tools/export-marp.js` and the Studio's in-browser producer). Each field becomes
+  `<!-- _key: value -->`; `carry` drops the `_`; each `pane` and `panes` line becomes its marker; `note` becomes a plain
+  comment. **Where it runs matters.** `tools/export-marp.js` runs `liftImageBgImages` (`:379`), then `bakeSplits` and
+  `stripPaneMarkers` (`:386`), then `withRuntimeScriptsReport` (`:395`). The lift needs the `_class` comment in its
+  slide part, and `stripPaneMarkers` removes pane markers because Marp would read them as notes. So `compileMeta` runs
+  **before the lift**, as the first pass, and the three existing passes then see ordinary comments and behave as today.
+  Putting the rewrite inside `withRuntimeScriptsReport` (beside `withoutCodeRecords`, the `@code` precedent) would run
+  it too late: the lift would find no comment and pane lines would reach Marp as speaker notes.
 - **The trailer rule stays.** The bundle's own `Lattice:` trailer comments are still excluded from notes
   (`marp-bundle-html.js:190-208`). The rewrite emits no comment that matches it.
 - **Import (Marp to Lattice).** There is no importer today. This change gives it a defined job: read comments and write
@@ -255,13 +259,13 @@ Hard cut (D3), in order. Each step lands as its own commit on one branch (HARD R
 | 1 | `meta-keys.mjs`, `meta-record.mjs`, the slot spec, `lattice_meta`, the runtime mirror, `@meta` accepted **next to** comments | byte-identity test: every key renders the same `<section>` as its comment; bench scenario, same-machine |
 | 2 | Lint, autocomplete and `writeMeta` | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun on `@meta` |
 | 3 | The codemod (`lattice migrate meta`) over `examples/`, galleries, component docs, `design/`, test fixtures | all 276 decks render byte-identically before and after; PDF page counts unchanged |
-| 4 | Remove the comment readers; collapse the four key lists; fix the stale claims in §3 | `build:check`; a test fails on any fifth copy of the key list |
+| 4 | Remove the comment readers; collapse the five key lists; fix the stale claims in §3 | `build:check`; a test fails on any fifth copy of the key list |
 | 5 | The bridge: export rewrite and the shared import path | a real marp-cli render and the VS Code preview of the compiled bundle, both on a demo deck |
 | 6 | Spec 2.0 draft and conformance cases | `tools/lfm-conformance.js` |
 
 Steps 1 to 3 can ship while comments still render, which keeps every intermediate commit green. The cut in step 4 comes
 only after step 3's byte-identity proof. Pane markers (D4) ride step 1 with their own carve test; they are the largest
-single risk because `panes.js` reads comment tokens in four places (`:394-395,473,562,614`).
+single risk because `panes.js` tests comment and marker tokens at about ten sites (`:119,187,358,394-395,429,449,473,562,568-569,614,630`).
 
 **Export changes need your inspection** (CLAUDE.md, QUALITY BAR). Step 5 changes the bytes of an exported Marp bundle;
 I will render the demo deck in dark and light mode and send both for sign-off before it merges.
