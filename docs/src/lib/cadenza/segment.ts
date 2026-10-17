@@ -98,6 +98,14 @@ const ABBREV_BEFORE_DIGIT = new Set([
 ]);
 
 /**
+ * German magnitude words, whose period abbreviates "Millionen" / "Milliarden" in a money amount
+ * (`4,2 Mio. € Umsatz`). What follows is the currency or the rest of the phrase, so a currency
+ * symbol or a lowercase word continues the fragment; a capital still opens a sentence ("…5 Mio.
+ * Then we…"). Split there, `€` started a new cue and was read as a bare glyph.
+ */
+const ABBREV_BEFORE_MONEY = new Set(['mio', 'mrd']);
+
+/**
  * An initialism spelled with internal periods — `U.S.`, `U.K.`, `D.C.`, `a.m.`,
  * `Ph.D.` The generic shape covers the ones no list will remember, and it is
  * graded like ABBREV_BEFORE_LOWER because "He lives in the U.S." is a sentence.
@@ -153,6 +161,7 @@ function isAbbreviationBreak(left: string, right: string): boolean {
   if (ABBREV_ALWAYS.has(key)) return true;
   const r = right.trim();
   if (ABBREV_BEFORE_DIGIT.has(key)) return /^\d/.test(r);
+  if (ABBREV_BEFORE_MONEY.has(key)) return /^(?:\p{Sc}|[a-z])/u.test(r);
   if (ABBREV_BEFORE_LOWER.has(key) || INITIALISM.test(key)) return /^[a-z]/.test(r);
   return false;
 }

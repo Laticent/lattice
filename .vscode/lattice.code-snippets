@@ -931,6 +931,19 @@
     ],
     "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date."
   },
+  "lattice: risk-matrix": {
+    "prefix": "lattice-risk-matrix",
+    "body": [
+      "<!-- _class: risk-matrix -->",
+      "",
+      "## Where our top risks sit.",
+      "",
+      "- Risk one `{4, 5}`",
+      "- Risk two `{3, 3}`",
+      "- Risk three `{2, 4}`"
+    ],
+    "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first."
+  },
   "lattice: roadmap": {
     "prefix": "lattice-roadmap",
     "body": [
@@ -1243,6 +1256,23 @@
       "Fourteen months blended, against a nine-month plan."
     ],
     "description": "Topic anchor inside a section. A horizontal cut: the topic above, the section's topics as a scale below."
+  },
+  "lattice: tower": {
+    "prefix": "lattice-tower",
+    "body": [
+      "<!-- _class: tower -->",
+      "",
+      "## Who carries each layer of the program.",
+      "",
+      "- Layer 2 `$100M xs $50M`",
+      "  - Reinsurer A `60%`",
+      "  - Reinsurer B `40%`",
+      "- Layer 1 `$40M xs $10M`",
+      "  - Reinsurer A `50%`",
+      "  - Reinsurer C `50%`",
+      "- Retention `$10M`"
+    ],
+    "description": "A reinsurance program as stacked layers, each written as its limit in excess of its attachment and split across the reinsurers who took a share of it."
   },
   "lattice: verdict-grid": {
     "prefix": "lattice-verdict-grid",

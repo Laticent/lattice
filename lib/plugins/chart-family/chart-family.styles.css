@@ -1840,7 +1840,8 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   .fc-shape,
   .fc-group,
   .fc-head,
-  .waterfall-bar
+  .waterfall-bar,
+  .tower-layer
 ) {
   vector-effect: non-scaling-stroke;
   stroke-width: var(--chart-edge);

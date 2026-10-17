@@ -206,3 +206,35 @@ describe('readNumber and readTime agree with the kernels on fuzzed input', () =>
     expect(accepted).toBeGreaterThan(2_000); // not vacuous: 2,399 at this seed
   });
 });
+
+// A global client's money: an ISO code, a country `$`, the currency after the number, and the
+// German, Lloyd's and Indian magnitude words. Each was not a number before, so its chart drew
+// nothing (engineering/decisions/2026-10-15-business-deck-gaps.md §7.3).
+describe('readNumber reads money as a global client writes it', () => {
+  const MONEY: Array<[string, number, string]> = [
+    ['EUR 4.2M', 4.2e6, ''], ['CHF 4.2M', 4.2e6, ''], ['EUR4.2M', 4.2e6, ''], ['-EUR 4.2M', -4.2e6, ''],
+    ['EUR -4.2M', -4.2e6, ''], ['(EUR 4.2M)', -4.2e6, ''], ['US$4.2M', 4.2e6, ''], ['R$4,2M', 4.2e6, ''],
+    ['4.2M €', 4.2e6, '€'], ['4200€', 4200, '€'], ['4,2 M€', 4.2e6, '€'], ['4.2M EUR', 4.2e6, 'EUR'],
+    ['4 200 €', 4200, '€'], ['(4.2M €)', -4.2e6, '€'], ['1.234,5 €', 1234.5, '€'],
+    ['4,2 Mio. €', 4.2e6, '€'], ['4,2 Mio.', 4.2e6, ''], ['5 Mrd', 5e9, ''], ['5Mrd', 5e9, ''],
+    ['USD 250mn', 2.5e8, ''], ['₹4.2Cr', 4.2e7, ''], ['4.2Cr INR', 4.2e7, 'INR'],
+  ];
+  for (const [s, value, unit] of MONEY) {
+    it(JSON.stringify(s), () => {
+      const got = readNumber(s);
+      expect(got?.value).toBeCloseTo(value, 6);
+      expect(got?.unit).toBe(unit);
+    });
+  }
+  it('takes only a real currency code, so a label stays a label', () => {
+    for (const s of ['FTC 2025', 'Q1 2025', 'ABC 12', 'FY26 4.2M', '12% EUR', '€4.2M €', 'EUR 4.2M €']) {
+      expect(readNumber(s), s).toBeUndefined();
+    }
+  });
+  it('reads `mn`, `Md` and `Cr` as magnitudes only beside a currency', () => {
+    // `15mn` is a French duration in minutes; it must stay 15.
+    expect(readNumber('15mn')).toEqual({ value: 15, signed: false, unit: 'mn' });
+    expect(readNumber('3Md')).toEqual({ value: 3, signed: false, unit: 'Md' });
+    expect(readNumber('3 Md€')?.value).toBe(3e9);
+  });
+});

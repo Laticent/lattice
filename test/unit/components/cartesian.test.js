@@ -928,3 +928,76 @@ describe('cartesian — defects the adversarial trio confirmed', () => {
     assert.equal(C.signedValue('$-0.9M').value, -900000);
   });
 });
+
+// A global client's money (engineering/decisions/2026-10-15-business-deck-gaps.md §7.3).
+// Each form below read as no value before, so the chart drew nothing; and an axis printed
+// `4.5 · 5 · 5.5` beside an author's `4,2`.
+describe('cartesian — money and decimal marks as a global client writes them', () => {
+  test('a currency after the number stays after it, with the author\'s space', () => {
+    assert.deepEqual(C.affixOf(['4.2M €', '5.1M €']), { prefix: '', suffix: ' €' });
+    assert.deepEqual(C.affixOf(['4200€', '5100€']), { prefix: '', suffix: '€' });
+    assert.deepEqual(C.affixOf(['4.2M EUR', '5.1M EUR']), { prefix: '', suffix: ' EUR' });
+    // A unit never gained a space it did not have.
+    assert.deepEqual(C.affixOf(['12 %', '18 %']), { prefix: '', suffix: '%' });
+  });
+  test('a magnitude word with no currency keeps its unit, and a leading-dot value keeps its affix', () => {
+    // `15mn` is minutes: the reader does not scale it, so the axis must not drop it.
+    assert.deepEqual(C.affixOf(['15mn', '30mn']), { prefix: '', suffix: 'mn' });
+    assert.deepEqual(C.affixOf(['$.5M', '$1.2M']), { prefix: '$', suffix: '' });
+    // Three capitals that are not a currency stay a plain unit, with no new space.
+    assert.deepEqual(C.affixOf(['250 FTE', '300 FTE']), { prefix: '', suffix: 'FTE' });
+  });
+  test('a currency code before the number prints with its space; a symbol without', () => {
+    assert.deepEqual(C.affixOf(['EUR 4.2M', 'EUR 5.1M']), { prefix: 'EUR ', suffix: '' });
+    assert.deepEqual(C.affixOf(['US$4.2M', 'US$5.1M']), { prefix: 'US$', suffix: '' });
+  });
+  test('the axis prints the author\'s decimal comma, and only when no value used a point', () => {
+    const fmt = (raws, v) => C.axisFormatter({ ticks: [4, 5, 6], step: 0.5, affix: C.affixOf(raws) })(v);
+    assert.equal(fmt(['4,2', '5,1'], 4.5), '4,5');
+    assert.equal(fmt(['1.234,5', '2.345,6'], 4.5), '4,5');
+    assert.equal(fmt(['4,2 Mio. €', '5,1 Mio. €'], 4.5), '4,5 €');
+    assert.equal(fmt(['4.2', '5.1'], 4.5), '4.5');
+    assert.equal(fmt(['4,2', '5.1'], 4.5), '4.5', 'mixed marks keep the point');
+    assert.equal(fmt(['1,234', '2,345'], 4.5), '4.5', 'a thousands comma is not a decimal comma');
+    assert.equal(C.markFormatter({ ticks: [4, 6], step: 1, affix: C.affixOf(['4,2']) })(4.25), '4,3');
+  });
+  test('the value-axis gutter grows to the widest tick, never below the old width', () => {
+    const ticks = [0, 2.5e6, 5e6, 7.5e6, 1e7, 1.25e7];
+    assert.equal(C.tickGutter({ ticks, step: 2.5e6, affix: { prefix: '$', suffix: '' }, min: 40 }), 40);
+    const wide = C.tickGutter({ ticks, step: 2.5e6, affix: { prefix: 'EUR ', suffix: '' }, min: 28 });
+    assert.ok(wide > 28 && wide <= 48, `${wide}`);
+  });
+  test('every member draws the form, and no tick is cut', () => {
+    const engine = require('../../../lib/engine');
+    const sets = [['EUR 4.2M', 'EUR 5.1M', 'EUR 6.0M'], ['12.2M EUR', '15.1M EUR', '16.0M EUR'],
+      ['USD 250mn', 'USD 310mn', 'USD 380mn'], ['$4.2M', '$5.1M', '$6.0M'], ['4,2 M€', '5,1 M€', '6,0 M€']];
+    for (const [a, b, c] of sets) {
+      const bodies = {
+        line: `- Q1 \`${a}\`\n- Q2 \`${b}\`\n- Q3 \`${c}\``,
+        'stacked-bar': `- 2024\n  - Property \`${a}\`\n  - Casualty \`${b}\`\n- 2025\n  - Property \`${b}\`\n  - Casualty \`${c}\``,
+        waterfall: `- Plan \`${a}\`\n- Cat \`+${b}\`\n- Actual \`${c}\` \`total\``,
+      };
+      for (const [cls, body] of Object.entries(bodies)) {
+        const { html } = engine.render(`<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`);
+        assert.match(html, /<svg/, `${cls} ${a}: no chart drawn`);
+        const ticks = [...html.matchAll(/class="cart-tick"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => m[1]);
+        assert.ok(ticks.length > 0, `${cls} ${a}: no ticks`);
+        assert.ok(!ticks.some((t) => t.includes('…')), `${cls} ${a}: a tick was cut: ${ticks.join(' | ')}`);
+      }
+    }
+  });
+});
+
+describe('cartesian — parseAffix reads hostile input in linear time', () => {
+  test('a long whitespace run inside or around a number takes milliseconds', () => {
+    // The single regular expression parseAffix used to be split a whitespace run between `\s*`
+    // and `[^\d]*` every possible way: `1` + 50,000 spaces + `x` took 2.4 s, on main as well.
+    const t0 = performance.now();
+    for (const s of [`1${' '.repeat(50_000)}x`, `(${' '.repeat(50_000)}1`, `${'-'.repeat(50_000)}1`]) C.parseAffix(s);
+    assert.ok(performance.now() - t0 < 500, `${Math.round(performance.now() - t0)} ms`);
+  });
+  test('a minus that does not touch the number is not a sign', () => {
+    assert.equal(C.parseAffix('index - 1'), null);
+    assert.deepEqual(C.parseAffix('$-0.8M'), { prefix: '$', suffix: '' });
+  });
+});

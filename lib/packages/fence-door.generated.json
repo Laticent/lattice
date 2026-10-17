@@ -100,6 +100,12 @@
     {
       "pass": "chart-family",
       "classes": [
+        "risk-matrix"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
         "roadmap"
       ]
     },
@@ -131,6 +137,12 @@
       "pass": "chart-family",
       "classes": [
         "timeline-list"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "tower"
       ]
     },
     {

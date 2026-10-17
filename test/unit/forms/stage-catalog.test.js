@@ -42,7 +42,7 @@ const EXPECTED_CANVAS = [
   // typeset equation does not reflow) and it is `conformance: "strict"`, so the masthead
   // kernel materializes its declared `.cell-stage` rather than letting it hand-draw one.
   'math',
-  'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
+  'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'tower', 'risk-matrix', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
   'video', 'wifi', 'word-cloud', 'flowchart',
   // `collage` (2026-10): a packed photo grid that sizes itself to the cell it is given, so a
