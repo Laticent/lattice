@@ -1,16 +1,17 @@
 ---
 origin: 2714
-priority: P1
+priority: P2
 recorded: 2026-10-16
 area: chart
 severity: medium
 swimlane: engineering/decisions/2026-06-19-chart-adaptive-sizing.md
+source: https://github.com/Laticent/lattice/pull/2714#issuecomment-6234364708
 ---
 
 # `check:chart-fit` cuts two portrait charts: progress and timeline-list
 
 ```text
-  P1 · [no ticket] Two crowded fixture slides paint past the stage in portrait, and the stage clips them.
+  P2 · [no ticket] Two crowded fixture slides paint past the stage in portrait, and the stage clips them.
        why now   — found while adding the tower to test/fixtures/chart-fit.md in #2714; the same two
                    failures appear on the fixture as committed (without the tower slide), so they
                    predate #2714 and are off its path.
