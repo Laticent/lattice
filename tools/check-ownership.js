@@ -5657,6 +5657,8 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/funnel/funnel.transform.js', true, true],
   // A tower names each layer, and each reinsurer's share as `Layer · Reinsurer` with its percentage.
   ['components/chart/tower/tower.transform.js', true, true],
+  // A risk matrix names each risk on its marker, with its likelihood and impact.
+  ['components/chart/risk-matrix/risk-matrix.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
   // A hub-spoke names its hub, every satellite, and (tiered) every branch and leaf — each
@@ -9484,6 +9486,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
     'stacked-bar': 'data viz — series, not prose',
     waterfall: 'data viz — series, not prose',
     tower: 'data viz — layers and shares, not prose',
+    'risk-matrix': 'data viz — a register of placed risks, not prose',
   heatmap: 'data viz — a numeric matrix, not prose',
   gantt: 'data viz — schedule, not prose',
   journey: 'data viz — stage map, not prose bodies',

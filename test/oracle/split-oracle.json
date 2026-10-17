@@ -647,6 +647,17 @@
       "perPage": 1,
       "relationship": null
     },
+    "risk-matrix": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "roadmap": {
       "treatment": "read-across",
       "axis": "col",

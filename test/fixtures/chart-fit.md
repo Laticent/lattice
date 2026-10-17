@@ -773,6 +773,25 @@ panel token, not to re-litigate that. -->
 
 ---
 
+<!-- _class: risk-matrix -->
+
+## Twelve risks with long names, four in one cell.
+
+- Cyber outage at the primary data center `{4, 5}` `{2, 4}`
+- Ransomware across the broker network `{4, 5}`
+- Cloud provider regional failure `{4, 5}`
+- Third-party claims system outage `{4, 5}`
+- Gulf hurricane season above the model `{3, 5}` `{3, 3}`
+- Reserve shortfall on long-tail casualty `{3, 4}`
+- Regulatory fine for late reporting `{2, 4}`
+- FX swing on euro-denominated premium `{4, 2}`
+- Key person loss in the cat modeling team `{2, 3}`
+- Pandemic business interruption `{1, 5}`
+- Office flood `{1, 2}`
+- Social inflation on liability verdicts `{3, 3}`
+
+---
+
 <!-- _class: scatter bubble -->
 
 ## Ten entities with a size measure — the cluster case.

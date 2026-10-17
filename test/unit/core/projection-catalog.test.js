@@ -68,8 +68,11 @@ const WAS = {
  *
  * `tower` — a reinsurance program (#2714). `figure: "svg"`, one self-contained
  * <svg>; `data: true` because every layer and share is a figure.
+ *
+ * `risk-matrix` — a likelihood × impact register (#2714). `figure: "svg"`, one
+ * self-contained <svg>; `data: true` because every risk is placed by two numbers.
  */
-const ADDED_SINCE = ['heatmap', 'hub-spoke', 'tower'];
+const ADDED_SINCE = ['heatmap', 'hub-spoke', 'risk-matrix', 'tower'];
 const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
 
 /**

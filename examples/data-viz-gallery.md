@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`25 components`
+`26 components`
 
 Every chart component in one deck — the full charting surface.
 
@@ -329,6 +329,22 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
   - Support `7`
   - Ecosystem `8`
   - Security `8`
+
+---
+
+<!-- _class: risk-matrix -->
+<!-- _footer: "risk-matrix · data-viz gallery" -->
+
+`Enterprise risk register · Q4 2026`
+
+## Cyber and hurricane risk sit in the red; both have a plan.
+
+- Cyber outage `{4, 5}` `{2, 4}`
+- Hurricane season `{3, 5}` `{3, 3}`
+- Reserve shortfall `{3, 4}`
+- FX swing `{4, 2}`
+- Key person loss `{2, 3}`
+- Pandemic `{1, 5}`
 
 ---
 

@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 76,
+    "component": 77,
     "finish": 9,
     "motion": 4,
     "plugin": 8
@@ -937,6 +937,19 @@
         "manifest.json",
         "styles.css"
       ]
+    },
+    {
+      "type": "component",
+      "name": "risk-matrix",
+      "path": "lib/components/chart/risk-matrix",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
     },
     {
       "type": "component",

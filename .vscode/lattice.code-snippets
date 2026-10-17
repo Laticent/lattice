@@ -931,6 +931,19 @@
     ],
     "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date."
   },
+  "lattice: risk-matrix": {
+    "prefix": "lattice-risk-matrix",
+    "body": [
+      "<!-- _class: risk-matrix -->",
+      "",
+      "## Where our top risks sit.",
+      "",
+      "- Risk one `{4, 5}`",
+      "- Risk two `{3, 3}`",
+      "- Risk three `{2, 4}`"
+    ],
+    "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first."
+  },
   "lattice: roadmap": {
     "prefix": "lattice-roadmap",
     "body": [

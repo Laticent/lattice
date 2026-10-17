@@ -1624,7 +1624,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|tower|progress|timeline-list|piechart|gantt|kanban|radar|hub-spoke|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|tower|risk-matrix|progress|timeline-list|piechart|gantt|kanban|radar|hub-spoke|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
 						// Diagram fences a runtime draws (Mermaid's), by the plugin registry's fence names.
 						s.drawn = drawnFenceCount(out.html);
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
