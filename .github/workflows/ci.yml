@@ -852,7 +852,12 @@ jobs:
             manifest docs/public/playground/v > "$RUNNER_TEMP/m-pr.txt"
             echo "base version: $(ls "$RUNNER_TEMP/route-base-assets")  PR version: $(ls docs/public/playground/v)"
             echo "files: base $(wc -l < "$RUNNER_TEMP/m-base.txt"), PR $(wc -l < "$RUNNER_TEMP/m-pr.txt")"
-            diff "$RUNNER_TEMP/m-base.txt" "$RUNNER_TEMP/m-pr.txt" | head -60 || true
+            # Names only: a chunk whose NAME differs shows as present in one tree and absent in the
+            # other; a file of the same name with different bytes shows in the second list.
+            echo "--- names in only one tree (< base, > PR):"
+            diff <(awk '{print $2}' "$RUNNER_TEMP/m-base.txt") <(awk '{print $2}' "$RUNNER_TEMP/m-pr.txt") | grep '^[<>]' | head -80 || true
+            echo "--- same name, different bytes:"
+            join -j 2 <(sort -k2 "$RUNNER_TEMP/m-base.txt") <(sort -k2 "$RUNNER_TEMP/m-pr.txt") | awk '$2!=$3{print $1}' | head -80 || true
             echo "(end of diff; an empty diff means every synced asset is byte-identical)"
           else
             echo "no base assets kept; nothing to compare"
