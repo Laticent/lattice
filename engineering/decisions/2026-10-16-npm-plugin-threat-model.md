@@ -86,9 +86,13 @@ The explicit list and the export record are good. Neither limits what an admitte
    plugin with full Node privileges inside that app's process defeats the keychain. Any plugin
    script in the Studio page sits next to the key today. The plan says npm plugins resolve "at build time" and does not say
    whether the Studio or the desktop app ever loads one.
-3. **Transitive dependencies.** An explicit plugin list pins which package Lattice loads. It does
-   not pin what that package pulls in. npm runs a dependency's lifecycle scripts (`postinstall`) at
-   install, before Lattice sees anything. (Measured 2026-10-16 with a throwaway tarball: a default `npm i` ran its `postinstall`; `--ignore-scripts` did not.)
+3. **Install-time code and transitive dependencies.** A normal `npm i` runs a dependency's
+   lifecycle scripts (`postinstall`) before Lattice sees anything, and a plugin's dependencies pull
+   in more packages. (Measured 2026-10-16 with a throwaway tarball: a default `npm i` ran its
+   `postinstall`; `--ignore-scripts` did not.) The owner's decision of 2026-10-17 removes the
+   exposure by design: a plugin is a self-contained bundle built with all its dependencies, and
+   Lattice downloads that bundle as it is. Lattice never runs `npm install` for a plugin and never
+   resolves its dependencies (§6, decision 8).
 4. **Version drift.** Phase G turns version ranges on. A routine update then changes the code that
    renders every deck on the machine. The export record tells you afterward which hash ran; it does
    not stop the change.
@@ -131,9 +135,10 @@ is refused, not sandboxed.
 | Check | Catches | Honest limit |
 |---|---|---|
 | **G1. Purity scan** of plugin and component code: no network, storage, or key-name identifiers; an allowlist entry needs a justification and fails when stale | An in-tree contributor adding `fetch` by accident | Obfuscation passes. For npm it is a tripwire, not a defense |
-| **G2. npm admission**: explicit list, exact versions, package integrity hash, plugin packages installed with `--ignore-scripts` | A typosquat, a silent update, an install-time script | Does not read the code. A reviewed version can still be hostile |
+| **G2. Plugin admission**: explicit list, exact versions, an integrity hash, and the plugin downloaded as one self-contained bundle and never installed with `npm install` (so no lifecycle script or dependency runs); a bundle with anything left external is refused, as the code-package bundler already does (contract note §8) | A typosquat, a silent update, an install-time script, a hidden dependency | Does not read the code. A reviewed version can still be hostile |
 | **G3. Declared equals contained**: the manifest names every contribution (`hydrate`, `bake`, `payload`) and the build fails both ways (already enforced in-tree by `lib/plugins/resolve.js`: a bake declared with no file, and a file shipped but not declared) | A plugin carrying a surface it did not declare | A declared surface can still misbehave |
 | **G4. Export record** (already planned, §4.10): name plus SHA-256 per non-shipped plugin | Nothing at run time; it makes an incident traceable | After the fact |
+| **G5. Never load a plugin in Node**: the host reads a plugin's files as bytes and never `require`s or `import`s it; a test plugin whose `index.js` writes a file when loaded must leave no file | A plugin running with full computer access before any sandbox exists | Covers the code paths the test reaches; a new loader added later needs the same test |
 
 ### 5.2 The harness (dynamic)
 
@@ -208,18 +213,19 @@ current behavior and to measure first. The investigation is `followups.d/2314-p4
 count how often the layer reads OFF in the places packages run (CI, containers, the Studio, the
 future desktop app) and report what refusing OFF would break.
 
-**Open, and not decided by this note.** The red team and inversion reviews raised three questions
-that the owner has not answered. Each comes with a recommendation:
+Three more decisions came out of the red team and inversion reviews. The owner answered them on
+2026-10-17:
 
-- **Q7. Do npm plugins inherit "may be approved at OFF"?** Recommend no: refuse an npm plugin when
-  the OS layer reads OFF or the probe fails, whatever the code-package policy is. An npm plugin
-  can change under a version range, which a one-time approval of a zip package cannot.
-- **Q8. Must an npm plugin have zero runtime dependencies?** Recommend yes, checked at admission
-  (one bundled file). `--ignore-scripts` applies to one install command, not to a package, and
-  Lattice does not control how a user runs `npm i`.
-- **Q9. Add G5: the host reads npm plugin files as bytes and never `require`s or `import`s the
-  package?** Recommend yes, with a test where an npm `index.js` with a side effect never runs.
-  Otherwise the plugin runs in Node before any sandbox exists.
+| # | Question | Decision |
+|---|---|---|
+| 7 | Do npm plugins inherit "may be approved at OFF"? | **No, refuse.** An npm plugin does not run when the OS layer reads OFF. I read "the layer cannot be determined" as OFF, so a failed probe refuses too; confirm this reading. Code packages keep today's behavior (decision 6). |
+| 8 | Must an npm plugin have zero runtime dependencies? | **Reframed by the owner:** plugins are not npm packages whose dependencies Lattice installs. A plugin is a self-contained bundle built with all its dependencies, and Lattice downloads it as it is. Lattice never runs `npm install` for a plugin. |
+| 9 | Add G5, a check that Lattice never loads a plugin in Node? | **Yes.** The owner's reason: "we need to be safe." Whether G5 is also an exit criterion for phase G, like the harness, was not asked; I recommend yes. |
+
+Decision 8 is a different model from the one this note started with, and it settles two of the
+gaps in §3. Gap 3 (install scripts and transitive dependencies) is closed by design, because
+nothing is installed. Gap 4 (version drift) shrinks to "which bundle and hash is pinned", which G2
+covers. Implementing 7 to 9 is `followups.d/2749-p3-npm-plugin-admission-rules.md`.
 
 This note does not edit `2026-09-13` Axis 2 beyond a pointer. Decisions 3 and 4 mean that row's npm line ("code,
 Node-side, resolved at build time") no longer describes the plan. Superseding it is `followups.d/2749-p1-supersede-plugin-architecture-axis2-npm-row.md`.
