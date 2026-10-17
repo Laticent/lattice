@@ -65,8 +65,11 @@ const WAS = {
  *
  * `hub-spoke` — the structure member (one hub, its satellites). `figure: "svg"`
  * for the same reason; `data: true` because every satellite can carry a printed value.
+ *
+ * `tower` — a reinsurance program (#2714). `figure: "svg"`, one self-contained
+ * <svg>; `data: true` because every layer and share is a figure.
  */
-const ADDED_SINCE = ['heatmap', 'hub-spoke'];
+const ADDED_SINCE = ['heatmap', 'hub-spoke', 'tower'];
 const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
 
 /**

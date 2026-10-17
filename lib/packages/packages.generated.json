@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 75,
+    "component": 76,
     "finish": 9,
     "motion": 4,
     "plugin": 8
@@ -1129,6 +1129,19 @@
         "manifest.json",
         "styles.css"
       ]
+    },
+    {
+      "type": "component",
+      "name": "tower",
+      "path": "lib/components/chart/tower",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
     },
     {
       "type": "component",

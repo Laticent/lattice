@@ -53,6 +53,7 @@ const KNOCKOUTS = {
   'radar-dot': 'radar',
   'scatter-dot': 'scatter',
   'sbar-seg': 'stacked-bar',
+  'tower-share': 'tower',
   'quadrant-trail-after': 'quadrant',
   // The heatmap grid: at a 1.2-unit gap the canvas shows between cells and reads
   // as a black lattice over the data on a dark slide, so each cell strokes the

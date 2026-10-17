@@ -1,0 +1,127 @@
+/* tower — a reinsurance program as stacked layers, each split across the
+ * reinsurers who took a share of it. Contract: tower.manifest.json.
+ *
+ * The kernel (tower.transform.js) emits no color. A share segment carries
+ * `data-hue`, which the family's slot table (chart-family.styles.css § THE MARK
+ * CONTRACT) resolves to --mark-body / --mark-ink, so a reinsurer is the same
+ * hue in every layer and in the key.
+ *
+ * Unlayered like every component file, and anchored on
+ * `:is(section.tower, figure.chart-frame)` so the fills resolve in the
+ * Read·Article re-host too. Font sizes are viewBox user units and are
+ * MIRRORED in tower.transform.js `FS` (gated by tower.test.js). */
+
+:is(section.tower, figure.chart-frame) .tower-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(section.tower, figure.chart-frame) .tower-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* A reinsurer's share. The canvas-colored hairline is the family separator
+ * (stacked-bar, funnel): two abutting shares would otherwise read as one. */
+:is(section.tower, figure.chart-frame) .tower-share {
+  fill: var(--mark-body, var(--chart-cat-1-body));
+  stroke: var(--bg);
+  stroke-width: 0.6;
+}
+
+/* The unplaced remainder of a layer: an empty segment, outlined in the
+ * canvas's own ink, so "nobody has this yet" never reads as a seventh carrier. */
+:is(section.tower, figure.chart-frame) .tower-open {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.6;
+}
+
+/* The retention: the cedent keeps it, so it is drawn as a dashed outline
+ * with no fill. Dashing is a shape cue, so it survives grayscale print. */
+:is(section.tower, figure.chart-frame) .tower-retention {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 2;
+}
+
+/* A layer written without shares: its size is known, its panel is not. */
+:is(section.tower, figure.chart-frame) .tower-layer {
+  fill: color-mix(in oklab, var(--text-body) 12%, var(--bg));
+  stroke: color-mix(in oklab, var(--text-body) 35%, transparent);
+  /* stroke-width: the family edge rule (chart-family.styles.css) names this mark. */
+}
+
+:is(section.tower, figure.chart-frame) .tower-name {
+  font-size: 8px;
+  font-weight: 600;
+  fill: var(--text-heading);
+  dominant-baseline: central;
+}
+
+:is(section.tower, figure.chart-frame) .tower-note {
+  font-size: 6.5px;
+  fill: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: central;
+}
+
+:is(section.tower, figure.chart-frame) .tower-edge {
+  font-size: 6.5px;
+  fill: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: central;
+}
+
+:is(section.tower, figure.chart-frame) :is(.tower-share-value, .tower-open-value, .tower-retained) {
+  font-size: 6.5px;
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: central;
+}
+
+:is(section.tower, figure.chart-frame) :is(.tower-open-value, .tower-retained) {
+  fill: var(--text-muted);
+}
+
+/* The one figure the family prints ON a mark. Its ink is computed from the
+ * segment's own fill — black on a light body, white on a dark one — the same
+ * relative-color idiom the status pills use, so it holds contrast on every
+ * slot in both canvases instead of trusting one ink to suit eight hues. */
+:is(section.tower, figure.chart-frame) .tower-share-value {
+  fill: var(--text-heading);
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+  :is(section.tower, figure.chart-frame) .tower-share-value {
+    fill: oklch(from var(--mark-body, var(--chart-cat-1-body)) clamp(0, (0.565 - l) * 999, 1) 0 0);
+  }
+}
+
+/* Carry the baseline onto the <tspan>, which the engine will not do for us:
+ * WebKit resolves a tspan's own `auto` against the alphabetic baseline, so
+ * without this every label sits high there (#2297,
+ * engineering/decisions/2026-09-22-webkit-tspan-baseline.md). */
+:is(section.tower, figure.chart-frame)
+  :is(.tower-name, .tower-note, .tower-edge, .tower-share-value, .tower-open-value, .tower-retained) tspan {
+  dominant-baseline: central;
+}
+
+/* The key's swatches, painted here because the kernel emits no color. */
+:is(section.tower, figure.chart-frame) .tower-swatch {
+  fill: var(--mark-body, var(--chart-cat-1-body));
+}
+:is(section.tower, figure.chart-frame) .tower-swatch-open {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.6;
+}
+:is(section.tower, figure.chart-frame) .tower-swatch-retained {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.6;
+  stroke-dasharray: 2 1.4;
+}

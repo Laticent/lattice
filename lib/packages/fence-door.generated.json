@@ -136,6 +136,12 @@
     {
       "pass": "chart-family",
       "classes": [
+        "tower"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
         "waterfall"
       ]
     },

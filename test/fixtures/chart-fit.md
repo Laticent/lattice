@@ -747,6 +747,32 @@ panel token, not to re-litigate that. -->
 
 ---
 
+<!-- _class: tower -->
+
+## Six layers and seven reinsurers, the crowded tower.
+
+- Layer 6 `$100M xs $400M`
+  - Acme Reinsurance Company `35%`
+  - Globex Re `30%`
+- Layer 5 `$100M xs $300M`
+  - Vantage Re `25%`
+  - Umbra Re `25%`
+  - Meridian Re `25%`
+  - Helios Re `25%`
+- Layer 4 `$100M xs $200M`
+  - Orion Re `50%`
+  - Globex Re `50%`
+- Layer 3 `$100M xs $100M`
+  - Acme Reinsurance Company `50%`
+  - Vantage Re `50%`
+- Layer 2 `$75M xs $25M`
+  - Helios Re `100%`
+- Layer 1 `$15M xs $10M`
+  - Acme Reinsurance Company `100%`
+- Retention `$10M`
+
+---
+
 <!-- _class: scatter bubble -->
 
 ## Ten entities with a size measure — the cluster case.

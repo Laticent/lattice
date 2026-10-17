@@ -77,6 +77,19 @@ section.print.piechart .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-ch
 section.print.piechart .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
 section.print.piechart .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.print.piechart .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* tower: each reinsurer's share and its key swatch take the slot's texture, so a
+ * reinsurer's line still reads up the program without hue. The share figure sits ON the
+ * segment, so over a texture it takes heading ink with a canvas halo instead of the
+ * fill-derived ink, which was solved against a flat color, not a pattern. The Open
+ * segment and the retention are outlines with no fill, so they need nothing. */
+section.print.tower :is(.tower-share, .chart-key-swatch)[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.tower :is(.tower-share, .chart-key-swatch)[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.tower :is(.tower-share, .chart-key-swatch)[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.tower :is(.tower-share, .chart-key-swatch)[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.tower :is(.tower-share, .chart-key-swatch)[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.tower :is(.tower-share, .chart-key-swatch)[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+section.print.tower .tower-share-value { fill: var(--text-heading) !important; stroke: var(--bg); stroke-width: 1.8; paint-order: stroke fill; stroke-linejoin: round; }
+
 /* hub-spoke: grouped satellites, tiered branches and leaves, and their key swatches —
  * the marks that carry a `data-hue`. Neutral satellites, the hub and connectors stay solid. */
 section.print.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
