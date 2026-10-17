@@ -45,8 +45,10 @@ const MediaDetailDialog = React.lazy(() => import('./MediaDetailDialog').then((m
 
 type Filter = LibraryFilter;
 
-function download(blob: Blob, filename: string) {
-	downloadBlob(filename, blob);
+/** `onSaved` runs once the file exists: after the desktop app's save dialog (which can be
+ *  dismissed) or the iOS share sheet; at once for a browser download. */
+function download(blob: Blob, filename: string, onSaved?: () => void) {
+	downloadBlob(filename, blob, { onSaved });
 }
 
 // On iOS the Save toast is the confirmation (download.js); a "Shared …" beside it would be a
@@ -697,9 +699,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		try {
 			let pdf: Blob | null = null;
 			try { pdf = await renderThemeShowcase(options, t); } catch { pdf = null; } // showcase is best-effort
-			download(await packTheme(t, pdf), themeZipName(t));
-			if (pdf) sharedNotice(`Shared ${t.label} (with showcase PDF).`);
-			else notify(`${iosNeedsShareSheet() ? 'Ready' : 'Shared'}: ${t.label} (showcase skipped — engine busy).`);
+			const zip = await packTheme(t, pdf);
+			if (pdf) download(zip, themeZipName(t), () => sharedNotice(`Shared ${t.label} (with showcase PDF).`));
+			else if (iosNeedsShareSheet()) {
+				// The skipped showcase still speaks on iOS, beside the Save toast.
+				download(zip, themeZipName(t));
+				notify(`Ready: ${t.label} (showcase skipped — engine busy).`);
+			} else download(zip, themeZipName(t), () => notify(`Shared: ${t.label} (showcase skipped — engine busy).`));
 		} catch {
 			notify('Could not build the theme zip.');
 		} finally {
@@ -709,8 +715,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	async function shareComponent(c: StudioComponent) {
 		setBusy(`Packing .${c.name}…`);
 		try {
-			download(await packComponent(c), componentZipName(c));
-			sharedNotice(`Shared .${c.name}.`);
+			download(await packComponent(c), componentZipName(c), () => sharedNotice(`Shared .${c.name}.`));
 		} finally {
 			setBusy(null);
 		}
@@ -718,8 +723,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	async function shareFinish(f: StudioFinish) {
 		setBusy(`Packing ${f.label}…`);
 		try {
-			download(await packFinish(f), finishZipName(f));
-			sharedNotice(`Shared ${f.label}.`);
+			download(await packFinish(f), finishZipName(f), () => sharedNotice(`Shared ${f.label}.`));
 		} finally {
 			setBusy(null);
 		}

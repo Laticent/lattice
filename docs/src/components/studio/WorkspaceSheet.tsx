@@ -422,11 +422,19 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const rows = await listStoredScenes();
 			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
 			const unreadable = rows.length - valid.length;
-			downloadBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid));
-			// On iOS the Save toast says it; a "Downloaded" beside it would be a second toast claiming
-			// a save that waits on a tap (download.js). What could not be read still speaks.
-			if (unreadable) notify(`${iosNeedsShareSheet() ? 'Ready' : 'Downloaded'}: ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.`);
-			else if (!iosNeedsShareSheet()) notify(`Downloaded ${valid.length} scene(s).`);
+			const unreadableNote = unreadable ? ` ${unreadable} could not be read — they stay in your library and in every backup.` : '';
+			const bundle = await packBundle([], [], [], valid);
+			if (iosNeedsShareSheet()) {
+				// On iOS the Save toast says it; a "Downloaded" beside it would be a second toast
+				// claiming a save that waits on a tap (download.js). What could not be read still speaks.
+				downloadBlob('lattice-motion-scenes.zip', bundle);
+				if (unreadable) notify(`Ready: ${valid.length} scene(s).${unreadableNote}`);
+			} else {
+				// What could not be read is about the library, not the save: said now, so a
+				// dismissed desktop dialog does not swallow it. "Downloaded" waits for the file.
+				if (unreadable) notify(`${unreadable} scene(s) could not be read — they stay in your library and in every backup.`);
+				downloadBlob('lattice-motion-scenes.zip', bundle, { onSaved: () => notify(`Downloaded ${valid.length} scene(s).${unreadableNote}`) });
+			}
 		} catch (e) {
 			notify(`Scene export failed: ${(e as Error)?.message || 'unknown error'}`);
 		} finally {
@@ -441,21 +449,27 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			// Loaded on click: pack and restore are off the Studio's eager path.
 			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
 			const report: PackReport = { refdocsBytes: 0 };
-			// Recorded once the file is actually handed over: on iOS that is after the share sheet,
-			// and a Save toast left to time out must not leave "Last backup: today" behind it.
-			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report), {
-				onSaved: () => {
-					markBackupTaken(now);
-					setBackupAt(now);
-				},
-			});
+			const zip = await packWorkspace(now, report);
 			// Still downloaded: a backup you hold beats none. But it must not look like one that will
 			// restore in full when it won't (followups.d/2336 item 17b, the owner's call: warn, still
 			// save), and the warning stays up long enough to read.
 			const gaps = backupRestoreGaps(report);
-			const verb = iosNeedsShareSheet() ? 'Backup ready' : 'Backup downloaded';
-			if (gaps.length) notify(`${verb} — but ${gaps.join('; and ')}. Keep the original files, or remove some and back up again.`, { duration: DEGRADED_TOAST_MS });
-			else if (!iosNeedsShareSheet()) notify('Backup downloaded — your whole workspace, yours to keep.');
+			const announce = (verb: string) => {
+				if (gaps.length) notify(`${verb} — but ${gaps.join('; and ')}. Keep the original files, or remove some and back up again.`, { duration: DEGRADED_TOAST_MS });
+				else if (verb === 'Backup downloaded') notify('Backup downloaded — your whole workspace, yours to keep.');
+			};
+			const ios = iosNeedsShareSheet();
+			// Recorded, and announced, once the file is actually handed over: on iOS that is after
+			// the share sheet, and in the desktop app after its save dialog, which can be dismissed.
+			// A recorded backup turns off the backup nudge, so a dismissed one must record nothing.
+			downloadBlob(WORKSPACE_ZIP_NAME, zip, {
+				onSaved: () => {
+					markBackupTaken(now);
+					setBackupAt(now);
+					if (!ios) announce('Backup downloaded');
+				},
+			});
+			if (ios) announce('Backup ready');
 		} catch (e) {
 			notify(`Backup failed: ${(e as Error)?.message || 'unknown error'}`);
 		} finally {
@@ -502,11 +516,13 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const connect = async () => {
 		setConnecting(true);
 		try {
-			await connectOpenRouter(); // navigates away to the OAuth page
+			// On the web this navigates away to OpenRouter. In the desktop app a sign-in window
+			// does the round trip and this returns, so the button has to settle here.
+			await connectOpenRouter();
 		} catch (e) {
 			notify(`Connect failed: ${(e as Error)?.message || 'unavailable here'}`);
-			setConnecting(false);
 		}
+		setConnecting(false);
 	};
 	const disconnect = async () => {
 		await disconnectOpenRouter();

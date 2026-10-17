@@ -7,6 +7,10 @@
       "class": "unparseable"
     },
     {
+      "path": "desktop/package-lock.json",
+      "class": "not-code"
+    },
+    {
       "path": "docs/package-lock.json",
       "class": "not-code"
     },

@@ -115,6 +115,15 @@ const CENSUS = {
 			'normalizes `<\\/style` back into a live terminator, so the guard runs last. ReadArticle.tsx ' +
 			'renders it as a React text child, which is structural safety on top, not instead.',
 	},
+	'docs/src/components/studio/export/print-sheets.js': {
+		guards: 1,
+		why:
+			'buildSheetPrintHtml — the Print deck panel\'s 2-up, 4-up and notes-handout document, printed ' +
+			'through the hidden print frame. Its stylesheet is fixed text plus the sheet\'s numbers, so no ' +
+			'author or theme CSS reaches it today; the guard is depth, and it stays so a later edit that ' +
+			'lets a theme style the sheet cannot carry a `</style>` into the frame. Speaker notes go in as ' +
+			'escaped text, not CSS.',
+	},
 	'docs/src/components/studio/present/stage-window.js': {
 		guards: 1,
 		why:
