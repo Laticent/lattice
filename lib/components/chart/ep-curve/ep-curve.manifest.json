@@ -161,7 +161,7 @@
       },
       "series": {
         "select": "path.ep-path[data-series=\"{series}\"], circle.ep-dot[data-series=\"{series}\"]",
-        "labels": "[data-series=\"{series}\"].ep-series"
+        "labels": "[data-series-for=\"{series}\"]"
       }
     },
     "key": "largest"

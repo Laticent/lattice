@@ -143,4 +143,20 @@ describe('ep-curve — the checker repros', () => {
     assert.deepEqual(rules(curves), ['ep-curve-too-many']);
     assert.deepEqual(rules('- A\n  - `{0.5, $1M}`\n' + curves.split('\n').slice(2).join('\n')), ['ep-curve-point'], 'a curve with no readable point is not counted');
   });
+
+  test('with a negative loss the zero rule is the baseline, and no bottom rule is drawn', () => {
+    const neg = buildEpCurve(parseEpCurve(pt('{10, -$5M}') + pt('{100, $5M}')), {});
+    assert.doesNotMatch(neg, /class="cart-axis" x1="[^"]+" y1="([^"]+)" x2="[^"]+" y2="\1"/, 'no horizontal bottom rule');
+    assert.match(neg, /class="cart-zero"/);
+    const pos = buildEpCurve(parseEpCurve(pt('{10, $5M}') + pt('{100, $9M}')), {});
+    assert.match(pos, /class="cart-axis"/);
+  });
+
+  test('a curve name links to its curve with data-series-for, not data-series', () => {
+    const svg = buildEpCurve(parseEpCurve(curve('OEP', ['{10, $1M}', '{100, $5M}'])), {});
+    const name = svg.split('class="cart-series ep-series"')[1].split('>')[0];
+    assert.match(name, /data-series-for="0"/);
+    assert.doesNotMatch(name, / data-series="/);
+  });
 });
+

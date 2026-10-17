@@ -171,4 +171,13 @@ describe('histogram — the checker repros', () => {
     const svg = buildHistogram(parseHistogram(li([['', '0..10', '-5%'], ['', '10..20', '5%']])), {});
     assert.equal(tags(svg, 'histogram-band')[0]('height'), '0');
   });
+
+  test('a value label that cannot be placed is reported as a drop', () => {
+    const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
+    // Thirty one-unit bands of equal height: their labels cannot all clear one another.
+    const rows = Array.from({ length: 30 }, (_, i) => ['', `${i}..${i + 1}`, '33.3%']);
+    const { drops } = collectLabelDrops(() => buildHistogram(parseHistogram(li(rows)), {}));
+    assert.ok(drops.length > 0 && drops.every((d) => d.reason === 'overlap' && d.label === '33.3%'));
+  });
 });
+
