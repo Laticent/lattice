@@ -222,8 +222,8 @@ mosaic. A first palette, plum with amber, failed the family's own rule: its ambe
 Cadenza's (a difference in OKLab under the eye's threshold), the amber Suono, Cadenza, Vetrina and
 Lente already share, and the owner judged the plum too close to Vetrina's rose. A garnet replacement
 was rejected for the same rose. So the hues were chosen by measurement: on the OKLCH hue wheel the
-siblings fill 32–87° (reds, oranges, ambers, golds), 149–190° (greens, teals), 240–310° (blues,
-indigo, purple) and 358° (rose), which leaves two gaps, yellow-green and cerulean. Olive takes one, sea
+siblings fill 32–87° (reds, oranges, ambers, golds), 149–190° (greens, teals), 236–310° (blues,
+indigo, purple, Lattice's own blue among them) and 358° (rose), which leaves two gaps, yellow-green and cerulean. Olive takes one, sea
 glass the other. The nearest sibling color is now 0.086 away (Tavola's dark-mode green), and Mosaico is
 the only library whose live accent is cool.
 
