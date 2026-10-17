@@ -213,7 +213,7 @@ the owner.
 | DOM nodes in a 522-slide stage | 722 (virtual) vs 25,494 (all mounted) | stay within 10% of 722 |
 | First slide, 522 slides, 1x CPU | 3,408 ms (virtual) | no regression |
 | Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
-| 500 posters resident | ~27 KB each (§11b), ~13 MB encoded; decoded size depends on capture size | tile-size captures; measured 0.2 to 0.5 MB per tile (§11b), so 500 tiles is +86 MB Chromium, +258 MB WebKit; bound the number created, since releasing is unreliable |
+| 500 posters resident | about 27 to 29 KB each at 1280 (§11b: 14.6 MB per 500), about 14 MB encoded; decoded size depends on capture size | tile-size captures; measured 0.2 to 0.5 MB per tile (§11b), so 500 tiles is +86 MB Chromium, +258 MB WebKit; bound the number created, since releasing is unreliable |
 | Live frames | pool of a fixed N | N does not grow with the deck |
 | Keystroke cost | today every deck-context tile re-renders on every keystroke (`DeckPreview.tsx:543` keys on the whole deck) | per-unit invalidation only where the unit needs no deck context; whole-tail invalidation on a position shift |
 
@@ -543,11 +543,11 @@ per slide, 4K against 1280x720 (960 and 640 behave like 1280 on time, and 640 is
 | | Chromium 4K | Chromium 1280 | WebKit 4K | WebKit 1280 |
 |---|---|---|---|---|
 | poster capture | 281 ms | **228 ms** | 198 ms | **156 ms** |
-| wireframe measure, median (first cold call) | 4 ms (29) | 3.4 ms (18) | 9 ms (185) | 6 ms (116) |
+| wireframe measure, median (max of 12 calls, which includes the first) | 4 ms (29) | 3.4 ms (18) | 9 ms (185) | 6 ms (116) |
 | canvas | 31.6 MB | **3.5 MB** | 31.6 MB | **3.5 MB** |
 | mean error vs the 4K capture, 320 px poster | 0 | 2.4 (2.1% pixels off) | 0 | 3.9 (3.3% off) |
 
-Capture time falls about 20%, not 9x, because the 1.8 MB stylesheet dominates it; the canvas is 9x smaller.
+Capture time falls about 20%, not 9x; I infer the 1.8 MB stylesheet dominates it (not isolated by an experiment), and the canvas is 9x smaller.
 **A regression found on the way:** the first version injected a `<style>` into the hidden measurer on every
 `measure()` call, and WebKit's scroll degraded from 0 to 2 frames over 50 ms to about 50 (p95 124 ms), while
 Chromium did not. Installing one persistent, `#measurer`-scoped rule fixed it (WebKit 0 to 2 frames at either
@@ -567,6 +567,8 @@ WebKit, excluding the engine's own re-render. Baker and cache policy:
 | supersede, back-to-back | 43 / 38 | **8 to 8** (44 / 39 superseded) | 45 / 47 |
 | LRU only, back-to-back | 43 / 41 | 8 to 52 / 49 | 44 / 46 |
 | unbounded, back-to-back | 43 / 41 | 8 to 52 / 50 | 44 / 55 |
+
+A reviewer's re-run reproduced the capture and entry counts on both engines and the Chromium frame counts within 1, but counted more slow frames on WebKit (6, 94, 65 and 80 in the four rows above, against 3, 47, 46 and 55 here): the direction holds, and WebKit frame counts vary about 2x between runs.
 
 Under the byte-budgeted LRU (0.25 MB, 50 entries) a full "bake every slide" held 13 entries and 0.24 MB after 124
 to 260 captures, and every tile in the map's window still had its poster, because the window is pinned. The edited
