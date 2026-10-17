@@ -114,11 +114,15 @@ These are the failures the library must not rediscover. Each cites its note.
 3. **One document or many is a safety choice.** One shared document is cheapest (~60 MB for 69
    tiles), but a local component's `extraCss` would then style every tile. Per-tile documents keep
    isolation (`preview-pool.tsx`). The library must let the connector choose.
-4. **A poster capture needs CDATA.** The engine stylesheet holds 147 literal `<`, which kills an
+4. **A poster capture needs CDATA, and every `url()` inlined as `data:`.** The engine stylesheet holds 147 literal `<`, which kills an
    SVG `foreignObject` (XHTML) but not an HTML `<style>`. Wrap the CSS in CDATA
    (`2026-09-13-gallery-preview-memory.md` §5). The cache key must include component skeleton,
    theme, palette, mode, `@size`, front matter, engine version and `extraCss`; miss one and the map
-   lies about the slide.
+   lies about the slide. The red-team (§11a) found two gaps in the earlier note: the live sheets
+   reference fonts by URL, which an SVG-as-image does not load (a URL face rendered exactly like a
+   missing font in Chromium 131; a data-URL face rendered correctly), so the capture must inline
+   fonts and images; and the key misses deck-derived output (page numbers, running directives,
+   the divider rail), so it must come from the renderer's own slice-cache key.
 5. **Untrusted content crosses a sanitizer on both channels** (HARD RULE #22). Placeholders read
    from the *sanitized* open tag; a poster is an inert image, so it is safer than the document it
    replaces, but the capture must read sanitized output and its CSS must pass `sanitizeStyleText`.
@@ -139,8 +143,9 @@ Axes, with the candidate values and my pick:
 
 | Axis | Values | Pick |
 |---|---|---|
-| **Units** | an `Outline` from Fuoco: slides, pages, cells, cues | Fuoco's `Outline`; no second model |
+| **Units** | before the first render, Fuoco's `Outline`; after it, a **rendered index** (one entry per rendered section, tagged unit, part, page or synthetic) published by the connector | two models, said plainly (§11a.1) |
 | **Window policy** | `single` (1), `multi` (viewport ± overscan), `pip` (1 + a map window) | all three, one function: `windowFor(policy, focus, viewport) → ranges` |
+| **Stage kind** | `paged` (re-point a frame) or `scrolled` (native scroll) | added by the red-team: it owns the input profile and how `next` is carried out (§11a.4) |
 | **Tier of a unit** | `placeholder` → `poster` → `live` | all three; promotion by distance from focus and a budget |
 | **Map tile kind** | `pill` (text), `segment` (a bar, Present's rail), `poster`, `live` | all four; `poster` is the default |
 | **Map placement** | `rail` (a strip, horizontal or vertical), `grid` (overview), `inset` (picture-in-picture) | all three, as layout only; the core does not draw |
@@ -149,7 +154,8 @@ Axes, with the candidate values and my pick:
 | **Mounting** | pool of frames, one frame with placeholders, or inline sections | the connector's job |
 
 **The unifying claim, stated so it can fail.** Single, multi and picture-in-picture differ only
-in *which ranges are mounted and at what tier*. If a prototype needs a mode-specific code path
+in *which ranges are mounted and at what tier*, **times two stage kinds** (paged, scrolled), which
+differ in input and in how `next` runs. The first draft said "only"; the red-team showed that was too strong (§11a). If a prototype needs a mode-specific code path
 beyond layout, the claim is wrong and the library is three components in a trench coat. This is
 the same test the Fuoco demo set for itself in its §12: one set of views, three document types,
 no per-domain change.
@@ -177,7 +183,7 @@ what a theme is. Those stay in `single-slide-render.ts`, `lib/core` and the engi
 ```
 @laticent/<name>            core — zero dependencies, pure, inlinable
   model      units from a Fuoco Outline, ids, pitch/size per unit
-  window     windowFor(policy, …) → { mounted, tiers }   (virtual-window's arithmetic, generalized)
+  window     windowFor(policy, …) → ranked intent (a priority list); the connector reports back the set it satisfied
   tiers      promote/demote queue with a budget and hysteresis
   commands   next/prev/first/last/top/bottom/go, mapped through present-transport's keymap
   bind       subscribe to the hub with ignoreOrigin; report moves with origin
@@ -209,7 +215,7 @@ the owner.
 | Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
 | 500 posters resident | ~13 KB each, ~6.5 MB encoded | under 40 MB decoded on WebKit; measure |
 | Live frames | pool of a fixed N | N does not grow with the deck |
-| Keystroke cost | outliner returns the same unit ids, so a keystroke touches one unit | zero re-renders on units the edit did not touch |
+| Keystroke cost | today every deck-context tile re-renders on every keystroke (`DeckPreview.tsx:543` keys on the whole deck) | per-unit invalidation only where the unit needs no deck context; whole-tail invalidation on a position shift |
 
 HARD RULE #19 applies to any claim of "faster": same-machine `npm run bench` numbers in the PR and
 a scenario for the optimized path in `test/benchmark/engine-bench.mjs`. The Playground numbers
@@ -283,8 +289,10 @@ Each phase ends with something a reviewer can see, and each one that touches the
 an exported artifact, so the export sign-off gate does not apply. None renders a new *slide*, so
 HARD RULE #9's demo deck is not owed; the evidence is the screenshots and the measurements.
 
-- **P0. Measure before building.** Capture posters for the gallery deck on Chromium and WebKit;
-  compare a poster map against `SlideOverview` for memory and first paint. *Done when:* the table in §7
+- **P0. Measure before building.** Capture posters for the gallery deck on Chromium and WebKit,
+  with fonts and images inlined as `data:` and the key taken from the renderer; compare a poster
+  map against `SlideOverview` for memory and first paint; and prove the rendered index on
+  `focus.md` and `auto-glossary.md`. *Done when:* the table in §7
   has real numbers and the poster tier's cost is confirmed or refuted.
 - **P1. Core.** `model`, `window`, `tiers`, `commands`, `bind`. Property tests in the style of
   `fuoco/hub.test.ts`: random focus moves and resizes, with a failing arm for each property (the
@@ -311,6 +319,65 @@ HARD RULE #9's demo deck is not owed; the evidence is the screenshots and the me
 - **Input collisions** between the stage's zoom owner and a map's own scrolling (constraint 6).
 - **Capture cost on slow devices.** 284 ms on WebKit at 1280x720 is per poster; 500 of them is
   over two minutes of work, so capture must be idle-scheduled, cancelable and ordered by distance from the focus.
+
+## 11a. The 2026-10-17 checks: a fact-check and a red team
+
+Two independent Opus agents checked this note. The fact-check confirmed about 45 claims and found
+six wrong or unsupported; those are fixed above. The red team broke the central claim in two places
+and narrowed it in three more. I reproduced the two hub defects below on the real Fuoco build.
+
+1. **The outline is not the list the stage windows over (breaks the claim).** `examples/focus.md`
+   has 11 authored slides and renders **14** sections; `auto-glossary.md` has 5 and renders 6; pane
+   splits and structural splits add pages only known after render. Three index spaces exist today:
+   the Playground windows over rendered sections, `SlideRail` lists parts, `SlideOverview` lists
+   authored units. A map built from the outline paints the wrong count, then jumps when the render
+   lands. *Change:* add a connector-published **rendered index**, keep the outline as the
+   provisional list, window over a **viewed projection** (the reader lens) of it.
+2. **A poster built to constraint 4 is wrong (breaks the claim).** See constraint 4 above. The
+   source note's "faces are data URLs" does not hold for the sheet the live surfaces load.
+3. **Pool and filmstrip cannot take one "mount" set (survivable).** `PreviewPool` ranks by its own
+   visibility, caps at 28, and throttles to one pass per 220 ms because a re-point during a write
+   mints a WebKit realm. The filmstrip mounts through a whole-document pass and has no poster slot;
+   a poster there is markup written into the frame after sanitize, which is HARD RULE #22 shape 4
+   and needs a `SANCTIONED_RUNTIME_MARKUP_SINKS` entry with its justification. *Change:* intent is
+   **ranked and advisory**; the connector reports the satisfied set; the pool gains an API that
+   accepts an external ranking.
+4. **Input and commands differ by stage kind (survivable, trips the §5 tripwire).** In
+   `preview-zoom.ts` a plain wheel is navigation and the surface is `touch-action: none`; on a
+   scrolled stage that would kill native scroll. `next` on a scrolled stage is `scrollWalk` (mount,
+   smooth scroll, echo guard, reconcile timer). *Change:* the stage-kind axis above.
+5. **Fuoco defects a scrolling stage would hit (survivable, reproduced).** (a) `reportUnit` and
+   `report` clear a deferred "insert, then go" before deciding the report changes nothing, so a
+   no-op scroll report cancels it (focus stays 1, wanted 3). (b) Reports made during a delivery are
+   judged against stale focus (map `go(3)` ends at focus 2, origin stage). (c) `reportUnit` has no
+   `quiet`, so a scroll-driven stage cannot tell its own scroll from the reader's, which is why the
+   Playground keeps a hand-written guard. Logged as `followups.d/veduta-p1-fuoco-report-defects.md`;
+   each needs a failing arm in `hub.test.ts`. `ignoreOrigin` stops self-echo only, not a ping-pong
+   between two scrolling views.
+6. **Promotion "by distance from focus" is wrong for a map.** A reader scrolls the map to slide 300
+   with focus on 5 and sees placeholders. *Change:* rank each window by its own viewport, focus as one
+   seed, with one page-global live budget shared by the stage and every pool (WebKit memory is
+   page-global).
+7. **Missing constraints.** `hub.pages` has one slot, so only the stage reports pages. A pool
+   slot's renderer is fixed at first mount (`specimen`), so a picture-in-picture map of the author's
+   own slides must not share slots with specimen grids or the overflow alarms disappear. The
+   220 ms re-point throttle belongs in the constraint list. The exported player's CSP is
+   `img-src data:`, so a `blob:` poster cannot load there. The player's Article view is a
+   variable-height list and falls under fork 3(b).
+
+**Held under attack:** `ignoreOrigin` self-echo, the no-re-entry queue, Studio deck-context
+alignment (it fails closed to the right slide with an honest number), and placeholder identity
+sanitization.
+
+**Not tried, still open:** author-image capture and the WebKit/iOS foreignObject path (UNVERIFIED),
+the structural-split count in a bundled build, per-slide `@size` or mixed aspect against the uniform
+pitch, whether stage plus map pool holds still under `check:jank`, and Present's partial hub
+adoption (`2704-p2`), where a third writer would join the echo problem.
+
+**Net effect on the proposal.** The idea survives; the first draft's one-line story does not. The
+honest statement is: one core, **two index models** (provisional outline, rendered index), **three
+window policies times two stage kinds**, ranked intent, and a poster that inlines its resources and
+takes its key from the renderer. P0 grows to cover items 1 and 2 before any core code.
 
 ## 12. Next step
 
