@@ -121,6 +121,48 @@ describe('the inline object node', () => {
 		expect(normalizeObjects(EditorState.create({ doc: slideOff }), kernels, false)).toBeNull();
 	});
 
+	it('leaves a chart row\'s data record as the code it is: the chart reads it, it is not a pill', () => {
+		// `{4.2}` is a valid pill label, so the pill pass would take it; on a chart slide the row's last
+		// span is the chart's record (lib/core/chart-rows.js `ownsRecordSpan`).
+		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{4.2}`\n- APAC `{NEW, tag}` new `{1.8}`');
+		expect(texts(chart)).toEqual(['{NEW, tag}']);
+		// The same rows on a slide outside the model are pills, and a description keeps its pill.
+		const list = mount('<!-- _class: content -->\n\n## T\n\n- EMEA `{4.2}`');
+		expect(texts(list)).toEqual(['{4.2}']);
+		const quoted = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `4.2`\n  > see `{LIVE}`');
+		expect(texts(quoted)).toEqual(['{LIVE}']);
+	});
+
+	it('agrees with the engine on where the chart\'s record is: cells, wrapped spans, detail rows, later lists', () => {
+		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		// A table cell holding only the record is the chart's (table slides are not locked in Compose).
+		expect(texts(mount(src('heatmap', '| | Mon | Tue |\n|---|---|---|\n| AM | `{3}` | `{5}` |')))).toEqual([]);
+		expect(texts(mount(src('matrix-grid', '| | A |\n|---|---|\n| S | `{done}` |')))).toEqual([]);
+		// A span wrapped in emphasis is not the row's last child in the engine, so it is a pill.
+		expect(texts(mount(src('bar', '- EMEA **`{4.2}`**')))).toEqual(['{4.2}']);
+		// A record under a valued row is detail, where a pill is a pill.
+		expect(texts(mount(src('piechart', '- Direct `60%`\n  - Online `{40%}`')))).toEqual(['{40%}']);
+		// Only the slide's first list is the chart's.
+		expect(texts(mount(src('bar', '- EMEA `{4.2}`\n\nStatus:\n\n1. Shipped `{12}`')))).toEqual(['{12}']);
+	});
+
+	it('agrees with the engine on the lead paragraph: a row holds its value once, in its first block', () => {
+		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		// The row already has a value, so a delta beside it is a pill.
+		expect(texts(mount(src('bar', '- North `40` up `{+3%}`')))).toEqual(['{+3%}']);
+		expect(texts(mount(src('bar', '- Q2 `16` `{risk}`\n  - vs plan `{-12%}`')))).toEqual(['{risk}', '{-12%}']);
+		// A second paragraph is not the row's lead.
+		expect(texts(mount(src('bar', '- Q1\n\n  about `{+3%}`\n- Q2 `5`')))).toEqual(['{+3%}']);
+		// Bullet reads every nested row as detail.
+		expect(texts(mount(src('bullet', '- Uptime\n  - vs plan `{+3%}`\n- Cost `3` `5`')))).toEqual(['{+3%}']);
+	});
+
+	it('counts a pill already drawn before the span as code, as the engine does', () => {
+		// `{LIVE}` is an object by now; the record after it is "after another code span" in the source, so a pill.
+		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{LIVE}` `{4.2}`');
+		expect(texts(chart)).toEqual(['{LIVE}', '{4.2}']);
+	});
+
 	it('plain text copy and textContent still see the notation', () => {
 		const view = mount(DECK);
 		expect(view.state.doc.textContent).toContain('{SHIPPED, c2}');

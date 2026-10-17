@@ -392,6 +392,39 @@ const PROBES = {
     ],
   },
 
+  // A chart's row RECORD (`{4.2}`) is the chart's, not a pill: the engine leaves the span alone in
+  // its pill pass and the runtime's `isOwnedElement` does the same (lib/core/chart-rows.js
+  // `ownsRecordSpan`), and the chart family bridges it to the spans each kernel reads. The probe
+  // reads what the chart DREW, so a path that made the record a pill (`{4.2}` is a valid pill)
+  // draws no bar and fails here. A pill in a label still renders on both paths.
+  inlinePillsChartRecord: {
+    row: 'inlinePills',
+    min: 3,
+    // Only a mark that carries its number: a chart that lost the value still draws the row.
+    minMatch: /\|\d/,
+    section: 'bar',
+    body: [
+      '## Revenue', '',
+      '- EMEA `{4.2}`', '- APAC `{1.8}`', '- AMER `{3.5}`',
+    ].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('[data-mark]')]
+      .map((el) => `${el.getAttribute('data-label')}|${el.getAttribute('data-value')}`),
+  },
+
+  inlinePillsGridRecord: {
+    row: 'inlinePills',
+    min: 4,
+    minMatch: /^cell /,
+    section: 'matrix-grid',
+    body: [
+      '## Levels', '',
+      '| Level | Self | Team |', '|---|---|---|',
+      '| Advanced | `{todo}` | `{partial}` |',
+      '| Beginner | `{done}` | `{todo}` |',
+    ].join('\n'),
+    probe: marked('.cell'),
+  },
+
   // Both sides of the decision (#2308): what is marked prose AND what is left alone. A probe
   // that only fed it prose would pass a mirror that marked every paragraph in the deck — the
   // exact regression that drops every real eyebrow and subtitle on the floor.

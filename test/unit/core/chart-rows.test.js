@@ -10,7 +10,6 @@ const rows = require('../../../lib/core/chart-rows.js');
 const lintCore = require('../../../lib/authoring/lint-core.js');
 const { buildVocab } = require('../../../lib/authoring/lint');
 const { loadAll } = require('../../../lib/components');
-const engine = require('../../../lib/engine');
 
 const manifests = loadAll(path.join(__dirname, '../../../lib/components'));
 const vocab = buildVocab(manifests);
@@ -19,8 +18,6 @@ const recordFindings = (src) => lintCore.lintTextWith(src, vocab).filter((f) => 
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const { CHART_STATUS } = require('../../../lib/core/chart-status.js');
 const { componentReads } = require('../../../lib/core/segno-slots.js');
-const marks = (h) => (h.match(/<(?!template)[a-z]+\b[^>]*\bdata-mark="\d+"/g) || []).length;
-const html = (src) => engine.render(src, {}).html;
 
 // The 16 charts the model covers (model note §2, census note §2).
 const IN_SCOPE = ['bar', 'bullet', 'funnel', 'heatmap', 'line', 'map', 'matrix-grid', 'piechart', 'progress',
@@ -150,44 +147,45 @@ describe('readChartRows', () => {
 });
 
 describe('lint: chart-row-record-unread', () => {
-  test('a row written as one record warns, and the fix names the spans the chart reads today', () => {
-    const src = deck('bullet', '- Uptime `{4.2M, target=5.0M}`\n- Cost `3` `5`');
+  // The chart family rewrites a data row's record to the spans each transform reads
+  // (bridgeRecordsHtml), so a record with an old form draws and is not reported. What is left to
+  // report is a record the chart cannot draw: a field with no span form, and a record that
+  // follows another code span on the row.
+  test('a record with a field the chart cannot draw yet warns; no machine fix', () => {
+    const src = deck('bullet', '- Uptime `{4.2M, target=5.0M, band=[60%, 80%]}`\n- Cost `3` `5`');
     const [f, ...rest] = recordFindings(src);
     assert.equal(rest.length, 0);
     assert.equal(f.severity, 'warning');
-    assert.equal(f.line, '- Uptime `{4.2M, target=5.0M}`');
-    assert.match(f.message, /does not draw yet/);
-    assert.match(f.fix, /`4\.2M` `5\.0M`/);
+    assert.equal(f.line, '- Uptime `{4.2M, target=5.0M, band=[60%, 80%]}`');
+    assert.match(f.message, /field the bullet chart cannot draw yet/);
     // No machine fix: phase 4's codemod writes the record, so "Fix all" must not undo it.
     assert.equal(f.autofixable, undefined);
     assert.equal(lintCore.applyAllFixes(src, vocab), src);
   });
 
-  test('the render proves it: the record row loses its bar, the spans the fix names draw it', () => {
-    assert.equal(marks(html(deck('bar', '- EMEA `{4.2}`\n- APAC `1.8`'))), 1, 'today the record row draws no bar');
-    assert.equal(marks(html(deck('bar', '- EMEA `4.2`\n- APAC `1.8`'))), 2);
+  test('lint stays silent where the old form already reads the same', () => {
+    assert.deepEqual(recordFindings(deck('bar', '- Q1 `5`\n  - Actual vs plan `{+3%}`\n- Q2 `6`')), []);
+    assert.deepEqual(recordFindings(deck('bar', '- Q1 `5`\n  - `{▲ 2}`\n- Q2 `6`')), []);
+    assert.deepEqual(recordFindings(deck('stacked-bar', '- FY23\n  - Licenses\n    - note `{+3%}`\n  - Services `6`')), []);
   });
 
-  test('data rows only: a series point and a radar axis warn, a detail bullet does not', () => {
-    assert.equal(recordFindings(deck('stacked-bar', '- FY24\n  - Licenses `{19}`\n  - Services `9`')).length, 1);
-    assert.equal(recordFindings(deck('radar', '- Meridian\n  - Speed `{9}`\n  - Cost `7`\n  - Fit `8`')).length, 1);
+  test('a record after another code span warns: it is not the row\'s record', () => {
+    const [f] = recordFindings(deck('bullet', '- E `{NEW, tag}` `{2}`'));
+    assert.match(f.message, /after another code span/);
+    assert.match(f.fix, /as the row's only spans/);
+    assert.deepEqual(recordFindings(deck('bullet', '- E `1` `{2}`')), [], 'a value and a pill: the pill stays a pill');
+  });
+
+  test('data rows only: a series point and a radar axis are drawn; a detail bullet is silent too', () => {
+    assert.deepEqual(recordFindings(deck('stacked-bar', '- FY24\n  - Licenses `{19}`\n  - Services `9`')), []);
+    assert.deepEqual(recordFindings(deck('radar', '- Meridian\n  - Speed `{9}`\n  - Cost `7`\n  - Fit `8`')), []);
     assert.deepEqual(recordFindings(deck('bar', '- North `40`\n  - Driven by renewals `{12}`')), [], 'detail under a row with a value');
   });
 
-  test('spans before the record: no span suggestion, because they shift the old reading', () => {
-    const [f] = recordFindings(deck('bullet', '- E `1` `{2}`'));
-    assert.match(f.fix, /as the row's only spans/);
-    assert.doesNotMatch(f.fix, /`1` `2`/);
-  });
-
-  test('no one-span form: the fix says so', () => {
-    const [f] = recordFindings(deck('bullet', '- Uptime `{4.2M, target=5.0M, band=[60%, 80%]}`'));
-    assert.match(f.fix, /no one-span form yet/);
-  });
-
-  test('silent where the row is not a record the chart reads', () => {
+  test('silent where the chart draws the record, or the row is not one', () => {
     for (const [why, src] of [
       ['the old form', deck('bar', '- EMEA `4.2`\n- APAC `1.8`')],
+      ['a record the bridge rewrites', deck('bullet', '- Uptime `{4.2M, target=5.0M}`')],
       ['a pill in a label', deck('bar', '- EMEA `{NEW, tag}` `4.2`')],
       ['a pill that is not this chart\'s record', deck('bar', '- EMEA `{NEW, tag}`')],
       ['a span that is not last on its row', deck('bar', '- EMEA `{4.2}` and more')],
