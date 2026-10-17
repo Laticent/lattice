@@ -1,3 +1,2 @@
-studio: +6
-playground: +2
-The chart row record is read by the pill pass in the engine (`ownsRecordSpan` in lib/core/chart-rows.js), which both routes load eagerly; the readers, the HTML bridge and the schema-driven detail rule load with the chart kernels, so the eager growth is a few bytes of glue. Nothing was given back: both routes were already over their soft targets, so the bytes are declared here, and the growth is small (the Compose twin of the ownership check is the largest part).
+studio: +40
+The chart row record is read by the Studio's Compose editor: its twin of the engine's ownership check (`ownsRecord` in docs/src/lib/compose/inline-objects.ts, which decides whether a code span is a chart row's record or a pill) is the whole growth, along with the layout order the shared decision reads (`CHART_LAYOUT_ORDER`, now listing the tower and risk-matrix layouts). The engine's own readers, the HTML bridge and the schema-driven detail rule load with the chart kernels, not on the eager path. Nothing was given back: the route was already over its soft target, so the bytes are declared here, and the growth is small.
