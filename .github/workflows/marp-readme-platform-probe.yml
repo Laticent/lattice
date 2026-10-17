@@ -79,7 +79,7 @@ jobs:
           npm run pptx
           npm run html
           ls -la a11y.pdf a11y.pptx a11y.html
-          cd ../../fresh-sh/a11y
+          cd ../fresh-sh/a11y
           npx @marp-team/marp-cli@4 --version
           npx @marp-team/marp-cli@4 a11y.md --config-file marp.config.cjs --allow-local-files -o a11y.pdf
           ls -la a11y.pdf
