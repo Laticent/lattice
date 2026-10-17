@@ -641,6 +641,87 @@ the real engine), the 1280 capture at thumbnail size, and the supersede and idle
 **Not measured:** iOS Safari; capture time for the wireframe-to-poster crossfade; author images; decoded
 memory of the pyramid sizes beyond §11b; a bundled build; any of Veduta itself.
 
+## 11d. Design-verification spikes (2026-10-17)
+
+The owner ruled that "medium-high" confidence in the design is not enough to build on, so the parts the design rests
+on were tested against the real code, one spike each, in scratch space (nothing in the repo was edited).
+
+**1. The rendered index can be derived for every real deck.** Over all 281 decks (280 examples plus the gallery),
+rendering through the Studio path (`appendAutoGlossary`, `render`, `splitForPreview`) and reading the outline:
+
+| Section class | Sections | What marks it in the HTML |
+|---|---|---|
+| authored unit, first part | 2,591 | `data-lattice-slide="N"`, present only after `splitForPreview` |
+| heading-split part (part > 0) | 6 | nothing |
+| focus-step clone | 3 (all `focus.md`) | `data-focus`, which an authored slide can also carry |
+| structural-split page (page > 1) | 521, in 35 decks | `data-lattice-slide="N.k"`, `data-split-run` |
+| appended auto-glossary | 4, in 3 decks | nothing |
+| unexplained | **0** | |
+
+Rule: take units and parts from the deck outline, count the sections the engine renders for each part on its own,
+and walk the rendered sections in order. The address is **{unit, part, copy, page}**: a *copy* coordinate is needed
+because focus clones and pane splits are distinct sections of one part. Proven on all 281 decks at the deck's own
+size and at 1280x720: total, strictly monotonic, round trip is the identity, every outline part resolves, 0 failures.
+Failing arms go red (ignoring copies reddens `focus.md`; dropping the page suffix reddens 35 decks). **Three
+consequences.** (a) The index must be built from the same `splitForPreview(width, height)` the frame displays: at
+1280x720 the 35 portrait, square and story decks lose all 521 split pages (3,125 sections become 2,604), so an index
+built at the authored size over a 1280-wide map would be wrong; unit, part and copy addresses are the same at both
+sizes. (b) The rule works by re-rendering each part, which costs 115 ms extra on the gallery (a cheaper predict rule,
+13 ms, fails on pane splits). (c) Two defects exist that no real deck triggers: an empty slide (the outliner drops empty
+chunks, the engine renders them) and pane splits under the cheap rule. The robust fix is small and belongs in the
+engine: stamp each section with `data-lattice-src` (source line), `data-lattice-copy` and
+`data-lattice-synthetic`, making the index a lookup with no re-render and no positional counting. **This also
+corrects an earlier number:** `count.mjs` never ran the structural split (unbundled, its capacity map is null), so the
+"sections versus authored slides" counts understated the mismatch; 35 decks split into 521 extra pages.
+
+**2. The core's invariants hold, and it drives both existing implementations with a small change each.** A headless
+core in plain JavaScript (`windowFor({ policy, stage, count, focus, viewports, overscan, budget, hysteresis,
+previous })` returning ranked intent, and `settle(intent, satisfied)`), inlinable with `.toString()`. Nine properties,
+300 runs and 1,000 runs on each of three seeds, every failing arm red: focus always in the stage set; mounted count
+bounded by viewport and overscan alone for N from 10 to 100,000; **multi equals the real `visibleRange` +
+`windowRange` from `virtual-window.js`** (imported, compared on random inputs and step by step against a replay of
+`syncVirtual`); single is exactly one unit; pip's stage set equals single's even while the map scrolls; jitter below
+the band changes nothing; ranking is monotone in distance from each window's own viewport; the live total never
+exceeds the page-global budget; and a connector that satisfies only part of the intent reaches a fixed point without
+being asked for more. Cost per call is **0.6 µs (single), 15 to 16 µs (multi with a map) and 13 to 14 µs (pip),
+identical at N = 120 and N = 100,000**.
+Fit: `PreviewPool` accepts the intent with a `rank` prop and an `onSettle` report, ordering tiles within its existing
+on-screen and in-band tiers and still going through its 220 ms throttle, so the WebKit never-destroy rule is
+untouched (typechecked only). The Playground filmstrip takes it through two new exports (`stageViewport`,
+`applyUnits`) and a predicate form of `applyWindow` (jsdom smoke test only), and the focus seed replaces the 1500 ms
+landing pin as long as the focus is a rendered-section index, which is spike 1. **Three design invariants were wrong
+or missing, and are now rules:** (i) the live budget cannot be "units live now", because the pool never releases a
+slot, so its cost is a high-water mark of retained documents (the pool reports `retained`), a tile over budget must
+render as a poster before the pool sees it, and the budget needs a cost per connector (a filmstrip section is not a
+WebKit realm); (ii) capacity must be *reported*, never inferred, because a pool also falls short for tiles outside its
+150 px observer band and learning that as the cap starves visible tiles; (iii) a connector must hold at least one stage
+unit. **A defect in today's `deck-render.js`** (not caused by this work): with its 1/3/5 constants a window move can
+leave a one-slide hole of placeholders between mounted slides (settle at slide 20, land at 12: slides 9 to 15 and 17
+mounted, 16 not); 976 of 2,000 random walks hit one, and `contiguous` then stays false so every scroll frame falls off
+its fast path until the hole fills. The core always keeps one contiguous run. Also, `applyWindow` loops over every
+section, so each move is O(N) in the DOM. Neither has an issue yet.
+
+**3. Capture can leave the main thread on Chromium, not on WebKit.** The same poster capture (native 1280 wide, 24
+captures while the page scrolled), run in the page itself versus in an iframe that holds the stylesheet once and
+receives one slide's HTML by `postMessage`:
+
+| Where the capture runs | Chromium: frames over 50 ms, p95 | WebKit: frames over 50 ms, p95 |
+|---|---|---|
+| no capture (control) | 0, 17 ms | 0, 17 ms |
+| the page itself | 23, 233 to 250 ms | 39 to 40, 132 to 191 ms |
+| same-origin iframe | 25, 217 ms | 39 to 41, 127 to 136 ms |
+| sandboxed iframe (opaque origin) | **0**, 17 ms | 37 to 41, 140 to 145 ms |
+| cross-site iframe (`127.0.0.1` against `localhost`) | **0**, 17 ms | 41 to 44, 102 to 125 ms |
+
+Per-capture time was about the same (255 to 295 ms Chromium, 150 to 200 ms WebKit). So on Chromium a sandboxed or
+cross-site capture frame removes the jank entirely at no throughput cost; on WebKit it roughly doubles the frames the
+page gets in the same time (112 to 126 against 56) but each capture still costs one 100 to 250 ms hitch. Design
+consequence: capture runs in a sandboxed frame by default (it also holds untrusted markup in an opaque origin, the
+safer posture under HARD RULE #22), and the WebKit hitch is still handled by the idle-gated, single-flight baker.
+Tauri on macOS is WebKit, so the desktop app should prefer a native snapshot there (unverified).
+
+**4. Fuoco with a scrolling stage:** see the next paragraph (pending).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
