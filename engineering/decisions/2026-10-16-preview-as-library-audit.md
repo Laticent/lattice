@@ -720,7 +720,42 @@ consequence: capture runs in a sandboxed frame by default (it also holds untrust
 safer posture under HARD RULE #22), and the WebKit hitch is still handled by the idle-gated, single-flight baker.
 Tauri on macOS is WebKit, so the desktop app should prefer a native snapshot there (unverified).
 
-**4. Fuoco with a scrolling stage:** see the next paragraph (pending).
+**4. Fuoco works with a scrolling stage once three defects are fixed.** In a model-based test (an editor, a map
+issuing `go` and `step`, a paged stage, and a scrolled stage that reports every slide a smooth scroll crosses, a
+settle report and a late scroll-anchoring report), all four problems reproduced on the repo's hub: (a) a no-op report
+cancelled a pending "insert, then go" (focus 0, wanted 1; with the editor subscribed last a double key press published
+4 times); (b) a report made during a delivery was judged against stale focus (`key last` ended at 5, wanted 6); (c) a
+stage that could not centre the last slide pulled the focus back (one key press made 3 publications); and two
+scrolled views that break a boundary tie differently pushed the focus back and forth forever. The fix is 272 lines
+(+130, -65, mostly moving two bodies into inner functions; `git apply --check` passes) and chooses four rules: a
+report clears the pending move only when it publishes; `report` and `reportUnit` go through `guarded()`, which now
+brackets only the subscriber loop, so each queued call is judged against the focus the earlier ones left; each report
+records the focus sequence it was made against and the hub drops it if a different origin has published since (the
+same idea as `rev` for text); and `quiet` on `reportUnit` never publishes and never cancels a pending move. That last
+rule makes a separate loop guard unnecessary. With it, the repo's `hub.test.ts` model passes at 5,000 runs, the new
+properties pass, every failing arm goes red with a shrunk counterexample (`clearOnAnyReport`, `eagerReports`,
+`loudQuiet`, `ignoreBasis`), and five "next" presses with a scrolled stage and a map publish exactly once each (the
+unfixed hub gave `3[keys,stage,stage]` on the fifth, a 5 to 4 to 5 flicker). The diff is not applied; it is
+`followups.d/2704-p3-fuoco-report-defects.md`'s work. Further limits the spike found: browsers do not say why a scroll
+happened, so a stage must infer its own scrolls from input events (a loud reflow report sent before a frame-lane stage
+catches up would still pull the focus back; a compare-and-set "I was reacting to focus X" field would close it and was
+not built); `reportUnit` always publishes cause `caret`; views must select the unit id, not only the index (an edit and
+a deferred go in one frame can swap which unit sits at an index, and ids follow separators, so after an insert an old id
+can land on the new slide); a view does not hear its own `step`, so it reads `hub.get()` back; and `step`, `pages`,
+`pick` and `update` are still judged immediately. Modeled, not observed in a browser.
+
+**The design as it now stands.** (1) Two index models: the outline before the first render, and a rendered index
+{unit, part, copy, page} after it, built from the same `splitForPreview(width, height)` the frame shows, with the
+engine stamping `data-lattice-src`, `data-lattice-copy` and `data-lattice-synthetic` so the index is a lookup. (2) A
+headless core, three window policies times two stage kinds, ranked advisory intent and a *reported* (never inferred)
+capacity, a page-global live budget with a cost per connector decided before the pool, and at least one stage unit per
+connector. (3) Fuoco is the only focus, with the four-rule fix above and views that select unit ids. (4) Capture runs in
+a sandboxed frame at the slide's native size under a 1280 override, one at a time, gated on user idleness, with
+position-free keys, supersede-then-LRU with pinned windows, stale-while-revalidate, and wireframes measured off the bind
+path. (5) Connectors change a little (`rank` and `onSettle` on the pool; `stageViewport` and `applyUnits` on the
+filmstrip), and a poster in the filmstrip needs a `SANCTIONED_RUNTIME_MARKUP_SINKS` entry. **Open:** real browsers for the
+Fuoco model, the pool and filmstrip diffs, iOS, and the unreviewed spike results themselves.
+
 
 ## 12. Next step
 
