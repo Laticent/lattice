@@ -1,0 +1,3 @@
+- Plugins: a plugin can be **embedded** (`"embedded": true` in its manifest, in-tree only). The host admits it on every render, and no `plugins:` list, host narrowing, `disabled` setting or `--disable-plugin` turns it off. A zip or npm package that declares `embedded` is refused.
+- Plugins: the pill notation (`{LIVE}`, `{BETA, tag, c4}`) is now the embedded `pills` plugin. Decks render byte-identically to before. `--disable-plugin=pills` is an error instead of a flag that does nothing, and the Studio's Plugins tab shows pills as one quiet "Always on" line, with no row or list checkbox.
+- Plugins: a plugin manifest can declare an `untagged` inline kind (the bare record `{…}`); only the embedded plugin may claim it, and only one may.
