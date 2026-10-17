@@ -10,8 +10,9 @@ swimlane: engineering/decisions/2026-10-16-npm-plugin-threat-model.md §5.2
 
 # Build the npm-plugin canary harness on top of plugin-fence-door.test.js.
 
-why now   — phase G (the npm door) must not open until a hostile plugin is shown contained; the
-            note's decision 5 makes this an exit criterion.
+why now   — phase G (the npm door) must not open until a hostile plugin is shown contained.
+            Decided 2026-10-17 (note §6): this test is a hard exit criterion, in the integration
+            tier, with no new CI job.
 where     — test/integration/export/plugin-fence-door.test.js (precedent), lib/core/code-sandbox.js,
             lib/core/offline-chromium.js; the real-export probe described in the note's §3.1 and §7.
 done when — an integration test runs a deliberately hostile plugin through the locked page and reads

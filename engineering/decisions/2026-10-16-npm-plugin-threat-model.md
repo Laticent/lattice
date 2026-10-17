@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   The plan for npm plugins (phase G) rests on one sentence, "installing it is the trust decision",
   and that sentence does not cover plugin output that reaches other people, the Studio and desktop
@@ -10,7 +10,7 @@ summary: >
 
 # npm plugins: the threat model the plan does not have yet (2026-10-16)
 
-Status: proposed. Nothing here is built. The owner's decisions are in §6.
+Status: in progress. The owner decided on 2026-10-17 (§6); nothing is built yet.
 
 Parents: `2026-09-13-plugin-architecture.md` (Axis 2, the trust channels),
 `2026-09-27-plugin-system.md` (§4.10 and phase G), `2026-09-24-code-package-contract.md` (the
@@ -90,6 +90,12 @@ The explicit list and the export record are good. Neither limits what an admitte
 5. **`bake` is the one surface no sandbox holds.** `code-sandbox.js` records why: Node's
    permission model did not block the network when measured, so code packages run in a locked
    Chromium page instead. `bake` runs in the CLI's own process.
+6. **A plugin that is off can leak what it was meant to draw.** The video/image plugins session
+   reported on PR #2727 that an inline `@qr{…}` record leaves its typed text on the slide when its
+   plugin is off, so a Wi-Fi record would print its password. This is a degradation leak: no
+   network, storage or key is involved, so neither the gate (§5.1) nor the harness (§5.2) can see
+   it. The fix is QR slice 2 on #2727 (inline dispatch honoring `degradesTo`). Not verified here:
+   I read this from that session's report and did not reproduce it.
 
 ## 4. The principle that makes this tractable
 
@@ -150,31 +156,40 @@ code door. Three parts:
 
 ### 5.3 What neither covers
 
-- A Chromium renderer exploit. The CLI launches Chromium with `--no-sandbox`
-  (`code-sandbox.js`, "NOT CLAIMED HERE"). That header points at
-  `followups.d/2314-p4-code-packages.md`, which does not exist in `followups.d/` today, so the
-  question has no live record. Recreating it is part of this note's follow-up.
+- A Chromium renderer exploit on a machine where the OS layer reads OFF. The code sandbox's two
+  walls are browser policy. Under them, `lib/core/os-sandbox.js` turns Chromium's own OS sandbox
+  on wherever the machine allows it (as root in a container it runs the browser as `nobody`; owner
+  decision 2026-09-26) and reports which layer it got. Where the layer reads OFF, the consent text
+  says so and the approval is pinned to that layer (contract note §9). An escape there is not
+  contained. The "NOT CLAIMED HERE" header in `code-sandbox.js` predates `os-sandbox.js` and the
+  first draft of this note repeated it as if no OS layer existed; that was wrong and is fixed.
 - Anything the plugin does through legitimate output: a misleading chart is still a chart.
 - A hostile `bake`, until §6 decision 3 settles where a bake runs.
 
-## 6. Decisions for the owner
+## 6. Decisions
 
-1. **Add G1 to `build:check`?** Recommend yes. It makes the principle in §4 enforced instead of
-   hoped for. It is a new check inside the existing `build:check` step, which CLAUDE.md's second filter does
-   not list as a CI-contract change, but it adds a permanent gate every PR pays for, so I am asking
-   and would measure its cost first.
-2. **Add the canary harness to the integration tier?** Recommend yes. This is a test, not a CI
-   job, so it adds no step to the pipeline.
-3. **Where does an npm plugin's `bake` run?** (a) Not at all in v1: npm plugins render in the
-   locked page, as the code door does. Recommended. (b) In the locked Chromium page. (c) In the CLI
-   process, behind an explicit per-plugin consent and an OS sandbox.
-4. **Does the Studio or the desktop app ever load an npm plugin?** Recommend no for v1. Those
-   surfaces hold the key, and the Hollywood principle says plugins never need it.
-5. **Make the harness and G1 to G3 the exit criteria for phase G.** The door does not open while
-   any is red.
+The owner answered on 2026-10-17. The numbers are the original question numbers.
 
-This note does not edit `2026-09-13` Axis 2. If you accept decisions 3 and 4, that row gets
-superseded in a follow-up.
+| # | Question | Decision |
+|---|---|---|
+| 1 | Add G1 to `build:check`? | **Yes, measure first.** Time the check, show the owner the number, and add it only if the cost is small. |
+| 2, 5 | Add the canary harness, and make it plus G1 to G3 the exit criteria for phase G? | **Yes, required.** The npm door does not open while the harness is red. The harness is a test in the integration tier, not a new CI job. |
+| 3, 4 | Where does an npm plugin's `bake` run, and does the Studio or desktop app load an npm plugin? | **Locked page only.** npm plugins render in the locked Chromium page, as the code door does. No `bake`, and no loading in the Studio or desktop app, in v1. |
+| 6 | Should a code package be refused outright where the OS layer reads OFF? | **Keep today's behavior, and investigate.** Today the consent text names the layer, the approval is pinned to it, and the owner or user may approve at OFF. Log an investigation into what refusing OFF would break (below). |
+
+**Decision 6 in plain terms.** Lattice runs a code package in a browser with no network. Under that
+browser it tries to use the operating system's own lock (Chromium's OS sandbox), and it says which
+level it got: on, on by the platform's default, or OFF. OFF happens when the machine cannot start
+that lock, for example Ubuntu 24.04 CI runners (AppArmor blocks it) or a Chromium kept under
+`/root` that the `nobody` user cannot run. Today an OFF machine is told so in plain words and may
+still run a package the user approved at OFF. A package approved at "on" is refused on a weaker
+browser. The question is whether OFF should be refused outright. The owner chose to keep the
+current behavior and to measure first. The investigation is `followups.d/2314-p4-code-packages.md`:
+count how often the layer reads OFF in the places packages run (CI, containers, the Studio, the
+future desktop app) and report what refusing OFF would break.
+
+This note does not edit `2026-09-13` Axis 2. Decisions 3 and 4 mean that row's npm line ("code,
+Node-side, resolved at build time") no longer describes the plan. Superseding it is a follow-up.
 
 ## 7. What is not verified
 
@@ -183,6 +198,7 @@ superseded in a follow-up.
 - The gate's run-time cost is unmeasured.
 - The `postinstall` measurement used one tarball with no transitive dependencies. It shows the mechanism, not how a real plugin's dependency tree behaves.
 - Whether the desktop app will keep the OpenRouter key in the OS keychain is undecided (§3.2).
+- Gap 6 (the `@qr` Wi-Fi case) comes from another session's report, not from a reproduction here.
 - The §3.1 measurement drove one real export of a two-slide deck with no plugin hydrate in it,
   in headless Chromium, WebKit and Firefox on Linux. It ran each attempt through `page.evaluate`,
   which stands in for plugin code allowed by the hash. It did not run an actual plugin's hydrate,
