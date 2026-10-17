@@ -506,6 +506,33 @@ calls, the fuzz refused only calls whose gap was at least the box's own height (
 it first found now gets a layout. Requiring every track to stay positive at the drawn
 height as well would have moved collage layouts, so where a box would get no room at that height `placed`
 scales the layout down whole instead. `test/unit/mosaico/spacing.test.js` pins all of it.
+### 8.4 Live logo wall: the revisit regression (2026-10-17)
+
+The owner recorded the Studio on an iPhone over a PR preview: arriving at a logo-wall slide showed only the
+captions for about 1.4 s, then the marks popped in and the rows re-laid out. Slice 3 caused it. The live stamp
+(`lib/transformers/logo-marks.js`) fetched every mark's SVG to read its shape on every visit, because nothing
+remembered a shape, and the unpacked grid painted until the stamp landed. The preview deploy made each fetch slow:
+Cloudflare Pages served the content-hashed `/playground/v/<hash>/` folder with `max-age=0, must-revalidate`.
+
+The fix sits in the host, not in Mosaico: packing a wall takes under 0.1 ms, so caching a plan would save
+nothing. The runtime keeps one aspect per mark URL for the life of the document; the Studio patches slides inside
+one resident frame (`patchSlideBody`), so a revisit stamps in the same task, before its first paint. A failed
+fetch or a non-OK response is forgotten, so it is retried. `docs/public/_headers` gives the folders
+`sync-playground-assets.mjs` hashes (`samples/`, `themes/`, `esm/`) a year's immutable cache on the previews;
+`newcomer/` is baked into the same folder later from inputs outside the hash, so it is left out. GitHub Pages
+ignores the file and keeps sending `max-age=600`.
+
+**Held back: hiding the wall on a first visit.** The first cut hid `ul[data-logo-wall="measuring"]`, as collage
+hides its own measuring list. The checker found the cost: the Studio's exports bake a fresh capture frame (empty
+cache) and wait for load, fonts and diagrams, never for a measuring wall, so a slow mark fetch would ship the wall
+invisible, and in the webpage export, which strips the runtime, invisible for good. Collage carries the same
+latent hole. The safe fix makes the capture wait (bounded) for both, which changes the export pipeline and so
+needs the owner's sign-off; it is logged as a follow-up. A first visit therefore still draws the grid, then packs.
+
+`docs/e2e/logo-wall-revisit.spec.ts` drives the real Studio with every mark delayed 300 ms and logs the wall's
+state on each animation frame. Against main's `logo-marks.js` it fails on desktop and the WebKit phone project
+(the revisit refetches all 4 marks and paints `measuring` first); with the fix the revisit paints `packed` only,
+with 0 fetches, and the spec fails if the Studio ever swaps the frame instead of patching it.
 
 ## 9. Decisions
 
