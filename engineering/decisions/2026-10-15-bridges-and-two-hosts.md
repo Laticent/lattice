@@ -259,7 +259,7 @@ is the number that decides whether activation pays (D2).
 
 Two benefits are forward-looking and not measured: plugin and theme CSS from zips (phase E) could
 sit in a layer that cannot outrank engine chrome whatever its specificity, and an author's own
-deck CSS would win by being unlayered rather than by specificity.
+deck CSS would win by being unlayered rather than by specificity. That also overrides Lattice where its own rule wins today (§3.7(b): 29 of 115 gallery h2s).
 
 ### 3.7 The three D2 measurements (2026-10-17)
 
@@ -315,7 +315,7 @@ documented form for CSS written after export (design 4). **The gallery fixture**
 | Bridge as built (C) | **0** | 0 | the author's rule loses everywhere; **all 384** pairs newly lost |
 | Author unlayered (1), lowered (2), raised (3/4) | all 115 (design 1 reads the scoped h2 as rgb(1,2,3); see below) | 496 | the 384 pairs stay and **112 newly win** |
 
-Designs 2 and 3 never lose a pair on this fixture, and design 1 matches them pair for pair. All three also make an author's blanket rule win where Lattice's own rule wins today: that is the layered meaning ("author CSS beats every layer"), not today's. An author who wrote `h2 { color }` and saw some slides ignore it will see them obey after activation. The 112 are the share of those 29 h2's properties that fell in the sample (the h2 count is the cleaner figure). **No design preserves today's meaning for a blanket rule**; designs 1, 2 and 3 give the layered meaning, and C gives neither. **Residual risks:** design 1's reference build shows the one scoped h2 as rgb(1,2,3) where today and designs 2 and 3 show rgb(4,5,6); that is probably the build and not the design, and it is unverified. The 3 example decks that carry a `<style>` do not use blanket rules, which is why they matched exactly.
+Designs 2 and 3 never lose a pair on this fixture. On the sampled pairs design 1 matches them; over every h2 it differs on the one scoped h2 (below). On the gallery, design 2 also moves 74 elements of Lattice's own meaning (`C2vsC_noAuthor`). All three also make an author's blanket rule win where Lattice's own rule wins today: that is the layered meaning ("author CSS beats every layer"), not today's. An author who wrote `h2 { color }` and saw some slides ignore it will see them obey after activation. The 112 are sampled pairs on elements the author's rule now reaches, mainly those h2s; the h2 count is the cleaner figure. **No design preserves today's meaning for a blanket rule**; designs 1, 2 and 3 give the layered meaning, and C gives neither. **Residual risks:** design 1's reference build shows the one scoped h2 as rgb(1,2,3) where today and designs 2 and 3 show rgb(4,5,6); that is likely a reference-build artifact (the spliced scoped rule carries the E render's random Marpit scope key, which the L render's DOM lacks; reasoned from Marpit's `style/assign.js`, not re-run) and is unverified. The 3 example decks that carry a `<style>` do not use blanket rules, which is why they matched exactly.
 
 **(c) How many elements does layering change, across the examples, runtime loaded?** The census renders
 each deck through the bundle's own `marp.config.cjs` (real allowlist, runtime loaded and settled,
