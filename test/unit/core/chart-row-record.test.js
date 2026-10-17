@@ -215,18 +215,10 @@ describe('the paths agree on the data row', () => {
   test('lint: a span the chart would draw is silent; one it would lose is named', () => {
     assert.deepEqual(findings(deck('bar', '- EMEA `{NEW, tag}` region `{4.2}`')), [], 'a pill in the label, text between');
     assert.deepEqual(findings(deck('bar', '- EMEA **`{NEW, tag}`** `{4.2}`')), []);
-    assert.deepEqual(findings(deck('radar', '- Meridian `{9}`\n  - Speed `7`\n  - Cost `6`\n  - Fit `8`')).length, 1 - 1 + 0, 'a markless series row is not data');
+    assert.deepEqual(findings(deck('radar', '- Meridian `{9}`\n  - Speed `7`\n  - Cost `6`\n  - Fit `8`')), [], 'a markless series row is not data');
     const [f] = findings(deck('bullet', '- Spend `{3, targt=5}`\n- Cost `{3, target=5}`'));
     assert.match(f.message, /not a record the bullet chart reads/, 'a record Segno refuses used to vanish from the chart silently');
     assert.equal(findings(deck('bullet', '- Cost `{3, target=5}`')).length, 0, 'control: a good record');
-  });
-
-  test('lint and the engine agree on a trailing comment and on a continuation line', () => {
-    const { ownsRecordSpan } = rows;
-    assert.equal(typeof ownsRecordSpan, 'function');
-    const lintPills = (src) => lintCore.lintTextWith(src, vocab).filter((f) => /^pill-/.test(f.rule)).length;
-    // A record the engine would make a pill (not last: a comment follows) is the pill lint's to judge.
-    assert.equal(lintPills(deck('bar', '- EMEA `{4.2, c9}` <!-- c -->')) >= 0, true);
   });
 
   // The second review round (2026-10-17), each with its control.
@@ -265,5 +257,42 @@ describe('the paths agree on the data row', () => {
     assert.match(rows.bridgeRecordsHtml('<blockquote><p>note</p></blockquote><table><tr><td><code>{3}</code></td></tr></table>', ['heatmap']), /<td>3<\/td>/);
     const html = engine.render(deck('matrix-grid', '> | | A |\n> |---|---|\n> | S | `{done}` |'), {}).html;
     assert.match(html, /lat-pill|<code>/, 'a quoted matrix-grid table keeps its span');
+  });
+
+  // Third review round (2026-10-17): the checker and the inversion compared against MAIN, not against the old
+  // form, and found decks that write no record changing. Each case below is what main did.
+  test('what main did: a pill in a detail bullet stays a pill, and the parent\'s value is kept', () => {
+    const values = (h) => [...h.matchAll(/data-value="([^"]*)"/g)].map((m) => m[1]);
+    for (const chart of ['bar', 'line']) {
+      const html = render(deck(chart, '- Q1 `3`\n  - vs plan `{+2}`\n- Q2 `5`\n  - vs plan `{-1}`\n- Q3 `4`'));
+      assert.match(html, /lat-pill/, `${chart}: the delta stays a pill`);
+      assert.doesNotMatch(html, /<code>\{[+-]\d\}<\/code>/, `${chart}: no raw braces`);
+      assert.deepEqual(values(html).filter((v) => /^[+-]/.test(v)), [], `${chart}: a delta is not a data value`);
+      assert.match(html, /chart-frame/, `${chart}: the chart still draws`);
+    }
+    // fields charts: every nested row is detail, whether or not its parent holds a value.
+    for (const [chart, rowsSrc] of [['piechart', '- North\n  - delta `{+3}`\n- South `40%`\n- East `60%`'], ['funnel', '- Visits\n  - delta `{+3}`\n- Signups `300`\n- Paid `100`']]) {
+      const html = render(deck(chart, rowsSrc));
+      assert.match(html, /lat-pill/, `${chart}: a detail bullet under a row with no value keeps its pill`);
+    }
+  });
+
+  test('what main did: stacked-bar totals and bullet keyword rows are data, as in the old form', () => {
+    same('stacked-bar', '- FY23 `24`\n  - Licenses `18`\n  - Services `6`\n- FY24 `30`\n  - Licenses `20`\n  - Services `10`',
+      '- FY23 `{24}`\n  - Licenses `{18}`\n  - Services `{6}`\n- FY24 `{30}`\n  - Licenses `{20}`\n  - Services `{10}`', 'totals');
+    same('bullet', '- Uptime `99.4`\n  - Target `99.9`\n- Cost `3` `5`', '- Uptime `{99.4}`\n  - Target `{99.9}`\n- Cost `{3, target=5}`', 'a keyword row under a valued row');
+  });
+
+  test('a slide the chart declines shows the old-form list, not the braces', () => {
+    const bare = (body) => `---\nmarp: true\n---\n\n<!-- _class: bar -->\n\n${body}\n`; // no h2: the bar chart declines
+    const old = render(bare('- EMEA `4.2`'));
+    assert.doesNotMatch(old, /chart-frame/, 'control: the bar declines a slide without a heading');
+    assert.equal(render(bare('- EMEA `{4.2}`')), old);
+    assert.doesNotMatch(render(bare('- EMEA `{4.2}`')), /\{4\.2\}/);
+  });
+
+  test('a total in a later paragraph reads the same in the narration', () => {
+    const body = (v) => `- FY23\n\n  total ${v('24.6')}\n\n  - Licenses ${v('18.4')}\n  - Services ${v('6.2')}\n- FY24\n  - Licenses ${v('19.1')}\n  - Services ${v('7.0')}`;
+    assert.equal(narrateChart(deck('stacked-bar', body((n) => `\`{${n}}\``))), narrateChart(deck('stacked-bar', body((n) => `\`${n}\``))));
   });
 });

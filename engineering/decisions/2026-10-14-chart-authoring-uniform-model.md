@@ -238,43 +238,62 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    because it is a number in a choropleth and a category word under `highlight`. Corpus evidence: all 895 chart
    slides render, narrate and lint identically (895 by the engine's own section split).
 
-   **Phase 2, slice 2 (2026-10-16): the record is drawn.** A data row written as one `{…}` record draws
-   what its old spans draw, on all 16 charts, on the engine and on the runtime. Three pieces, all in
-   `lib/core/chart-rows.js`. (1) **Ownership**, `ownsRecordSpan`: a span is the row's record when the chart that DRAWS the slide (the dispatcher's pick, `recordChart`; a literal order pinned to the registry) has a row schema, the span reads as that record, it is the LAST thing in its row (a list item's lead or a
-   whole table cell), no code span sits right before it, it is outside a `>` quote, in the slide's first list (the only one a kernel reads), and on a row that draws a mark and is data, not the detail of a row that already holds a value (`isDetailRow`, from each path's ancestor lead spans). Every path asks that one question
-   and measures the place its own way: the engine's `inlinePills` from tokens, the runtime's `isOwnedRecordElement`
-   from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source line. This
-   is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders. "After
-   another code span" is a fact about the source, so the engine snapshots it before its own pass turns an earlier
-   span into a pill (otherwise the answer would depend on visit order). (2) **The bridge**: the chart family
-   calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so the engine and the runtime share it, and
-   rewrites a data row's record to the spans each transform reads (`legacySpans`). `bridgeRecordsSource` does the
+   **Phase 2, slice 2 (2026-10-16): the record is drawn.** A data row written as one `{…}` record draws what its
+   old spans draw, on all 16 charts, on the engine and on the runtime. Three pieces, mostly in `lib/core/chart-rows.js`.
+
+   (1) **Ownership**, `ownsRecordSpan`. A span is the row's record when all of these hold: the chart that DRAWS the slide
+   (the dispatcher's pick, `recordChart`, from a literal order a test pins to the registry) has a row schema; the span reads
+   as that chart's record; it is the LAST thing in its row (a list item's lead, or a whole table cell); no code span sits right
+   before it; it is outside a `>` quote; it is in the slide's first list or first table, the only ones a kernel reads; and its
+   row is data. Whether a nested row is data comes from the chart's own schema, `rows.nested` (`isDetailRow`), because the
+   kernels differ: `point` (stacked-bar, whose valued category is the authored total; bullet, whose keyword rows are
+   structure), `point-unless-valued` (bar, line, slope, radar: a series point under a parent with no value of its own, and
+   detail under one that has a value, where a pill is a pill as it is on main), or `detail` (pie, funnel, map, waterfall,
+   word-cloud, progress, quadrant, scatter: every row below the first data depth). A detail row keeps its pill. Every path asks
+   this one question and measures the place its own way: the engine's `inlinePills` from tokens, the runtime's
+   `isOwnedRecordElement` from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source
+   line. This is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders.
+   "After another code span" is a fact about the source, so the engine snapshots it before its own pass turns an earlier span
+   into a pill (otherwise the answer would depend on visit order).
+
+   (2) **The bridge.** The chart family calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so
+   the engine and the runtime share it, and rewrites a data row's record to the spans each transform reads (`legacySpans`);
+   a slide the chart declines shows that rewritten list, as the old form would, not the braces. `bridgeRecordsSource` does the
    same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. The
-   bridge asks `ownsRecordSpan` the same question, so a span the pill pass left alone is a span it rewrites; a record in a
-   detail bullet of a FIELDS chart (pie, funnel, bullet, progress, waterfall, map, word-cloud) is neither, and stays a pill.
-   On a SERIES chart (bar, line, stacked-bar, slope, radar) no row is detail by ancestry, because the kernels read a numeric child of a
-   valued row as a series point (stacked-bar's authored total `- FY23 `24`` over its segments), so the same record there is data. Grid
-      charts convert through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut
-   table), and matrix-grid's cell decoder, which runs before any bridge, reads the same text. The transforms themselves are
-   untouched, which is why parity is exact; phase 4 deletes the bridge with the old spellings. (3) **Lint**:
-   `chart-row-record-unread` is no longer a stopgap for the spans; it reports only what the chart still cannot draw
-   (a field with no span form: bullet's `band=` and `floor=`, progress's `note=`; a record that follows another
-   code span; and a record Segno refuses that is not a pill either, such as `{3, targt=5}`, which used to vanish from the chart
-   without a word).    code span). `chart-table-unescaped-pipe` (followups 2723) warns on a bare `|` inside a table cell's `{> …}`
-   description. Evidence: the same rows written both ways render identical HTML on the engine and the runtime bundle
-   and narrate identically, for all 16 charts (`test/unit/core/chart-row-record.test.js`); a GENERATED differential
-   (`chart-row-record-differential.test.js`: seeded random slides on 10 charts, tight and loose, ordered, nested, with totals and
-   descriptions, 4,000 of them in the review run) holds the record form equal to the old form; a fidelity probe pins engine against
-   runtime; a Playwright spec drives Compose in Chromium; and about 800 chart-class slides in tracked Markdown (786 by the harness
-   used here, 796 to 819 by three other splits) render, narrate and lint byte-identically to `main`. Two rounds of the adversarial trio (red team, inversion, independent checker)
-   found the first cut's paths disagreeing about the data row, and each finding has a case in the test file. What the record changes
-   for authors who never write one: a `{N}` that is the LAST span of a chart's data row used to be a pill the chart ignored, and is now the row's value, as `N` was.
-   Known residual, no visible effect found: lint and the narrators' source bridge measure a row's lead per line, so a record on a
-   continuation line, or after a bullet-character switch, can differ from the engine; the narrator picks its chart by the first
-   class token, not in dispatch order. Two things the format does not express yet, found on the way: a grouped number (`1,200`) is not a record
-   value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into two items, so phase 4's codemod must write
-   `1200` and show it grouped (the census counts 78 grouped funnel values); and on a matrix-grid slide a sole-cell `{DONE}` (any case) is the
-   state `done`, because Segno reads it as `state=done`; it was a label pill.
+   bridge asks `ownsRecordSpan` the same question, so a span the pill pass left alone is a span it rewrites. Grid charts convert
+   through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut table), and matrix-grid's
+   cell decoder, which runs before any bridge, reads the same text. The transforms themselves are untouched, which is why
+   parity is exact; phase 4 deletes the bridge with the old spellings.
+
+   (3) **Lint.** `chart-row-record-unread` is no longer a stopgap for the spans; it reports only what the chart still cannot
+   draw: a field with no span form (bullet's `band=` and `floor=`, progress's `note=`), a record that follows another code span,
+   and a record Segno refuses that is not a pill either (`{3, targt=5}`, which used to vanish from the chart without a word).
+   `chart-table-unescaped-pipe` (followups 2723) warns on a bare `|` inside a table cell's `{> …}` description.
+
+   **Evidence.** (a) The same rows written both ways render identical HTML on the engine and the runtime bundle and narrate
+   identically, for all 16 charts (`test/unit/core/chart-row-record.test.js`), and the runtime bundle does the same in
+   headless Chromium on Marp-shaped markup. (b) A generated differential (`chart-row-record-differential.test.js`: seeded
+   random slides on 10 charts, tight and loose, ordered, nested, with totals and descriptions, declined shapes included) holds
+   the record form equal to the old form, and a second arm injects `{±N}` pills into detail bullets and compares against what
+   main drew. (c) A fidelity probe pins engine against runtime, and a Playwright spec drives Compose in Chromium. (d) About 800
+   chart-class slides in tracked Markdown (786 by the harness used here, 796 to 819 by three other splits) render, narrate and
+   lint byte-identically to `main`. (e) The adversarial trio (red team, inversion, independent checker) ran three times; each
+   round found decks that change, and every finding has a case in the test file. The third round's lesson is the one worth
+   keeping: a test that compares the record form with the OLD form cannot see a deck that writes no record and changed against
+   `main`, so the tests now also assert what main did.
+
+   **What changes for authors who never write a record.** A `{N}` (or `{word}` on map) that is the LAST span of a chart's
+   data row is now the row's value; it used to be a pill the chart did not read. On a matrix-grid slide a sole-cell `{done}`,
+   `{partial}` or `{todo}` (any case) is a state, because Segno reads it as `state=…`; `{DONE}` was a label pill. On a map row
+   any `{word}` is now the region's categorical value. A pill in a label, a `>` description, a detail row, a later list or a
+   later table is a pill as before.
+
+   **Known residual, no visible effect found.** Lint and the narrators' source bridge measure a row's lead per line, so a record
+   on a continuation line, after a bullet-character or ordered-to-bullet switch, or after a margin comment can differ from the
+   engine; the narrator picks its chart by the first class token, not in dispatch order. Two things the format does not express
+   yet: a grouped number (`1,200`) is not a record value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into
+   two items, so phase 4's codemod must write `1200` and show it grouped (the census counts 78 grouped funnel values); and a
+   record under a valued row on bar or line stays a pill, so a series point written that way needs its parent without a value.
 
    **Phase 2, still to do.** The `{> …}` production (§9) and the table description it needs; each transform and
    narrator reading the record through `readRecord` instead of the bridge and its private parser (the census note §3

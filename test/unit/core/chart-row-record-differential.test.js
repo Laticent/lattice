@@ -27,7 +27,7 @@ const CHARTS = {
   bar: { series: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   line: { series: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   'stacked-bar': { series: true, total: true, make: num, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
-  slope: { series: true, make: (r) => `${Math.round(r() * 80) + 5}%`, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
+  slope: { series: true, nestedOnly: true, make: (r) => `${Math.round(r() * 80) + 5}%`, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   piechart: { make: (r) => `${Math.round(r() * 40) + 5}%`, old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   funnel: { make: (r) => String(Math.round(r() * 900) + 50), old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
   'word-cloud': { make: (r) => String(Math.round(r() * 9) + 1), old: (x) => `\`${x}\``, rec: (x) => `\`{${x}}\`` },
@@ -50,7 +50,7 @@ function slide(chart, r) {
   const n = 2 + Math.floor(r() * 4);
   const ordered = r() < 0.15;
   const loose = r() < 0.2;
-  const nested = c.series && r() < 0.6;
+  const nested = c.series && (c.nestedOnly || r() < 0.6);
   const mark = (i) => (ordered ? `${i + 1}.` : '-');
   const out = { old: [], rec: [] };
   const sep = loose ? '\n' : '';
@@ -92,17 +92,50 @@ describe('generated slides: the record form equals the old form', () => {
         const was = engine.render(deck(chart, s.old), {}).html;
         const info = `${chart} seed ${seed}\n--- old ---\n${s.old}\n--- record ---\n${s.rec}`;
         const now = engine.render(deck(chart, s.rec), {}).html;
-        if (!/chart-frame/.test(was)) {
-          // A shape the chart declines (a flat slope) shows the list as written; the record form must decline too.
-          assert.doesNotMatch(now, /chart-frame/, `the record form draws what the old form declines: ${info}`);
-          continue;
-        }
-        drawn++;
+        if (/chart-frame/.test(was)) drawn++;
+        // On a slide the chart declines the list shows as written, and the record form must show the old-form list.
         assert.equal(now, was, `HTML differs: ${info}`);
         assert.equal(narrateChart(deck(chart, s.rec)), narrateChart(deck(chart, s.old)), `narration differs: ${info}`);
       }
       // Anti-vacuity: most generated slides must draw a chart in the old form, or equality proves nothing.
       assert.ok(drawn >= N * 0.6, `${chart}: only ${drawn} of ${N} old-form slides drew a chart`);
+    });
+  }
+});
+
+// The other direction (the inversion's arm): decks that write NO record for the row's value but put a
+// `{…}` pill in a detail bullet. Main drew these as pills and kept every data value; so must this.
+describe('generated slides: a pill in a detail bullet is still a pill', () => {
+  const FIELDS = { piechart: (r) => `${Math.round(r() * 40) + 5}%`, funnel: (r) => String(Math.round(r() * 900) + 50), waterfall: (r) => `+${num(r)}`, 'word-cloud': (r) => String(Math.round(r() * 9) + 1) };
+  const SERIES = { bar: num, line: num };
+  for (const [chart, make] of [...Object.entries(FIELDS), ...Object.entries(SERIES)]) {
+    test(chart, () => {
+      const N = Number(process.env.DIFF_N) || 40;
+      for (let seed = 1; seed <= N; seed++) {
+        const r = rng(seed * 104729 + chart.length);
+        const n = 3 + Math.floor(r() * 3);
+        const plain = [];
+        const withPills = [];
+        let injected = 0;
+        for (let i = 0; i < n; i++) {
+          const row = `- ${LABELS[i]} \`${make(r)}\``;
+          plain.push(row);
+          withPills.push(row);
+          if (r() < 0.6) { withPills.push(`  - vs plan \`{${r() < 0.5 ? '+' : '-'}${Math.floor(r() * 9) + 1}}\``); injected++; }
+        }
+        // A fields chart also takes a detail bullet under a row with no value of its own.
+        if (FIELDS[chart]) withPills.unshift('- Header row', '  - note `{+1}`'); // not counted: a row with no value draws no detail on main either
+        const info = `${chart} seed ${seed}\n${withPills.join('\n')}`;
+        const base = engine.render(deck(chart, plain.join('\n')), {}).html;
+        const html = engine.render(deck(chart, withPills.join('\n')), {}).html;
+        const values = (h) => [...h.matchAll(/data-value="([^"]*)"/g)].map((m) => m[1]);
+        if (!/chart-frame/.test(base)) continue;
+        if (!injected) continue;
+        assert.match(html, /chart-frame/, `the chart stopped drawing: ${info}`);
+        assert.ok((html.match(/lat-pill/g) || []).length >= injected, `a detail pill was lost: ${info}`);
+        assert.doesNotMatch(html, /<code>\{[+-]?\d+\}<\/code>/, `raw braces: ${info}`);
+        if (!FIELDS[chart]) assert.deepEqual(values(html).filter((v) => /^[+-]/.test(v) && !values(base).includes(v)), [], `a delta became data: ${info}`);
+      }
     });
   }
 });

@@ -29,7 +29,10 @@ where     — 1. The `{> …}` production and the table description (model note 
             5. Lint's `recordPlace` and `bridgeRecordsSource` read a row's lead per line, so a record on a continuation line, or after a
                bullet-character switch, can differ from the engine (no visible effect found); the narrator picks its chart by the first
                class token (`pictureDataClass`), not in dispatch order. Both go away when the kernels read `readRecord`.
-            6. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
+            6. Residuals found by the third review round (2026-10-17), no visible effect: lint's `recordPlace` differs from the engine after an
+               ordered-to-bullet list switch and after a margin comment; a record on `map` takes any `{word}`; the bullet kernel's keyword rows are
+               the only nested rows it reads as structure, so a record under a non-keyword nested row there is detail.
+            7. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
                finding 7, 2026-10-16); and `chart-table-unescaped-pipe` misses a row that does not grow
                (`| AM | 3 `{> a | b}` |` under a three-column header), and its `\|` fix still meets `pill-literal`.
 done when — no transform or narrator parses a row's spans itself; the bridge and `legacySpans` are deleted

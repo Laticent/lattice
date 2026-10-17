@@ -1725,6 +1725,10 @@
               "type": "boolean",
               "description": "A `>` blockquote indented under one of the chart's LIST rows is that row's description, read with the row's value-less nested bullets as its detail: shown on hover and tap and in the speaker note (lib/components/chart/_chart-family/mark-detail.js). False on a table chart, whose cells carry no list row, and on progress, whose nested note shows on the slide face."
             },
+            "nested": {
+              "enum": ["point", "point-unless-valued", "detail"],
+              "description": "What a record written on a row NESTED under another row is, as the chart's kernel reads that row today (lib/core/chart-rows.js `isDetailRow`). `point`: a series point whatever its parent holds (stacked-bar, whose valued category is the authored total; bullet, whose keyword rows are structure). `point-unless-valued`: a series point under a parent that holds no value of its own (a bar category, a line series, a slope entity, a radar series), and detail under one that does, where a pill is a pill. `detail`: every row below the first data depth is detail, whatever its parent holds (pie, funnel, map, waterfall, word-cloud, progress, and the point charts' notes). Detail rows keep their pills."
+            },
             "markless": {
               "type": "object",
               "description": "The list depths (1 = the top level) whose rows draw no mark of their own, so a `>` under them describes nothing: a radar series (its marks are its axes), a quadrant group (its marks are its points). Keyed like `rowDepth`: `default`, or a modifier present on the slide.",
