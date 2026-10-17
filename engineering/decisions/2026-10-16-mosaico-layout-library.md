@@ -506,6 +506,26 @@ calls, the fuzz refused only calls whose gap was at least the box's own height (
 it first found now gets a layout. Requiring every track to stay positive at the drawn
 height as well would have moved collage layouts, so where a box would get no room at that height `placed`
 scales the layout down whole instead. `test/unit/mosaico/spacing.test.js` pins all of it.
+### 8.4 Live logo wall: the revisit regression (2026-10-17)
+
+The owner recorded the Studio on an iPhone over a PR preview: arriving at a logo-wall slide showed only the
+captions for about 1.4 s, then the marks popped in and the rows re-laid out. Slice 3 caused it. The live stamp
+(`lib/transformers/logo-marks.js`) fetched every mark's SVG to read its shape on every visit, because nothing
+remembered a shape, and unlike the collage's it did not hide the list while measuring, so the unpacked grid
+painted first and jumped when the stamp landed. The preview deploy made each fetch slow: Cloudflare Pages served
+the content-hashed `/playground/v/<hash>/` folder with `max-age=0, must-revalidate`.
+
+The fix sits in the host, not in Mosaico: packing a wall takes under 0.1 ms, so caching a plan would save
+nothing. The runtime keeps one aspect per mark URL for the life of the document; the Studio patches slides inside
+one resident frame (`patchSlideBody`), so a revisit stamps in the same task, before its first paint. A failed
+fetch is forgotten, so it is retried. A first visit keeps the list at `data-logo-wall="measuring"`, now hidden as
+collage's is, capped by the same 4 s. `docs/public/_headers` gives the hashed folder a year's immutable cache on
+the previews; GitHub Pages ignores it and keeps sending `max-age=600`.
+
+`docs/e2e/logo-wall-revisit.spec.ts` drives the real Studio with every mark delayed 300 ms and logs the wall's
+state on each animation frame. Against main it fails on desktop and the WebKit phone project (the revisit
+refetches all 4 marks and paints `measuring` first); with the fix the revisit paints `packed` only, with 0
+fetches.
 
 ## 9. Decisions
 
