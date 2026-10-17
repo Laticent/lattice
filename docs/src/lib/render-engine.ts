@@ -60,6 +60,8 @@ export type RenderMarkdownOpts = {
 	 *  §4). `'flat'` also returns `flatCss`, for a host that shows slide content outside any
 	 *  slide (Read · Article); `css` keeps the scoped preview shape either way. */
 	styles?: 'scoped' | 'flat';
+	/** `'scope'` delivers the preview `css` with native `@scope (article.lattice)` instead of the pack. */
+	scoping?: 'pack' | 'scope';
 	/** This is the preview's own render: the code-package notice hears which packages failed in
 	 *  it (code-packages/door.ts). A scan, a gate or an export rendering on the side leaves it unset. */
 	codeStatus?: boolean;
@@ -79,6 +81,14 @@ export function setRenderOptsHook(hook: RenderOptsHook | null): void {
 	optsHook = hook;
 }
 export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
+
+function scopingOptIn(): boolean {
+	try {
+		return typeof localStorage !== 'undefined' && localStorage.getItem('lattice-scoping') === 'scope';
+	} catch {
+		return false;
+	}
+}
 
 /**
  * Render `source` through the engine. `PG` is passed explicitly (never read
@@ -143,6 +153,10 @@ export async function renderMarkdown(
 			withHook = opts;
 		}
 	}
+	// OPT-IN `@scope` delivery of the preview sheet (engine `opts.scoping`, lib/engine/css.js `scopeTheme`).
+	// Off unless this browser sets `localStorage['lattice-scoping'] = 'scope'`: the default render is
+	// byte-identical to before. It exists so the real Studio and Playground can be driven on both sheets.
+	if (scopingOptIn()) withHook = { ...withHook, scoping: 'scope' };
 	const out = await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
 	// The scan reads directive comments, and over every tracked deck it has never missed a chart the
 	// render drew. Should one ever slip past it, the dispatch recorded it: load it and render once more.
