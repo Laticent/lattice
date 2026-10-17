@@ -5586,20 +5586,21 @@ function attachableSource(src) {
   // repeat claims a distinction ("on the pre-Mermaid source rather than the rendered one") that
   // does not exist for that deck. Two warnings for one fault is how the real one stops being
   // read, which is the same failure this guard's own no-op regression had. Once per run.
-  // `--player` alone does not warn here: pass 2 already reported the same block boundary for it, and
-  // this message advises dropping a flag, which for the player would be the export itself.
-  if (!cut.measured && md !== rawMd && !attachableMemo.size && (EMBED_SOURCE || REOPENABLE)) {
+  if (!cut.measured && md !== rawMd && !attachableMemo.size) {
     // Names the flags that are on and the format, as `strippedSlidesOrAuthored` does: an author
-    // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`.
-    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean).join(' / ');
+    // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`. The
+    // player embeds the deck too (its envelope), so `--player` is named, but never offered as a
+    // flag to drop: for the player that would be the export itself.
+    const dropable = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean);
+    const flagList = [...dropable, PLAYER && '--player'].filter(Boolean).join(' / ');
+    const advice = dropable.length ? `Drop ${dropable.join(' / ')}, or move the comment out of the list.` : 'Move the comment out of the list.';
     console.warn(
-      `  WARNING: the deck source embedded in the .${OUT_FORMAT} could not have a note or say comment `
+      `  WARNING: the deck source embedded in the ${PLAYER && !dropable.length ? 'player' : `.${OUT_FORMAT}`} could not have a note or say comment `
       + 'removed without changing the deck. This is the block-boundary case --strip-notes '
       + `reports, measured separately here because ${flagList} embeds the deck as you `
       + 'wrote it, before the Mermaid pre-render, which is not the document the slides were '
       + 'rendered from. The text is still removed from every copy; the embedded source will '
-      + `re-import with that block boundary changed. Drop ${flagList}, or move `
-      + 'the comment out of the list.'
+      + `re-import with that block boundary changed. ${advice}`
     );
   }
   const out = stripSharedSource(src, noteStripSet, cut.boundary);

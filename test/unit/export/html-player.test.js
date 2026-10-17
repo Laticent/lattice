@@ -2728,18 +2728,27 @@ test('prunePlayerCss safelist splits compounds and functional pseudos, never sub
 	assert.doesNotMatch(keep('p.accent-body{a:5}', ['body']), /accent-body/);
 });
 
-// A relative `url()` in a deck someone sent you must not reach outside the deck's folder: the
-// inliner bakes whatever file it resolves to into the shared player. Found by the #2739 red team.
-test('resolveStyleUrls stays inside the deck folder, and the inliner embeds pictures only', () => {
-	const { resolveStyleUrls, fileToDataUri } = require('../../../lib/export/html-player.js');
-	const base = 'file:///decks/talk/';
-	const out = resolveStyleUrls('<div style="background:url(&quot;../secret.txt&quot;)"></div><div style="background:url(pic.svg)"></div>', base);
-	assert.ok(out.includes('url(&quot;../secret.txt&quot;)'), 'a path out of the folder is left unresolved');
-	assert.ok(out.includes('url(file:///decks/talk/pic.svg)'), 'a path inside it resolves');
+// What the inliner bakes into a shared player is limited by TYPE: pictures only, wherever they sit
+// (a sibling folder's logo is ordinary), and never another kind of file a deck names. A reference
+// to nothing stays as written, so no folder path rides into the file. Found by the #2739 red team.
+test('resolveStyleUrls resolves files that exist, and the inliner embeds pictures only', () => {
+	const { resolveStyleUrls, fileToDataUri, inlineFileUrls } = require('../../../lib/export/html-player.js');
 	const os = require('node:os');
 	const fs = require('node:fs');
 	const path = require('node:path');
-	const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mime-')), 'notes.txt');
-	fs.writeFileSync(f, 'private');
-	assert.equal(fileToDataUri(f), null, 'a file that is not a picture is never embedded');
+	const { pathToFileURL } = require('node:url');
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-inline-'));
+	fs.mkdirSync(path.join(root, 'deck'));
+	fs.writeFileSync(path.join(root, 'secret.txt'), 'private');
+	fs.writeFileSync(path.join(root, 'logo.svg'), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+	const base = pathToFileURL(path.join(root, 'deck') + path.sep).href;
+	const gone = [];
+	const html = resolveStyleUrls('<div style="background:url(&quot;../secret.txt&quot;)"></div><div style="background:url(../logo.svg)"></div><div style="background:url(typo.png)"></div>', base, gone);
+	assert.ok(html.includes('url(typo.png)'), 'a reference to nothing stays as written');
+	assert.ok(html.includes('url(&quot;../secret.txt&quot;)'), 'and so does a file that is not a picture: no folder path in the file');
+	assert.deepEqual(gone, ['../secret.txt (not a picture, so not embedded)', 'typo.png'], 'both reported, as written, with the reason');
+	const out = inlineFileUrls(html);
+	assert.match(out.html, /url\(data:image\/svg\+xml/, "a sibling folder's picture is embedded");
+	assert.doesNotMatch(out.html, /cHJpdmF0ZQ|private/, 'a file that is not a picture never is');
+	assert.equal(fileToDataUri(path.join(root, 'secret.txt')), null);
 });

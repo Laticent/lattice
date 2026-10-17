@@ -884,24 +884,31 @@ function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake
 	// transform leaked float noise into every one (`y="9.99996…"` against the CLI's
 	// `y="10.00005…"`). A frame holding another slide count than its render falls back to removing
 	// the FIT props.
-	const restore = authoredAttrs && authoredAttrs.length === sections.length;
-	if (!restore) console.warn(`[deck-export] the bake frame holds ${sections.length} slides for a ${authoredAttrs?.length ?? 0}-slide render; slide attributes are cleaned, not restored.`);
-	sections.forEach((sec, i) => {
-		if (!restore) {
-			for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
-			if (!sec.getAttribute('style')) sec.removeAttribute('style');
-			return;
-		}
-		const style = authoredAttrs[i].find(([name]) => name === 'style');
-		if (style) sec.setAttribute('style', style[1]);
-		else sec.removeAttribute('style');
-	});
+	// The player only. Read·Article keeps main's behavior: it needs no CLI parity, so its frame's
+	// stamps stay until the bake is done and only the FIT props go, after it (below).
+	const restore = playerBake && authoredAttrs && authoredAttrs.length === sections.length;
+	if (playerBake && !restore) console.warn(`[deck-export] the bake frame holds ${sections.length} slides for a ${authoredAttrs?.length ?? 0}-slide render; slide attributes are cleaned, not restored.`);
+	const dropFitProps = (sec) => {
+		for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
+		if (!sec.getAttribute('style')) sec.removeAttribute('style');
+	};
+	if (playerBake) {
+		sections.forEach((sec, i) => {
+			if (!restore) {
+				dropFitProps(sec);
+				return;
+			}
+			const style = authoredAttrs[i].find(([name]) => name === 'style');
+			if (style) sec.setAttribute('style', style[1]);
+			else sec.removeAttribute('style');
+		});
+	}
 	// …and the card-tag equalizer's section stamp put back, by the same kernel the CLI injects into
 	// its page (lattice.js `equalizeCardTagsInPage`). `--card-tag-block` is a measured LAYOUT input
 	// (base.card-tag.css reserves the tag's height from it), not frame chrome, and the restore above
 	// dropped it with the rest, so a tagged card's body lost its reserve under the tag. Run after the
 	// restore, so it writes the property the way the CLI's page does.
-	equalizeCardTags(doc);
+	if (playerBake) equalizeCardTags(doc);
 	// Bake each drawn figure's svg into a SELF-STYLED one with native <text> labels. The player
 	// sanitizes its slide DOM and that sanitizer bars both things a Mermaid svg leans on — its own
 	// injected `<style>` (all of mermaid's type + paint) and `<foreignObject>` (EVERY label: HTML
@@ -939,6 +946,7 @@ function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake
 		}
 	}
 	if (unbaked) console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
+	if (!playerBake) sections.forEach(dropFitProps);
 	// Runtime BOOKKEEPING is not deck content: `data-lattice-image-text` is the image-text fold's
 	// "decided already" mark (lib/core/bg-image.js), written by a DOM pass the CLI's page does not
 	// run, so it shipped in the Studio's file alone (§11.9).
