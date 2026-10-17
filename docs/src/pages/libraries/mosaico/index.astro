@@ -1,8 +1,9 @@
 ---
 // Mosaico — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/mosaico,
-// the `@laticent/mosaico` workspace). Two panels: a collage you build from photo shapes, packed by
-// the `tree` strategy into a box you pick, and a logo wall you can flip between the old equal
-// cells and the `rows` strategy's equal area, with every mark's area measured beside it. Reached
+// the `@laticent/mosaico` workspace). It shows the library, not Lattice's layouts: two panels, one
+// per strategy — `tree` packs up to six boxes of any shape into a container you pick, and `rows`
+// lays out a list of boxes you can flip between equal cells and equal area, with the area spread
+// measured beside it. Collage and logo-wall are named once each, as the Lattice layouts built on them. Reached
 // at /libraries/mosaico/; its Learn page is /libraries/mosaico/learn/ (src/content/catalog/).
 import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
@@ -87,6 +88,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			.note { margin: 10px 0 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
 			.panel[hidden] { display: none; }
 
+			.note code { font-family: var(--mono); font-size: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
 			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 			.foot a { color: var(--accent); }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -104,17 +106,17 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				<button class="theme" id="themeBtn" type="button">Theme</button>
 			</header>
 			<p class="promise">Every box keeps its shape, and every gutter comes out exact.</p>
-			<p class="sub">Build a <b>collage</b> from photos of any shape and watch every arrangement get searched in a few milliseconds, or flip a <b>logo wall</b> between equal cells and equal area and see the wide marks stop winning.</p>
+			<p class="sub">Two ways to pack boxes of any shape, both running live below. <b>Fill a box</b> searches every arrangement of up to six boxes for the one that wastes the least space. <b>Even weight</b> breaks a list into rows and gives every box the same area, so the wide ones stop dominating.</p>
 
 			<div class="tabs" role="tablist" aria-label="Strategy">
-				<button class="tab" role="tab" id="tabTree" aria-selected="true" aria-controls="panelTree" type="button">Collage · tree</button>
-				<button class="tab" role="tab" id="tabRows" aria-selected="false" aria-controls="panelRows" type="button">Logo wall · rows</button>
+				<button class="tab" role="tab" id="tabTree" aria-selected="true" aria-controls="panelTree" type="button">Fill a box · tree</button>
+				<button class="tab" role="tab" id="tabRows" aria-selected="false" aria-controls="panelRows" type="button">Even weight · rows</button>
 			</div>
 
 			<div class="stage">
 				<section class="panel" id="panelTree" role="tabpanel" aria-labelledby="tabTree">
 					<div class="controls">
-						<div class="group" id="shapes" aria-label="Add a photo"><span class="lbl">Add</span></div>
+						<div class="group" id="shapes" aria-label="Add a box"><span class="lbl">Add</span></div>
 						<div class="group" id="boxes" aria-label="Box shape"><span class="lbl">Box</span></div>
 						<div class="group" aria-label="Order"><span class="lbl">Order</span>
 							<button class="chip" id="free" aria-pressed="true" type="button">free</button>
@@ -124,12 +126,12 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					</div>
 					<div class="frame" id="treeFrame"></div>
 					<div class="stats" id="treeStats" role="status" aria-live="polite"></div>
-					<p class="note">Each photo keeps its exact shape; whatever the box's shape leaves over becomes matte, never crop. Click a tile to remove it. Up to six photos: the search tries every guillotine arrangement.</p>
+					<p class="note">Every box keeps its exact shape, and whatever the container's shape leaves over becomes empty margin, never a crop. Click a box to remove it. Up to six boxes: the search tries every guillotine arrangement. Lattice's <code>collage</code> layout is this strategy.</p>
 				</section>
 
 				<section class="panel" id="panelRows" role="tabpanel" aria-labelledby="tabRows" hidden>
 					<div class="controls">
-						<div class="group" id="marks" aria-label="Add a mark"><span class="lbl">Add</span></div>
+						<div class="group" id="marks" aria-label="Add a box"><span class="lbl">Add</span></div>
 						<div class="group" aria-label="Sizing"><span class="lbl">Sizing</span>
 							<button class="chip" id="cells" aria-pressed="false" type="button">equal cells</button>
 							<button class="chip" id="area" aria-pressed="true" type="button">equal area</button>
@@ -138,7 +140,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					</div>
 					<div class="frame" id="rowsFrame"></div>
 					<div class="stats" id="rowsStats" role="status" aria-live="polite"></div>
-					<p class="note">Equal cells draw each mark as large as a cell allows, so a wide wordmark takes the room. Equal area gives every mark the same area, unless that would stand it taller than a cap. Rows are balanced and centered.</p>
+					<p class="note">Equal cells draw each box as large as its cell allows, so a wide box takes the room. Equal area gives every box the same area, unless that would stand it taller than a cap. Rows are balanced and centered. Lattice's <code>logo-wall</code> layout is this strategy.</p>
 				</section>
 			</div>
 
@@ -193,11 +195,11 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			const BOXES: [string, number][] = [['16:9', 16 / 9], ['4:3', 4 / 3], ['1:1', 1], ['9:16', 9 / 16]];
 			const GAP = 0.02;
 			// Five different shapes that pack to under 1% matte in a 16:9 box.
-			let photos: number[] = [2 / 3, 3 / 2, 1, 12 / 5, 16 / 9];
+			let items: number[] = [2 / 3, 3 / 2, 1, 12 / 5, 16 / 9];
 			let box = 16 / 9;
 			let ordered = false;
 			const shapesEl = $('#shapes');
-			for (const [name, a] of SHAPES) shapesEl.append(chip(name, () => { if (photos.length < 6) { photos = [...photos, a]; render(); } }));
+			for (const [name, a] of SHAPES) shapesEl.append(chip(name, () => { if (items.length < 6) { items = [...items, a]; render(); } }));
 			const boxesEl = $('#boxes');
 			const boxChips = BOXES.map(([name, a]) => {
 				const b = chip(name, () => { box = a; render(); });
@@ -206,21 +208,21 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			});
 			$('#free').addEventListener('click', () => { ordered = false; render(); });
 			$('#ordered').addEventListener('click', () => { ordered = true; render(); });
-			$('#clear').addEventListener('click', () => { photos = []; render(); });
+			$('#clear').addEventListener('click', () => { items = []; render(); });
 
 			function renderTree() {
 				const frame = $('#treeFrame');
 				for (const [b, a] of boxChips) b.setAttribute('aria-pressed', String(a === box));
 				$('#free').setAttribute('aria-pressed', String(!ordered));
 				$('#ordered').setAttribute('aria-pressed', String(ordered));
-				for (const b of shapesEl.querySelectorAll('button')) (b as HTMLButtonElement).disabled = photos.length >= 6;
+				for (const b of shapesEl.querySelectorAll('button')) (b as HTMLButtonElement).disabled = items.length >= 6;
 				frame.style.aspectRatio = String(box);
 				frame.style.maxWidth = `calc(62vh * ${box})`;
 				frame.replaceChildren();
 				const stats = $('#treeStats');
-				if (!photos.length) { stats.textContent = 'Add a photo to start.'; return; }
+				if (!items.length) { stats.textContent = 'Add a box to start.'; return; }
 				const t0 = performance.now();
-				const res = pack(photos, { aspect: box }, { gap: GAP, order: ordered ? 'ordered' : 'free' });
+				const res = pack(items, { aspect: box }, { gap: GAP, order: ordered ? 'ordered' : 'free' });
 				const ms = performance.now() - t0;
 				if (!res.ok) { stats.textContent = `No layout: ${res.reason}`; return; }
 				// The layout is 1 tall and res.aspect wide; center it in the box (the leftover is matte).
@@ -235,12 +237,12 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					el.style.top = `${(oy + r.y * lh) * 100}%`;
 					el.style.width = `${(r.w / res.aspect) * lw * 100}%`;
 					el.style.height = `${r.h * lh * 100}%`;
-					el.textContent = ratio(photos[i]);
-					el.setAttribute('aria-label', `Photo ${i + 1}, ${ratio(photos[i])}: remove`);
-					el.addEventListener('click', () => { photos = photos.filter((_, k) => k !== i); render(); });
+					el.textContent = ratio(items[i]);
+					el.setAttribute('aria-label', `Box ${i + 1}, ${ratio(items[i])}: remove`);
+					el.addEventListener('click', () => { items = items.filter((_, k) => k !== i); render(); });
 					frame.append(el);
 				});
-				stats.innerHTML = `<span>arrangement <b>${res.arrangement}</b></span><span>matte <b>${(res.empty * 100).toFixed(1)}%</b></span><span>searched <b>${res.work.arrangements}</b> arrangements in <b>${ms.toFixed(1)} ms</b></span>`;
+				stats.innerHTML = `<span>arrangement <b>${res.arrangement}</b></span><span>empty <b>${(res.empty * 100).toFixed(1)}%</b></span><span>searched <b>${res.work.arrangements}</b> arrangements in <b>${ms.toFixed(1)} ms</b></span>`;
 			}
 
 			// ── Logo wall (rows) ─────────────────────────────────────────────────────────────
@@ -304,13 +306,13 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					el.className = 'box' + (marks[i] >= 3 ? ' warm' : '');
 					place(el, r);
 					el.textContent = ratio(marks[i]);
-					el.setAttribute('aria-label', `Mark ${i + 1}, ${ratio(marks[i])}: remove`);
+					el.setAttribute('aria-label', `Box ${i + 1}, ${ratio(marks[i])}: remove`);
 					el.addEventListener('click', () => { if (marks.length > 1) { marks = marks.filter((_, k) => k !== i); render(); } });
 					frame.append(el);
 				});
 				const areas = rects.map((r) => r.w * r.h);
 				const spread = Math.max(...areas) / Math.min(...areas);
-				$('#rowsStats').innerHTML = `<span>largest mark / smallest <b>${spread.toFixed(2)}×</b></span><span>rows <b>${equalArea ? 'balanced' : 'four, then the rest'}</b></span>${equalArea ? `<span>packed in <b>${ms.toFixed(2)} ms</b></span>` : ''}`;
+				$('#rowsStats').innerHTML = `<span>largest box / smallest <b>${spread.toFixed(2)}×</b></span><span>rows <b>${equalArea ? 'balanced' : 'four, then the rest'}</b></span>${equalArea ? `<span>packed in <b>${ms.toFixed(2)} ms</b></span>` : ''}`;
 			}
 
 			// A label that would spill out of its tile moves into the tile's tooltip.

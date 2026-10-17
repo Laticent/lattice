@@ -3,11 +3,11 @@ kind: library
 name: Mosaico
 order: 10
 promise: Every box keeps its shape, and every gutter comes out exact.
-intro: Hand Mosaico a set of photos or logos and a box to fill, and it returns a rectangle for each one. A photo keeps its own shape, the gutters come out exact, and the same input always gives the same layout.
+intro: Give Mosaico a list of boxes of any shape and a container, and it returns one rectangle per box. Every box keeps its own shape, the gutters come out exact, and the same input always gives the same layout. It is plain math with no DOM, so it fits anything that draws rectangles.
 group: Drawing and parsing
 inLattice: Lays out every collage, and sizes the marks on every logo wall.
 mark: /mosaico-mark.svg
-useWhen: You need to place pictures or marks of different shapes in one box, without cropping them, stretching them or letting the wide ones win.
+useWhen: You need to fit boxes of different shapes into one container, without cropping them, stretching them or letting the wide ones dominate.
 facts:
   - { k: Package, v: '@laticent/mosaico' }
   - { k: Status, v: Coming to npm with Lattice 1.0 }
@@ -31,14 +31,14 @@ reference:
 
 ## The problem
 
-You have five photos — tall, wide, square, a panorama, a slim column — and one box to put them in.
-The easy answers all lose something:
+You have a handful of boxes, each with its own shape (photos, video stills, logos, cards, charts),
+and one container to fit them in. The easy answers each give something up:
 
-- **A grid of equal cells** crops every photo to the cell, or leaves bands of empty matte around it.
-- **Justified rows** keep each photo's shape, but only in rows, and the box's height comes out
+- **A grid of equal cells** crops every box to the cell, or leaves bands of empty space around it.
+- **Justified rows** keep each box's shape, but only in rows, and the container's height comes out
   wherever it lands.
-- **Logos in equal cells** look fair and are not: a wide wordmark fills its cell's width, a tall
-  crest only its height, so the wordmark gets several times the area.
+- **Equal cells for marks of different shapes** look fair and are not: a wide box fills its cell's
+  width, a tall one only its height, so the wide one gets several times the area.
 
 ## The idea
 
@@ -77,9 +77,10 @@ needs only the container's shape.
 
 ## Where else it fits
 
-- A photo gallery or a product grid where the pictures arrive in any shape.
-- A sponsor or partner page, a "trusted by" strip, a team wall of crests.
-- Print layouts, canvas and SVG composition: the rectangles are plain numbers, not CSS.
+- A photo gallery, a product grid or a dashboard whose tiles arrive in any shape.
+- A sponsor or partner page, a "trusted by" strip, a wall of crests or app icons.
+- Print layouts, canvas and SVG composition, PowerPoint shapes: the rectangles are plain numbers,
+  and the CSS grid output is only one adapter.
 
 ## How Lattice uses it
 
