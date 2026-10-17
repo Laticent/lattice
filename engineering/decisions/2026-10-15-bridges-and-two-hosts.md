@@ -514,12 +514,23 @@ items in §4.4.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | **yes**. Worth having without `@layer` |
-| D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 125 on the gallery alone) |
-| D3 | VS Code presets for drawn plugins | **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which works today in the owner's VS Code. *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
-| D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
+| D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | ~~**yes**. Worth having without `@layer`~~ **Decided 2026-10-16 by the owner: no presets.** One bundle carries everything both VS Code and marp-cli need; Marp users are assumed able to use both. What it owes instead is a README that walks a technical newcomer through both routes, every step verified on the real tools, and a folder that opens as a VS Code project (#2742). |
+| D2 | Activate `@layer` behind a flattening bridge | **Decided 2026-10-16 by the owner: yes, adopt it, but validate its value first.** The validation is the three measurements below; activation waits on their numbers. Original recommendation: **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 125 on the gallery alone) |
+| D3 | VS Code presets for drawn plugins | **Decided 2026-10-16 by the owner: scripts allowed.** With no presets (D1), the bundle ships the live runtime and the README walks the reader to VS Code's *Disable* level; there is no frozen or as-is VS Code variant. Original recommendation: **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which works today in the owner's VS Code. *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
+| D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **Decided 2026-10-16 by the owner: yes, simplify first.** Original recommendation: **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
 | D5 | ~~Merge the code-plugin branch first, or adopt §5.3 first~~ | **Settled**: the code plugin merged (#2710) with `codeRenderer: true`. P2+P3 migrate it with the rest |
-| D6 | Third-party bridges (a package kind), or first-party only | **first-party** until a second bridge exists |
+| D6 | Third-party bridges (a package kind), or first-party only | **Decided 2026-10-17 by the owner: first-party only, for now.** Every bridge is written in this repo; revisit once a second bridge exists and shows what a public bridge API should look like. |
+
+**Editable PowerPoint from the Marp bundle (measured 2026-10-17, owner asked for the measurement
+first).** marp-cli 4.5.1's `--pptx --pptx-editable` (experimental; it converts through LibreOffice)
+was run on the `examples/a11y.md` bundle and compared, slide by slide, with the bundle's own PDF. It
+produces a .pptx with real text boxes in 12 s, and it is not usable for a Lattice deck: the theme's
+fonts fall back to a sans, every drawn chart and diagram turns into a filled blob (the pie a dotted
+rectangle, the radar a black disc), inline code becomes black bars that hide the text around it, and
+some text is lost outright (slide 2's XML reads "A pale e can't x" for "A palette can't fix"). The
+garbled text is read from the .pptx XML; the visual comparison was rendered through LibreOffice and
+is not verified in PowerPoint itself. **So the README does not offer it.** Editable PowerPoint and
+ODP stay where they already work: Lattice's own Share export, built on Calco.
 
 **The smallest alternative**, for comparison: do P0, and hard-wire a frozen default for VS Code
 inside `marp-bundle.js`. It fixes what hurts today (raw diagram source in the VS Code preview)

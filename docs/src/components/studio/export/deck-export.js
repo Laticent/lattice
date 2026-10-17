@@ -217,7 +217,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -390,6 +390,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	dir.file('marp.config.cjs', marpConfigCjs());
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
 	dir.file('.vscode/settings.json', vscodeSettings(themesList));
+	dir.file('.vscode/extensions.json', vscodeExtensions());
+	dir.file('.vscode/tasks.json', vscodeTasks());
 	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });

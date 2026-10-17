@@ -34,8 +34,17 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const STAGE_DIR = path.join(ROOT, 'tools', 'kit-branch', 'root');
 const { vscodeSettings } = require('../../../tools/build-marp-kit.js');
+const { vscodeExtensions } = require('../../../lib/core/marp-bundle.js');
 
 test('dist-kits branch-root staging', async (t) => {
+  await t.test('the root recommends Marp for VS Code, like every bundle', () => {
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(path.join(STAGE_DIR, '.vscode', 'extensions.json'), 'utf8')),
+      JSON.parse(vscodeExtensions()),
+      'The branch-root .vscode/extensions.json has drifted from lib/core/marp-bundle.js vscodeExtensions().',
+    );
+  });
+
   await t.test('the root .vscode fallback matches the kit generator, prefixed with marp/', () => {
     const generated = JSON.parse(vscodeSettings());
     const fallback = JSON.parse(
