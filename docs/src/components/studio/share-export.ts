@@ -207,34 +207,23 @@ function escAttr(s: string): string {
 }
 
 /**
- * Assemble a self-contained document equivalent to the emulator's `cleanDocHtml`
- * (the `docHtml` input `assemblePlayer` expects): base64 fonts + the deck CSS +
- * per-slide sizing + a11y texture defs + the rendered `<section>` slides. This
- * mirrors the emulator's scaffold (lattice.js htmlDoc) so the shared
- * assembler sees the same shape from either host. Offline by construction — the
- * `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
+ * The document `assemblePlayer` packs (its `docHtml`), built from the CLI's own pieces: the deck
+ * <style> is `exportDeckStyleText` (lib/export/export-scaffold.js), the same template lattice.js
+ * fills, with the deck's `style:` block packed by `exportGlobalCss`; the texture <defs> are the sets
+ * the page references, chosen as the CLI chooses them. Until 2026-10-17 this was a hand-written
+ * mirror that carried none of the Marp system rules, no `style:` block and every texture set, so
+ * the same deck packed two ways (decisions/2026-10-16-player-as-library-audit.md §11.9). The
+ * skip link and `<main>` the CLI's page also carries never reach a player, so they are left out.
+ * Offline by construction — the `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
  */
-function buildSelfContainedDoc(p: {
-	lang: string;
-	title: string;
-	fontCss: string;
-	css: string;
-	w: number;
-	h: number;
-	a11yDefs: string;
-	slides: string;
-	katexLink: string;
-}): string {
+function buildSelfContainedDoc(p: { lang: string; title: string; fontCss: string; deckStyle: string; a11yDefs: string; slides: string; katexLink: string }): string {
 	return `<!DOCTYPE html>
 <html lang="${escAttr(p.lang)}"><head><meta charset="utf-8">
 <title>${escHtml(p.title)}</title>
 <style id="lattice-embedded-fonts">${sanitizeStyleText(p.fontCss)}</style>
 ${p.katexLink}
 <style>
-@page { size: ${p.w}px ${p.h}px; margin: 0; }
-body { margin: 0; padding: 0; }
-${sanitizeStyleText(p.css)}
-section[data-lattice-slide] { width: ${p.w}px !important; height: ${p.h}px !important; }
+${p.deckStyle}
 </style></head><body>
 ${p.a11yDefs}
 ${p.slides}
@@ -339,9 +328,21 @@ type PlayerCore = {
 			now?: number;
 			build?: string;
 			playerVersion?: string;
+			host?: string;
 		},
 		caps: import('./player-caps-browser').PlayerCaps,
 	) => Promise<{ html: string; report: unknown }>;
+	/** The export document's deck stylesheet, the CLI's own (lib/export/export-scaffold.js). */
+	exportDeckStyleText: (p: { w: number; h: number; deckCss: string; globalCss?: string }) => string;
+	/** The deck's front-matter `style:` CSS, packed as the CLI packs it (lib/export/author-css.js). */
+	exportGlobalCss: (fmText: string, slidesHtml: string) => string;
+	/** The texture pattern sets the page references, as the CLI selects them (lib/core/accessibility-textures.js). */
+	texturePatternDefs: (only?: string[]) => string;
+	texturePrefixesReferencedIn: (text: string) => string[];
+	/** The engine's front-matter parser (lib/engine/directives.js). */
+	parseFrontMatter: (src: string) => { directives: Record<string, unknown>; body: string };
+	/** The engine version, from the root package.json at build time. */
+	ENGINE_BUILD: string;
 };
 
 /**
@@ -418,18 +419,15 @@ export async function shareHtmlPlayer(
 	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
 
 	onStatus?.('Embedding fonts…');
-	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
+	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
 		import('@/playground/font-embed.js'),
-		import('@/playground/deck-preview.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
 		import('@/lib/sanitize-slide-html.js'),
 		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
 	const fontCss = await fontMod.buildFontEmbedCss();
-	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
-	const a11yDefs = deck.A11Y_DEFS;
 	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
 	// `describe:` and `say:` ride as HTML comments, and every pipeline below this
 	// point destroys them — the capture frame sanitizes, and `sanitizeSlideHtml` deletes
@@ -762,14 +760,14 @@ export async function shareHtmlPlayer(
 	// engine bundle that predates the `styles` option exporting what it did before.
 	const deckCss = unwrapFlatSheet(out.flatCss ?? out.css);
 	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
+	const fmText = (source.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] ?? '';
+	const deckStyle = sanitizeStyleText(coreMod.exportDeckStyleText({ w, h, deckCss: css, globalCss: coreMod.exportGlobalCss(fmText, slides) }));
 	const docHtml = buildSelfContainedDoc({
 		lang,
 		title,
 		fontCss,
-		css,
-		w,
-		h,
-		a11yDefs,
+		deckStyle,
+		a11yDefs: coreMod.texturePatternDefs(coreMod.texturePrefixesReferencedIn(`${deckStyle}\n${slides}`)),
 		slides,
 		katexLink: needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
 	});
@@ -801,7 +799,8 @@ export async function shareHtmlPlayer(
 			width: w,
 			height: h,
 			theme: { name: palette, mode: scheme },
-			config: undefined,
+			// The deck's front-matter directives, read by the engine's own parser, as the CLI records them.
+			config: coreMod.parseFrontMatter(source).directives,
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
@@ -826,8 +825,11 @@ export async function shareHtmlPlayer(
 			// deck are byte-identical, and the same deck at the same epoch packs the same from either
 			// host (decisions/2026-10-16-player-as-library-audit.md §11). Nothing reads the stamp.
 			now: 0,
-			build: 'studio',
-			playerVersion: 'studio',
+			// The same provenance a CLI export stamps: the engine's version and the player's (the core
+			// defaults `playerVersion` to the one PLAYER_VERSION). Which tool made the file is the
+			// `host` field, the one piece of metadata host parity ignores (§11.9).
+			build: coreMod.ENGINE_BUILD,
+			host: 'studio',
 		},
 		caps,
 	);

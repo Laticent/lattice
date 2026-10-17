@@ -380,6 +380,14 @@ the same pinned instant (`SOURCE_DATE_EPOCH`, else the epoch), and
 `test/integration/export/player-reproducible.test.js` exports a deck twice and compares the bytes.
 Before 2026-10-16 the CLI stamped the wall clock there, the only byte that moved between runs.
 
+**The same deck gives the same player from the CLI and the Studio**, apart from three things: the
+time stamp, the policy's script hashes, and the envelope's `host` field (`cli` or `studio`), which
+records which tool wrote the file. Everything else is meant to match, formatting included: both
+hosts compose the deck sheet from the minified builds (`lib/export/cli-deck-sheet.js`
+`shippedSheetText`), build the document's stylesheet from `lib/export/export-scaffold.js`, embed
+the same font files, and stamp the same `build` and `playerVersion`. What still differs is listed
+in `engineering/decisions/2026-10-16-player-as-library-audit.md` §11.9.
+
 **What keeps a player file small**, in the order the passes run. Both hosts run every pass with
 the same code: the first two inside `assemblePlayer`'s tail (`player-seal.mjs` `sealPlayer`,
 which also writes the CSP), the rest in `player-prune.js` `prunePlayerHtml`, to which each host

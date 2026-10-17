@@ -898,6 +898,29 @@ Share → Webpage export:
 Each row is a change to exported bytes in one host or both, and the font row also changes what the
 Studio's own preview draws. Followup `2739-p1` carries this table as its work list.
 
+**The definition, ruled by the owner on 2026-10-17.** Parity is the same content and the same
+metadata from both hosts, ignoring three things: the time stamp (`generatedAt`), the signing hashes
+(the policy's script hashes, which follow from the script), and which host made the file (the new
+`host` record field, `cli` or `studio`). Formatting counts. The owner asked for the whole gap,
+diagrams included, in this PR.
+
+**Measured on a 12-deck corpus** (`.scratch` comparator: record fields, policy, scripts, every
+stylesheet by bytes and by meaning, fonts per face, slide markup with sorted attributes, visible
+text), after the first round of fixes:
+
+| Fix | What it closed |
+|---|---|
+| Both hosts compose the deck sheet from the minified builds (`shippedSheetText`, also `tools/palette-sweep.js`) | every stylesheet byte difference on decks without math or diagrams. The CLI's PDF pages rasterize to identical PNGs (html-player, a11y, chart-family-coverage) |
+| The Studio builds its document from `exportDeckStyleText` and the CLI's texture selection; the `style:` packing moved to `lib/export/author-css.js` | the page-number rule, `position:relative`, the notes and description rules; six unused texture sets |
+| Six Studio woff2 copied from `assets/fonts/`, held by a new byte check in `fonts:check`; `GLYPH_UPPER_FONTS` re-pinned (`fonts:measure`: 0 under) | Outfit 400/700, Caveat 400/700, Shantell 400/700 |
+| `PLAYER_VERSION` in one module, `ENGINE_BUILD` from `package.json` into the Studio bundle, `config` from the engine's parser, `host` added | the record |
+| The bake restores each slide's engine `style` attribute | the browser's re-serialized style and the `--_sec-1cqi` stamps |
+
+Full parity now on html-player, chart-family-coverage, build, studio-present and backdrop-register.
+Still open, in order: KaTeX (the Studio's math player ships no KaTeX font faces), Mermaid (two
+pipelines, and the CLI envelope's baked "source", the re-import bug the 2026-08-05 note records),
+the `size: story` deck, and small markup differences on collage and avatars.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever

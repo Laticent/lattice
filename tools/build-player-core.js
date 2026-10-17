@@ -41,11 +41,22 @@ const silent = argv.includes('--silent') || check;
 // level (they were already bundled, only reachable internally via buildArticle) so
 // the browser can run the same DOM speech projection live — the Studio Present
 // read-aloud path, not just the CLI export (2026-07-11-manifest-speech-contract).
+// The export document's scaffold, the deck's own `style:` CSS and the texture defs are exported
+// for the Studio's Webpage export, which builds its document from the CLI's own functions
+// (decisions/2026-10-16-player-as-library-audit.md §11.9).
 const ENTRY_CONTENTS = `
 export {
   assemblePlayer, playerCss, playerJs, buildArticle, minifyCss, escapeText, escapeAttr, rehostContainerCss,
 } from './player-core.mjs';
 export { projectDeckToProse, projectDeckToScript, projectDeckToSpeech } from '../transformers/prose-projection.mjs';
+export { exportDeckStyleText } from './export-scaffold.js';
+export { exportGlobalCss } from './author-css.js';
+export { texturePatternDefs, texturePrefixesReferencedIn } from '../core/accessibility-textures.js';
+export { PLAYER_VERSION } from './player-version.js';
+export { parseFrontMatter } from '../engine/directives.js';
+// The engine's version, which the CLI reads from package.json and the browser cannot: the record's
+// \`build\` field (lattice-doc.js), so a Studio export stamps the same engine version a CLI one does.
+export const ENGINE_BUILD = ${JSON.stringify(require('../package.json').version || '')};
 `;
 
 const BUILD_OPTIONS = {

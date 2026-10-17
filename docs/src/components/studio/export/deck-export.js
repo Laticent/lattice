@@ -709,6 +709,15 @@ async function slideChannelRecord(html) {
 	return notesCore.slideNoteRecord(sections);
 }
 
+/** Each top-level slide's `style` attribute as the engine wrote it (null when it has none), in
+ *  order, read with the depth-aware section walker so a `<section>` nested in a slide is not a slide. */
+async function slideStyleAttrs(html) {
+	const { splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	return splitSectionsCore(String(html || ''))
+		.filter((p) => p.type === 'section')
+		.map((p) => new DOMParser().parseFromString(`${p.openTag}</section>`, 'text/html').body.firstElementChild?.getAttribute('style') ?? null);
+}
+
 // Inline styles the in-iframe FIT agent writes onto every section to scale the preview
 // to its pane (deck-preview.js fitAgent) — transient chrome, not deck markup, so they
 // must not be serialized into an exported artifact.
@@ -754,6 +763,7 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
  */
 export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
+	const authoredStyles = await slideStyleAttrs(render.html);
 	const { frame, dispose } = await createCaptureFrame(render, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
@@ -809,9 +819,24 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		if (unbaked) {
 			console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
 		}
+		// Every inline style the frame wrote onto a slide is frame chrome — the FIT agent's
+		// transform, the runtime's `--_sec-1cqi` / `--_sec-1cqh` size stamps — and none of it
+		// belongs in a file. Restoring the engine's own attribute drops all of it at once and keeps
+		// the engine's spelling: `removeProperty` made the browser re-serialize the whole attribute
+		// (`--theme: "indaco"; …`), so the same slide shipped differently from the CLI, whose page
+		// never touches it (decisions/2026-10-16-player-as-library-audit.md §11.9). A deck whose
+		// frame holds another slide count than its render falls back to removing the FIT props.
+		const restore = authoredStyles && authoredStyles.length === sections.length;
+		sections.forEach((sec, i) => {
+			if (restore) {
+				if (authoredStyles[i] == null) sec.removeAttribute('style');
+				else sec.setAttribute('style', authoredStyles[i]);
+			} else {
+				for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
+				if (!sec.getAttribute('style')) sec.removeAttribute('style');
+			}
+		});
 		for (const sec of sections) {
-			for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
-			if (!sec.getAttribute('style')) sec.removeAttribute('style');
 			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
 			// CLI's player carries none (mmdc replaces the fence outright). It is already
 			// `display:none`, and both the visibility and the SVG sizing rules are written as
