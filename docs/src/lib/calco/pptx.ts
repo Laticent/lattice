@@ -32,7 +32,7 @@
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
-import { planMasters, withoutHoisted } from './masters.js';
+import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
@@ -281,7 +281,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 					const { runs, box, options: textOptions } = textOf(item.frame);
 					const role = item.frame.role;
 					// A title becomes a placeholder and a page number a field, when tidyPptx runs.
-					const roleTag = options?.groups && group === undefined && (role === 'title' || role === 'number') ? `${ROLE_TAG}${role}|` : '';
+					const roleTag = options?.groups && group === undefined && (role === 'title' || (role === 'number' && isPosition(item.frame, n))) ? `${ROLE_TAG}${role}|` : '';
 					const name = role ? `${ROLE_NAMES[role]} ${n}` : `Text ${n}.${item.index + 1}`;
 					s.addText(runs, { ...textOptions, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0, objectName: `${tag}${roleTag}${name}` });
 					continue;

@@ -17,7 +17,7 @@
  */
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame } from './layout.js';
-import { planMasters, withoutHoisted } from './masters.js';
+import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { renameFace } from './sfnt.js';
 import { drawOrder, type Insets, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
@@ -203,11 +203,11 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 	// A frame's placed box and its paragraph, as the browser drew it.
-	const textOf = (f: TextFrame) => {
+	const textOf = (f: TextFrame, position?: number) => {
 		const lead = dominantStyle(f.lines.find((l) => l.length) || f.lines[0]);
 		const box = placeFrame(f, W, metricsFor(lead, used, metricsCache), lead.size);
 		// A page number is a field, so it follows the slide when slides are moved.
-		const field = f.role === 'number' && f.lines.length === 1 && f.lines[0].length === 1;
+		const field = f.role === 'number' && position !== undefined && isPosition(f, position);
 		const body = f.lines
 			.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${field ? `<text:page-number text:select-page="current">${textBody(r.text)}</text:page-number>` : textBody(r.text)}</text:span>`).join(''))
 			.join('');
@@ -269,8 +269,8 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			`<draw:enhanced-geometry svg:viewBox="0 0 ${Math.round(geom.w * 100)} ${Math.round(geom.h * 100)}" draw:type="non-primitive" draw:enhanced-path="${pathOf(geom)}"/></draw:custom-shape>`
 		);
 	};
-	const frameXml = (f: TextFrame, name: string, placeholder = false): string => {
-		const { box, para } = textOf(f);
+	const frameXml = (f: TextFrame, name: string, placeholder = false, position?: number): string => {
+		const { box, para } = textOf(f, position);
 		// A title is the slide's title object, so Navigator and the outline list it.
 		const cls = placeholder && f.role === 'title' ? ' draw:layer="layout" presentation:style-name="prTitle" presentation:class="title" presentation:user-transformed="true"' : '';
 		return (
@@ -295,7 +295,8 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 					const chrome = (['header', 'footer', 'number'] as const)
 						.map((role) => {
 							const f = layout.chrome[role];
-							return f ? frameXml(f, ROLE_NAMES[role]) : '';
+							// A hoisted number is a field by construction: it equalled its slide's position.
+							return f ? frameXml(f, ROLE_NAMES[role], false, role === 'number' ? Number(f.lines[0][0].text) : undefined) : '';
 						})
 						.join('');
 					return `<style:master-page style:name="${masterName(li)}" style:page-layout-name="PM1" draw:style-name="Mdp${li + 2}">${chrome}</style:master-page>`;
@@ -312,7 +313,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 				const xml = items
 					.map((item) =>
 						'frame' in item
-							? frameXml(item.frame, nameOf(item.frame, n, item.index), group === undefined)
+							? frameXml(item.frame, nameOf(item.frame, n, item.index), group === undefined, n)
 							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`, item.label),
 					)
 					.join('');
@@ -358,7 +359,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 <office:automatic-styles>
 <style:page-layout style:name="PM1"><style:page-layout-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm" fo:page-width="${page.w}cm" fo:page-height="${page.h}cm" style:print-orientation="${page.w >= page.h ? 'landscape' : 'portrait'}"/></style:page-layout>
 <style:style style:name="Mdp1" style:family="drawing-page"><style:drawing-page-properties draw:fill="none" presentation:background-visible="true" presentation:background-objects-visible="true"/></style:style>
-${layoutStyles}${automatic.join('')}
+${layoutStyles}${masters ? automatic.join('') : ''}
 </office:automatic-styles>
 <office:master-styles>
 ${masterXml}

@@ -228,5 +228,15 @@ describe('calco odp — layouts, roles and the locked picture', () => {
     const styles = await read(zip, 'styles.xml');
     assert.match(styles, /<style:master-page style:name="Default"/);
     assert.doesNotMatch(await read(zip, 'content.xml'), /protect/);
+    assert.doesNotMatch(styles, /style:name="gr1"/, 'styles.xml gains nothing in picture mode');
+  });
+
+  test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {
+    const d = deck();
+    d.slides[1].frames[2] = frame([[{ text: '2.2', style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+    const { zip } = await open(d);
+    const content = await read(zip, 'content.xml');
+    assert.match(content, /<text:span[^>]*>2\.2<\/text:span>/);
+    assert.doesNotMatch(content, /<text:page-number[^>]*>2\.2</);
   });
 });

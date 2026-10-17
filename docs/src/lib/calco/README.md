@@ -61,7 +61,7 @@ transparent foreground.
 
 With backgrounds or roles, the writers use one master page (`.odp`) or layout (`.pptx`) per
 distinct background plus the chrome its slides share: a title is a title placeholder, a page
-number a slide-number field, and a header, footer or page number that two or more slides
+number a slide-number field (when it equals the slide's position), and a header, footer or page number that two or more slides
 share on a background is drawn once on the layout (`planMasters`). A slide with no shared
 background keeps its own opaque picture and its own chrome, because a layout paints under the
 slide's picture. The slide picture is locked against moving and resizing.

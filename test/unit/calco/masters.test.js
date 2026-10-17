@@ -55,6 +55,16 @@ describe('calco masters — planMasters', () => {
     assert.deepEqual(plan.layouts[0].chrome, {});
   });
 
+  test('a page number that is not the slide position (a split run prints "2.2") or has more than size/color/face is never hoisted', () => {
+    const split = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20 });
+    const spaced = (n) => frame([[{ text: String(n), style: style({ size: 12, letterSpacing: 1 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20 });
+    const a = planMasters(deck([slide([split('1')], { background: 0 }), slide([split('2.2')], { background: 0 }), slide([split('3')], { background: 0 })]));
+    assert.equal(a.hoisted[1].size, 0, 'the split-run number stays literal text');
+    assert.equal(a.hoisted[0].size + a.hoisted[2].size, 2, 'numbers that equal their position still hoist');
+    const b = planMasters(deck([slide([spaced(1)], { background: 0 }), slide([spaced(2)], { background: 0 })]));
+    assert.equal(b.hoisted[0].size + b.hoisted[1].size, 0, 'letter-spacing would be dropped by the layout number');
+  });
+
   test('withoutHoisted empties the hoisted frames and keeps every index', () => {
     const s = slide([header(), number(1)], { background: 0 });
     const out = withoutHoisted(s, new Set([0]));

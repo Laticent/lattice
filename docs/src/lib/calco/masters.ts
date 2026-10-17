@@ -44,6 +44,17 @@ function single(frame: TextFrame): boolean {
 	return frame.lines.length === 1 && frame.lines[0].length === 1;
 }
 
+/** Whether a page number frame reads as the slide's 1-based position. */
+export function isPosition(frame: TextFrame, position: number): boolean {
+	return frame.lines.length === 1 && frame.lines[0].length === 1 && frame.lines[0][0].text.trim() === String(position);
+}
+
+/** Whether a run has only the styling a layout's slide number can carry. */
+function plain(frame: TextFrame): boolean {
+	const st = frame.lines[0][0].style;
+	return !st.letterSpacing && st.alpha === 1 && !st.italic && !st.underline && !st.strike && !st.smallCaps && st.transform === 'none';
+}
+
 /** What makes two frames "the same thing in the same place". The page number's digits are not part of it. */
 function signature(frame: TextFrame): string {
 	const run = frame.lines[0][0];
@@ -51,7 +62,7 @@ function signature(frame: TextFrame): string {
 }
 
 /** A slide's candidate chrome: the one frame of each role that a layout could draw. */
-function candidates(slide: Slide): Map<ChromeRole, { index: number; sig: string }> {
+function candidates(slide: Slide, position: number): Map<ChromeRole, { index: number; sig: string }> {
 	const frames = slide.frames || [];
 	// A frame that a card carries, or that is a label's own text, moves with its shape.
 	const bound = new Set<number>();
@@ -61,6 +72,11 @@ function candidates(slide: Slide): Map<ChromeRole, { index: number; sig: string 
 		const role = frame.role as FrameRole | undefined;
 		if (!role || !(CHROME_ROLES as readonly string[]).includes(role)) return;
 		if (frame.group !== undefined || bound.has(index) || !single(frame)) return;
+		// A page number is a field only when it IS the slide's position: a split run prints "2.2", and
+		// numbering resumes after it, so the office app's own count would disagree with the page.
+		if (role === 'number' && !isPosition(frame, position)) return;
+		// A layout's number carries size, color, face, weight and alignment, and no more.
+		if (role === 'number' && !plain(frame)) return;
 		const list = found.get(role as ChromeRole) || [];
 		list.push({ index, sig: signature(frame) });
 		found.set(role as ChromeRole, list);
@@ -73,7 +89,7 @@ function candidates(slide: Slide): Map<ChromeRole, { index: number; sig: string 
 /** Plan the layouts of a deck. */
 export function planMasters(deck: Deck): MasterPlan {
 	const slides = deck.slides;
-	const cands = slides.map(candidates);
+	const cands = slides.map((sl, i) => candidates(sl, i + 1));
 	// How many slides, on one background, carry each (role, signature).
 	const seen = new Map<string, number>();
 	const key = (slide: Slide, role: ChromeRole, sig: string) => `${slide.background ?? -1}|${role}|${sig}`;

@@ -46,9 +46,16 @@ and `cards-stats-actors-kpi`:
   by a level between slides that draw the same thing; exact hashes missed it). A flat
   background is a solid fill with no picture. Each distinct background is written once, on a
   `.pptx` layout (`<p:bg>`) or an `.odp` master page (`draw:fill-image`).
-  `splitKey(section)` hashes the computed style that produces the background, so slides that
-  draw the same thing are photographed once. Output is byte-identical with and without that
-  shortcut on all five decks.
+  `splitKey(section)` keys the computed style that produces the background (the slide, its
+  pseudo-elements, its decorative layer and **every descendant of that layer**), so slides that
+  draw the same thing are photographed once. The first version left out the layer's
+  descendants. The independent check found it on `examples/backdrop-register.md`, where the
+  mask inside `.backdrop` changes with the slide's classes: slide 3 got slide 2's background and
+  lost its grid and glow (20.6% of pixels wrong). With descendants in the key, that deck gets 9
+  backgrounds and slide 3 matches Chrome. The shortcut gave byte-identical output on the five
+  decks measured, which was not enough to prove it, so it is tested against a descendant-only
+  difference (`calco-split.test.js`). If it ever misfires, dropping it costs about +0.17 s per
+  slide and `describeBackground` still shares by pixels.
 - **A safety check where layers do not add up.** A transparent foreground over a background
   composites exactly, except where an element reads what is behind it. A slide with
   `mix-blend-mode` or `backdrop-filter` anywhere is checked against an opaque photograph, and
@@ -56,12 +63,14 @@ and `cards-stats-actors-kpi`:
   CLI prints how many slides did.
 - **Roles.** `readSlide` tags frames `title`, `eyebrow`, `subtitle`, `header`, `footer` and
   `number` from the page's own markup. The title is a title placeholder in both formats, and
-  LibreOffice lists it as a title object. A page number is a slide-number field. A header, footer
+  LibreOffice lists it as a title object. A page number is a slide-number field **only when it equals the slide's position**: a split run prints "2.2" and numbering resumes after it, so the office app's own count would show the wrong number (found by the independent check). Any other number stays literal text, and a number with letter-spacing, transparency, italic or underline is not hoisted, because a layout's slide number carries only size, color, face, weight and alignment. A header, footer
   or page number that two or more slides share on one background moves to the layout
   (`masters.ts`). A slide with no shared background hoists nothing, because a layout paints
   **under** the slide's picture and would hide the header.
 - **A lock.** The slide's content picture is protected against moving and resizing in the `.odp`
   (`style:protect`), and marked `noMove`/`noResize` in the `.pptx`.
+- **Picture-only `.odp` is unchanged**: `styles.xml` gains nothing unless the deck has layouts (a test pins it).
+- **Bounded page memory**: the page remembers at most 32 decoded image backgrounds; past that, a new background stands alone.
 
 **Eyebrow and subtitle are named text boxes, not placeholders.** Their position differs for
 almost every component, so placeholders would need a layout for each. **The running header is a

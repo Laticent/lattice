@@ -15,7 +15,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
-const { readSlide, splitSlide, restoreSplit } = require('@laticent/calco');
+const { readSlide, splitSlide, splitKey, restoreSplit } = require('@laticent/calco');
 const { captureSlides } = require('../../../lib/export/office-export');
 
 const FIXTURE = `<!doctype html><html><head><style>
@@ -103,6 +103,27 @@ describe('calco roles and background split in Chromium', () => {
     await h.evaluate(restoreSplit);
     const after = await state();
     assert.deepEqual(after, before, 'the DOM is exactly as it was');
+  });
+
+  test('splitKey tells two slides apart when only a descendant of the decorative layer differs', async () => {
+    await page.evaluate(() => {
+      const mk = (id, bg) => {
+        const s = document.createElement('section');
+        s.id = id;
+        s.setAttribute('data-lattice-slide', 'x');
+        s.innerHTML = '<div class="backdrop"><i></i></div>';
+        s.querySelector('i').style.cssText = `position:absolute;inset:0;background:${bg}`;
+        document.body.appendChild(s);
+      };
+      mk('k1', 'red');
+      mk('k2', 'blue');
+    });
+    const keys = [];
+    for (const id of ['k1', 'k2']) keys.push(await (await page.$('#' + id)).evaluate(splitKey));
+    assert.notEqual(keys[0], keys[1]);
+    await page.evaluate(() => {
+      for (const id of ['k1', 'k2']) document.getElementById(id).remove();
+    });
   });
 
   test('captureSlides shares one background across slides that draw the same thing, and falls back where a blend cannot be split', async () => {

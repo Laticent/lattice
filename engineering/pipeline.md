@@ -253,7 +253,7 @@ through and is not an object on any slide. A slide that blends or blurs what is 
 picture if the layers do not add back up; `lattice` prints how many slides did. Each frame also
 carries a `role` read from the page (`h1`/`h2`, the eyebrow and subtitle inline-code
 paragraphs, `<header>`, `<footer>`, `.lat-pagination`): the title is a title placeholder, the
-page number is a slide-number field, and a header, footer or page number that two or more
+page number is a slide-number field when it equals the slide's position (a split run's "2.2" stays text), and a header, footer or page number that two or more
 slides share on one background moves to the layout. The slide picture is locked against moving
 and resizing in the `.odp` (honored by LibreOffice and Collabora) and in the `.pptx` markup
 (LibreOffice ignores it). The cost is one more screenshot per distinct background and one for the

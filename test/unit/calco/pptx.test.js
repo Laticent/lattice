@@ -186,6 +186,15 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.ok(names(s3).includes('Slide number 3'));
   });
 
+  test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {
+    const d = deck();
+    d.slides[2].frames[1] = frame([[{ text: '2.2', style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide3.xml').async('string');
+    assert.match(xml, /<a:t>2\.2<\/a:t>/);
+    assert.doesNotMatch(xml, /type="slidenum"/);
+  });
+
   test('the slide content picture is locked against moving and resizing', async () => {
     const { text } = await open();
     assert.match(await text('ppt/slides/slide1.xml'), /<a:picLocks noChangeAspect="1" noMove="1" noResize="1"\/>/);

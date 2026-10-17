@@ -1219,7 +1219,7 @@ export function restoreSplit(section: HTMLElement): void {
 /**
  * A key for a slide's own paint: the computed style of the slide, of its two pseudo-elements
  * and of its decorative layer (the children `splitSlide` keeps in the background, with their
- * markup). Two slides with the same key paint the same background, so a caller that has
+ * markup, and every descendant's computed style). Two slides with the same key paint the same background, so a caller that has
  * photographed one need not photograph the other. A key can only miss a match (a property that
  * does not change the paint still splits keys), never invent one.
  *
@@ -1236,7 +1236,11 @@ export function splitKey(section: HTMLElement): string {
 	const parts = [css(section), css(section, '::before'), css(section, '::after')];
 	for (const el of Array.from(section.children) as HTMLElement[]) {
 		const cs = win.getComputedStyle(el);
-		if ((cs.position === 'absolute' || cs.position === 'fixed') && Number(cs.zIndex) < 0 && !(el.textContent || '').trim()) parts.push(el.outerHTML, css(el), css(el, '::before'), css(el, '::after'));
+		if ((cs.position === 'absolute' || cs.position === 'fixed') && Number(cs.zIndex) < 0 && !(el.textContent || '').trim()) {
+			parts.push(el.outerHTML, css(el), css(el, '::before'), css(el, '::after'));
+			// What changes the paint is often a descendant (a mask or glow inside the layer), not the layer.
+			for (const d of Array.from(el.querySelectorAll('*'))) parts.push(css(d), css(d, '::before'), css(d, '::after'));
+		}
 	}
 	return parts.join('|');
 }
