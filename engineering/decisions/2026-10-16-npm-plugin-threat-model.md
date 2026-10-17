@@ -145,7 +145,7 @@ is refused, not sandboxed.
 Run the plugin's `render` in the existing locked page with a local listener on HTTP, WebSocket and
 UDP, the way `code-sandbox-network.test.js` already measures the code door. `hydrate` and
 `payload` do not run in the locked page; they run in a recipient's browser (§3.1), so v1 admits
-neither (§6 rows 3 and 4; that reading awaits the owner's confirmation) and part 3 covers the export. Three parts:
+neither (§6 rows 3 and 4; whether browser code is admitted is still unconfirmed) and part 3 covers the export. Three parts:
 
 1. **A canary plugin** kept in test fixtures. It is deliberately hostile and tries every exit:
    `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, an `<img>` or CSS `url()` beacon,
@@ -165,7 +165,10 @@ neither (§6 rows 3 and 4; that reading awaits the owner's confirmation) and par
    zero. Today they do not, so the check cannot pass without an export change (owner sign-off), and
    it must not pass by recording the exit and accepting it. Accepting an exit is a separate owner
    decision.
-4. **Keep the canary open-ended.** It is pinned to the listener and policy surface, not to a fixed
+4. **Data-return case (pending decision 10).** If npm plugins may return data for the host to write
+   onto the page or into shared context, the canary also tries the rejections listed under
+   decision 10.
+5. **Keep the canary open-ended.** It is pinned to the listener and policy surface, not to a fixed
    list. Any exit a reviewer names is added before the door opens, and the canary runs in
    Chromium, WebKit and Firefox as §3.1 did.
 
@@ -185,7 +188,7 @@ neither (§6 rows 3 and 4; that reading awaits the owner's confirmation) and par
   Edge case: if the layer probe at approval time fails, nothing is pinned, and no later render of
   that approval is refused for a weak layer.
 - Anything the plugin does through legitimate output: a misleading chart is still a chart.
-- A hostile `bake`: none runs in v1 (§6 decisions 3 and 4, pending the owner's confirmation of the render-only reading). A later version that admits one reopens this.
+- A hostile `bake`: none runs in v1 (§6 decisions 3 and 4; the owner's answer on what a plugin may contribute is decision 10). A later version that admits one reopens this.
 - State carried across slides: one worker serves every slide a package claims in a render, so a
   plugin can carry text from an earlier slide into later output. It stays inside one deck and
   reaches the page only as sanitized markup.
@@ -199,7 +202,7 @@ question that came out of this review.
 |---|---|---|
 | 1 | Add G1 to `build:check`? | **Yes, measure first.** Time the check, show the owner the number, and add it only if the cost is small. |
 | 2, 5 | Add the canary harness, and make it plus G1 to G3 the exit criteria for phase G? | **Yes, required.** The npm door does not open while the harness is red. G1 is an exit criterion only if decision 1 adds it; if its measured cost is too high, the exit criteria are the harness, G2, G3 and G5. The harness is a test in the integration tier, not a new CI job. |
-| 3, 4 | Where does an npm plugin's `bake` run, and does the Studio or desktop app load an npm plugin? | **Locked page only.** npm plugins render in the locked Chromium page, as the code door does. No `bake`, and no loading in the Studio or desktop app, in v1. Read as: an npm plugin contributes `render` only. No `hydrate`, `payload` or inline code reaches an export. Confirm this reading. |
+| 3, 4 | Where does an npm plugin's `bake` run, and does the Studio or desktop app load an npm plugin? | **Locked page only.** npm plugins render in the locked Chromium page, as the code door does. No `bake`, and no loading in the Studio or desktop app, in v1. **What a plugin may contribute is not settled by "render only".** Asked whether v1 npm plugins may contribute drawing code only, the owner answered (2026-10-17): plugins mostly render today, but more kinds are coming, including plugins that return data and render nothing, so "a plugin can render something, but it can also return data which can be used as data attributes added to either the context or the HTML, beyond their own rendered HTML fragments." Recorded as decision 10 below. Code that runs in a recipient's browser (`hydrate`, `payload`) is still not admitted in v1; that reading was not contradicted and is still unconfirmed. |
 | 6 | Should a code package be refused outright where the OS layer reads OFF? | **Keep today's behavior, and investigate.** Today the consent text names the layer, the approval is pinned to it, and the owner or user may approve at OFF. Log an investigation into what refusing OFF would break (below). |
 
 **Decision 6 in plain terms.** Lattice runs a code package in a browser with no network. Under that
@@ -218,9 +221,10 @@ Three more decisions came out of the red team and inversion reviews. The owner a
 
 | # | Question | Decision |
 |---|---|---|
-| 7 | Do npm plugins inherit "may be approved at OFF"? | **No, refuse.** An npm plugin does not run when the OS layer reads OFF. I read "the layer cannot be determined" as OFF, so a failed probe refuses too; confirm this reading. Code packages keep today's behavior (decision 6). |
+| 7 | Do npm plugins inherit "may be approved at OFF"? | **No, refuse.** An npm plugin does not run when the OS layer reads OFF. A failed probe (the layer cannot be determined) counts as OFF, so it refuses too (owner, 2026-10-17). Code packages keep today's behavior (decision 6). |
 | 8 | Must an npm plugin have zero runtime dependencies? | **Reframed by the owner:** plugins are not npm packages whose dependencies Lattice installs. A plugin is a self-contained bundle built with all its dependencies, and Lattice downloads it as it is. Lattice never runs `npm install` for a plugin. |
 | 9 | Add G5, a check that Lattice never loads a plugin in Node? | **Yes.** The owner's reason: "we need to be safe." **G5 is also an exit criterion for phase G, like the harness (owner, 2026-10-17): the npm door does not open while the G5 test is red.** |
+| 10 | May an npm plugin return data (instead of, or besides, an HTML fragment) that the host writes onto the page or into the shared context? | **Yes, the owner wants this** (2026-10-17, quoted in rows 3 and 4). Not in the plugin plan today: the nearest points are `data` (a plugin's own data), `services`, `registers` and `providers`, and none of them lets a plugin write onto host HTML or shared context. **How it is bounded is open** (decision 10 below). |
 
 Decision 8 is a different model from the one this note started with, and it settles two of the
 gaps in §3. Gap 3 (install scripts and transitive dependencies) is closed by design, because
