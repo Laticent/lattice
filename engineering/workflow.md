@@ -953,6 +953,16 @@ never deliver the events that matter here:** "`main` moved", "this PR is now
 conflicted", and "CI passed" are all silent. There is no cheap signal that a
 parked PR has gone stale. This is HARD RULE #16.
 
+**When a check is red, or green in a way you doubt, read `engineering/gotchas/ci.md` before you
+act.** Six confusions recur while a PR waits, and each looks like a real result: a "green"
+beacon whose unit, integration and docs-build tiers were canceled by a newer push; a red event
+for a commit that is no longer the PR's head; a route-budget failure of a few bytes on a PR that
+changes only markdown; `studio-smoke` red or green on its own because the `ci` gate does not
+count it; a pre-push hook that throws in `lint:deck` because `dist/` is stale; and a build that cannot resolve
+a new `@laticent/<package>` because `npm install` has not run since you cut from `origin/main`. Compare the
+event's SHA with the PR's head first, and name the entry you used when you decide a failure is not
+yours.
+
 **Don't try to watch for drift.** An earlier version of this rule armed a
 continuous background `Monitor` that polled `origin/main` and rebased on every
 movement. It backfired two ways: against a parallel merge train it produced N
