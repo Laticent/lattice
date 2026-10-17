@@ -441,6 +441,46 @@ describe('the paths agree on the data row', () => {
     assert.ok(Date.now() - t < 3000, `lint and render in ${Date.now() - t} ms`);
   });
 
+  // Eighth round (2026-10-17): the third independent checker's confirmed defects.
+  test('the runtime ownership check is linear in the spans of one row', () => {
+    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const n = 3000;
+    const dom = new JSDOM(`<section class="bar"><ul><li>A ${'<code>{1}</code> '.repeat(n)}</li></ul></section>`);
+    const codes = [...dom.window.document.querySelectorAll('code')];
+    const t = Date.now();
+    for (const c of codes) isOwnedRecordElement(c);
+    assert.ok(Date.now() - t < 1500, `${n} spans in ${Date.now() - t} ms`);
+  });
+
+  test('a lead ends at a comment or a raw block in the DOM mirror, as it does in the engine', () => {
+    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const owned = (inner) => isOwnedRecordElement(new JSDOM(`<section class="bar"><ul>${inner}</ul></section>`).window.document.querySelector('code'));
+    assert.equal(owned('<li>EMEA <code>{4}</code><!-- x --></li><li>APAC <code>3</code></li>'), true);
+    assert.equal(owned('<li>EMEA <code>{4}</code><div>x</div></li><li>APAC <code>3</code></li>'), true);
+  });
+
+  test('raw HTML in a paragraph ahead of the list counts as a list ahead, as the bridge counts it', () => {
+    const html = engine.render(deck('bar', 'Intro <ul><li>x</li></ul> text\n\n- EMEA `{4.2}`\n- APAC `{1.8}`'), {}).html;
+    assert.doesNotMatch(html, /<code>\{4\.2\}<\/code>/);
+  });
+
+  test('a raw table ahead makes a matrix-grid\'s table the second one in the cell decoder too', () => {
+    const html = engine.render(deck('matrix-grid', '<table><tr><td>raw</td></tr></table>\n\n| Row | C0 | C1 |\n|---|---|---|\n| AMER | +3 | `{done}` |'), {}).html;
+    assert.match(html, /lat-pill/, 'the label pill stays a pill, as on main');
+  });
+
+  test('a record followed by a no-break space entity narrates as the old form does', () => {
+    assert.equal(rows.bridgeRecordsSource('- EMEA `{4.2}`&nbsp;\n- APAC `3`\n', ['bar']), '- EMEA `4.2`&nbsp;\n- APAC `3`\n');
+    assert.equal(rows.bridgeRecordsSource('<ul><li>x</li></ul>\n\n- EMEA `{4.2}`\n', ['bar']), '<ul><li>x</li></ul>\n\n- EMEA `{4.2}`\n', 'a raw list ahead: left alone');
+  });
+
+  test('rawBlockCounts stays bounded on a huge hostile raw block', () => {
+    const t = Date.now();
+    rows.rawBlockCounts(`<div>${'<a'.repeat(300000)}"${'x'.repeat(2000)}`);
+    rows.rawBlockCounts(`<a`.repeat(120000));
+    assert.ok(Date.now() - t < 1500, `${Date.now() - t} ms`);
+  });
+
   test('the source bridge reads CRLF', () => {
     assert.equal(rows.bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\n  - P `6.9`\n');
   });

@@ -60,3 +60,10 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                pill pass are linear on a row of many spans. Left: lint's `chart-row-record-unread` is silent on a heatmap `{value=3}`
                and on a `<code>{9}</code>` written in raw HTML after the chart's list (a pill in the runtime only, on `main` too);
                the narrator narrates a CRLF record row that the old form leaves null (an improvement, off the path).
+           12. Eighth round (2026-10-17, third independent checker on 584b63c): fixed here with a test each: the runtime ownership check
+               is linear in the spans of one row (it answered after reading the whole row's lead for every span); `rawBlockCounts`
+               is bounded on a huge raw block (the `ANY_TAG` comment claimed more than the 4000-piece bound gives); an inline raw
+               `<ul>`/`<table>` in a paragraph and a raw `<table>` ahead of a matrix-grid count as ahead in the pill pass and the
+               cell decoder; the source bridge reads a record before `&nbsp;` and leaves a record behind a raw list alone; the DOM
+               mirror ends a lead at a comment or a raw `<div>`/`<hr>`. Left, narration only and rare: a record in a double-backtick
+               span is drawn but not narrated; the narrator still rewrites a record after a quoted grid table or a `|` continuation line.
