@@ -18,7 +18,7 @@ where     — lib/core/os-sandbox.js (the layer reading), lib/packages/trust.js 
             and pinning), lib/packages/code-bundle.js (refuses a bundle with anything left
             external, contract note §8), lib/plugins/resolve.js (reads manifests as data); a new G5
             test beside test/integration/export/plugin-fence-door.test.js.
-done when — (a) an npm plugin does not run at layer OFF, or when the probe fails (the owner has yet to confirm that a failed probe counts as OFF), with a test for
+done when — (a) an npm plugin does not run at layer OFF, or when the probe fails (the owner confirmed on 2026-10-17 that a failed probe counts as OFF), with a test for
             each; (b) admission downloads one bundle, verifies its hash, and refuses a bundle with
             anything left external, with no `npm install` anywhere on the path; (c) a test plugin
             whose `index.js` writes a file when loaded leaves no file after admission and render.

@@ -14,9 +14,9 @@ why now   — the owner said on 2026-10-17 that plugins can return data, with or
             rendered fragment, and that the data can become attributes on the page or in the
             shared context beyond the plugin's own fragment. The plugin plan has no such point
             (the nearest are `data`, `services`, `registers` and `providers`), and the note's
-            sanitizer and harness only cover a rendered fragment.
+            sanitizer only covers a rendered fragment (the canary's data-return case is §5.2 part 4).
 where     — engineering/decisions/2026-10-16-npm-plugin-threat-model.md §6 decision 10 (the
-            proposed bounds); engineering/decisions/2026-09-27-plugin-system.md §4.3 (the
+            open limits); engineering/decisions/2026-09-27-plugin-system.md §4.3 (the
             contribution points); lib/plugins/resolve.js (declared equals contained);
             docs/src/lib/sanitize-slide-html.js and lib/core/sanitize-style-text.mjs (HARD RULE
             #22).

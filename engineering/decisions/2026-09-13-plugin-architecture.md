@@ -122,7 +122,7 @@ these change the deck's slide count.
 | Channel | May carry | Why |
 |---|---|---|
 | **In-tree** (first-party) | everything, T0–T3 | reviewed by us |
-| **npm** (`lattice-plugin-*`, a project dependency) | **code**, T0–T1, Node-side, resolved at build time. *Superseded for the npm door by `2026-10-16-npm-plugin-threat-model.md` §6: render-only in the locked page in v1.* | you ran `npm i`. You already execute the engine and 15 transitive dependencies in that process; a plugin there is no more privileged than any dependency you chose |
+| **npm** (`lattice-plugin-*`, a project dependency) | **code**, T0–T1, Node-side, resolved at build time. *Superseded for the npm door by `2026-10-16-npm-plugin-threat-model.md` §6: locked page only in v1, no bake, no code sent to a viewer's browser.* | you ran `npm i`. You already execute the engine and 15 transitive dependencies in that process; a plugin there is no more privileged than any dependency you chose |
 | **Shared zip / Studio / AI-generated** | **declarative only** — manifest, CSS, skeleton, DSL rules, provider tables | the recipient never consented, and the preview is a same-origin frame next to the user's OpenRouter key |
 
 The third row is the shipped threat model, unchanged. The second row is the one

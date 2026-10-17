@@ -15,7 +15,7 @@ why now   — the owner decided on 2026-10-17 that one model applies to every pl
             follow it today: its `bake` runs in a Node-driven page and its `hydrate` runs
             `mermaid.min.js` in the exported file's browser, both outside the sandbox.
 where     — lib/plugins/mermaid/mermaid.manifest.json (`hydrate`, `bake`, `payload`);
-            lib/plugins/math/ (not yet read beyond its manifest); lib/core/code-sandbox.js;
+            lib/plugins/math/math.render.js (loads KaTeX into the engine's Node process); lib/plugins/function-plot/ (hydrate + payload); lib/core/code-sandbox.js;
             engineering/decisions/2026-09-27-plugin-system.md §4.7 and §4.10.
 done when — a list of every in-tree plugin that ships `hydrate`, `payload` or `bake`, with a
             migration plan or a recorded exception for each; no new plugin ships browser code.
