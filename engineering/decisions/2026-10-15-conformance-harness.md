@@ -665,3 +665,101 @@ it is not a generated one; before, its findings were dropped from the generated 
 they are counted.
 
 CI's findings: 17 of 75 components (the card-row trigger scored 70% hit, 29% false alarm). I did not diff them against the sandbox run component by component, so the two are not claimed to match.
+
+### 13.9 The card-row trigger, relabeled and tuned (2026-10-17)
+
+Seven components hit the trigger on most of their own slides (§13.5). I rendered each and looked
+at its gallery (`.scratch` contact sheets, sent in the PR). Four are card rows by the corpus's own
+definition; three are not:
+
+| Component | Call | Why |
+|---|---|---|
+| `authority-chain` | candidate | A stack of equal full-width tier cards hugging the top, like `actors` rows. |
+| `checklist` | candidate | A stack of equal tinted row cards, centered by its own `justify-content:center`. |
+| `cycle` | candidate | A row of 4 to 6 equal stage cards joined by arrows. |
+| `premise` | candidate | A stack of equal bordered row cards beside the argument. |
+| `journey` | false | The hits are stage header tiles and swimlane rows: chart cells, not cards. |
+| `roadmap` | false | The hits are track rows of a grid and a swimlane; only `horizons` draws cards, one of five variants. |
+| `policy-recommendation` | false | Evidence items carry a left rail, not a box. The old trigger counted a one-sided border as a box. |
+
+**Why "candidate" and not `true`.** `component.cards-declared` fails a `true` label with no
+`cards` in its manifest, and the debt ledger takes entries only on the day a clause lands
+(§6.3 rule 1), so a `true` label would fail the build. Adopting `cards` on the four changes how
+they sit on the stage by default and is a composition ruling (§13.6 was one for three components).
+`test/conformance/card-row-corpus.json` now has a `candidates` map with a reason each; a candidate
+satisfies `component.card-row-labeled`, is scored as neither positive nor negative, and does not
+gate `cards-declared`. A candidate moves to `labels: true` in the change that adopts `cards`
+(followup `2717-p4`).
+
+**The trigger changed in three ways**, each found by scoring variants over the same 858 slides
+(`.scratch/p3/harness.js`, 45 s per variant):
+
+1. A box needs a painted background or a border on three or more sides (was: one side).
+2. Three or more boxes of the same height count even when their widths differ (a row of `stats`
+   hugs its text), and a pair of equal panels counts (`decision`, `compare-prose`, `split-compare`).
+3. A component "has a card row" when a third of its own slides trigger, not one. A single table or
+   grid in a gallery (`diagram` 2 of 29, `glossary`, `kanban`, `list-tabular`) is not its form.
+
+| | Hit rate | False-alarm rate |
+|---|---|---|
+| Before (§13.5, corpus of 23 + 52) | 70% (16 of 23) | 29% (15 of 52) |
+| After (corpus of 23 + 48, four candidates set aside) | 65% (15 of 23) | 15% (7 of 48) |
+
+The hit rate fell five points while false alarms halved. The variants that kept the old hit rate
+kept 29% to 31% false alarms. Still missed: `agenda`, `inventory`, `kpi`, `citation-card` (hit on
+only one or two variant slides), and `code`, `compare-code`, `q-and-a`, `team-profile` (no slide).
+Still extra: `columns`, `glossary`, `journey`, `obligation-matrix`, `redline`, `roadmap`, `table`
+(grids of equal cells). Neither rate is good enough to gate anything, so the trigger stays
+report-only. Bite tests pin the three changes (`decision` and `stats` hit, `policy-recommendation`
+misses).
+
+### 13.10 `rows` slide 4 fits; the render tier keeps counting stress slides (2026-10-17)
+
+`rows` was credited zero slides until §13.8, then reported `overflow on 1 slide(s)`. The slide is the
+gallery's `stress-slide`: progress over a four-column table with the Key Insight below both. The
+probe read `scrollH 2192` against `clientH 2148` at the 4K matrix size, and the cause was the table
+pane: the default 50/50 split gave it 313 px of stage for 357 px of table. The fix is the one the
+component's own docs give for evidence under a header (`rows ratio-35-65`), at a milder ratio:
+`rows ratio-45-55` on that slide. The probe now reads `over: false`, the export prints no
+`OVERFLOW` line, and the panes stay stacked. (`ratio-35-65` flipped the engine to side-by-side
+panes on this content, so it is not the answer here.)
+
+**The harness does not skip `stress-slide` slides.** A stress slide shows the most a component seats,
+so it is expected to fit at that ceiling; the 65 galleries that carry one all fit except those the
+nightly lists. A slide whose point is to overflow would need its own marker, and none exists. Skipping
+the marker would also have hidden this slide, which was a real defect: the table lost 44 px of
+content at 4K.
+
+### 13.11 The three phase 2 leftovers (2026-10-17)
+
+§9 row 2 listed three static items that did not land with #2729. Each is now a clause or is dropped
+with its reason.
+
+- **`isEnriched`, now a clause: `component.enriched`.** `tools/build-component-docs.js` and
+  `tools/build-galleries.js` skip a manifest that has none of `sample`, `whenToUse`, `antiPatterns`,
+  `related` or `variantDocs`, and say nothing. The clause fails that component. Day-one catches: none;
+  all 75 manifests are enriched (measured). It is a guard against the next component.
+- **Manifest autocomplete from the schema, done.** The Studio's raw-JSON manifest view completed
+  from a hand-written list of 9 keys and a hand-written `adapt.mode` list. The schema has 55 keys,
+  and `adapt.mode` has three values, not two (`single-orientation` was never offered). Day-one
+  catch: that missing value. `docs/src/components/studio/manifest-complete.ts` now reads
+  `lib/components/manifest.schema.json`, and a unit test pins the derivation.
+- **`anatomy-matches-render`, dropped.** The anatomy block is an ASCII drawing authored in
+  `tools/ascii-preview.py`; a render is pixels. Comparing them needs a second, machine-readable
+  description of the same layout, and that description would be the thing that drifts. The part that
+  can rot mechanically, a block id that no longer exists, already fails the build:
+  `resolveAnatomy` throws on an unknown id (measured today: 0 unknown ids). What is left is that 12
+  manifests carry no `anatomyBlock` (`bullet`, `heatmap`, `map`, `slope`, `contact`, `wifi`,
+  `collage`, `video`, `columns`, `rows` and two more); that is a docs gap, not a conformance finding,
+  and a clause over it would be a debt list with no defect behind it.
+
+### 13.12 One path classification (2026-10-17)
+
+`changedComponents` (the per-PR render tier) and `selectGalleries` (the player-contrast sweep) each kept
+a copy of "which paths can change a rendered component". Both now call `classifyPath` in
+`lib/conformance/changed-paths.js`, which returns `non-render`, `component`, `theme` or `other`; the
+selector keeps its conservative default (`other` selects every gallery) and the render tier keeps
+ignoring `other`. One behavior change, in the narrower direction: a prose-only edit under a component
+directory (`<name>.docs.md`) used to name that component for the per-PR render, and is now
+`non-render`, as the sweep always treated it. The generated `docs.md` changes only with its manifest,
+which still selects the component.

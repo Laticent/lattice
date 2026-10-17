@@ -1,0 +1,1 @@
+- `actors`: a roster of five to seven rows now renders each row as one line (responsibility, body, chip), so the seven-row ceiling fits the stage when each body is one line (about 10 words); longer bodies wrap and still overflow. Before, the stage seated four two-line rows and every title overprinted its body from the fifth.

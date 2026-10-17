@@ -228,7 +228,7 @@ last green run of this arm could have moved (`tools/player-contrast-select.js`, 
 "every gallery" for any path it does not recognize); on Sunday it audits all of them. The
 selector's rules, what it cannot see (a component's CSS leaking into another gallery; themes no
 gallery is on) and the measured saving are in
-`engineering/decisions/2026-10-16-player-contrast-galleries.md`. The sweep compares against
+`engineering/decisions/2026-10-16-player-contrast-galleries.md`. On Sunday (and on a manual dispatch) a second step audits a 41-deck sample of `examples/` for other themes and composed finish and register mixes (`player-contrast-select.js --examples`, about 8 min on 4 cores). The sweep compares against
 `test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with every theme
 and contrast change and a baseline blessed on a branch is stale before that branch merges — and
 fails only on a finding that is **new** or has got **worse**; the known sub-AA runs are tracked in
