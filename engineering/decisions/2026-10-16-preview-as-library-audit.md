@@ -213,7 +213,7 @@ the owner.
 | DOM nodes in a 522-slide stage | 722 (virtual) vs 25,494 (all mounted) | stay within 10% of 722 |
 | First slide, 522 slides, 1x CPU | 3,408 ms (virtual) | no regression |
 | Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
-| 500 posters resident | about 27 to 29 KB each at 1280 (§11b: 14.6 MB per 500), about 14 MB encoded; decoded size depends on capture size | tile-size captures; measured 0.2 to 0.5 MB per tile (§11b), so 500 tiles is +86 MB Chromium, +258 MB WebKit; bound the number created, since releasing is unreliable |
+| 500 posters resident | about 27 to 29 KB each at 1280 (§11b: 14.6 MB per 500), about 14 MB encoded; decoded size depends on capture size | tile-size captures and a pooled list; Chromium self-bounds (a capped, purgeable decode cache, about 0.5 GB here), WebKit holds 2.5x to 3.4x more when every poster is mounted, so cap creation for WebKit (§11b correction) |
 | Live frames | pool of a fixed N | N does not grow with the deck |
 | Keystroke cost | today every deck-context tile re-renders on every keystroke (`DeckPreview.tsx:543` keys on the whole deck) | per-unit invalidation only where the unit needs no deck context; whole-tail invalidation on a position shift |
 
@@ -403,8 +403,8 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   must carry only the faces the slide uses (the player already has a prune that does this).
   Unmeasured: the time saved by pruning.
 - **Decoded memory, measured (500 posters as `<img>` in a scrolling grid, whole process RSS).**
-  Each row is a delta over a baseline of 530 to 770 MB; the earlier note put run-to-run noise at
-  about 200 MB, so only the large gaps count.
+  Each row is a delta over a baseline of 530 to 770 MB. **First-pass numbers; see the red-team correction
+  below:** they summed every Chromium process on the machine and ran the arms one after another in one browser.
 
   | Engine | Poster size | Encoded | After mounting and scrolling all 500 | After dropping `src` on 475 |
   |---|---|---|---|---|
@@ -416,9 +416,7 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   **Capture at tile size.** A tile-size poster costs about 5x less than a full-size one on both
   engines, a gap well beyond the noise. At about 0.2 to 0.5 MB per tile it is also 40 to 100 times
   cheaper than the 18 to 40 MB per live frame implied by the earlier note's +600 to +1,300 MB for
-  33 frames. **Do not count on `removeAttribute('src')` to hand memory back:** it freed nothing on
-  Chromium and some on WebKit within 2.5 s. Removing the `<img>` nodes themselves was not tested.
-  So the map must bound how many posters it ever creates, not rely on releasing decoded ones.
+  33 frames. The `removeAttribute('src')` column cannot be credited to the attribute (see the correction).
   **Not measured:** a 2x (retina) tile at 640x360, which should land near 4x the tile-size cost,
   and any memory-pressure behavior (Linux has no iOS jetsam).
 - **A pooled virtual list of posters, measured (the owner's question, 2026-10-17).** The same 500
@@ -432,11 +430,29 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   | Linux WebKit | 320x180 | +258 MB | +145 MB |
   | Linux WebKit | 1280x720 | +1,340 MB | +392 MB |
 
-  **Pooling bounds DOM nodes, layout and (critically) live frames, but it does not bound decoded
-  image memory on Chromium**, which keeps its own decode cache whatever the element count; it helps
-  WebKit by 44% to 71%. The levers for posters are therefore poster pixel size and a cap on how many
-  are ever created, with the pool as the DOM-side half. Memory also stayed put after scrolling back
-  to the top, so nothing here releases promptly. Same limits as above: Linux engines, not iOS.
+  First reading (superseded by the correction below): pooling looked useless on Chromium and 44% to 71% better on WebKit.
+- **Correction from a red-team re-run (process-tree RSS and PSS over only the launched browser, a fresh browser per
+  repeat, 3 repeats, plus a simulated critical memory-pressure signal on Chromium).** Repeats agree within about
+  5 MB, so the earlier "200 MB noise" caveat was a property of the first method, not the browsers. Memory added,
+  500 posters, after scrolling end to end:
+
+  | Arm | Chromium | WebKit |
+  |---|---|---|
+  | pooled, 1280 | +488 MB | +409 to +418 |
+  | all mounted, 1280 | +492 | +1,373 to +1,402 (one run fell to +915 after 10 s idle, untouched) |
+  | pooled, 320 | +92 | +160 |
+  | all mounted, 320 | **+147** | +263 to +268 |
+  | pooled, 1280, **1,500 posters** | +560 | not run |
+  | after one critical-pressure signal | back to baseline (-5, -1 and -32 MB) | not available |
+
+  What this corrects: (1) **Chromium keeps decoded posters in a capped, purgeable cache** (about 0.5 GB on this
+  machine; tripling the posters added only 72 MB, and one pressure signal drops it to baseline even with all
+  500 mounted), so cost is not linear per tile and the "+86 MB for 500 tiles" line is the wrong model. (2) The
+  earlier unbounded 320 figure of +86 ran second in a warm browser; a fresh one gives +147, so **pooling does
+  help Chromium at 320, by about 37%**. (3) WebKit holds about 2.5x (at 320) to 3.4x (at 1280) more when every
+  poster is mounted, and **released about 460 MB by itself within 10 s**, so the earlier "dropping `src`
+  freed some on WebKit" is not attributable to the attribute. The lever "cap how many posters are created" holds
+  for WebKit; Chromium self-bounds. Tile size and a pooled list remain the right defaults. Linux engines only.
 - **The two lists differ rarely but really.** Across 281 example and baseline decks, the clear
   cases where the outline's slide count differs from the rendered section count are `focus.md`
   (11 authored, 14 rendered), `split-headings.md` (heading splits) and `auto-glossary.md`
@@ -465,7 +481,9 @@ screenshot of the same slide (mean absolute pixel error, 0 to 255):
 
 This explains the earlier gotcha about scaled `foreignObject` on WebKit, and it settles the tile pyramid:
 one native capture plus canvas downscales is **more correct** than capturing each size, and on Chromium 2 to
-3 times faster than three captures (180 to 200 ms against 390 to 670 ms). It also retires the first
+3 times faster than three captures. (Correction: the "180 to 200 ms" first quoted here was a 640x360 capture
+scaled inside the SVG, the method this finding condemns; a native 1280 capture is 206 to 317 ms. One native
+capture plus downscales is still faster than three.) It also retires the first
 spike's "derived vs direct" comparison, whose direct side was the scaled, wrong one.
 
 **2. Pruning the stylesheet saves bytes, not yet time.** Pruning font faces to the used families cut the SVG
@@ -486,8 +504,12 @@ effectively has. Not built.
 | bake with used-CSS capture, back-to-back / 16 ms gap | 39 / 39 | 44 / 72 |
 
 **Pacing spreads the hitches, it does not remove them.** Each capture is one 150 to 300 ms main-thread task
-(decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms), so no scheduler can hide it; only
-the *number of consecutive* long frames changes. A budgeted scheduler is still right, but its job is to
+(decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms), so no scheduler on the page's own
+thread can hide it; only the *number of consecutive* long frames changes. (Two corrections. WebKit does not run
+one monolithic task per capture: its slowest frame was 96 to 183 ms, with 69 to 76 frames over 50 ms for 40
+captures, where Chromium gave exactly 39. The phase split comes from the used-CSS capture. And a capture inside
+a cross-origin iframe may run in another process under site isolation and might not block the page at all; that
+arm was not run, so "bake it elsewhere" is a hypothesis until it is.) A budgeted scheduler is still right, but its job is to
 bake only while the user is idle, one capture at a time, so a hitch is at worst one frame at the moment an
 input arrives.
 
@@ -509,10 +531,16 @@ edit changed exactly 1 of 120 keys. Inserting a slide at the top of the gallery 
 |---|---|
 | raw `outerHTML` | **0 of 120** |
 | without the slide index, `id` and pagination attributes | 14 of 120 |
-| also with the visible page number (`<span class="lat-pagination">`) blanked | 107 of 120 |
+| also with the visible page number (`<span class="lat-pagination">`) blanked | 107 of 120 (first pass; see below) |
 
-The remaining 13 differ only in position-numbered ids inside generated SVG (`lat-svgt-79-1`), so a fuller
-normalization should reach nearly all. Two consequences: (a) the poster's page number is deck-derived and
+The first pass said the remaining 13 differed only in `lat-svgt-79-1`-style ids; **that was wrong** (normalizing
+those fixed 5; 8 were left). The rest were ids such as `url(#gantt-fill-pass-79-1)` and `#radar-area-85-1`, and
+`data-slide="82"` in a notes `<aside>`. Normalizing any `-<n>-<m>` inside an id or reference attribute, plus
+`data-slide`, keeps **120 of 120** on the real engine's re-render (checked against `gallery.html` and
+`gallery2.html`). Two limits: the playground's own insert demo renumbers exactly what its key ignores, so its
+"all valid" is true by construction and proves only the mechanism; and the "one edit changed 1 of 120 keys" test
+edited the DOM in place, so it cannot show slides that depend on the rest of the deck (agenda, glossary, totals)
+moving. Re-test the edit claim through a real engine re-render. Two consequences: (a) the poster's page number is deck-derived and
 must be drawn by the map (which already draws the slide number) or excluded from the capture; (b) a diagram
 slide's HTML differed between two page loads because the diagram had not finished drawing, so a key or
 capture taken before it settles is unstable.
@@ -526,6 +554,15 @@ fast, baker off, so only tile binding is measured (frames over 50 ms, out of abo
 | wireframes measured at bind | 0 | 1 to 4 (p95 46 to 48 ms) |
 | live DOM at tile size | 0 | **7 frames in the whole scroll, about 465 ms each** |
 
+**Corrections from the red team (2026-10-17).** The "pills, posters" row scrolled tiles with no baked posters (the
+cache had been cleared), so it measured placeholders or wireframes, not posters. With all 120 posters baked, scroll
+gave 0 frames over 50 ms in every run on both engines (3 repeats each). Binding a *cold* wireframe at bind time is
+the real cost on WebKit: 7 to 15 slow frames across the cache and typing builds (a reviewer measured 13, 15 and 7
+against 2, 3 and 3 for the build before them, about half of it the HUD's 400 ms refresh, now 1 s). Moving
+wireframe measurement into an idle queue (one at a time, after input has stopped 150 ms) gave 0 slow frames and a
+p95 of 17 ms on both engines, with every visible tile filled within 3 s of the scroll stopping. WebKit frame
+counts vary more than 2x between sessions, so quote three or more repeats and a range.
+
 Live DOM tiles are unaffordable in a scrolling map on WebKit even with a pooled list of 10, which is the
 case for the ladder: the map must not use live tiles outside a small window. Wireframe measurement at bind
 time costs WebKit a few frames, so it belongs in the idle queue, not in the bind path. In the same page,
@@ -536,7 +573,7 @@ against 0 with raw-HTML keys. Baking back-to-back while scrolling gave 31 to 66 
 tokens are `calc(N * var(--_sec-1cqi, 1cqi) …)`, but it writes `--_sec-1cqi` as a pixel constant from the
 declared `size:` (38.4 px for a 4K deck), and bakes the section size into an `!important` rule. Forcing only
 the section size left 112 px headings at 1280 wide (mean error 14 to 31 against the 4K render). Overriding the
-size and the unit together (`--_sec-1cqi: 12.8px`) gave near-identical slides. A thumbnail map can therefore
+size and the unit together (`--_sec-1cqi: 12.8px`) gave slides that are close at thumbnail size (a reviewer found up to 7.3 mean error and 6% of pixels off on one slide, where a line wraps one word earlier and px borders keep their authored thickness, so the match is not exact). A thumbnail map can therefore
 capture at 1280x720 whatever the deck declares; the live stage keeps the authored size. Twelve slides, median
 per slide, 4K against 1280x720 (960 and 640 behave like 1280 on time, and 640 is visibly worse on fidelity):
 
@@ -570,15 +607,24 @@ WebKit, excluding the engine's own re-render. Baker and cache policy:
 
 A reviewer's re-run reproduced the capture and entry counts on both engines and the Chromium frame counts within 1, but counted more slow frames on WebKit (6, 94, 65 and 80 in the four rows above, against 3, 47, 46 and 55 here): the direction holds, and WebKit frame counts vary about 2x between runs.
 
-Under the byte-budgeted LRU (0.25 MB, 50 entries) a full "bake every slide" held 13 entries and 0.24 MB after 124
-to 260 captures, and every tile in the map's window still had its poster, because the window is pinned. The edited
+Under the byte-budgeted LRU (0.25 MB, 50 entries) a full "bake every slide" held 13 entries and 0.24 MB, and every tile in the map's window still had its poster, because the window is pinned. **That first result hid a defect:** 124 to 260 captures for 120 slides was an endless re-bake loop, because the baker re-queued whatever the LRU had just evicted (a reviewer saw 69, 128, 187 and 245 captures at 15, 30, 45 and 60 s). Fixed with a 30 s cooldown after an eviction: a full bake is now exactly 120 captures and stops (Chromium 71, 120, 120 at 15, 30, 45 s; WebKit 93, 120, 120), holding 13 to 14 entries. The rule for the build: the baker's target set must fit the budget, or evicted keys need a cooldown. The edited
 tile showed its old poster (a dot marks it) until the new one landed, then the dot cleared.
+
+**Three more defects the review found, now fixed.** A failed capture was recorded against the slide's id, which superseded the last good poster and then was never retried; now a failure is recorded against the key only, leaves the old poster showing (verified with every capture forced to fail: the tile kept its old poster with the dot, nothing was superseded, and it was replaced once captures worked again), and is retried after 5 s. A stale poster was not pinned, so LRU could evict and revoke a blob still on screen; the latest baked key of every slide in a window is now pinned. And the key normalization was widened as described in item 5.
 
 **A flaw the test caught in my first supersede design:** it linked each new key to the previous one, but with
 back-to-back baking a capture can finish after the owner has moved on, so its entry was never replaced and the
 cache grew to 50 anyway. The working rule is simpler: keep the **latest baked key per stable slide id**, show it
 while the current key bakes, and drop the earlier one when a newer one lands, unless another slide still uses it.
 Policy, byte budget, entry limit, stale display and the idle gate are all options in the page.
+
+**Review status (2026-10-17).** Two independent agents reviewed §11b and §11c and the styles brief: a fact-check
+(about 45 claims confirmed, 4 refuted, about 9 unverifiable from saved output, key experiments reproduced on both
+engines) and a red team of the measurement methods (3 claims invalidated or reversed, 5 weakened, 6 playground
+defects, several attacks that held). Every correction above and every fix in the playground came from them. What
+survived: the capture recipe, native-size capture, the main-thread cost of a capture (39 slow frames per 40
+captures on Chromium; more, but not one task per capture, on WebKit), position-free content keys (now 120 of 120 on
+the real engine), the 1280 capture at thumbnail size, and the supersede and idle-gate rules.
 
 **What this changes in the design**
 
