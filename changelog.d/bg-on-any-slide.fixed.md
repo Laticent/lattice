@@ -5,3 +5,7 @@
 - **Added: `lint:deck` warns when a `![bg]` keyword does nothing.** `left` or `right` on a slide that
   is not `image` (the picture fills the slide instead), and a ratio such as `left:40%`, which is not
   read. Each warning names the fix.
+- **Fixed: a class directive written across lines places a `![bg]` beside the text.**
+  `<!--\n_class: image\n-->` is applied by the engine, but the CLI read only one-line directives, so
+  the picture filled the slide instead. A front-matter `class: image`, which the engine does not
+  apply as a deck class, no longer leaves an empty panel on the slide.

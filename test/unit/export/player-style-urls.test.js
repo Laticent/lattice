@@ -40,6 +40,22 @@ test('relative style URLs resolve against the deck folder; absolute, data: and f
 	assert.ok(out.includes('url(https://x.example/p.png),url(data:image/png;base64,AA),url(#g)'));
 });
 
+test('a style attribute written as TEXT is never rewritten: no folder path in a code sample', () => {
+	// Chromium writes `"` raw in text, so this inline code reads like a tag to a whole-document pattern.
+	const html = '<p><code>&lt;div style="background:url(a.png)"&gt;</code></p><section style="background:url(a.png)"></section>';
+	const out = resolveStyleUrls(html, base);
+	assert.ok(out.includes('<code>&lt;div style="background:url(a.png)"&gt;</code>'), 'the sample reads as written');
+	assert.ok(out.includes(`<section style="background:url(${base}a.png)">`), 'the real attribute still resolves');
+});
+
+test('a picture name that is a folder stays as written and is reported, so no path leaks', () => {
+	fs.mkdirSync(path.join(dir, 'folder.png'), { recursive: true });
+	const gone = [];
+	const out = resolveStyleUrls('<section style="background:url(&quot;folder.png&quot;)"></section>', base, gone);
+	assert.ok(out.includes('url(&quot;folder.png&quot;)'));
+	assert.deepEqual(gone, ['folder.png']);
+});
+
 const deck = (inner) => `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bg</title>
 <style id="lattice-embedded-fonts">@font-face{font-family:X;src:url(data:font/woff2;base64,AA)}</style>
 <style>section[data-lattice-slide]{color:red}</style></head><body>${inner}</body></html>`;

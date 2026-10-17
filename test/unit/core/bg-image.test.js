@@ -208,9 +208,24 @@ describe('bg-image — liftImageBgImages carries a class run to later slides', (
     assert.match(out, /lattice-bg-left[^>]*c\.svg/, 'a later slide inherits it');
     assert.match(out, /!\[bg\]\(d\.svg\)/, 'a class run without `image` ends it');
   });
-  test('front-matter `class: image` lifts every slide', () => {
+  test('front-matter `class:` seeds the run only with what the engine admits', () => {
+    // The deck-class register refuses a component name, so the engine renders these slides
+    // `content form`, and a lifted `![bg]` would draw an empty panel there.
     const out = lifted('---\ntheme: indaco\nclass: image\n---\n\n![bg left](a.svg)\n\n---\n\n![bg right](b.svg)\n');
-    assert.equal((out.match(/lattice-bg /g) || []).length, 2);
+    assert.equal((out.match(/lattice-bg /g) || []).length, 0);
+  });
+  test('front matter that never closes seeds nothing', () => {
+    const out = lifted('---\nclass: image\n\n# s1\n\n![bg left](a.svg)\n');
+    assert.match(out, /!\[bg left\]\(a\.svg\)/);
+  });
+  test('a class directive written across lines is still read', () => {
+    const out = lifted('# s1\n\n---\n\n<!--\n_class: image\n-->\n\n![bg left](a.svg)\n\n---\n\n![bg left](b.svg)\n');
+    assert.match(out, /lattice-bg-left[^>]*a\.svg/);
+    assert.match(out, /!\[bg left\]\(b\.svg\)/, 'and, as a spot class, stays on its slide');
+  });
+  test('a `---` inside an open comment is not a slide break', () => {
+    const out = lifted('<!-- _class: image\n---\n-->\n\n![bg left](a.svg)\n');
+    assert.match(out, /lattice-bg-left[^>]*a\.svg/);
   });
   test('a per-slide `_class: image` does not leak onto the next slide', () => {
     const out = lifted('<!-- _class: image -->\n\n![bg left](a.svg)\n\n---\n\n![bg left](b.svg)\n');

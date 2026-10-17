@@ -838,6 +838,28 @@ Not fixed: the ratio itself. `left:40%` still renders a full-bleed background ra
 layout's panel; reading Marp's split ratios is a feature of its own (a followup). P6 makes the lint
 say so.
 
+**After the rebase onto #2748.** main had fixed the same relative-background gap with its own
+inliner (`mapPlayerContexts`, a tag scanner), so the two were merged, and the checker found four
+defects where they met:
+
+- `resolveStyleUrls` still ran a pattern over the whole document. Chromium writes `"` raw in text,
+  so a code sample such as `<div style="background:url(pic.jpg)">` in inline code was rewritten to
+  the author's absolute `file://` path, and the inliner then rightly left that text alone. The
+  resolver now runs inside `mapPlayerContexts`, on `style` attributes only.
+- The resolver checked only that a path existed, so a folder named `x.png` also leaked its path. It
+  now requires a regular file.
+- `liftImageBgImages` read a class directive one line at a time and missed
+  `<!--\n_class: image\n-->`, which the engine applies. An open comment now runs to its `-->`, and a
+  `---` inside it is not a slide break.
+- main seeded the lift from a front-matter `class:` line, including one that never closed. The
+  deck-class register (`lib/core/deck-class-register.js`) refuses a component name such as `image`
+  as a deck class, so the engine rendered those slides `content form` and the lift drew an empty
+  panel. The seed is now `deckClassTokensFromFrontMatter` of a closed block, the tokens the engine
+  itself admits.
+
+Still open: a setext underline (`Title\n---`) reads as a slide break to the lift but as a heading
+to the engine (followups.d/2739-p10-bg-lift-setext-underline.md).
+
 ### 11.8 The Studio's player shipped the authoring overflow marker to its reader
 
 **Found while measuring §11.9**, and older than this work: the `main` export of
