@@ -105,7 +105,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			.block .lede b { color: var(--ink); font-weight: 600; }
 			.block .lede code { font-family: var(--mono); font-size: 13px; }
 			.tries { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
-			.try { width: 100%; height: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 14px/1.45 var(--sans); }
+			.try { width: 100%; height: 100%; text-align: left; background: var(--panel); border: 1px solid color-mix(in srgb, var(--muted) 70%, var(--line)); border-radius: 12px; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 14px/1.45 var(--sans); }
 			.try:hover { border-color: var(--accent); }
 			.try b { display: block; font-weight: 600; margin-bottom: 2px; }
 			.try span { color: var(--muted); font-size: 13px; }
@@ -149,7 +149,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				<button class="theme" id="themeBtn" type="button">Theme</button>
 			</header>
 			<p class="promise">Every box keeps its shape, and every gutter comes out exact.</p>
-			<p class="sub">Two ways to pack boxes of any shape, both running live below. <b>Fill a box</b> searches every arrangement of up to six boxes for the one with the least empty space, without shrinking any box to a sliver. <b>Even weight</b> breaks a list into rows and gives every box the same area, so the wide ones stop dominating.</p>
+			<p class="sub">Two ways to pack boxes of any shape, both running live below. <b>Fill a box</b> searches every arrangement of up to six boxes for the one with the least empty space and crop, and steers away from boxes that shrink to slivers. <b>Even weight</b> breaks a list into rows and gives every box the same area, so the wide ones stop dominating.</p>
 
 			<div class="tabs" role="tablist" aria-label="Strategy">
 				<button class="tab" role="tab" id="tabTree" aria-selected="true" aria-controls="panelTree" type="button">Fill a box · tree</button>
@@ -347,7 +347,9 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			// The current Fill-a-box layout as CSS: fr tracks, one grid area per box.
 			function showGrid(res: Parameters<typeof toGrid>[0]) {
 				const g = toGrid(res);
-				const fr = (v: number[]) => v.map((x) => `minmax(0, ${x.toFixed(3)}fr)`).join(' ');
+				// Scaled by 1000: fr factors that sum below 1 leave part of the grid empty, and the row
+				// tracks sum to 1 minus the gutters (lib/components/imagery/collage/collage.transform.js does the same).
+				const fr = (v: number[]) => v.map((x) => `minmax(0, ${(x * 1000).toFixed(1)}fr)`).join(' ');
 				const lines = [
 					'.mosaic {',
 					'  display: grid;',
@@ -452,7 +454,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				{ title: 'Five shapes, no margin', text: 'A square, a 3:2, a 4:3, another square and a 12:5 strip fill a 16:9 box with no visible margin.', run: () => { items = [1, 3 / 2, 4 / 3, 1, 12 / 5]; box = 16 / 9; ordered = false; selectTab(0); } },
 				{ title: 'Five of a kind', text: 'Five 3:2 photos in a 16:9 box. With one shape the search still finds a layout under 1% margin, with the photos in two sizes.', run: () => { items = Array(5).fill(3 / 2); box = 16 / 9; ordered = false; selectTab(0); } },
 				{ title: 'Phone stills in a wide box', text: 'Three 9:16 stills in a 16:9 box. Nothing is cropped: they stand side by side and leave under 3% margin.', run: () => { items = [9 / 16, 9 / 16, 9 / 16]; box = 16 / 9; ordered = false; selectTab(0); } },
-				{ title: 'A full box or a sliver', text: 'In this order, five shapes fill the box exactly, but one shrinks to a fifth of the largest. Switch to free: the search takes 12% margin instead.', run: () => { items = [2 / 3, 1 / 2, 1 / 2, 1, 12 / 5]; box = 16 / 9; ordered = true; selectTab(0); } },
+				{ title: 'A full box or a sliver', text: 'In this order, five shapes fill the box exactly, but two shrink to a fifth of the largest. Switch to free: the search takes 12% margin instead.', run: () => { items = [2 / 3, 1 / 2, 1 / 2, 1, 12 / 5]; box = 16 / 9; ordered = true; selectTab(0); } },
 				{ title: 'A crest among wordmarks', text: 'Equal cells give the wide wordmarks the room. Switch to equal area and every box gets the same weight.', run: () => { marks = [4, 3, 4, 1 / 2, 3, 1, 4, 1 / 2]; equalArea = false; selectTab(1); } },
 			];
 			const triesEl = $('#tries');
@@ -468,6 +470,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				b.append(title, text);
 				b.addEventListener('click', () => {
 					t.run();
+					// Focus follows the view: the selected tab, so a keyboard reader lands on the demo.
+					$('.tab[aria-selected="true"]').focus({ preventScroll: true });
 					$('.tabs').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 				});
 				li.append(b);

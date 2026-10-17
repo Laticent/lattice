@@ -3,4 +3,6 @@
   sliver. The live CSS grid that `toGrid()` returns for the current layout, a speed test that runs
   in the reader's browser, Lattice's two layouts before and after, and a comparison with diorama and
   justified-layout follow. The page and the Learn page now say what the `tree` search keeps: the
-  least empty space without shrinking any box to a sliver, not simply the least empty space.
+  least empty space and crop, with a penalty on boxes that shrink to slivers, not simply the least
+  empty space. The README's CSS recipe now scales the `fr` tracks by 1000, because row tracks sum
+  below 1 and a grid with `fr` factors under 1 leaves part of its height empty.

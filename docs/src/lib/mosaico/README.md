@@ -36,7 +36,8 @@ if (result.ok) {
   result.arrangement; // 'V(0,H(1,2))': photo 0 beside photo 1 stacked over photo 2
 
   const { cols, rows, areas } = toGrid(result);
-  // grid-template-columns: cols.map((c) => `minmax(0, ${c}fr)`).join(' ')
+  // grid-template-columns: cols.map((c) => `minmax(0, ${c * 1000}fr)`).join(' '), rows likewise
+  //   (scaled: the tracks sum to 1 minus the gutters, and fr factors under 1 leave space empty)
   // photo i: grid-area: areas[i].join(' / ')   (rowStart / colStart / rowEnd / colEnd)
 }
 ```
