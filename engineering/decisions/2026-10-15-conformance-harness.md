@@ -752,3 +752,14 @@ with its reason.
   manifests carry no `anatomyBlock` (`bullet`, `heatmap`, `map`, `slope`, `contact`, `wifi`,
   `collage`, `video`, `columns`, `rows` and two more); that is a docs gap, not a conformance finding,
   and a clause over it would be a debt list with no defect behind it.
+
+### 13.12 One path classification (2026-10-17)
+
+`changedComponents` (the per-PR render tier) and `selectGalleries` (the player-contrast sweep) each kept
+a copy of "which paths can change a rendered component". Both now call `classifyPath` in
+`lib/conformance/changed-paths.js`, which returns `non-render`, `component`, `theme` or `other`; the
+selector keeps its conservative default (`other` selects every gallery) and the render tier keeps
+ignoring `other`. One behavior change, in the narrower direction: a prose-only edit under a component
+directory (`<name>.docs.md`) used to name that component for the per-PR render, and is now
+`non-render`, as the sweep always treated it. The generated `docs.md` changes only with its manifest,
+which still selects the component.

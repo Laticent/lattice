@@ -55,12 +55,11 @@ function changedComponents(base = 'origin/main') {
   } catch {
     return null;
   }
+  const { classifyPath } = require('../lib/conformance/changed-paths');
   const names = new Set();
   for (const f of out.split('\n')) {
-    // Bucketed `<bucket>/<name>/…`, or a FLAT `<name>/<name>.<ext>`. A `_` shared folder maps to
-    // nothing here (its consumers are the nightly's to cover), never to its bucket's name.
-    const m = f.match(/^lib\/components\/[^/]+\/([^/_][^/]*)\//) || f.match(/^lib\/components\/([^/_][^/]*)\/\1\.(?:manifest\.json|styles\.css)$/);
-    if (m) names.add(m[1]);
+    const c = classifyPath(f);
+    if (c.kind === 'component') names.add(c.name);
   }
   return [...names].sort();
 }

@@ -33,43 +33,7 @@ const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 
-/** Prefixes (and exact files) that cannot change what a player looks like. */
-const NON_RENDER = [
-	/^docs\//,
-	/^engineering\//,
-	/^design\//,
-	/^test\//,
-	/^changelog\.d\//,
-	/^followups\.d\//,
-	/^examples\//,
-	/^backlog\.d\//,
-	// lib/ directories no player export reads or builds from. Established by tracing the files
-	// 15 galleries' exports opened (a Node `fs`/`require` hook over `lattice.js --player`) and by
-	// grepping every importer of each: nothing under these is required by the export, bundled
-	// into dist/lattice.css (tools/build-css.js), or read as an asset. lib/samples (images the
-	// export reads), lib/motion, lib/authoring, lib/packages and the rest ARE read, so they
-	// are deliberately absent and fall through to "all".
-	/^lib\/(?:concepts|conformance|diagnostics|exemplars|helpers|playground|tokens)\//,
-	/^lib\/README\.md$/,
-	/^dist\//,
-	/^\.github\//,
-	/^\.claude\//,
-	/^\.scratch\//,
-	/^\.(?:vscode|husky|gitignore|gitattributes|editorconfig)(?:\/|$)/,
-	/^(?:lefthook\.yml|biome\.jsonc?)$/,
-	// Prose. A gallery IS markdown and is a deck, and lib/samples/ holds decks and assets the
-	// export reads, so neither counts as prose.
-	/^(?!lib\/samples\/).*(?<!\.gallery)\.md$/,
-	/\.gallery\.(?:pdf|png)$/,
-	/^themes\/(?:README\.md|palette-audit\.(?:md|pdf))$/,
-	// Tooling that does not render: the CHECK scripts (gates and audits) and their docs. Every other
-	// file under tools/ is treated as render-affecting, because tools/build-css.js,
-	// tools/build-runtime.js and the rest of the build produce dist/lattice.css, which every export
-	// reads. The two contrast tools and this selector change what the sweep measures, so they stay out
-	// of this list too.
-	/^tools\/script-docs\//,
-	/^tools\/check-(?!player-contrast|slide-contrast)[^/]*$/,
-];
+const { NON_RENDER, classifyPath } = require('../lib/conformance/changed-paths');
 
 /** A gallery, as the selector sees it: file, owning directory, theme pair key. */
 function readGalleries(root = ROOT) {
@@ -104,15 +68,17 @@ function selectGalleries(changed, galleries, { full = false } = {}) {
 	const picked = new Set();
 	for (const raw of changed) {
 		const p = raw.split(path.sep).join('/');
-		if (NON_RENDER.some((re) => re.test(p))) continue;
-		const own = galleries.filter((g) => p.startsWith(g.dir));
-		if (own.length) {
-			for (const g of own) picked.add(g.file);
-			continue;
+		const c = classifyPath(p);
+		if (c.kind === 'non-render') continue;
+		if (c.kind === 'component') {
+			const own = galleries.filter((g) => p.startsWith(g.dir));
+			if (own.length) {
+				for (const g of own) picked.add(g.file);
+				continue;
+			}
 		}
-		const theme = /^themes\/([^/]+)\//.exec(p)?.[1];
-		if (theme) {
-			for (const g of galleries) if (pair(g.theme) === pair(theme)) picked.add(g.file);
+		if (c.kind === 'theme') {
+			for (const g of galleries) if (pair(g.theme) === pair(c.name)) picked.add(g.file);
 			continue;
 		}
 		return { files: all, reason: `${p} can change every gallery: all ${all.length}` };
