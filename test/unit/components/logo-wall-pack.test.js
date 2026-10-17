@@ -106,6 +106,16 @@ test('beside 3:1 wordmarks a square keeps its old size and the wordmarks keep th
   assert.ok(Math.abs(square - band * band) < 1e-12, `square ${square}`);
 });
 
+test('a wall that fits stands its rows band-tall, so they sit where the old rows did', () => {
+  const band = LOGO_BAND.default;
+  const plan = planWall([3, 3, 3, 3, 3, 3, 3, 3], {});
+  for (const [i, r] of plan.result.rects.entries()) {
+    const cell = Number(/--logo-cell:([\d.]+)/.exec(plan.itemStyles[i])[1]);
+    const mpad = Number(/--logo-mpad:([\d.]+)/.exec(plan.itemStyles[i])[1]);
+    assert.ok(Math.abs(r.h + 2 * mpad * cell - band) < 1e-4, `item ${i}`);
+  }
+});
+
 test('no mark stands taller than the band, so no row is taller than the old wall\'s', () => {
   // A wall that fit before must fit whatever its heading does: the stage estimate cannot see a
   // heading that wraps, so the plan never spends height the old wall did not.
@@ -149,6 +159,10 @@ test('never more rows or more per row than the old wall, and never taller than t
     assert.ok(plan.result.rows.length <= rows, `case ${k}: rows`);
     assert.ok(plan.result.rows.every((r) => r.length <= cols), `case ${k}: per row`);
     assert.ok(1 / plan.result.aspect <= stage + 1e-9, `case ${k}: height`);
+    // The DRAWN height: each item stands its mark plus the stamped padding (a fraction of its cell).
+    const v = (i, name) => Number((new RegExp(`${name}:([\\d.]+)`).exec(plan.itemStyles[i]) || [0, 0])[1]);
+    const drawn = plan.result.rows.reduce((t, row) => t + Math.max(...row.map((i) => plan.result.rects[i].h + 2 * v(i, '--logo-mpad') * v(i, '--logo-cell'))), 0) + (plan.result.rows.length - 1) * rowGap;
+    assert.ok(drawn <= stage + 1e-4, `case ${k}: drawn height ${drawn} > ${stage}`);
     // A captioned wall never draws a mark taller than the band, as before.
     if (captions) assert.ok(plan.result.rects.every((r) => r.h <= band + 1e-9), `case ${k}: caption cap`);
     // Every row fills the line exactly, less the slack, so the browser breaks where the plan does.

@@ -7,11 +7,11 @@ header: "Lattice · logo-wall"
 
 <!-- _class: title silent -->
 
-# Every mark carries the same weight.
+# No mark wins the room by being wide.
 
 `logo-wall · equal-weight sizing`
 
-A wordmark, a badge and a crest now share one wall at the same area, so no mark wins the room by being wide.
+Beside a crest, wordmarks come down to a badge's area, and the crest keeps its own size: 2× apart, not 3.6×. No mark grows, and no row stands taller.
 
 ---
 
@@ -118,6 +118,6 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 <!-- _class: closing silent -->
 
-# Same area, any shape.
+# One area, capped at the row.
 
-Equal area is measured on each mark's own box; how much ink a mark puts inside that box is the designer's, not the wall's.
+The area is measured on each mark's own box; how much ink a mark puts inside that box is the designer's, not the wall's.

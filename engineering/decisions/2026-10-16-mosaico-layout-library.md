@@ -374,9 +374,17 @@ cannot see the heading: the fourth checker round wrapped a heading to two lines 
 height the plan can spend safely is the height the old wall spent. Holding every mark to the band keeps every
 row at most the old row's height, so a wall that fit before fits after, whatever its heading does. The owner
 chose this over keeping 1.00× with a reserve for one wrapped line (2026-10-17). The cost is equality with a
-tall mark in the set: a crest stops at the band with half the others' area, a 2.0× spread against 3.6× before,
-and a square beside 3:1 wordmarks keeps its own old size (1.79× against 1.79×). Wordmarks and badges share one
-area.
+tall mark in the set: a crest stops at the band with half the others' area, a 2.0× spread against 3.6× before.
+And since no mark is drawn above its old size, a wall with no mark narrower than 1:1 draws as before: a square
+beside 3:1 wordmarks keeps its own old size, and the wordmarks keep theirs (1.79×, as on `main`). The
+equalizing happens only when a crest is in the set, where the wordmarks come down to a square's area.
+
+**Rows stand band-tall when the wall fits.** A packed row first stood at its tallest mark, which moved the rows of
+every shipped wall closer together (the fifth checker round measured 8k to 214k changed pixels per wall at the same
+mark sizes). Now a wall whose band-tall rows fit its stage stamps each mark padded to the band, so its rows sit
+exactly where the old rows did; only a wall that must shrink to fit stands each row at its tallest mark. The same
+round found the live preview packing a wall whose list follows a lede paragraph, which the CLI leaves on the old
+grid; both now pack only a list that opens the stage.
 
 The gaps are the old wall's, which are spacing tokens (`--sp-2xl`, `--sp-xl`) times the deck's
 `--canvas-scale`: 1 on a landscape slide, 1.65 square, 1.95 to 2.29 tall. The engine, the live runtime and
@@ -402,7 +410,9 @@ mobile-landscape).
   variants × a one-line and a three-line heading, 384 walls. None newly overflows, none overflows further, and
   no mark stands taller than the base's tallest. With a crest in the set the median spread falls from 3.57× to
   2.00×; 3:1 beside 1:1 stays at 1.79×.
-- *Shipped decks:* the six with a `logo-wall` slide (14 walls) match the base to the pixel.
+- *Shipped decks:* the six with a `logo-wall` slide (14 walls), compared as screenshots of each wall at
+  the deck's own size. Every row and mark sits where it did and draws at its old size; what remains is edge
+  anti-aliasing from rounded paddings (marks 0.03 to 0.1 px apart), about 0.1% of a wall's pixels.
 
 The fourth round also found that a slide wider than 16:9 (mobile-landscape) shrank captioned walls, because
 the planner converted the stage with the slide's own aspect while the engine keeps a 16:9 content box there,
