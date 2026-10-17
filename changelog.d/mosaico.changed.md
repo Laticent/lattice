@@ -7,10 +7,10 @@
   packer.
 - **Changed: `logo-wall` no longer lets a wide mark outweigh a crest 3.6 to 1.** A mark used to
   fill as much of an equal cell as its shape allowed, so a 3:1 wordmark got 3.6× the area of a 1:2
-  crest (2.75× in `dense`). Now mosaico's new `rows` strategy gives the marks one shared area, held
-  to the old row's height and never above a mark's old size: beside a crest, wordmarks come down to
-  a square badge's area and the crest keeps its own, 2× apart. A wall without a mark taller than it
-  is wide draws as before, and so does a wall of one shape, captioned or not, in `compact` too.
+  crest (2.75× in `dense`). Now mosaico's new `rows` strategy gives the marks one shared area,
+  kept between the smallest and largest of their old areas, and no mark stands taller than the old
+  row: beside a crest, wordmarks come down to a square badge's area and the crest keeps its own,
+  2× apart. A wall of one shape draws as before, captioned or not, in `compact` too.
   Rows are balanced and centered (ten marks break 4/3/3, not 4/4/2), in the CLI and the live
   preview alike. The wall now also fits its stage: three rows
   under an eyebrow used to spill past the slide. Three sample marks of other shapes

@@ -375,14 +375,16 @@ height the plan can spend safely is the height the old wall spent. Holding every
 row at most the old row's height, so a wall that fit before fits after, whatever its heading does. The owner
 chose this over keeping 1.00× with a reserve for one wrapped line (2026-10-17). The cost is equality with a
 tall mark in the set: a crest stops at the band with half the others' area, a 2.0× spread against 3.6× before.
-And since no mark is drawn above its old size, a wall with no mark narrower than 1:1 draws as before: a square
-beside 3:1 wordmarks keeps its own old size, and the wordmarks keep theirs (1.79×, as on `main`). The
-equalizing happens only when a crest is in the set, where the wordmarks come down to a square's area.
+The shared area stays between the smallest and largest of the marks' old areas, so a mark can still move
+either way inside that range: a mark whose old area was above two squares at the band comes down (a 2.3:1
+mark beside 6:1 strips to 0.87 of its old area), and a thin wide mark grows toward it (that 6:1 strip to
+2.25×, still within the band). A square beside 3:1 wordmarks keeps its old size and the wordmarks keep theirs
+(1.79×, as on `main`); only a wall of one shape is guaranteed to draw exactly as before.
 
 **Rows stand band-tall when the wall fits.** A packed row first stood at its tallest mark, which moved the rows of
 every shipped wall closer together (the fifth checker round measured 8k to 214k changed pixels per wall at the same
 mark sizes). Now a wall whose band-tall rows fit its stage stamps each mark padded to the band, so its rows sit
-exactly where the old rows did; only a wall that must shrink to fit stands each row at its tallest mark. The same
+where the old rows did; only a wall that must shrink to fit stands each row at its tallest mark. The same
 round found the live preview packing a wall whose list follows a lede paragraph, which the CLI leaves on the old
 grid; both now pack only a list that opens the stage.
 

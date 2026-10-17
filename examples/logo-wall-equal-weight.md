@@ -11,7 +11,7 @@ header: "Lattice · logo-wall"
 
 `logo-wall · equal-weight sizing`
 
-Beside a crest, wordmarks come down to a badge's area, and the crest keeps its own size: 2× apart, not 3.6×. No mark grows, and no row stands taller.
+Beside a crest, wordmarks come down to a badge's area, and the crest keeps its own size: 2× apart, not 3.6×. No row stands taller.
 
 ---
 
@@ -22,7 +22,7 @@ Beside a crest, wordmarks come down to a badge's area, and the crest keeps its o
 The wall used to draw each mark as large as its cell allowed. A cell is wide and short, so the shape of the mark decided its size.
 
 - A 4:1 wordmark filled the cell's width and got **2.7×** the area of a 1:2 crest; a 3:1 wordmark got **3.6×**.
-- Now every mark gets the **same area**, unless that would stand it taller than the old row. A crest stops at the row with half the area: **2×**, not 3.6×.
+- Now the marks share **one area**, and no mark stands taller than the old row. A crest stops at the row with half the area: **2×**, not 3.6×.
 - The packer is `@laticent/mosaico`'s `rows` strategy, the same library the collage packs with.
 
 ---

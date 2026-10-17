@@ -72,7 +72,7 @@
     },
     {
       "title": "Marks of mixed shapes",
-      "body": "Marks share one area, held to the old row's height and never above a mark's old size: beside a 1:2 crest, wordmarks come down to a square badge's area and the crest keeps its own, 2× apart (a 4:1 wordmark used to get 2.7× the crest's area, a 3:1 wordmark 3.6×). A wall with no mark taller than it is wide draws as before, and a wall that fit before still fits; rows are balanced and centered (ten marks break 4/3/3). A wall of one shape keeps its old size. The wall sizes from SVG marks (a local file, `sample:` or a `data:` SVG); a raster or remote mark keeps the equal-cell grid. Demo deck: `examples/logo-wall-equal-weight.md`."
+      "body": "Marks share one area, kept between the smallest and largest of their old areas, and no mark stands taller than the old row: beside a 1:2 crest, wordmarks come down to a square badge's area and the crest keeps its own, 2× apart (a 4:1 wordmark used to get 2.7× the crest's area, a 3:1 wordmark 3.6×). A wall that fit before still fits; rows are balanced and centered (ten marks break 4/3/3). A wall of one shape keeps its old size. The wall sizes from SVG marks (a local file, `sample:` or a `data:` SVG); a raster or remote mark keeps the equal-cell grid. Demo deck: `examples/logo-wall-equal-weight.md`."
     }
   ],
   "antiPatterns": [
