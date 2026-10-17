@@ -1,7 +1,9 @@
 ---
 status: proposed
 summary: >
-  Slide metadata moves out of ad-hoc directive comments into one typed record carried by an HTML comment:
+  Slide metadata moves out of ad-hoc directive comments into one typed record carried by an HTML comment, read by an
+  embedded, always-on, first-party **data-provider plugin** (`meta`) that renders nothing and writes the slide's data
+  attributes:
   `<!-- {layout=cards, footer="Q3 review"} -->`, with `@meta{…}` accepted as the long form. Fields reuse the
   front-matter register names. Long text uses `key: |` lines inside the same comment. `note` is the speaker note and
   `reader` is a labeled reader note; plain comments stay speaker notes. A source door compiles authored records to one
@@ -89,6 +91,7 @@ stays "no slower than comments, within the variance band" (HARD RULE #19) until 
 | D5 | Spelling | **A comment carries the record.** `<!-- {…} -->` is canonical, `<!-- @meta{…} -->` is accepted. Chosen by the owner after the bake-off (below). |
 | D6 | Field names | **The front-matter register names**, with no new semantics. Dark and light stay universal variants (`universal=dark`). Per-slide `finish`, `headline`, `rule`, `eyebrow`, `lift`, `spectrum-trim` override the deck's. |
 | D7 | Notes | **`note` is the speaker note; `reader` is a reader note**, labeled in the notes channel on export. Plain comments with no record **stay speaker notes** (Marp-faithful). Private working notes stay in the comments layer. |
+| D9 | What is it? | **An embedded, always-on, first-party data-provider plugin**, `meta`. Not an inline kind, and not "a directive": it renders nothing, writes `data-*` attributes on the slide, and anything may read its content (CSS, the runtime, other plugins). Its fields are the registers every plugin contributes (§5.0). |
 | D8 | Reader-note export | **Labeled in the notes channel**: PPTX and PDF carry the speaker note, then a `Reader:` paragraph; the HTML player keeps them separate (speaker view shows speaker only, read view shows the reader note under the slide). |
 
 **How D5 was reached.** The bake-off scored seven spellings (comments with a consolidated reader; inline code with and
@@ -141,11 +144,11 @@ through Marp, which is retired as a render path.
 1,600, `_paginate` 156, `_header` 155, `_pane` 86, speaker-note comments a few dozen, `_focus` 17, `_track` 12. A codemod
 covers all of it mechanically.
 
-**Why this cannot be an ordinary plugin kind.** An inline kind receives its own text and returns HTML; it cannot see the
-slide, and an empty return leaves the raw span visible (`plugins.js:1503-1509`). The dispatcher
+**Why `meta` is a plugin, but not an inline-kind plugin.** An inline kind receives its own text and returns HTML; it
+cannot see the slide, and an empty return leaves the raw span visible (`plugins.js:1503-1509`). The dispatcher
 (`lattice_inline_pills`, `plugins.js:1438`) also runs after classes are set, and the default layout is picked from those
-classes. `@meta` therefore needs a host core rule (§5.1). It still gets a manifest and slot spec, so the editor tools
-treat it like any other kind.
+classes. That rules out the *inline-kind* contribution, not plugins: `meta` needs a different contribution (a data
+provider) and one host capability the API lacks today (§5.0).
 
 ## 4. The record
 
@@ -174,7 +177,7 @@ A **record comment** is an HTML comment whose first content is a Segno record, e
 
 ### 4.2 Keys
 
-One registry, one file (`lib/core/meta-keys.mjs`, §5.2), replaces the five lists. The typed fields come from the
+The registry is derived from manifests (§5.0): `meta`'s own fields plus every plugin's `contributes.registers`. It replaces the five lists. The typed fields come from the
 catalog and the register tables, and the codemod fills them (97.3% of the 4,017 class words in the corpus place
 cleanly; the rest are mostly `finish-*` tokens and flagged for review):
 
@@ -227,6 +230,26 @@ A value that needs line breaks or blank lines goes on `key: |` lines inside the 
 record (`note="Open cold."`). Several `note` lines are several paragraphs.
 
 ## 5. The engine
+
+### 5.0 `meta` is an embedded data-provider plugin
+
+The first rewrite of this note called the mechanism a "door" and the content "directives", and the word "plugin" survived
+only in a rejection. That was wrong: the owner's brief is a `meta` plugin, embedded and in-tree, that renders nothing and
+provides data. The plugin system already has the pieces, so the design follows them:
+
+| Part | What it is | Existing precedent |
+|---|---|---|
+| The package | `lib/plugins/meta/meta.manifest.json`, in-tree and **always on** (never listed in a deck's `plugins:`; it is how the deck is read) | `sparks`, `icons`, `avatars` are in-tree manifests |
+| Its fields | a new contribution, `contributes.meta` (a data provider): the base record fields (`layout`, `variant`, `header`, `footer`, `paginate`, `note`, `reader`, `say`, `describe`, `pane`, pragmas) with a slot spec each | `contributes.inline.<kind>.slot` (the slot-spec shape) |
+| Everyone else's fields | **every plugin's `contributes.registers` becomes a record field automatically.** A plugin that declares `icon` (axes and words) gets `{icon=bare}` per slide, validated and completed, with no change to `meta` | `contributes.registers` and `lib/core/register-factory.js` already build `icon:` and `spark:` as front-matter registers and as slide class words |
+| The key list | **derived from the manifests** by `tools/build-plugin-registry.js`, which replaces the five hand-kept lists (§3) and is why a plugin's new register shows up in lint and autocomplete the day it lands | the generated registries beside `inline.generated.js` |
+| What it writes | `data-*` attributes on the `<section>`, the same ones the comments write today | `lattice_directives_apply` |
+| Who reads it | CSS (`[data-finish=ledger]`), the runtime, and other plugins through a **service** (`contributes.services`: `service('meta', 'read')`); with `meta` off the caller gets null | `lib/plugins/services.js` |
+| The one new host capability | a **source hook**: an in-tree plugin may run a pure source transform at engine entry, before `liftImageBgImages`, the pane gate and plugin admission. Plugins cannot install core rules today (`HOST_ANCHORS`, `resolve.js:77-81`), so this is the one thing the plugin API must grow | `syntax` and inline sigils are in-tree-only contributions |
+
+So the "door" of §5.1 is not outside the plugin system: it is `meta`'s source hook. It must be a hook, not an ordinary
+rule, for the reasons in §13.1. Plugin admission reads classes from source, so `meta` runs before admission and exposes
+that read as its service; being always on and in-tree is what makes that ordering possible.
 
 ### 5.1 The door: compile record comments to the internal form before anything else reads the source
 
@@ -363,8 +386,8 @@ per step (HARD RULE #17).
 
 | Step | Work | Proof |
 |---|---|---|
-| 1 | **Consolidate over comments.** `meta-keys.mjs` (one registry, five lists collapse), `scanMetaSource` / `readMeta` / `writeMeta` over the **existing comment grammar**, and migrate the 42 readers onto them. Slot-driven completion. The three internal producers write one internal form | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun for every key; `build:check`; a test fails on a sixth key-list copy |
-| 2 | **The door.** `compileMetaSource`, `lat-meta` read in the `lattice_directives` loop, record comments accepted **next to** authored directive comments, wrapped-record joining, the `--\>` escape, `reader` and the notes channel | byte-identity: every key renders the same `<section>` as its comment, including `_class: image` + `![bg]`, adjacent records, `inline-code: literal` decks, panes and focus steps; a pin on rule order; a bench scenario, same-machine (#19) |
+| 1 | **Consolidate over comments.** one registry derived from the manifests (§5.0; the five lists collapse), the `meta` manifest with `contributes.meta`, `scanMetaSource` / `readMeta` / `writeMeta` over the **existing comment grammar**, and migrate the 42 readers onto them. Slot-driven completion. The three internal producers write one internal form | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun for every key; `build:check`; a test fails on a sixth key-list copy |
+| 2 | **The source hook and the door.** the plugin API's source hook for in-tree plugins; `meta` registers `compileMetaSource` on it, `lat-meta` read in the `lattice_directives` loop, record comments accepted **next to** authored directive comments, wrapped-record joining, the `--\>` escape, `reader` and the notes channel | byte-identity: every key renders the same `<section>` as its comment, including `_class: image` + `![bg]`, adjacent records, `inline-code: literal` decks, panes and focus steps; a pin on rule order; a bench scenario, same-machine (#19) |
 | 3 | Lint, autocomplete, drawer and Compose on records; `legacy-directive-comment` lint | the keystroke bench for `scanMetaSource` |
 | 4 | **The bridge**, both producers, one pass list | a real marp-cli render and the VS Code preview of a compiled demo deck; `-->` and `: ` value tests; the reader note shows labeled in PPTX notes |
 | 5 | **The codemod** (`lattice migrate meta`) over `examples/`, galleries, component docs, `design/`, fixtures. The galleries go in a **separate post-review commit** (HARD RULE #8) | all 276 decks render with identical class sets and pixels; page counts unchanged |
@@ -397,6 +420,12 @@ will render the demo deck in dark and light mode and send both for sign-off befo
   (`notes-core.js:816`) must also strip `note` fields from source records, or private notes ship verbatim in exported source.
 - **`note` is not an applied directive** (`directives.js:96`). It must not become a `data-note` attribute; the door
   routes `note` and `reader` to the note channel only.
+- **The `contributes.meta` schema and the source hook.** Define the data-provider contribution in
+  `plugin.schema.json` (api bump) and the in-tree-only source hook with its ordering guarantee (before admission). The
+  precedent for an in-tree-only contribution is `syntax`; `HOST_ANCHORS` shows what plugins cannot do today.
+- **Do plugin-contributed registers all belong in the record?** `contributes.registers` makes them fields automatically.
+  Confirm that every one is meant to be set per slide (the register factory lets a slide's word evict the deck's on that
+  axis only), or add an opt-out.
 - **The `key: |` block grammar** inside the comment. Reuse the line grammar the bake-off measured (`key: value`, a JSON
   string when quoted, `|` for blocks); a second grammar next to Segno is the cost, and a measurement of note lengths in
   the corpus should decide whether blocks are needed at all.
