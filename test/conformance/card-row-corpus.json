@@ -1,15 +1,13 @@
 {
- "//": "Hand-labeled corpus: does each component have a row of equal sibling cards (what a deck's cards: governs)? Positives start as the 20 components that declare cards plus stats, actors and kpi (the 2026-10-15 report). PROVISIONAL for the rest until the render tier's card-row trigger has been reviewed against it (tools/conformance-render.js); see the decision note section 13. A new component needs a label here (component.card-row-labeled).",
+ "//": "Hand-labeled corpus: does each component have a row of equal sibling cards (what a deck's cards: governs)? `labels` are true or false and are what the render tier's card-row trigger is scored against. `candidates` look like card rows by eye (2026-10-17 review) but declare no `cards`: each waits on an owner ruling on what the cards register means for it, so it is scored as neither positive nor negative and does not gate `component.cards-declared`. Move a candidate to `labels` (true) in the same change that adopts `cards`. A new component needs a label or a candidate entry here (component.card-row-labeled). Decision note: engineering/decisions/2026-10-15-conformance-harness.md section 13.5.",
  "labels": {
   "actors": true,
   "agenda": true,
-  "authority-chain": false,
   "bar": false,
   "big-number": false,
   "bullet": false,
   "cards-grid": true,
   "cards-stack": true,
-  "checklist": false,
   "citation-card": true,
   "closing": false,
   "code": true,
@@ -19,7 +17,6 @@
   "compare-prose": true,
   "contact": false,
   "content": false,
-  "cycle": false,
   "decision": true,
   "diagram": false,
   "divider": false,
@@ -46,7 +43,6 @@
   "obligation-matrix": false,
   "piechart": false,
   "policy-recommendation": false,
-  "premise": false,
   "pricing": true,
   "progress": false,
   "q-and-a": true,
@@ -76,5 +72,16 @@
   "waterfall": false,
   "wifi": false,
   "word-cloud": false
+ },
+ "candidates": {
+  "authority-chain": "a stack of equal full-width tier cards, hugging the top of the stage like actors rows",
+  "checklist": "a stack of equal tinted row cards, centered by checklist's own justify-content:center",
+  "cycle": "a row of 4 to 6 equal stage cards joined by arrows, centered by cycle's own justify-content",
+  "premise": "a stack of equal bordered row cards beside the argument text"
+ },
+ "reviewedFalse": {
+  "journey": "the hits are stage header tiles and the swimlane's rows: chart axis cells, not cards",
+  "roadmap": "the hits are the track rows of a grid and a swimlane; only the `horizons` variant draws cards, and it is one of five",
+  "policy-recommendation": "evidence items carry a left rail, not a box; the old trigger counted a one-sided border as a box"
  }
 }

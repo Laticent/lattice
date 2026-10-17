@@ -665,3 +665,50 @@ it is not a generated one; before, its findings were dropped from the generated 
 they are counted.
 
 CI's findings: 17 of 75 components (the card-row trigger scored 70% hit, 29% false alarm). I did not diff them against the sandbox run component by component, so the two are not claimed to match.
+
+### 13.9 The card-row trigger, relabeled and tuned (2026-10-17)
+
+Seven components hit the trigger on most of their own slides (§13.5). I rendered each and looked
+at its gallery (`.scratch` contact sheets, sent in the PR). Four are card rows by the corpus's own
+definition; three are not:
+
+| Component | Call | Why |
+|---|---|---|
+| `authority-chain` | candidate | A stack of equal full-width tier cards hugging the top, like `actors` rows. |
+| `checklist` | candidate | A stack of equal tinted row cards, centered by its own `justify-content:center`. |
+| `cycle` | candidate | A row of 4 to 6 equal stage cards joined by arrows. |
+| `premise` | candidate | A stack of equal bordered row cards beside the argument. |
+| `journey` | false | The hits are stage header tiles and swimlane rows: chart cells, not cards. |
+| `roadmap` | false | The hits are track rows of a grid and a swimlane; only `horizons` draws cards, one of five variants. |
+| `policy-recommendation` | false | Evidence items carry a left rail, not a box. The old trigger counted a one-sided border as a box. |
+
+**Why "candidate" and not `true`.** `component.cards-declared` fails a `true` label with no
+`cards` in its manifest, and the debt ledger takes entries only on the day a clause lands
+(§6.3 rule 1), so a `true` label would fail the build. Adopting `cards` on the four changes how
+they sit on the stage by default and is a composition ruling (§13.6 was one for three components).
+`test/conformance/card-row-corpus.json` now has a `candidates` map with a reason each; a candidate
+satisfies `component.card-row-labeled`, is scored as neither positive nor negative, and does not
+gate `cards-declared`. A candidate moves to `labels: true` in the change that adopts `cards`
+(followup `2717-p4`).
+
+**The trigger changed in three ways**, each found by scoring variants over the same 858 slides
+(`.scratch/p3/harness.js`, 45 s per variant):
+
+1. A box needs a painted background or a border on three or more sides (was: one side).
+2. Three or more boxes of the same height count even when their widths differ (a row of `stats`
+   hugs its text), and a pair of equal panels counts (`decision`, `compare-prose`, `split-compare`).
+3. A component "has a card row" when a third of its own slides trigger, not one. A single table or
+   grid in a gallery (`diagram` 2 of 29, `glossary`, `kanban`, `list-tabular`) is not its form.
+
+| | Hit rate | False-alarm rate |
+|---|---|---|
+| Before (§13.5, corpus of 23 + 52) | 70% (16 of 23) | 29% (15 of 52) |
+| After (corpus of 23 + 48, four candidates set aside) | 65% (15 of 23) | 15% (7 of 48) |
+
+The hit rate fell five points while false alarms halved. The variants that kept the old hit rate
+kept 29% to 31% false alarms. Still missed: `agenda`, `inventory`, `kpi`, `citation-card` (hit on
+only one or two variant slides), and `code`, `compare-code`, `q-and-a`, `team-profile` (no slide).
+Still extra: `columns`, `glossary`, `journey`, `obligation-matrix`, `redline`, `roadmap`, `table`
+(grids of equal cells). Neither rate is good enough to gate anything, so the trigger stays
+report-only. Bite tests pin the three changes (`decision` and `stats` hit, `policy-recommendation`
+misses).
