@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { inlineSiblingLeaves } from './vite-cjs-lib-dev.mjs';
 
 /**
  * ROT-GUARD for `vite-cjs-lib-dev.mjs`: a browser source in `docs/src` takes a CommonJS file
@@ -71,9 +72,32 @@ describe('docs/src imports CommonJS lib/ files by default import only', () => {
 			for (const m of src.matchAll(IMPORT)) {
 				const target = path.resolve(path.dirname(file), m[2]);
 				if (!target.startsWith(LIB) || !target.endsWith('.js') || !fs.existsSync(target) || !isCjs(target)) continue;
-				if (/\brequire\s*\(/.test(fs.readFileSync(target, 'utf8'))) offenders.push(`${path.relative(REPO, file)} -> ${m[2]}`);
+				// The shim inlines a module whose every require is a require-free sibling leaf; nothing wider.
+				const body = fs.readFileSync(target, 'utf8');
+				if (/\brequire\s*\(/.test(body) && inlineSiblingLeaves(body, path.dirname(target)) === null) offenders.push(`${path.relative(REPO, file)} -> ${m[2]}`);
 			}
 		}
 		expect(offenders, 'split what the browser needs into a require-free lib/ leaf').toEqual([]);
+	});
+});
+
+describe('inlineSiblingLeaves', () => {
+	it('inlines remote-ref.js and its media-sources.js sibling into one working module', () => {
+		const dir = path.join(REPO, 'lib', 'core');
+		const inlined = inlineSiblingLeaves(fs.readFileSync(path.join(dir, 'remote-ref.js'), 'utf8'), dir);
+		expect(inlined).not.toBeNull();
+		expect(inlined).not.toMatch(/\brequire\s*\(/);
+		const module = { exports: {} as Record<string, unknown> };
+		new Function('module', 'exports', inlined as string)(module, module.exports);
+		const isRemoteUrl = module.exports.isRemoteUrl as (u: string) => boolean;
+		expect(isRemoteUrl('https://x/a.png')).toBe(true);
+		expect(isRemoteUrl('sample:photo-pano.jpg')).toBe(false);
+		expect(isRemoteUrl('blob:x')).toBe(true);
+	});
+	it('refuses a require that is not a require-free sibling leaf', () => {
+		const dir = path.join(REPO, 'lib', 'core');
+		expect(inlineSiblingLeaves("const a = require('./bg-image');\nmodule.exports = { a };", dir)).toBeNull(); // sibling has its own requires
+		expect(inlineSiblingLeaves("const a = require('./does-not-exist');\nmodule.exports = { a };", dir)).toBeNull();
+		expect(inlineSiblingLeaves("const a = require('fs');\nmodule.exports = { a };", dir)).toBeNull();
 	});
 });
