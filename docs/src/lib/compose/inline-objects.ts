@@ -115,7 +115,12 @@ export interface ChartRecordPlace {
 	afterCode?: boolean;
 	quoted?: boolean;
 	firstList?: boolean;
-	ancestors?: (string | null)[];
+	/** Is this the row's own lead (its first block), and the code spans in it, with this span's index among them. */
+	lead?: boolean;
+	leadSpans?: string[];
+	at?: number;
+	/** The code spans of each enclosing row's lead, outermost first. */
+	ancestors?: string[][];
 }
 
 // ── The kinds ────────────────────────────────────────────────────────────────
@@ -254,17 +259,16 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 	if (cell && prev >= 0) lastInRow = false; // the record is the whole cell
 	let depth = 0;
 	let quoted = false;
-	const ancestors: (string | null)[] = [];
+	const ancestors: string[][] = [];
 	for (let d = 1; d <= $at.depth; d++) {
 		const anc = $at.node(d);
 		if (anc.type.name === 'blockquote') quoted = true;
 		if (anc.type.name !== 'list_item') continue;
 		depth++;
-		// An enclosing item's lead span: the last child of its first paragraph, when that is a code run.
+		// An enclosing item's lead spans: the code runs of its first paragraph or heading.
 		if (d < $at.depth - 1) {
 			const lead = anc.firstChild;
-			const last = lead && (lead.type.name === 'paragraph' || lead.type.name === 'heading') ? lead.lastChild : null;
-			ancestors.push(last && codeMark.isInSet(last.marks) ? (last.text ?? null) : null);
+			ancestors.push(lead && (lead.type.name === 'paragraph' || lead.type.name === 'heading') ? codeSpans(lead) : []);
 		}
 	}
 	// Only the slide's first list is the chart's (`spliceFirstList`): no list before this one in the slide.
@@ -281,7 +285,23 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 			if (found) firstList = false;
 		}
 	}
+	// The row's lead is its item's first block; only there does a span count as the row's value or record.
+	const item = inItem ? $at.node($at.depth - 1) : null;
+	const isLead = Boolean(item && item.firstChild === row);
+	const leadSpans = isLead ? codeSpans(row) : [];
+	let at = -1;
+	if (isLead) {
+		let n = 0;
+		row.forEach((child, _o, i) => {
+			if (!isCodeish(child)) return;
+			if (i === index) at = n;
+			n++;
+		});
+	}
 	return kernels.ownsChartRecord(classTokens(directives), node.text ?? '', {
+		lead: cell ? undefined : isLead,
+		leadSpans,
+		at,
 		cell,
 		depth,
 		lastInRow,
@@ -291,6 +311,16 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 		// An object already drawn from an earlier span (a pill) was code in the source, as it is for the engine.
 		afterCode: prev >= 0 && (codeMark.isInSet(row.child(prev).marks) !== undefined || row.child(prev).type === objectType()),
 	});
+}
+
+/** The source text of each code span in a block: a code-marked run, or a drawn object's `src`. */
+function codeSpans(block: PMNode): string[] {
+	const out: string[] = [];
+	block.forEach((child) => {
+		if (child.type === objectType()) out.push(String(child.attrs.src ?? ''));
+		else if (child.isText && code().isInSet(child.marks)) out.push(child.text ?? '');
+	});
+	return out;
 }
 
 /**

@@ -103,9 +103,9 @@ describe('ownership: the claim is narrow', () => {
     assert.equal(rows.ownsRecordSpan(['bar'], '{4.2}', { ...place, quoted: true }), false, 'inside a description');
     assert.equal(rows.ownsRecordSpan(['bar'], '{4.2}', { ...place, afterCode: true }), false, 'after another code span');
     assert.equal(rows.ownsRecordSpan(['radar'], '{4.2}', place), false, 'a radar series row draws no mark');
-    assert.equal(rows.ownsRecordSpan(['piechart'], '{4.2}', { ...place, depth: 2, ancestors: ['60%'] }), false, 'detail on a fields chart');
-    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: [null] }), true, 'a segment under a category with no total');
-    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: ['24'] }), false, 'under a total it is read from the old spans until phase 4');
+    assert.equal(rows.ownsRecordSpan(['piechart'], '{4.2}', { ...place, depth: 2, ancestors: [['60%']] }), false, 'detail on a fields chart');
+    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: [[]] }), true, 'a segment under a category with no total');
+    assert.equal(rows.ownsRecordSpan(['stacked-bar'], '{4.2}', { ...place, depth: 2, ancestors: [['24']] }), false, 'under a total it is read from the old spans until phase 4');
     assert.equal(rows.ownsRecordSpan(['list'], '{4.2}', place), false, 'a slide outside the model');
     assert.equal(rows.ownsRecordSpan(['heatmap'], '{4}', { cell: true, lastInRow: true }), true);
     assert.equal(rows.ownsRecordSpan(['heatmap'], '{4}', place), false, 'a list row on a grid chart');
@@ -188,7 +188,7 @@ describe('the paths agree on the data row', () => {
     assert.doesNotMatch(html, /<code>\{40%\}<\/code>/);
     // stacked-bar: the authored total over plain segments is read from the old spans until phase 4, so the same
     // segments written as records are a total's notes, and lint says so; a signed delta is a note anyway.
-    assert.match(findings(deck('stacked-bar', '- FY23 `24`\n  - Licenses `{18}`\n  - Services `{6}`'))[0].message, /read as that category's note/);
+    assert.match(findings(deck('stacked-bar', '- FY23 `24`\n  - Licenses `{18}`\n  - Services `{6}`'))[0].message, /sits under a row that has a value, so it is read as that row's note/);
     assert.deepEqual(findings(deck('stacked-bar', '- FY23 `24`\n  - vs plan `{+3}`')), [], 'a signed delta is a note');
     // Control: under a category with no total the records are the segments, exactly as the old spans are.
     same('stacked-bar', '- FY23\n  - Licenses `18`\n  - Services `6`\n- FY24\n  - Licenses `20`\n  - Services `10`', '- FY23\n  - Licenses `{18}`\n  - Services `{6}`\n- FY24\n  - Licenses `{20}`\n  - Services `{10}`', 'segments');
@@ -239,7 +239,10 @@ describe('the paths agree on the data row', () => {
 
   test('a total in a later paragraph of an item is not the item\'s lead', () => {
     const body = (v) => `- FY23\n\n  total ${v('24.6')}\n\n  - Licenses ${v('18.4')}\n  - Services ${v('6.2')}\n- FY24\n  - Licenses ${v('19.1')}\n  - Services ${v('7.0')}`;
-    same('stacked-bar', body((n) => `\`${n}\``), body((n) => `\`{${n}}\``), 'a total in the second paragraph');
+    // Only a row's lead paragraph can hold its value, so a later paragraph's `{24.6}` stays a pill, as on main.
+    const html = render(deck('stacked-bar', body((n) => `\`{${n}}\``)));
+    assert.doesNotMatch(html, /<code>\{24\.6\}<\/code>/);
+    assert.equal(rows.bridgeRecordsSource(body((n) => `\`{${n}}\``).split('\n').slice(0, 3).join('\n'), ['stacked-bar']), body((n) => `\`{${n}}\``).split('\n').slice(0, 3).join('\n'), 'the narrator leaves it too');
   });
 
   test('a comment cannot make the bridge quadratic', () => {
@@ -278,8 +281,11 @@ describe('the paths agree on the data row', () => {
     }
   });
 
-  test('what main did: bullet keyword rows under a bare row are data, as in the old form', () => {
-    same('bullet', '- Uptime\n  - Actual `99.4`\n  - Target `99.9`\n- Cost `3` `5`', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`\n- Cost `{3, target=5}`', 'keyword rows under a row with no value');
+  test('what main did: bullet keyword rows stay the old form until phase 4, and a record there stays a pill, with a lint warning', () => {
+    const html = render(deck('bullet', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`\n- Cost `3` `5`'));
+    assert.match(html, /lat-pill/, 'a nested record is a detail pill on bullet, as on main');
+    assert.doesNotMatch(html, /<code>\{99\.4\}<\/code>/);
+    assert.ok(findings(deck('bullet', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`')).length > 0, 'lint says to write the old form');
   });
 
   test('a slide the chart declines shows the old-form list, not the braces', () => {
@@ -290,9 +296,10 @@ describe('the paths agree on the data row', () => {
     assert.doesNotMatch(render(bare('- EMEA `{4.2}`')), /\{4\.2\}/);
   });
 
-  test('a total in a later paragraph reads the same in the narration', () => {
+  test('a total in a later paragraph is left alone by the narration', () => {
     const body = (v) => `- FY23\n\n  total ${v('24.6')}\n\n  - Licenses ${v('18.4')}\n  - Services ${v('6.2')}\n- FY24\n  - Licenses ${v('19.1')}\n  - Services ${v('7.0')}`;
-    assert.equal(narrateChart(deck('stacked-bar', body((n) => `\`{${n}}\``))), narrateChart(deck('stacked-bar', body((n) => `\`${n}\``))));
+    // The total sits in a later paragraph, so it is not the row's record: the narrator reads it as the pass does.
+    assert.match(narrateChart(deck('stacked-bar', body((n) => `\`{${n}}\``))), /Licenses, eighteen point four; Services, six point two/);
   });
 
   // Fourth round (2026-10-17): the red team ran the working tree against main and found the rest.
@@ -300,11 +307,11 @@ describe('the paths agree on the data row', () => {
     const html = render(deck('bullet', '- EMEA `4` `5`\n  - vs plan `{+3%}`\n- APAC `3` `5`'));
     assert.match(html, /chart-frame/);
     assert.match(html, /lat-pill/);
-    same('bullet', '- Uptime\n  - Actual `99.4`\n  - Target `99.9`', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`', 'keyword rows under a row with no value');
+    assert.ok(findings(deck('bullet', '- Uptime\n  - Actual `{99.4}`\n  - Target `{99.9}`')).length > 0, 'keyword rows as records warn: bullet reads them from the old spans');
     // The documented keyword row under a measure that HAS a value is read from the old spans until phase 4; lint says so.
     const [f, ...rest] = findings(deck('bullet', '- Uptime `99.4` `99.9`\n  - Target `{99.9}`'));
     assert.equal(rest.length, 0);
-    assert.match(f.message, /read as that measure's note/);
+    assert.match(f.message, /note|keyword|old/);
     assert.deepEqual(findings(deck('bullet', '- Uptime `99.4` `99.9`\n  - vs plan `{+3%}`')), [], 'a delta note is not a keyword row');
   });
 
@@ -313,8 +320,39 @@ describe('the paths agree on the data row', () => {
     const old = narrateChart(deck('radar quadrant', group((n) => `\`${n}\``)));
     assert.ok(old, 'control: the old form narrates');
     assert.equal(narrateChart(deck('radar quadrant', group((n) => `\`{${n}}\``))), old);
+    // A second paragraph is not the row's lead: its `{6}` is a pill, and the narrator leaves it, as the pass does.
     const loose = (v) => `- Q1\n\n  about ${v('6')}\n- Q2 ${v('5')}\n- Q3 ${v('4')}`;
-    assert.equal(narrateChart(deck('bar', loose((n) => `\`{${n}}\``))), narrateChart(deck('bar', loose((n) => `\`${n}\``))));
+    const asRecord = loose((n) => `\`{${n}}\``);
+    assert.equal(rows.bridgeRecordsSource(asRecord, ['bar']).split('\n')[2], '  about `{6}`');
+  });
+
+  // Fifth round (2026-10-17): decks that write no record must render as on main; each case is a repro.
+  test('a pill stays a pill when the row already holds a value or the record is not the lead alone', () => {
+    const pilled = (cls, body) => {
+      const html = render(deck(cls, body));
+      assert.doesNotMatch(html, /<code>\{[^}]*\}<\/code>/, body);
+    };
+    pilled('bar', '- Q1 `5`\n- Q2 `16` `{risk}`\n  - vs plan `{-12%}`');
+    pilled('bar', '- North `40` up `{+3%}`\n- South `30`');
+    pilled('bar', '- Q1\n\n  about `{+3%}`\n- Q2 `5`');
+    pilled('bullet', '- Uptime\n  - vs plan `{+3%}`\n- Cost `3` `5`');
+    pilled('radar', '- Us\n  - Speed `{+3%}`\n  - Cost `6`');
+  });
+
+  test('a decline or a plugin-off slide shows the old-form list, not braces', () => {
+    const { applyToRenderedHtml } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+    const html = render(deck('bar', '- EMEA `{4.2}`\n- APAC `{3}`'));
+    const off = applyToRenderedHtml(html, { off: true });
+    assert.doesNotMatch(off, /\{4\.2\}/);
+    assert.match(off, /data-lattice-off/);
+  });
+
+  test('the source bridge ends a paragraph at a setext underline, a rule, an HTML block and a table', () => {
+    for (const end of ['---', '***', '<div>x</div>', '| a | b |']) {
+      const src = `- A\n  ${end}\n  later \`{6}\`\n`;
+      assert.ok(typeof rows.bridgeRecordsSource(src, ['bar']) === 'string', end);
+    }
+    assert.equal(rows.bridgeRecordsSource('- Q1\n\n  about `{6}`\n', ['bar']), '- Q1\n\n  about `{6}`\n');
   });
 
   test('the source bridge reads CRLF', () => {

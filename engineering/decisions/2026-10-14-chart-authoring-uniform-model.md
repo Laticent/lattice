@@ -286,18 +286,21 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    keeping: a test that compares the record form with the OLD form cannot see a deck that writes no record and changed against
    `main`, so the tests now also assert what main did.
 
-   **What changes for authors who never write a record.** A `{N}` (or `{word}` on map) that is the LAST span of a chart's
-   data row is now the row's value; it used to be a pill the chart did not read. On a matrix-grid slide a sole-cell `{done}`,
-   `{partial}` or `{todo}` (any case) is a state, because Segno reads it as `state=…`; `{DONE}` was a label pill. On a map row
-   any `{word}` is now the region's categorical value. A pill in a label, a `>` description, a detail row, a later list or a
-   later table is a pill as before.
+   **What changes for authors who never write a record.** Nothing was the target, and the measurement is the evidence: 1,585 generated decks
+   with no record (values as plain spans, delta pills, label pills, keyword rows, signed notes, CRLF, loose items) render the same HTML,
+   pills and narration on this branch as on `main`, and the 786 chart-class slides of the repo's own corpus are unchanged. The rule that
+   keeps it so: a `{N}` (or `{word}` on map) is a row's record only when it is the sole value in the row's LEAD paragraph (its first
+   block, last in it, after no other code span), the row is DATA (not detail, per the chart's `rows.nested`), and the chart is the slide's
+   first list or table. A second paragraph, a description, a row that already has a value, a signed delta under a valued row and a
+   `{N}` beside a pill all stay pills. On a matrix-grid slide a sole-cell `{done}`, `{partial}` or `{todo}` (any case) is a state,
+   because Segno reads it as `state=…`.
 
    **Known residual, no visible effect found.** Lint and the narrators' source bridge measure a row's lead per line, so a record
    on a continuation line, after a bullet-character or ordered-to-bullet switch, or after a margin comment can differ from the
    engine; the narrator picks its chart by the first class token, not in dispatch order. Two things the format does not express
    yet: a grouped number (`1,200`) is not a record value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into
    two items, so phase 4's codemod must write `1200` and show it grouped (the census counts 78 grouped funnel values); and a
-   record under a valued row on bar or line stays a pill, so a series point written that way needs its parent without a value.
+   record under a valued row on bar or line stays a pill, so a series point written that way needs its parent without a value. Bullet's keyword rows (`Target`, `Floor`, `Band`) and stacked-bar's authored total read from the old spans until phase 4; lint says so.
 
    **Phase 2, still to do.** The `{> …}` production (§9) and the table description it needs; each transform and
    narrator reading the record through `readRecord` instead of the bridge and its private parser (the census note §3

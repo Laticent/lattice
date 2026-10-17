@@ -44,3 +44,7 @@ evidence  — corpus parity unchanged (HTML, marks, narration, lint), plus the p
             `test/unit/core/chart-row-record.test.js` rewritten to compare the record against its expected marks
             rather than against the old spans.
 verify    — tier 2 adversarial trio, because it changes what the shared kernel reads.
+            9. Fifth round (2026-10-17): a record is drawn only as the sole value of its row's lead paragraph, so a record in a later
+               paragraph, beside another value, or a plain-number record under a valued parent on bar, line, slope or stacked-bar
+               stays a pill (as on main); bullet and radar read every nested row as detail, so bullet's keyword rows and radar's
+               nested rows written as records keep their pills and lint warns. The reader in step 2 lifts these.

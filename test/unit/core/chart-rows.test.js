@@ -163,10 +163,17 @@ describe('lint: chart-row-record-unread', () => {
     assert.equal(lintCore.applyAllFixes(src, vocab), src);
   });
 
+  test('lint stays silent where the old form already reads the same', () => {
+    assert.deepEqual(recordFindings(deck('bar', '- Q1 `5`\n  - Actual vs plan `{+3%}`\n- Q2 `6`')), []);
+    assert.deepEqual(recordFindings(deck('bar', '- Q1 `5`\n  - `{▲ 2}`\n- Q2 `6`')), []);
+    assert.deepEqual(recordFindings(deck('stacked-bar', '- FY23\n  - Licenses\n    - note `{+3%}`\n  - Services `6`')), []);
+  });
+
   test('a record after another code span warns: it is not the row\'s record', () => {
-    const [f] = recordFindings(deck('bullet', '- E `1` `{2}`'));
+    const [f] = recordFindings(deck('bullet', '- E `{NEW, tag}` `{2}`'));
     assert.match(f.message, /after another code span/);
     assert.match(f.fix, /as the row's only spans/);
+    assert.deepEqual(recordFindings(deck('bullet', '- E `1` `{2}`')), [], 'a value and a pill: the pill stays a pill');
   });
 
   test('data rows only: a series point and a radar axis are drawn; a detail bullet is silent too', () => {

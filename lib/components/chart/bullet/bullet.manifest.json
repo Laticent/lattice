@@ -265,7 +265,7 @@
       "rows": {
         "shape": "fields",
         "quotes": true,
-        "nested": "point-unless-valued",
+        "nested": "detail",
         "legacy": [
           "value",
           "target"
