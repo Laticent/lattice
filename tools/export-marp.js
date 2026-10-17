@@ -23,10 +23,12 @@
  *     lattice-runtime-min.js,
  *     mermaid-v11-min.js   — render diagrams + components when opened as HTML
  *     .vscode/settings.json — registers the themes for the Marp VS Code preview
+ *     .vscode/extensions.json — makes VS Code offer to install Marp for VS Code
+ *     .vscode/tasks.json   — the "Marp: export …" tasks under Terminal → Run Task…
  *     marp.config.cjs      — registers the themeSet for `marp-cli`
  *     package.json         — pins @marp-team/marp-cli (the only dep)
  *     assets/              — every local image the deck references
- *     README.md            — VS Code + marp-cli quick start + the fidelity note
+ *     README.md            — step-by-step VS Code + marp-cli quick starts, troubleshooting, fidelity
  *     AGENTS.md            — entrypoint for an AI agent (default; --no-agent omits)
  *     agent/components.json — the Lattice component catalog (capacity included)
  *
@@ -65,10 +67,10 @@
  * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
  * Mermaid — with the exceptions `lib/core/marp-fidelity.js` enumerates (printed
  * into the generated README; not counted here, since the count moves). The
- * marp-vscode PREVIEW pane may carry less still: on the reading that its webview
- * blocks scripts it shows palette + CSS layout only — a claim `engineering/gotchas.md`
- * flags as UNVERIFIED and contested, so the generated README states it as unconfirmed
- * rather than as fact.
+ * marp-vscode PREVIEW pane runs the runtime only at VS Code's **Disable** preview
+ * security level; at the default (Strict) it shows palette + CSS layout only
+ * (measured, engineering/gotchas/vscode.md). The generated README walks the reader to
+ * Disable, and its every step was done on a real VS Code, not inferred.
  * Exit 0 on success, 1 on usage/IO error.
  */
 
@@ -83,7 +85,7 @@ const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker')
 const { formatRefusedHtml } = require('../lib/core/marp-bundle-html');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
-  safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
+  safeName, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/core/marp-bundle');
 
@@ -460,6 +462,8 @@ function main(argv) {
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));
+  fs.writeFileSync(path.join(dest, '.vscode', 'extensions.json'), vscodeExtensions());
+  fs.writeFileSync(path.join(dest, '.vscode', 'tasks.json'), vscodeTasks());
   fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker }));
 
   // 6) the agent kit (default on): a bundle-tailored AGENTS.md at the root +

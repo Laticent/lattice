@@ -58,7 +58,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { STATIC_ASSETS, fontAssetsFor, MARP_CLI_RANGE } = require('../lib/core/marp-bundle.js');
+const { STATIC_ASSETS, fontAssetsFor, MARP_CLI_RANGE, vscodeExtensions } = require('../lib/core/marp-bundle.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'dist', 'marp-kit');
@@ -280,7 +280,9 @@ step.
 ## Start here
 
 **Open THIS FOLDER as your VS Code workspace root**, with the **Marp for VS
-Code** extension installed, then open \`${DECK}\`.
+Code** extension installed, then open \`${DECK}\`. If you don't have the extension,
+VS Code offers it when the folder opens (\`.vscode/extensions.json\` recommends it):
+click **Install**.
 
 That is not a style preference. \`.vscode/settings.json\` registers the
 stylesheets by workspace-relative path (\`./lattice-min.css\`), so if the kit sits
@@ -322,6 +324,7 @@ nothing on our side had ever rendered it. The reference render was made with
 | \`fonts/\` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
 | \`.vscode/settings.json\` | Registers them for the VS Code extension. |
+| \`.vscode/extensions.json\` | Makes VS Code offer to install Marp for VS Code. |
 | \`NOTICE.md\` · \`LICENSE\` | The terms these files come under. Worth two minutes. |
 
 ## Three things that will bite you
@@ -357,11 +360,13 @@ that script runs, the deck is whole. Where it does not, those four are raw.
   only if \`lattice-runtime-min.js\` and \`mermaid-v11-min.js\` are still sitting
   beside it. Mail someone the \`.html\` on its own and they get a broken deck.
 - **The VS Code preview pane** runs marp-core directly, without Lattice's
-  markdown-it plugins. Whether it executes the deck's \`<script>\` tags is
-  genuinely unsettled in this project's own notes, so treat those four slides as
-  unknown there rather than promised. If they come up flat for you, that is the
-  unresolved case above and not a broken copy of the kit — everything else on the
-  slide should still be fully styled.
+  markdown-it plugins, and runs the deck's \`<script>\` tags at one preview
+  security level only. At VS Code's default (*Strict*) the preview shows *"Some
+  content has been disabled in this document"* and those four slides stay raw;
+  click that message and choose **Disable** (*"Allow all content and script
+  execution"*) and they draw. VS Code remembers the choice per folder. The folder
+  must be trusted first (the *Restricted Mode* banner → **Manage** → **Trust**).
+  Measured on VS Code 1.142.0 with Marp for VS Code 3.6.1.
 
 Everything CSS does — layout, palette, typography, every purely-CSS layout —
 holds on all three. Render the deck for anything you need to trust.
@@ -418,6 +423,7 @@ function buildKit() {
 
   out.set('marp.config.cjs', marpConfig());
   out.set('.vscode/settings.json', vscodeSettings());
+  out.set('.vscode/extensions.json', vscodeExtensions());
   out.set('README.md', readme());
   out.set('NOTICE.md', notice());
   // Verbatim, not summarized: an AGPL conveyance has to carry the actual text.

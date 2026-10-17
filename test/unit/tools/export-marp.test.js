@@ -56,7 +56,7 @@ describe('export-marp bundle (end-to-end)', () => {
   test('produces the expected Marp-native bundle layout', () => {
     for (const f of [
       'split-headings.md', 'README.md', 'marp.config.cjs', 'package.json',
-      '.vscode/settings.json',
+      '.vscode/settings.json', '.vscode/extensions.json', '.vscode/tasks.json',
       'lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css',
       'mermaid-v11-min.js', 'lattice-runtime-min.js',
     ]) {
