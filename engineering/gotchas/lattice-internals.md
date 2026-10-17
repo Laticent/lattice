@@ -1064,23 +1064,37 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 ## A rule works in the CLI export and does nothing in the Studio or Playground preview
 
-- **Symptom:** A theme or engine rule whose selector starts with `:where(section…)` styles the
-  slide in the CLI's PDF and HTML, and has no effect in the Studio's and the Playground's live
-  slide. Nothing errors. #2705 found two: the code plugin's `:where(section) pre` (code blocks
+- **Symptom:** A theme or engine rule that names the slide in a way the packer does not recognize
+  (below) styles the slide in the CLI's PDF and HTML, and has no effect in the Studio's and the
+  Playground's live slide. Until 2026-10-17 that included a leading `:where(section…)`. Nothing errors. #2705 found two: the code plugin's `:where(section) pre` (code blocks
   lost their panel in the preview) and a finish's split-panel reset (a legacy finish left its
   white section mask on the panel, so the panel painted white under its white text).
 - **Cause:** The engine packs every sheet for the live preview (`packSelector` in
-  `lib/engine/css.js`). Only a literal leading `section`, or a leading `:is(…)` it distributes,
-  counts as the slide; anything else is scoped as a slide DESCENDANT. So
-  `:where(section.finish) .panel-left` packs to
-  `article.lattice > section :where(section.finish) .panel-left`, a section inside a section.
-  The CLI reads the FLAT pack, which also ships each re-scoped arm as written, so the CLI still
-  matches. It is the Marp-side trap in `marp.md` ("A theme rule gated on `:root[…]`"), from the
-  engine's own packer.
-- **Fix:** Lead with `section` and move the weight-free part inside `:where()`:
-  `section.finish :where(.panel-left, …)`. The rewrite adds the type selector plus whatever
-  classes leave `:where()`, less those that enter it ((0,0,1) here), so check what the rule must
-  still lose to.
+  `lib/engine/css.js`). Only a literal leading `section`, a leading `:is(…)` it distributes, a bare
+  `:root`, and (since the 2026-10-17 packer fix) a leading `:where(section…)` count as the slide; anything else is
+  scoped as a slide DESCENDANT, a section inside a section. The CLI reads the FLAT pack, which also
+  ships each re-scoped arm as written, so the CLI still matches. It is the Marp-side trap in
+  `marp.md` ("A theme rule gated on `:root[…]`"), from the engine's own packer.
+- **Fixed in the packer (2026-10-17 packer fix): a leading `:where(section…)`.** `:where(section.finish) .panel-left`
+  now packs to `article.lattice > :where(section.finish) .panel-left`: the container goes before
+  the `:where()`, so the author's zero-weight filter stays zero-weight. Measured on a fixture
+  theme (indaco plus four rules), preview vs the CLI's as-written sheet, `outline-width`: single arm
+  0px → 3px (CLI 3px), multi-arm list 0px → 4px (CLI 4px). All 33 shipped sheets (css, flat, html)
+  hash identically before and after, because no shipped selector leads with `:where(section…)`.
+  **It applies only when EVERY arm is one compound that starts with `section` and none mentions
+  `:root`.** An arm with a combinator inside it (`:where(section .wrap) .d`) filters on a descendant
+  of a section, not on the slide, so it keeps scoping as a descendant and keeps working. A mixed list
+  (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's third rule: preview 0px,
+  CLI 5px); `:where(:root)` and `:where(section:root)` stay dead on purpose, because a
+  `color-scheme` moved onto the slide stops it inheriting a forced dark mode (see the `:where(:root)` bullet
+  below). Both are pinned in `css-scope.test.js`.
+  One gap, not a regression: pane twins (`widenForPanes`, `lib/core/pane-css.js`) are made only for an
+  arm with a literal leading `section`, so `:where(section.list) .x` styles a list SLIDE in the
+  preview but not a list PANE; the CLI makes no twin either, so the two agree.
+- **Still the fix for everything else:** lead with `section` and move the weight-free part inside
+  `:where()`: `section.finish :where(.panel-left, …)`. The rewrite adds the type selector plus
+  whatever classes leave `:where()`, less those that enter it ((0,0,1) here), so check what the
+  rule must still lose to.
 - **The trailing form is the same trap.** `:where(.lattice-exporting) section.finish` packs to
   `article.lattice > section :where(.lattice-exporting) section.finish`. Nine such arms sat in
   `base.finish.css`, `base.modifiers.css`, the split-panel and split-compare styles and both finish

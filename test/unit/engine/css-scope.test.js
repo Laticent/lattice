@@ -118,13 +118,13 @@ describe('packTheme flat (the exported player)', () => {
 });
 
 // A packed selector must never need a slide INSIDE a slide. The packer scopes every selector
-// under `article.lattice > section` and only treats a literal leading `section` (or a bare
-// `:root`, or a distributed leading `:is(…)`) as the slide itself, so any other way of NAMING the
-// slide packs to a descendant: `:where(section.finish) .panel` → `… > section :where(section.finish)
-// .panel`; `:where(.lattice-exporting) section.x`; `.x section.x`; `:where(:root)`. Each needs a
-// `<section>` below a `<section>`, which no deck contains, so the rule matches nothing in the
-// Studio and Playground preview while the flat CLI sheet still applies it (#2705, #2715, #2720,
-// #2705 follow-up). Write `section.x :where(…)`, `section.x.lattice-exporting`, or `:root`.
+// under `article.lattice > section` and treats only a literal leading `section`, a distributed
+// leading `:is(…)`, a bare `:root` and (since the 2026-10-17 packer fix) a leading `:where(section…)` whose every arm
+// starts with `section` as the slide itself. Any other way of NAMING the slide packs to a
+// descendant: `.x section.x`; `:where(.lattice-exporting) section.x`; `:where(section.a, .b) .y`;
+// `:where(:root)`. Each needs a `<section>` below a `<section>`, which no deck contains, so the rule
+// matches nothing in the Studio and Playground preview while the flat CLI sheet still applies it
+// (#2705, #2715, #2720, #2735). Write `section.x :where(…)`, `section.x.lattice-exporting`, or `:root`.
 //
 // STRUCTURAL, not a regex: `nestsSlide` splits the packed selector into compounds at its
 // combinators and asks whether a `section` type selector sits below the slide compound. The first
@@ -276,7 +276,7 @@ describe('no packed selector needs a slide inside a slide', () => {
 
   test('the guard fails on every shape the packer makes into a slide inside a slide', () => {
     for (const sel of [
-      ':where(section.finish) .panel-left', // a leading :where() naming the slide (#2705)
+      ':where(section.a, .b) .y', // a MIXED leading :where(): ambiguous, stays dead on purpose
       ':where(.lattice-exporting) section.finish', // an ancestor-led arm, slide after the :where() (#2720)
       ':where(.a:not(.b)) section > .tab', // nested parens in the :where()
       ':where(.a) > section.x', // a child combinator before the slide
@@ -289,11 +289,15 @@ describe('no packed selector needs a slide inside a slide', () => {
     ]) {
       assert.ok(dead(sel), `${sel} must be flagged: ${scope(sel)}`);
     }
-    assert.ok(packedArms(packTheme('@media print { :where(section.x) .a { b: 1 } }')).some(nestsSlide), 'inside an at-rule too');
+    assert.ok(packedArms(packTheme('@media print { .x section.y .a { b: 1 } }')).some(nestsSlide), 'inside an at-rule too');
   });
 
   test('the guard passes every well-formed way of naming the slide', () => {
     for (const sel of [
+      ':where(section.finish) .panel-left', // a leading :where() naming the slide, packed onto it (2026-10-17 packer fix)
+      ':where(section.a, section.b) .x',
+      ':where(section:not(.x)) h2',
+      ':where(section .wrap) .d', // a descendant filter: packs as a descendant, which matches
       'section.finish.lattice-exporting',
       'section.finish :where(.panel-left)',
       'section :where(.x) h2',
@@ -318,6 +322,34 @@ describe('no packed selector needs a slide inside a slide', () => {
     // inheriting a forced dark mode. See SANCTIONED_NESTED_SLIDE.
     assert.ok(dead(':where(:root)'));
     assert.deepEqual(armsOf(flatScope(':where(:root)')), [scope(':where(:root)'), ':where(:root)'], 'flat keeps the written arm');
+  });
+
+  test('a leading :where(section…) names the slide: the container goes before it, its zero weight stays', () => {
+    assert.equal(scope(':where(section.finish) .panel-left'), 'article.lattice > :where(section.finish) .panel-left');
+    assert.equal(scope(':where(section.a, section.b) .x'), 'article.lattice > :where(section.a, section.b) .x');
+    assert.equal(scope(':where(section:not(.x)) h2'), 'article.lattice > :where(section:not(.x)) h2');
+    assert.equal(scope(':where(section.a:not(.b .c)) .x'), 'article.lattice > :where(section.a:not(.b .c)) .x', 'a space inside parens is still one compound');
+    assert.equal(scope(':where(section[data-x="a b"]) .y'), 'article.lattice > :where(section[data-x="a b"]) .y', 'and so is one inside a quoted value');
+    assert.equal(scope(':where(section.a)::after'), 'article.lattice > :where(section.a)::after');
+    // FLAT: it packs to `article.lattice > <itself>`, which a flat document strips back to exactly what
+    // was written, so (like a literal leading `section`) it gains no second, as-written arm.
+    assert.equal(flatScope(':where(section.finish) .panel-left'), scope(':where(section.finish) .panel-left'));
+  });
+
+  test('what stays dead stays dead: a mixed arm list, :where(:root), and the trailing form', () => {
+    // A mixed list is ambiguous (`.b` is not the slide). :where(:root) and :where(section:root) are a
+    // document default and must NEVER land on the slide, or a forced dark mode stops reaching it
+    // (the :where(:root) entry in engineering/gotchas/lattice-internals.md).
+    assert.equal(scope(':where(section.a, .b) .y'), 'article.lattice > section :where(section.a, .b) .y');
+    // An arm with a combinator inside it filters on a descendant of a section, not on the slide, so it
+    // keeps scoping as a descendant (which matches). Rescuing it would need a section ABOVE the slide.
+    for (const arm of ['section .wrap', 'section > .a', 'section *', 'section ~ section']) {
+      assert.equal(scope(`:where(${arm}) .x`), `article.lattice > section :where(${arm}) .x`, arm);
+    }
+    assert.equal(scope(':where(section.a, section .b) .z'), 'article.lattice > section :where(section.a, section .b) .z');
+    assert.equal(scope(':where(:root)'), 'article.lattice > section :where(:where(section):not([\\20 root]))');
+    assert.equal(scope(':where(section:root)'), 'article.lattice > section :where(:where(section):not([\\20 root]))');
+    assert.equal(scope(':where(.lattice-exporting) section.f'), 'article.lattice > section :where(.lattice-exporting) section.f');
   });
 
   test('every lib/ and themes/ stylesheet packs without one', () => {
