@@ -757,6 +757,57 @@ filmstrip), and a poster in the filmstrip needs a `SANCTIONED_RUNTIME_MARKUP_SIN
 Fuoco model, the pool and filmstrip diffs, iOS, and the unreviewed spike results themselves.
 
 
+## 11e. Inversion: what would make this fail (2026-10-17)
+
+A Munger inversion of the design and the on-demand styles brief (an independent agent; nothing edited) concluded
+**proceed with changes**. The core and the Studio map are worth building; what fails under inversion is the *order*
+of work and two of the owner's 2026-10-17 rulings (fork 1's poster map, fork 2's publish). Findings, with the facts I
+re-checked marked **verified**:
+
+1. **The expensive part is the poster subsystem, not the library.** The core is 0.6 to 16 µs and nine properties
+   pass; what is unbuilt is about twenty Lattice-specific mechanisms (Fuoco fix, engine stamping, pool `rank`, sandboxed
+   capture frame, CDATA and font inlining, a private-variable override, a key normalizer, supersede-then-LRU, cooldowns,
+   an idle gate, a #22 sanction), each failing silently. The prototype showed the decay: four silent defects in a day.
+2. **The poster tier pays only past the pool cap.** **Verified:** across the 281 example and baseline decks the median
+   is 8 slides, the 90th percentile is 10, and only 3 decks exceed 28 (`gallery-jargon.md` 58, `gallery.md` 120,
+   `system-design-foundations.md` 232). **Caveat the inversion did not state:** this is the *example* corpus, a set of
+   feature demos, not real boardroom decks, which are plausibly 20 to 60 slides; the right number is the owner's own
+   deck sizes, which this sandbox cannot see.
+3. **Posters cost most on the future runtime.** Tauri on macOS is WebKit, where capture is still a 100 to 250 ms hitch
+   per poster; iOS and macOS WebKit are unmeasured. (Partial counter-evidence: the owner ran the playground, posters
+   included, on a phone with 1,200 slides and reported it responsive with no crash or jank.)
+4. **The foundation keeps deepening** (preview, posters, capture cost, stylesheet size, a CSS delivery rewrite), and
+   the brief rests on an inference the note marks untested ("the 1.8 MB stylesheet dominates"), while measured results
+   point the other way (rule pruning slowed WebKit capture; the 1280 override cut capture time only about 20%).
+5. **"Uniform 16:9" is false across decks.** **Verified:** 36 of 281 decks are not 1280x720 or 4K 16:9 (21 at 1080x1350,
+   12 at 1080x1920, and four more sizes), and at 1280x720 the 35 portrait, square and story decks lose all 521 split
+   pages, so a map capture size must follow the deck's aspect ratio, not be fixed.
+6. **Unpriced costs.** Engine stamping puts new attributes (source lines) into exported HTML, which would change export
+   bytes, trigger the owner's sign-off gate, and contradicts §10's "does not change the bytes of an exported artifact"
+   (the spike already shows the safer place: `splitForPreview` writes `data-lattice-slide` today and never reaches an
+   export). A sandboxed capture frame is one more document that WebKit never frees and that counts against the live
+   budget, and it owes a #22 justification. The poster key is defined two ways (constraint 4 says the renderer's own
+   slice-cache key; §11c.5 normalizes `outerHTML` with a regex), and the regex is a standing invariant any new
+   component that mints position-based ids can break silently. IndexedDB persistence adds versioning across engine
+   releases. P2 needs the Fuoco fix, stamping, the pool API and capture together, which is the stacked-PR trap
+   (HARD RULE #17). **Verified:** `@laticent/fuoco` is not on npm (404) and is `AGPL-3.0-only`, so a published package
+   buys a demo page and API-freeze pressure but no users yet.
+7. **A simpler design the note never compared against:** a Studio picture-in-picture whose map is the existing
+   one-frame filmstrip (scaled) or the existing `PreviewPool` for decks of 28 slides or fewer, with pills and the
+   cheap wireframe tier past that, first and last as plain commands, and the windowing core as a fenced module. It
+   loses far-off pictures in big decks, cross-session caching and the claim of generality; it avoids capture, keys,
+   the cache, the capture frame, stamping, the font and CDATA recipe, and the styles loader.
+8. **Cheap falsifiers (under a day each):** put the existing pool overview beside the stage and look at it on a
+   230-slide deck; open the playground in Safari on a Mac and on an iPhone (do captures decode, does the page survive
+   baking); stamp at `splitForPreview` instead of the engine; capture one slide with the full sheet against a hand-cut
+   100 KB sheet, three repeats, on both engines; apply the Fuoco fix and run five presses in a real browser.
+
+**The three decisions it asks the owner to make or reverse now:** (1) ship the Studio map on live, wireframe and pill
+tiles first and add posters later, as a tile kind, once the falsifiers show decks over the pool cap hurt; (2) fence the
+core first and publish only after the Playground adopts it with no core change (the note's own tripwire, P3); (3)
+decouple the styles brief from the poster tier, run only its baseline and the sheet-size test, and stamp at
+`splitForPreview`. Posters are a tile kind in the design, so adding them later is an addition, not a rework.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
