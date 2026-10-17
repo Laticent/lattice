@@ -197,3 +197,23 @@ describe('bg-image — the page number never folds into .image-text', () => {
     assert.match(out, /<\/div><span class="lat-pagination">2<\/span><\/section>/);
   });
 });
+
+describe('bg-image — liftImageBgImages carries a class run to later slides', () => {
+  const lifted = (md) => bg.liftImageBgImages(md, 'file:///d/');
+  test('`<!-- class: image -->` lifts every later slide until another class run replaces it', () => {
+    const md = '# a\n\n![bg left](a.svg)\n\n---\n\n<!-- class: image -->\n\n![bg right](b.svg)\n\n---\n\n![bg left](c.svg)\n\n---\n\n<!-- class: plain -->\n\n![bg](d.svg)\n';
+    const out = lifted(md);
+    assert.match(out, /!\[bg left\]\(a\.svg\)/, 'before the run: untouched');
+    assert.match(out, /lattice-bg-right[^>]*b\.svg/, 'the slide that starts the run');
+    assert.match(out, /lattice-bg-left[^>]*c\.svg/, 'a later slide inherits it');
+    assert.match(out, /!\[bg\]\(d\.svg\)/, 'a class run without `image` ends it');
+  });
+  test('front-matter `class: image` lifts every slide', () => {
+    const out = lifted('---\ntheme: indaco\nclass: image\n---\n\n![bg left](a.svg)\n\n---\n\n![bg right](b.svg)\n');
+    assert.equal((out.match(/lattice-bg /g) || []).length, 2);
+  });
+  test('a per-slide `_class: image` does not leak onto the next slide', () => {
+    const out = lifted('<!-- _class: image -->\n\n![bg left](a.svg)\n\n---\n\n![bg left](b.svg)\n');
+    assert.match(out, /!\[bg left\]\(b\.svg\)/);
+  });
+});
