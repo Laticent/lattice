@@ -483,7 +483,13 @@ One round. My recommendation is first in each.
 | **B3** | `render.figureClasses` | **(a) Keep it** (§9). (b) Derive it and add a test that the derivation equals the committed list |
 | **B4** | Stale-gap rule posture | **(a) Report-only for one release, then a failure.** It will find stale notes the first day. (b) A failure at once |
 
-If all four recommendations hold, S1 starts without another question.
+**Owner answers, 2026-10-17: yes to B1, B2, B3 and B4**, each as recommended. So declarations live in
+`lib/bridges/<id>/<id>.bridge.json`; T3 runs nightly and report-only, plus a sampled run on a changed
+bridge (adding that CI step is now approved by this answer, and still needs its own PR); `render.figureClasses`
+stays in the plugin manifest; and the stale-gap rule is report-only for one release, then a failure.
+S1 starts without another question (`followups.d/2761-p2-bridge-spec-s1-marp-declaration.md`). The
+owner also asked for a follow-up to run a Calco file through the Studio host and a real PowerPoint
+(`followups.d/2761-p3-calco-studio-host-and-powerpoint.md`).
 
 ## 15. Non-goals
 

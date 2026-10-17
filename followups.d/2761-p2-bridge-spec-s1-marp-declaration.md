@@ -13,7 +13,7 @@ source: https://github.com/Laticent/lattice/pull/2761
 ```text
   P2 · Start S1 (note §12): the bridge declaration schema, a T1 that reads today's
        Marp ledger with the same meaning, and the two ledger test files moved onto it.
-       Blocked on the owner's answers to B1–B4 (note §14); do nothing until they are in the PR.
+       The owner answered B1–B4 on 2026-10-17 (yes to each recommendation, note §14), so this is unblocked.
        why now   — every later bridge (Calco) and phase E's zip format build on this contract
        where     — engineering/decisions/2026-10-17-bridge-spec-and-plugin-format.md §4, §5, §12;
                    lib/core/marp-fidelity.js; test/unit/core/marp-fidelity.test.js and
