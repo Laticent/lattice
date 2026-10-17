@@ -5,7 +5,7 @@ summary: >
   `@meta{class=cards, footer="Q3 review"}` replaces `<!-- _class: cards -->` and `<!-- _footer: Q3 review -->`; long
   speaker notes use a ```` ```meta ```` fence that holds the same record. A new host rule reads the records right
   after `lattice_directives` and merges them into the same directive table, so `lattice_directives_apply` and every
-  `data-*` output stay unchanged. One reader module replaces about 61 hand-rolled comment regexes and five copies of the
+  `data-*` output stay unchanged. One reader module replaces 42 hand-rolled readers of specific comment keys and five copies of the
   key list. The comment form is removed (hard cut, with a codemod); the Marp bridge compiles `@meta` back to comments on
   export. Pane markers move in too. Nothing here is built.
 builds-on:
@@ -34,8 +34,8 @@ An author sets a slide's metadata with one record on a line of its own:
 
 **What this buys, in order of how sure we are:**
 
-1. **One reader instead of about 61.** One grammar (`readDirectiveComment`) exists today, and 5 production modules call
-   it. About 61 other runtime modules carry their own comment regex, and the key list is copied by hand in five places
+1. **One reader instead of 42.** One grammar (`readDirectiveComment`) exists today, and 5 production modules call
+   it. 42 other runtime modules re-spell their own reader of a specific key, and the key list is copied by hand in five places
    (§3). A record with a declared slot gives lint, the engine, the Studio drawer and autocomplete the same parse.
 2. **Autocomplete and structured editing.** The drawer edits `_class` with a regex today. With a slot spec it edits a
    field of a record, and autocomplete offers field names and values from the same spec.
@@ -67,7 +67,19 @@ the variance band" (HARD RULE #19) until the numbers say otherwise.
 
 ## 3. What the audit found (2026-10-17, against `main` at `ff03320`)
 
-The counts below come from a grep heuristic and were not hand-checked module by module.
+**Reader census, hand-checked (2026-10-17).** The rule: a tracked `.js`/`.mjs`/`.ts`/`.tsx` file under `lib/` or
+`docs/src/`, outside tests, vendored code and generated bundles (1,114 files), whose code (not only a doc comment)
+matches or scans HTML comments. 61 files qualify. Reading each hit by hand splits them:
+
+| Group | Files | What they do |
+|---|---|---|
+| Re-spell their own reader of a specific key or directive shape | 42 | `_class`, `_pane`, `_focusSteps`, `_lens`, `tier`, `header`/`footer`, notes and the rest |
+| The shared scanner | 1 | `class-directive-scan.mjs`, which reads through the shared grammar |
+| Only strip, skip, tokenize or escape comments | 18 | `closed-comments.js`, `split-panels.js`, `html-player.js`, `flowchart-html.js`, `slide-class-spans.js` (which reads through the grammar and holds no comment regex in code) and 13 more |
+
+Only the 42 are migration work. The 18 stay as they are, because real prose comments still exist and still need
+stripping. The earlier figure of "about 61 readers" counted all three groups. The method is a grep for `<!--` inside
+a regex literal or `RegExp(`, then a per-file read; the file lists are in §12.
 
 **One grammar, narrow adoption.** `readDirectiveComment` (`lib/core/comment-directive.mjs:59`) is the engine's grammar.
 Five production modules call it (`slides.js`, `lint-core.js`, `class-directive-scan.mjs`, `auto-split.js`, `slide-class-spans.js`). The rest re-spell it:
@@ -289,3 +301,72 @@ This change touches the render kernel, the lint core, the export pipeline and a 
 once step 1 exists, applied to what ships. The attacks to run: a `@meta` line that sets a class the plugin admission
 cannot see; two `@meta` lines that disagree; `@meta` inside a `split` panel after `split-panels.js` re-emits the HTML;
 a note that contains `-->`, a backtick or `@meta{`; and a Marp round trip that changes a deck's computed style.
+
+## 12. Appendix: the reader census, file by file
+
+Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one not re-spelling):
+
+- `docs/src/components/studio/Editor.tsx`
+- `docs/src/components/studio/PresentOverlay.tsx`
+- `docs/src/components/studio/StudioShell.tsx`
+- `docs/src/components/studio/coach/coach-core.ts`
+- `docs/src/components/studio/editor-complete.ts`
+- `docs/src/components/studio/lint.ts`
+- `docs/src/components/studio/pane-pages.ts`
+- `docs/src/components/studio/pane-probe.ts`
+- `docs/src/components/studio/present-sections.ts`
+- `docs/src/components/studio/present/rehearsal.js`
+- `docs/src/components/studio/slide-directives.ts`
+- `docs/src/components/studio/split-slide.ts`
+- `docs/src/lib/code-packages/door.ts`
+- `docs/src/lib/compose/comment-block.ts`
+- `docs/src/lib/compose/deck-doc.ts`
+- `docs/src/lib/compose/deck-source.ts`
+- `docs/src/lib/compose/pane-model.ts`
+- `docs/src/lib/compose/registers.ts`
+- `docs/src/lib/lente/tags.ts`
+- `docs/src/lib/single-slide-render.ts`
+- `docs/src/playground/slide-context.js`
+- `lib/authoring/lint-core.js`
+- `lib/authoring/notes-core.js`
+- `lib/authoring/prose-budgets.js`
+- `lib/authoring/review-core.js`
+- `lib/conformance/kinds/component.contract.js`
+- `lib/core/auto-split.js`
+- `lib/core/bg-image.js`
+- `lib/core/chart-narration.js`
+- `lib/core/class-directive-scan.mjs`
+- `lib/core/marp-bundle-math.js`
+- `lib/core/pane-spec.js`
+- `lib/core/panes.js`
+- `lib/core/resolve-motion.mjs`
+- `lib/core/slide-speech.js`
+- `lib/diagnostics/slice-equivalence-core.mjs`
+- `lib/engine/directives.js`
+- `lib/exemplars/tier-filter.js`
+- `lib/integrations/markdown-it/plugins.js`
+- `lib/layout/bridge.js`
+- `lib/layout/gate.js`
+- `lib/packages/rename.js`
+- `lib/playground/index.js`
+
+Only strip, skip, tokenize or escape (18):
+
+- `docs/src/components/studio/architect-agent.ts`
+- `docs/src/lib/caret-probe.ts`
+- `docs/src/lib/deck-outline/deck-outline.ts`
+- `docs/src/lib/playground-controller.ts`
+- `lib/authoring/fact-check-core.js`
+- `lib/components/chart/_chart-family/mark-detail.js`
+- `lib/core/closed-comments.js`
+- `lib/core/flowchart-html.js`
+- `lib/core/heading-split-core.mjs`
+- `lib/core/live-author-html.js`
+- `lib/core/pane-css.js`
+- `lib/core/prose-code.js`
+- `lib/core/slide-class-spans.js`
+- `lib/core/split-panels.js`
+- `lib/export/html-player.js`
+- `lib/forms/cell/masthead/masthead.transform.js`
+- `lib/packages/code-door-core.mjs`
+- `lib/plugins/chart-family/chart-family.dispatch.js`
