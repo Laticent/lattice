@@ -556,6 +556,28 @@ engine internals (a private variable and an `!important` rule); the clean form i
 geometry rendering at a requested size. Six slides were compared by eye and by pixel; line wraps at smaller
 sizes were not audited.
 
+**8. Typing and the cache (the owner's question; playground with a real Title field, an auto-typer and a
+configurable cache).** Typing 44 characters, 90 ms apart, into the focused slide's title, with the full
+incremental path (new key, one tile rebind, stage re-point): 1.1 ms per keystroke on Chromium and 2 to 3 ms on
+WebKit, excluding the engine's own re-render. Baker and cache policy:
+
+| Policy, baker | Captures while typing | Cache entries before to after | Frames over 50 ms (Chromium / WebKit) |
+|---|---|---|---|
+| supersede, idle gate (600 ms) | **0** (one capture after the pause) | 8 to 8 | 1 / 3 |
+| supersede, back-to-back | 43 / 38 | **8 to 8** (44 / 39 superseded) | 45 / 47 |
+| LRU only, back-to-back | 43 / 41 | 8 to 52 / 49 | 44 / 46 |
+| unbounded, back-to-back | 43 / 41 | 8 to 52 / 50 | 44 / 55 |
+
+Under the byte-budgeted LRU (0.25 MB, 50 entries) a full "bake every slide" held 13 entries and 0.24 MB after 124
+to 260 captures, and every tile in the map's window still had its poster, because the window is pinned. The edited
+tile showed its old poster (a dot marks it) until the new one landed, then the dot cleared.
+
+**A flaw the test caught in my first supersede design:** it linked each new key to the previous one, but with
+back-to-back baking a capture can finish after the owner has moved on, so its entry was never replaced and the
+cache grew to 50 anyway. The working rule is simpler: keep the **latest baked key per stable slide id**, show it
+while the current key bakes, and drop the earlier one when a newer one lands, unless another slide still uses it.
+Policy, byte budget, entry limit, stale display and the idle gate are all options in the page.
+
 **What this changes in the design**
 
 1. Capture at the slide's native size and build the pyramid by canvas downscale. (Constraint 4 now says so.)
