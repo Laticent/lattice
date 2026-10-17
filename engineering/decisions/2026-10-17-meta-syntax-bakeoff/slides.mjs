@@ -4,9 +4,12 @@
  * `{ pane }` record per `_pane` marker, in source order.
  */
 import { readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { typeClass } from './catalog.mjs';
+
+const { replaceClosedComments } = createRequire(import.meta.url)('../../../lib/core/closed-comments.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const DIRECTIVE_KEYS = new Set(['class', 'footer', 'header', 'paginate', 'pane', 'focusSteps', 'focus', 'focusStyle', 'build', 'debug', 'lens', 'track', 'say', 'describe', 'tier', 'backgroundColor', 'color']);
@@ -27,8 +30,8 @@ export function splitSlides(text) {
 /** comments of a slide -> { records, comments, bodyWithoutComments } */
 export function canonical(slide) {
   const slideRec = {}; const records = [slideRec]; const notes = [];
-  const body = slide.replace(/<!--([\s\S]*?)-->/g, (_, inner) => {
-    const t = inner.trim();
+  const body = replaceClosedComments(slide, (comment) => {
+    const t = comment.slice(4, -3).trim();
     const m = t.match(/^(_?)([A-Za-z][\w-]*)\s*:\s*([\s\S]*)$/);
     if (m && DIRECTIVE_KEYS.has(m[2])) {
       const [, , key, rawVal] = m; const val = rawVal.trim().replace(/^(["'])([\s\S]*)\1$/, '$2');

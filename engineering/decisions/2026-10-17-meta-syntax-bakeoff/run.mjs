@@ -94,7 +94,14 @@ const parsers = {
   commonmark: (t) => new commonmark.HtmlRenderer().render(new commonmark.Parser().parse(t)),
   micromark: (t) => micromark(t, { allowDangerousHtml: true }),
 };
-const visible = (html) => html.replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+/** Visible text of rendered HTML: drop every tag by scanning (no regex filter), decode the four entities we emit. */
+const visible = (html) => {
+  let out = ''; let inTag = false;
+  for (const ch of html) {
+    if (ch === '<') { inTag = true; out += ' '; } else if (ch === '>' && inTag) inTag = false; else if (!inTag) out += ch;
+  }
+  return out.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+};
 const tags = (html) => (html.match(/<[a-z][^>]*>/gi) || []).length;
 function rendering(c) {
   const per = {};

@@ -222,7 +222,7 @@ export const C0 = {
     read(lines, i) {
       if (!/^ {0,3}<!--/.test(lines[i])) return null;
       let text = lines[i].trim(); let j = i;
-      while (!text.endsWith('-->') && !/-->/.test(text)) { if (++j >= lines.length) return { end: i, diag: 'unterminated-comment' }; text += `\n${lines[j]}`; }
+      while (!text.includes('-->')) { if (++j >= lines.length) return { end: i, diag: 'unterminated-comment' }; text += `\n${lines[j]}`; }
       const end = text.indexOf('-->') + 3; text = text.slice(0, end);
       const d = readDirectiveComment(text, { known: DIRECTIVES, flags: new Set() });
       const fields = {};
