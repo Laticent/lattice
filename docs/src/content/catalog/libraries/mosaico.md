@@ -87,7 +87,8 @@ needs only the container's shape.
 Every `collage` slide packs its photos with `tree`. The move into Mosaico made the search about six
 times faster (six photos: 58 ms down to 9 ms) without changing one byte of any layout, which a
 golden file of 4,128 cases checks. Every `logo-wall` slide sizes its marks with `rows`, so a 3:1
-wordmark no longer gets 3.6× the area of a 1:2 crest. The CLI and the live preview call the same
+wordmark and a square badge carry the same weight, and a 1:2 crest, held to the row's height, gets half
+of it rather than a quarter. The CLI and the live preview call the same
 functions, so both draw the same layout.
 
 ## What it doesn't do

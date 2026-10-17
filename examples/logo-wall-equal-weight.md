@@ -22,16 +22,16 @@ A wordmark, a badge and a crest now share one wall at the same area, so no mark 
 The wall used to draw each mark as large as its cell allowed. A cell is wide and short, so the shape of the mark decided its size.
 
 - A 4:1 wordmark filled the cell's width and got **2.7×** the area of a 1:2 crest; a 3:1 wordmark got **3.6×**.
-- Now every mark gets the **same area**, unless that would stand it taller than a cap.
+- Now every mark gets the **same area**, unless that would stand it taller than the old row. A crest stops at the row with half the area: **2×**, not 3.6×.
 - The packer is `@laticent/mosaico`'s `rows` strategy, the same library the collage packs with.
 
 ---
 
 <!-- _class: logo-wall -->
 
-`Four shapes, one weight`
+`Four shapes`
 
-## A wordmark, a badge and a crest at equal area.
+## Wordmarks and a badge share one area; the crest stops at the row.
 
 - ![Pinnacle](sample:logo-pinnacle.svg)
 - ![Keystone](sample:logo-keystone.svg)
@@ -82,7 +82,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 `With captions`
 
-## Captioned marks keep the band as their cap.
+## Captions line up under every row.
 
 - ![Pinnacle](sample:logo-pinnacle.svg)
   - Pinnacle

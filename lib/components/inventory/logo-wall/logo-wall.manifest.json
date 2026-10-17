@@ -72,7 +72,7 @@
     },
     {
       "title": "Marks of mixed shapes",
-      "body": "Every mark is drawn at the same area, so a 4:1 wordmark no longer outweighs a square badge or a 1:2 crest (it used to get 2.7× the crest's area). A tall mark stops at a height cap and gives way first when the rows would not fit; rows are balanced and centered (ten marks break 4/3/3). A wall of one shape keeps its old size. The wall sizes from SVG marks (a local file, `sample:` or a `data:` SVG); a raster or remote mark keeps the equal-cell grid. Demo deck: `examples/logo-wall-equal-weight.md`."
+      "body": "Wordmarks and badges are drawn at the same area, so a 4:1 wordmark no longer outweighs a square badge. No mark stands taller than the old row, so a 1:2 crest keeps its old size with half their area (a 4:1 wordmark used to get 2.7× the crest's area) and a wall that fit before still fits; rows are balanced and centered (ten marks break 4/3/3). A wall of one shape keeps its old size. The wall sizes from SVG marks (a local file, `sample:` or a `data:` SVG); a raster or remote mark keeps the equal-cell grid. Demo deck: `examples/logo-wall-equal-weight.md`."
     }
   ],
   "antiPatterns": [

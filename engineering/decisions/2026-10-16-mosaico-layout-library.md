@@ -363,13 +363,20 @@ rows then least squared slack, ties to the earliest break. Forty items: 0.7 ms m
 **How §4.3's rule became numbers for the logo wall** (`lib/core/logo-wall-pack.js`).
 The planner passes mosaico the area, not a formula for it. The old wall drew each mark `contain` in a
 column-wide cell under the band, so each mark had an old area; the shared area is kept inside the range of
-those old areas. Inside the range it is the area of a mark of the set's narrowest shape (at least 1:2)
-standing at the band × √2, so with a 1:2 crest present, the crest reaches the area of a square at the band.
-A wall of one shape therefore draws every mark exactly as before, on every canvas, in every variant. The cap
-starts at band × √2 and may fall back to the band; `minCell` is the old column width, `maxRows` the old row
-count. Captioned walls hold every mark to the band, so their captions line up. The cost is equality on a
-captioned wall with a crest: the crest stops at the band with half the others' area (2.0× spread, against
-3.6× before).
+those old areas. Inside the range it is two squares at the band, halved per halving of the narrowest shape
+down to 1:2. A wall of one shape therefore draws every mark exactly as before, on every canvas, in every
+variant. `minCell` is the old column width, `maxRows` the old row count.
+
+**No mark stands taller than the band.** A first cut let the cap rise to band × √2 when the stage estimate
+said there was room, so a crest beside wordmarks reached the area of a square at the band. The estimate
+cannot see the heading: the fourth checker round wrapped a heading to two lines and a mixed wall that fits on
+`main` overflowed (+1.5 px at 16:9, +113 px on a story slide). Nothing bounds a heading's length, so the only
+height the plan can spend safely is the height the old wall spent. Holding every mark to the band keeps every
+row at most the old row's height, so a wall that fit before fits after, whatever its heading does. The owner
+chose this over keeping 1.00× with a reserve for one wrapped line (2026-10-17). The cost is equality with a
+tall mark in the set: a crest stops at the band with half the others' area, a 2.0× spread against 3.6× before,
+and a square beside 3:1 wordmarks keeps its own old size (1.79× against 1.79×). Wordmarks and badges share one
+area.
 
 The gaps are the old wall's, which are spacing tokens (`--sp-2xl`, `--sp-xl`) times the deck's
 `--canvas-scale`: 1 on a landscape slide, 1.65 square, 1.95 to 2.29 tall. The engine, the live runtime and
@@ -383,14 +390,24 @@ every wall (an `areaCap` option, since replaced by `area`), which doubled a wall
 off a 3:1 wall on tall and strip canvases, `examples/adaptive-sweep.md` among them. The second used one gap per
 family for every canvas, so square canvases planned narrower gaps than they drew.
 
-**The sweep that pins it.** Seven canvases (hd, 4K, standard, square, portrait, story, mobile) × four
-one-shape walls (3:1, 4:1, 1:1, 1:2) × eight variants (plain, dense, compact, dense compact, captioned with 8
-and 12 marks, captioned compact, captioned dense), 224 walls, rendered on the base (`69b521f`) and on this
-branch. All 200 walls that fit on the base draw every mark within 0.5% of its old area. Of the 24 that
-overflowed the slide on the base, nine now pack and fit (captioned walls on portrait and story, and a 4:1
-captioned wall at 16:9 and 4K); the other 15 fall below the legibility floor and keep the old grid, drawn and
-flagged exactly as before. No wall newly overflows. The six shipped decks with a `logo-wall` slide (14 walls) match the base to the
-pixel.
+**The sweeps that pin it**, each rendered with the CLI on the base (`69b521f`) and on this branch, every drawn
+mark measured. Canvases: every size the CLI offers (hd, 4K, standard, square, portrait, story, mobile,
+mobile-landscape).
+
+- *One shape:* four walls (3:1, 4:1, 1:1, 1:2) × eight variants (plain, dense, compact, dense compact,
+  captioned with 8 and 12 marks, captioned compact, captioned dense), 256 walls. All 228 that fit on the base
+  draw every mark within 0.5% of its old area. Of the 28 that overflowed, 10 now fit and 18 fall below the
+  legibility floor and keep the old grid, drawn and flagged as before. None newly overflows.
+- *Mixed shapes, short and long headings:* four sets (4:1/1:1/1:2/3:1, 3:1/1:1, 1:1/1:2, 3:1/1:2) × six
+  variants × a one-line and a three-line heading, 384 walls. None newly overflows, none overflows further, and
+  no mark stands taller than the base's tallest. With a crest in the set the median spread falls from 3.57× to
+  2.00×; 3:1 beside 1:1 stays at 1.79×.
+- *Shipped decks:* the six with a `logo-wall` slide (14 walls) match the base to the pixel.
+
+The fourth round also found that a slide wider than 16:9 (mobile-landscape) shrank captioned walls, because
+the planner converted the stage with the slide's own aspect while the engine keeps a 16:9 content box there,
+and that a mark outside mosaico's 1:20 to 20:1 range, which mosaico reads as 1:1, drew twenty times too tall.
+The planner now reads the stage at 16:9 above it, and such a mark leaves the wall on the old grid.
 
 **A pre-existing overflow, fixed on the way.** The old wall did not fit three rows under an eyebrow: 439 px
 of wall in a 400 px stage at 1280×720, on `main` too. On this PR's path, so fixed here (#18): a packed row is

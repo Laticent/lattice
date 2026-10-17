@@ -5,9 +5,10 @@
   instead of about 58 ms; ordered collages in about 0.4 ms instead of 3.3 ms. Every collage lays
   out exactly as before: a golden file of 4,128 cases pins the output byte for byte to the old
   packer.
-- **Changed: `logo-wall` draws every mark at the same area.** A mark used to fill as much of an
-  equal cell as its shape allowed, so a 3:1 wordmark got 3.6× the area of a 1:2 crest (2.75× in
-  `dense`). Now mosaico's new `rows` strategy gives each mark the same area, capped in height,
+- **Changed: `logo-wall` draws wordmarks and badges at the same area.** A mark used to fill as much
+  of an equal cell as its shape allowed, so a 3:1 wordmark got 3.6× the area of a 1:2 crest (2.75× in
+  `dense`). Now mosaico's new `rows` strategy gives each mark the same area unless that would stand
+  it taller than the old row, so a crest keeps its old size at 2× rather than 3.6× and no row grows,
   in balanced, centered rows (ten marks break 4/3/3, not 4/4/2), in the CLI and the live preview
   alike. A wall of one shape keeps its old size, captioned or not, in `compact` too. The wall now also fits its stage: three rows
   under an eyebrow used to spill past the slide. Three sample marks of other shapes

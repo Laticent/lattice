@@ -35,11 +35,14 @@ test('the band and column counts are the ones the stylesheet uses', () => {
 
 });
 
-test('4:1, 1:1 and 1:2 marks get equal area, default and dense', () => {
+test('a 4:1 wordmark and a square share one area; a 1:2 crest stops at the band with half', () => {
   for (const dense of [false, true]) {
+    const band = dense ? LOGO_BAND.dense : LOGO_BAND.default;
     const plan = planWall([4, 1, 0.5], { dense });
     assert.equal(plan.mode, 'packed');
-    assert.ok(spread(areas(plan)) < 1 + 1e-9, `dense=${dense}: ${areas(plan)}`);
+    const [wide, square, crest] = areas(plan);
+    assert.ok(Math.abs(wide - square) < 1e-12 && Math.abs(square - band * band) < 1e-12, `dense=${dense}: ${areas(plan)}`);
+    assert.ok(Math.abs(crest - (band * band) / 2) < 1e-12, `dense=${dense}: crest ${crest}`);
   }
 });
 
@@ -96,14 +99,29 @@ test('the planned gaps are the old wall\'s on every canvas', () => {
   assert.match(planWall([1], { slideAspect: 0.8, family: 'tall' }).listStyle, /--logo-gx:0\.0812.*--logo-gy:0\.1083/);
 });
 
-test('a mixed wall shares one area inside the range of the old marks\' areas', () => {
+test('beside 3:1 wordmarks a square keeps its old size and the wordmarks keep theirs', () => {
   const band = LOGO_BAND.default;
-  // With a 1:2 crest in the set, every mark gets the area of a square at the band.
-  const plan = planWall([4, 1, 0.5], {});
-  for (const x of areas(plan)) assert.ok(Math.abs(x - band * band) < 1e-12, String(x));
-  // Squares beside 3:1 wordmarks never pass the wordmarks' old area.
   const cell = (1 - 3 * SP_2XL) / 4;
-  for (const x of areas(planWall([3, 1, 3, 1], {}))) assert.ok(x <= cell * cell / 3 + 1e-12, String(x));
+  const [word, square] = areas(planWall([3, 1, 3, 1], {}));
+  assert.ok(Math.abs(word - (cell * cell) / 3) < 1e-12, `wordmark ${word}`);
+  assert.ok(Math.abs(square - band * band) < 1e-12, `square ${square}`);
+});
+
+test('no mark stands taller than the band, so no row is taller than the old wall\'s', () => {
+  // A wall that fit before must fit whatever its heading does: the stage estimate cannot see a
+  // heading that wraps, so the plan never spends height the old wall did not.
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let k = 0; k < 400; k++) {
+    const n = 1 + Math.floor(rnd() * 14);
+    const aspects = Array.from({ length: n }, () => 0.3 + rnd() * 5);
+    const slideAspect = CANVASES[k % CANVASES.length];
+    const opts = { dense: k % 2 === 1, compact: k % 3 === 0, captions: k % 4 === 0, slideAspect, family: familyFor(slideAspect) };
+    const plan = planWall(aspects, opts);
+    if (plan.mode !== 'packed') continue;
+    const band = opts.dense ? LOGO_BAND.dense : LOGO_BAND.default;
+    assert.ok(plan.result.rects.every((r) => r.h <= band + 1e-12), `case ${k}`);
+  }
 });
 
 test('never more rows or more per row than the old wall, and never taller than the stage', () => {
