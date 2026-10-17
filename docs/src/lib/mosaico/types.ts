@@ -16,13 +16,34 @@ export interface Item {
 }
 
 /**
- * The box to fill. `tree` needs only its shape: the result is in layout units, and the CSS grid
- * adapter emits `fr` tracks, so the browser fits the grid to the real box. `rows` fills the width
- * and grows downward, so it needs nothing: pass `{}`.
+ * The box to fill. `tree` needs its shape: `aspect`, or `width` and `height`. `rows` fills the
+ * width and grows downward, so it needs nothing: pass `{}`.
+ *
+ * Units. Without a size, every length option is a fraction: of the container's height for `tree`
+ * (the container is `aspect` wide and 1 tall), of its width for `rows` (the container is 1 wide).
+ * Give the container a size and every length option (`gap`, `rowGap`, `columnGap`, `padding`, and
+ * for `rows` `heightCap`, `minHeightCap`, `maxHeight`, `minCell`, `area` squared) is read in that
+ * size's unit, pixels or anything else, and `frame` and `placed` come back in it.
  */
 export interface Container {
   aspect?: number;
+  /** The container's width, in any unit. */
+  width?: number;
+  /**
+   * The container's height, in the same unit. `tree`: with `width`, it sets the shape. `rows`: the
+   * tallest the layout may stand, padding included (with `maxHeight`, the smaller wins).
+   */
+  height?: number;
 }
+
+/** Space inside the container's edges: one length for all four sides, or one per side (default 0). */
+export type Padding = number | { top?: number; right?: number; bottom?: number; left?: number };
+
+/**
+ * Where the layout sits in the space it leaves. `tree`: along the axis the container has to spare.
+ * `rows`: each row across the width; `justify` spreads a row's leftover width into its gaps.
+ */
+export type Align = 'start' | 'center' | 'end' | 'justify';
 
 /** Score weights for the `tree` strategy's `fill` goal. Each must be finite and ≥ 0 (`pack` throws otherwise). */
 export interface TreeWeights {
@@ -36,6 +57,7 @@ export interface TreeWeights {
   hero?: number;
 }
 
+/** Every length option follows the unit rule on `Container`: a fraction of it, or its own unit when it has a size. */
 export interface PackOptions {
   /**
    * `tree` (default): every guillotine arrangement, for up to six items. `rows`: an ordered list
@@ -54,20 +76,34 @@ export interface PackOptions {
   fit?: 'tight' | 'fill';
   /** `tree`: the most a `fill` layout may stretch, as a fraction (default 0.08). */
   stretch?: number;
-  /** Gutter between items (default 0): for `tree` a fraction of the container height, for `rows` of its width. */
+  /**
+   * Gutter between items (default 0), across and down: for `tree` a fraction of the container
+   * height, for `rows` of its width (see `Container` for the units with a size).
+   */
   gap?: number;
+  /** Gutter between items side by side (default: `gap`). */
+  columnGap?: number;
+  /** Gutter between items stacked, or between rows for `rows` (default: `gap`). */
+  rowGap?: number;
+  /** Space inside the container's edges, in the same units as `gap` (default 0). */
+  padding?: Padding;
+  /**
+   * Where the layout sits in the space it leaves (default `center`). `tree` takes `start`,
+   * `center` and `end`; `rows` also takes `justify`.
+   */
+  align?: Align;
+  /** `rows`: how the last row sits (default: `align`, or `start` when `align` is `justify`). */
+  lastRow?: Align;
   /** `tree`: index of the item that must hold the largest tile, or -1 (default). */
   hero?: number;
   /** `tree`: score weights. */
   weights?: TreeWeights;
-  /** `rows`: gap between rows, as a fraction of the width (default: `gap`). */
-  rowGap?: number;
-  /** `rows`: the tallest an item may be, as a fraction of the width (default 0.1). */
+  /** `rows`: the tallest an item may be (default: 0.1 of the width inside the padding). */
   heightCap?: number;
   /** `rows`: the lowest the cap may fall, before every area shrinks, to fit `maxRows` and `maxHeight` (default: `heightCap`). */
   minHeightCap?: number;
   /**
-   * `rows`: the area every item starts from, as a fraction of the width squared (default: the
+   * `rows`: the area every item starts from, in the container's units squared (default: the
    * largest at which an item of aspect max(narrowest, `aspectFloor`) is exactly `heightCap` tall,
    * and never more than a square at the cap). Set it when the host knows the size it wants, e.g. a
    * wall that must keep the size it had before: `heightCap` still holds every item, and the area
@@ -78,9 +114,9 @@ export interface PackOptions {
   maxPerRow?: number;
   /** `rows`: most rows; the area shrinks until the items fit (default: no limit). */
   maxRows?: number;
-  /** `rows`: the tallest the layout may be, as a fraction of the width; the area shrinks until it fits (default: no limit). */
+  /** `rows`: the tallest the layout may be; the area shrinks until it fits (default: no limit). */
   maxHeight?: number;
-  /** `rows`: the narrowest cell, as a fraction of the width (default 0). */
+  /** `rows`: the narrowest cell (default 0). */
   minCell?: number;
   /** `rows`: items narrower than this aspect are held at `heightCap` instead of shrinking every item (default 0.5). */
   aspectFloor?: number;
@@ -90,7 +126,10 @@ export type PackFailure = 'empty' | 'too-many' | 'no-valid-layout' | 'too-wide';
 
 export interface PackResult {
   ok: true;
-  /** One rectangle per item, in written order, in layout units (the layout is 1 tall). */
+  /**
+   * One rectangle per item, in written order, in layout units: for `tree` the layout is 1 tall,
+   * for `rows` 1 wide, inside the padding. `toGrid` reads these; to draw, use `placed`.
+   */
   rects: Rect[];
   /** The layout's natural width / height. */
   aspect: number;
@@ -104,8 +143,25 @@ export interface PackResult {
   score: number;
   /** The arrangement as data: `V(0,H(1,2))` puts item 0 beside items 1 over 2. */
   arrangement: string;
-  /** The gutter the rects were laid out with. */
+  /** The gutter the rects were laid out with, side by side, in layout units (`columnGap`). */
   gap: number;
+  /** The gutter between items side by side, in layout units. */
+  columnGap: number;
+  /** The gutter between items stacked (or between rows), in layout units. */
+  rowGap: number;
+  /**
+   * Where the layout sits in the container, in the container's units (see `Container`): inside
+   * the padding, placed by `align`.
+   */
+  frame: Rect;
+  /**
+   * One box per item, in written order, in the container's units: what to draw. Under
+   * `fit: 'fill'` the tracks along the short axis grow by one factor, up to 1 + `stretch`, with the
+   * gutters kept: a box is the visible part of its item, which overflows it by at most `stretch`
+   * (crop it, e.g. `object-fit: cover`). `empty`, `crop` and `score` are the search's figures,
+   * read at the layout's natural height; `frame` is what is drawn.
+   */
+  placed: Rect[];
   /**
    * What the search did. `tree`: distinct arrangements it kept, and how many it laid out and
    * scored (the rest lost on a lower bound). `rows`: one arrangement, and the bisection steps it
@@ -114,11 +170,11 @@ export interface PackResult {
   work: { arrangements: number; scored: number };
   /** `rows`: item indices per row. */
   rows?: number[][];
-  /** `rows`: each item's cell (its box widened to the cell width, as tall as its row). */
+  /** `rows`: each item's cell (its box widened to the cell width, as tall as its row), in layout units like `rects`. */
   cells?: Rect[];
-  /** `rows`: the area every item gets unless the height cap holds it. */
+  /** `rows`: the area every item gets unless the height cap holds it, in the container's units squared. */
   area?: number;
-  /** `rows`: the height cap the layout settled on. */
+  /** `rows`: the height cap the layout settled on, in the container's units. */
   heightCap?: number;
 }
 
