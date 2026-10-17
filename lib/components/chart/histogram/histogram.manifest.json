@@ -1,0 +1,164 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "histogram",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "bands"
+    ]
+  },
+  "function": "evidence",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "focusAxes": [
+    "mark"
+  ],
+  "renderNote": "The bands, their values, the edge ticks and the axis captions are one `<svg>`. A band is as wide as its range on the x axis and as tall as its value per unit of range, so its area is its value; bands of one width draw exactly as a gapless bar chart would.",
+  "kernel": {
+    "figureClass": "histogram-figure",
+    "marks": [
+      {
+        "class": "histogram-band",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": true
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each bar is one band of the range, and its area is that band's share",
+    "figure": "svg",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "bucket": "chart",
+  "tags": [
+    "risk",
+    "proportion",
+    "metric",
+    "assessment"
+  ],
+  "description": "One quantity cut into bands that join end to end: each bar is as wide as its band and its area is the band's share, with an optional log axis for bands that widen toward the tail.",
+  "purpose": "Use when the question is how a quantity is spread: annual losses, claim sizes, deal sizes, response times. Each row is a band (`$1M..$10M`) and its share or count. The x axis is a number line, so bands of different widths draw honestly, and `log` in the axis line keeps a long tail readable.",
+  "axisSet": {
+    "members": [
+      "x",
+      "y"
+    ],
+    "body": "list",
+    "keyBelow": false
+  },
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading — say what the shape shows ('Most years stay under $10M; one in thirty tops $100M'), not 'Loss histogram'."
+    },
+    "axes": {
+      "selector": "p > code",
+      "required": false,
+      "description": "Optional axis line, as ONE bracketed list in its own paragraph ABOVE the heading: x first, then y — `[{Annual loss, $1M..$250M, log}, {Share of years}]`. The x member is `{name, min..max, log}`: the domain is optional and derives from the bands, and `log` draws a log scale, which needs every band edge above zero. The y member is only a name; a histogram prints its values on the bars, not on a value axis. The paragraph is consumed and painted on the axes. Same idiom as `scatter` and `quadrant`."
+    },
+    "bands": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per band, in order along the axis: a range pill and a value pill, in either order — `` `$1M..$10M` `55%` ``. `..` is the only range delimiter. Optional lead text names the band (`Attritional `$0..$5M` `61%``); without it the band is named by its range. Bands should join end to end: a gap draws as empty space and an overlap draws two bars over the same stretch, and `lint:deck` names both."
+    },
+    "detail": {
+      "selector": "li > ul",
+      "required": false,
+      "description": "Optional nested sublist under a band. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
+    }
+  },
+  "skeleton": "<!-- _class: histogram -->\n\n## Most values sit in the first band.\n\n- `0..10` `45%`\n- `10..20` `30%`\n- `20..30` `15%`\n- `30..40` `10%`\n",
+  "anatomyBlock": "funnel",
+  "sample": "<!-- _class: histogram -->\n\n`[{Annual loss, $1M..$250M, log}, {Share of years}]`\n\n## Most years stay under $10M; one in thirty tops $100M.\n\n- `$1M..$10M` `55%`\n- `$10M..$50M` `30%`\n- `$50M..$100M` `12%`\n- `$100M..$250M` `3%`\n",
+  "stressDoc": {
+    "summary": "Twelve equal bands on a linear axis, the tail bands under one percent.",
+    "sample": "<!-- _class: histogram -->\n\n`[{Claim size}, {Share of claims}]`\n\n## Twelve bands, a long thin tail.\n\n- `$0..$10k` `31%`\n- `$10k..$20k` `22%`\n- `$20k..$30k` `15%`\n- `$30k..$40k` `10%`\n- `$40k..$50k` `7%`\n- `$50k..$60k` `5%`\n- `$60k..$70k` `4%`\n- `$70k..$80k` `2.5%`\n- `$80k..$90k` `1.5%`\n- `$90k..$100k` `1%`\n- `$100k..$110k` `0.6%`\n- `$110k..$120k` `0.4%`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "The shape of a distribution",
+      "body": "A histogram earns its slide when the question is how a quantity is spread: where most of it sits and how long the tail is. To compare separate categories, use `bar`; for the chance of exceeding each loss, use `ep-curve`."
+    },
+    {
+      "title": "Bands that widen toward the tail",
+      "body": "Loss and claim bands usually widen ($1M, $10M, $50M, $250M). Write them as they are and add `log` to the axis line: each bar keeps its true area, and the tail stays readable."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Categories that are not a number line",
+      "body": "Regions, products or lines of business are separate things, not bands of one quantity. Use `bar`, which leaves gaps between them."
+    },
+    {
+      "title": "A dash for a range",
+      "body": "`$1M-$10M` is not a band: the dash reads two ways beside a negative number. Write `$1M..$10M`."
+    }
+  ],
+  "related": [
+    {
+      "name": "bar",
+      "when": "separate categories compared by size, not bands of one quantity"
+    },
+    {
+      "name": "ep-curve",
+      "when": "the chance of a loss above each amount, read as a return period"
+    },
+    {
+      "name": "line",
+      "when": "one quantity over time"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Expecting equal-height bars for equal shares when the bands differ in width.",
+      "fix": "A bar's AREA is its share, so a band five times as wide with the same share is a fifth as tall. That is what keeps a wide tail band honest; the value printed on the bar is the share."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Each row is a band `a..b`, with b above a, and a value. A row without both, or a band that does not climb (`$10M..$1M`), is left out.",
+    "A value below zero draws with no height, because an area cannot be negative; `lint:deck` warns. For signed values use `bar`.",
+    "`log` needs the whole axis above zero, the bands and any axis domain; otherwise the chart draws a linear axis, and `lint:deck` says so."
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 30,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 6,
+        "hard": 10
+      },
+      "stack": {
+        "sweet": 6,
+        "hard": 10
+      },
+      "note": "Counted in BANDS. Editorial: past ten bands in a pane the value labels over narrow bands give way to the hover card."
+    },
+    "review": "side 25 and stack 30 measured with tools/measure-pane-fit.js: the first six bands fit at every size it tries (25 to 65 side, 30 to 60 stack)."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "cartesian",
+    "units": {
+      "band": {
+        "select": "rect.histogram-band[data-mark=\"{mark}\"]",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      }
+    },
+    "key": "largest"
+  }
+}

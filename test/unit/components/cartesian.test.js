@@ -1001,3 +1001,24 @@ describe('cartesian — parseAffix reads hostile input in linear time', () => {
     assert.deepEqual(C.parseAffix('$-0.8M'), { prefix: '$', suffix: '' });
   });
 });
+
+describe('cartesian — the log axis the histogram and EP curve share', () => {
+  test('equal distances are equal multiples', () => {
+    const s = C.logScale([1, 1000], [0, 300]);
+    assert.equal(s(1), 0);
+    assert.equal(Math.round(s(10)), 100);
+    assert.equal(Math.round(s(100)), 200);
+    assert.equal(s(1000), 300);
+  });
+
+  test('a domain that is not above zero has no log scale, and a value at or below zero has no place', () => {
+    assert.equal(C.logScale([0, 10], [0, 1]), null);
+    assert.equal(C.logScale([-1, 10], [0, 1]), null);
+    assert.ok(Number.isNaN(C.logScale([1, 10], [0, 1])(0)));
+  });
+
+  test('thinEvenly keeps every Nth label so none touch, and always the last', () => {
+    assert.deepEqual(C.thinEvenly([0, 10, 20, 30, 40], ['$100k', '$110k', '$120k', '$130k', '$140k']), [true, false, false, false, true]);
+    assert.deepEqual(C.thinEvenly([0, 50, 100], ['a', 'b', 'c']), [true, true, true]);
+  });
+});

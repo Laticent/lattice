@@ -1,0 +1,35 @@
+/* histogram — one quantity cut into bands that join end to end. Contract:
+ * histogram.manifest.json.
+ *
+ * The kernel (histogram.transform.js) emits no color. Every band carries
+ * `data-hue="1"`: one series is one hue, as for a single-series `bar`, and the
+ * family's slot table (chart-family.styles.css § THE MARK CONTRACT) resolves
+ * --mark-body from it. The ticks, the value labels and the axis captions reuse
+ * the cartesian chrome (`.cart-tick`, `.cart-value`, `.cart-axis-title`), whose
+ * rules in chart-family.styles.css also carry the baseline onto a <tspan>.
+ *
+ * Unlayered like every component file, and anchored on
+ * `:is(section.histogram, figure.chart-frame)` so the fills resolve in the
+ * Read·Article re-host too. */
+
+:is(section.histogram, figure.chart-frame) .histogram-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(section.histogram, figure.chart-frame) .histogram-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* A band. The canvas-colored hairline is the family separator (stacked-bar,
+ * tower): bands touch, and two of one hue would otherwise read as one bar. */
+:is(section.histogram, figure.chart-frame) .histogram-band {
+  fill: var(--mark-body, var(--chart-cat-1-body));
+  stroke: var(--bg);
+  stroke-width: 0.6;
+}

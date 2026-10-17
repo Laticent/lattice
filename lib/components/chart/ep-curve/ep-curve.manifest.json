@@ -1,0 +1,169 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "ep-curve",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "curves"
+    ]
+  },
+  "function": "evidence",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "focusAxes": [
+    "mark"
+  ],
+  "renderNote": "The curves, their points, the return-period and loss axes and the curve names are one `<svg>`. The return period runs across on a log scale, so 1-in-10, 1-in-100 and 1-in-1,000 are evenly spaced, and the loss climbs a linear axis from zero.",
+  "kernel": {
+    "figureClass": "ep-curve-figure",
+    "marks": [
+      {
+        "class": "ep-path",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "ep-dot",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each point is the loss to expect once in that many years, the return period across on a log scale",
+    "figure": "svg",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "bucket": "chart",
+  "tags": [
+    "risk",
+    "metric",
+    "assessment",
+    "board-deck"
+  ],
+  "description": "An exceedance-probability curve: the loss to expect once every N years, with return periods across on a log scale and up to four curves (OEP and AEP, gross and net).",
+  "purpose": "Use when the question is how big a loss to plan for: a reinsurance program's 1-in-100 and 1-in-250 losses, a cat model's output, a capital model's tail. Each point is `{return period, loss}`; a curve is a name with its points nested under it.",
+  "axisSet": {
+    "members": [
+      "x",
+      "y"
+    ],
+    "body": "list",
+    "keyBelow": false
+  },
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading — name the loss the audience should remember ('A 1-in-100 year costs $410M'), not 'EP curve'."
+    },
+    "axes": {
+      "selector": "p > code",
+      "required": false,
+      "description": "Optional axis line, as ONE bracketed list in its own paragraph ABOVE the heading: the return-period axis, then the loss axis — `[{Return period, 10..250}, {Loss}]`. A return-period domain of at least 1 widens the axis past the points (a minimum below 1 is ignored); a loss domain raises the ceiling, while the floor stays zero or the lowest loss. The return-period axis is always log, so `log` changes nothing. Without the line the x axis is captioned 'Return period'. Same idiom as `scatter` and `histogram`."
+    },
+    "curves": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "A flat list of point records draws one curve: `` `{100, $410M}` `` is a 1-in-100 year loss of $410M, return period first. For several curves, write each curve's name and nest its points under it: `- OEP` then `  - `{100, $410M}``. Up to four curves; a return period below 1 is not a point."
+    }
+  },
+  "skeleton": "<!-- _class: ep-curve -->\n\n## A 1-in-100 year costs $410M.\n\n- `{10, $120M}`\n- `{50, $300M}`\n- `{100, $410M}`\n- `{250, $560M}`\n",
+  "anatomyBlock": "funnel",
+  "sample": "<!-- _class: ep-curve -->\n\n`[{Return period}, {Loss}]`\n\n## A 1-in-100 year costs $410M a single event, $480M a year.\n\n- OEP\n  - `{10, $120M}`\n  - `{25, $190M}`\n  - `{50, $300M}`\n  - `{100, $410M}`\n  - `{250, $560M}`\n- AEP\n  - `{10, $150M}`\n  - `{25, $230M}`\n  - `{50, $350M}`\n  - `{100, $480M}`\n  - `{250, $650M}`\n",
+  "stressDoc": {
+    "summary": "Four curves, eight return periods from 1-in-2 to 1-in-1,000.",
+    "sample": "<!-- _class: ep-curve -->\n\n## Four curves, eight return periods.\n\n- Gross OEP\n  - `{2, $20M}`\n  - `{5, $55M}`\n  - `{10, $120M}`\n  - `{25, $190M}`\n  - `{50, $300M}`\n  - `{100, $410M}`\n  - `{250, $560M}`\n  - `{1000, $900M}`\n- Gross AEP\n  - `{2, $35M}`\n  - `{10, $150M}`\n  - `{100, $480M}`\n  - `{1000, $1.1B}`\n- Net OEP\n  - `{2, $20M}`\n  - `{10, $50M}`\n  - `{100, $90M}`\n  - `{1000, $400M}`\n- Net AEP\n  - `{2, $30M}`\n  - `{10, $70M}`\n  - `{100, $130M}`\n  - `{1000, $500M}`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "How big a loss to plan for",
+      "body": "An EP curve earns its slide when the question is the size of a rare loss: the 1-in-100 a program must cover, how much a reinsurance tower takes off the gross curve. For how often each loss band happens, use `histogram`."
+    },
+    {
+      "title": "Two to four curves",
+      "body": "OEP and AEP, or gross and net, read best together: the gap between the curves is the story. Past four, split the slide."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Return period written as a label",
+      "body": "`- 1-in-100 `$410M`` is a label and a value, which the chart cannot place. Write the point record, return period first: `` `{100, $410M}` ``; the axis prints `1-in-100` for you."
+    },
+    {
+      "title": "A probability instead of a return period",
+      "body": "Write the return period, not the annual probability: 1% is `{100, …}`, 0.4% is `{250, …}`."
+    }
+  ],
+  "related": [
+    {
+      "name": "histogram",
+      "when": "how often each band of loss happens, rather than the loss at each return period"
+    },
+    {
+      "name": "tower",
+      "when": "the reinsurance program the curve is priced against"
+    },
+    {
+      "name": "line",
+      "when": "a quantity over time, on an evenly spaced axis"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the loss first (`{$410M, 100}`).",
+      "fix": "The record is `{return period, loss}`: the return period runs across the bottom, the way the chart is drawn."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Each point is `{return period, loss}`: the return period a number of years of at least 1, the loss any number Segno reads (`$410M`, `410`).",
+    "A curve's points are drawn in return-period order whatever the order written; a return period given twice in one curve keeps the first.",
+    "`lint:deck` names a point it cannot read (a thousands separator, `{1,000, $900M}`, is the commonest), a return period given twice in one curve, and a fifth curve."
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 30,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 2,
+        "hard": 4
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 4
+      },
+      "note": "Counted in CURVES. Editorial: each curve's name sits at its right end, so a narrow pane holds two before the names crowd."
+    },
+    "review": "side 25 and stack 30 measured with tools/measure-pane-fit.js: the first two curves fit at every size it tries (25 to 65 side, 30 to 60 stack)."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "cartesian",
+    "units": {
+      "point": {
+        "select": "circle.ep-dot[data-mark=\"{mark}\"]",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      },
+      "series": {
+        "select": "path.ep-path[data-series=\"{series}\"], circle.ep-dot[data-series=\"{series}\"]",
+        "labels": "[data-series=\"{series}\"].ep-series"
+      }
+    },
+    "key": "largest"
+  }
+}

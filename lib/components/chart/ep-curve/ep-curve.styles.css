@@ -1,0 +1,54 @@
+/* ep-curve — the loss to expect once every N years. Contract:
+ * ep-curve.manifest.json.
+ *
+ * The kernel (ep-curve.transform.js) emits no color. Every curve, dot and curve
+ * name carries `data-hue` (its 1-based series slot), and the family's slot table
+ * (chart-family.styles.css § THE MARK CONTRACT) resolves --mark-hue / --mark-ink
+ * from it, the same as `line`. The ticks, value labels and axis captions reuse
+ * the cartesian chrome.
+ *
+ * Unlayered like every component file, and anchored on
+ * `:is(section.ep-curve, figure.chart-frame)` so the strokes resolve in the
+ * Read·Article re-host too. */
+
+:is(section.ep-curve, figure.chart-frame) .ep-curve-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(section.ep-curve, figure.chart-frame) .ep-curve-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* A curve takes the vivid graphical hue, gated at the 3:1 stroke floor, as a
+ * `line` path does; its name takes the text-safe ink. */
+:is(section.ep-curve, figure.chart-frame) .ep-path {
+  fill: none;
+  stroke: var(--mark-hue, var(--chart-cat-1-hue));
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* KNOCKOUT, NOT AN OUTLINE: the canvas-colored ring holds a dot apart from the
+ * other curve where two cross, as `line`'s dots do. */
+:is(section.ep-curve, figure.chart-frame) .ep-dot {
+  fill: var(--mark-hue, var(--chart-cat-1-hue));
+  stroke: var(--bg);
+  stroke-width: 0.9;
+}
+
+:is(section.ep-curve, figure.chart-frame) .ep-series {
+  fill: var(--mark-ink, var(--text-body));
+}
+
+/* A return period's own gridline is quieter than the loss grid: the eye should
+ * read across the loss lines and only drop down to a return period. */
+:is(section.ep-curve, figure.chart-frame) .ep-rp-grid {
+  stroke-dasharray: 1.5 2;
+}

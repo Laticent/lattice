@@ -294,6 +294,48 @@ was deferred (`2026-06-13-svg-native-legend.md` §4d).
 
 ---
 
+## How a chart is written — the house rules
+
+Every chart reads the same Markdown shapes, so an author who has written one chart can write the
+next. The rules come from two decisions: `engineering/decisions/2026-09-28-segno-unified-inline-notation.md`
+(Segno, the inline notation) and `engineering/decisions/2026-09-22-chart-axis-grammar.md` (the
+axis line). Each rule has one shared reader. A new chart uses these readers and
+never invents a second spelling for the same idea.
+
+| Idea | How it is written | Shared reader | Charts that use it |
+|---|---|---|---|
+| A **label** | The list item's text: `- Cyber outage …` | the chart's own list parse | every list chart |
+| A **value** | An inline-code pill after the label: `` `$4.2M` `` `` `38%` `` | Segno's `number` type, through `lib/core/chart-values.js` | bar, line, waterfall, funnel, … |
+| A **range** or span | `a..b` in a pill: `` `Q1..Q3` `` `` `0..10` `` `` `$10M..$50M` `` | Segno's `range` type (`docs/src/lib/segno/types.ts`) | gantt, the axis line, histogram |
+| A **position** | A point record, x first: `` `{$4.2M, 62%}` `` `` `{4, 5}` `` | `readPoint` (`lib/core/chart-point.js`) | scatter, quadrant, risk-matrix, ep-curve |
+| An **axis** | One bracketed list in its own paragraph above the heading, one member per axis: `` `[{Effort, 0..10, 5}, {Reach}]` `` | `parseBracketList` + `readAxisMember` (`lib/core/bracket-list.js`, `lib/core/axis-member.js`); the members a chart takes are its manifest's `axisSet` | scatter, quadrant, matrix-grid, gantt, histogram, ep-curve |
+| A **series** | Nesting: one list item per series or category, its points under it | the chart's own list parse | line, bar `grouped`, ep-curve |
+| **Detail** for a hover card | A nested sublist whose items are not data | `markDetail.splitDetail` (`_chart-family/mark-detail.js`) | most list charts |
+
+Five rules follow from the table:
+
+1. **`..` is the only range delimiter.** A hyphen or en-dash between two values is not a range,
+   because a dash reads two ways beside a negative number (`-5–10`). `lint:deck` names the dash
+   form on a gantt span; a new chart that reads ranges adds the same check for its own pills.
+2. **Data lives in pills and a label in text.** A chart never reads a number or a position out of
+   the list text, so `lint:deck` can check every value and the label can say anything.
+3. **A position is one record, not two pills.** `{x, y}` keeps the two numbers of one point
+   together; scatter's three loose pills were retired for it.
+4. **An axis is declared once, above the heading.** Its name, its domain (`min..max`) and its
+   threshold or scale are members of the one bracketed line. The domain is optional and derives
+   from the data. A bracketed span on a chart with no `axisSet` is an ordinary eyebrow.
+5. **A log scale is the word `log` in an axis member:** `` `[{Annual loss, $1M..$250M, log}]` ``.
+   Only a chart that asks `readAxisMember` for it reads it: a histogram draws log when asked and
+   its whole domain is above zero, and `lint:deck` warns when it is not; an EP curve's
+   return-period axis is always log, so there the word changes nothing. On every other chart the
+   word is ignored. `lint:deck` names it on a quadrant; on scatter and gantt it says nothing yet,
+   so check the drawing there.
+
+When a new chart needs an idea this table does not have, add the row here in the same PR, with
+its reader, rather than spelling the idea a new way inside one kernel.
+
+---
+
 ## Membership
 
 The set of layouts wrapped by chart-family is **declared by the components
