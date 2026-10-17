@@ -227,12 +227,6 @@ section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .ce
    fraction of the list's width, which is what a percentage width, padding and column gap all
    resolve against. An unstamped or `fallback` wall keeps the equal-cell grid above.
    After the family reflow on purpose: a packed wall's columns come from the packer. */
-/* the live preview is measuring the marks: hold the space, show nothing until it packs (as collage
-   does), so the wall paints once, in place, not as a grid that then jumps. Capped at 4 s by the runtime. */
-section.logo-wall > .cell-stage > ul[data-logo-wall="measuring"] {
-  visibility: hidden;
-}
-
 section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] {
   /* cqi of the stage, whose width is the list's: the unit every stamped fraction is in. */
   column-gap: calc(var(--logo-gx) * 100cqi);

@@ -92,13 +92,14 @@ describe('logo-marks — a wall seen before stamps at once', () => {
   const wall = (names) =>
     `<section class="logo-wall"><h2>Trusted by</h2><div class="cell-stage"><ul>${names.map((n) => `<li><img src="/marks/${n}.svg" alt="${n}"></li>`).join('')}</ul></div></section>`;
   // A same-origin page whose fetch counts requests and serves each mark's SVG.
-  const page = (shapes, fail = new Set()) => {
+  const page = (shapes, fail = new Set(), missing = new Set()) => {
     const dom = new JSDOM('<body></body>', { url: 'https://deck.test/studio/' });
     const calls = [];
     dom.window.fetch = (url) => {
       calls.push(url);
       const name = /\/marks\/([^/]+)\.svg$/.exec(url)?.[1];
       if (fail.has(name)) return Promise.reject(new Error('offline'));
+      if (missing.has(name)) return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve('<html>not found</html>') });
       return Promise.resolve({ ok: true, text: () => Promise.resolve(svg(...shapes[name])) });
     };
     return { dom, calls };
@@ -139,5 +140,16 @@ describe('logo-marks — a wall seen before stamps at once', () => {
     t.applyToDom(document);
     await new Promise((r) => setTimeout(r, 20));
     assert.equal(calls.filter((u) => u.endsWith('/late.svg')).length, 2);
+  });
+
+  test('a non-OK response is not remembered either', async () => {
+    const { dom, calls } = page({}, new Set(), new Set(['gone']));
+    const { document } = dom.window;
+    for (let visit = 0; visit < 2; visit++) {
+      document.body.innerHTML = wall(['gone']);
+      t.applyToDom(document);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assert.equal(calls.filter((u) => u.endsWith('/gone.svg')).length, 2);
   });
 });

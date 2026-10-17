@@ -1,12 +1,12 @@
 /**
- * logo-wall on the real Studio live preview, slide to slide: the wall paints once, already packed.
+ * logo-wall on the real Studio live preview, slide to slide: a wall seen before paints once, packed.
  *
  * The live stamp measures each mark by fetching its SVG (lib/transformers/logo-marks.js). Before
- * this spec, a revisit fetched every mark again and the wall drew as a grid, then jumped into its
- * packed rows when the fetches landed: on a phone over a preview deploy that sent max-age=0, about
- * 1.4 s of empty wall and a visible re-layout. Now the runtime remembers each mark's shape for the
- * life of the frame, so a revisit stamps in the same task, and a first visit keeps the wall hidden
- * while it measures (`data-logo-wall="measuring"`, as collage does).
+ * this spec, every revisit fetched every mark again and the wall drew as a grid, then jumped into
+ * its packed rows when the fetches landed: on a phone over a preview deploy that sent max-age=0,
+ * about 1.4 s of empty wall and a visible re-layout. Now the runtime remembers each mark's shape for
+ * the life of the frame, so a revisit stamps in the same task, with no fetch. (A first visit still
+ * measures; hiding the wall meanwhile is held back because a Studio export could capture it hidden.)
  *
  * The recorder samples the wall's state on every animation frame inside the preview frame, so a
  * state that was ever painted shows up in the log.
@@ -82,15 +82,11 @@ test('a logo wall paints once, packed, and a revisit stamps with no fetch @cross
 	const heading = livePreview(page).locator('section h2').first();
 	await expect(heading).toHaveText('After the wall.', { timeout: 20_000 });
 
-	// First visit: hidden while it measures, then packed; never painted as an unpacked grid.
-	let frame = await previewFrame(page);
-	await record(frame);
+	// First visit: measures (4 fetches), then packs.
 	await prev.click();
 	const wall = livePreview(page).locator('section.logo-wall .cell-stage > ul[data-logo-wall="packed"]').first();
 	await expect(wall).toBeVisible({ timeout: 20_000 });
-	frame = await previewFrame(page);
-	const first = await painted(frame);
-	expect(first.filter((s) => s !== 'none' && s !== 'measuring' && s !== 'packed')).toEqual([]);
+	const frame = await previewFrame(page);
 
 	// Leave and come back: the shapes are remembered, so the wall stamps before its first paint.
 	await next.click();
@@ -99,11 +95,9 @@ test('a logo wall paints once, packed, and a revisit stamps with no fetch @cross
 	await record(frame);
 	await prev.click();
 	await expect(wall).toBeVisible();
-	const swapped = frame !== (await previewFrame(page));
-	const again = (await painted(frame)).filter((s) => s !== 'none');
-	console.log(JSON.stringify({ project: test.info().project.name, swapped, again, fetchedOnRevisit: fetched.length - before, fetchedFirst: before }));
-	// The Studio patches the slide inside the frame; were it ever to swap the frame instead, the log
-	// would be empty here, and the fetch count below must still hold.
-	if (again.length) expect(again).toEqual(['packed']);
+	// The cache lives in the frame, so it holds only while the Studio patches slides in place: a swap
+	// would void it, and must fail here rather than pass on an empty log.
+	expect(await previewFrame(page)).toBe(frame);
+	expect((await painted(frame)).filter((s) => s !== 'none')).toEqual(['packed']);
 	expect(fetched.length - before).toBe(0);
 });
