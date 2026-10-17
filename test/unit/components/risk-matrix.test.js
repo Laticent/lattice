@@ -173,6 +173,11 @@ describe('risk-matrix', () => {
       assert.match(say(['- _ `{4, 5}`', '- B `{2, 2}`']), /_, risk one:/);
       assert.match(say(['- ![a](x.png) `{4, 5}`', '- B `{2, 2}`']), /B, risk one:/);
       assert.match(say(['- <b></b> `{4, 5}`', '- B `{2, 2}`']), /B, risk one:/);
+      // A pill wrapped onto the next line: the engine renders `breaks: true`, so it
+      // arrives after a `<br>`, and the kernel must still read it (found by the histogram PR's checker).
+      const engine = require('../../../lib/engine');
+      const html = engine.render('---\nmarp: true\n---\n\n<!-- _class: risk-matrix -->\n\n## T.\n\n- A\n  `{4, 5}`\n- B `{2, 2}`\n');
+      assert.equal(((typeof html === 'string' ? html : html.html).match(/class="risk-marker"/g) || []).length, 2);
       // A tag or comment spliced from what one strip leaves is stripped too (CodeQL).
       assert.doesNotMatch(say(['- A<scr<b></b>ipt> `{4, 5}`']), /</);
       assert.doesNotMatch(say(['- A<!<!---->-- x --> `{4, 5}`']), /<!--/);
