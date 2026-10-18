@@ -24,7 +24,7 @@
  * Every color is a token (#3); no glyph is typed (#29) — the drawing is ours. */
 section .lat-icon {
   --icon-scale:1;
-  --icon-u:calc(min(0.85em, max(var(--pill-fs), 0.5em)) * var(--icon-scale));
+  --icon-u:calc(min(0.85em, max(var(--fs-meta), 0.5em)) * var(--icon-scale));
   --icon-tile-h:calc(1.25 * (1.6 * var(--icon-u) + 2px));
   --icon-pad-out:0.15em;
   --icon-inset:calc(0.2 * var(--icon-tile-h));
