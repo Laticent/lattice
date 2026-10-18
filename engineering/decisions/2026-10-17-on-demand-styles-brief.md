@@ -46,15 +46,15 @@ Deck: `test/integration/baseline-decks/gallery.md` (120 slides, declares `size: 
 | The gallery page's `<style>` blocks | 4 blocks, about 2,497 KB |
 | of which embedded fonts | 1,186 KB (47%): 37 `@font-face` faces as base64 `data:` URLs, 17 families (Shantell Sans 227 KB, Playfair Display 202, Outfit 163, Caveat 130, JetBrains Mono 123, KaTeX 20 faces about 340) |
 | of which layout and component rules | 1,311 KB (53%): about 5,150 rules; about 140 KB gzipped |
-| Component stylesheets | 75 files, 1,343,285 B (`lib/components/*/*.styles.css`), concatenated into `lattice.css` by `tools/build-css.js` |
-| Themes | 37 directories under `themes/`; the page's per-deck palette block is about 18 KB |
+| Component stylesheets | 75 files, 1,343,285 B (`lib/components/<bucket>/<name>/<name>.styles.css`), concatenated into `lattice.css` by `tools/build-css.js` |
+| Themes | 33 directories under `themes/` (5 accessibility themes plus 14 light and dark pairs); the page's per-deck palette block is about 18 KB |
 | HTML of the 120 slides | 423 KB total, 3.5 KB per slide |
-| Rules one slide matches (loose matcher) | 400 to 420 KB of the 1,311 KB, so about 31%. **The "base" is not small today**; most of that is rules that apply to every slide |
+| Rules one slide matches (loose matcher, gallery) | 400 to 420 KB of the 1,311 KB, about 31%. **The "base" may not be small today**: the overlap between slides was not computed, so how much of that is shared by every slide is unknown. The matcher is generous (it counts `:root`, ancestor and attribute selectors) |
 | That matcher's cost | 8.7 s for 120 slides, about 72 ms per slide, so it needs a precomputed index |
-| One poster capture | about 1.8 MB of CSS copied into the SVG, 150 to 300 ms of main thread (decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms) |
-| Baking every slide | about 214 MB of CSS parsed to draw 120 small images |
-| Pruning font faces to the used families | SVG 2,135 to 1,778 KB (-17%), pixel-identical |
-| Pruning to the rules a slide matches | SVG about -58%, pixel-identical; selection cost about equalled the saving |
+| One poster capture | about 1.8 MB of CSS copied into the SVG (measured on the 14-slide `focus.md` and on gallery slides at 4K: 1,802 KB), 150 to 300 ms of main thread (decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms; phases from `focus.md`) |
+| Baking every slide | about 214 MB of CSS parsed to draw 120 small images (arithmetic: 1.78 MB x 120, not a measurement) |
+| Pruning font faces to the used families | SVG 2,135 to 1,778 KB (-17%), pixel-identical (measured on `focus.md`) |
+| Pruning to the rules a slide matches | SVG about -58%, pixel-identical (`focus.md`). Net time was mixed: Chromium saved time on the slides tried (317 to 179 ms, 206 to 151 ms), WebKit lost it (120 to 291 ms, 232 to 303 ms), because selecting the rules cost 60 to 165 ms |
 
 Related measured facts you will need: `section[data-lattice-slide]` carries `width/height ... !important`
 from the deck's `size:`, and the engine writes `--_sec-1cqi` as a pixel constant (38.4 px at 4K) from
@@ -70,10 +70,14 @@ reproducible (HARD RULE #19).
 
 ## 4. What already exists (read before building; HARD RULE #15)
 
-- **The build.** `tools/build-css.js` concatenates `lib/_theme.css`, `_root.css`, `_base.css`,
-  `_scaffold.css`, every component's `styles.css` alphabetically, `_modifiers.css`, the base treatments
-  and sketch finish, the plugin slot, `_semi-universal.css`, `_universal.css` and
-  `_diagram-overrides.css`. **Source order is the cascade.** Any split must reproduce that order.
+- **The build.** `tools/build-css.js` assembles `lattice.css` from `HEAD_SOURCES` (`:145-150`: `lib/_theme.css`,
+  `lib/base/base.tokens.css`, `base.elements.css`, the markdown-it `scaffold.css`), then the KaTeX base sheet and
+  the layer declaration, then the components (alphabetical, nested by bucket), card-tag, `base.modifiers.css`, the
+  treatments, finish, focus and sketch sheets, then `TAIL_SOURCES` (`:225-262`: shared, variants, the form cell
+  and tile CSS, accent-finish, the plugin slot, the generated chart finish, print textures, fluid view).
+  **Read those arrays, not a summary: the header comment at `build-css.js:7-29` is stale** (it names `_root.css`,
+  `_base.css` and others that no longer exist), a pre-existing defect worth logging. **Source order is the
+  cascade.** E1 must reproduce it byte for byte.
 - **The only existing CSS trimmers.** `lib/export/player-prune.js` (css-tree, then a computed-style gate
   in Chromium across views; the safelist and its history are in
   `2026-10-16-player-as-library-audit.md` §4.1, including the gaps), `docs/scripts/critical-css.mjs`
@@ -83,7 +87,8 @@ reproducible (HARD RULE #19).
   `ensureThemes` pattern, in-memory cached), `docs/src/lib/ensure-charts.ts`, `ensure-katex.ts`,
   `ensure-hljs-language.ts`, `ensure-plugin-data.ts`. Plugins already contribute `styles`
   (`lib/plugins/*`, the "plugin slot" in `build-css.js`), and the engine already admits plugins per deck
-  (`pluginAdmission`, `lib/plugins/drawn-probe.mjs`). The engine also reports what a deck needs
+  (`admitPlugins` in `lib/plugins/host-grammar.mjs:67`, exposed as `pluginAdmission`; `lib/plugins/drawn-probe.mjs` is a
+  different probe: does the deck hold a fence a browser runtime draws). The engine also reports what a deck needs
   (`chartsNeeded`, `missingLanguages`).
 - **Manifests.** Every component has a `*.manifest.json` (`lib/components/manifest.schema.json`);
   themes have `*.manifest.json` and a theme graph baked into the catalog. Check whether they already say

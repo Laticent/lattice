@@ -213,7 +213,7 @@ the owner.
 | DOM nodes in a 522-slide stage | 722 (virtual) vs 25,494 (all mounted) | stay within 10% of 722 |
 | First slide, 522 slides, 1x CPU | 3,408 ms (virtual) | no regression |
 | Map of 500 slides | none; the overview mounts a pool of 10 frames (`BASE_SLOTS`, capped at 28) | nodes O(window); a fling stays under 50 ms p95 |
-| 500 posters resident | ~27 KB each (§11b), ~13 MB encoded; decoded size depends on capture size | tile-size captures; measured 0.2 to 0.5 MB per tile (§11b), so 500 tiles is +86 MB Chromium, +258 MB WebKit; bound the number created, since releasing is unreliable |
+| 500 posters resident | about 27 to 29 KB each at 1280 (§11b: 14.6 MB per 500), about 14 MB encoded; decoded size depends on capture size | tile-size captures and a pooled list; Chromium self-bounds (a capped, purgeable decode cache, about 0.5 GB here), WebKit holds 2.5x to 3.4x more when every poster is mounted, so cap creation for WebKit (§11b correction) |
 | Live frames | pool of a fixed N | N does not grow with the deck |
 | Keystroke cost | today every deck-context tile re-renders on every keystroke (`DeckPreview.tsx:543` keys on the whole deck) | per-unit invalidation only where the unit needs no deck context; whole-tail invalidation on a position shift |
 
@@ -351,7 +351,7 @@ and narrowed it in three more. I reproduced the two hub defects below on the rea
    no-op scroll report cancels it (focus stays 1, wanted 3). (b) Reports made during a delivery are
    judged against stale focus (map `go(3)` ends at focus 2, origin stage). (c) `reportUnit` has no
    `quiet`, so a scroll-driven stage cannot tell its own scroll from the reader's, which is why the
-   Playground keeps a hand-written guard. Logged as `followups.d/2704-p3-fuoco-report-defects.md`;
+   Playground keeps a hand-written guard. Logged as the Fuoco report-defects follow-up (fixed);
    each needs a failing arm in `hub.test.ts`. `ignoreOrigin` stops self-echo only, not a ping-pong
    between two scrolling views.
 6. **Promotion "by distance from focus" is wrong for a map.** A reader scrolls the map to slide 300
@@ -403,8 +403,8 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   must carry only the faces the slide uses (the player already has a prune that does this).
   Unmeasured: the time saved by pruning.
 - **Decoded memory, measured (500 posters as `<img>` in a scrolling grid, whole process RSS).**
-  Each row is a delta over a baseline of 530 to 770 MB; the earlier note put run-to-run noise at
-  about 200 MB, so only the large gaps count.
+  Each row is a delta over a baseline of 530 to 770 MB. **First-pass numbers; see the red-team correction
+  below:** they summed every Chromium process on the machine and ran the arms one after another in one browser.
 
   | Engine | Poster size | Encoded | After mounting and scrolling all 500 | After dropping `src` on 475 |
   |---|---|---|---|---|
@@ -416,9 +416,7 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   **Capture at tile size.** A tile-size poster costs about 5x less than a full-size one on both
   engines, a gap well beyond the noise. At about 0.2 to 0.5 MB per tile it is also 40 to 100 times
   cheaper than the 18 to 40 MB per live frame implied by the earlier note's +600 to +1,300 MB for
-  33 frames. **Do not count on `removeAttribute('src')` to hand memory back:** it freed nothing on
-  Chromium and some on WebKit within 2.5 s. Removing the `<img>` nodes themselves was not tested.
-  So the map must bound how many posters it ever creates, not rely on releasing decoded ones.
+  33 frames. The `removeAttribute('src')` column cannot be credited to the attribute (see the correction).
   **Not measured:** a 2x (retina) tile at 640x360, which should land near 4x the tile-size cost,
   and any memory-pressure behavior (Linux has no iOS jetsam).
 - **A pooled virtual list of posters, measured (the owner's question, 2026-10-17).** The same 500
@@ -432,11 +430,29 @@ Each browser ran 3 slides in 3 variants. Playwright's Chromium 131 and Playwrigh
   | Linux WebKit | 320x180 | +258 MB | +145 MB |
   | Linux WebKit | 1280x720 | +1,340 MB | +392 MB |
 
-  **Pooling bounds DOM nodes, layout and (critically) live frames, but it does not bound decoded
-  image memory on Chromium**, which keeps its own decode cache whatever the element count; it helps
-  WebKit by 44% to 71%. The levers for posters are therefore poster pixel size and a cap on how many
-  are ever created, with the pool as the DOM-side half. Memory also stayed put after scrolling back
-  to the top, so nothing here releases promptly. Same limits as above: Linux engines, not iOS.
+  First reading (superseded by the correction below): pooling looked useless on Chromium and 44% to 71% better on WebKit.
+- **Correction from a red-team re-run (process-tree RSS and PSS over only the launched browser, a fresh browser per
+  repeat, 3 repeats, plus a simulated critical memory-pressure signal on Chromium).** Repeats agree within about
+  5 MB, so the earlier "200 MB noise" caveat was a property of the first method, not the browsers. Memory added,
+  500 posters, after scrolling end to end:
+
+  | Arm | Chromium | WebKit |
+  |---|---|---|
+  | pooled, 1280 | +488 MB | +409 to +418 |
+  | all mounted, 1280 | +492 | +1,373 to +1,402 (one run fell to +915 after 10 s idle, untouched) |
+  | pooled, 320 | +92 | +160 |
+  | all mounted, 320 | **+147** | +263 to +268 |
+  | pooled, 1280, **1,500 posters** | +560 | not run |
+  | after one critical-pressure signal | back to baseline (-5, -1 and -32 MB) | not available |
+
+  What this corrects: (1) **Chromium keeps decoded posters in a capped, purgeable cache** (about 0.5 GB on this
+  machine; tripling the posters added only 72 MB, and one pressure signal drops it to baseline even with all
+  500 mounted), so cost is not linear per tile and the "+86 MB for 500 tiles" line is the wrong model. (2) The
+  earlier unbounded 320 figure of +86 ran second in a warm browser; a fresh one gives +147, so **pooling does
+  help Chromium at 320, by about 37%**. (3) WebKit holds about 2.5x (at 320) to 3.4x (at 1280) more when every
+  poster is mounted, and **released about 460 MB by itself within 10 s**, so the earlier "dropping `src`
+  freed some on WebKit" is not attributable to the attribute. The lever "cap how many posters are created" holds
+  for WebKit; Chromium self-bounds. Tile size and a pooled list remain the right defaults. Linux engines only.
 - **The two lists differ rarely but really.** Across 281 example and baseline decks, the clear
   cases where the outline's slide count differs from the rendered section count are `focus.md`
   (11 authored, 14 rendered), `split-headings.md` (heading splits) and `auto-glossary.md`
@@ -465,13 +481,15 @@ screenshot of the same slide (mean absolute pixel error, 0 to 255):
 
 This explains the earlier gotcha about scaled `foreignObject` on WebKit, and it settles the tile pyramid:
 one native capture plus canvas downscales is **more correct** than capturing each size, and on Chromium 2 to
-3 times faster than three captures (180 to 200 ms against 390 to 670 ms). It also retires the first
+3 times faster than three captures. (Correction: the "180 to 200 ms" first quoted here was a 640x360 capture
+scaled inside the SVG, the method this finding condemns; a native 1280 capture is 206 to 317 ms. One native
+capture plus downscales is still faster than three.) It also retires the first
 spike's "derived vs direct" comparison, whose direct side was the scaled, wrong one.
 
 **2. Pruning the stylesheet saves bytes, not yet time.** Pruning font faces to the used families cut the SVG
 17% (2,135 to 1,778 KB) with identical pixels. Pruning to the CSS rules the slide matches cut it **58% (to
 about 900 KB)**, also pixel-identical, but computing the used rules cost 60 to 165 ms per slide, about what
-it saved. It pays only with an index built once per theme and class set, as the export player's prune
+it saved on average (per slide, Chromium gained time and WebKit lost it). It pays only with an index built once per theme and class set, as the export player's prune
 effectively has. Not built.
 
 **3. A poster cannot be captured in the background without jank.** Baking 40 tiles while the page scrolled
@@ -486,8 +504,12 @@ effectively has. Not built.
 | bake with used-CSS capture, back-to-back / 16 ms gap | 39 / 39 | 44 / 72 |
 
 **Pacing spreads the hitches, it does not remove them.** Each capture is one 150 to 300 ms main-thread task
-(decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms), so no scheduler can hide it; only
-the *number of consecutive* long frames changes. A budgeted scheduler is still right, but its job is to
+(decode 60 to 155 ms, rule selection 60 to 165 ms, base64 10 to 20 ms), so no scheduler on the page's own
+thread can hide it; only the *number of consecutive* long frames changes. (Two corrections. WebKit does not run
+one monolithic task per capture: its slowest frame was 96 to 183 ms, with 69 to 76 frames over 50 ms for 40
+captures, where Chromium gave exactly 39. The phase split comes from the used-CSS capture. And a capture inside
+a cross-origin iframe may run in another process under site isolation and might not block the page at all; that
+arm was not run, so "bake it elsewhere" is a hypothesis until it is.) A budgeted scheduler is still right, but its job is to
 bake only while the user is idle, one capture at a time, so a hitch is at worst one frame at the moment an
 input arrives.
 
@@ -509,10 +531,16 @@ edit changed exactly 1 of 120 keys. Inserting a slide at the top of the gallery 
 |---|---|
 | raw `outerHTML` | **0 of 120** |
 | without the slide index, `id` and pagination attributes | 14 of 120 |
-| also with the visible page number (`<span class="lat-pagination">`) blanked | 107 of 120 |
+| also with the visible page number (`<span class="lat-pagination">`) blanked | 107 of 120 (first pass; see below) |
 
-The remaining 13 differ only in position-numbered ids inside generated SVG (`lat-svgt-79-1`), so a fuller
-normalization should reach nearly all. Two consequences: (a) the poster's page number is deck-derived and
+The first pass said the remaining 13 differed only in `lat-svgt-79-1`-style ids; **that was wrong** (normalizing
+those fixed 5; 8 were left). The rest were ids such as `url(#gantt-fill-pass-79-1)` and `#radar-area-85-1`, and
+`data-slide="82"` in a notes `<aside>`. Normalizing any `-<n>-<m>` inside an id or reference attribute, plus
+`data-slide`, keeps **120 of 120** on the real engine's re-render (checked against `gallery.html` and
+`gallery2.html`). Two limits: the playground's own insert demo renumbers exactly what its key ignores, so its
+"all valid" is true by construction and proves only the mechanism; and the "one edit changed 1 of 120 keys" test
+edited the DOM in place, so it cannot show slides that depend on the rest of the deck (agenda, glossary, totals)
+moving. Re-test the edit claim through a real engine re-render. Two consequences: (a) the poster's page number is deck-derived and
 must be drawn by the map (which already draws the slide number) or excluded from the capture; (b) a diagram
 slide's HTML differed between two page loads because the diagram had not finished drawing, so a key or
 capture taken before it settles is unstable.
@@ -526,6 +554,15 @@ fast, baker off, so only tile binding is measured (frames over 50 ms, out of abo
 | wireframes measured at bind | 0 | 1 to 4 (p95 46 to 48 ms) |
 | live DOM at tile size | 0 | **7 frames in the whole scroll, about 465 ms each** |
 
+**Corrections from the red team (2026-10-17).** The "pills, posters" row scrolled tiles with no baked posters (the
+cache had been cleared), so it measured placeholders or wireframes, not posters. With all 120 posters baked, scroll
+gave 0 frames over 50 ms in every run on both engines (3 repeats each). Binding a *cold* wireframe at bind time is
+the real cost on WebKit: 7 to 15 slow frames across the cache and typing builds (a reviewer measured 13, 15 and 7
+against 2, 3 and 3 for the build before them, about half of it the HUD's 400 ms refresh, now 1 s). Moving
+wireframe measurement into an idle queue (one at a time, after input has stopped 150 ms) gave 0 slow frames and a
+p95 of 17 ms on both engines, with every visible tile filled within 3 s of the scroll stopping. WebKit frame
+counts vary more than 2x between sessions, so quote three or more repeats and a range.
+
 Live DOM tiles are unaffordable in a scrolling map on WebKit even with a pooled list of 10, which is the
 case for the ladder: the map must not use live tiles outside a small window. Wireframe measurement at bind
 time costs WebKit a few frames, so it belongs in the idle queue, not in the bind path. In the same page,
@@ -536,18 +573,18 @@ against 0 with raw-HTML keys. Baking back-to-back while scrolling gave 31 to 66 
 tokens are `calc(N * var(--_sec-1cqi, 1cqi) …)`, but it writes `--_sec-1cqi` as a pixel constant from the
 declared `size:` (38.4 px for a 4K deck), and bakes the section size into an `!important` rule. Forcing only
 the section size left 112 px headings at 1280 wide (mean error 14 to 31 against the 4K render). Overriding the
-size and the unit together (`--_sec-1cqi: 12.8px`) gave near-identical slides. A thumbnail map can therefore
+size and the unit together (`--_sec-1cqi: 12.8px`) gave slides that are close at thumbnail size (a reviewer found up to 7.3 mean error and 6% of pixels off on one slide, where a line wraps one word earlier and px borders keep their authored thickness, so the match is not exact). A thumbnail map can therefore
 capture at 1280x720 whatever the deck declares; the live stage keeps the authored size. Twelve slides, median
 per slide, 4K against 1280x720 (960 and 640 behave like 1280 on time, and 640 is visibly worse on fidelity):
 
 | | Chromium 4K | Chromium 1280 | WebKit 4K | WebKit 1280 |
 |---|---|---|---|---|
 | poster capture | 281 ms | **228 ms** | 198 ms | **156 ms** |
-| wireframe measure, median (first cold call) | 4 ms (29) | 3.4 ms (18) | 9 ms (185) | 6 ms (116) |
+| wireframe measure, median (max of 12 calls, which includes the first) | 4 ms (29) | 3.4 ms (18) | 9 ms (185) | 6 ms (116) |
 | canvas | 31.6 MB | **3.5 MB** | 31.6 MB | **3.5 MB** |
 | mean error vs the 4K capture, 320 px poster | 0 | 2.4 (2.1% pixels off) | 0 | 3.9 (3.3% off) |
 
-Capture time falls about 20%, not 9x, because the 1.8 MB stylesheet dominates it; the canvas is 9x smaller.
+Capture time falls about 20%, not 9x; I infer the 1.8 MB stylesheet dominates it (not isolated by an experiment), and the canvas is 9x smaller.
 **A regression found on the way:** the first version injected a `<style>` into the hidden measurer on every
 `measure()` call, and WebKit's scroll degraded from 0 to 2 frames over 50 ms to about 50 (p95 124 ms), while
 Chromium did not. Installing one persistent, `#measurer`-scoped rule fixed it (WebKit 0 to 2 frames at either
@@ -555,6 +592,39 @@ size). **Rule for the build: never add or remove a stylesheet on a hot path.** T
 engine internals (a private variable and an `!important` rule); the clean form is the engine's own size
 geometry rendering at a requested size. Six slides were compared by eye and by pixel; line wraps at smaller
 sizes were not audited.
+
+**8. Typing and the cache (the owner's question; playground with a real Title field, an auto-typer and a
+configurable cache).** Typing 44 characters, 90 ms apart, into the focused slide's title, with the full
+incremental path (new key, one tile rebind, stage re-point): 1.1 ms per keystroke on Chromium and 2 to 3 ms on
+WebKit, excluding the engine's own re-render. Baker and cache policy:
+
+| Policy, baker | Captures while typing | Cache entries before to after | Frames over 50 ms (Chromium / WebKit) |
+|---|---|---|---|
+| supersede, idle gate (600 ms) | **0** (one capture after the pause) | 8 to 8 | 1 / 3 |
+| supersede, back-to-back | 43 / 38 | **8 to 8** (44 / 39 superseded) | 45 / 47 |
+| LRU only, back-to-back | 43 / 41 | 8 to 52 / 49 | 44 / 46 |
+| unbounded, back-to-back | 43 / 41 | 8 to 52 / 50 | 44 / 55 |
+
+A reviewer's re-run reproduced the capture and entry counts on both engines and the Chromium frame counts within 1, but counted more slow frames on WebKit (6, 94, 65 and 80 in the four rows above, against 3, 47, 46 and 55 here): the direction holds, and WebKit frame counts vary about 2x between runs.
+
+Under the byte-budgeted LRU (0.25 MB, 50 entries) a full "bake every slide" held 13 entries and 0.24 MB, and every tile in the map's window still had its poster, because the window is pinned. **That first result hid a defect:** 124 to 260 captures for 120 slides was an endless re-bake loop, because the baker re-queued whatever the LRU had just evicted (a reviewer saw 69, 128, 187 and 245 captures at 15, 30, 45 and 60 s). Fixed with a 30 s cooldown after an eviction: a full bake is now exactly 120 captures and stops (Chromium 71, 120, 120 at 15, 30, 45 s; WebKit 93, 120, 120), holding 13 to 14 entries. The rule for the build: the baker's target set must fit the budget, or evicted keys need a cooldown. The edited
+tile showed its old poster (a dot marks it) until the new one landed, then the dot cleared.
+
+**Three more defects the review found, now fixed.** A failed capture was recorded against the slide's id, which superseded the last good poster and then was never retried; now a failure is recorded against the key only, leaves the old poster showing (verified with every capture forced to fail: the tile kept its old poster with the dot, nothing was superseded, and it was replaced once captures worked again), and is retried after 5 s. A stale poster was not pinned, so LRU could evict and revoke a blob still on screen; the latest baked key of every slide in a window is now pinned. And the key normalization was widened as described in item 5.
+
+**A flaw the test caught in my first supersede design:** it linked each new key to the previous one, but with
+back-to-back baking a capture can finish after the owner has moved on, so its entry was never replaced and the
+cache grew to 50 anyway. The working rule is simpler: keep the **latest baked key per stable slide id**, show it
+while the current key bakes, and drop the earlier one when a newer one lands, unless another slide still uses it.
+Policy, byte budget, entry limit, stale display and the idle gate are all options in the page.
+
+**Review status (2026-10-17).** Two independent agents reviewed §11b and §11c and the styles brief: a fact-check
+(about 45 claims confirmed, 4 refuted, about 9 unverifiable from saved output, key experiments reproduced on both
+engines) and a red team of the measurement methods (3 claims invalidated or reversed, 5 weakened, 6 playground
+defects, several attacks that held). Every correction above and every fix in the playground came from them. What
+survived: the capture recipe, native-size capture, the main-thread cost of a capture (39 slow frames per 40
+captures on Chromium; more, but not one task per capture, on WebKit), position-free content keys (now 120 of 120 on
+the real engine), the 1280 capture at thumbnail size, and the supersede and idle-gate rules.
 
 **What this changes in the design**
 
@@ -570,6 +640,207 @@ sizes were not audited.
 
 **Not measured:** iOS Safari; capture time for the wireframe-to-poster crossfade; author images; decoded
 memory of the pyramid sizes beyond §11b; a bundled build; any of Veduta itself.
+
+## 11d. Design-verification spikes (2026-10-17)
+
+The owner ruled that "medium-high" confidence in the design is not enough to build on, so the parts the design rests
+on were tested against the real code, one spike each, in scratch space (nothing in the repo was edited).
+
+**1. The rendered index can be derived for every real deck.** (Checker: totality, monotonicity and round trip mostly hold by construction, since the per-part counts add up to the whole render; the checks that can fail are that sum and the fingerprint (h1 and h2 text plus `data-focus`), which is empty for 46 of 2,604 sections. The copy coordinate is exercised by 3 sections in one deck. The 115 ms is a Node measurement.) Over all 281 decks (280 examples plus the gallery),
+rendering through the Studio path (`appendAutoGlossary`, `render`, `splitForPreview`) and reading the outline:
+
+| Section class | Sections | What marks it in the HTML |
+|---|---|---|
+| authored unit, first part | 2,591 | `data-lattice-slide="N"`, present only after `splitForPreview` |
+| heading-split part (part > 0) | 6 | nothing |
+| focus-step clone | 3 (all `focus.md`) | `data-focus`, which an authored slide can also carry |
+| structural-split page (page > 1) | 521, in 35 decks | `data-lattice-slide="N.k"`, `data-split-run` |
+| appended auto-glossary | 4, in 3 decks | nothing |
+| unexplained | **0** | |
+
+Rule: take units and parts from the deck outline, count the sections the engine renders for each part on its own,
+and walk the rendered sections in order. The address is **{unit, part, copy, page}**: a *copy* coordinate is needed
+because focus clones and pane splits are distinct sections of one part. Proven on all 281 decks at the deck's own
+size and at 1280x720: total, strictly monotonic, round trip is the identity, every outline part resolves, 0 failures.
+Failing arms go red (ignoring copies reddens `focus.md`; dropping the page suffix reddens 35 decks). **Three
+consequences.** (a) The index must be built from the same `splitForPreview(width, height)` the frame displays: at
+1280x720 the 35 portrait, square and story decks lose all 521 split pages (3,125 sections become 2,604), so an index
+built at the authored size over a 1280-wide map would be wrong; unit, part and copy addresses are the same at both
+sizes. (b) The rule works by re-rendering each part, which costs 115 ms extra on the gallery (a cheaper predict rule,
+13 ms, fails on pane splits). (c) Two defects exist that no real deck triggers: an empty slide (the outliner drops empty
+chunks, the engine renders them) and pane splits under the cheap rule. The robust fix is small and belongs in the
+engine: stamp each section with `data-lattice-src` (source line), `data-lattice-copy` and
+`data-lattice-synthetic`, making the index a lookup with no re-render and no positional counting. **This also
+corrects an earlier number:** `count.mjs` never ran the structural split (unbundled, its capacity map is null), so the
+"sections versus authored slides" counts understated the mismatch; 35 decks split into 521 extra pages.
+
+**2. The core's invariants hold, and it drives both existing implementations with a small change each.** (Checker's
+corrections: the nine properties first ran against a spike whose `settle` still learned a shortfall as the capacity,
+which one empty report could turn into a permanent cap of 0; the committed `docs/src/lib/veduta/core.ts` enforces the
+reported-capacity and stage-floor rules and has properties for both. "Multi equals `virtual-window.js`" is weaker than
+it reads: the cold comparison nearly restates the same arithmetic, and the step-by-step replay is faithful to
+`syncVirtual`'s cached path and `applyWindow` only, not to `mountAround`, its 1500 ms pin, the uncached path or fling
+timing. The 976-of-2,000 hole figure is a property of a synthetic walk in which 20% of frames jump, not a usage rate.) A headless
+core in plain JavaScript (`windowFor({ policy, stage, count, focus, viewports, overscan, budget, hysteresis,
+previous })` returning ranked intent, and `settle(intent, satisfied)`), inlinable with `.toString()`. Nine properties,
+300 runs and 1,000 runs on each of three seeds, every failing arm red: focus always in the stage set; mounted count
+bounded by viewport and overscan alone for N from 10 to 100,000; **multi equals the real `visibleRange` +
+`windowRange` from `virtual-window.js`** (imported, compared on random inputs and step by step against a replay of
+`syncVirtual`); single is exactly one unit; pip's stage set equals single's even while the map scrolls; jitter below
+the band changes nothing; ranking is monotone in distance from each window's own viewport; the live total never
+exceeds the page-global budget; and a connector that satisfies only part of the intent reaches a fixed point without
+being asked for more. Cost per call is **0.6 µs (single), 15 to 16 µs (multi with a map) and 13 to 14 µs (pip),
+identical at N = 120 and N = 100,000**.
+Fit: `PreviewPool` accepts the intent with a `rank` prop and an `onSettle` report, ordering tiles within its existing
+on-screen and in-band tiers and still going through its 220 ms throttle, so the WebKit never-destroy rule is
+untouched (typechecked only). The Playground filmstrip takes it through two new exports (`stageViewport`,
+`applyUnits`) and a predicate form of `applyWindow` (jsdom smoke test only), and the focus seed replaces the 1500 ms
+landing pin as long as the focus is a rendered-section index, which is spike 1. **Three design invariants were wrong
+or missing, and are now rules:** (i) the live budget cannot be "units live now", because the pool never releases a
+slot, so its cost is a high-water mark of retained documents (the pool reports `retained`), a tile over budget must
+render as a poster before the pool sees it, and the budget needs a cost per connector (a filmstrip section is not a
+WebKit realm); (ii) capacity must be *reported*, never inferred, because a pool also falls short for tiles outside its
+150 px observer band and learning that as the cap starves visible tiles; (iii) a connector must hold at least one stage
+unit. **A defect in today's `deck-render.js`** (not caused by this work): with its 1/3/5 constants a window move can
+leave a one-slide hole of placeholders between mounted slides (settle at slide 20, land at 12: slides 9 to 15 and 17
+mounted, 16 not); 976 of 2,000 random walks hit one, and `contiguous` then stays false so every scroll frame falls off
+its fast path until the hole fills. The core always keeps one contiguous run. Also, `applyWindow` loops over every
+section, so each move is O(N) in the DOM. Neither has an issue yet.
+
+**3. Capture can leave the main thread on Chromium, not on WebKit.** The same poster capture (native 1280 wide, 24
+captures while the page scrolled), run in the page itself versus in an iframe that holds the stylesheet once and
+receives one slide's HTML by `postMessage`:
+
+| Where the capture runs | Chromium: frames over 50 ms, p95 | WebKit: frames over 50 ms, p95 |
+|---|---|---|
+| no capture (control) | 0, 17 ms | 0, 17 ms |
+| the page itself | 23, 233 to 250 ms | 39 to 40, 132 to 191 ms |
+| same-origin iframe | 25, 217 ms | 39 to 41, 127 to 136 ms |
+| sandboxed iframe (opaque origin) | **0**, 17 ms | 37 to 41, 140 to 145 ms |
+| cross-site iframe (`127.0.0.1` against `localhost`) | **0**, 17 ms | 41 to 44, 102 to 125 ms |
+
+Per-capture time on Chromium was 10 to 15% longer in the frames (282 to 303 ms sandboxed, 260 to 265 cross-site, against
+249 to 260 ms in the page; a checker's three repeats and a 60-capture scroll agreed), and about the same on WebKit (150
+to 200 ms). A browser-level target count shows why the jank disappears: the sandboxed and the cross-site frame are each
+an out-of-process frame, the same-origin frame is not (the spike's own page-level probe wrongly read 0 for all of
+them). So on Chromium a sandboxed or cross-site capture frame removes the jank entirely for a 10 to 15% throughput
+cost; this depends on the browser giving the frame its own process, which Chromium can decline under process limits or
+memory pressure (untested; one Chromium build, 131); on WebKit it raises the frames the
+page gets in the same time about 1.75x (112 to 126 against 56 in the short run) but each capture still costs one 100 to
+250 ms hitch, with 42 to 47 frames over 50 ms per 24 captures in the frames against 39 to 40 in the page (wider than the
+37 to 44 first quoted), and in a 60-capture scroll as many as the page itself. Design
+consequence: capture runs in a sandboxed frame by default (it also holds untrusted markup in an opaque origin, the
+safer posture under HARD RULE #22), and the WebKit hitch is still handled by the idle-gated, single-flight baker.
+Tauri on macOS is WebKit, so the desktop app should prefer a native snapshot there (unverified).
+
+**4. Fuoco works with a scrolling stage once three defects are fixed.** In a model-based test (an editor, a map
+issuing `go` and `step`, a paged stage, and a scrolled stage that reports every slide a smooth scroll crosses, a
+settle report and a late scroll-anchoring report), all four problems reproduced on the repo's hub: (a) a no-op report
+cancelled a pending "insert, then go" (focus 0, wanted 1; with the editor subscribed last a double key press published
+4 times); (b) a report made during a delivery was judged against stale focus (`key last` ended at 5, wanted 6); (c) a
+stage that could not centre the last slide pulled the focus back (one key press made 3 publications); and two
+scrolled views that break a boundary tie differently pushed the focus back and forth forever. The fix is 272 lines
+(+130, -65, mostly moving two bodies into inner functions; `git apply --check` passes) and chooses four rules: a
+report clears the pending move only when it publishes; `report` and `reportUnit` go through `guarded()`, which now
+brackets only the subscriber loop, so each queued call is judged against the focus the earlier ones left; each report
+records the focus sequence it was made against and the hub drops it if a different origin has published since (the
+same idea as `rev` for text); and `quiet` on `reportUnit` never publishes and never cancels a pending move. That last
+rule makes a separate loop guard unnecessary. With it, the repo's `hub.test.ts` model passes at 5,000 runs, the new
+properties pass, every failing arm goes red with a shrunk counterexample (`clearOnAnyReport`, `eagerReports`,
+`loudQuiet`, `ignoreBasis`), and five "next" presses with a scrolled stage and a map publish exactly once each (the
+unfixed hub gave `3[keys,stage,stage]` on the fifth, a 5 to 4 to 5 flicker). **The fix holds only if every view marks its own programmatic scrolls quiet:** a checker added a second scrolled view that does not, and focus agreement failed on a scroll followed by a key press (focus 2, wanted 3), so any loud programmatic scroll breaks agreement, not only a late reflow report. The fix is applied on this branch
+(`docs/src/lib/fuoco/hub.ts`, `scroll.test.ts`). Further limits the spike found: browsers do not say why a scroll
+happened, so a stage must infer its own scrolls from input events (a loud reflow report sent before a frame-lane stage
+catches up would still pull the focus back; a compare-and-set "I was reacting to focus X" field would close it and was
+not built); `reportUnit` always publishes cause `caret`; views must select the unit id, not only the index (an edit and
+a deferred go in one frame can swap which unit sits at an index, and ids follow separators, so after an insert an old id
+can land on the new slide); a view does not hear its own `step`, so it reads `hub.get()` back; and `step`, `pages`,
+`pick` and `update` are still judged immediately. Modeled, not observed in a browser.
+
+**The design as it now stands.** (1) Two index models: the outline before the first render, and a rendered index
+{unit, part, copy, page} after it, built from the same `splitForPreview(width, height)` the frame shows, with the
+engine stamping `data-lattice-src`, `data-lattice-copy` and `data-lattice-synthetic` so the index is a lookup. (2) A
+headless core, three window policies times two stage kinds, ranked advisory intent and a *reported* (never inferred)
+capacity, a page-global live budget with a cost per connector decided before the pool, and at least one stage unit per
+connector. (3) Fuoco is the only focus, with the four-rule fix above and views that select unit ids. (4) Capture runs in
+a sandboxed frame at the slide's native size under a 1280 override, one at a time, gated on user idleness, with
+position-free keys, supersede-then-LRU with pinned windows, stale-while-revalidate, and wireframes measured off the bind
+path. (5) Connectors change a little (`rank` and `onSettle` on the pool; `stageViewport` and `applyUnits` on the
+filmstrip), and a poster in the filmstrip needs a `SANCTIONED_RUNTIME_MARKUP_SINKS` entry. **Open:** real browsers for the
+Fuoco model, the pool and filmstrip diffs, iOS, and the unreviewed spike results themselves.
+
+
+## 11e. Inversion: what would make this fail (2026-10-17)
+
+A Munger inversion of the design and the on-demand styles brief (an independent agent; nothing edited) concluded
+**proceed with changes**. The core and the Studio map are worth building; what fails under inversion is the *order*
+of work and two of the owner's 2026-10-17 rulings (fork 1's poster map, fork 2's publish). Findings, with the facts I
+re-checked marked **verified**:
+
+1. **The expensive part is the poster subsystem, not the library.** The core is 0.6 to 16 µs and nine properties
+   pass; what is unbuilt is about twenty Lattice-specific mechanisms (Fuoco fix, engine stamping, pool `rank`, sandboxed
+   capture frame, CDATA and font inlining, a private-variable override, a key normalizer, supersede-then-LRU, cooldowns,
+   an idle gate, a #22 sanction), each failing silently. The prototype showed the decay: four silent defects in a day.
+2. **The poster tier pays only past the pool cap.** **Verified:** across the 281 example and baseline decks the median
+   is 8 slides, the 90th percentile is 10, and only 3 decks exceed 28 (`gallery-jargon.md` 58, `gallery.md` 120,
+   `system-design-foundations.md` 232). **Caveat the inversion did not state:** this is the *example* corpus, a set of
+   feature demos, not real boardroom decks, which are plausibly 20 to 60 slides; the right number is the owner's own
+   deck sizes, which this sandbox cannot see.
+3. **Posters cost most on the future runtime.** Tauri on macOS is WebKit, where capture is still a 100 to 250 ms hitch
+   per poster; iOS and macOS WebKit are unmeasured. (Partial counter-evidence: the owner ran the playground, posters
+   included, on a phone with 1,200 slides and reported it responsive with no crash or jank.)
+4. **The foundation keeps deepening** (preview, posters, capture cost, stylesheet size, a CSS delivery rewrite), and
+   the brief rests on an inference the note marks untested ("the 1.8 MB stylesheet dominates"), while measured results
+   point the other way (rule pruning slowed WebKit capture; the 1280 override cut capture time only about 20%).
+5. **"Uniform 16:9" is false across decks.** **Verified:** 36 of 281 decks are not 1280x720 or 4K 16:9 (21 at 1080x1350,
+   12 at 1080x1920, and four more sizes), and at 1280x720 the 35 portrait, square and story decks lose all 521 split
+   pages, so a map capture size must follow the deck's aspect ratio, not be fixed.
+6. **Unpriced costs.** Engine stamping puts new attributes (source lines) into exported HTML, which would change export
+   bytes, trigger the owner's sign-off gate, and contradicts §10's "does not change the bytes of an exported artifact"
+   (the spike already shows the safer place: `splitForPreview` writes `data-lattice-slide` today and never reaches an
+   export). A sandboxed capture frame is one more document that WebKit never frees and that counts against the live
+   budget, and it owes a #22 justification. The poster key is defined two ways (constraint 4 says the renderer's own
+   slice-cache key; §11c.5 normalizes `outerHTML` with a regex), and the regex is a standing invariant any new
+   component that mints position-based ids can break silently. IndexedDB persistence adds versioning across engine
+   releases. P2 needs the Fuoco fix, stamping, the pool API and capture together, which is the stacked-PR trap
+   (HARD RULE #17). **Verified:** `@laticent/fuoco` is not on npm (404) and is `AGPL-3.0-only`, so a published package
+   buys a demo page and API-freeze pressure but no users yet.
+7. **A simpler design the note never compared against:** a Studio picture-in-picture whose map is the existing
+   one-frame filmstrip (scaled) or the existing `PreviewPool` for decks of 28 slides or fewer, with pills and the
+   cheap wireframe tier past that, first and last as plain commands, and the windowing core as a fenced module. It
+   loses far-off pictures in big decks, cross-session caching and the claim of generality; it avoids capture, keys,
+   the cache, the capture frame, stamping, the font and CDATA recipe, and the styles loader.
+8. **Cheap falsifiers (under a day each):** put the existing pool overview beside the stage and look at it on a
+   230-slide deck; open the playground in Safari on a Mac and on an iPhone (do captures decode, does the page survive
+   baking); stamp at `splitForPreview` instead of the engine; capture one slide with the full sheet against a hand-cut
+   100 KB sheet, three repeats, on both engines; apply the Fuoco fix and run five presses in a real browser.
+
+**The three decisions it asks the owner to make or reverse now:** (1) ship the Studio map on live, wireframe and pill
+tiles first and add posters later, as a tile kind, once the falsifiers show decks over the pool cap hurt; (2) fence the
+core first and publish only after the Playground adopts it with no core change (the note's own tripwire, P3); (3)
+decouple the styles brief from the poster tier, run only its baseline and the sheet-size test, and stamp at
+`splitForPreview`. Posters are a tile kind in the design, so adding them later is an addition, not a rework.
+
+## 11f. The owner's rulings after the inversion (2026-10-17)
+
+These replace the matching 2026-10-17 rulings in section 9 and the phase order in section 10.
+
+1. **Posters last.** The first Studio map ships on live, wireframe and pill tiles (and segments). Posters return as one
+   more tile kind after the falsifiers in section 11e show decks over the pool cap hurt, so the foundation does not
+   change when they arrive.
+2. **Publish later, but build it as a complete library now.** `@laticent/veduta` gets everything a sibling has before it
+   is published: a name, a mark, a README, a catalog entry, a live demo page and a guide page on the docs site, a build
+   script and a boundary gate. The npm publish itself waits until the Playground has adopted the core with no change to
+   it (the section 11 tripwire).
+3. **The on-demand styles brief is decoupled from Veduta.** Run only its baseline (E0) and the stylesheet-size
+   isolation test first; do not start the byte-identical split (E1) on an untested inference. Stamping source lines
+   happens in `splitForPreview`, which never reaches an export, not in the engine, so no phase changes exported bytes
+   and the export sign-off gate does not apply.
+
+**Order of work (by what each unblocks):** the core with its property tests; the Fuoco fix
+(the Fuoco report-defects follow-up (fixed)); the rendered index and stamping at `splitForPreview`; the library's
+trappings (mark, catalog, docs, demo, guide, build, gate); then the Studio picture-in-picture on live, wireframe and
+pill tiles; posters last.
 
 ## 12. Next step
 
