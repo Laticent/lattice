@@ -9,12 +9,22 @@
   "icon": {
     "viewBox": "0 0 128 128",
     "paths": [
-      {"ink": "line", "d": "M36 40H92A24 24 0 0 1 92 88H36A24 24 0 0 1 36 40Z", "width": 7},
-      {"ink": "accent", "d": "M52 64H76", "width": 9}
+      {
+        "ink": "line",
+        "d": "M36 40H92A24 24 0 0 1 92 88H36A24 24 0 0 1 36 40Z",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M52 64H76",
+        "width": 9
+      }
     ]
   },
   "embedded": true,
-  "optional": ["icons"],
+  "optional": [
+    "icons"
+  ],
   "contributes": {
     "inline": {
       "pill": {
@@ -23,10 +33,62 @@
     },
     "services": [
       "reads"
-    ]
+    ],
+    "styles": true
   },
   "render": {
     "parity": "equivalent",
     "degradesTo": "source"
-  }
+  },
+  "tokens": [
+    "--bg",
+    "--cat-1-fill",
+    "--cat-1-mark",
+    "--cat-10-fill",
+    "--cat-10-mark",
+    "--cat-11-fill",
+    "--cat-11-mark",
+    "--cat-12-fill",
+    "--cat-12-mark",
+    "--cat-2-fill",
+    "--cat-2-mark",
+    "--cat-3-fill",
+    "--cat-3-mark",
+    "--cat-4-fill",
+    "--cat-4-mark",
+    "--cat-5-fill",
+    "--cat-5-mark",
+    "--cat-6-fill",
+    "--cat-6-mark",
+    "--cat-7-fill",
+    "--cat-7-mark",
+    "--cat-8-fill",
+    "--cat-8-mark",
+    "--cat-9-fill",
+    "--cat-9-mark",
+    "--cat-on-fill",
+    "--lat-pill-base",
+    "--lat-pill-bg",
+    "--lat-pill-edge",
+    "--lat-pill-h",
+    "--lat-pill-ink",
+    "--lat-pill-inset",
+    "--lat-pill-pb",
+    "--lat-pill-pt",
+    "--lat-pill-scale",
+    "--lat-pill-shift",
+    "--muted-mark",
+    "--pill-bg",
+    "--pill-border",
+    "--pill-fg",
+    "--pill-font",
+    "--pill-fs",
+    "--pill-pad-x",
+    "--pill-pad-y",
+    "--pill-radius",
+    "--pill-tracking",
+    "--pill-weight",
+    "--radius-sm",
+    "--text-body"
+  ]
 }

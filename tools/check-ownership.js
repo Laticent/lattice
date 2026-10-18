@@ -1994,7 +1994,7 @@ const SANCTIONED_MARGINS = [
        + '`gap`/`padding` equivalent. See the base.modifiers comment at the declaration.',
   },
   {
-    file: 'lib/base/base.modifiers.css',
+    file: 'lib/plugins/pills/pills.styles.css',
     value: '0.22em',
     why: 'outer breathing room for an INLINE PILL (`.lat-pill[data-shape]`). Padding is not '
        + 'an alternative — measured on one pill, `padding-inline:1.2em` grew the CHROME from '

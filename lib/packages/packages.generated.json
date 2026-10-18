@@ -1443,6 +1443,7 @@
         "inline.js",
         "manifest.json",
         "services.js",
+        "styles.css",
         "syntax.mjs"
       ],
       "code": true

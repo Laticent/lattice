@@ -271,3 +271,7 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
   skip). One Compose spec (copying a pill to another slide) failed once in a parallel batch and passed twice alone and in
   the next full batch; it is recorded as a load flake, not proven on `main`. Not yet driven: the exported player, a real
   Export-to-Marp download opened in a browser, and the touch and WebKit projects.
+
+**Styles moved (commit "move the pill styles into the pills plugin").** The `.lat-pill` block (286 lines) left `lib/base/base.modifiers.css` for `lib/plugins/pills/pills.styles.css`; the manifest now declares `styles` and lists the 49 tokens the sheet reads; the one `0.22em` margin sanction is re-keyed to the new file with its justification unchanged.
+- **Measurement.** Computed style of every `.lat-pill` element (and its `::before`/`::after`) plus its box size, rendered on the branch before the move and after it, across 359 decks (examples, every component gallery, the baseline decks): 31 decks contain pills, 328 do not, **0 differ**.
+- **What the first run caught.** Moving the block put pill rules after the icons plugin's sheet (plugin sheets are ordered by name), so `section .lat-pill[role='img'] { text-indent:0 }` in `icons.styles.css` lost its tie to the pill rule and an icon-only pill grew a 0.6px indent (`examples/inline-icons.md`, 20 properties). The rule is about the pill, so it moved into `pills.styles.css` after the rule it overrides; the rerun is clean.
