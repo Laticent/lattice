@@ -28,3 +28,10 @@ evidence  — the probe in the threat-model note §3.1 re-run on a real export w
             reaches the listener, in Chromium, WebKit and Firefox.
 verify    — tier 2 adversarial trio, because it changes an exported artifact and a security
             boundary.
+
+Re-run 2026-10-18 on real exports in Chromium 131, WebKit 26.0 and Firefox 142.0.1 with a control per cell
+(`test/integration/export/npm-plugin-export-check.test.js`, the threat-model note's "Measured 2026-10-18" paragraph):
+`--player` leaves `navigate`, `windowopen`, `webrtc`, `metarefresh` and a `target=_blank` link open in all three engines; the plain
+export also leaves `scriptsrc`, `iframe`, `cssimport`, `linkstyle` and (Chromium) `prefetch` open. Nothing was changed: the exits are
+export-byte changes and wait for the owner's inspection and decision per policy. That test loses its `todo` when the last gap closes.
+

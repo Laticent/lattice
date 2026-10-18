@@ -40,3 +40,13 @@ evidence  — the layer reading from each environment, taken with the same measu
             note uses (the renderer's Seccomp mode in /proc on Linux), pasted into the note.
 verify    — tier 1 checker for the note; tier 2 trio only if the owner chooses to refuse OFF,
             because that changes which machines can run packages at all.
+
+Measured 2026-10-18 (partial; `launchCodeSandbox` called directly, Chromium 131, this cloud container, root, Linux): the puppeteer-cache
+Chromium under `/root/.cache/puppeteer` reads **OFF** (reason `unprivileged-user-cannot-run`: `nobody` cannot execute a binary under `/root`;
+the renderer runs as root); the Playwright Chromium under `/opt/pw-browsers/chromium-1194` reads **ON** (renderer runs as `nobody`). The
+session's default `CHROME_PATH` is the first, so every code-package run in this container's default setup is at OFF, and the npm-plugin
+admission test (`test/integration/export/npm-plugin-admission.test.js`) exercises its refusal branch here. Not measured, and still needed
+for the note this item asks for: CI runners (the note expects Ubuntu 24.04 to read OFF through AppArmor), non-root Linux, macOS, Windows,
+the Studio iframe door, the desktop app. What refusing OFF would break is therefore known for one environment only: here, every
+default-configured code-package and plugin run; the fix there is `CHROME_PATH` pointed at a Chromium `nobody` can run.
+
