@@ -670,6 +670,13 @@ describe('the paths agree on the data row', () => {
     assert.match(render(deck('bar', '- `{1, circle}` North `{40}`\n- `{2, circle}` South `{30}`')), /data-value="40"/, 'a shaped badge leaves the record its value');
   });
 
+  test('the keyword-row fix names the plain span, not the record', () => {
+    const { lintText } = require('../../../lib/authoring/lint.js');
+    const fixes = lintText(deck('bullet', '- Up `{4.2, target=5}`\n  - Floor `{2}`')).filter((f) => f.rule === 'chart-row-record-unread').map((f) => f.fix);
+    assert.equal(fixes.length, 1);
+    assert.match(fixes[0], /a plain `2` span/);
+  });
+
   test('a chart list inside a quote does not read records, and lint says so; the old form there is silent', () => {
     const { lintText } = require('../../../lib/authoring/lint.js');
     const warns = (body) => lintText(deck('bar', body)).filter((f) => f.rule === 'chart-row-record-unread');

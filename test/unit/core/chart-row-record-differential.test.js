@@ -7,6 +7,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
+const { lintText } = require('../../../lib/authoring/lint.js');
 
 const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
 
@@ -102,6 +103,8 @@ describe('generated slides: the record form equals the old form', () => {
         // On a slide the chart declines the list shows as written, and the record form must show the old-form list.
         assert.equal(now, was, `HTML differs: ${info}`);
         assert.equal(narrateChart(deck(chart, s.rec)), narrateChart(deck(chart, s.old)), `narration differs: ${info}`);
+        // Lint is a separate reader: it never calls a record that draws unread.
+        assert.deepEqual(lintText(deck(chart, s.rec)).filter((f) => f.rule === 'chart-row-record-unread').map((f) => f.line), [], `lint calls a drawn record unread: ${info}`);
       }
       // Anti-vacuity: most generated slides must draw a chart in the old form, or equality proves nothing.
       assert.ok(drawn >= N * 0.6, `${chart}: only ${drawn} of ${N} old-form slides drew a chart`);
@@ -142,6 +145,43 @@ describe('generated slides: a pill in a detail bullet is still a pill', () => {
         assert.doesNotMatch(html, /<code>\{[+-]?\d+\}<\/code>/, `raw braces: ${info}`);
         if (!FIELDS[chart]) assert.deepEqual(values(html).filter((v) => /^[+-]/.test(v) && !values(base).includes(v)), [], `a delta became data: ${info}`);
       }
+    });
+  }
+});
+
+// The browser is a third reader (the DOM mirror decides ownership on its own view): the same generated
+// slides, as marp-core-shaped markup, run through the runtime bundle once per form, must end identical.
+describe('generated slides: the browser draws the record as it draws the old form', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { JSDOM } = require('jsdom');
+  const MarkdownIt = require('markdown-it');
+  const runtime = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'), 'utf8');
+  const md = new MarkdownIt({ html: true });
+  const boot = async (sections) => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><body>${sections}</body></html>`, { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true });
+    dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
+    const el = dom.window.document.createElement('script');
+    el.textContent = runtime;
+    dom.window.document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 300));
+    for (const script of dom.window.document.querySelectorAll('script')) script.remove();
+    return [...dom.window.document.querySelectorAll('section')].map((sec) => sec.innerHTML);
+  };
+  for (const chart of Object.keys(CHARTS)) {
+    test(chart, async () => {
+      const N = Number(process.env.DIFF_RT_N) || 8;
+      const slides = Array.from({ length: N }, (_, i) => slide(chart, rng((i + 1) * 7919 + chart.length)));
+      const wrap = (body) => `<section class="${chart}">${md.render(`## A\n\n${body}`)}</section>`;
+      const was = await boot(slides.map((s) => wrap(s.old)).join(''));
+      const now = await boot(slides.map((s) => wrap(s.rec)).join(''));
+      let drawn = 0;
+      slides.forEach((s, i) => {
+        if (/chart-body/.test(was[i])) drawn++;
+        assert.equal(now[i], was[i], `${chart} seed ${i + 1}\n--- old ---\n${s.old}\n--- record ---\n${s.rec}`);
+        assert.doesNotMatch(now[i], /data-lat-record/);
+      });
+      assert.ok(drawn >= N * 0.6, `${chart}: only ${drawn} of ${N} old-form slides drew in the browser`);
     });
   }
 });
