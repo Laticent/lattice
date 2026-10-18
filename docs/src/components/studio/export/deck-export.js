@@ -549,6 +549,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// last one and a fence still un-settled here would bake as a blank. `bakeDeckSections`
 		// opts out — it waits again, longer, and owns the give-up itself.
 		await waitForDiagrams(doc, 4000, { release: releaseDiagrams });
+		// A collage or logo wall measures its pictures before it packs, and is hidden meanwhile. Hold
+		// the capture for that (capped), then pack what is left with what is known, so no export bakes
+		// a list that is still hidden.
+		await waitForMeasuring(doc, 4000);
 		// A graph chart waits for its fonts before its first draw (Trama's pipeline). A face
 		// requested after `fonts.ready` settled can hold that wait past this point, so draw
 		// every chart now, as the CLI export does, rather than capture its measuring tiles.
@@ -773,6 +777,36 @@ async function slideOpenAttrs(html) {
 const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'visibility', 'content-visibility'];
 
 /**
+ * Wait for the frame's measuring lists (`collage`, `logo-wall`: lib/core/measure-kit.js) to pack, for at
+ * most `ms`, then finish any still measuring with the shapes known so far. A list the runtime left
+ * `measuring` is hidden by the component's CSS and, in the webpage export (which strips the runtime),
+ * would stay hidden for good. Returns whether it all packed before the cap.
+ * @param {Document} doc the capture frame's document
+ * @param {number} [ms]
+ * @returns {Promise<boolean>}
+ */
+export async function waitForMeasuring(doc, ms = 4000) {
+	const reg = doc?.__latticeMeasure;
+	if (!reg) return true;
+	const packed = await reg.idle(ms);
+	if (!packed) reg.settle();
+	return packed;
+}
+
+/** Backstop for a frame whose runtime never reported (an older bundle): a list still `measuring` becomes
+ *  the unpacked grid, never hidden. Returns how many it moved. */
+export function unhideMeasuringLists(doc) {
+	let n = 0;
+	for (const attr of ['data-collage', 'data-logo-wall']) {
+		for (const el of doc.querySelectorAll(`[${attr}="measuring"]`)) {
+			el.setAttribute(attr, 'fallback');
+			n++;
+		}
+	}
+	return n;
+}
+
+/**
  * Bake the deck's RUNTIME-rendered content into static markup, and return one HTML
  * string per slide.
  *
@@ -856,6 +890,7 @@ export async function bakeDeckSections(render, { freezeTokens = false, playerBak
 function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake, overflowMarker }) {
 	// The level's strip, the same function the CLI runs before it takes its player DOM.
 	if (overflowMarker) stripMarkerForLevel(resolveOverflowMarker(overflowMarker), doc);
+	unhideMeasuringLists(doc);
 	const sections = [...doc.querySelectorAll('.lattice > section')];
 	if (!sections.length) return null;
 	// Counted BEFORE `bakedMermaidFigures` swaps each drawn Mermaid pair for the baked figure,

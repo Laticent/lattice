@@ -534,6 +534,41 @@ state on each animation frame. Against main's `logo-marks.js` it fails on deskto
 (the revisit refetches all 4 marks and paints `measuring` first); with the fix the revisit paints `packed` only,
 with 0 fetches, and the spec fails if the Studio ever swaps the frame instead of patching it.
 
+### 8.5 Slice 4: the measuring kit, and exports that wait (2026-10-18)
+
+`lib/core/measure-kit.js` replaces the two private copies. Both components call `run({ list, attr,
+sources, finish })`; the kit does the rest:
+
+- **Measure.** `aspectOfImage(img)` reads a loaded `<img>` at once and waits for `load` / `error` on one
+  still loading (a failed image is `complete` and unknown, so it never burns the cap). The logo wall's
+  SVG-tag fetch stays in `logo-marks.js` and goes through the same `remember`.
+- **Remember.** `remember(key, load)` keeps one aspect per URL for the life of the document and shares
+  the in-flight Promise. A null or a rejection is forgotten so a later visit retries. The logo wall's
+  revisit spec (§8.4) still passes on it, and collage now stamps a revisit at once too.
+- **Hold.** `run` marks the list `measuring`, waits for every source, and calls `finish` once after the
+  cap (4 s, `DEFAULT_CAP_MS`). A second `run` on a list being measured returns false. **That is the
+  stability rule: a list packs once, never again as a late item arrives.** Both components pack from
+  the final shapes and never re-pack, so the "re-run only the sizing step" refinement in §4.5 is not
+  built; nothing needed it.
+- **Signal.** Each run registers on `doc.__latticeMeasure`. `idle(ms)` resolves true when nothing is
+  measuring and false at `ms`; `settle()` finishes whatever is still measuring with what is known.
+
+**The kit lives in `lib/core`, not in the Mosaico package.** Mosaico has no DOM by contract (§5), and
+the kit reads `<img>` and a document. Mosaico's README points to it.
+
+**Exports wait.** `createCaptureFrame` (`deck-export.js`) calls `waitForMeasuring(doc, 4000)` after the
+diagram wait: `idle(4000)`, then `settle()` if it timed out. All eight capture lanes share it, so no
+Studio export captures a list still measuring. `finishBake` also turns any list still `measuring` into
+`fallback` (the unpacked grid), the backstop for a frame whose runtime never reported. With that in
+place the logo wall hides while measuring, as collage does, so a first visit paints once.
+
+**Measured.** `logo-wall-first-visit.spec.ts` on the real Studio, marks delayed 300 ms: every painted
+state before `packed` is `measuring` with `visibility: hidden`, never the grid; with one mark delayed
+9 s the cap shows the unpacked grid, visible. Exports of a collage and logo-wall deck with every
+picture delayed 1.5 s and 3 s, light and dark: no list baked hidden, and at 1.5 s the pages are
+pixel-identical to exports built from main's code. **Found, not caused:** the Studio export draws the
+logo wall as `fallback` in both builds (followup `2763-p2`).
+
 ## 9. Decisions
 
 **Settled (owner, 2026-10-16):**

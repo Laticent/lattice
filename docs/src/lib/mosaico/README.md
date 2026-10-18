@@ -46,6 +46,16 @@ The grid adapter emits `fr` tracks, so the browser fits the grid to whatever box
 needs only the container's shape, not its size. To draw boxes yourself (canvas, SVG, absolute
 positioning), read `result.placed` instead: see the next section.
 
+## Measuring in a browser
+
+Mosaico takes shapes, never pixels from the DOM. The host side of reading them lives in
+[`lib/core/measure-kit.js`](https://github.com/Laticent/lattice/blob/main/lib/core/measure-kit.js):
+`aspectOfImage` (a loaded or loading `<img>`), `remember` (one shape per URL, kept for the life of
+the document), and `run`, which holds a list as `measuring` until every shape is known or a 4 s cap
+passes, then calls your `finish` once. A list packs once and never again as a late item arrives.
+`doc.__latticeMeasure.idle(ms)` and `.settle()` let a caller outside the page, such as an export,
+wait for the lists. Design note §8.5.
+
 ## Spacing, padding and units
 
 ```ts
