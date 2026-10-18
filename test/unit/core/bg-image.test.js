@@ -241,3 +241,28 @@ describe('bg-image — liftImageBgImages carries a class run to later slides', (
     assert.match(out, /!\[bg left\]\(b\.svg\)/);
   });
 });
+
+describe('bg-image — liftImageBgImages reads slides and directives as the engine does (followups.d/2739-p10)', () => {
+  const { render } = require('../../../lib/engine');
+  const { readClassAttr } = require('../../../lib/core/section-walk');
+  // One picture per deck. The engine's verdict: is the slide that holds it `image`? The lift must
+  // draw a `.lattice-bg` panel exactly then (a panel on a `content form` slide is an empty box).
+  // The picture is always on the LAST slide in these decks.
+  const engineSaysImage = (md) => /\bimage\b/.test(readClassAttr((String(render(md, {}).html).match(/<section\b[^>]*>/g) || []).pop() || ''));
+  const liftDraws = (md) => /lattice-bg /.test(bg.liftImageBgImages(md, 'file:///d/'));
+  const cases = {
+    'a `---` directly under a text line is a setext underline, not a slide break': ['<!-- _class: image -->\n\nTitle\n---\n\n![bg left](a.jpg)\n', true],
+    'a directive indented as code is code': ['\t<!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
+    'a directive indented four spaces is code': ['    <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
+    'text after the closing `-->` voids the directive': ['<!-- _class: image --> trailing\n\n![bg left](a.jpg)\n', false],
+    'the plain case still lifts': ['<!-- _class: image -->\n\n# T\n\n![bg left](a.jpg)\n', true],
+    'a blank line before `---` is a real break': ['<!-- _class: image -->\n\n# T\n\n---\n\n![bg left](a.jpg)\n', false],
+    'a list item then `---` is a break, not a setext underline': ['- item\n---\n\n<!-- _class: image -->\n\n![bg left](a.jpg)\n', true],
+  };
+  for (const [name, [md, expected]] of Object.entries(cases)) {
+    test(name, () => {
+      assert.equal(engineSaysImage(md), expected, 'the premise: what the engine does');
+      assert.equal(liftDraws(md), engineSaysImage(md), 'the lift agrees with the engine');
+    });
+  }
+});

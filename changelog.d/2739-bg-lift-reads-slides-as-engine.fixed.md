@@ -1,0 +1,1 @@
+- A `![bg]` picture on an `image` slide now keeps its panel when the slide holds a setext heading (`Title` over `---`), and no longer gets a panel on a slide where the `image` class sits in an indented code block or has text after its closing `-->`, matching what the engine renders.
