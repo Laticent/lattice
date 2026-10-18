@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import JSZip from 'jszip';
-import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, shareExport, slideCount, test } from './studio-fixture';
+import { expect, gotoStudio, livePreview, persistedSource, SHARE_EXPORTS, setEditorContent, shareExport, slideCount, test } from './studio-fixture';
 
 // ── A deck that does not load a plugin draws none of it in the real Studio ─────────────
 //
@@ -336,4 +336,38 @@ async function webpageExport(page: import('@playwright/test').Page): Promise<str
 	const file = await (await download).path();
 	await page.keyboard.press('Escape');
 	return fs.readFileSync(file, 'utf8');
+}
+
+// THE EXPORT SAYS SO WHEN A FENCE WILL SHIP AS SOURCE (#2758). Both arms through the real Share sheet:
+// the Webpage options panel names the fences before the export, and nothing shows when the plugin is on.
+for (const [label, defaults, shows] of [
+	['Mermaid off', [] as string[], true],
+	['Mermaid on', null, false],
+] as const) {
+	test(`the Webpage export panel ${shows ? 'warns' : 'is silent'} when ${label}`, async ({ page }) => {
+		test.setTimeout(120_000);
+		await gotoStudio(page);
+		await setDefaults(page, defaults === null ? null : [...defaults]);
+		await setEditorContent(page, DECK(`Notice ${label}`));
+		await expect.poll(() => persistedSource(page)).toContain(`# Notice ${label}`);
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		await page.getByRole('dialog').getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
+		const notice = page.getByRole('dialog').locator('[data-off-fences-notice]');
+		if (shows) {
+			await expect(notice).toBeVisible();
+			await expect(notice).toContainText('1 mermaid fence will ship as source: the Mermaid diagrams plugin is off for this deck');
+		} else {
+			await expect(page.getByRole('dialog').getByText('Export webpage')).toBeVisible();
+			await expect(notice).toHaveCount(0);
+		}
+		if (process.env.ADMISSION_EVIDENCE && shows) {
+			for (const [w, h] of [[1440, 900], [820, 1100], [390, 844]]) {
+				await page.setViewportSize({ width: w, height: h });
+				await page.waitForTimeout(600);
+				await page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, `p3-notice-${w}.png`) });
+			}
+		}
+		await page.keyboard.press('Escape');
+		await setDefaults(page, null);
+	});
 }

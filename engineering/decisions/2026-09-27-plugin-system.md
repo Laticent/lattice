@@ -1797,6 +1797,13 @@ plugin is off ships the source (`e2e/plugin-admission.spec.ts`, "on, off, on"). 
 deck's `plugins:` list, never an off switch: every shipped plugin is on by default and a list only adds, so only a
 host can turn one off.
 
+**The export says so (2026-10-18, #2758).** A fence whose plugin is off ships as source, so Share → Webpage names it
+before the export (a row in the options panel) and after (the completion message), read from the registry and the
+deck's admission (`docs/src/lib/off-fences.ts`), never from a plugin's name. No action button yet: the deck's
+`plugins:` list only adds, and the Studio has no setting that narrows the defaults, so a deck that hits this is one
+under a host that narrowed them. The other Studio exports (PDF, PNG, PowerPoint, Marp bundle, print) carry no notice
+yet.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

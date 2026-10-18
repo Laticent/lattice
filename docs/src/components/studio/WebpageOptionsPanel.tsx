@@ -7,9 +7,10 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { ArrowLeft, Globe, ImageDown, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Globe, ImageDown, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
+import { offFences, offFencesSentence } from '@/lib/off-fences';
 import { cn } from '@/lib/utils';
 import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { sourceHasWebPictures } from '../../../../lib/export/inline-url-media.mjs';
@@ -79,6 +80,8 @@ export function WebpageOptionsPanel({
 	// makes the author's browser contact those sites at export time; the FILE is self-contained
 	// either way — the recipient's copy carries the bytes and its policy loads nothing on open.
 	const [embedWebPictures, setEmbedWebPictures] = React.useState(false);
+	// FENCES WHOSE PLUGIN IS OFF ship as source; say so before the export, not after (#2758).
+	const offFenceList = React.useMemo(() => offFences(source), [source]);
 	const deckHasWebPictures = React.useMemo(() => sourceHasWebPictures(source, typeof location === 'undefined' ? undefined : location.origin), [source]);
 	// Narration is opt-in too, and for a different reason: it is the only option here that
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
@@ -197,6 +200,19 @@ export function WebpageOptionsPanel({
 							</span>
 							<Switch className="mt-0.5" aria-label="Animate charts" checked={playerMotion} disabled={busy} onCheckedChange={setPlayerMotion} />
 						</div>
+					</div>
+				) : null}
+
+				{/* Fences whose plugin is off for this deck — only when the deck holds one. */}
+				{offFenceList ? (
+					<div className="rounded-xl border border-border bg-background p-3.5" data-off-fences-notice="">
+						<span className="flex items-start gap-2">
+							<AlertTriangle className="mt-0.5 size-4 text-[var(--accent)]" />
+							<span>
+								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Some fences will ship as source</span>
+								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{offFencesSentence(offFenceList)}.</span>
+							</span>
+						</span>
 					</div>
 				) : null}
 

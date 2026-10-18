@@ -10,6 +10,7 @@
 
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
+import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -664,6 +665,12 @@ export async function shareHtmlPlayer(
 	}
 	if (mediaWarning) {
 		bakeWarning = bakeWarning ? `${bakeWarning}; ${mediaWarning}` : mediaWarning;
+	}
+	// A fence whose plugin is off ships as source: the panel said so before the export, the toast says so after (#2758).
+	const offList = offFences(source);
+	if (offList) {
+		const offWarning = offFencesSentence(offList, 'shipped');
+		bakeWarning = bakeWarning ? `${bakeWarning}; ${offWarning}` : offWarning;
 	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
