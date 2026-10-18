@@ -84,13 +84,15 @@ export interface PackOptions {
    * `tree` (default): every guillotine arrangement, for up to six items. `rows`: an ordered list
    * broken into centered rows, any number of items.
    */
-  strategy?: 'tree' | 'rows' | 'template';
+  strategy?: 'tree' | 'rows' | 'template' | 'grid';
   /**
    * `fill` (default for `tree`, the only goal it takes): least empty space and crop, with a penalty
-   * on very small tiles. `equal-weight` (default for `rows`, the only goal it takes): every item at
-   * the same area unless that would make it taller than `heightCap`.
+   * on very small tiles. `equal-weight` (default for `rows`): every item at the same area unless that
+   * would make it taller than `heightCap`. `justified` (`rows` only): every row fills the width exactly,
+   * its items at one height, the rows as close as they can be to `targetRowHeight`; the last row is
+   * not stretched (see `lastRow`) and the height is an output. `template` and `grid` take no goal.
    */
-  goal?: 'fill' | 'equal-weight';
+  goal?: 'fill' | 'equal-weight' | 'justified';
   /** `tree`: `free` (default) may reorder items; `ordered` keeps them in written order, read left to right, top to bottom. */
   order?: 'free' | 'ordered';
   /** `tree`: `tight` (default) never crops; `fill` may stretch the layout by up to `stretch` to close empty space. */
@@ -145,6 +147,14 @@ export interface PackOptions {
   maxHeight?: number;
   /** `rows`: the narrowest cell (default 0). */
   minCell?: number;
+  /** `rows` with the `justified` goal: the row height to aim for, in the container's units (default 0.2 of the width). */
+  targetRowHeight?: number;
+  /** `grid`: a fixed number of columns (default: the count that makes the items biggest; required when the container has only a width). */
+  columns?: number;
+  /** `grid`: most columns to try when choosing (default: the item count). */
+  maxColumns?: number;
+  /** `grid`: a cell's width / height when the container has only a width (default 1). */
+  cellAspect?: number;
   /** `rows`: items narrower than this aspect are held at `heightCap` instead of shrinking every item (default 0.5). */
   aspectFloor?: number;
 }
@@ -196,8 +206,9 @@ export interface PackResult {
    */
   work: { arrangements: number; scored: number };
   /**
-   * `template`: each item's visible rectangle, in the container's units. Equal to `placed` for an `exact`
-   * item; for a `contain` item, the largest rectangle of its shape inside its cell.
+   * `template` and `grid`: each item's visible rectangle, in the container's units. `template`: equal to
+   * `placed` for an `exact` item, and for a `contain` item the largest rectangle of its shape inside its
+   * cell. `grid`: every item contained in its cell, where `placed` holds the cells.
    */
   fitted?: Rect[];
   /** `rows`: item indices per row. */

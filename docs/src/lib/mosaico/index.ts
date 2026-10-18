@@ -3,11 +3,13 @@
  * no DOM, no I/O and no dependencies, so it runs the same on a server, in a browser and in a
  * worker. Output is deterministic: the same input gives the same result, byte for byte.
  *
- * Three strategies: `tree` with the `fill` goal (the collage packer, fixed shapes), `rows` with the
+ * Four strategies: `tree` with the `fill` goal (the collage packer, fixed shapes), `rows` with the
  * `equal-weight` goal (the logo wall), and `template`, where the caller gives the arrangement and items
- * may be ranges of shapes or flexible (engineering/decisions/2026-10-16-mosaico-layout-library.md §8).
+ * may be ranges of shapes or flexible, and `grid` (uniform cells). `rows` also has a `justified` goal (engineering/decisions/2026-10-16-mosaico-layout-library.md §8).
  */
 
+import { chooseGrid } from './grid.js';
+import { chooseJustified } from './justified.js';
 import { BIG, contains, largestWithin, sliceAtW } from './region.js';
 import { chooseRows } from './rows.js';
 import { buildRegions, fitInside, leavesOf, MAX_TEMPLATE_ITEMS, parseTemplate, place, printTemplate } from './template.js';
@@ -77,7 +79,7 @@ function boxOf(container: Container, strategy: string): [number, number] {
 
 const ALIGNS: readonly Align[] = ['start', 'center', 'end', 'justify'];
 
-function alignOf(v: unknown, fallback: Align, name: string, strategy: 'tree' | 'rows' | 'template'): Align {
+function alignOf(v: unknown, fallback: Align, name: string, strategy: 'tree' | 'rows' | 'template' | 'grid'): Align {
   if (v === undefined) return fallback;
   if (!ALIGNS.includes(v as Align) || (strategy !== 'rows' && v === 'justify')) {
     throw new RangeError(`mosaico: ${name} for the ${strategy} strategy takes ${strategy !== 'rows' ? 'start, center or end' : 'start, center, end or justify'}, not ${String(v)}`);
@@ -123,6 +125,7 @@ export function pack(items: ReadonlyArray<Item | number>, container: Container, 
   const n = Array.isArray(items) ? items.length : 0;
   if (n < 1) return { ok: false, reason: 'empty' };
   if (options.strategy === 'template') return packTemplate(items, container, options);
+  if (options.strategy === 'grid') return packGrid(items, container, options);
   const aspects = items.map(itemAspect);
   if (options.strategy === 'rows') return packRows(aspects, container, options);
   if (options.goal !== undefined && options.goal !== 'fill') throw new RangeError(`mosaico: the tree strategy takes the fill goal, not ${options.goal}`);
@@ -273,10 +276,115 @@ function packTemplate(items: ReadonlyArray<Item | number>, container: Container,
   };
 }
 
+export const DEFAULT_TARGET_ROW_HEIGHT = 0.2;
+
+function packJustified(aspects: number[], container: Container, options: PackOptions): PackResult | PackRefusal {
+  const W = positive(container?.width) ? container.width : 1;
+  const pad = sidesOf(options.padding);
+  const iw = W - pad.left - pad.right;
+  if (!(iw > 0)) throw new RangeError('mosaico: the padding leaves no room in the container');
+  const lastRow = alignOf(options.lastRow, 'start', 'lastRow', 'rows');
+  if (lastRow === 'justify') throw new RangeError('mosaico: lastRow for the justified goal takes start, center or end: the other rows already fill the width');
+  const length = (v: unknown, fallback: number, min = 0): number => {
+    const x = num(v, NaN, min);
+    return Number.isNaN(x) ? fallback : x / iw;
+  };
+  const gap = length(options.gap, 0);
+  const columnGap = length(options.columnGap, gap);
+  const rowGap = length(options.rowGap, gap);
+  const choice = chooseJustified(aspects, {
+    gap: columnGap,
+    rowGap,
+    targetHeight: length(options.targetRowHeight, DEFAULT_TARGET_ROW_HEIGHT, Number.MIN_VALUE),
+    maxPerRow: Number.isInteger(options.maxPerRow) && (options.maxPerRow as number) >= 1 ? (options.maxPerRow as number) : Infinity,
+    lastRow,
+  });
+  if (!choice) return { ok: false, reason: 'too-wide' };
+  const placed = choice.rects.map((r) => ({ x: pad.left + r.x * iw, y: pad.top + r.y * iw, w: r.w * iw, h: r.h * iw }));
+  const areas = choice.rects.map((r) => r.w * r.h);
+  return {
+    ok: true,
+    rects: choice.rects,
+    aspect: 1 / choice.height,
+    empty: 1 - areas.reduce((s, a) => s + a, 0) / choice.height,
+    crop: 0,
+    ratio: Math.min(...areas) / Math.max(...areas),
+    score: 0,
+    arrangement: choice.rows.map((r) => r.join(' ')).join(' | '),
+    gap: columnGap,
+    columnGap,
+    rowGap,
+    frame: { x: pad.left, y: pad.top, w: iw, h: choice.height * iw },
+    placed,
+    work: { arrangements: 1, scored: choice.steps },
+    rows: choice.rows,
+    cells: choice.rects,
+  };
+}
+
+function packGrid(items: ReadonlyArray<Item | number>, container: Container, options: PackOptions): PackResult | PackRefusal {
+  if (options.goal !== undefined) throw new RangeError(`mosaico: the grid strategy takes no goal, not ${options.goal}`);
+  const aspects = items.map(itemAspect);
+  const pad = sidesOf(options.padding);
+  const hasW = positive(container?.width);
+  const hasH = positive(container?.height) || positive(container?.aspect);
+  const widthOnly = hasW && !hasH;
+  const columns = Number.isInteger(options.columns) && (options.columns as number) >= 1 ? (options.columns as number) : NaN;
+  if (widthOnly && Number.isNaN(columns)) throw new RangeError('mosaico: the grid strategy with only a container width needs options.columns: the height is an output');
+  const [W, H] = widthOnly ? [container.width as number, NaN] : boxOf(container, 'grid');
+  const iw = W - pad.left - pad.right;
+  const ih = Number.isNaN(H) ? NaN : H - pad.top - pad.bottom;
+  if (!(iw > 0 && (Number.isNaN(ih) || ih > 0))) throw new RangeError('mosaico: the padding leaves no room in the container');
+  const gap = num(options.gap, 0);
+  const lastRow = alignOf(options.lastRow, 'start', 'lastRow', 'grid');
+  const choice = chooseGrid(aspects, {
+    width: iw,
+    height: ih,
+    columnGap: num(options.columnGap, gap),
+    rowGap: num(options.rowGap, gap),
+    columns,
+    maxColumns: Number.isInteger(options.maxColumns) && (options.maxColumns as number) >= 1 ? (options.maxColumns as number) : aspects.length,
+    cellAspect: positive(options.cellAspect) ? options.cellAspect : 1,
+    lastRow,
+  });
+  if (!choice) return { ok: false, reason: 'does-not-fit' };
+  const total = choice.height;
+  const move = (r: Rect): Rect => ({ x: pad.left + r.x, y: pad.top + r.y, w: r.w, h: r.h });
+  const placed = choice.cells.map(move);
+  const fitted = choice.items.map(move);
+  // Layout units, as for `tree`: the layout is 1 tall.
+  const rects = choice.cells.map((r) => ({ x: r.x / total, y: r.y / total, w: r.w / total, h: r.h / total }));
+  const itemAreas = fitted.map((r) => r.w * r.h);
+  const cellArea = choice.cells.reduce((s, r) => s + r.w * r.h, 0);
+  const rowsOf: number[][] = Array.from({ length: choice.rowsCount }, (_, r) => Array.from({ length: Math.min(choice.columns, aspects.length - r * choice.columns) }, (_, k) => r * choice.columns + k));
+  const columnGap = num(options.columnGap, gap);
+  const rowGap = num(options.rowGap, gap);
+  return {
+    ok: true,
+    rects,
+    aspect: iw / total,
+    empty: Math.max(0, 1 - cellArea / (iw * total)),
+    crop: 0,
+    ratio: Math.min(...itemAreas) / Math.max(...itemAreas),
+    score: 0,
+    arrangement: `${choice.columns}x${choice.rowsCount}`,
+    gap: columnGap / total,
+    columnGap: columnGap / total,
+    rowGap: rowGap / total,
+    frame: { x: pad.left, y: pad.top, w: iw, h: total },
+    placed,
+    fitted,
+    work: { arrangements: choice.tried, scored: choice.tried },
+    rows: rowsOf,
+    cells: rects,
+  };
+}
+
 export const DEFAULT_HEIGHT_CAP = 0.1;
 export const DEFAULT_ASPECT_FLOOR = 0.5;
 
 function packRows(aspects: number[], container: Container, options: PackOptions): PackResult | PackRefusal {
+  if (options.goal === 'justified') return packJustified(aspects, container, options);
   if (options.goal !== undefined && options.goal !== 'equal-weight') throw new RangeError(`mosaico: the rows strategy takes the equal-weight goal, not ${options.goal}`);
   // The container in its own units: 1 wide unless it has a width. Layout units: the width inside the padding is 1.
   const W = positive(container?.width) ? container.width : 1;

@@ -1,7 +1,7 @@
 {
   "name": "@laticent/mosaico",
   "version": "0.1.0",
-  "description": "Pack boxes into a container: a template strategy that sizes a given arrangement of items with shape ranges, floors and caps; an exact guillotine search with exact gutters for up to six fixed-shape items (least empty space and crop), and balanced rows with every item at the same area under a height cap (any number of items). Plain rectangles out, plus a CSS grid adapter. Deterministic, framework-free, zero-dependency, no DOM.",
+  "description": "Pack boxes into a container: a grid of uniform cells; justified rows that fill the width at one height; a template strategy that sizes a given arrangement of items with shape ranges, floors and caps; an exact guillotine search with exact gutters for up to six fixed-shape items (least empty space and crop), and balanced rows with every item at the same area under a height cap (any number of items). Plain rectangles out, plus a CSS grid adapter. Deterministic, framework-free, zero-dependency, no DOM.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {

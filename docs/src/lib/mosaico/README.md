@@ -4,7 +4,7 @@
 the same input gives the same layout, byte for byte.**
 
 Mosaico takes a list of items and a container and returns one rectangle per item. This version
-ships three strategies: `rows` (below), `tree` and `template`.
+ships four strategies: `rows` (below, with an equal-weight and a justified goal), `tree`, `template` and `grid`.
 
 The `tree` strategy tries every guillotine layout of up to six fixed-shape items (a layout
 where every cut runs all the way across the region it divides) and keeps the one that leaves
@@ -94,6 +94,41 @@ the layout's natural height; `frame` is what is drawn.
 
 A layout whose gutters are nearly as wide as the box is the one exception to exact gutters: when a
 box would get no room at the drawn height, `placed` scales the layout down whole instead.
+
+## Rows, justified: every row to the edge
+
+`goal: 'justified'` on `rows` fills every row to the width at one height, as a photo gallery does, and keeps
+each item's exact shape.
+
+```ts
+const r = pack(aspects, { width: 1000 }, { strategy: 'rows', goal: 'justified', gap: 8, targetRowHeight: 200 });
+r.rows;   // [[0, 1, 2], [3, 4, 5, 6], …]
+r.placed; // one box per item; every row but the last ends exactly at x = 1000
+r.frame;  // the height is an output: frame.h
+```
+
+A row of items at gap `g` has the one height `(width - (m - 1)·g) / Σ aspect`. Dynamic programming over the
+break points keeps every row as close as it can be to `targetRowHeight` (least sum of squared differences;
+default 0.2 of the width), so a row with too few items (too tall) and one with too many (too short) both cost.
+The last row is not stretched: it keeps the target height, or less if its items would not fill the width, and
+sits by `lastRow` (`start`, the default, `center` or `end`). `maxPerRow` caps a row. The container's `height`
+is ignored. Forty items pack in well under a millisecond.
+
+## Grid: uniform cells
+
+```ts
+const r = pack(aspects, { width: 1280, height: 720 }, { strategy: 'grid', gap: 16 });
+r.arrangement; // '4x3': four columns, three rows
+r.placed;      // the cells: all the same size, with exact gutters
+r.fitted;      // each item contained in its cell: the largest rectangle of its shape, centered
+```
+
+Every cell is the same size. With the container's size known, `grid` tries each column count (up to
+`maxColumns`, default the item count) and keeps the one that makes the items biggest, ties to fewer columns,
+so wide items stack and tall ones go side by side. `columns` fixes the count. A partly filled last row starts
+at the left (`lastRow: 'center'` or `'end'` moves it), and `toGrid` reads clean tracks from it. With only a
+`width`, `columns` is required and the height is an output: each cell is `cellAspect` (default 1) wide per
+unit tall. A container too small for its gutters returns `{ ok: false, reason: 'does-not-fit' }`.
 
 ## Template: you give the arrangement, items give their size rules
 

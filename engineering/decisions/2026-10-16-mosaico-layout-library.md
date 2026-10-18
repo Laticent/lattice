@@ -623,6 +623,26 @@ review. The exact weighted case is the first test in `template.test.js`; the ima
 test block. This is a deviation from the brief, taken without the owner's say: it is logged for the owner in the
 PR and as `followups.d/2744-p3-panes-through-template.md`.
 
+### 8.7 The `grid` strategy and justified rows (2026-10-18)
+
+The owner put both in v1 (2026-10-18; §4.4 listed them, no build-order slice carried them). Both are small and
+additive, in `docs/src/lib/mosaico/grid.ts` and `justified.ts`.
+
+- **Justified rows** are the `justified` goal of `rows`. A row of items i..j has one height that makes its items
+  and gaps add to the width; dynamic programming over breaks minimizes the sum of squared differences between
+  row heights and `targetRowHeight`; the last row keeps the target (or its natural height, if smaller) and sits
+  by `lastRow`. `align: 'justify'`, the older way of spreading leftover width into gaps, is unchanged and
+  belongs to the equal-weight goal. Breaks stop widening a row once it would be under 20% of the target, which
+  keeps the search linear in the item count.
+- **Grid** picks the column count that maximizes the sum of the items' contained areas, ties to fewer columns.
+  Items are contained in uniform cells (`fitted`), not cropped, and `placed` holds the cells so `toGrid` works.
+  With a width and no height the host names `columns` and a `cellAspect`.
+- **Tests:** `test/unit/mosaico/grid-justified.test.js`, with seeded property tests (every row full and one
+  height, exact shapes and gaps; uniform non-overlapping cells inside the container). Swapping the grid's
+  comparison and un-capping the last row each fail three tests.
+- **Demo page** (`/libraries/mosaico/`): two new tabs, "Even grid" and "Justified".
+- **Still out:** the past-six-items heuristic for `tree`, as the owner said.
+
 ## 9. Decisions
 
 **Settled (owner, 2026-10-16):**
