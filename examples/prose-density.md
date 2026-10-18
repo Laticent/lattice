@@ -78,11 +78,11 @@ footer: "Budget the words, not just the elements"
 
 ## The chrome has budgets, regardless of layout.
 
-- Eyebrow `≤ 5 words`
+- Eyebrow `{≤ 5 words}`
   - A label that frames, not a sentence that explains.
-- Title and subtitle `≤ 10 · ≤ 12`
+- Title and subtitle `{≤ 10 · ≤ 12}`
   - The takeaway lands in one tight line.
-- Key insight and pill `≤ 18 · ≤ 2`
+- Key insight and pill `{≤ 18 · ≤ 2}`
   - One memorable sentence; a one-word status chip.
 
 ---

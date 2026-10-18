@@ -62,9 +62,20 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/hub-spoke-icons.md', 'the demo deck for icons on hub-spoke (HARD RULE #9). Its `{icon=…}` records are counted here but render as disc icons, not pills — the census reads spans without their slide, and hub-spoke owns the rows it reads (lib/core/resolve-inline-code.js `ownedRowDepth`); the table slide escapes its examples'],
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
-  ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'the cards-stack gallery: a card title carries a `{status}` pill, written in the pills plugin\'s own notation (HARD RULE #9)'],
-  ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill, in the pills plugin\'s notation'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
+]);
+
+/**
+ * Decks that use a COMPONENT's pill — a title-row status, a metric, a tier — written in the pills
+ * plugin's own notation (`` `{status}` ``) because that component draws its pills with the plugin
+ * and nothing else (engineering/decisions/2026-10-17-pills-plugin.md §4.3). The span dispatches
+ * on purpose: it is the author asking for the pill. A deck earns a line by carrying one.
+ */
+const USES_A_COMPONENT_PILL = new Map([
+  ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'cards-stack: a `{status}` pill on each card title'],
+  ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill'],
+  ['examples/prose-density.md', 'cards-grid: the word and line budgets, each a pill on its card title'],
+  ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill'],
 ]);
 
 /** The decks the `inline-code: literal` register turns the grammar off for. */
@@ -87,7 +98,7 @@ test('the only shipped deck whose inline code dispatches is the one demonstratin
   );
 
   const hits = spans.filter((s) => dispatches(s.text));
-  const stray = hits.filter((s) => !DEMONSTRATES_THE_GRAMMAR.has(s.file));
+  const stray = hits.filter((s) => !DEMONSTRATES_THE_GRAMMAR.has(s.file) && !USES_A_COMPONENT_PILL.has(s.file));
   assert.deepEqual(
     stray,
     [],
@@ -97,7 +108,7 @@ test('the only shipped deck whose inline code dispatches is the one demonstratin
       stray.map((s) => `  ${s.file}:${s.line}  \`${s.text}\``).join('\n') +
       '\nEscape it (`\\{LABEL}`, `\\[x]`) to keep the literal, set `inline-code: literal` ' +
       'in the deck front matter to turn the grammar off for the whole deck, or — if the ' +
-      'deck is teaching the grammar — add it to DEMONSTRATES_THE_GRAMMAR with its reason.',
+      'deck is teaching the grammar — add it to DEMONSTRATES_THE_GRAMMAR with its reason, or to USES_A_COMPONENT_PILL if the pill is the point of a component.',
   );
 
   // A STALE ALLOWLIST is the failure mode this kind of list always reaches: the deck is

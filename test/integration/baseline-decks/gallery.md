@@ -116,13 +116,13 @@ flowchart LR
 
 ## The pipeline, by version number.
 
-- Signal Intake `v2.4`
+- Signal Intake `{v2.4}`
   - Handles 94% of structured signals without manual intervention. Average latency: `4 min` from ingestion to scored entry.
-- Scoring Model `configurable`
+- Scoring Model `{configurable}`
   - Three dimensions: confidence, recency, relevance. Default weights are `33 / 33 / 33` — the diplomatic opening position.
-- Decision Log `required`
+- Decision Log `{required}`
   - Every prioritization change above `P2` must carry a logged rationale. No log, no change.
-- Calibration Loop `monthly`
+- Calibration Loop `{monthly}`
   - Compares predicted outcomes to actuals. First meaningful weight update happens after `2 cycles`.
 
 ---
