@@ -1,17 +1,15 @@
 // The PLACE ORACLE. Every reader that decides "is this code span a chart row's record" asks the one
 // function `ownsRecordSpan` (lib/core/chart-rows.js), but each measures the span's PLACE (depth, last in
-// its row, in the first list, quoted, what came before) from its own input: the engine from markdown-it
-// tokens, lint and the narrator from source lines, the browser from the DOM, Compose from a ProseMirror
-// doc. Every review round of the chart row record found its defects in that measuring, never in the
-// decision (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md, followups.d/2690-p1-…).
+// its row, in the first list, quoted, what came before) from its own input. The engine, lint and the
+// narrator now count it once, from markdown-it tokens (lib/core/chart-places.js); the browser counts it from
+// the DOM and Compose from a ProseMirror doc, because neither can run markdown-it. Before that, six readers
+// counted it six ways, and every review round of the chart row record found its defects in that measuring,
+// never in the decision (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md,
+// followups.d/2690-p1-…).
 //
 // This test runs the same generated slides through each reader and compares WHICH spans it called the
 // record, as an ordered list of texts (the corpus makes every record value unique). The engine is the
 // reference: it is what draws the slide. A reader that disagrees fails the test with the slide source.
-//
-// A disagreement that is KNOWN and not worth a fix is listed in KNOWN, with its reason. The test also
-// fails when a KNOWN entry no longer disagrees, so the list cannot go stale (the same discipline as the
-// repo's other sanction lists).
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 

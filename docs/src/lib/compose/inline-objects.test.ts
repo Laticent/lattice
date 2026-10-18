@@ -867,9 +867,10 @@ describe('sparks are objects too (phase 2)', () => {
 // table is locked in Compose (edited in Markdown), so it has no objects to compare.
 describe('the place oracle: Compose leaves exactly the engine\'s record spans as code', () => {
 	const req = createRequire(import.meta.url);
-	const { corpus, deckOf } = req('../../../../test/unit/core/place-corpus.js') as {
+	const { corpus, deckOf, droppedTexts } = req('../../../../test/unit/core/place-corpus.js') as {
 		corpus: (n: number) => { chart: string; body: string; name: string }[];
 		deckOf: (s: { chart: string; body: string }) => string;
+		droppedTexts: (body: string) => Set<string>;
 	};
 	const { READERS, fencedTexts } = req('../../../../test/unit/core/place-readers.js') as {
 		READERS: { engine: (s: { chart: string; body: string }) => string[] };
@@ -880,10 +881,11 @@ describe('the place oracle: Compose leaves exactly the engine\'s record spans as
 		it(slide.name, () => {
 			if (/<(?:ul|ol|table)\b/i.test(slide.body.replace(/`[^`]*`/g, ''))) return; // locked in Compose
 			const fenced = fencedTexts(slide.body);
+			const dropped = droppedTexts(slide.body); // cells past the header's width: the engine draws neither a record nor a pill
 			const owned = new Set(READERS.engine(slide));
 			const made = new Set(texts(mount(deckOf(slide))));
 			const candidates = [...new Set([...slide.body.replace(/\r/g, '').matchAll(/(?<!`)`(\{[^{}`\n]*\})`(?!`)/g)].map((m) => m[1]))]
-				.filter((t) => !fenced.has(t) && kindOf(t, kernels) !== null);
+				.filter((t) => !fenced.has(t) && !dropped.has(t) && kindOf(t, kernels) !== null);
 			seen.owned += candidates.filter((t) => owned.has(t)).length;
 			seen.pills += candidates.filter((t) => !owned.has(t)).length;
 			for (const t of candidates) {

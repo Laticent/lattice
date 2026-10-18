@@ -135,7 +135,7 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                agreement and lint's line walker disagreeing on 163 slides and the narrator's on 49. `chart-places.js` counts a span's
                place once from tokens (the engine's pill pass now asks it, byte-identical on 806 repo slides and 1,585 generated decks),
                and the narrator's bridge moved to `chart-source-bridge.js`, which asks it over the engine-configured parser (49 to 0;
-               the double-backtick and quoted-table narration residuals close with it; markdown-it is external in the read-along
+               the unpadded double-backtick and the quoted-table narration residuals close with it (a PADDED ``` `` {1.5} `` ``` record is still missed by the narrator and lint: round 18); markdown-it is external in the read-along
                bundle, as in the authoring bundle). Lint's `renderedInlineSpans` (163 to 0) and the engine's `matrixGridCells` and the browser's `applyToDom`
                (which decided a sole `{done}` cell without the shared decision: a seventh and eighth measurer) now ask the shared
                decision with the shared counting; a matrix-grid arm of the oracle compares which cells become state cells, engine
@@ -156,3 +156,21 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                match (identical at 0bcab12); (d) the oracle's matrix-grid arm compares the ordered list of cell classes, not which cell, and
                its narrator arm calls the bridge directly, not through `readChartRows`; (e) when phase 4 deletes the bridge, the narration
                bundle's `external: ['markdown-it']` and its third boundary-parser copy go with it, and nothing will flag them.
+           22. Eighteenth round (2026-10-18, red team and independent checker on 8e7bb90): fixed here with a test or a corpus shape each: lint's
+               token parse ran once per lint RULE per chart slide (nine rules call `renderedInlineSpans`), which pushed a timing test to its
+               budget; it is memoized per slide text now (the 4,000-row pipe-lint fixture: 1,600 to 2,400 ms down to 210 to 610 ms); lint's table
+               column check was cubic in the cells of a row (a 3,000-cell row took 183 s, now 0.2 s) and skipped pipes inside code spans, while
+               markdown-it splits on every unescaped pipe: one pass now counts them as the parser does; a raw `<table>` inside a cell of the
+               chart's own table was counted as a table "ahead" of it, so the engine drew a pill where the browser drew a state cell (it
+               is nested in the table, not ahead of it: the old matrix-grid pass was right, and the pill pass, which had the same count for
+               heatmap, now agrees); the browser's matrix-grid check took the nearest section element, so a raw section element the author wrote inside the slide hid the
+               chart class (`applyToDom` now passes the section it is iterating); the narrator bridge no longer folds a lone-CR source to LF
+               (that added lines it read as rows) or drops a BOM. Two intended behavior changes, both for exotic input: a matrix-grid record cell
+               on a slide with TWO chart classes (`matrix-grid bar`) follows the chart the dispatcher draws, as the pill pass always did; and
+               a raw table inside a cell no longer demotes the records after it.
+               Left, each low and identical at 0bcab12 unless noted: the narrator's parser is the block parser only, so engine-only inline
+               syntax around a record (a row with inline math that contains a backtick, then a record) can split the two; a padded
+               double-backtick record, and a record followed by `&nbsp;` on a continuation line, or by `&ensp;`/`&#32;`, are claimed by the
+               engine and missed by the narrator and lint; a comment on a continuation line differs for the DOM; the narration bundle's
+               `markdown-it` resolves to the docs package's copy (14.3.0) and the engine's is the root's (14.1.1), the same split the authoring
+               bundle has.

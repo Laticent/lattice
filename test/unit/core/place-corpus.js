@@ -116,19 +116,22 @@ function gridSlide(chart, r) {
   const cell = () => {
     const n = ++st.n;
     const v = `{${n}.5}`;
-    const forms = [`\`${v}\``, `\`${v}\` <!-- c${n} -->`, `<!-- c${n} --> \`${v}\``, `x \`${v}\``, `\`${v}\` x`, ` \`${v}\` `, `\`${v}\` \`${n}\``];
+    const forms = [`\`${v}\``, `\`${v}\` <!-- c${n} -->`, `<!-- c${n} --> \`${v}\``, `x \`${v}\``, `\`${v}\` x`, ` \`${v}\` `, `\`${v}\` \`${n}\``,
+      // A complete raw table INSIDE an earlier cell is nested in the chart's table, not ahead of it.
+      `<table><tr><td>x</td></tr></table> | \`${v}\``];
     return forms[Math.floor(r() * forms.length)];
   };
-  const rows = Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => `| ${LABELS[i]} | ${cell()} | ${cell()} |`);
+  // A pipe inside a code span splits the row (markdown-it counts every unescaped pipe), so `x|y` is two cells.
+  // A row wider than the header loses its extra cell (markdown-it drops it), so a record there is nobody's.
+  const rows = Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => (i === 0 && r() < 0.35 ? `| \`x|y\` | ${cell()} |` : i === 1 && r() < 0.4 ? `| ${LABELS[i]} | ${cell()} | ${cell()} | ${cell()} |` : `| ${LABELS[i]} | ${cell()} | ${cell()} |`));
   let table = `| | A | B |\n|---|---|---|\n${rows.join('\n')}`;
   const wraps = [(t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`, (t) => `${t}\n\n${t.replace(/\{(\d+)\.5\}/g, '{9$1.5}')}`]; // the second table is a decoy with its own values
   table = wraps[Math.floor(r() * wraps.length)](table);
   return { chart, body: table, wrap: 'table' };
 }
 
-// matrix-grid is not here yet: the engine's `matrixGridCells` pass and the browser's `applyToDom` decide a sole
-// `{done}` cell themselves, without the shared decision, so a log of `ownsRecordSpan` cannot see them (and its
-// three state words are not unique). The shared walker folds those two in; the corpus gains it then.
+// matrix-grid is not in this list: its three state words are not unique, so a log of record TEXTS cannot tell its cells apart.
+// It has its own arm in the oracle (matrixCorpus below), which compares which CELLS became state cells.
 const GRID_CHARTS = ['heatmap'];
 
 /**
@@ -143,8 +146,9 @@ function matrixSlide(r) {
     () => `\`{${state()}}\``, () => `\`{${state()}}\` <!-- c -->`, () => `<!-- c --> \`{${state()}}\``,
     () => ` \`{${state()}}\` `, () => `x \`{${state()}}\``, () => `\`{${state()}}\` x`, () => `\`{${state()}}\` \`1\``,
     () => '[x]', () => '[-]', () => '[ ]', () => 'text', () => '`{value=3}`',
+    () => `<table><tr><td>x</td></tr></table> | \`{${state()}}\``,
   ])();
-  const table = () => `| | A | B |\n|---|---|---|\n${Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => `| ${LABELS[i]} | ${cell()} | ${cell()} |`).join('\n')}`;
+  const table = () => `| | A | B |\n|---|---|---|\n${Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => (i === 0 && r() < 0.35 ? `| \`x|y\` | ${cell()} |` : `| ${LABELS[i]} | ${cell()} | ${cell()} |`)).join('\n')}`;
   const first = table();
   const wrap = pick([
     (t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`,
@@ -174,4 +178,30 @@ function corpus(count = 30) {
   return out;
 }
 
-module.exports = { corpus, matrixCorpus, deckOf, rng, LIST_CHARTS, GRID_CHARTS, SHAPE_NAMES, WRAP_NAMES };
+/**
+ * The record texts in table cells PAST the header's width: markdown-it drops those cells, so the engine neither claims
+ * them nor draws them as pills. An arm that infers "not claimed, so a pill" (Compose's) leaves them out.
+ */
+function droppedTexts(body) {
+  const out = new Set();
+  const lines = body.replace(/\r/g, '').split('\n');
+  const cells = (line) => {
+    const parts = [];
+    let from = 0;
+    for (let i = 0; i < line.length; i++) if (line[i] === '|' && line[i - 1] !== '\\') { parts.push(line.slice(from, i)); from = i + 1; }
+    parts.push(line.slice(from));
+    if (/^\s*\|/.test(line)) parts.shift();
+    if (/\|\s*$/.test(line)) parts.pop();
+    return parts;
+  };
+  for (let i = 0; i + 1 < lines.length; i++) {
+    if (!/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(lines[i + 1]) || !lines[i].includes('|')) continue;
+    const width = cells(lines[i]).length;
+    for (let r = i + 2; r < lines.length && lines[r].includes('|'); r++) {
+      for (const cell of cells(lines[r]).slice(width)) for (const m of cell.matchAll(/`(\{[^{}`\n]*\})`/g)) out.add(m[1]);
+    }
+  }
+  return out;
+}
+
+module.exports = { corpus, matrixCorpus, droppedTexts, deckOf, rng, LIST_CHARTS, GRID_CHARTS, SHAPE_NAMES, WRAP_NAMES };

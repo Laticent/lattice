@@ -724,4 +724,22 @@ describe('the paths agree on the data row', () => {
     const html = render(`---\nmarp: true\n---\n\n## Plain\n\n${soup}\n`);
     assert.ok(html.includes('data-lat-record="" b="'), 'the author bytes reach the page as written');
   });
+
+  test('the narrator bridge leaves a lone-CR source and a BOM as written, and a row wider than its header alone', () => {
+    // A lone CR is one line to the narrators; folding it to LF would add lines they read as rows.
+    const lone = '- EMEA `{4.5}`\r- APAC `{3.5}`';
+    assert.equal(bridgeRecordsSource(lone, ['bar']), lone);
+    // A BOM survives a rewrite.
+    assert.equal(bridgeRecordsSource('\uFEFF- EMEA `{4.5}`\n- APAC `{3.5}`', ['bar']), '\uFEFF- EMEA `4.5`\n- APAC `3.5`');
+    // markdown-it drops a cell past the header's width, so a record there is nobody's and stays as written.
+    const wide = '| | A | B |\n|---|---|---|\n| EMEA | `{1.5}` | `{2.5}` | `{3.5}` |';
+    assert.equal(bridgeRecordsSource(wide, ['heatmap']), '| | A | B |\n|---|---|---|\n| EMEA | 1.5 | 2.5 | `{3.5}` |');
+  });
+
+  test('a raw table inside a cell of the chart\'s own table is nested in it, not ahead of it', () => {
+    const body = '| | A | B |\n|---|---|---|\n| x <table><tr><td>y</td></tr></table> | `{done}` | `{partial}` |';
+    const html = render(deck('matrix-grid', body));
+    assert.match(html, /cell-filled|cell-outlined/, 'the records are state cells');
+    assert.doesNotMatch(html, /lat-pill/, 'and not pills');
+  });
 });
