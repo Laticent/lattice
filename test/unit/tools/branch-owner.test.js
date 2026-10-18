@@ -56,6 +56,12 @@ before(() => {
   git('switch', '-q', 'claude/merged');
   git('merge', '-q', '--no-ff', '-m', `merge main\n\n${trailer(THEM)}`, 'main');
   git('push', '-q', 'origin', 'claude/merged');
+  // A trailer-less merge that is NOT the newest commit (the awk record split once counted it).
+  git('switch', '-q', '-c', 'claude/midmerge', 'main~1');
+  commit(`B work\n\n${trailer(ME)}`);
+  git('merge', '-q', '--no-ff', '-m', 'Merge main', 'main');
+  commit(`B more\n\n${trailer(ME)}`);
+  git('push', '-q', 'origin', 'claude/midmerge');
   git('switch', '-q', 'main');
 });
 after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -111,6 +117,29 @@ describe('branch-owner.sh', () => {
     const r = run('claude/person', '--me', ME);
     assert.equal(r.code, 0);
     assert.match(r.out, /Warning/);
+  });
+
+  test('a trailer-less merge in the middle of the branch is ignored, not "unattributed"', () => {
+    const r = run('claude/midmerge', '--me', ME);
+    assert.equal(r.code, 0);
+    assert.doesNotMatch(r.out, /unattributed|Warning/);
+  });
+
+  test('remote-tracking spellings name the same branch; an invalid name is a usage error', () => {
+    assert.equal(run('remotes/origin/claude/theirs.v2', '--me', ME, '--no-fetch').code, 1);
+    assert.equal(run('refs/remotes/origin/claude/theirs.v2', '--me', ME, '--no-fetch').code, 1);
+    assert.equal(run('bad..name', '--me', ME).code, 64);
+    assert.equal(run('claude/theirs.v2/', '--me', ME).code, 64);
+  });
+
+  test('a git log failure is "cannot tell" (3), never "nothing to collide with"', () => {
+    git('update-ref', 'refs/remotes/origin/claude/ghost', 'HEAD');
+    fs.writeFileSync(path.join(work, '.git/refs/remotes/origin/claude/ghost'), `${'0'.repeat(39)}1\n`);
+    try {
+      assert.equal(run('claude/ghost', '--me', ME, '--no-fetch').code, 3);
+    } finally {
+      fs.rmSync(path.join(work, '.git/refs/remotes/origin/claude/ghost'), { force: true });
+    }
   });
 
   test('--me or --allow with no value is a usage error, not a hang', () => {

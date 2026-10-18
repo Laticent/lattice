@@ -49,12 +49,22 @@ done
 [ -n "$branch" ] || branch="$(git branch --show-current)"
 [ -n "$branch" ] || { echo "branch-owner: no branch given and HEAD is detached" >&2; exit 64; }
 branch="${branch#refs/heads/}"
+branch="${branch#refs/remotes/}"
+branch="${branch#remotes/}"
 branch="${branch#origin/}"
+# A name git cannot resolve must never read as "a new branch": reject it (64) before asking the remote.
+if ! git check-ref-format --branch "$branch" >/dev/null 2>&1; then
+  echo "branch-owner: '$branch' is not a valid branch name" >&2; exit 64
+fi
+
+# Bound every network call: a remote that accepts the connection and never answers would hang the
+# script, and a tool timeout reads as "no verdict" (easy to mistake for fine). 124 maps to exit 3.
+net() { if command -v timeout >/dev/null 2>&1; then timeout 60 "$@"; else "$@"; fi; }
 
 # Does the branch exist on the remote? ls-remote is the network truth; its exit code separates
 # "not there" (2) from "could not ask" (anything else). A failed lookup must never read as "new".
 if [ "$fetch" = 1 ]; then
-  git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1
+  net git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1
   rc=$?
   if [ "$rc" = 2 ]; then
     echo "origin/$branch does not exist on the remote: a new branch is yours."
@@ -63,7 +73,8 @@ if [ "$fetch" = 1 ]; then
     echo "branch-owner: could not ask the remote about origin/$branch (git ls-remote exit $rc). Not safe to assume." >&2
     exit 3
   fi
-  if ! git fetch --quiet origin "$branch" main 2>/dev/null; then
+  # Explicit refspecs: a --single-branch clone's default refspec would leave origin/<branch> stale.
+  if ! net git fetch --quiet origin "+refs/heads/$branch:refs/remotes/origin/$branch" "+refs/heads/main:refs/remotes/origin/main" 2>/dev/null; then
     echo "branch-owner: git fetch origin $branch main failed. Not safe to assume." >&2
     exit 3
   fi
@@ -80,8 +91,13 @@ fi
 # One line per commit: `<n-parents> <author-id>`. Only a `Claude-Session:` TRAILER line names the
 # author: a session id quoted in the subject or body (a commit that discusses another session) must
 # not count. The last trailer line in a message wins.
-rows="$(git log --format='%H %P%x09%B%x1e' "origin/main..origin/$branch" \
+log="$(git log --format='%H %P%x09%B%x1e' "origin/main..origin/$branch")" || {
+  echo "branch-owner: git log origin/main..origin/$branch failed (missing objects? shallow clone?). Not safe to assume." >&2
+  exit 3
+}
+rows="$(printf '%s' "$log" \
   | awk 'BEGIN{RS="\036"; FS="\n"}
+         { sub(/^\n/, "") }   # every record after the first starts with the newline git log ends the last one with
          index($0, "\t") > 0 {
            split($1, head, "\t"); np = split(head[1], parts, " ") - 1
            id = "unattributed"
@@ -116,7 +132,8 @@ if echo "$ids" | awk '{print $2}' | grep -q '^unattributed$'; then
 fi
 if [ -n "$others" ]; then
   echo "Another session owns commits here. Do not push to origin/$branch (HARD RULE #31)."
-  echo "Do not branch from it either unless I said so: its unmerged commits would ride into your PR."
+  echo "Do not branch from it either: its unmerged commits would ride into your PR, and a stacked chain breaks HARD RULE #17."
+  echo "If your instructions designate this branch, stop and ask the user (workflow.md §Session branch ownership)."
   echo "Cut your branch from main, or ask the owner (workflow.md §Session branch ownership, rules 3 and 4)."
   exit 1
 fi

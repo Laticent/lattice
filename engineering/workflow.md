@@ -52,20 +52,28 @@ untangling it took a split, a closed PR and a hand-off card. Nothing was lost, a
 
 **The rules**
 
-1. **You own one branch**: the one named in your instructions, or the one you cut from `main` yourself.
-   Before the first push to any branch you did not create in this session, run
-   `npm run branch:owner -- <branch> --me session_<your id>`. Your id is in the `Claude-Session:` line your
-   instructions give for commit messages. Exit 1 means another session has commits there: stop. Exit 3
-   means the check could not run (no network, no ref): that is not a pass either, so fix it and run it again.
-2. **Never commit, push, merge into, rebase, amend or force-push a branch another session has pushed to.**
-   Not to fix its CI, not to resolve its conflict, not for a one-line typo. If it is broken, tell me.
+1. **You own one branch**: the one you cut from `main` yourself, or the one your instructions designate when
+   no other session has pushed to it. Run `npm run branch:owner -- <branch> --me session_<your id>` before
+   the first push to any branch you did not create in this session, and again whenever a push is rejected
+   (rule 2). Your id is in the `Claude-Session:` line your instructions give for commit messages. Exit 1 means
+   another session has commits there: stop. Exit 3 means the check could not run (no network, no ref, a
+   silent remote after 60 s): that is not a pass either, so fix it and run it again. If your instructions
+   designate a branch that exit 1 says another session owns, the two instructions conflict: stop and ask me,
+   do not choose.
+2. **Never commit, push, merge into, rebase, amend or force-push a branch whose commits include another
+   session's.** Not to fix its CI, not to resolve its conflict, not for a one-line typo. If it is broken, tell
+   me. **A push rejected as non-fast-forward is the signal**: before any `git pull`, merge or rebase, run
+   `branch:owner`. That pull-merge is how PR #2777 got its two-session history (the merges carry no
+   trailer). If the other session's commits are not yours or allowed, do not pull them in: stop and tell me.
+   The owner of a branch an intruder pushed to follows the same rule: do not merge the intruder in, tell me.
 3. **"Check out X", "continue X" and "pick up X" mean read X.** Read it with `git show origin/X:<path>` and
    `git diff origin/main...origin/X`; do not branch from it, because X's unmerged commits would ride into your
    PR and make it two sessions' work again. Cut your branch from `main`. If your work needs X's unmerged
    commits, that is a stacked chain (#17): tell me, and either X merges first or I reassign the branch.
 4. **Takeover needs my words**, naming the branch and saying its session is finished ("take over
-   `claude/X`; session Y is done"). A pasted continuation brief that names a branch counts, because its author
-   wrote it to be handed over. Read the old session first (rule 5), then run
+   `claude/X`; session Y is done"). A pasted continuation brief that names a branch counts only when its Base
+   section says the owning session is finished (`Owner: session_… finished`); a session parked at the merge
+   gate may still push, so a brief that says nothing, or says "parked", is read-only. Read the old session first (rule 5), then run
    `npm run branch:owner -- <branch> --me session_<yours> --allow session_<theirs>`: `--allow` is how the
    check lets you share a branch with the session you took it from, and nothing else. Say in your PR body that
    you took over, and from whom.
@@ -81,7 +89,8 @@ untangling it took a split, a closed PR and a hand-off card. Nothing was lost, a
    Never force-push or revert their history to make it tidy.
 
 `branch:owner` reads the `Claude-Session:` trailer every session's commits carry, so it works on any
-branch with no setup. It counts every non-merge commit and any merge commit that carries a trailer. A commit
+branch with no setup. It counts every non-merge commit and any merge commit that carries a trailer. A merge
+commit with no trailer (GitHub's, or `git merge` into the branch) is ignored. A commit
 with no trailer (a person's) is listed as `unattributed`, prints a warning and does not fail the check; read
 what it changed before you push. A trailer that names no session fails it. When the remote cannot be reached
 it says so and exits 3 instead of guessing. The check is a discipline aid, not a gate: nothing blocks a
@@ -1864,6 +1873,7 @@ closed with a pointer to it.
 <sha> on <branch>, branched from <sha> on main, <date>
 Sits on PR #<N>, <merged | OPEN and unmerged>.
 Start from: <continue that branch | wait for #<N> to merge, then branch from main>
+Owner: session_<id of the session that wrote this>, <finished: takeover allowed | still active: read only>
 ```
 
 **Use those four H2s, in that order.** `Summary`, `Swimlane / governing decision
