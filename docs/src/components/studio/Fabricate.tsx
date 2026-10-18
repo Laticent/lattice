@@ -669,14 +669,19 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 			const css = handEdited
 				? renameThemeDirective(derived.css, themeSlug)
 				: serializeTheme(derived.map, { name: themeSlug, label: titleize(themeSlug), description: themeDesc });
-			downloadText(`${themeSlug}.css`, css || '/* theme */', 'text/css');
-			notify(`Exported ${themeSlug}.css — a real theme token set.`);
+			// Said once the file exists: the desktop app's save dialog can be dismissed.
+			downloadText(`${themeSlug}.css`, css || '/* theme */', 'text/css', { onSaved: () => notify(`Exported ${themeSlug}.css — a real theme token set.`) });
 			return;
 		}
 		const manifest = { name: compName, ...compMeta, ...(compDesc.trim() ? { description: compDesc.trim() } : {}) };
 		const files = scaffoldFiles({ name: compName, css: compCss, skeleton: compSkeleton, manifest }) as Record<string, string>;
-		for (const [fname, text] of Object.entries(files)) downloadText(fname, text, fname.endsWith('.json') ? 'application/json' : fname.endsWith('.css') ? 'text/css' : 'text/markdown');
-		notify(`Exported ${compName} — manifest, styles & skeleton (drop into lib/components/).`);
+		// One toast once EVERY file exists (the desktop app asks for each in turn).
+		const entries = Object.entries(files);
+		let saved = 0;
+		const onSaved = () => {
+			if (++saved === entries.length) notify(`Exported ${compName} — manifest, styles & skeleton (drop into lib/components/).`);
+		};
+		for (const [fname, text] of entries) downloadText(fname, text, fname.endsWith('.json') ? 'application/json' : fname.endsWith('.css') ? 'text/css' : 'text/markdown', { onSaved });
 	}
 
 	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD, for both tabs. The rule — including the

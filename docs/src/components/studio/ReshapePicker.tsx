@@ -56,7 +56,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					    control that is always there and sometimes inert. */}
 					<button type="button" aria-label="Reshape slide" disabled={disabled} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40">
 						<Shapes className="size-3" />
-						<span className={cn(!compact && 'hidden @[36rem]:inline')}>Reshape</span>
+						<span className={cn(!compact && 'hidden @[44rem]:inline')}>Reshape</span>
 					</button>
 				</PopoverTrigger>
 			</Tip>

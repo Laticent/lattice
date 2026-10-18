@@ -2,9 +2,9 @@
 
 Lattice is a Marp-based slide-deck engine that renders boardroom-quality
 PDFs from Markdown. It is the engine layer of the **Laticent** org. The
-**Laticent desktop app** (Tauri) will wrap the same engine, and it will live
-**in this repository** — it is not built yet, and there is no separate desktop
-repo. Older notes that say otherwise are corrected in place.
+**Laticent desktop app**, Lattice Studio (Tauri, `desktop/`), wraps the same Studio and engine
+and lives **in this repository**. Older notes that place it anywhere else are corrected in
+place.
 
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
 color goes through `var(--token)`. Themes (`themes/indaco/indaco.css`,

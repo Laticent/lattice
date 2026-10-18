@@ -4019,6 +4019,13 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // the artifacts present).
       // See engineering/decisions/2026-07-02-website-copy-positioning.md §8.5.
       if (rel === path.join('docs', 'public', 'playground', 'v')) continue;
+      // The desktop app's Rust build output (desktop/.gitignore). Cargo and Tauri write
+      // thousands of generated files here, including a copy of every docs/dist asset
+      // (`tauri-codegen-assets`), so one local desktop build turned the US-English audit
+      // red on minified vendor code while a clean checkout and CI stayed green.
+      // `gen/` is Tauri's generated schema folder, also gitignored.
+      if (rel === path.join('desktop', 'src-tauri', 'target')) continue;
+      if (rel === path.join('desktop', 'src-tauri', 'gen')) continue;
       // Its sibling, and a stronger case: `playground/hljs/` is 156 minified
       // highlight.js grammars (tools/build-hljs-languages.js), gitignored like
       // `v/` above. The hits in there are third-party LANGUAGE KEYWORDS, not
@@ -6091,6 +6098,14 @@ function listSourceFiles(dir, out = []) {
 //   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
+  {
+    file: 'docs/e2e/print-every-layout.spec.ts', ms: 1000, count: 1,
+    why: 'AN ABSENCE ASSERTION: once Ctrl+P has opened the kept Share sheet on Print, the view must '
+       + 'NOT flip back to the format list (PR #2354, found on the Windows desktop runner). There is '
+       + 'no signal for a flip that must not happen, and a poll of the unchanged sheet goes green on '
+       + 'its first tick. With the bug in place the flip landed a few renders after the open (logged '
+       + 'view per render, 2026-10-16), well inside 1s; the test failed without the fix and passes with it.',
+  },
   {
     file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
     why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
@@ -11406,6 +11421,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc', '.cmd',
   // Peggy grammar source (tools/parser-bakeoff/grammars/peggy/) — plain text.
   '.peggy',
+  // The desktop app (desktop/src-tauri): Rust source, and Cargo.lock, which is TOML.
+  '.rs', '.lock',
   // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
   '.license',
 ];
@@ -11422,6 +11439,7 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  '.icns', // the desktop app's macOS icon (desktop/src-tauri/icons)
 ];
 
 /**

@@ -18,6 +18,8 @@
 // having read the URL already. A save dialog can hold the download open, so the URL
 // lives for a minute instead; a minute of one export's bytes is cheap.
 
+import { isDesktop, saveFile } from '../../lib/platform.js';
+
 const REVOKE_AFTER_MS = 60_000;
 
 // iOS saving lives in download-ios.js and loads only on an iPhone or iPad: it is about 1.5 KB
@@ -47,7 +49,8 @@ export function revokeLater(url) {
 
 /** Point an existing link at `blob`, named `filename` — for a link the user clicks
  *  themselves rather than one we click for them. Returns the URL so the caller can
- *  revoke it when the link is re-armed. */
+ *  revoke it when the link is re-armed. BROWSER ONLY: a desktop webview ignores the link,
+ *  so nothing inside the Studio uses this; its one caller is the Vetrina demo page. */
 /** @param {HTMLAnchorElement} a @param {string} filename @param {Blob} blob @returns {string} */
 export function armDownloadLink(a, filename, blob) {
 	const url = namedFileUrl(blob, filename);
@@ -103,9 +106,11 @@ export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platfor
 	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);
 }
 
-/** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL.
+/** Click a link to an already-made URL (from `namedFileUrl`) as `filename`. BROWSER ONLY and
+ *  private on purpose: a desktop webview drops the click, so every save goes through
+ *  `downloadBlob`, which checks for the app first.
  *  @param {string} url @param {string} filename */
-export function downloadUrl(url, filename) {
+function downloadUrl(url, filename) {
 	if (typeof document === 'undefined') return;
 	const a = document.createElement('a');
 	a.href = url;
@@ -129,6 +134,24 @@ function saveWithAnchor(filename, blob) {
  *  no-op-safe guard keeps it from throwing in a non-DOM environment (tests).
  *  @param {string} filename @param {Blob} blob @param {{ onSaved?: () => void }} [opts] */
 export function downloadBlob(filename, blob, opts = {}) {
+	// THE DESKTOP APP (Lattice Studio): the native save dialog, through the platform seam. A
+	// desktop webview has no download manager behind an anchor click (WebKitGTK and WKWebView
+	// drop it), so this is checked first. `onSaved` runs only for a file that was written:
+	// the dialog can be dismissed. A STATIC import of the seam, not `import()`: a dynamic one
+	// brings Vite's preload helper, which marks this module as having side effects, and the
+	// Studio's first-paint re-export of `downloadBlob` (workspace-backup-meta) then loads all
+	// of download.js at startup (measured: +2.1KB gz on the studio route).
+	if (isDesktop()) {
+		const retry = () => downloadBlob(filename, blob, opts);
+		saveFile(filename, blob).then(
+			(result) => {
+				if (result === 'saved') opts.onSaved?.();
+				else if (result === 'failed') reportSaveFailure(filename, retry);
+			},
+			() => reportSaveFailure(filename, retry),
+		);
+		return;
+	}
 	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
 	if (isIOSLike()) {
 		import('./download-ios.js').then(
@@ -143,6 +166,18 @@ export function downloadBlob(filename, blob, opts = {}) {
 	}
 	saveWithAnchor(filename, blob);
 	opts.onSaved?.();
+}
+
+/** The one toast for a save that did not happen (a disk error, a denied write), with a
+ *  Try again button. A dismissed dialog is a choice, not a failure, and says nothing.
+ *  Raised through notify.ts's NOTIFY_ACTION_EVENT by its string, as download-ios.js does:
+ *  importing notify here would split it into a first-paint chunk of its own (measured on
+ *  this merge: +575 B gz on the Playground). The desktop host has already logged the reason.
+ *  @param {string} filename @param {() => void} retry */
+function reportSaveFailure(filename, retry) {
+	if (typeof window === 'undefined') return;
+	const detail = { message: `Could not save ${filename}.`, opts: { label: 'Try again', onClick: retry } };
+	window.dispatchEvent(new CustomEvent('lattice:notify-action', { cancelable: true, detail }));
 }
 
 // Trigger a client-side file download for a text blob (the Share "hand off the

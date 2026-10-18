@@ -29,7 +29,9 @@ const prod = import.meta.env.PROD;
 {
 	prod ? (
 		<script is:inline>
-			if ('serviceWorker' in navigator) {
+			// Not inside the Lattice Studio desktop app: it bundles every asset, and its
+			// tauri:// origin is not one a service worker can register on.
+			if ('serviceWorker' in navigator && !window.__TAURI_INTERNALS__) {
 				addEventListener('load', function () {
 					navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
 				});

@@ -28,10 +28,10 @@ know — no drawing tools, no boxes, no pasted screenshots.
 Lattice is the engine at the heart of **Laticent** — the project born
 from a refusal to keep fighting the slide tools we all use, one that
 builds deck-quality documents with the discipline of a design system.
-([Read the story](#why-laticent-exists).) Laticent is also the name of the
-desktop app (under development), which runs this same engine, so a deck
-authored from the command line or in the app renders
-identically.
+([Read the story](#why-laticent-exists).) **Lattice Studio**, the
+in-browser editor, also runs as a desktop app (`desktop/`, Linux first,
+under development) on this same engine, so a deck authored from the
+command line, in the browser or in the app renders identically.
 
 ## Why Laticent exists
 
@@ -443,10 +443,10 @@ publishes tools for crafting deck-quality documents. The repositories
 [github.com/Laticent](https://github.com/Laticent):
 
 - **lattice** — this repo. The deck rendering engine + default palette,
-  and the home of the **Laticent desktop app** (Tauri), which will wrap
-  the engine with a markdown editor, live preview, theme picker, and PDF
-  export, for people who don't run `node` from a terminal. The app is not
-  built yet, and it does not get a repository of its own.
+  the docs site with Lattice Studio, and the home of the **Laticent desktop app**,
+  Lattice Studio's desktop build (`desktop/`, Tauri): the same Studio in a native
+  window, for people who don't run `node` from a terminal. It does not get a
+  repository of its own. (A preview; Linux and Windows.)
 - **themes** — additional palette packs that can drop into Lattice.
   (Future.)
 
