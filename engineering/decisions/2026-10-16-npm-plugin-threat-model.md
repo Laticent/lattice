@@ -170,6 +170,28 @@ neither (§6 rows 3 and 4 and decision 10: plugins never send code) and part 3 c
    list. Any exit a reviewer names is added before the door opens, and the canary runs in
    Chromium, WebKit and Firefox as §3.1 did.
 
+**Built 2026-10-18 (parts 1, 2 and 5 in the locked page; part 3 as a measuring check; part 4 not yet).**
+`test/integration/export/npm-plugin-canary.test.js` runs a hostile fence renderer
+(`test/fixtures/npm-plugin-canary.js`, 24 attempts: network, storage, code from strings, the runner) through the
+real plugin door and reads a local HTTP, WebSocket and UDP listener. Beside every zero sits a control that reaches
+the listener: the same code in an ordinary online page reads the planted `localStorage`, `sessionStorage` and
+cookie and reaches the listener on seven network vectors plus WebRTC; the canary's markup half (20 tags) fires in
+an online page raw and reads zero after the host's sanitizer. With the browser flags, the page policy and the worker
+wall all removed, the door arm goes red and names `fetch`, `importscripts`, `websocket` and `xhr`; with the first
+three removed and the worker wall left, it stays green, because the worker wall holds alone. `npm-plugin-export-check.test.js` opens the real
+`--player` and plain exports with normal browser arguments in Chromium, WebKit and Firefox and is `todo` because it
+reads open exits (below); it must lose the `todo` only by closing them. Part 4 waits on the data-return surface
+(`followups.d/2749-p4-plugin-data-return-surface.md`). What stays open is in
+`followups.d/2743-p1-npm-plugin-canary-harness.md`.
+
+**Measured 2026-10-18 on real exports, normal browser arguments, each cell with a control that reached the
+listener** (Chromium 131, WebKit 26.0, Firefox 142.0.1; the control is the same export with its policy removed;
+WebKit's control cannot fire `prefetch` and Firefox's cannot fire `prefetch` or `<a ping>`, so those are
+UNVERIFIED in those engines): the `--player` export leaves `navigate`, `windowopen`, `webrtc`, `metarefresh` and a
+`target=_blank` link open in all three engines; the plain export additionally leaves `scriptsrc`, `iframe`,
+`cssimport`, `linkstyle` and (Chromium) `prefetch` open. `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
+`sendBeacon`, `Image`, CSS `url()`, `@font-face` and form posts read zero in both exports.
+
 ### 5.3 What neither covers
 
 - A Chromium renderer exploit on a machine where the OS layer reads OFF. The code sandbox's two

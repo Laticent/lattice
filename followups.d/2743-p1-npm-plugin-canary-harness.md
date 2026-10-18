@@ -8,20 +8,24 @@ severity: medium
 swimlane: engineering/decisions/2026-10-16-npm-plugin-threat-model.md §5.2
 ---
 
-# Build the npm-plugin canary harness on top of plugin-fence-door.test.js.
+# Finish the npm-plugin canary harness: the export check and the data-return case.
 
-why now   — phase G (the npm door) must not open until a hostile plugin is shown contained.
-            Decided 2026-10-17 (note §6): this test is a hard exit criterion, in the integration
-            tier, with no new CI job.
-where     — test/integration/export/plugin-fence-door.test.js (precedent), lib/core/code-sandbox.js,
-            lib/core/offline-chromium.js; the real-export probe described in the note's §3.1 and §7.
-done when — an integration test runs a deliberately hostile plugin through the locked page and reads
-            zero packets on a local HTTP, WebSocket and UDP listener, goes red when a wall is
-            weakened. It also includes the note's §5.2 export check: each HTML export (--player and
-            plain) is opened with NORMAL browser arguments (not lib/core/offline-chromium.js's)
-            against a listener on HTTP and UDP with a TURN responder, in Chromium, WebKit and
-            Firefox, and navigation, window.open, WebRTC and the subresource exits all read zero.
-            Each cell has a control that reaches the listener. Today that cannot pass without an
-            export change (follow-up 2749-p2), so it must not pass by accepting an exit.
-evidence  — the test output with the weakened-wall run red and the normal run green.
-verify    — tier 1 checker: it touches the sandbox walls, which are high blast radius.
+Triaged 2026-10-18: the locked-page half is built (`test/integration/export/npm-plugin-canary.test.js`, canary in
+`test/fixtures/npm-plugin-canary.js`). Two parts of the note's §5.2 remain, and each waits on something that is not
+this test's to supply.
+
+why now   — phase G (the npm door) must not open until both are green. Decided 2026-10-17 (note §6): the harness is a
+            hard exit criterion, in the integration tier, with no new CI job.
+where     — test/integration/export/npm-plugin-export-check.test.js (built, marked `todo`),
+            test/integration/export/npm-plugin-canary.test.js (the `DATA RETURN` test, marked `todo`).
+done when — (1) the export check loses its `todo` and reads zero in Chromium, WebKit and Firefox on both the
+            `--player` and the plain export. It cannot pass until follow-up 2749-p2 closes navigation,
+            `window.open`, WebRTC and the plain export's script, frame, stylesheet and meta-refresh loads; it must
+            not pass by accepting an exit. (2) The `DATA RETURN` test is real: it needs the host's data-return
+            surface and its detect-and-disable path (follow-up 2749-p4), then hands the host a script, an event
+            handler, a `javascript:` link, a `</style>` break-out and oversized values, and checks the host drops
+            them, disables the plugin and alerts the user. (3) A CI leg or job sets `LATTICE_PLAYWRIGHT`, so WebKit
+            and Firefox run in CI as well as locally; that adds a CI step, so it is the owner's call.
+evidence  — the export check output for the six cells with each cell's control reaching the listener; the data-return
+            test red with a limit removed and green with it.
+verify    — tier 2 trio, because it is the security gate for outside code.
