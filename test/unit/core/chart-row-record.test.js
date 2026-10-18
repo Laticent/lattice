@@ -452,8 +452,8 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a `<ul>` in a comment or an attribute is not a list', () => {
-    assert.deepEqual(rows.rawBlockCounts('<!-- <ul> --><div title="<ul>">x</div>'), { lists: 0, tables: 0 });
-    assert.deepEqual(rows.rawBlockCounts('<ul><li><ul></ul></li></ul><table></table>'), { lists: 1, tables: 1 });
+    assert.deepEqual(rows.rawBlockCounts('<!-- <ul> --><div title="<ul>">x</div>'), { lists: 0, tables: 0, closedTables: 0 });
+    assert.deepEqual(rows.rawBlockCounts('<ul><li><ul></ul></li></ul><table></table>'), { lists: 1, tables: 1, closedTables: 1 });
   });
 
   test('a heatmap cell with a named field is no claim: the bridge cannot spell it, so it stays what it was', () => {
@@ -777,5 +777,69 @@ describe('the paths agree on the data row', () => {
     const src = deck('heatmap', '| | A | B |\n|---|---|---|\n| E <!-- a|b --> | `{1.5}` | `{2.5}` |');
     const candidates = renderedInlineSpans(src, () => true).map((c) => c.span.text);
     assert.ok(!candidates.includes('{1.5}'), 'markdown-it puts {1.5} in column 2, the engine claims it, and lint does not offer it as a pill');
+  });
+  describe('whole-PR review round (red team, inversion, checker on ea674b4)', () => {
+    const { lintText } = require('../../../lib/authoring/lint.js');
+    const { performance } = require('node:perf_hooks');
+    const timed = (fn) => { const t = performance.now(); const out = fn(); return { out, ms: performance.now() - t }; };
+
+    test('lint stays fast on a record-chart slide with a very long run of spaces and a `{>` heading', () => {
+      const src = deck('bar', `- North \`40\`\n${' '.repeat(60000)}\n`).replace('## A', '## A {>');
+      const { ms } = timed(() => lintText(src));
+      assert.ok(ms < 800, `lint took ${Math.round(ms)} ms (it was 3.4 s)`);
+    });
+
+    test('the stamped-cell rewrite stays linear when raw HTML holds many `<td` with no `>`', () => {
+      const raw = `<div>${'<td'.repeat(40000)}</div>`;
+      const { ms } = timed(() => render(deck('heatmap', `${raw}\n\n| | A |\n|---|---|\n| E | \`{1.5}\` |`)));
+      assert.ok(ms < 1500, `render took ${Math.round(ms)} ms (it was 4 s)`);
+    });
+
+    test('hub-spoke: a bullet-character or list-kind switch starts a NEW list, so a pill there is still reported', () => {
+      for (const second of ['* Other list `{g=h}`', '- Other list `{g=h}`']) {
+        const first = second.startsWith('*') ? '- Hub\n  - Spoke a\n  - Spoke b' : '1. Hub\n   - Spoke a\n   - Spoke b';
+        const found = lintText(deck('hub-spoke', `${first}\n\n${second}`)).filter((f) => f.rule === 'pill-literal');
+        assert.equal(found.length, 1, `${JSON.stringify(second)} after ${JSON.stringify(first)}`);
+      }
+      const same = lintText(deck('hub-spoke', '- Hub\n  - Spoke a\n- Other `{g=h}`')).filter((f) => f.rule === 'pill-literal');
+      assert.equal(same.length, 0, 'control: a sibling at the margin is the SAME list, owned by the chart');
+    });
+
+    test('a BOM before the front matter does not shift lint\'s slide numbering (no false unread-record warnings)', () => {
+      const body = ['---\nmarp: true\n---\n', '<!-- _class: radar -->\n\n## R\n\n- Speed `4`\n- Cost `3`\n- Fit `5`\n', '<!-- _class: quadrant -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q\n\n- Bets\n  - Scoring `{3, 70}`\n  - Vendor `{2, 30}`\n'].join('\n---\n');
+      const unread = (s) => lintText(s).filter((f) => f.rule === 'chart-row-record-unread').length;
+      assert.equal(unread('﻿' + body), unread(body));
+    });
+
+    test('a record whose code span wraps onto a second line is narrated like the engine draws it', () => {
+      const wrap = deck('bullet', '- Uptime `{99.4,\n  target=99.9}`\n- Cost `{3, target=5}`');
+      const one = deck('bullet', '- Uptime `{99.4, target=99.9}`\n- Cost `{3, target=5}`');
+      assert.ok(narrateChart(one), 'control: the one-line form narrates');
+      assert.equal(narrateChart(wrap), narrateChart(one));
+    });
+
+    test('a slide with mixed line endings keeps each line\'s own ending, so it narrates as the old form does', () => {
+      const old = '<!-- _class: progress -->\n\n## A\n\n- EMEA `1%` `on-track`\r\n\r\n- APAC `2%` `on-track`\r\n';
+      const rec = old.replace('`1%` `on-track`', '`{1%, on-track}`').replace('`2%` `on-track`', '`{2%, on-track}`');
+      assert.equal(narrateChart(rec), narrateChart(old));
+      assert.equal(bridgeRecordsSource(rec, ['progress']), old);
+    });
+
+    test('the plugin-off bridge turns a record into the old spans (the engine has NOT bridged it yet)', () => {
+      const { applyToRenderedHtml } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+      const { createEngine } = require('../../../lib/engine');
+      const off = createEngine({ plugins: { disabled: ['chart-family'] } }).render(deck('bar', '- EMEA `{4.2}`\n- APAC `{3}`'), {}).html;
+      assert.doesNotMatch(off, /\{4\.2\}/, 'braces would be shown raw');
+      assert.match(off, /4\.2/);
+      assert.ok(applyToRenderedHtml);
+    });
+
+    test('a `</table>` inside a comment or an attribute does not close the table the cell opened', () => {
+      const { ownedRecordSites } = require('../../../lib/core/chart-places.js');
+      const { boundaryParser } = require('../../../lib/core/boundary-parser');
+      const sites = (cell) => ownedRecordSites(boundaryParser.parse(`| | A | B |\n|---|---|---|\n| E ${cell} | \`{1.5}\` | \`{2.5}\` |`, {}), ['heatmap']).length;
+      assert.equal(sites('<!-- </table> --><table><tr><td>y'), 0);
+      assert.equal(sites('<table title="</table>"><tr><td>y'), 0);
+    });
   });
 });

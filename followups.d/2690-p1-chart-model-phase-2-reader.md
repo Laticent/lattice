@@ -182,3 +182,20 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                is least-recently-used now (a hit used to leave its entry first in line to be dropped). Left, low: the runtime's pill pass
                (`lib/runtime/index.js`) still calls `isOwnedRecordElement` without a scope, so other charts inside a raw section element still disagree with
                the engine in the DOM (matrix-grid's pass was the one fixed).
+           24. Twentieth round (2026-10-18, the trio on the WHOLE PR: red team, Munger inversion, checker; agents 31 to 33): fixed here with a test each
+               that fails without the fix: lint's `TABLE_DELIMITER` was quadratic on one long line of spaces (3.4 s for 60,000 spaces on a record-chart
+               slide with `{>`; now tested on the trimmed line after the cheap pipe test); `STAMPED_CELL` rescanned to the next `>` from every `<td` (4 s
+               for 40,000 of them; `[^<>]*` now); the list count in `renderedInlineSpans` treated a bullet-character or ordered-delimiter switch as the
+               same list, so a hub-spoke pill in the second list went unreported on a deck with no record (a regression the first-list change
+               introduced); a BOM hid the front matter from the slide split but not from the class directives, so `findChartRowRecords` and
+               `findChartUnescapedPipes` paired the wrong class with a slide and warned falsely (8 warnings on `examples/chart-legends.md` with a BOM);
+               a record whose code span wraps onto a second line was drawn by the engine but made the narrator return nothing; a slide that mixes LF
+               and CRLF lines was turned all-CRLF and so narrated nothing; the `</table>` count of the round 19 fix read a close in a comment or an
+               attribute (`rawBlockCounts` now returns `closedTables`); the plugin-off bridge had no test that fails without it; stale comments.
+               Logged, not fixed: the stamp's exact bytes inside an author's own raw HTML attribute are rewritten (a deck holding the literal
+               `<code data-lat-record="">` text; the dispatch comment says so now); `inline-code: literal` loses a record row's value with no lint
+               warning (the old form still draws); the oracle's lint and narrator readers cannot see a padded span (`` ` {40} ` ``); a kernel that has
+               not loaded when `transformChartSection` runs leaves a raw `{4.2}` where main showed a pill (not reproduced); pre-existing and off the path:
+               `&#x110000;` makes `decodeNumericRefs` (`render-ids.js`) throw on main too, and narration is quadratic on rows with `>` descriptions (1,000
+               rows: 5.3 s on main). The inversion's design point for the owner before phase 4: a record that is also a valid pill makes ownership
+               positional for good (five readers must agree on it forever); a spelling the pill grammar refuses would make it lexical.

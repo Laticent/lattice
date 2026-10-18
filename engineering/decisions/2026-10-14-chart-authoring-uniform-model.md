@@ -306,9 +306,9 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    `{N}` beside a pill all stay pills. On a matrix-grid slide a sole-cell `{done}`, `{partial}` or `{todo}` (any case) is a state,
    because Segno reads it as `state=…`.
 
-   **Known residual, no visible effect found.** Lint and the narrators' source bridge measure a row's lead per line, so a record
-   on a continuation line, or after a margin comment, can differ from the engine (a bullet-character or ordered-delimiter switch
-   is counted as a new list on every path since the seventh review round); the narrator picks its chart by the first class token, not in dispatch order. Two things the format does not express
+   **Known residual, no visible effect found.** Lint's unread-record warning (`findChartRowRecords`) still measures a row's lead in a token loop of its own, so a record
+   on a continuation line, or after a margin comment, can differ from the engine there (the engine, the narrator and lint's pill
+   check all count place from `chart-places.js`, and the place oracle holds the browser and Compose to the same answers); the narrator picks its chart by the first class token, not in dispatch order. Two things the format does not express
    yet: a grouped number (`1,200`) is not a record value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into
    two items, so phase 4's codemod must write `1200` and show it grouped (the census counts 78 grouped funnel values); and a
    record under a valued row on bar or line stays a pill, so a series point written that way needs its parent without a value. Bullet's keyword rows (`Target`, `Floor`, `Band`) and stacked-bar's authored total read from the old spans until phase 4; lint says so.
