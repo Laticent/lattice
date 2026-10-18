@@ -192,6 +192,7 @@
     "capabilities:build": "node tools/build-capabilities.js",
     "capabilities:check": "node tools/build-capabilities.js --check",
     "queue:precheck": "bash tools/queue-precheck.sh",
+    "branch:owner": "bash tools/branch-owner.sh",
     "release": "node tools/release.js",
     "release:dry": "node tools/release.js --dry-run",
     "release:prepare": "node tools/release.js --prepare",
