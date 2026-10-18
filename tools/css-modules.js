@@ -4,8 +4,8 @@
  * `tools/build-css.js` assembles dist/lattice.css from many sources (HARD RULE #1: source order
  * IS the cascade). This file turns that same assembly into a list of ordered MODULES, each a
  * contiguous slice of the bundle, so a loader can fetch only the slices a deck uses. It changes
- * no CSS: join the modules with "\n" and you get dist/lattice.css back, byte for byte
- * (test/unit/cli/css-modules.test.js proves it). That is the whole contract of the split, and it
+ * no CSS: join the modules with joinModules() below (a "\n" between sources, nothing between the runs of
+ * one source) and you get dist/lattice.css back, byte for byte (test/unit/cli/css-modules.test.js proves it). That is the whole contract of the split, and it
  * is why a module here never reorders a rule.
  *
  * Two kinds of cut:

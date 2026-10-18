@@ -4,7 +4,7 @@ priority: P6
 recorded: 2026-10-18
 area: infra
 severity: low
-swimlane: engineering/decisions/2026-10-18-on-demand-styles.md §9
+swimlane: engineering/workflow.md §Session branch ownership
 source: https://github.com/Laticent/lattice/pull/2780
 ---
 

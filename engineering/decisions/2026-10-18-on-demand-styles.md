@@ -3,7 +3,7 @@ status: in-progress
 summary: >
   E2 result: the HTML scan of a rendered deck needs a median 21% of the minified bytes (195 of 933 KB), misses
   no module on 281 decks, and renders identically in a computed-style gate; Markdown hints alone miss modules
-  in every deck. The E0 baseline and the E1 split for the on-demand style loader of 2026-10-17-on-demand-styles-brief.md,
+  in every deck. The E0 baseline and the E1 split for the on-demand style loader of the 2026-10-17 on-demand-styles brief,
   plus the owner's rulings on the §5 forks and a measured test of the scanner theory. Baseline: a deck
   carries 2.1 to 2.5 MB of style whatever it uses, 40 to 48% of it fonts, while one slide matches about
   40 KB of rules and a 14-slide deck about 57 KB. E1 cuts dist/lattice.css into 183 ordered modules that
@@ -15,7 +15,7 @@ summary: >
 
 # On-demand styles: baseline, split and rulings (2026-10-18)
 
-Follows `2026-10-17-on-demand-styles-brief.md`. Read that first for the ask. This note records what was
+Follows the brief `2026-10-17-on-demand-styles-brief.md`. Read that first for the ask. The brief is not in this PR: it lives on the branch `claude/preview-adaptive-library-db7rfe` (its author's) and reaches `main` with that branch. This note records what was
 measured, what the owner ruled, and what E1 changed. It does not repeat the brief.
 
 ## 1. The owner's rulings (2026-10-18)
@@ -297,3 +297,29 @@ E3 (the Playground loader prototype: first-slide bytes and time against the §2 
 Chromium and WebKit, no flash of unstyled content, and a late-appearing unit loading its modules before it
 shows) and the three regrouping moves in §7, in that order of value. Both wait for the owner's review of E1
 and E2. E3 is a style sink (HARD RULE #22) and gets the adversarial trio on its final shape.
+
+## 10. Package size, measured once (2026-10-18)
+
+The followup `2780-p3-slim-the-package-tarball.md` rests on these figures. They are one-off measurements,
+not a committed benchmark; re-derive them with the method below before acting on them.
+
+- **What an install is.** `npm pack --dry-run --json --ignore-scripts` (read the JSON after the `prepare`
+  build output): 24,134,209 bytes gzipped, 80,084,014 unpacked, 1,670 files, on the base before the module
+  folders landed. On the base with `dist/styles/` and `dist/styles-min/` (187 modules), an independent
+  re-run read 24.80 MB gzipped and 82.45 MB unpacked, with 376 files under `dist/styles*`. The folders add
+  about 0.94 MB gzipped. `dist/` is 76 MB on disk, but `marp-kit/`, `agent-kit/` and `engineering/` are
+  excluded by `package.json` `files`, so that figure is not what an install downloads.
+- **Minify everything minifiable.** For each file in the pack list: JS and CSS through `esbuild` `minify`
+  (legal comments dropped, which a real build must not do; the AGPL headers stay), JSON compacted, then
+  gzip level 9, summed per file. Today's files sum to 25.5 MB gzipped on this method (the real tarball
+  gzips as one stream and is 24.1 MB); minified they sum to 12.9 MB. The gain sits in `dist/lattice.js`
+  (21.3 MB to 3.2 MB raw, 6.3 MB to 1.1 MB gzipped) and `dist/lattice-runtime.js` (9.6 MB to 1.2 MB raw,
+  2.8 MB to 0.4 MB gzipped). The minified CLI was not run, so its correctness is untested.
+- **Exact duplicates.** Files over 20 KB with identical bytes: the KaTeX woff2 set stored in `dist/fonts`,
+  `lib/plugins/math/vendor/katex/fonts` and `lib/plugins/mermaid/vendor/mermaid-cli/assets`; and
+  `jetbrains-400/500/600`, `outfit-300/500/600`, `playfair-400/700` and `playfair-italic-400/700` under
+  different weight names. Mermaid ships three bundles (`mermaid.min.js`, `mermaid-zenuml.min.js`, and the
+  CLI asset bundle) and Font Awesome in both TTF and woff2. Estimated 3 to 4 MB gzipped together; whether
+  each is used is not checked.
+- **Audit time.** `node tools/style-needs-audit.mjs --all --jobs 3` took about 95 minutes for 281 decks in
+  Chromium on a 4-core sandbox, with the computed-style gate on.
