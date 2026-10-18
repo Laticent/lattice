@@ -1542,7 +1542,7 @@ chat log, and until now it was the one with no location rule at all.
 just confirmed, or a green PR parked at the gate. A merged PR still takes
 comments, and it is the object the standup is about.
 
-- **One comment, both cards**, standup first, each in its own fence. Not two
+- **One comment, both cards**, standup first, each in its own fence. (When a ❓ decision card is posted at the same moment it goes first in that comment; §❓ Decision card.) Not two
   comments — I read them together or not at all.
 - **Same wording as the chat copy.** If the two ever differ, **the comment is the
   record** and the chat copy is the convenience. That ordering is what makes the
@@ -1668,6 +1668,7 @@ CONTEXT
   Read first:   <2–3 canonical docs/paths for this area>, then CLAUDE.md.
   State:        <where the tree stands; anything half-applied, tried and
                  rejected, or deliberately left alone>
+  Decisions:    <unanswered ❓ items with the recommended option, or "none">
 
 PRIORITIES — work them in this order
   P1 · [#1234] <the change, one line>
@@ -1904,6 +1905,130 @@ UNVERIFIED  <the caveats that bear on this decision, or "none">
 CONFIDENCE  <low | medium | high | very high> — <the axis that set the floor>
             raise it by: <the one thing that would move it up, or "nothing outstanding">
 ```
+
+## ❓ Decision card — what is waiting on me, in plain words
+
+I kept asking "what are the remaining open items?" because the answer never
+arrived as one thing. Read from past sessions, the decision was item five in a CI
+status list; the choices had a cost but no recommendation; the undo path sat
+mid-sentence; and the words were `P3`, "the SIZES line" and a `followups.d/` path.
+The reader had to dig the choice out, decode it, and then guess what happens if
+they say nothing. The ❓ card is the fix: **one fenced card that holds only the
+choices that are mine, written so a junior engineer or a product owner can answer
+without opening anything.**
+
+It is the fourth card, next to 🚦, 📋 and 🎯, and it does a job none of them does:
+the 🚦 card says whether to merge, the 📋 card says where the thread stands, the 🎯
+card tells the *next session* what to do. Only ❓ asks *me* something.
+
+### When to post it
+
+- **Automatically**, whenever a session stops with anything open: parked at the
+  merge gate, idle with work pending, or ending. If nothing is open, post nothing;
+  an empty card is noise (same rule as the 🎯 brief).
+- **On request.** If I ask for "open items", "open questions" or "open decisions",
+  post a fresh card **rebuilt from the current state**, not a copy of the last
+  one. Answered items drop off. Never reply with a free-form list.
+- **Never as the merge ask.** A merge approval is one pointer line, `Merge #N: see
+  the 🚦 card`. The ❓ card does not repeat the 🚦 card's evidence.
+
+### What goes on it, and what does not
+
+Three kinds of item, in this order, each under its own heading:
+
+| Heading | Item kind | Test |
+|---|---|---|
+| **NEED YOU** | A decision that is mine to make, and the work does not go further without it | It hits a row of CLAUDE.md's second-filter table (shared state, CI or hook contract, a number I set, a canonical doc's meaning, anything irreversible) or the direction is genuinely ambiguous |
+| **CAN WAIT** | A real choice where I picked a safe default and kept going | Reversible, contained to this branch. The default is stated, so silence is an answer |
+| **I DID THIS** | A judgment call I made inside my own remit that I want you to be able to veto | You would reasonably want to know. Skip routine work |
+
+A fourth kind, **QUESTIONS**, holds facts only I know ("does the iPhone render
+this?"). A question has no options, only the question and what changes with the
+answer.
+
+**Status never goes on it.** CI state, what shipped and what is next belong to the
+📋 card. If a line is not a choice, a veto or a question, delete it.
+
+### The shape of one item
+
+Every item carries the same six lines, so my eye lands on the same place in each:
+
+1. **The question**, as a sentence a non-specialist can answer. No priority codes,
+   file paths or internal names in it; those go on the `ref:` line.
+2. **Why it matters**: one line on what is at stake.
+3. **Options** `A`, `B` (at most three): each with `+` what it buys, `−` what it
+   costs and `→` what I do next. **Measured, not estimated**: if a number takes
+   under a minute to get, get it ("~30s slower nightly", not "a bit slower").
+4. **Recommendation**: which option, and the one reason. A card item without a
+   pick pushes the analysis back to me, which is the failure being fixed.
+5. **If you say nothing**: what happens by default, and how to undo it.
+6. **ref:** the issue, PR or file, for whoever wants to dig.
+
+### Writing it so anyone can act on it
+
+The audience is a junior engineer or a product owner reading on a phone. The test:
+*could they answer from the card alone?* Define a term of art on first use or use
+the plain word (HARD RULE #30, `engineering/house-style.md`). Active voice with a
+named actor ("I added a size check", not "a size check was added"). US English
+(#21). Short: an item runs about six lines, and a fourth option means the question
+is too big, so split it into two. The reply line offers a one-line answer.
+
+Template:
+
+```
+❓ Decisions — <PR or topic>                  <N> need you · <M> can wait
+
+NEED YOU — I cannot go further without these
+1. <the question, in plain words?>
+   Why it matters: <one line>
+   A) <option>
+        + <what it buys>
+        − <what it costs, with a number>
+        → <what I do next>
+   B) <option>
+        + …  − …  → …
+   I recommend <A|B>: <one reason>.
+   If you say nothing: <what happens by default, and how to undo it>.
+   ref: <#N | path>
+
+CAN WAIT — I picked a default and kept going
+2. <the choice?>  Default: <what I did>. Say "<word>" to change it.   ref: …
+
+I DID THIS — tell me to undo any
+3. <what I decided, one line, and why it was mine to decide>
+
+QUESTIONS — only you know
+4. <the fact I need?>  Answer changes: <what>.
+
+Merge #N: see the 🚦 card.
+
+REPLY WITH  "1 A, 2 keep"   or   "go with your recommendations"
+```
+
+A section with no items is left out, not printed empty.
+
+### Where it goes, and how it stays alive
+
+- **Same surface rule as the other cards (HARD RULE #28's argument).** One fenced
+  comment on the PR **and** the same wording in chat. If a standup or a brief is
+  posted in the same moment, they go in the same comment with ❓ **first**, because
+  it is the only one that needs action from me. No PR: comment on the ticket; with
+  neither, chat only, and say so on the card.
+- **Fenced, always**, with no language tag, for the reasons in §Both cards are
+  always fenced. If it runs long, cut content, never the fence.
+- **An unanswered item outlives the session.** At the end of a session, every NEED
+  YOU or CAN WAIT item I did not get an answer to goes to `followups.d/` (one file
+  per item; the contract is `followups.d/README.md`) and is listed in the 🎯 brief
+  on the `Decisions:` line of its CONTEXT block, with the card's recommendation, so a fresh session does
+  not re-ask a settled question or act as if it were settled.
+- **Live use.** When I am at the keyboard, the same items can go out through one
+  `AskUserQuestion` round (CLAUDE.md's decision filter); the card is the durable
+  copy and the form for when I am away. The wording is the same either way.
+
+*(discipline, with no automated gate. The test is whether a reader who was not in
+the session can answer every NEED YOU item without asking a follow-up. Born from a
+chart-fit session where the strip-size decision was item five of a status list and
+had to be asked for twice.)*
 
 ## Work queue — the kanban board (cards, swimlanes, the mirror)
 
