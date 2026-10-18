@@ -660,77 +660,13 @@ section footer {
 
 
 
-/* ── UNIVERSAL PILL ─────────────────────────────────────────────────────────
- * Trailing inline `code` on any list row, in any layout, is metadata.
- * One rule, one authoring contract: `- row text \`metadata\``.
- *
- * The :where() wrapper keeps specificity at (0,0,4) so per-layout
- * overrides — cards-grid grid placement, actors categorical hue —
- * win the cascade without needing !important.
- *
- * Two shapes are pills: a trailing `code` that is the literal :last-child
- * of the row, and a trailing `code` on the row's TITLE line immediately
- * before a nested description list \u2014 authoring shape:
- * `- Label \`pill\`\n  - description`. The second can't be matched in CSS
- * (`code:has(+ :is(ul,ol))` would also catch a MID-sentence `code` on a row
- * that happens to have a nested list, because `+` skips the intervening text
- * node), so the `pill-tag` transformer adds `.lat-pill` to the genuine case
- * across all three render paths and the arm matches that class. Mid-sentence
- * `code` references stay normal inline code.
- * See lib/transformers/pill-tag.js + 2026-06-08-inline-code-contrast.md.
- *
- * Per-layout custom-property hooks (defaults in parens):
- *   --pill-border  (var(--muted-mark))   border color
- *   --pill-bg      (var(--bg))           fill color
- *   --pill-fg      (var(--text-body))    text color
- *
- * Deny list = layouts where a metadata pill does not earn its place,
- * OR where the row container is grid/scaffold and the pill needs a
- * per-layout placement override before it can join the allow list:
- *   bookends/openers     title, divider, closing, split-panel
- *   single-message       big-number, kpi, stats, quote
- *   own metadata channel glossary (range pill), agenda (page pointer),
- *                        list-steps (counter), list (own line),
- *                        verdict-grid/decision/matrix-2x2 (chrome),
- *                        compare-prose (connector), table/roadmap (table)
- *   non-list             content, code, compare-code, image, diagram
- *   needs placement      list, list-tabular
- *                        (grid/scaffold rows where margin-left:auto cannot
- *                        right-anchor; opt in by adding a per-layout rule
- *                        modeled on the actors override)
- *
- * Allow list (renders correctly today): cards-grid, cards-stack,
- * actors, checklist. cards-grid/cards-stack carry their own
- * full-chrome pill rule (the emulator `.card` path is not inside a ul/ol,
- * so the universal selector can't reach it); the rest rely on this rule.
- * Plus any future layout whose `> li` is `display:flex`. */
-section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-tabular):not(.math):not(.pricing))
-  > :where(ul, ol) > li > code:where(:last-child, .lat-pill),
-section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-tabular):not(.math):not(.pricing))
-  > .cell-stage > :where(ul, ol) > li > code:where(:last-child, .lat-pill) {
-  /* IRREDUCIBLE flex auto-margin (HARD RULE #20 sanctioned floor): pushes the trailing
-   * pill to the row's right edge. The preceding label is an ANONYMOUS text run, so it
-   * can't take `flex:1` and `justify-content:space-between` would scatter multi-item
-   * labels — `margin-left:auto` is the only clean push. Horizontal + flex-resolved, so
-   * it never touches the vertical height math the rule guards. Counted in MARGIN_BUDGET. */
-  margin-left:auto;
-  align-self:center;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  line-height:1;
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  border:1px solid var(--pill-border, var(--muted-mark));
-  background:var(--pill-bg, var(--bg));
-  color:var(--pill-fg, var(--text-body));
-  border-radius:var(--pill-radius);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  white-space:nowrap;
-}
+/* ── A TRAILING `code` IS PLAIN INLINE CODE ──────────────────────────────────
+ * There is no universal pill rule. A row that wants a pill writes one in the pills plugin's
+ * notation, `` `{metadata}` ``, and the plugin draws it (lib/plugins/pills/); a component places it
+ * and tints it through `--lat-pill-*`. Until 2026-10 a trailing `code` on any list row was promoted
+ * to a metadata pill by position; that rule, its `pill-tag` transformer and the per-component copies
+ * of its chrome are gone, because a pill that looks like a pill by where it sits is a pill with no
+ * name. engineering/decisions/2026-10-17-pills-plugin.md. */
 
 
 
@@ -3840,13 +3776,12 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    first pass; a full computed-style diff with them removed changed three properties and NO
    geometry at all, so they were a dead half of a contradiction a reader had to resolve.
 
-   It reuses the universal `--pill-*` register (#15) rather than inventing a fourth pill: same
-   radius, padding, weight and tracking as every other pill in the engine, and `--pill-fs`, which
-   the typography generator emits per SECTION so it tracks the slide's orientation instead of
-   baking in the landscape meta size. Following the register's own convention, the ONE axis this
-   deliberately overrides is named here: the FILL is `--bg-alt` rather than the register's `--bg`,
-   because a signal on the page's own canvas needs to separate from it — `--bg` would be an
-   outline with no body.
+   It is the engine's own pointer, not a pill, so it states its own type and shape: the base meta
+   size (`--fs-meta`, which the typography generator emits per SECTION so it tracks the slide's
+   orientation instead of baking in the landscape meta size), a capsule end from the base radius
+   scale, weight 600 and 0.04em tracking — the values the pointer always had. The FILL is
+   `--bg-alt`, because a signal on the page's own canvas needs to separate from it — `--bg` would
+   be an outline with no body.
 
    THE INK IS `--text-body`, AND IT GOT THERE BY MEASUREMENT AFTER A WRONG ANSWER. It was
    `--text-secondary`, on the reasoning that this is "wayfinding beside content, not content".
@@ -3920,16 +3855,16 @@ section.form.lat-split-native > .lat-split-rel {
   align-items: center;
   gap: 0.45em;
   max-width: 100%;
-  font-family: var(--pill-font);
-  font-size: var(--pill-fs);
-  font-weight: var(--pill-weight);
-  letter-spacing: var(--pill-tracking);
+  font-family: var(--font-body);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
   line-height: 1;
-  border: 1px solid var(--pill-border, var(--muted-mark));
-  background: var(--pill-bg, var(--bg-alt));
-  color: var(--pill-fg, var(--text-body));
-  border-radius: var(--pill-radius);
-  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border: 1px solid var(--muted-mark);
+  background: var(--bg-alt);
+  color: var(--text-body);
+  border-radius: var(--radius-full);
+  padding: 0.3em 0.75em;
 }
 /* The label carries the clip, not the pill: `text-overflow` never applies to a flex CONTAINER,
    so on the container it would have clipped mid-word with no ellipsis. */

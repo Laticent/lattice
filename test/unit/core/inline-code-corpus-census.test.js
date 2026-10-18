@@ -105,6 +105,8 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/gallery-jargon.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
   ['examples/portrait-prose-deboost.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
   ['examples/sketch.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
+  ['examples/palette-cascade-flip.md', 'a checklist slide: a `{status}` pill ends a row'],
+  ['examples/system-design-foundations.md', 'checklist slides: a `{status}` pill ends each threat row'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

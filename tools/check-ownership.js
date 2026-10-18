@@ -1987,11 +1987,14 @@ const LAYOUT_MARGIN_BUDGET = 0;
 // the trimmed declaration value (post-`!important`-strip) to match.
 const SANCTIONED_MARGINS = [
   {
-    file: 'lib/base/base.modifiers.css',
+    file: 'lib/components/inventory/checklist/checklist.styles.css',
     value: 'auto',
-    why: 'irreducible flex auto-push: shoves a trailing pill/label to the row end in a flex '
-       + 'row. Horizontal-only (never touches height math) and a single-item end-shove has no '
-       + '`gap`/`padding` equivalent. See the base.modifiers comment at the declaration.',
+    why: 'irreducible flex auto-push: shoves a row\'s trailing pill to the row end in a flex '
+       + 'row whose label is an ANONYMOUS text run (it cannot take `flex:1`, and '
+       + '`justify-content:space-between` would scatter a multi-item label). Horizontal-only '
+       + '(never touches height math) and a single-item end-shove has no `gap`/`padding` '
+       + 'equivalent. Moved here from the universal trailing-code rule when that rule was '
+       + 'removed; checklist is the one component that still needs the push.',
   },
   {
     file: 'lib/plugins/pills/pills.styles.css',
@@ -2894,7 +2897,7 @@ function checkReadingRole(errors) {
 // The gate fails both ways, like the reading-role gate: a count above its entry (a new hand-rolled
 // read) and an entry above its count (stale).
 const SANCTIONED_PILL_READS = [
-  { file: 'lib/base/base.modifiers.css', count: 27, why: 'the universal trailing-`code` pill rule; leaves with the clean break to `{…}`' },
+  { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the checks note (engineering/decisions/2026-10-18-checks.md)" },
   { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
   { file: 'lib/components/evidence/kpi/kpi.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
 ];

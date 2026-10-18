@@ -615,11 +615,11 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 ## Phase 01 acceptance — what shipped, what slipped, what stayed open
 
 - [x] Scoring policy live across all pilot teams
-- [x] Decision Log audit trail readable by Auditor role `shipped 2026-Q1`
-- [x] One reference team running weekly cadence `one team`
-- [-] Examiner pack auto-generation `was Phase 01 · now Phase 1b`
-- [ ] Adoption above 90% `Phase 03`
-- [ ] Culture change `not in roadmap`
+- [x] Decision Log audit trail readable by Auditor role `{shipped 2026-Q1}`
+- [x] One reference team running weekly cadence `{one team}`
+- [-] Examiner pack auto-generation `{was Phase 01 · now Phase 1b}`
+- [ ] Adoption above 90% `{Phase 03}`
+- [ ] Culture change `{not in roadmap}`
 
 ---
 
