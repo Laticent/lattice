@@ -14,9 +14,13 @@ why now   — The linear start-tag reader and `rewriteFileUrls` (2026-10-18, lib
             found: numeric quote spellings, `<template>` (decided: a CSS context, so baked), reads in positions a browser ignores
             (`<img <src=`, `<img =src=`, `<plaintext>`, a `<script><!--<script>` nest, a duplicate attribute, `<img\0`), and both stall
             cases (a 1 MB `<a "` deck, a 1 MB `url(file://` body: each now tens of milliseconds, was minutes and 3.7 s).
-            One case remains: a `url(file://…)` inside a CSS comment (`/* url(file:///x.png) */`) or inside a CSS string
-            (`content:"url(file:///x.png)"`) is read, so the named file is baked into text a browser never loads. It needs a
-            CSS comment-and-string mask in front of `rewriteFileUrls`; none of it reaches a rendered position.
+            The trio found three regressions in the first cut (index drift on `İ`, an SVG `<style>` skipped, an unclosed `<svg>`
+            switching off later `<style>`s), fixed in the same PR; `test/unit/export/player-inliner-oracle.test.js` now diffs the
+            reader against parse5 over a seeded corpus so the next one fails a test. Cases that remain, all needing raw hand-written
+            HTML and none leaking a path: a `url(file://…)` inside a CSS comment (`/* url(file:///x.png) */`) or inside a CSS string
+            (`content:"url(file:///x.png)"`) is read; a `url(file:///a/url(file:///b))` nest reads the inner address; an `<img>` in `<svg><![CDATA[…]]>` or in
+            an SVG `<style>` body is read though a browser may not load it. Each only bakes a file the author named, inside the
+            deck-folder limit. A CSS comment-and-string mask in front of `rewriteFileUrls` closes the first two.
 where     — `lib/export/html-player.js` `rewriteFileUrls`.
 done when — a `url(file://…)` inside a CSS comment or string is left as written and not read, with a test; the hostile-deck timings in
             `test/unit/export/player-inliner-linear.test.js` stay under 3 s.

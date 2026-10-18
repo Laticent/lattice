@@ -953,3 +953,8 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   tokenizer fix the follow-up already described. **Decision:** `<template>` content IS a CSS context, so a style attribute in it is
   baked (a script clones it into the page, and a browser then loads the picture). Players of six decks are byte-identical old
   versus new.
+- 2026-10-18: the trio on the inliner (red team, inversion, checker) found three regressions in its first cut: `toLowerCase()` index
+  drift on `İ`, an SVG `<style>` skipped, and an unclosed `<svg>` switching off later `<style>`s. All three were fixed in the same
+  PR: lowercase is ASCII-only, a `<style>` body is CSS wherever it sits, and `<plaintext>` and a double-escaped `<script>` end
+  where a browser ends them. `player-inliner-oracle.test.js` diffs the reader against parse5 on a seeded corpus (it fails on the
+  first cut), which is the harness the inversion asked for.
