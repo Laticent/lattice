@@ -89,6 +89,16 @@ at every level: an unknown field is an error.
 | `title`, `description` | yes | one line each, for people |
 | `icon` | no | the plugin's mark, as data: `{ "viewBox": "0 0 W H", "paths": [{ "ink", "d", "width"? }] }`, no other keys. `W` and `H` are 1–9999; 1–24 paths. `ink` is `line` (stroked in the heading ink), `accent` (stroked in the accent) or `fill` (filled with the accent); `d` is SVG path data and nothing else, 2–2000 characters of commands and plain numbers (no exponent); `width` a stroke width, 0.5–16, default 6. The host draws it and colors each ink from the active theme, so a mark can carry no color, element, script or style of its own, and holds its contrast on every palette. A plugin with none is shown by its name |
 
+### 3.1a Classes — embedded, essential, external
+
+A plugin belongs to one of three classes, named for what an author can do with it:
+
+| Class | Author-facing label | Rule |
+|---|---|---|
+| embedded | Always on | `"embedded": true`. Part of how the host draws every slide: admitted first on every render, ignoring the default set, the deck's `plugins:` list and any disable switch (a host refuses a request to disable one). In-tree only — a zip, an npm package or a listed external plugin that sets it is refused. It may `requires` only embedded plugins. It may claim the untagged record kind (`contributes.inline.<kind>.untagged: true`, the bare `` `{…}` ``); only an embedded plugin may, and only one. |
+| essential | Comes with Lattice | In the tree and in the default set; a host or a deck may narrow it. |
+| external | From *author* | Everything else; always admitted by an explicit act. |
+
 ### 3.2 Dependencies
 
 | Field | Value |
@@ -102,11 +112,12 @@ installation, CSS order and hydrate order, and nothing else.
 
 ### 3.2.1 Loading — what admits a plugin
 
-Every plugin is loaded EXPLICITLY, by one of three routes, and nothing else admits one:
+Every plugin is loaded EXPLICITLY, by one of four routes, and nothing else admits one:
 
 | Route | Source |
 |---|---|
-| default | the host's default set — every shipped plugin, unless the host narrows it |
+| embedded | an embedded plugin (§3.1a): admitted first, on every render, and cannot be narrowed away |
+| default | the host's default set — every essential plugin (one that comes with Lattice), unless the host narrows it |
 | listed | the deck's front-matter `plugins:` import list (`plugins: [math, mermaid]`) |
 | component | a slide class the deck uses, whose component manifest declares `plugins.requires` — or FILLS one of the plugin's extension points (§3.3): filling a slot is requiring the plugin |
 
@@ -435,7 +446,7 @@ leaves its fences as code blocks.
 | Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
-A shipped plugin's name is reserved.
+An embedded or essential plugin's name is reserved.
 
 ## 11. Creating one
 
@@ -503,7 +514,7 @@ highlight.js language or alias, and at most 64 characters.
   `chart` bucket; filling a slot is requiring the plugin (§3.2.1), and a switched-off slot plugin
   marks each filler's section `data-lattice-off`.
 
-- **0.5-draft, `shared/` (2026-10-05).** A shipped plugin may carry an in-tree-only `shared/`
+- **0.5-draft, `shared/` (2026-10-05).** An essential or embedded plugin may carry an in-tree-only `shared/`
   folder of modules (§2); Mermaid's five shared kernels moved there from `lib/integrations/mermaid/`.
 
 - **0.5-draft, admission on the browser half (2026-10-05).** `data-lattice-off="<plugin>"` (§3.2.1,
@@ -532,8 +543,8 @@ highlight.js language or alias, and at most 64 characters.
   protocol's markup on its `<pre>` (§6), and a release keeps its content.
 - **0.2-draft (2026-09-28).** Phase D: `bake` and `render.exec.bake: "subprocess"`, a fence
   `as: "code"`, and `render.exec.hydrate: "runtime"`. `mermaid` stops being a host-reserved fence
-  name and becomes the mermaid plugin's. Shipped plugins: `math`, `function-plot`, `anima`,
+  name and becomes the mermaid plugin's. Essential plugins: `math`, `function-plot`, `anima`,
   `mermaid`.
 - **0.1-draft (2026-09-27).** First draft: `syntax`, `fences`, `hydrate`, `styles` and
-  `diagnostics`; `payload`, `tokens`, `render.surfaces`; the settle protocol. Shipped plugins:
+  `diagnostics`; `payload`, `tokens`, `render.surfaces`; the settle protocol. Essential plugins:
   `math`, `function-plot`, `anima`.

@@ -7,16 +7,20 @@ are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin i
 `spec/LPM.md` (draft); this file is the working guide. Start a new plugin with
 `lattice packages new plugin <name>`, which writes a folder that builds and passes the harness.
 
-**Shipped plugins:** `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it),
-`function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima`
-(` ```anima `; the `scene` slide class requires it) and `mermaid` (` ```mermaid `, drawn by the
-runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it),
-`icons` (`` `^{database, c3}` `` in inline code; the flowchart, hub-spoke and state-chart slide
-classes list it as optional), `avatars` (`` `!{Ada Okafor}` `` in inline code), `chart-family`
-(the `kernel` extension point every chart fills; see "Extension points" below) and `code` (every
-fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` slide classes
-require it; see "The code renderer" below). The website introduces the six an author writes at
-/plugins/, from `docs/src/content/catalog/plugins/`.
+**Three classes of plugin**, named for what an author can do with them (the same words in the Studio's
+Plugins tab, the website and the manifest):
+
+| Class | Author-facing label | What it means | Plugins |
+|---|---|---|---|
+| **Embedded** | Always on | Part of how Lattice draws every slide. Loads on every render; no deck list, default list or `--disable-plugin` can turn it off, and it has no row in the Plugins tab. In-tree only (`"embedded": true` in the manifest). | `pills` (`` `{LIVE}` `` and `` `@pill{…}` ``, the one pill every component builds on) |
+| **Essential** | Comes with Lattice | Ships in the tree and loads by default; a deck may narrow it. What this file called a "shipped plugin" before 2026-10. | `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it), `function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima` (` ```anima `; the `scene` slide class requires it), `mermaid` (` ```mermaid `, drawn by the runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it), `icons` (`` `^{database, c3}` ``; the flowchart, hub-spoke and state-chart slide classes list it as optional), `avatars` (`` `!{Ada Okafor}` ``), `sparks` (`` `~{12 14 17}` ``), `chart-family` (the `kernel` extension point every chart fills; see "Extension points" below) and `code` (every fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` slide classes require it; see "The code renderer" below) |
+| **External** | From *author* | A plugin somebody else wrote: a zip from the Studio Library or `lattice packages add`, or an npm package listed explicitly. Always a deliberate choice, and the only class a deck must name. | none ship in the tree |
+
+An embedded plugin may require only embedded plugins (an essential one could be switched off under
+it), and may claim the untagged record `` `{…}` `` (`contributes.inline.<kind>.untagged`): only an
+embedded plugin, and only one. The pills plugin is the first and today the only embedded plugin;
+the design is `engineering/decisions/2026-10-17-pills-plugin.md`. The website introduces the eight an
+author writes at /plugins/, from `docs/src/content/catalog/plugins/`.
 
 **A plugin's mark** is its manifest's optional `icon`: path data tagged `line`, `accent` or `fill`,
 drawn by `plugin-icon.mjs` in the active theme's colors (spec/LPM.md §3.1). It is data rather than
@@ -60,7 +64,9 @@ site's pre-scan need the grammar without the library behind it.
 Every plugin is loaded **explicitly**, and the host decides it once per render, from the deck's
 source (`host-grammar.mjs` `admitPlugins`; plugin-system §9 decisions 6 and 9):
 
-- **the default set** — every shipped plugin, so a deck that lists nothing renders as it always
+- **the embedded set** — admitted first, on every render, whatever else is configured: it ignores the
+  default set, the deck's list and `disabled`.
+- **the default set** — every essential plugin, so a deck that lists nothing renders as it always
   did. A host may narrow it: `createEngine({ plugins: { defaults: [] } })`.
 - **the deck's `plugins:` list** — an import list in the front matter, `plugins: [math, mermaid]`.
   It only adds: listing a default plugin changes nothing, and there is no removal syntax. A name

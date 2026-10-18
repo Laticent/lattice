@@ -62,6 +62,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/hub-spoke-icons.md', 'the demo deck for icons on hub-spoke (HARD RULE #9). Its `{icon=…}` records are counted here but render as disc icons, not pills — the census reads spans without their slide, and hub-spoke owns the rows it reads (lib/core/resolve-inline-code.js `ownedRowDepth`); the table slide escapes its examples'],
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
+  ['examples/pills-plugin.md', 'the demo deck for the embedded pills plugin: one pill, placed and tinted by seven components (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
 ]);
 
@@ -91,7 +92,6 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/adaptive-sweep.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
   ['examples/cover-paginate.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
   ['examples/reflow-legal.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
-  ['examples/universal-pill.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
   ['lib/components/legal/statute-stack/statute-stack.gallery.md', 'statute-stack: a `{citation}` and a `{status}` pill on each jurisdiction card'],
   ['examples/cards-register-catalog.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
   ['examples/typography-categories.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],

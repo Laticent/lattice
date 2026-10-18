@@ -21,6 +21,9 @@ reference:
   - label: A sample deck
     href: https://github.com/Laticent/lattice/blob/main/examples/inline-pills.md
     note: Every shape, color and size, in a list, a heading and a sentence.
+  - label: Pills inside components
+    href: https://github.com/Laticent/lattice/blob/main/examples/pills-plugin.md
+    note: The same pill placed and tinted by cards, a KPI tile, an owner row, a legal update, a roadmap header and a glossary.
   - label: Why it is a plugin
     href: https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-17-pills-plugin.md
     note: The design note, including why pills are always on and why components do not draw their own.
