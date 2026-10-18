@@ -19,4 +19,5 @@ source: https://github.com/Laticent/lattice/pull/2649
        verify    — tier 0 gates.
        repeat    — 2026-10-13, #2673's studio-smoke failed the same test (now line 67, "on a collage slide a list item offers whole photo lines") with the same symptom: Enter on the completion left `- te-` in the editor. #2673 did not touch the Markdown editor or the Library, it passed 4 of 4 locally, and the next run on a newer head passed. That is the repeat on an unrelated PR this file waits for, so it is ready for the root-cause fix.
        repeat    — 2026-10-18, #2746's studio-smoke failed the same test (line 67) on a199247 with the same symptom (`## Site walk- te- ` after Enter); 116 other tests passed and #2746 touches no Library or editor-completion code.
+       repeat    — 2026-10-18, #2781's studio-smoke failed the same test (line 67) on `da7cacd` with the same symptom (`- te-` left in the editor, 115 of 116 passed); the previous head `499c34f` passed it. #2781 changes plugin tests, `tools/check-ownership.js` and notes, nothing the Studio or the Library reaches. Fourth repeat on an unrelated PR.
 ```
