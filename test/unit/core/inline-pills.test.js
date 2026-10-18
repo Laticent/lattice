@@ -11,7 +11,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const pills = require('../../../lib/core/inline-pills.js');
+const pills = require('../../../lib/plugins/pills/pills.inline.js');
 
 describe('inline-pills — what it renders', () => {
   test('a bare label is a capsule pill', () => {

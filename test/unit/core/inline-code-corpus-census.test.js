@@ -4,7 +4,7 @@
  * The `{LABEL}` pill and `[x]` mark grammar reads EVERY single-backtick span in every
  * deck (`lib/core/inline-code-directives.js`). That is the whole risk the grammar carries:
  * an author writes `` `{ ok, scene }` `` meaning object-literal prose and gets a pill.
- * `lib/core/inline-pills.js` justifies the brace choice by measuring the alternative —
+ * `lib/plugins/pills/pills.inline.js` justifies the brace choice by measuring the alternative —
  * the ADR's bracket geometry would have swallowed 147 spans an author meant literally,
  * braces swallow none — and that measurement is the load-bearing evidence for the
  * grammar's spelling.

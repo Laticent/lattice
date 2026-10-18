@@ -1,6 +1,6 @@
 /* ── Inline pills — `{LABEL}:shape:c4:lg` ──────────────────────────────────────
  * A `{LABEL}` inside SINGLE-backtick inline code is decoded by
- * `lib/core/inline-pills.js` into `<span class="lat-pill" data-shape=…>`. See that
+ * `lib/plugins/pills/pills.inline.js` into `<span class="lat-pill" data-shape=…>`. See that
  * file for the grammar and for why `{}` rather than the ADR's bracket geometry.
  *
  * THESE REUSE THE `--pill-*` TOKENS ABOVE (HARD RULE #15). The trailing-`code`

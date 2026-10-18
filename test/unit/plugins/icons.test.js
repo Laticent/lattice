@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
 const icons = require('../../../lib/plugins/icons/icons.inline.js');
-const pills = require('../../../lib/core/inline-pills.js');
+const pills = require('../../../lib/plugins/pills/pills.inline.js');
 const VOCAB = require('../../../lib/plugins/icons/icons.vocab.generated.js');
 const DATA = require('../../../lib/plugins/icons/icons.data.generated.js');
 const { provideData } = require('../../../lib/plugins/plugin-data.js');
@@ -118,7 +118,7 @@ describe('icons — what the adversarial review found', () => {
     // browser bundle is before lattice-plugin-icons.js arrives.
     const { execFileSync } = require('node:child_process');
     const out = execFileSync(process.execPath, ['-e', `
-      const pills = require('./lib/core/inline-pills.js');
+      const pills = require('./lib/plugins/pills/pills.inline.js');
       const icons = require('./lib/plugins/icons/icons.inline.js');
       process.stdout.write(JSON.stringify([pills.pillHtml('{S3, icon=bucket}'), icons.iconHtml('^{bucket}'), !!icons.read('^{bucket}'), pills.pillHtml('{S3}')]));
     `], { cwd: require('node:path').join(__dirname, '../../..') }).toString();

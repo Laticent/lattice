@@ -16,7 +16,7 @@
 //   · EVERY KIND PLUGS IN THROUGH `OBJECT_KINDS`: how to read, draw and edit one source. A spark or an
 //     avatar adds a kind and a panel; the node, the plugin, the host and the undo do not change.
 //   · Everything a kind knows comes from the engine's own kernel
-//     (lib/authoring/inline-editors.js → lib/core/inline-pills.js), never a second parser
+//     (lib/authoring/inline-editors.js → lib/plugins/pills/pills.inline.js), never a second parser
 //     (HARD RULES #1, #7).
 
 import { closeHistory, isHistoryTransaction } from 'prosemirror-history';
@@ -27,7 +27,7 @@ import { deckSchema } from './deck-doc';
 import { isObjectSource } from './inline-object';
 import { PILL_SCOPE } from './pill-sheet';
 
-/** What the engine reads out of a pill (lib/core/inline-pills.js `resolve`). */
+/** What the engine reads out of a pill (lib/plugins/pills/pills.inline.js `resolve`). */
 export interface PillFields {
 	value: string;
 	shape: string;
