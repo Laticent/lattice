@@ -207,7 +207,8 @@ describe('the paths agree on the data row', () => {
 
   test('the chart pick is the dispatcher\'s: the layout order is pinned to the registry', () => {
     const { LAYOUTS } = require('../../../lib/plugins/chart-family/shared/chart-registry.generated');
-    assert.deepEqual([...rows.CHART_LAYOUT_ORDER], LAYOUTS);
+    assert.deepEqual([...rows.CHART_LAYOUT_ORDER], LAYOUTS,
+      'a chart layout was added or reordered in the dispatcher: add it to CHART_LAYOUT_ORDER in lib/core/chart-rows.js at the same position (the record chart pick follows the dispatcher\'s order)');
   });
 
   test('two chart classes: the chart that draws the slide owns the rows', () => {
