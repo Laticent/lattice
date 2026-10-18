@@ -418,6 +418,9 @@ export async function shareHtmlPlayer(
 	// placeholder. The file is self-contained either way; this decides only whether the author's
 	// browser contacts those sites now.
 	embedWebPictures = false,
+	// Origins whose pictures the player loads only after the reader presses "Load pictures" — the CLI's
+	// `--player-consent`, through the same `assemblePlayer` field. Ignored for pictures that were embedded.
+	consentOrigins: string[] = [],
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
@@ -894,6 +897,7 @@ export async function shareHtmlPlayer(
 			// deck are byte-identical, and the same deck at the same epoch packs the same from either
 			// host (decisions/2026-10-16-player-as-library-audit.md §11). Nothing reads the stamp.
 			now: 0,
+			...(consentOrigins.length ? { consentOrigins } : {}),
 			// The same provenance a CLI export stamps: the engine's version and the player's (the core
 			// defaults `playerVersion` to the one PLAYER_VERSION). Which tool made the file is the
 			// `host` field, the one piece of metadata host parity ignores (§11.9).

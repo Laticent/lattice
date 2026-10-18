@@ -6096,6 +6096,15 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log: a player file opened with a declared '
+       + 'consent origin must fetch NOTHING before the reader presses "Load pictures", and nothing at all '
+       + 'with scripting off. There is no signal for a request that must not happen; a poll of the empty '
+       + 'log goes green on its first tick. 1500ms covers the player\'s boot, its placeholder pass and '
+       + 'any fetch it would wrongly start; the same test\'s POSITIVE arm (after the click, the server '
+       + 'sees the request and the image decodes) proves the log can see a fetch.',
+  },
+  {
     file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
     why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
        + 'point behind it (#2648 P1). Present\'s window listener would open the chart-detail card on '

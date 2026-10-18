@@ -312,3 +312,11 @@ test('bytesToDataUri: SVG percent-encoded with quote, parens and spaces escaped 
 	const png = Buffer.from([0, 1, 254, 255]);
 	assert.equal(bytesToDataUri(png, 'image/png'), `data:image/png;base64,${png.toString('base64')}`);
 });
+
+test('webPictureOrigins: the other sites a deck shows pictures from, sorted and deduplicated; this site never', async () => {
+	const { webPictureOrigins } = await load();
+	const own = 'https://studio.test';
+	const md = '![a](https://b.example/x.png) ![b](https://a.example:8443/y.png) ![c](https://b.example/z.png) ![d](https://studio.test/q.png) ![e](/local.png)';
+	assert.deepEqual(webPictureOrigins(md, own), ['https://a.example:8443', 'https://b.example']);
+	assert.deepEqual(webPictureOrigins('no pictures here', own), []);
+});

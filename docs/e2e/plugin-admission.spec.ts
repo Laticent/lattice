@@ -363,7 +363,7 @@ for (const [label, defaults, shows] of [
 		if (process.env.ADMISSION_EVIDENCE && shows) {
 			for (const [w, h] of [[1440, 900], [820, 1100], [390, 844]]) {
 				await page.setViewportSize({ width: w, height: h });
-				await page.waitForTimeout(600);
+				await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 				await page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, `p3-notice-${w}.png`) });
 			}
 		}

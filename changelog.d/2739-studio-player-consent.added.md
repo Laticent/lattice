@@ -1,0 +1,1 @@
+- Share → Webpage can now ask the reader before it loads another site's pictures, as the CLI's `--player-consent` does: under "Embed pictures from other sites", tick the sites the deck uses, and the file shows a "Load pictures" banner; nothing loads until the reader presses it, and with scripting off the pictures are listed as links.

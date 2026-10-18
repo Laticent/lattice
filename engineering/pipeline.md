@@ -411,6 +411,11 @@ capture frame whose runtime paints the marker, so `share-export.ts` passes each 
 default); `docs/e2e/studio-raster-export-marker.spec.ts` reads the left-edge pixel of a clipped slide in each (an
 authoring ring is red there).
 
+**The Studio's Webpage export takes `--player-consent`'s choice.** Share → Webpage lists the other sites a deck's pictures use
+(`webPictureOrigins`, `lib/export/inline-url-media.mjs`); a ticked site goes to `assemblePlayer` as `consentOrigins`, the field
+the CLI sets. `docs/e2e/studio-player-consent.spec.ts` drives it on Chromium, Firefox and WebKit against a loopback server:
+the export, and the file before the reader consents, make no request.
+
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
 Studio's own modules bundled into Chromium. That covers the packer.
