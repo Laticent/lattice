@@ -919,15 +919,15 @@
       "1. Change name",
       "   - `Citation reference`",
       "   - Summary in one sentence.",
-      "   - `Effective Mon YYYY`",
+      "   - `{Effective Mon YYYY}`",
       "2. Change name",
       "   - `Citation reference`",
       "   - Summary in one sentence.",
-      "   - `Effective Mon YYYY`",
+      "   - `{Effective Mon YYYY}`",
       "3. Change name",
       "   - `Citation reference`",
       "   - Summary in one sentence.",
-      "   - `Effective Mon YYYY`"
+      "   - `{Effective Mon YYYY}`"
     ],
     "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date."
   },

@@ -86,6 +86,12 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/autosplit-coverage.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
   ['examples/list-tabular-responsive.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
   ['examples/sketch-ledger.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
+  ['lib/components/legal/regulatory-update/regulatory-update.gallery.md', 'regulatory-update: an `{Effective Feb 2026}` pill closes each row'],
+  ['lib/components/legal/legal.gallery.md', 'the legal family gallery: its regulatory-update slides close each row with a `{date}` pill'],
+  ['examples/adaptive-sweep.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['examples/cover-paginate.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['examples/reflow-legal.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['examples/universal-pill.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

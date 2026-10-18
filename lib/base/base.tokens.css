@@ -219,6 +219,8 @@
 
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
+  /* A fully round end — a capsule's corner. Any radius past half the box's height does it. */
+  --radius-full:999px;
   /* The Mermaid subgraph box's corner — the containment tier's radius, and the
    * one radius on this scale that is NOT container-relative. It cannot be:
    * `rx`/`ry` are SVG GEOMETRY properties, so their value is read in the

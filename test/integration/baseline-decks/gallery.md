@@ -1728,15 +1728,15 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 1. EU AI Act
    - `Title III`
    - Conformity assessment for high-risk systems — a scoring model that ranks people qualifies.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Deployer duties for consequential-decision systems; the decision log is the audit trail.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. Texas DPSA
    - `§541.151`
    - DSAR opt-out portal mandatory; intake transcripts are in scope.
-   - `Effective Mar 2026`
+   - `{Effective Mar 2026}`
 
 ---
 
