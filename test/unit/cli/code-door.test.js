@@ -200,6 +200,11 @@ describe('the gate: the one shape a door runs', () => {
 describe('the attribute rule: a package keeps only what it was handed', () => {
   test('every address in a CSS value, decoded; text outside a function is not an address', () => {
     assert.deepEqual(cssRefTargets(`--logo-mask:url('/etc/x'); content:"Q3"; background:image-set("a.png" 1x), \\75 rl(b.png) /* url(c) */`), ['/etc/x', 'a.png', 'b.png']);
+    // A string in a custom property is text until a variable carries it into an address (image-set, src).
+    assert.deepEqual(cssRefTargets(`--q:'https://x.example/y';background-image:image-set(var(--q) 1x)`), ['https://x.example/y']);
+    assert.deepEqual(cssRefTargets(`--q:"//x.example/y";background:image-set(var(--q) 1x)`), ['//x.example/y']);
+    assert.deepEqual(cssRefTargets(`--label:"Q3 / Q4";content:var(--label)`), [], 'a label with spaces is text');
+    assert.deepEqual(cssRefTargets(`--label:"https://x.example/y"`), [], 'with no variable read there is no way to use it as an address');
   });
 
   test('handed addresses pass byte for byte; invented ones do not; data: and #fragment always pass', () => {

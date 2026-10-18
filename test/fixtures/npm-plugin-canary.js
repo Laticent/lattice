@@ -52,7 +52,13 @@ function attempts({ H, P, udp }) {
     ['beacon', `return navigator.sendBeacon(${bits(`${H}/beacon`)}, 'x');`],
     ['importscripts', `importScripts(${bits(`${H}/importscripts`)});`],
     ['worker-url', `return new Worker(${bits(`${H}/worker-url`)});`],
-    ['worker-blob', `return new Worker(URL.createObjectURL(new Blob(["fetch(${H}/worker-blob)"])));`],
+    ['worker-blob', `return new Worker(URL.createObjectURL(new Blob([${bits(`fetch(${bits(`${H}/worker-blob`)})`)}])));`],
+    // The known walk-round of a name taken off `self`: the same function from the prototype chain.
+    ['proto-fetch', `var proto = Object.getPrototypeOf(Object.getPrototypeOf(self)); return proto.fetch.call(self, ${bits(`${H}/proto-fetch`)});`],
+    ['broadcastchannel', `return new BroadcastChannel('canary').postMessage('x');`],
+    ['websocketstream', `return new WebSocketStream(${bits(`ws://127.0.0.1:${P}/websocketstream`)});`],
+    ['fetchlater', `return fetchLater(${bits(`${H}/fetchlater`)}, { activateAfter: 0 });`],
+    ['filesystem', `return webkitRequestFileSystemSync(0, 1024);`],
     ['sharedworker', `return new SharedWorker(${bits(`${H}/sharedworker`)});`],
     ['fontface', `return new FontFace('x', ${bits(`url(${H}/fontface)`)}).load().catch(function(){});`],
     ['webtransport', `return new WebTransport(${bits(`https://127.0.0.1:${udp.quic}/webtransport`)});`],
@@ -85,6 +91,8 @@ function attempts({ H, P, udp }) {
 function markupVectors(H) {
   return {
     img: `<img src="${H}/m-img" alt="">`,
+    // A string held in a custom property and read where an address goes (found by the red team, 2026-10-18).
+    'css-imageset-var': `<div style="--q:'${H}/m-imageset';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
     'css-background': `<div style="background:url(${H}/m-cssbg);width:9px;height:9px"></div>`,
     'style-import': `<style>@import url(${H}/m-import);</style>`,
     'style-breakout': `<style></style><img src="${H}/m-breakout"></style>`,

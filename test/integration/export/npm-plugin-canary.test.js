@@ -184,6 +184,11 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     // A zero from an attempt that never ran proves nothing, so a missing line is a failure too.
     if (missing.length) problems.push(`the report lacks ${missing.join(', ')}`);
     for (const [n, v] of Object.entries(report)) if (v.startsWith('read:')) problems.push(`a storage read returned data: ${n}=${v}`);
+    // Stronger than "read nothing": in the locked worker no storage or runner API is even reachable. A
+    // call that returned (`tried`) could have written something a later render reads.
+    for (const n of ['localstorage', 'sessionstorage', 'cookie', 'cookiestore', 'indexeddb', 'caches', 'storage-bucket', 'serviceworker', 'filesystem', 'eval', 'function', 'settimeout-string']) {
+      if (n in report && !report[n].startsWith('blocked:')) problems.push(`${n} did not throw: ${report[n]}`);
+    }
     if (html.includes(SECRET)) problems.push('planted data reached the output');
     for (const v of vectorsHit()) problems.push(`the listener saw ${v}`);
     // Markup half: what the page would load is gone from the output (HARD RULE #22, markup channel).
@@ -214,6 +219,7 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
           .evaluate(() => {
             document.getElementById('m-form-submit')?.click();
             document.getElementById('m-ping')?.click();
+            document.getElementById('m-js')?.click();
           })
           .catch(() => {}); // the page navigated away: the request is what we count
         await settle();
@@ -222,10 +228,42 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
         return got;
       };
       const rawGot = [...(await open(raw)), ...(await open(meta)), ...(await open(form).catch(() => ['m-form']))];
-      for (const v of ['m-img', 'm-cssbg', 'm-link', 'm-iframe', 'm-object', 'm-embed', 'm-svgimage', 'm-video', 'm-audio', 'm-script', 'm-meta', 'm-form']) {
-        assert.ok(rawGot.includes(v), `the control markup did not fire ${v}: ${rawGot.join(' ')}`);
-      }
+      // Every address the markup names, not a sample: a tag that stops firing must be removed from
+      // the list on purpose. `m-base` only rewrites later relative URLs and fetches nothing itself.
+      const named = [...new Set([...raw, meta, form].join('').match(/\/(m-[a-z0-9-]+)/g).map((m) => m.slice(1)))].filter((v) => v !== 'm-base');
+      const missed = named.filter((v) => !rawGot.includes(v));
+      assert.deepEqual(missed, [], `the control markup did not fire: ${missed.join(' ')} (it fired ${rawGot.join(' ')})`);
       assert.deepEqual(await open(sanitized), [], 'sanitized output still reached the listener');
+    } finally {
+      await browser.close();
+    }
+  });
+
+  test('WEAKENED: the same renderer in a worker with NO wall at all reaches the listener (the arm that proves the door arm can fail)', { timeout: TIMEOUT }, async () => {
+    hits = [];
+    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      const page = await browser.newPage();
+      await page.goto(`${H}/blank`, { waitUntil: 'load' });
+      // The door's own context: a Worker. No policy, no names taken off it, an online browser.
+      const body = controlSource.replace(/export \{ render as default \};\s*$/, '');
+      const report = await page.evaluate(
+        (code) =>
+          new Promise((resolve) => {
+            const url = URL.createObjectURL(new Blob([`${code};\npostMessage(render({ body: 'x', id: 'w' }));`], { type: 'text/javascript' }));
+            const w = new Worker(url);
+            w.onmessage = (e) => typeof e.data === 'string' && resolve(e.data); // the canary's own postMessage attempt comes first
+            w.onerror = (e) => resolve(`error: ${e.message}`);
+          }),
+        body,
+      );
+      assert.match(report, /^<ul/, `the unwalled worker did not run the canary: ${report}`);
+      await settle();
+      const got = vectorsHit();
+      // What a worker can fire. A canary attempt not listed here (sharedworker: a blob worker may not start one; the storage and runner attempts: nothing to fire) has no weakened-arm proof, so the door arm's zero for it rests on the API throwing.
+      for (const v of ['fetch', 'xhr', 'websocket', 'websocketstream', 'eventsource', 'importscripts', 'proto-fetch', 'worker-url', 'worker-blob', 'fontface', 'webtransport-udp']) {
+        assert.ok(got.includes(v), `the unwalled worker did not reach the listener with ${v}: ${got.join(' ')}`);
+      }
     } finally {
       await browser.close();
     }

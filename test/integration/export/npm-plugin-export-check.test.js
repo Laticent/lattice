@@ -55,6 +55,9 @@ let built;
 
 const vectorsHit = () => [...new Set(hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v && v !== 'favicon.ico').sort();
 
+/** The vectors that replace the page, so the call that started them may not answer. */
+const NAVIGATES = ['navigate', 'metarefresh', 'form'];
+
 /** Every exit a script could try, as the body of a function run in the opened export. Unique path per vector. */
 const vectors = () => ({
   navigate: `setTimeout(function(){ location.href = '${H}/navigate'; }, 50)`,
@@ -174,8 +177,13 @@ async function reached(browser, file) {
     await new Promise((r) => setTimeout(r, SETTLE_MS));
   }
   const got = vectorsHit();
+  // A vector that threw never tried: its zero would be a closed exit by accident (a stub that
+  // throws is not a wall, plugin code can fetch the original from a fresh frame). Only a vector that
+  // navigates the page away may lose its answer.
+  // A SecurityError is the engine enforcing a policy synchronously (WebKit's SecurityError, Firefox's NS_ERROR_CONTENT_BLOCKED, and Firefox's blank error for a form post that `form-action 'none'` refuses), which is a wall.
+  const unrun = pages.filter((p) => p.ran !== true && !/^threw:(SecurityError|NS_ERROR_CONTENT_BLOCKED)$/.test(p.ran) && !(p.name === 'form' && p.ran === 'threw:') && !(p.ran === 'navigated' && NAVIGATES.includes(p.name))).map((p) => `${p.name}:${p.ran}`);
   await Promise.all(pages.map((p) => p.page.close().catch(() => {})));
-  return { got, ran: Object.fromEntries(pages.map((p) => [p.name, p.ran])) };
+  return { got, unrun };
 }
 
 describe('export check: no exit in a real HTML export reaches a listener', () => {
@@ -189,6 +197,7 @@ describe('export check: no exit in a real HTML export reaches a listener', () =>
           const control = await reached(browser, built[kind].control);
           const unverified = names.filter((v) => !control.got.includes(v));
           const real = await reached(browser, built[kind].file);
+          assert.deepEqual([...control.unrun, ...real.unrun], [], 'a vector did not run, so its zero would mean nothing');
           t.diagnostic(`${eng.name} ${kind}: open exits ${JSON.stringify(real.got)}; control missed ${JSON.stringify(unverified)}`);
           const surprising = unverified.filter((v) => !MAY_MISS[eng.name].includes(v));
           assert.deepEqual(surprising, [], `UNVERIFIED in ${eng.name}: the control did not reach the listener with these, so their zero would mean nothing`);
