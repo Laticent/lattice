@@ -87,8 +87,11 @@ describe('the engine, end to end', () => {
       assert.deepEqual(ids, []);
     });
   }
-  test('a value cannot read another property: image-set(var(--header)) is the string-to-URL route', () => {
-    for (const v of ['image-set(var(--header) 1x)', 'image-set(attr(x) 1x)', 'url(env(x))', 'VAR(--a)']) {
+  test('a palette-blind gradient may still read a token', () => {
+    assert.equal(section('<!-- _backgroundImage: linear-gradient(var(--accent), red) -->\n# A').bg, 'linear-gradient(var(--accent), red)');
+  });
+  test('a value cannot build a URL from another value: image-set(var(--header)) is the string-to-URL route', () => {
+    for (const v of ['image-set(var(--header) 1x)', 'image-set(attr(x) 1x)', '-webkit-image-set(var(--header) 1x)', 'src(var(--header))', 'cross-fade(var(--header), red)']) {
       const { bg, ids } = section(`---\nheader: http://127.0.0.1:1/b\n---\n<!-- _backgroundImage: ${v} -->\n# A`);
       assert.equal(bg, null, v);
       assert.equal(ids.length, 1, v);
@@ -101,11 +104,22 @@ describe('the engine, end to end', () => {
       assert.equal(ids.length, 1, v);
     }
   });
-  test('![bg] follows the same list', () => {
+  test('![bg] follows the same list, on an image slide and on every other slide', () => {
     const lift = (u) => e.render(`<!-- _class: image -->\n\n![bg](${u})\n\n## T\n`).html;
-    for (const u of ['http://evil/x.png', '//evil/x.png', 'blob:x', 'ftp://e/x']) assert.doesNotMatch(lift(u), /lattice-bg|evil|blob:x|ftp:/, u);
+    const plain = (u) => e.render(`## T\n\n![bg](${u})\n`);
+    for (const u of ['http://evil/x.png', '//evil/x.png', 'blob:x', 'ftp://e/x', 'javascript:alert(1)', 'file:///etc/x']) {
+      assert.doesNotMatch(lift(u), /lattice-bg|evil|blob:x|ftp:|javascript:|file:/, `image slide: ${u}`);
+      const r = plain(u);
+      assert.doesNotMatch(r.html, /background-image:url\(&quot;(?:http|\/\/|blob|ftp|javascript|file)/, `plain slide: ${u}`);
+      // markdown-it's own link check already refuses javascript: and file: on this path, so no image token
+      // reaches the engine to be reported; the rest are reported.
+      if (!/^(javascript|file):/.test(u)) assert.equal((r.diagnostics || []).filter((d) => d.id === 'meta/url-scheme').length, 1, `diagnostic: ${u}`);
+    }
     assert.match(lift('https://x.example/a.png'), /lattice-bg/);
     assert.match(lift('img/a.png'), /lattice-bg/);
+    assert.match(plain('https://x.example/a.png').html, /background-image:url\(&quot;https:/);
+    assert.match(plain('img/a.png').html, /background-image:url\(&quot;img\/a\.png/);
+    assert.deepEqual((plain('sample:logo-acme-mark.svg').diagnostics || []).filter((d) => d.id === 'meta/url-scheme'), []);
   });
   test('a gradient still renders', () => {
     assert.equal(section('<!-- _backgroundImage: linear-gradient(red, blue) -->\n# A').bg, 'linear-gradient(red, blue)');

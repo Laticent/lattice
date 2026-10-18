@@ -118,3 +118,14 @@ test('meta-opener-bare: a speaker note whose second line starts with a brace is 
   assert.deepEqual(rules(deck('<!--\n{pause} then reveal the number\n-->\n\n# A')), []);
   assert.deepEqual(rules(deck('<!--\n{layout=kpi}\n-->\n\n# A')), ['1:meta-opener-bare']);
 });
+
+test('meta-in-html-block: CommonMark block types 1, 3, 5 fold the record; a lone tag under a paragraph does not', () => {
+  for (const above of ['<pre class="x">code', '<script>let a', '<style>a{}', '<?php x', '<![CDATA[']) {
+    assert.deepEqual(rules(deck(`${above}\n<!-- {layout=kpi} -->`)), ['1:meta-in-html-block'], above);
+  }
+  assert.deepEqual(rules(deck('text\n<img src="x">\n<!-- {layout=kpi} -->')), [], 'a type-7 line cannot interrupt a paragraph');
+});
+
+test('meta-opener-bare: a wrapped record under a bare opener is still caught', () => {
+  assert.deepEqual(rules(deck('<!--\n{\nlayout=content\n} -->\n# A')), ['1:meta-opener-bare']);
+});

@@ -87,3 +87,12 @@ describe('_focusSteps is read from any comment in its html_block (checker round 
     assert.equal(sections(`<!-- _focusSteps: row 1 | row 2 -->x\n\n${table}`), 2);
   });
 });
+
+
+describe('_focusSteps keeps quoted steps as written (checker round 2)', () => {
+  test("`'a' | 'b'` splits on the pipe before any unquoting, as it always did", () => {
+    const html = latticeEngine.createEngine().render("<!-- _focusSteps: 'a' | 'b' -->\n# T\n").html;
+    assert.match(html, /data-focus="'a'"|data-focus="a"/);
+    assert.doesNotMatch(html, /data-focus="a'"/);
+  });
+});
