@@ -300,3 +300,40 @@ test('the Playground page PREVIEW follows the host\'s admission too: a defaults 
 	await expect(slides).toHaveCount(2, { timeout: 30_000 });
 	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-on.png') });
 });
+
+// THE TOGGLE, ON THE SAME DECK, WITH NO EDIT (#2759). The case above sets the defaults before it loads
+// the deck, so it never sees a deck that is already drawn when the host narrows the set. The Studio
+// preview must follow: off puts each fence back to its source, on draws it again, no reload and no edit.
+test('the Studio preview follows a defaults change on an open deck: on, off, on', async ({ page }) => {
+	test.setTimeout(420_000);
+	await gotoStudio(page);
+	await setDefaults(page, null);
+	await setEditorContent(page, DECK('Mermaid toggled'));
+	await expect.poll(() => persistedSource(page)).toContain('# Mermaid toggled');
+	const frame = livePreview(page);
+	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
+	await expect(frame.locator('pre[data-lattice-off]')).toHaveCount(0);
+
+	await setDefaults(page, []);
+	const pre = frame.locator('pre[data-lattice-off="mermaid"]').first();
+	await expect(pre).toBeVisible({ timeout: 30_000 });
+	await expect(frame.locator('[data-lattice-figure]')).toHaveCount(0);
+	await expect(pre.locator('code')).toContainText('flowchart LR');
+	// An export made now ships the source too, matching the preview.
+	expect(await webpageExport(page)).toMatch(/data-lattice-off=\\?"mermaid/);
+
+	await setDefaults(page, null);
+	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
+	await expect(frame.locator('pre[data-lattice-off]')).toHaveCount(0);
+	expect(await webpageExport(page)).not.toMatch(/data-lattice-off=\\?"mermaid/);
+});
+
+/** Share → Webpage, read back as text. */
+async function webpageExport(page: import('@playwright/test').Page): Promise<string> {
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const download = page.waitForEvent('download', { timeout: 180_000 });
+	await shareExport(page, 'webpage');
+	const file = await (await download).path();
+	await page.keyboard.press('Escape');
+	return fs.readFileSync(file, 'utf8');
+}

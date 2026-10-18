@@ -1786,6 +1786,17 @@ A `chip` is still a block (a fence is block syntax). **Amended 2026-10-14 (owner
 not a parser rule but an inline-code kind, and a zip plugin may now bring one, written `@kind{…}`, through this same door:
 `2026-10-14-plugin-inline-door.md`.
 
+**A host that narrows its defaults after a deck is open (2026-10-18, #2759).** The Studio preview kept a drawn
+diagram when `LatticePlayground.setPluginDefaults` took Mermaid out: the engine's render caches already key on the
+defaults, but nothing scheduled a render, so no new markup reached the frame. `DeckPreview` now schedules one on
+`lattice:plugin-defaults`, as the Playground page already did. **Gate, do not purge:** the runtime's SVG cache
+(`mermaidSvgCache`, keyed by scope and source) is reached only through fences the engine left untagged, and an
+off fence carries `data-lattice-off`, which every runtime selector skips, so the cache needs no purge and the next
+turn-on may reuse an entry. Exports render from the current admission in a fresh frame, so an export made while the
+plugin is off ships the source (`e2e/plugin-admission.spec.ts`, "on, off, on"). The Plugins tab's checkbox is the
+deck's `plugins:` list, never an off switch: every shipped plugin is on by default and a list only adds, so only a
+host can turn one off.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.
