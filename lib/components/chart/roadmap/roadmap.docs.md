@@ -21,7 +21,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the plan. |
-| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[!]/[?]/[ ]/[/] then the deliverable. |
+| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry a date pill, written `{Q2 2026}` in inline code); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[!]/[?]/[ ]/[/] then the deliverable. |
 | `key` | `p > code:only-child` | no | OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone. |
 
 ### Variant decision rule
@@ -58,7 +58,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## What ships in each phase, by workstream.
 
-| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
+| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |
 | --- | --- | --- | --- |
 | First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |
 | Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |
@@ -96,7 +96,7 @@ Bets spread across three horizons.
 
 ## horizons spreads the bets across three horizons.
 
-| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
+| Workstream    | Horizon 1 `{Now}`          | Horizon 2 `{Next}`         | Horizon 3 `{Later}`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
 | Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
@@ -113,7 +113,7 @@ Delivery state at a glance.
 
 ## status reads delivery state at a glance.
 
-| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
+| Workstream    | Foundation `{Q2 2026}` | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [?] Auto-routing |
 | Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
@@ -131,7 +131,7 @@ One track per team.
 
 ## swimlane gives each team its own track.
 
-| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
+| Workstream    | Foundation `{Q2 2026}` | Hardening `{Q3 2026}`    | Scale `{Q4 2026}`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
 | Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
 | Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
@@ -149,7 +149,7 @@ The dated path, pinned.
 
 ## milestones pins the dated path.
 
-| Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
+| Workstream    | Beta `{Q2 2026}`       | RC `{Q3 2026}`           | GA `{Q4 2026}`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
 | Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
 | Scoring       | Equal weights        | Per-team weights   | Decision profiles    |

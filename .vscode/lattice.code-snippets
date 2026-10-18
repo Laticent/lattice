@@ -938,7 +938,7 @@
       "",
       "## What ships in each phase, by workstream.",
       "",
-      "| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |",
+      "| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |",
       "| --- | --- | --- | --- |",
       "| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |",
       "| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |",

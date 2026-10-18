@@ -339,7 +339,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |

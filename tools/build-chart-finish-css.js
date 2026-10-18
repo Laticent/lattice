@@ -292,13 +292,13 @@ function build() {
       // one hue: on it the a11y themes' dark faces read 1.54:1 and burgundy dark 4.44:1. So the
       // pill picks black or white from its own ground, as every other text-bearing mark does,
       // and the whole re-point waits on the engine that can pick it (TEXT WAITS, below).
-      const pill = ':is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)';
+      const pill = ':is(.roadmap .horizon-head > .lat-pill, .roadmap thead th:not(:first-child) > .lat-pill)';
       w(supports([
         rule(name, ':is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)', [
           `--phase-accent: ${ONE}`,
           `--phase-ink: ${ONE_INK}`,
         ]),
-        rule(name, pill, [`color: ${inkOn(ONE)}`]),
+        rule(name, pill, [`--lat-pill-ink: ${inkOn(ONE)}`]),
       ].join('\n')));
     }
 

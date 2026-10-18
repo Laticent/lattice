@@ -5,3 +5,4 @@
 - Build gate `checkHandRolledPills`: no stylesheet outside `lib/plugins/pills/` may read a `--pill-*` or `--lat-pill-*` token, counted per file against a measured allowlist that only shrinks (a stale entry fails too).
 - Pill interface property `--lat-pill-cap`: how much of the surrounding text a pill may fill (0.85 by default). A component whose pill sits beside a caption sets it to 1 so the pill matches the caption instead of undercutting it.
 - Pill interface properties `--lat-pill-case` (uppercase labels) and `--lat-pill-tracking` (letter spacing, with the optical-centering indent following it), for components whose pills read as stamps.
+- Pill interface property `--lat-pill-size`: a component whose type follows something other than the surrounding text (a chart label sized from its grid cell) states the pill's font size outright.

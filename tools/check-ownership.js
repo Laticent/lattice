@@ -2896,7 +2896,6 @@ function checkReadingRole(errors) {
 const SANCTIONED_PILL_READS = [
   { file: 'lib/base/base.modifiers.css', count: 27, why: 'the universal trailing-`code` pill rule; leaves with the clean break to `{…}`' },
   { file: 'lib/components/chart/flowchart/flowchart.styles.css', count: 2, why: "a node label borrows the pill's font and tracking; moves to its own tokens or a pill" },
-  { file: 'lib/components/chart/roadmap/roadmap.styles.css', count: 12, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
   { file: 'lib/components/chart/state-chart/state-chart.styles.css', count: 8, why: 'state chips and tiles are not pills; they take their own tokens that reference `--radius-*`' },
   { file: 'lib/components/comparison/pricing/pricing.styles.css', count: 4, why: 'the `.badge` family and the ribbon; the badge waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
   { file: 'lib/components/comparison/redline/redline.styles.css', count: 6, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },

@@ -12,10 +12,9 @@
  * bold, on tinted ground with a categorical lane stripe). Phase
  * column headers carry two things:
  *   1. The author's phase NAME (e.g. "Foundation", "Discovery")
- *   2. An optional trailing inline-code meta pill (the universal
- *      pill convention) — author writes `Foundation \`Q1 2026\``;
- *      the `<code>` is right-anchored, sits on the spectrum line,
- *      and carries the categorical phase accent.
+ *   2. An optional meta pill, drawn by the pills plugin — author writes
+ *      `Foundation \`{Q1 2026}\``; the pill is right-anchored, sits on the
+ *      spectrum line, and carries the categorical phase accent.
  * The pill is meta, never sequence — no auto-counter duplicating
  * what the author wrote. Empty cells render as a thin muted dash so
  * the eye reads "not in this phase" rather than "missing".
@@ -158,28 +157,23 @@
   padding-bottom:calc(var(--sp-md) + 0.46875cqi * var(--roadmap-pill-scale));
   padding-right:var(--sp-md);
 }
-/* Universal trailing pill — overrides the global `section code` chrome
-   (bg-alt fill, square radius). The pill sits ON the spectrum line
-   at the bottom-right of the header cell. */
-:is(section.roadmap, figure.roadmap) thead th:not(:first-child) > code {
+/* The phase's meta pill (date, status tag, owner) — written `{Q2 2026}` after the phase name and
+   drawn by the pills plugin. The roadmap seats it ON the spectrum line at the bottom-right of the
+   header cell, tints it with the column's accent, ringed in the canvas color so the line does not
+   run through it, and sizes it from the grid cell (the plugin's own size follows the text around
+   it, and a chart label follows the cell). */
+:is(section.roadmap, figure.roadmap) thead th:not(:first-child) > .lat-pill {
   position:absolute;
   right:var(--sp-md);
   bottom:calc(-0.546875cqi * var(--roadmap-pill-scale));
-  display:inline-flex; align-items:center; justify-content:center;
-  text-align:center; line-height:1;
-  font-family:var(--pill-font);
   /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
    * at landscape and 8.35px at square with no bottom at all. See #1213.
    * Times --roadmap-pill-scale so a `venue:` lifts it with the meta role. */
-  font-size:max(var(--chart-text-min), calc(0.859375cqi * var(--roadmap-pill-scale)));
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
-  background:var(--phase-accent, var(--accent));
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  border:2px solid var(--bg);
-  border-radius:var(--pill-radius);
-  white-space:nowrap;
+  --lat-pill-size:max(var(--chart-text-min), calc(0.859375cqi * var(--roadmap-pill-scale)));
+  --lat-pill-ink:var(--cat-on-mark);     /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
+  --lat-pill-bg:var(--phase-accent, var(--accent));
+  --lat-pill-edge:var(--phase-accent, var(--accent));
+  box-shadow:0 0 0 2px var(--bg);
   z-index:1;
 }
 /* Categorical rotation across phase columns and workstream rows.
@@ -587,27 +581,16 @@
   border-bottom:var(--chart-hairline) solid var(--border);
   position:relative;
 }
-/* Universal meta pill — right-anchored on the head's bottom border,
-   matching the trailing-code pill on the non-transposed roadmaps. */
-:is(section.roadmap, figure.roadmap).horizons .horizon-meta {
+/* The same meta pill on a horizon card, right-anchored on the head's bottom border. */
+:is(section.roadmap, figure.roadmap).horizons .horizon-head > .lat-pill {
   position:absolute;
   right:0;
   bottom:calc(-0.546875cqi * var(--roadmap-pill-scale));
-  display:inline-flex; align-items:center; justify-content:center;
-  text-align:center; line-height:1;
-  font-family:var(--pill-font);
-  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
-   * at landscape and 8.35px at square with no bottom at all. See #1213.
-   * Times --roadmap-pill-scale so a `venue:` lifts it with the meta role. */
-  font-size:max(var(--chart-text-min), calc(0.859375cqi * var(--roadmap-pill-scale)));
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
-  background:var(--phase-accent, var(--accent));
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  border:2px solid var(--bg-alt);
-  border-radius:var(--pill-radius);
-  white-space:nowrap;
+  --lat-pill-size:max(var(--chart-text-min), calc(0.859375cqi * var(--roadmap-pill-scale)));
+  --lat-pill-ink:var(--cat-on-mark);
+  --lat-pill-bg:var(--phase-accent, var(--accent));
+  --lat-pill-edge:var(--phase-accent, var(--accent));
+  box-shadow:0 0 0 2px var(--bg-alt);
   z-index:1;
 }
 :is(section.roadmap, figure.roadmap).horizons .horizon-eyebrow {
@@ -846,8 +829,8 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * body text around it is ~33px. Portrait has fewer inline units, so the
  * coefficient has to grow to hold the same optical size: 1.7cqi lands near
  * 16.5px here, and the floor still catches anything narrower. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-meta {
-  font-size: max(var(--chart-text-min), calc(1.7cqi * var(--roadmap-pill-scale)));
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-head > .lat-pill {
+  --lat-pill-size: max(var(--chart-text-min), calc(1.7cqi * var(--roadmap-pill-scale)));
 }
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows { gap: var(--sp-2xs); }
 /* Each workstream row collapses to ONE line (LABEL · value) — halves the card

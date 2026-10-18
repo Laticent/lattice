@@ -79,6 +79,7 @@
     "--lat-pill-pt",
     "--lat-pill-scale",
     "--lat-pill-shift",
+    "--lat-pill-size",
     "--lat-pill-tracking",
     "--muted-mark",
     "--pill-bg",

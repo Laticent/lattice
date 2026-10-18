@@ -104,7 +104,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ## The rollout, by horizon.
 
-| Workstream | Horizon 1 `Now` | Horizon 2 `Next` | Horizon 3 `Later` |
+| Workstream | Horizon 1 `{Now}` | Horizon 2 `{Next}` | Horizon 3 `{Later}` |
 | --- | --- | --- | --- |
 | Signal intake | Connector v1 | Two more sources | Streaming |
 | Scoring | Equal weights | Tuned weights | Learned weights |

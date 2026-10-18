@@ -95,6 +95,12 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/legal/statute-stack/statute-stack.gallery.md', 'statute-stack: a `{citation}` and a `{status}` pill on each jurisdiction card'],
   ['examples/cards-register-catalog.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
   ['examples/typography-categories.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
+  ['lib/components/chart/roadmap/roadmap.gallery.md', 'roadmap: a `{Q2 2026}` pill on each phase header'],
+  ['lib/components/chart/chart.gallery.md', 'the chart family gallery: its roadmap slide carries a `{date}` pill on each phase header'],
+  ['examples/chart-family-coverage.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/data-viz-gallery.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/read-article-chart-paints.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/venue-marker-boxes.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 
