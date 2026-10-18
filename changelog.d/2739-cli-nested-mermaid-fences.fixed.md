@@ -1,0 +1,1 @@
+- The CLI now draws a Mermaid fence written inside a blockquote or at the second level of a list (for example under `10. Tenth step`) in the PDF, the images and `--player`, as the Studio and the preview already did. Before, it printed the source, and every later diagram's `data-mmd-idx` shifted against the Studio's file.

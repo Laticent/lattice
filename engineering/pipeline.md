@@ -416,6 +416,12 @@ authoring ring is red there).
 the CLI sets. `docs/e2e/studio-player-consent.spec.ts` drives it on Chromium, Firefox and WebKit against a loopback server:
 the export, and the file before the reader consents, make no request.
 
+**The CLI draws a Mermaid fence in a quote or a list item.** `lib/core/mermaid-fences.js` (shared with the narrator) opens a
+fence only at 0-3 spaces, so `mermaid.bake.js` also asks `lib/plugins/mermaid/shared/nested-fences.js`, which reads the fence
+tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. The Studio's export flags a
+quoted or list-nested diagram as overflowing on some runs and the CLI's never does (`followups.d/2739-p11`), so the parity
+spec carries neither shape yet.
+
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
 Studio's own modules bundled into Chromium. That covers the packer.
