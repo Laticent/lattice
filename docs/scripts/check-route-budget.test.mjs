@@ -368,8 +368,8 @@ describe('the hashes an engine change moves', () => {
 	});
 
 	it('fixes esbuild engine chunk names, which have a hyphen and no leading dot', () => {
-		const src = Buffer.from('import"./chunk-3MJJUJ6G.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js"', 'utf8');
-		expect(withFixedHashes(src).toString()).toBe('import"./chunk-00000000.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js"');
+		const src = Buffer.from('import"./chunk-3MJJUJ6G.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js";import"./chunk-abcdefgh.js";import"./chunk-3MJJUJ6G.json";import"./chunk-3MJJUJ6G.js-x"', 'utf8');
+		expect(withFixedHashes(src).toString()).toBe('import"./chunk-00000000.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js";import"./chunk-abcdefgh.js";import"./chunk-3MJJUJ6G.json";import"./chunk-3MJJUJ6G.js-x"');
 	});
 
 	it('measures an engine whose chunk names changed at the same size', () => {

@@ -232,4 +232,4 @@ four are checked against the ledger's limits, where the noise can tip a metric s
 The Rollup pattern also matches an ordinary 8-character file name (`lib.polyfill.js`): the length
 is kept and base and PR go through the same code, so no comparison changes, only a tiny shift in
 absolute numbers. Zeros gzip a little smaller than random characters, so a PR that adds many new
-hash references is undercounted by a few bytes per hash; it never hides a change in the shipped bytes.
+hash references is undercounted by a few gzip bytes per hash; it never hides a change in the length of the shipped bytes.
