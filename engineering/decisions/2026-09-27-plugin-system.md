@@ -1802,7 +1802,7 @@ before the export (a row in the options panel) and after (the completion message
 deck's admission (`docs/src/lib/off-fences.ts`), never from a plugin's name. No action button yet: the deck's
 `plugins:` list only adds, and the Studio has no setting that narrows the defaults, so a deck that hits this is one
 under a host that narrowed them. The other Studio exports (PDF, PNG, PowerPoint, Marp bundle, print) carry no notice
-yet.
+yet: `followups.d/2758-p1-off-fence-notice-action-and-other-exports.md`.
 
 ## References
 
