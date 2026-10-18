@@ -27,7 +27,7 @@ on:
     # is a probe, not the nightly: it files nothing on the rolling issue and skips e2e-ai.
     inputs:
       spec:
-        description: 'Spec path(s) under docs/, space-separated (e.g. e2e/workspace-backup-size.spec.ts). Empty = the whole suite.'
+        description: 'Spec path(s) under docs/, space-separated (e.g. e2e/workspace-backup-size.spec.ts). Empty = the whole suite. Not e2e/player-host-parity.spec.ts: the `player-parity` job runs that on every dispatch, and this suite skips it.'
         required: false
         default: ''
 
@@ -553,13 +553,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TITLE='[studio-player-parity] Studio and CLI player files differ on main'
+          TITLE='[studio-player-parity] Studio and CLI player-file parity failing on main'
           REPORT="$GITHUB_WORKSPACE/studio-parity-report.txt"
           BODY="$GITHUB_WORKSPACE/studio-parity-body.md"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
           {
-            echo "The host-parity spec failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.parity.outcome }}). The Studio's Share → Webpage export and the CLI's \`--player\` no longer write the same bytes for one deck. The report names the first differing byte; a new runtime stamp on a slide is the usual cause (followups.d/2739-p9)."
+            echo "The host-parity spec failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.parity.outcome }}). The Studio's Share → Webpage export and the CLI's \`--player\` no longer write the same bytes for one deck, or an export step failed before the comparison. A \`first difference at byte\` line in the report means the bytes differ; a new runtime stamp on a slide is the usual cause (followups.d/2739-p9)."
             echo ""
             echo '```'
             grep -E '^\s+[0-9]+\) |✘|first difference|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ failed|[0-9]+ passed' \
@@ -596,7 +596,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -uo pipefail
-          TITLE='[studio-player-parity] Studio and CLI player files differ on main'
+          TITLE='[studio-player-parity] Studio and CLI player-file parity failing on main'
           REPORT="$GITHUB_WORKSPACE/studio-parity-report.txt"
           if [ ! -f "$REPORT" ] || ! grep -qE '[1-9][0-9]* passed' "$REPORT"; then
             echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
@@ -621,7 +621,7 @@ jobs:
       - name: Fail the job when the parity spec failed
         if: always() && steps.parity.outputs.failed == 'true'
         run: |
-          echo "::error::the Studio and CLI player files differ; the report is in this run's artifact."
+          echo "::error::the host-parity spec failed (a byte difference, or an export step died); the report is in this run's artifact."
           exit 1
 
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):

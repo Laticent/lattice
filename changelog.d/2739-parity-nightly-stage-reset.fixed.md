@@ -1,0 +1,1 @@
+- The Studio's Webpage export now draws Mermaid diagrams in a stage that inherits no text styles from the page, so a diagram label measures the same width as in the CLI's `--player` file on every machine. A CI runner with different fallback fonts had moved one label by 4.8 px.

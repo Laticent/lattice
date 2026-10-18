@@ -746,8 +746,8 @@ the issue step on `always() && (outputs.failed == 'true' || outcome != 'success'
 **A green step must not leave a green JOB.** The shape above keeps the run step green so the
 artifact and issue steps fire, and that also left the run reading green: three Guide specs sat red
 on `main` for days while every Studio E2E run passed, and a `spec:` dispatch files no issue, so
-nothing said red at all. `studio-e2e-nightly.yml`'s `e2e` and `security` jobs therefore end with
-one more step, `if: always() && steps.<id>.outputs.failed == 'true'` → `exit 1`, placed LAST so
+nothing said red at all. `studio-e2e-nightly.yml`'s `e2e`, `security` and `player-parity` jobs
+therefore end with one more step, `if: always() && steps.<id>.outputs.failed == 'true'` → `exit 1`, placed LAST so
 every report and issue step has already run (owner's pick, 2026-10-08).
 
 **And an alarm that cannot STAND ITSELF DOWN is a ratchet, not a signal.** Filing was only half
@@ -770,10 +770,10 @@ a mistake somebody already made:
   a recovered alarm from one somebody quietly triaged away.
 - **Prove the check actually RAN.** `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`,
   so with the secret unset Playwright skips every test, prints "N skipped" and **exits 0** —
-  outcome and output both say green while nothing was tested. All three `studio-e2e-nightly.yml` jobs
+  outcome and output both say green while nothing was tested. All four `studio-e2e-nightly.yml` jobs
   therefore require a non-zero passed count in the report before they will close anything.
 
-**Whether a green night licenses a CLOSE depends on the check, and only three of the ten jobs
+**Whether a green night licenses a CLOSE depends on the check, and only three of the eleven jobs
 qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is the part a first cut got wrong, in the direction that matters.
 
 - **Absolute** — scored against the commit in front of it, with nothing in the tree that could be
@@ -792,6 +792,9 @@ qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is
   (`code-packages`, `web-images`) on three engines with no retries against a live loopback
   server. Nothing can be blessed, but a leak can show on one night in three, so one clean night
   does not prove it gone. It comments and leaves the thread open.
+- **Absolute but deck-dependent** — `studio-e2e`'s `player-parity` job compares the Studio's and the
+  CLI's player files for three decks. Three matching decks do not prove a new runtime stamp is
+  absent from a fourth, so it comments and leaves the thread open.
 - **Differential** — `perf-nightly` compares head against a base ~24h old, so a regression landing
   on day 0 fires on night 1 (the base predates it) and comes back clean on night 2 (the base
   carries it too), on a still-broken site. `engine-perf` closes only a thread whose LATEST FIRING
