@@ -646,7 +646,7 @@ memory of the pyramid sizes beyond §11b; a bundled build; any of Veduta itself.
 The owner ruled that "medium-high" confidence in the design is not enough to build on, so the parts the design rests
 on were tested against the real code, one spike each, in scratch space (nothing in the repo was edited).
 
-**1. The rendered index can be derived for every real deck.** Over all 281 decks (280 examples plus the gallery),
+**1. The rendered index can be derived for every real deck.** (Checker: totality, monotonicity and round trip mostly hold by construction, since the per-part counts add up to the whole render; the checks that can fail are that sum and the fingerprint (h1 and h2 text plus `data-focus`), which is empty for 46 of 2,604 sections. The copy coordinate is exercised by 3 sections in one deck. The 115 ms is a Node measurement.) Over all 281 decks (280 examples plus the gallery),
 rendering through the Studio path (`appendAutoGlossary`, `render`, `splitForPreview`) and reading the outline:
 
 | Section class | Sections | What marks it in the HTML |
@@ -674,7 +674,13 @@ engine: stamp each section with `data-lattice-src` (source line), `data-lattice-
 corrects an earlier number:** `count.mjs` never ran the structural split (unbundled, its capacity map is null), so the
 "sections versus authored slides" counts understated the mismatch; 35 decks split into 521 extra pages.
 
-**2. The core's invariants hold, and it drives both existing implementations with a small change each.** A headless
+**2. The core's invariants hold, and it drives both existing implementations with a small change each.** (Checker's
+corrections: the nine properties first ran against a spike whose `settle` still learned a shortfall as the capacity,
+which one empty report could turn into a permanent cap of 0; the committed `docs/src/lib/veduta/core.ts` enforces the
+reported-capacity and stage-floor rules and has properties for both. "Multi equals `virtual-window.js`" is weaker than
+it reads: the cold comparison nearly restates the same arithmetic, and the step-by-step replay is faithful to
+`syncVirtual`'s cached path and `applyWindow` only, not to `mountAround`, its 1500 ms pin, the uncached path or fling
+timing. The 976-of-2,000 hole figure is a property of a synthetic walk in which 20% of frames jump, not a usage rate.) A headless
 core in plain JavaScript (`windowFor({ policy, stage, count, focus, viewports, overscan, budget, hysteresis,
 previous })` returning ranked intent, and `settle(intent, satisfied)`), inlinable with `.toString()`. Nine properties,
 300 runs and 1,000 runs on each of three seeds, every failing arm red: focus always in the stage set; mounted count
@@ -713,9 +719,16 @@ receives one slide's HTML by `postMessage`:
 | sandboxed iframe (opaque origin) | **0**, 17 ms | 37 to 41, 140 to 145 ms |
 | cross-site iframe (`127.0.0.1` against `localhost`) | **0**, 17 ms | 41 to 44, 102 to 125 ms |
 
-Per-capture time was about the same (255 to 295 ms Chromium, 150 to 200 ms WebKit). So on Chromium a sandboxed or
-cross-site capture frame removes the jank entirely at no throughput cost; on WebKit it roughly doubles the frames the
-page gets in the same time (112 to 126 against 56) but each capture still costs one 100 to 250 ms hitch. Design
+Per-capture time on Chromium was 10 to 15% longer in the frames (282 to 303 ms sandboxed, 260 to 265 cross-site, against
+249 to 260 ms in the page; a checker's three repeats and a 60-capture scroll agreed), and about the same on WebKit (150
+to 200 ms). A browser-level target count shows why the jank disappears: the sandboxed and the cross-site frame are each
+an out-of-process frame, the same-origin frame is not (the spike's own page-level probe wrongly read 0 for all of
+them). So on Chromium a sandboxed or cross-site capture frame removes the jank entirely for a 10 to 15% throughput
+cost; this depends on the browser giving the frame its own process, which Chromium can decline under process limits or
+memory pressure (untested; one Chromium build, 131); on WebKit it raises the frames the
+page gets in the same time about 1.75x (112 to 126 against 56 in the short run) but each capture still costs one 100 to
+250 ms hitch, with 42 to 47 frames over 50 ms per 24 captures in the frames against 39 to 40 in the page (wider than the
+37 to 44 first quoted), and in a 60-capture scroll as many as the page itself. Design
 consequence: capture runs in a sandboxed frame by default (it also holds untrusted markup in an opaque origin, the
 safer posture under HARD RULE #22), and the WebKit hitch is still handled by the idle-gated, single-flight baker.
 Tauri on macOS is WebKit, so the desktop app should prefer a native snapshot there (unverified).
@@ -735,7 +748,7 @@ same idea as `rev` for text); and `quiet` on `reportUnit` never publishes and ne
 rule makes a separate loop guard unnecessary. With it, the repo's `hub.test.ts` model passes at 5,000 runs, the new
 properties pass, every failing arm goes red with a shrunk counterexample (`clearOnAnyReport`, `eagerReports`,
 `loudQuiet`, `ignoreBasis`), and five "next" presses with a scrolled stage and a map publish exactly once each (the
-unfixed hub gave `3[keys,stage,stage]` on the fifth, a 5 to 4 to 5 flicker). The fix is applied on this branch
+unfixed hub gave `3[keys,stage,stage]` on the fifth, a 5 to 4 to 5 flicker). **The fix holds only if every view marks its own programmatic scrolls quiet:** a checker added a second scrolled view that does not, and focus agreement failed on a scroll followed by a key press (focus 2, wanted 3), so any loud programmatic scroll breaks agreement, not only a late reflow report. The fix is applied on this branch
 (`docs/src/lib/fuoco/hub.ts`, `scroll.test.ts`). Further limits the spike found: browsers do not say why a scroll
 happened, so a stage must infer its own scrolls from input events (a loud reflow report sent before a frame-lane stage
 catches up would still pull the focus back; a compare-and-set "I was reacting to focus X" field would close it and was
