@@ -78,6 +78,17 @@ also fails on a stale `dist/styles/`.
   know them, and one function (`MIN_RUN_BYTES`, `RUN_SPLIT`) tunes the cut. If E2 shows a real regrouping
   is worth it, that is a source change with its own review.
 
+### The minified twin (`dist/styles-min/`, added 2026-10-18 at the owner's request)
+
+Same cut, each module minified with the existing `minifyCss` rules (the Marp `@theme` / `@size` directive
+comments are kept; the banner and directives ride on the first file). Concatenated with nothing between the
+files they are `lattice-min.css` byte for byte, because esbuild minifies each piece to the same bytes it gives
+the whole bundle (checked on the real bundle; the build throws and a unit test fails if that ever stops
+being true). Same ids, file names and order as `dist/styles/`, so one manifest index addresses both. Five
+modules minify to nothing and stay as empty files so the indexes line up. Cost: 0.98 MB raw, 0.14 MB
+gzipped. The loader (E3) and the per-deck bundler (E5) should read this set; `dist/styles/` stays as the
+readable twin and the byte-identity reference for the unminified bundle.
+
 ### What the split buys today
 
 `node tools/style-baseline.mjs <deck> --modules` counts a module as needed when any one of its rules
@@ -159,8 +170,9 @@ Known limits, recorded rather than fixed (each belongs to a later step):
 - **Maker-checker** (HARD RULE #25): done, one checker (§5). The adversarial trio is for the loader's final shape (E3), not this structure-only step.
 - **Export sign-off.** E1 changes no export byte: `dist/lattice.css` and every other existing artifact are
   byte-identical (`css:check`). E5 will; that is where the owner inspects dark and light renders.
-- **Package size.** `dist/styles/` adds about 3.0 MB on disk to a tarball that already ships `dist/`
-  (`package.json` `files`; the packed size is unmeasured). The duplicate gzips well, but the owner should decide
+- **Package size.** `dist/styles/` adds about 2.7 MB raw on disk (0.8 MB gzipped) to a tarball that already ships `dist/`
+  (`package.json` `files`; about 0.8 MB gzipped, measured on the tarball-equivalent `tar czf`; the minified twin adds
+  about 0.14 MB). The duplicate gzips well, but the owner should decide
   whether it ships or is generated on install. It is in `dist/`, which is gitignored, so the repo does not grow.
 - **#19.** E1 is structure only and adds no performance claim, so no bench baseline moves. The first
   performance claim is E3's, with its own cold and warm numbers.

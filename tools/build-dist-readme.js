@@ -46,6 +46,13 @@ const silent = argv.includes('--silent') || check;
 // count while adding a single deliverable.
 const GROUPS = [
   {
+    prefix: 'styles-min/',
+    purpose:
+      'The minified twin of `styles/`: the same ids, file names and order, each module minified. '
+      + 'Concatenated with nothing between them the files are `lattice-min.css` byte for byte.',
+    consume: 'Read `manifest.json`, then fetch the module files you need in order. Module files keep `lattice-min.css`\'s `fonts/` URLs, so resolve them against `dist/`.',
+  },
+  {
     prefix: 'styles/',
     purpose:
       '`lattice.css` cut into ordered style modules plus `manifest.json` (id, file, UTF-8 bytes, SHA-256, source). '
