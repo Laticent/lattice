@@ -35,7 +35,9 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: platform-suites-${{ github.event.pull_request.number || github.ref }}
+  # Per pull request, so a new push replaces the old run; every other trigger gets its own group, so a manual dispatch
+  # never cancels the nightly.
+  group: platform-suites-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -58,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-        run: gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
+        run: gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
       - name: Plan
         id: plan
         env:

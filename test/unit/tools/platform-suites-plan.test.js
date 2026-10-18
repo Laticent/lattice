@@ -37,4 +37,7 @@ test('globs: * stays inside a segment, ** crosses them, dots are literal', () =>
   assert.ok(globToRegExp('lib/**/*.js').test('lib/c.js'));
   assert.ok(!globToRegExp('lib/*.js').test('lib/a/c.js'));
   assert.ok(!globToRegExp('a.js').test('axjs'));
+  assert.ok(globToRegExp('a/**/b').test('a/b') && globToRegExp('a/**/b').test('a/x/y/b'));
+  assert.ok(!globToRegExp('a/**/b').test('a/xb'), '**/ is whole directories');
+  assert.ok(globToRegExp('a/?.js').test('a/x.js') && !globToRegExp('a/?.js').test('a/xy.js') && !globToRegExp('a/?.js').test('a//.js'), '? is one non-slash character');
 });

@@ -15,3 +15,15 @@ test('the DOM cap keeps what the KaTeX step reported, and adds its own', async (
   assert.deepEqual(viaDom.report.missing.sort(), ['a.png', 'katex.min.css']);
   assert.equal(viaDom.report.images, viaString.report.images);
 });
+
+test('when both caps are supplied only the DOM one runs (no doubled report)', async () => {
+  const { assemblePlayer } = await import('../../../lib/export/player-core.mjs');
+  let stringCalled = false;
+  const r = await assemblePlayer({ docHtml: doc, source: '' }, {
+    ...base,
+    inlineAssets: (h) => { stringCalled = true; return { html: h, count: 5, missing: ['x'] }; },
+    inlineDocAssets: () => ({ count: 2, missing: [] }),
+  });
+  assert.equal(stringCalled, false);
+  assert.equal(r.report.images, 2);
+});

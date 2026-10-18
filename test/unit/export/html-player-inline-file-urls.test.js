@@ -185,7 +185,8 @@ test('whitespace around a url() address is allowed, as in CSS', () => {
     assert.equal(fileHits(r.html), 0, v);
   }
   assert.equal(dataHits(bake(`<div style="background:url(a ${photo})"></div>`).html), 0, 'inner whitespace makes a bad url');
-  assert.equal(dataHits(bake(`<div style="background:url('')"></div>`).html), 0, 'an empty string is not an address');
+  const empty = bake(`<div style="background:url(''), url(${photo})"></div>`);
+  assert.equal(dataHits(empty.html), 1, 'an empty string is not an address, and the real one beside it is baked');
 });
 
 test('a newline ends an unclosed CSS string, so a url on the next line is real (a browser loads it)', () => {
@@ -195,6 +196,47 @@ test('a newline ends an unclosed CSS string, so a url on the next line is real (
   // an escaped newline continues the string, so the url inside it stays text
   const cont = bake(`<div style='content:"a\\\nurl(${photo})"'></div>`);
   assert.equal(dataHits(cont.html), 0);
+});
+
+test('CSS escapes in an address are read: a browser loads these files, so they are baked', () => {
+  const lead = photo.slice(0, photo.lastIndexOf('/') + 1);
+  const cases = {
+    'escaped dot': `url(${lead}photo-wide\\.jpg)`,
+    'hex escape': `url("${lead}photo-wide\\2e jpg")`,
+    'hex escape, six digits, no space': `url(${lead}photo-wide\\00002ejpg)`,
+    'escaped letter in a quoted url': `url('${lead}photo\\-wide.jpg')`,
+  };
+  for (const [name, v] of Object.entries(cases)) {
+    const r = bake(`<div style="background:${v.replaceAll('"', '&quot;')}"></div>`);
+    assert.equal(dataHits(r.html), 1, name);
+    assert.equal(fileHits(r.html), 0, name);
+  }
+  assert.equal(dataHits(bake(`<div style="background:url(a\\) url(${photo})"></div>`).html), 0, 'an escaped paren does not end the url');
+});
+
+test('a no-break space is not CSS whitespace, so it stays inside an unquoted address', () => {
+  assert.equal(dataHits(bake(`<div style="background:url(${photo}\u00a0)"></div>`).html), 0);
+});
+
+test('an SVG <style> split by a child element is one stylesheet, as in a browser', () => {
+  const split = bake(`<svg><style>#d{background-image:url(${photo.slice(0, 30)}<g></g>${photo.slice(30)})}</style></svg>`);
+  assert.equal(dataHits(split.html), 1);
+  assert.equal(fileHits(split.html), 0);
+  assert.ok(split.doc.querySelector('style > g'), 'the child element survives');
+  const commented = bake(`<svg><style>/* <g></g> #d{background:url(${photo})} */</style></svg>`);
+  assert.equal(dataHits(commented.html), 0, 'a comment spanning the child hides the url');
+});
+
+test('a CRLF after a backslash is one newline, so the string continues and the url after it is real', () => {
+  const r = bake(`<div style="content:'a\\&#13;&#10;b'; background-image:url(${photo})"></div>`);
+  assert.equal(dataHits(r.html), 1);
+});
+
+test('an unclosed quoted url( does not rescan leading whitespace (it was quadratic)', () => {
+  const body = ' '.repeat(500000) + 'url("\n'.repeat(40000);
+  const t0 = Date.now();
+  bake(`<style>${body}</style>`);
+  assert.ok(Date.now() - t0 < 3000, `took ${Date.now() - t0} ms`);
 });
 
 test('an SVG <style> with element children keeps them (each text node is baked on its own)', () => {
@@ -219,6 +261,8 @@ const HOSTILE = {
   'repeated unclosed url( in a style attribute': `<div style="${'url(a'.repeat(190000)}"></div>`,
   'repeated <!--': '<!--'.repeat(250000),
   'repeated script escapes': '<script><!--<script>'.repeat(60000),
+  'repeated unclosed quoted url( after whitespace': `<style>${' '.repeat(500000)}${'url("\n'.repeat(40000)}</style>`,
+  'repeated escapes': `<div style="${'url(a\\\\'.repeat(120000)}"></div>`,
   'repeated --background-image strings': `<div style='${'--background-image:"url(\\"file://'.repeat(30000)}'></div>`,
 };
 for (const [name, html] of Object.entries(HOSTILE)) {

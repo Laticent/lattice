@@ -26,11 +26,17 @@ function globToRegExp(glob) {
 	for (let i = 0; i < glob.length; i++) {
 		const c = glob[i];
 		if (c === '*' && glob[i + 1] === '*') {
-			re += '.*';
-			i++;
-			if (glob[i + 1] === '/') i++;
+			// `**/` is zero or more whole directories (`a/**/b` matches `a/b` and `a/x/y/b`, not `a/xb`); a bare `**` is anything.
+			if (glob[i + 2] === '/') {
+				re += '(?:.*/)?';
+				i += 2;
+			} else {
+				re += '.*';
+				i++;
+			}
 		} else if (c === '*') re += '[^/]*';
-		else re += c.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+		else if (c === '?') re += '[^/]';
+		else re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
 	}
 	return new RegExp(`^${re}$`);
 }

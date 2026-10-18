@@ -8511,6 +8511,11 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
       errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
     }
+    for (const g of Array.isArray(s.paths) ? s.paths : []) {
+      if (typeof g === 'string' && !/[*?]/.test(g) && !fs.existsSync(path.join(root, g))) {
+        errors.push(`stale platform suite '${s.name}' — its \`paths\` names ${g}, which no longer exists, so a PR touching it would never select the suite. Update or remove it in .github/platform-suites.json.`);
+      }
+    }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
     }
