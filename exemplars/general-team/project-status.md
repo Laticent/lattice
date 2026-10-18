@@ -45,13 +45,13 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 1. 64%
    - Build complete
-   - target 60% by Jun `On plan`
+   - target 60% by Jun `{On plan}`
 2. $1.4M
    - Budget consumed
-   - of $2.2M · 63% spent `On plan`
+   - of $2.2M · 63% spent `{On plan}`
 3. 1
    - Workstreams at risk
-   - auth SDK dependency `At risk`
+   - auth SDK dependency `{At risk}`
 
 ---
 
@@ -80,7 +80,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ## Where each workstream stands against the September beta.
 
-| Workstream | Now `Jun` | Next `Jul` | Beta `Sep` |
+| Workstream | Now `{Jun}` | Next `{Jul}` | Beta `{Sep}` |
 | --- | --- | --- | --- |
 | Core UI | [x] Nav shell | [-] Feature screens | [ ] Polish pass |
 | Auth | [-] SDK integration | [ ] Biometric login | [ ] Hardening |
@@ -128,12 +128,12 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ## Beta-readiness checklist.
 
-- [x] Navigation and core screens `complete`
-- [x] Offline cache and sync `complete`
-- [-] Auth integration `blocked on vendor`
-- [-] Performance budget `1.9s, target 1.5s`
-- [ ] Beta channel and tester onboarding `Jul`
-- [ ] Store metadata and screenshots `Aug`
+- [x] Navigation and core screens `{complete}`
+- [x] Offline cache and sync `{complete}`
+- [-] Auth integration `{blocked on vendor}`
+- [-] Performance budget `{"1.9s, target 1.5s"}`
+- [ ] Beta channel and tester onboarding `{Jul}`
+- [ ] Store metadata and screenshots `{Aug}`
 
 ---
 

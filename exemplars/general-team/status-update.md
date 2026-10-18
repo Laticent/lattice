@@ -45,13 +45,13 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 1. 78%
    - Services migrated
-   - 11 of 14 · target 100% by 1 Jul `On plan`
+   - 11 of 14 · target 100% by 1 Jul `{On plan}`
 2. 142 ms
    - p99 checkout latency
-   - target 180 ms `On plan`
+   - target 180 ms `{On plan}`
 3. 0.02%
    - Checkout error rate
-   - target 0.1% `On plan`
+   - target 0.1% `{On plan}`
 
 ---
 
@@ -100,7 +100,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ## What remains, by workstream, before we flip the switch.
 
-| Workstream | This week `Wk of 8 Jun` | Next week `Wk of 15 Jun` | Cutover `Wk of 29 Jun` |
+| Workstream | This week `{Wk of 8 Jun}` | Next week `{Wk of 15 Jun}` | Cutover `{Wk of 29 Jun}` |
 | --- | --- | --- | --- |
 | Services | [x] Payments 3 of 4 | [-] Final service | [ ] Decommission |
 | Load testing | [-] Peak-load run | [ ] Sign-off | [ ] Standby |
@@ -129,12 +129,12 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ## Cutover readiness as of today.
 
-- [x] Shadow parity sustained above 99.9% `7 days`
-- [x] Runbook drafted and reviewed `Eng + SRE`
-- [-] Peak-load run `awaiting decision`
-- [-] Rollback procedure `dry-run pending`
-- [ ] Final payment service live `this week`
-- [ ] Executive go / no-go `25 Jun`
+- [x] Shadow parity sustained above 99.9% `{7 days}`
+- [x] Runbook drafted and reviewed `{Eng + SRE}`
+- [-] Peak-load run `{awaiting decision}`
+- [-] Rollback procedure `{dry-run pending}`
+- [ ] Final payment service live `{this week}`
+- [ ] Executive go / no-go `{25 Jun}`
 
 ---
 

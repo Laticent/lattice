@@ -120,6 +120,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/stage-console-split.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/struck-elevation.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/studio-present.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['kit/Sample-Deck.md', 'the kit sample deck: a kpi slide ends each tile row with a `{status}` pill'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

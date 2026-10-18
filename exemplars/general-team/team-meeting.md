@@ -72,12 +72,12 @@ Forty of our sixty components are migrated to the new design system. The remaini
 
 ## Design-system migration status by component group.
 
-- [x] Buttons and inputs `12 of 12`
-- [x] Navigation and layout `9 of 9`
-- [x] Cards and surfaces `8 of 8`
-- [-] Data tables `7 of 11`
-- [ ] Charts and viz `0 of 9`
-- [ ] Legacy modals `0 of 11`
+- [x] Buttons and inputs `{12 of 12}`
+- [x] Navigation and layout `{9 of 9}`
+- [x] Cards and surfaces `{8 of 8}`
+- [-] Data tables `{7 of 11}`
+- [ ] Charts and viz `{0 of 9}`
+- [ ] Legacy modals `{0 of 11}`
 
 ---
 
@@ -110,11 +110,11 @@ The growth team has asked design research to support a full onboarding redesign 
 
 ## Who owns what comes out of today.
 
-- Leads the icon migration `Sofia Marchetti`
+- Leads the icon migration `{Sofia Marchetti}`
   - Swaps the library and updates the component docs by end of month.
-- Pilots token-based handoff `Raj Patel`
+- Pilots token-based handoff `{Raj Patel}`
   - Runs one feature through the new handoff with engineering, reports back next week.
-- Owns the research decision `Elena Foss, Research Lead`
+- Owns the research decision `{"Elena Foss, Research Lead"}`
   - Brings a staffing recommendation for the onboarding ask to next sync.
 
 ---

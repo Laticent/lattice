@@ -93,7 +93,7 @@ We will infect mice with a lethal carbapenem-resistant strain and treat with the
 
 ## How the three aims unfold across the funding period.
 
-| Aim | Years 1–2 `Build` | Years 2–4 `Test` | Years 4–5 `Translate` |
+| Aim | Years 1–2 `{Build}` | Years 2–4 `{Test}` | Years 4–5 `{Translate}` |
 | --- | --- | --- | --- |
 | Aim 1 — Retargeting | [x] Domain library | [-] Full strain panel | [ ] Rapid-response protocol |
 | Aim 2 — Cocktails | [-] Three-receptor design | [ ] Escape assays | [ ] Stability formulation |
@@ -120,13 +120,13 @@ Our lab built the modular chassis; our co-investigator runs the regional phage b
 
 1. <48 h
    - Retarget time
-   - any clinical isolate `Aim 1`
+   - any clinical isolate `{Aim 1}`
 2. <1e-12
    - Escape frequency
-   - three-receptor cocktail `Aim 2`
+   - three-receptor cocktail `{Aim 2}`
 3. >80%
    - Murine survival
-   - vs 0% untreated `Aim 3`
+   - vs 0% untreated `{Aim 3}`
 
 ---
 

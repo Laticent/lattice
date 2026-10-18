@@ -36,13 +36,13 @@ Patient visits and new clinic signups both beat plan this quarter. The single nu
 
 1. 412K
    - Patient visits
-   - plan 380K · +8% `Ahead`
+   - plan 380K · +8% `{Ahead}`
 2. 1,840
    - Active clinics
-   - +260 net new `Ahead`
+   - +260 net new `{Ahead}`
 3. 88%
    - Provider retention
-   - target 93% · −5pp `At risk`
+   - target 93% · −5pp `{At risk}`
 
 ---
 
@@ -93,7 +93,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ## The Q3 plan attacks early-tenure churn on three fronts.
 
-| Workstream | Now `Q2` | Build `Q3` | Scale `Q4` |
+| Workstream | Now `{Q2}` | Build `{Q3}` | Scale `{Q4}` |
 | --- | --- | --- | --- |
 | Onboarding | [x] 14-day ramp | [-] Guided first week | [ ] Mentor pairing |
 | Earnings | [x] Weekly payout | [-] Month-one guarantee | [ ] Smart routing |
@@ -142,13 +142,13 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 1. 92%
    - Provider retention
-   - +4pp QoQ `Target` `Board`
+   - +4pp QoQ `{Target}` `{Board}`
 2. 2,100
    - Active clinics
-   - +260 net new `Target` `Growth`
+   - +260 net new `{Target}` `{Growth}`
 3. $35M
    - Quarterly revenue
-   - +13% QoQ `Target` `Finance`
+   - +13% QoQ `{Target}` `{Finance}`
 
 ---
 

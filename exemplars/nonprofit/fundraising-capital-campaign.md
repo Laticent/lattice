@@ -166,13 +166,13 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ## Giving levels — every one carries a permanent place in the building.
 
-- Founder's Circle `$1M+`
+- Founder's Circle `{$1M+}`
   - Names the clinic in your family's honor, engraved at the main entrance.
-- Cornerstone `$250K+`
+- Cornerstone `{$250K+}`
   - Names the dental suite or the pharmacy, with a plaque at its door.
-- Exam Room Patron `$100K+`
+- Exam Room Patron `{$100K+}`
   - Outfits and names one fully-equipped exam room for ten years of care.
-- Founding Donor `$5K+`
+- Founding Donor `{$5K+}`
   - Your name on the Eastside donor wall, with the neighbors who built this.
 
 ---
@@ -186,13 +186,13 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 1. $1M
    - Clinic naming gift
-   - 1 available · the building's name `Open` `Lead`
+   - 1 available · the building's name `{Open}` `{Lead}`
 2. $250K
    - Dental suite or pharmacy
-   - 2 of 2 available `Open` `Cornerstone`
+   - 2 of 2 available `{Open}` `{Cornerstone}`
 3. $100K
    - Named exam room
-   - 6 of 14 still open `Filling` `Patron`
+   - 6 of 14 still open `{Filling}` `{Patron}`
 
 ---
 

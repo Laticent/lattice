@@ -125,7 +125,7 @@ A separate cohort, sampled two years later with a different sequencing platform,
 
 ## Where this goes next, by research track.
 
-| Track | Now `2026` | Next `2027` | Later `2028` |
+| Track | Now `{2026}` | Next `{2027}` | Later `{2028}` |
 | --- | --- | --- | --- |
 | Prediction | [x] Keystone biomarker | [-] Clinical assay prototype | [ ] Point-of-care test |
 | Intervention | [x] In-vitro restoration | [-] Pre-treatment supplementation trial | [ ] Randomised clinical trial |

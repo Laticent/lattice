@@ -55,13 +55,13 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 1. $14.2M
    - ARR
-   - +52% YoY `YoY +52%` `All`
+   - +52% YoY `{YoY +52%}` `{All}`
 2. 11%
    - First-month churn
-   - down from 19% `YoY -8pp` `Growth`
+   - down from 19% `{YoY -8pp}` `{Growth}`
 3. 10,400
    - Paying teams
-   - +4,200 net new `YoY +68%` `All`
+   - +4,200 net new `{YoY +68%}` `{All}`
 
 ---
 
@@ -92,7 +92,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ## The one big push: turn the platform into an ecosystem.
 
-| Workstream | Now `Q3` | Next `Q4` | Later `H1 27` |
+| Workstream | Now `{Q3}` | Next `{Q4}` | Later `{H1 27}` |
 | --- | --- | --- | --- |
 | Integrations | [-] Public API beta | [ ] App marketplace | [ ] Partner program |
 | Enterprise | [x] SSO and audit log | [-] Advanced permissions | [ ] Procurement-ready |
