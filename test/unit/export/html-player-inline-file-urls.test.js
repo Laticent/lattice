@@ -1,12 +1,12 @@
-// `inlineFileUrls` bakes a local picture into the shared player file. The engine writes a plain
-// slide's `![bg]` as `style="background-image:url(&quot;file://…&quot;)"` (and a custom property as
-// `url(\&quot;file://…\&quot;)`), so the CSS pattern must read the entity and escaped quotes, not
-// only raw ones — else the shared file points at a path on the author's disk (followups #2727).
+// The player's local-file inliner bakes a local picture into the shared file, in three places only: an `<img src>`,
+// a `style` attribute and a `<style>` body. It works on the PARSED document (lib/export/html-player.js, `inlineDocAssets`),
+// so the parser decides what an attribute and a text node are, and these cases pin what that gives: every spelling of a
+// quote (the parser decodes them), nothing read from a position a browser ignores, and the engine's own background strings.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { inlineFileUrls } = require('../../../lib/export/html-player.js');
+const { bake } = require('./bake-helper.js');
 
 const photo = pathToFileURL(path.join(__dirname, '../../../lib/samples/photo-wide.jpg')).href;
 const forms = {
@@ -14,11 +14,15 @@ const forms = {
   'raw single quote': `<div style="background-image:url('${photo}')"></div>`,
   'no quote': `<div style="background-image:url(${photo})"></div>`,
   'entity quote (the engine section style)': `<div style="background-image:url(&quot;${photo}&quot;)"></div>`,
+  'decimal entity quote': `<div style="background-image:url(&#34;${photo}&#34;)"></div>`,
+  'hex entity quote': `<div style="background-image:url(&#x22;${photo}&#x22;)"></div>`,
+  'padded numeric entity single quote': `<div style="background-image:url(&#0039;${photo}&#0039;)"></div>`,
+  'upper-case hex entity': `<div style="background-image:url(&#X27;${photo}&#X27;)"></div>`,
 };
 
 for (const [name, html] of Object.entries(forms)) {
   test(`inlines a file:// url written as: ${name}`, () => {
-    const r = inlineFileUrls(html);
+    const r = bake(html);
     assert.equal(r.count, 1);
     assert.deepEqual(r.missing, []);
     assert.match(r.html, /data:image\/jpeg;base64,/);
@@ -26,139 +30,160 @@ for (const [name, html] of Object.entries(forms)) {
   });
 }
 
+test('mismatched quote kinds do not close the address', () => {
+  assert.equal(bake(`<div style="background:url(&quot;${photo}&#39;)"></div>`).count, 0);
+});
+
 test('a file:// url that names no file is reported, and left as written', () => {
-  const html = '<div style="background-image:url(&quot;file:///no/such/pic.jpg&quot;)"></div>';
-  const r = inlineFileUrls(html);
+  const r = bake('<div style="background-image:url(&quot;file:///no/such/pic.jpg&quot;)"></div>');
   assert.equal(r.count, 0);
   assert.equal(r.missing.length, 1);
-  assert.equal(r.html, html);
+  assert.match(r.html, /file:\/\/\/no\/such\/pic\.jpg/);
 });
 
 test("the engine's informational --background-image string is dropped, not inlined", () => {
-  const html = `<section style="--background-image:&quot;url(\\&quot;${photo}\\&quot;)&quot;;background-image:url(&quot;${photo}&quot;);background-size:cover;"></section>`;
-  const r = inlineFileUrls(html);
+  const r = bake(`<section style="--background-image:&quot;url(\\&quot;${photo}\\&quot;)&quot;;background-image:url(&quot;${photo}&quot;);background-size:cover;"></section>`);
   assert.equal(r.count, 1, 'one picture inlined, from the real declaration');
   assert.doesNotMatch(r.html, /--background-image/);
   assert.doesNotMatch(r.html, /file:\/\//);
   assert.equal((r.html.match(/data:image\/jpeg/g) || []).length, 1, 'one copy, not two');
+  assert.match(r.html, /background-size:\s*cover/);
 });
 
-// The serializer writes `"` as `&quot;` in TEXT too, so a CSS sample an author SHOWS looks exactly like
-// a style attribute to a pattern run over the whole document. Only CSS contexts are rewritten: the
-// checker's repro baked a named file's bytes into the shared player in place of the author's code sample.
+test('the --background-image string is dropped even when the path holds a semicolon, and only in a style value', () => {
+  const odd = pathToFileURL('/x/a;b.jpg').href;
+  const attr = bake(`<section style="--background-image:&quot;url(\\&quot;${odd}\\&quot;)&quot;;background-size:cover;"></section>`);
+  assert.equal(attr.doc.querySelector('section').getAttribute('style'), 'background-size:cover;');
+  const shown = `<pre>--background-image:"url(\\"${odd}\\")";color:red</pre>`;
+  assert.equal(bake(shown).html, shown, 'a code sample is not a declaration');
+});
+
+test('a malformed --background-image string is left alone, never allowed to eat the next declarations', () => {
+  const r = bake(`<section style="--background-image:&quot;url(\\&quot;${photo};color:red;background:url(&quot;x&quot;);--x:&quot;\\&quot;)&quot;;"></section>`);
+  assert.match(r.html, /color:red/);
+});
+
 test('a url(file://…) shown in text, inline code or a code fence is left as written', () => {
   const shown = `url(&quot;${photo}&quot;)`;
-  const html = `<p>Write <code>background-image:${shown}</code> like this.</p><pre><code class="language-css">.x{background-image:${shown}}\n.y{--background-image:&quot;url(\\&quot;${photo}\\&quot;)&quot;;color:red}</code></pre><p>${shown}</p>`;
-  const r = inlineFileUrls(html);
+  const html = `<p>Write <code>background-image:${shown}</code> like this.</p><pre><code class="language-css">.x{background-image:${shown}}</code></pre><p>${shown}</p>`;
+  const r = bake(html);
   assert.equal(r.count, 0);
-  assert.equal(r.html, html);
+  assert.doesNotMatch(r.html, /data:image/);
 });
 
 test('a <style> body is CSS and is inlined, but a <script> or <textarea> body is not', () => {
   const css = `.x{background-image:url(&quot;${photo}&quot;)}`;
-  const r = inlineFileUrls(`<style>.x{background-image:url("${photo}")}</style><script>var s = 'url("${photo}")';</script><textarea>${css}</textarea>`);
+  const r = bake(`<style>.x{background-image:url("${photo}")}</style><script>var s = 'url("${photo}")';</script><textarea>${css}</textarea>`);
   assert.equal(r.count, 1);
   assert.equal((r.html.match(/data:image\/jpeg/g) || []).length, 1, 'only the <style> body');
   assert.ok(r.html.includes(`<script>var s = 'url("${photo}")';</script>`), 'the <script> body is untouched');
 });
 
-test('the --background-image string is dropped even when the path holds a semicolon, and only in a style value', () => {
-  const odd = pathToFileURL('/x/a;b.jpg').href;
-  const attr = `<section style="--background-image:&quot;url(\\&quot;${odd}\\&quot;)&quot;;background-size:cover;"></section>`;
-  assert.equal(inlineFileUrls(attr).html, '<section style="background-size:cover;"></section>');
-  const shown = `<pre>--background-image:&quot;url(\\&quot;${odd}\\&quot;)&quot;;color:red</pre>`;
-  assert.equal(inlineFileUrls(shown).html, shown, 'a code sample is not a declaration');
+test('a <style> body in <svg>, <math> and after an unclosed <svg> is CSS too', () => {
+  assert.equal(bake(`<svg><style>.a{background:url("${photo}")}</style></svg>`).count, 1);
+  assert.equal(bake(`<math><style>.a{background:url("${photo}")}</style></math>`).count, 1);
+  assert.equal(bake(`<svg width="10"><p>x</p></div><style>.a{background:url("${photo}")}</style>`).count, 1);
 });
 
-// Found by the second independent checker on the scanner itself.
-test("a style='…' written inside ANOTHER attribute's value (an image's alt text) is not a style attribute", () => {
-  const html = `<img alt="CSS sample style='background:url(${photo})'" src="data:image/png;base64,AAAA">`;
-  const r = inlineFileUrls(html);
-  assert.equal(r.count, 0);
-  assert.equal(r.html, html);
+test('<template> content is a CSS context: a style attribute and an img inside it are baked', () => {
+  assert.equal(bake(`<template><div style="background:url(&quot;${photo}&quot;)"></div></template>`).count, 1);
+  assert.equal(bake(`<template><img src="${photo}"></template>`).count, 1);
 });
 
 test('a style attribute still reads when other attributes come first, are boolean, or are unquoted', () => {
-  const r = inlineFileUrls(`<div hidden data-x=1 class="a" style="background-image:url(&quot;${photo}&quot;)"></div>`);
+  const r = bake(`<div hidden data-x=1 class="a" style="background-image:url(&quot;${photo}&quot;)"></div>`);
   assert.equal(r.count, 1);
-  assert.match(r.html, /<div hidden data-x=1 class="a" style="background-image:url\(&quot;data:image\/jpeg/);
+  assert.match(r.html, /<div hidden="" data-x="1" class="a" style="background-image:url\(&quot;data:image\/jpeg/);
 });
 
-test('a </stylex inside a <style> body does not end it early', () => {
-  const r = inlineFileUrls(`<style>.a{content:"</stylex"} .b{background:url(${photo})}</style>`);
-  assert.equal(r.count, 1);
-  assert.doesNotMatch(r.html, /file:\/\//);
+test("a style='…' written inside ANOTHER attribute's value (an image's alt text) is not a style attribute", () => {
+  const r = bake(`<img alt="CSS sample style='background:url(${photo})'" src="data:image/png;base64,AAAA">`);
+  assert.equal(r.count, 0);
 });
 
-test('a malformed --background-image string is left alone, never allowed to eat the next declarations', () => {
-  const html = `<section style="--background-image:&quot;url(\\&quot;${photo};color:red;background:url(&quot;x&quot;);--x:&quot;\\&quot;)&quot;;"></section>`;
-  assert.match(inlineFileUrls(html).html, /color:red/);
-});
-
-// Found by the fresh-eyes checker: the same "only read a real attribute" rule, for <img src> and for text a
-// browser never parses as a tag.
 test('<img>: only the src attribute is read, never data-src or a src typed inside another value', () => {
-  for (const html of [
-    `<img data-src="${photo}" alt="a">`,
-    `<img alt="y src='${photo}'" src="pic.svg">`,
-    `<img title='src="${photo}"' src="pic.svg">`,
-  ]) {
-    const r = inlineFileUrls(html);
-    assert.equal(r.count, 0, html);
-    assert.equal(r.html, html);
+  for (const html of [`<img data-src="${photo}" alt="a">`, `<img alt="y src='${photo}'" src="pic.svg">`, `<img title='src="${photo}"' src="pic.svg">`]) {
+    assert.equal(bake(html).count, 0, html);
   }
-  const real = inlineFileUrls(`<img class="x" src="${photo}" alt="a">`);
+  const real = bake(`<img class="x" src="${photo}" alt="a">`);
   assert.equal(real.count, 1);
   assert.match(real.html, /<img class="x" src="data:image\/jpeg;base64,/);
 });
 
-test('a style attribute inside an end tag, a bogus comment, or a non-markup body is never read', () => {
+test('on a duplicate attribute the first wins, as in a browser', () => {
+  assert.equal(bake(`<img src="data:," src="${photo}">`).count, 0);
+  assert.equal(bake(`<img src="${photo}" src="data:,">`).count, 1);
+  assert.equal(bake(`<div style="color:red" style="background:url('${photo}')"></div>`).count, 0);
+});
+
+test('positions a browser ignores are not read', () => {
   const css = `style='background:url(${photo})'`;
-  for (const html of [
-    `</div x="<p ${css}>">`,
-    `<?x <p ${css}>>`,
-    `<!x <p ${css}>>`,
-    `<!DOCTYPE <p ${css}>>`,
-    `<![CDATA[ <p ${css}> ]]>`,
-    `<xmp><p ${css}></p></xmp>`,
-    `<noembed><p ${css}></p></noembed>`,
-    `<iframe><p ${css}></p></iframe>`,
-    `<noframes><p ${css}></p></noframes>`,
-  ]) {
-    const r = inlineFileUrls(html);
-    assert.equal(r.count, 0, html);
-    assert.equal(r.html, html);
-  }
+  const cases = {
+    'attribute named <src': `<img <src="${photo}">`,
+    'attribute named =src': `<img =src="${photo}">`,
+    'img inside a script nest': `<script><!--<script></script><img src="${photo}"></script>`,
+    'img after <plaintext>': `<plaintext></plaintext><img src="${photo}">`,
+    'img inside a comment': `<!-- <img src="${photo}"> -->`,
+    'img inside a comment ended by --!>': `<!-- x <img src="${photo}"> --!>`,
+    'img inside an unterminated comment': `<!-- x <img src="${photo}">`,
+    'NUL in the tag name': `<img\u0000 src="${photo}">`,
+    'style inside an end tag': `</div x="<p ${css}>">`,
+    'style inside a bogus comment': `<?x <p ${css}>>`,
+    'style inside a doctype': `<!DOCTYPE <p ${css}>>`,
+    'style inside CDATA in HTML': `<![CDATA[ <p ${css}> ]]>`,
+    'style inside <xmp>': `<xmp><p ${css}></p></xmp>`,
+    'style inside <iframe>': `<iframe><p ${css}></p></iframe>`,
+  };
+  for (const [name, html] of Object.entries(cases)) assert.equal(bake(html).count, 0, name);
 });
 
-test('a hostile style value holding thousands of url(file:// starts does not stall the export', () => {
-  const html = `<p style="${'url(file://'.repeat(20000)}"></p>`;
-  const started = Date.now();
-  inlineFileUrls(html);
-  assert.ok(Date.now() - started < 3000, `took ${Date.now() - started} ms`);
+test('positions a browser reads are read: an img after --!>, after <a "x>, and after a closed script', () => {
+  assert.equal(bake(`<!-- x --!><img src="${photo}">`).count, 1);
+  assert.equal(bake(`<a "x><img src="${photo}">`).count, 1);
+  assert.equal(bake(`<script>var a = 1;</script><img src="${photo}">`).count, 1);
+  assert.equal(bake(`<!-->${'<img src="' + photo + '">'}`).count, 1);
 });
 
-// Fifth fresh pass: comments are skipped the way a browser skips them, in linear time.
-test('a comment hides a style or img from the scanner; an unterminated one hides the rest of the document', () => {
-  const css = `style='background:url(${photo})'`;
-  for (const html of [`<!-- <p ${css}> -->`, `<!-- <img src="${photo}"> -->`, `<!-- x <img src="${photo}">`, `<!-- <p ${css}>`]) {
-    const r = inlineFileUrls(html);
-    assert.equal(r.count, 0, html);
-    assert.equal(r.html, html);
-  }
+test('a non-ASCII letter whose lowercase is longer (İ) does not shift the readers', () => {
+  assert.equal(bake(`<p style="content:'İİİİ';background:url(${photo})"></p>`).count, 1);
+  assert.equal(bake(`<h1>${'İ'.repeat(40)}</h1><style>h1{}</style><img src="${photo}">`).count, 1);
 });
 
-test('an abruptly closed empty comment (<!--> and <!--->) ends there, so what follows is read', () => {
-  for (const empty of ['<!-->', '<!--->']) {
-    const r = inlineFileUrls(`${empty}<img src="${photo}">`);
-    assert.equal(r.count, 1, empty);
-    assert.match(r.html, /^<!--(?:-)?><img src="data:image\/jpeg/);
-  }
+test('CSS the way a browser tokenizes it: a url( in a comment or a string is text, and a nested url( is one bad url', () => {
+  const css = (v) => `<div style="${v}"></div>`;
+  assert.equal(bake(css(`/* background:url(${photo}) */color:red`)).count, 0, 'comment');
+  assert.equal(bake(css(`content:'url(${photo})';color:red`)).count, 0, 'single-quoted string');
+  assert.equal(bake(css(`content:&quot;url(${photo})&quot;;color:red`)).count, 0, 'double-quoted string');
+  assert.equal(bake(css(`content:'it\\'s url(${photo})'`)).count, 0, 'string with an escaped quote');
+  assert.equal(bake(css(`background:url(${photo}/url(${photo}))`)).count, 0, 'nest: one bad url, the inner address is not read');
+  assert.equal(bake(css(`background:url(${photo}) /* c */, url(${photo})`)).count, 1, 'real ones around a comment');
+  assert.equal(bake(css(`/* unterminated url(${photo})`)).count, 0, 'unterminated comment');
+  assert.equal(bake(css(`myurl(${photo})`)).count, 0, 'not the url function');
+  assert.equal(bake(css(`BACKGROUND:URL(${photo})`)).count, 1, 'upper-case function');
+  assert.equal(bake(`<style>/* url("${photo}") */ .a{background:url("${photo}")}</style>`).count, 1, 'a <style> body: comment skipped, rule read');
 });
 
-test('a deck of 170,000 unterminated <!-- openers is scanned in linear time', () => {
-  const html = `<div>${'<!--x>'.repeat(170000)}`;
-  const started = Date.now();
-  inlineFileUrls(html);
-  assert.ok(Date.now() - started < 2000, `took ${Date.now() - started} ms`);
+test('text between elements is untouched when nothing is baked', () => {
+  const doc = '<p a="1" b="2">x &amp; y</p><!-- c --><br><i>z</i> <b>w</b>';
+  assert.equal(bake(doc).html, doc);
 });
+
+// A hostile deck must not stall the export. The parse is jsdom's, which the assembler pays anyway; the readers add
+// a pass over the attribute and style text. Each of these took seconds to minutes with the regex tokenizer.
+const HOSTILE = {
+  'unclosed double quotes': '<a "'.repeat(250000),
+  'unclosed single-quoted values': "<a x='".repeat(150000),
+  'repeated url(file:// in a <style> body': `<style>${'url(file://'.repeat(95000)}</style>`,
+  'repeated url(file:// in a style attribute': `<div style="${'url(file://'.repeat(95000)}"></div>`,
+  'repeated unclosed url( in a style attribute': `<div style="${'url(a'.repeat(190000)}"></div>`,
+  'repeated <!--': '<!--'.repeat(250000),
+  'repeated script escapes': '<script><!--<script>'.repeat(60000),
+  'repeated --background-image strings': `<div style='${'--background-image:"url(\\"file://'.repeat(30000)}'></div>`,
+};
+for (const [name, html] of Object.entries(HOSTILE)) {
+  test(`1 MB hostile deck under 3 s, parse included: ${name}`, () => {
+    const t0 = Date.now();
+    bake(html, { baseUrl: 'file:///tmp/deck/' });
+    assert.ok(Date.now() - t0 < 3000, `${name} took ${Date.now() - t0} ms`);
+  });
+}

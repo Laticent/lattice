@@ -1354,7 +1354,7 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 // else — an uncovered face keeps its relative url, still broken, exactly as before. An
 // earlier cut of this change also REBASED those onto the sheet's own directory; that is
 // withdrawn, because it could not help the case it named AND it fed
-// `html-player.js`'s `inlineFileUrls` an arbitrary local-file read that got baked into
+// `html-player.js`'s `inlineDocAssets` an arbitrary local-file read that got baked into
 // the shipped `--player` HTML. The full argument is in the function's docblock.
 //
 // DROPPING is also the fast answer, measured before it was chosen: making all 37 resolve

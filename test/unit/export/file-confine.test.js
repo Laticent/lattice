@@ -8,7 +8,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { createFileConfiner } = require('../../../lib/export/file-confine.js');
-const { inlineFileUrls, buildPlayerHtml } = require('../../../lib/export/html-player.js');
+const { buildPlayerHtml } = require('../../../lib/export/html-player.js');
+const { bake } = require('./bake-helper.js');
 
 const photo = path.join(__dirname, '../../../lib/samples/photo-wide.jpg');
 const SECRET = Buffer.from('not-a-picture-but-secret-bytes');
@@ -54,7 +55,7 @@ test('the player inliner does not read a symlink that leaves the deck, and draws
     const linked = pathToFileURL(path.join(deck, 'linked.jpg')).href;
     const typed = pathToFileURL(path.join(outside, 'secret.jpg')).href;
     const html = `<img src="${ok}"><img src="${linked}"><div style="background-image:url(&quot;${typed}&quot;)"></div>`;
-    const r = inlineFileUrls(html, { confine });
+    const r = bake(html, { confine });
     assert.equal(r.count, 1, 'only the file inside the deck is baked in');
     assert.equal(r.missing.length, 2);
     assert.match(r.missing[0], /outside the deck folder/);
@@ -63,7 +64,7 @@ test('the player inliner does not read a symlink that leaves the deck, and draws
     assert.doesNotMatch(r.html, /file:\/\//, 'no local path rides into the shared file');
     assert.match(r.html, /image\/svg\+xml,%3Csvg/, 'the stand-in takes its place');
     // without a confiner the old behavior holds (a host that has its own gate)
-    assert.equal(inlineFileUrls(html).count, 3);
+    assert.equal(bake(html).count, 3);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

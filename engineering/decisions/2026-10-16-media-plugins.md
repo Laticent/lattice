@@ -80,7 +80,7 @@ section background. `collage` reads `- ![Alt](path) \`hero, top, 3:2\`` list ite
 |---|---|---|---|---|
 | Embedded | `data:image/png;base64,…` | passes through | renders | renders |
 | Relative path | `pic.jpg` | `resolveAssetUrl` (`bg-image.js:73`) against `baseUrl` | against the host's base | CLI lifts `![bg]` to `file://`; the player inlines `file://` as `data:` (`html-player.js:70-112`) |
-| Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineFileUrls` |
+| Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineDocAssets` |
 | Web | `https://…` | `blockWebImages` (`remote-ref.js:527`) | a drawn hatch until the reader allows it | CLI: blocked unless `--allow-remote`; Studio player: fetched on opt-in, capped (`inline-url-media.mjs:132`) |
 | Sample art | `sample:<name>` | `sampleName` (`remote-ref.js:67`) + `samplesUrl` | the site's staged copy | `file://` into `lib/samples/` |
 | Library | `asset:<name>` | `assetName` (`remote-ref.js:82`) + the host's `assetUrls` map | `blob:` URL | `data:` URI (`media-urls.ts:160`); **CLI: unsupported** |
@@ -958,3 +958,16 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   PR: lowercase is ASCII-only, a `<style>` body is CSS wherever it sits, and `<plaintext>` and a double-escaped `<script>` end
   where a browser ends them. `player-inliner-oracle.test.js` diffs the reader against parse5 on a seeded corpus (it fails on the
   first cut), which is the harness the inversion asked for.
+- 2026-10-18: **the linear tokenizer was replaced the same day by the DOM route.** The owner's standing rules (no tech debt, no
+  dismissed alerts, no settling) ruled out keeping a hand-written HTML tokenizer: a second CodeQL alert (`--!>`, then the
+  `<script>` escape scan) showed the model it has to keep in step with the HTML spec has no end. The inliner is now
+  `inlineDocAssets(doc, { baseUrl, confine })` in `html-player.js`: it walks the parsed document with a tree walker and bakes
+  an `<img src>`, each `style` attribute and each `<style>` body (and `<template>` content), reading plain, entity-decoded CSS.
+  `player-core.mjs` gains an optional `caps.inlineDocAssets(doc)` (called after the parse and the script removal) beside the
+  string `caps.inlineAssets` the browser host keeps. There is no second parse: the assembler parsed the document anyway. Measured
+  on the 3.1 MB baseline-gallery document: about 100–140 ms for the inliner pass (the string tokenizer took about 60 ms), so the
+  DOM route costs roughly 50–80 ms per export and deletes about 300 lines. The six decks' players are byte-identical to the
+  tokenizer's output. `rewriteFileUrls` and `replacePlainUrls` share one forward-pass CSS reader (`mapCssUrls`) that skips comments and strings and
+  treats a nested `url(` as one bad url, as a browser does (the regex forms were quadratic on hostile CSS, and read a `url(` inside
+  a comment). With it, `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md` has nothing left and is deleted. One thing the DOM route inherits and the tokenizer did not hide: jsdom overflows its stack on about 140,000
+  unclosed nested elements, in the assembler's own parse, with or without the inliner.
