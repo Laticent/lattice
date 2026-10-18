@@ -222,11 +222,14 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
 }
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine {
   grid-auto-flow: row;
-  grid-template-columns: 1fr;
   grid-auto-columns: auto;
   max-width: none;
   width: 100%;
   height: 100%;
+  /* Dot, date pill and title columns are the SPINE's, so every entry's title starts at the
+   * same x whatever its date reads ("Q1" or "Sept 2026"); each entry subgrids onto them. */
+  grid-template-columns: auto auto 1fr;
+  column-gap: var(--sp-md);
   row-gap: var(--sp-md);
   padding: var(--sp-xs) 0;
   align-content: space-evenly;
@@ -250,8 +253,9 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
 }
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item {
   display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: var(--sp-md);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: var(--sp-2xs);
   align-items: start;
   padding: 0;
 }
@@ -283,4 +287,22 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title { padding-top: var(--sp-2xs); }
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-body { max-width: none; }
+/* The date pill and the title share one row on the rail: pill, then title beside it, body
+ * and status beneath. Stacked in their own rows they cost a pill-height of block space per
+ * entry, and four entries with a two-line headline and a lead clipped a portrait slide by
+ * 174px (check:chart-fit; the fourth row never painted). Sharing the row buys that height
+ * back without touching type size or the budget. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-pill {
+  grid-column: 2;
+  grid-row: 1;
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-title {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+  padding-block: 0;
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > :is(.chart-status, .timeline-body) {
+  grid-column: 2 / -1;
+}
 
