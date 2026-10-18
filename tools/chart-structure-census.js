@@ -152,10 +152,14 @@ const SCRAPE = (DECL, CHROME_CLASSES) => {
           const nss = cs.vectorEffect === 'non-scaling-stroke';
           physical.add(painted ? +((nss ? sw : sw * scale).toFixed(2)) : 0);
           if (painted) {
-            nonScaling = nonScaling === null ? nss : nonScaling && nss;
             const stroke = channels(cs.stroke);
             const isKo = stroke !== null && canvas !== null && stroke === canvas;
             knockout = knockout === null ? isKo : knockout && isKo;
+            // Judged per ELEMENT: a separator follows what it separates, so it is not an
+            // outline and must not count against the class. heatmap-cell mixes canvas-colored
+            // separators (measured cells) with dotted outlines (empty cells); folding the two
+            // into one class-level flag read the whole class as an unpinned outline.
+            if (!isKo) nonScaling = nonScaling === null ? nss : nonScaling && nss;
           }
           radii.add(num(e.getAttribute('rx')) ?? 0);
         } else {

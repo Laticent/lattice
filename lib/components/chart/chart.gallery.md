@@ -2,7 +2,7 @@
 
 # chart
 
-`24 components`
+`26 components`
 
 Chart — series-substance data visualizations (SVG kernel).
 
@@ -36,6 +36,28 @@ Chart — series-substance data visualizations (SVG kernel).
 - Gross renewal `2.8M` `2.6M`
 - Services revenue `1.1M` `1.8M`
 - Partner-sourced ARR `0.9M` `1.4M`
+
+---
+
+<!-- _class: ep-curve -->
+<!-- _footer: "ep-curve · chart survey" -->
+
+`[{Return period}, {Loss}]`
+
+## A 1-in-100 year costs $410M a single event, $480M a year.
+
+- OEP
+  - `{10, $120M}`
+  - `{25, $190M}`
+  - `{50, $300M}`
+  - `{100, $410M}`
+  - `{250, $560M}`
+- AEP
+  - `{10, $150M}`
+  - `{25, $230M}`
+  - `{50, $350M}`
+  - `{100, $480M}`
+  - `{250, $650M}`
 
 ---
 
@@ -109,6 +131,20 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 | Feb 2026 | 100 | 58 | 44 | 41 |
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
+
+---
+
+<!-- _class: histogram -->
+<!-- _footer: "histogram · chart survey" -->
+
+`[{Annual loss, $1M..$250M, log}, {Share of years}]`
+
+## Most years stay under $10M; one in thirty tops $100M.
+
+- `$1M..$10M` `55%`
+- `$10M..$50M` `30%`
+- `$50M..$100M` `12%`
+- `$100M..$250M` `3%`
 
 ---
 
