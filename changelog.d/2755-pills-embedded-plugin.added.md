@@ -3,3 +3,4 @@
 - Plugins: a plugin manifest can declare an `untagged` inline kind (the bare record `{…}`); only the embedded plugin may claim it, and only one may.
 - Docs: the Plugins page gains a Pills page (a demo with three live examples, and the Learn guide) and the site navigation lists it. The hub now says there are eight plugins and that pills are always on.
 - Build gate `checkHandRolledPills`: no stylesheet outside `lib/plugins/pills/` may read a `--pill-*` or `--lat-pill-*` token, counted per file against a measured allowlist that only shrinks (a stale entry fails too).
+- Pill interface property `--lat-pill-cap`: how much of the surrounding text a pill may fill (0.85 by default). A component whose pill sits beside a caption sets it to 1 so the pill matches the caption instead of undercutting it.

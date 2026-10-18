@@ -45,7 +45,9 @@
    * the rule after this one. `:sm` / `:lg` still multiply whatever the context gave, so
    * `:lg` in a footer is a larger footer pill, not a heading pill. */
   --lat-pill-base:max(var(--pill-fs), 0.5em);
-  font-size:calc(min(0.85em, var(--lat-pill-base)) * var(--lat-pill-scale, 1));
+  /* `--lat-pill-cap` is how much of the surrounding text a pill may fill, 0.85 by default. A
+   * component whose pill sits beside a caption it should match, not undercut, sets it to 1. */
+  font-size:calc(min(var(--lat-pill-cap, 0.85) * 1em, var(--lat-pill-base)) * var(--lat-pill-scale, 1));
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   /* Vertical padding goes through two variables so the centering branches below can

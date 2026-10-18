@@ -113,12 +113,10 @@ section.logo-wall > .cell-stage > ul > li > .logo-mark-svg > svg {
  * Authored as a nested list under the image:
  *   - ![Northwind](northwind.svg)
  *     - Northwind          ← name (plain text)
- *     - `Anchor partner`   ← pill (backticked → <code>)
+ *     - `{Anchor partner}` ← pill (the pills plugin's notation)
  * Both optional, in any combination. Substance is prose, so this is pure
  * structure + CSS — no transform. The nested <ul> is a centered column; a plain
- * <li> is the name, a <code> inside an <li> is the pill chip. The universal
- * trailing-pill rule (base.modifiers.css) only reaches a FIRST-level `li > code`,
- * so the nested pill here is ours to place — centered, not right-anchored. */
+ * <li> is the name, a `{…}` pill inside an <li> is the chip, drawn by the pills plugin. */
 section.logo-wall > .cell-stage > ul > li > ul {
   list-style: none;
   padding: 0;
@@ -140,24 +138,12 @@ section.logo-wall > .cell-stage > ul > li > ul > li {
   text-align: center;
 }
 
-/* The pill — a metadata chip below the name. Reuses the universal `--pill-*`
- * geometry/tokens (base.tokens.css) so it matches every other pill in the deck,
- * but centered under the mark rather than pushed to a row's right edge. */
-section.logo-wall > .cell-stage > ul > li > ul > li > code {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  font-family: var(--pill-font);
-  font-size: var(--pill-fs);
-  font-weight: var(--pill-weight);
-  letter-spacing: var(--pill-tracking);
-  color: var(--pill-fg, var(--text-muted));
-  background: var(--pill-bg, transparent);
-  border: 1px solid var(--pill-border, var(--muted-mark));
-  border-radius: var(--pill-radius);
-  padding: var(--pill-pad-y) var(--pill-pad-x);
-  white-space: nowrap;
+/* The pill — a metadata chip below the name, drawn by the pills plugin. The wall reads as one
+ * quiet texture, so the chip takes the caption's muted ink and no fill. */
+section.logo-wall > .cell-stage > ul > li > ul > li > .lat-pill {
+  --lat-pill-ink: var(--text-muted);
+  --lat-pill-bg: transparent;
+  --lat-pill-cap: 1;   /* as large as the name above it, not 0.85 of it */
 }
 
 /* Dense — more marks, smaller cells, tighter gaps. */

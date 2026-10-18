@@ -75,7 +75,12 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'cards-stack: a `{status}` pill on each card title'],
   ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill'],
   ['examples/prose-density.md', 'cards-grid: the word and line budgets, each a pill on its card title'],
-  ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill'],
+  ['lib/components/inventory/logo-wall/logo-wall.gallery.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['lib/components/inventory/inventory.gallery.md', 'the inventory family gallery: its logo-wall slides carry a `{tier}` pill under each mark'],
+  ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['examples/logo-wall-equal-weight.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
+  ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 
 /** The decks the `inline-code: literal` register turns the grammar off for. */

@@ -1,2 +1,3 @@
 - **Breaking:** `cards-stack` draws its title-row pill with the pills plugin. Write the pill as `` `{shipped}` ``; a bare trailing `` `shipped` `` is now plain inline code. The first-party gallery and examples are migrated.
 - **Breaking:** `cards-grid` draws its title-row pill with the pills plugin, the same way. A card whose title is only a pill now keeps the pill at the left of the row; before, the universal trailing-code rule pushed it right.
+- **Breaking:** `logo-wall` draws the pill under each mark with the pills plugin. Write the pill as `` `{Series B}` ``; a bare code-only caption line is now plain inline code. The pill keeps its muted ink and no fill, and its size, through two new pill interface properties.

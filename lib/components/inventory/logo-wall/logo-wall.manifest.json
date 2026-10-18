@@ -51,12 +51,12 @@
     "caption": {
       "selector": "ul > li > ul > li",
       "required": false,
-      "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark."
+      "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark."
     }
   },
-  "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](sample:logo-acme.svg)\n  - First brand\n  - `Series B`\n- ![Second brand](sample:logo-globex.svg)\n  - Second brand\n- ![Third brand](sample:logo-vantage.svg)\n- ![Fourth brand](sample:logo-umbra.svg)\n- ![Fifth brand](sample:logo-meridian.svg)\n- ![Sixth brand](sample:logo-helios.svg)\n",
+  "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](sample:logo-acme.svg)\n  - First brand\n  - `{Series B}`\n- ![Second brand](sample:logo-globex.svg)\n  - Second brand\n- ![Third brand](sample:logo-vantage.svg)\n- ![Fourth brand](sample:logo-umbra.svg)\n- ![Fifth brand](sample:logo-meridian.svg)\n- ![Sixth brand](sample:logo-helios.svg)\n",
   "anatomyBlock": "logo-wall",
-  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](sample:logo-acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](sample:logo-globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](sample:logo-vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](sample:logo-umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](sample:logo-meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](sample:logo-helios.svg)\n  - Helios\n  - `Public`\n- ![Northwind](sample:logo-northwind.svg)\n  - Northwind\n  - `Anchor`\n- ![Cobalt](sample:logo-cobalt.svg)\n  - Cobalt\n  - `Series A`\n",
+  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](sample:logo-acme.svg)\n  - Acme\n  - `{Series B}`\n- ![Globex](sample:logo-globex.svg)\n  - Globex\n  - `{Enterprise}`\n- ![Vantage](sample:logo-vantage.svg)\n  - Vantage\n  - `{Public}`\n- ![Umbra](sample:logo-umbra.svg)\n  - Umbra\n  - `{Series C}`\n- ![Meridian](sample:logo-meridian.svg)\n  - Meridian\n  - `{Seed}`\n- ![Helios](sample:logo-helios.svg)\n  - Helios\n  - `{Public}`\n- ![Northwind](sample:logo-northwind.svg)\n  - Northwind\n  - `{Anchor}`\n- ![Cobalt](sample:logo-cobalt.svg)\n  - Cobalt\n  - `{Series A}`\n",
   "whenToUse": [
     {
       "title": "The proof is the logos",
@@ -125,8 +125,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Writing a caption's pill as plain nested text instead of backticks.",
-      "fix": "Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill."
+      "mistake": "Writing a caption's pill as plain nested text instead of `{…}` in backticks.",
+      "fix": "Under a mark's nested caption list, plain text becomes the NAME line; only a `{…}` token in backticks (e.g. `` `{Series B}` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill."
     },
     {
       "mistake": "Placing the eyebrow paragraph after the headline instead of before it.",

@@ -620,7 +620,7 @@
       "",
       "- ![First brand](sample:logo-acme.svg)",
       "  - First brand",
-      "  - `Series B`",
+      "  - `{Series B}`",
       "- ![Second brand](sample:logo-globex.svg)",
       "  - Second brand",
       "- ![Third brand](sample:logo-vantage.svg)",

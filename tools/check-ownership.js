@@ -2906,7 +2906,6 @@ const SANCTIONED_PILL_READS = [
   { file: 'lib/components/inventory/glossary/glossary.styles.css', count: 7, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
   { file: 'lib/components/inventory/inventory/inventory.styles.css', count: 2, why: "matches a band's height to the pill's (`--pill-fs`, `--pill-pad-y`); reads the plugin's `--lat-pill-h` instead" },
   { file: 'lib/components/inventory/list-tabular/list-tabular.styles.css', count: 4, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
-  { file: 'lib/components/inventory/logo-wall/logo-wall.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
   { file: 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css', count: 7, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
   { file: 'lib/components/legal/regulatory-update/regulatory-update.styles.css', count: 17, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
   { file: 'lib/components/legal/statute-stack/statute-stack.styles.css', count: 18, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },

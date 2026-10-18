@@ -1871,28 +1871,28 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 - ![Acme](sample:logo-acme.svg)
   - Acme
-  - `API`
+  - `{API}`
 - ![Globex](sample:logo-globex.svg)
   - Globex
-  - `CSV`
+  - `{CSV}`
 - ![Vantage](sample:logo-vantage.svg)
   - Vantage
-  - `API`
+  - `{API}`
 - ![Umbra](sample:logo-umbra.svg)
   - Umbra
-  - `Webhook`
+  - `{Webhook}`
 - ![Meridian](sample:logo-meridian.svg)
   - Meridian
-  - `CSV`
+  - `{CSV}`
 - ![Helios](sample:logo-helios.svg)
   - Helios
-  - `API`
+  - `{API}`
 - ![Northwind](sample:logo-northwind.svg)
   - Northwind
-  - `Manual`
+  - `{Manual}`
 - ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
-  - `API`
+  - `{API}`
 
 ---
 
