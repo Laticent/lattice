@@ -543,7 +543,7 @@ Marp output; I will render the demo deck in dark and light mode and send both fo
 - **The URL guard.** Built (2026-10-18): `lib/core/url-scheme.js` guards `_backgroundImage` and the deck `logo:`. The record's
   URL fields reuse it.
 - **A cold-start writer test.** Done (2026-10-18), in `2026-10-17-meta-syntax-bakeoff/results.md`: 20 of 36 cold-written
-  slides used the old form, none used a record. It argues for a soft cut; D3 stands until the owner changes it (§13.4).
+  slides used the old form, none used a record. D3 (hard cut, with the lint warning and fix) stands: the result says the authoring skill must teach the record before step 6, not that the cut should soften (§13.4).
 - **The `key: |` block grammar** inside the comment. Reuse the line grammar the bake-off measured (`key: value`, a JSON
   string when quoted, `|` for blocks); a second grammar next to Segno is the cost, and a measurement of note lengths in
   the corpus should decide whether blocks are needed at all.
@@ -649,7 +649,7 @@ The red team, an inversion and a checker ran again, on the comment-carrier and p
    lint, and the Playground is where that shows. A soft cut would keep the engine reading the old form with a diagnostic
    until GA. **The owner chose the hard cut, with a linter warning and a fix.** The risk the inversion named stays
    recorded: the warning is a gate on the CLI and in the Studio, not on a pasted reply, and a cold-start writer test
-   (§10) would size it. If that test shows most models emit the old form, the soft cut is a one-commit reversal.
+   (§10) would size it. If that test shows most models emit the old form, the soft cut is a one-commit reversal. **Resolved 2026-10-18:** the test ran (20 of 36 slides in the old form, none in the record), and the owner re-confirmed the hard cut with the lint warning and fix. The project is not GA, so there is no installed base to protect.
 2. **Automatic or opt-in plugin registers** (§10), which can wait for the first third-party plugin.
 
 ## 14. Appendix: the reader census, file by file

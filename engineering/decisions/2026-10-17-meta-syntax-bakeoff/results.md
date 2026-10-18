@@ -104,14 +104,12 @@ of the old form, with names the engine does not read.
 
 - **No writer reached for the record form.** Every one of the 36 slides carried its settings in an HTML comment. Nothing
   here tests a model that was shown the new form; it shows what is written when the model is not told.
-- **Under the hard cut (D3), 20 of 36 cold-written slides lose their settings silently**, because the engine would stop
-  reading the form they used. The lint warning catches them in the CLI and the Studio; it does not catch a reply pasted
-  into a file. Two of the three writers (Sonnet and Haiku) mostly wrote keys the engine does not read today, so their decks
-  are already wrong now and the cut changes little for them. The one that matters for the cut is the strongest model, which
-  wrote the Marp form on every slide.
-- **For the owner:** D3 stays as decided. This is the datum the note (§13.4) said would size the cost, and it points at a
-  soft cut: keep reading the old form at step 6 and warn, and cut only once the tools that teach writers (the authoring
-  skill, `design/skill.md`) emit the record. That choice is the owner's; nothing here changes the plan.
+- **What it means for D3 (hard cut, settled by the owner, 2026-10-17; the project is not GA).** A model told only to
+  "make a Lattice deck" does not know the record form, so it writes what it knows: the Marp comment (Opus, every slide)
+  or comment keys the engine does not read today (Sonnet and Haiku, 16 of 24 slides). That is the case the lint warning
+  and its autofix exist for (`legacy-directive-comment`, `lint:deck --fix`, the Studio quick fix), and it is why the
+  authoring skill (`design/skill.md`) must emit records before step 6. For the two weaker writers the cut changes nothing,
+  because their keys were never read. This result changes no decision.
 
 Limits, stated: one run per model (three decks, 36 slides); the settings were named in the record's words ("Layout:",
 "Footer:"), which probably pushed the two weaker writers toward invented keys, so their "other" count is a ceiling on that
