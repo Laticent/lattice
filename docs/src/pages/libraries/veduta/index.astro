@@ -1,0 +1,237 @@
+---
+// Veduta — a standalone showcase driven by the REAL core (docs/src/lib/veduta, the
+// `@laticent/veduta` workspace). A list of N units (up to 100,000) with a stage and a map beside
+// it. The page owns a tiny connector: it mounts exactly the units the core asks for, and shows
+// what was asked. Nothing here draws a slide; a unit is a numbered card, because the point is that
+// the core knows nothing about what a unit is. Reached at /libraries/veduta/; its Learn page is
+// /libraries/veduta/learn/ (src/content/catalog/), which carries the code and the guarantees.
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Veduta — only what you see exists</title>
+		<link rel="icon" href="/veduta-mark-min.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #f6f3ec; --stage: #efebf2; --ink: #241a2b; --muted: #6a5d73; --line: #ddd5e3;
+				--accent: #6b3a8c; --accent-ink: #fff; --warm: #8a9a00; --panel: #fdfcfa; --soft: #ece1f4;
+				--shadow: 0 1px 2px rgba(36,26,43,.06), 0 8px 24px rgba(36,26,43,.07);
+				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", Menlo, monospace;
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #121012; --stage: #181519; --ink: #ece4f3; --muted: #a396ad; --line: #2c242f;
+					--accent: #c9a2e8; --accent-ink: #1d1226; --warm: #d9e75a; --panel: #161317; --soft: #2a1f33;
+					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					color-scheme: dark;
+				}
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
+				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1040px; margin: 0 auto; }
+			.brand { display: flex; align-items: center; gap: 13px; margin-top: 14px; }
+			.brand img { width: 46px; height: 46px; }
+			h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 72ch; margin: 10px 0 0; }
+			.controls { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-top: 22px; }
+			.controls label { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+			.controls select, .controls input[type=range] { accent-color: var(--accent); }
+			.controls select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; }
+			.btns { display: inline-flex; gap: 6px; }
+			.btns button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+			.btns button:hover { border-color: var(--accent); color: var(--accent); }
+			.stagebox { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; background: var(--stage);
+				border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: clamp(12px, 2.4vw, 20px); }
+			.stage { position: relative; min-height: 300px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+				display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; }
+			.stage .num { font-family: var(--serif); font-size: clamp(54px, 12vw, 110px); font-weight: 600; color: var(--accent); line-height: 1; }
+			.stage .cap { font-size: 13px; color: var(--muted); }
+			.stage .nb { position: absolute; top: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+			.stage .nb.l { left: 10px; } .stage .nb.r { right: 10px; }
+			.map { position: relative; height: 300px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+			.map .spacer { position: relative; }
+			.tile { position: absolute; left: 6px; right: 6px; height: 30px; border-radius: 7px; display: flex; align-items: center;
+				padding: 0 10px; font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
+			.tile.live { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.tile.wireframe { background: repeating-linear-gradient(90deg, var(--soft) 0 6px, transparent 6px 12px); }
+			.tile.cur { outline: 2px solid var(--warm); outline-offset: 1px; }
+			.stats { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+			.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+			.stat b { display: block; font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); }
+			.stat span { font-size: 12px; color: var(--muted); }
+			.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin-top: 16px; }
+			@media (max-width: 640px) { .stagebox { grid-template-columns: 1fr; } .stage { min-height: 200px; } .map { height: 220px; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="veduta" />
+			<div class="brand">
+				<img src="/veduta-mark.svg" alt="" />
+				<h1>Veduta</h1>
+			</div>
+			<p class="promise">A long list stays fast, because only what the reader can see exists.</p>
+			<p class="sub">
+				A list of units, a stage and a map beside it. The real <code>@laticent/veduta</code> core decides which units
+				to mount and at what quality; this page mounts exactly those and nothing else. Drag the size to 100,000: the
+				cost does not move.
+			</p>
+
+			<div class="controls">
+				<label>Units <input id="n" type="range" min="2" max="5" step="0.01" value="3.1" /> <b id="nv"></b></label>
+				<label>Policy
+					<select id="policy">
+						<option value="pip">Picture-in-picture</option>
+						<option value="multi">Multi</option>
+						<option value="single">Single</option>
+					</select>
+				</label>
+				<label>Live tiles <input id="live" type="range" min="0" max="12" step="1" value="4" /> <b id="lv"></b></label>
+				<span class="btns">
+					<button id="first">First</button><button id="prev">Prev</button><button id="next">Next</button><button id="last">Last</button>
+				</span>
+			</div>
+
+			<div class="stagebox">
+				<div class="stage" id="stage" tabindex="0" aria-label="Stage"></div>
+				<div class="map" id="map" aria-label="Map"><div class="spacer" id="spacer"></div></div>
+			</div>
+
+			<div class="stats">
+				<div class="stat"><b id="s-mounted">0</b><span>units mounted, of <span id="s-total"></span></span></div>
+				<div class="stat"><b id="s-live">0</b><span>live (budget <span id="s-budget"></span>)</span></div>
+				<div class="stat"><b id="s-wire">0</b><span>wireframes</span></div>
+				<div class="stat"><b id="s-us">0</b><span>µs per call (median of the last 50)</span></div>
+			</div>
+			<p class="note">
+				Arrow keys, Home and End move the focus when the stage is focused; click a tile to jump. The map is a real
+				virtual list: its tiles are created and removed as the core's answer changes, so the document holds a few
+				dozen elements whether there are 120 units or 100,000.
+			</p>
+		</div>
+
+		<script>
+			import { createVeduta } from '../../../lib/veduta/core';
+
+			const $ = (id) => document.getElementById(id);
+			const PITCH = 36;
+			const veduta = createVeduta();
+			let count = 1260;
+			let focus = 0;
+			const tiles = new Map(); // unit -> element
+			const times = [];
+
+			const spacer = $('spacer');
+			const map = $('map');
+			const stage = $('stage');
+
+			const nFromSlider = () => Math.round(10 ** parseFloat($('n').value));
+
+			function frame() {
+				const policy = $('policy').value;
+				const live = parseInt($('live').value, 10);
+				$('lv').textContent = String(live);
+				$('s-budget').textContent = String(live);
+				const t0 = performance.now();
+				const intent = veduta.windowFor({
+					policy,
+					stage: 'paged',
+					count,
+					focus,
+					viewports: policy === 'single' ? {} : { map: { y: map.scrollTop, h: map.clientHeight, top: 0, pitch: PITCH, cols: 1 } },
+					budget: { live, stageTier: 'live', mapTile: 'live' },
+				});
+				times.push((performance.now() - t0) * 1000);
+				if (times.length > 50) times.shift();
+
+				// ── connector: mount what was asked, unmount what was not ──
+				const want = new Set(intent.mapUnits);
+				for (const [i, el] of tiles) {
+					if (!want.has(i)) { el.remove(); tiles.delete(i); }
+				}
+				let nLive = 0, nWire = 0;
+				for (const i of intent.mapUnits) {
+					const tier = intent.tiers.map.get(i);
+					let el = tiles.get(i);
+					if (!el) {
+						el = document.createElement('div');
+						el.className = 'tile';
+						el.style.top = i * PITCH + 3 + 'px';
+						el.dataset.i = String(i);
+						el.textContent = String(i + 1);
+						spacer.appendChild(el);
+						tiles.set(i, el);
+					}
+					el.classList.toggle('live', tier === 'live');
+					el.classList.toggle('wireframe', tier === 'wireframe');
+					el.classList.toggle('cur', i === focus);
+					if (tier === 'live') nLive++; else if (tier === 'wireframe') nWire++;
+				}
+				for (const i of intent.stageUnits) if (intent.tiers.stage.get(i) === 'live') nLive++;
+
+				stage.innerHTML = `<span class="nb l">${focus > 0 ? focus : ''}</span><span class="nb r">${focus < count - 1 ? focus + 2 : ''}</span><div class="num">${focus + 1}</div><div class="cap">of ${count.toLocaleString()} · stage mounts ${intent.stageUnits.length}</div>`;
+
+				veduta.settle({ stage: intent.stageUnits, map: intent.mapUnits, live: nLive });
+
+				$('s-total').textContent = count.toLocaleString();
+				$('s-mounted').textContent = String(intent.stageUnits.length + tiles.size);
+				$('s-live').textContent = String(nLive);
+				$('s-wire').textContent = String(nWire);
+				const sorted = [...times].sort((a, b) => a - b);
+				$('s-us').textContent = sorted[Math.floor(sorted.length / 2)].toFixed(1);
+			}
+
+			function resize() {
+				count = nFromSlider();
+				$('nv').textContent = count.toLocaleString();
+				spacer.style.height = count * PITCH + 'px';
+				if (focus > count - 1) focus = count - 1;
+				for (const el of tiles.values()) el.remove();
+				tiles.clear();
+				frame();
+			}
+
+			function go(i, reveal = true) {
+				focus = Math.max(0, Math.min(count - 1, i));
+				if (reveal) {
+					const top = focus * PITCH;
+					if (top < map.scrollTop || top + PITCH > map.scrollTop + map.clientHeight) map.scrollTop = top - map.clientHeight / 2;
+				}
+				frame();
+			}
+
+			map.addEventListener('scroll', () => frame(), { passive: true });
+			map.addEventListener('click', (e) => {
+				const t = e.target.closest('.tile');
+				if (t) go(parseInt(t.dataset.i, 10), false);
+			});
+			$('n').addEventListener('input', resize);
+			$('policy').addEventListener('change', () => { resize(); });
+			$('live').addEventListener('input', frame);
+			$('first').addEventListener('click', () => go(0));
+			$('prev').addEventListener('click', () => go(focus - 1));
+			$('next').addEventListener('click', () => go(focus + 1));
+			$('last').addEventListener('click', () => go(count - 1));
+			stage.addEventListener('keydown', (e) => {
+				const k = e.key;
+				if (k === 'ArrowRight' || k === 'ArrowDown') go(focus + 1);
+				else if (k === 'ArrowLeft' || k === 'ArrowUp') go(focus - 1);
+				else if (k === 'Home') go(0);
+				else if (k === 'End') go(count - 1);
+				else return;
+				e.preventDefault();
+			});
+			resize();
+		</script>
+	</body>
+</html>

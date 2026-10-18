@@ -46,7 +46,7 @@ export interface Band {
 export interface Budget {
 	/** Page-global live budget, in cost units. */
 	live: number;
-	/** How many posters may be asked for. */
+	/** How many posters may be asked for. Zero by default: a host that has no poster tier never sees one. */
 	poster: number;
 	/** How many wireframes may be asked for. */
 	wireframe: number;
@@ -128,7 +128,7 @@ export function windowFor(args: WindowArgs, unsafe?: Unsafe): Intent {
 	const os = args.overscan || {};
 	const osStage = { need: 1, mount: 3, keep: 5, ...(os.stage || {}) };
 	const osMap = { need: 1, mount: 2, keep: 4, ...(os.map || {}) };
-	const budget = { live: 4, poster: Infinity, wireframe: Infinity, mapTile: 'wireframe' as Tier, stageTier: 'live' as Tier, ...(args.budget || {}), cost: { stage: 1, map: 1, ...((args.budget?.cost) || {}) } };
+	const budget = { live: 4, poster: 0, wireframe: Infinity, mapTile: 'wireframe' as Tier, stageTier: 'live' as Tier, ...(args.budget || {}), cost: { stage: 1, map: 1, ...((args.budget?.cost) || {}) } };
 	const hyst = args.hysteresis !== false && !u.noHysteresis;
 	const prev = args.previous || null;
 	const caps: Caps = { stage: Infinity, map: Infinity, live: Infinity, ...((prev?.caps) || {}) };
