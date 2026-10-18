@@ -129,6 +129,33 @@ function gridSlide(chart, r) {
 // three state words are not unique). The shared walker folds those two in; the corpus gains it then.
 const GRID_CHARTS = ['heatmap'];
 
+/**
+ * matrix-grid slides: the first table's cells are `{done}` / `{partial}` / `{todo}` records, bracket markers
+ * (`[x]`), or text, with comments, padding and a second table, a quoted table or a raw table ahead. The state words
+ * are not unique, so these are compared by which CELLS became state cells (matrix-grid arm of the oracle), in order.
+ */
+function matrixSlide(r) {
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  const state = () => pick(['done', 'partial', 'todo', 'DONE', 'Partial']);
+  const cell = () => pick([
+    () => `\`{${state()}}\``, () => `\`{${state()}}\` <!-- c -->`, () => `<!-- c --> \`{${state()}}\``,
+    () => ` \`{${state()}}\` `, () => `x \`{${state()}}\``, () => `\`{${state()}}\` x`, () => `\`{${state()}}\` \`1\``,
+    () => '[x]', () => '[-]', () => '[ ]', () => 'text', () => '`{value=3}`',
+  ])();
+  const table = () => `| | A | B |\n|---|---|---|\n${Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => `| ${LABELS[i]} | ${cell()} | ${cell()} |`).join('\n')}`;
+  const first = table();
+  const wrap = pick([
+    (t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`,
+    (t) => `Intro <table><tr><td>x</td></tr></table> text\n\n${t}`, (t) => `${t}\n\n${table()}`, (t) => `> aside\n\n${t}`,
+  ]);
+  return { chart: 'matrix-grid', body: wrap(first) };
+}
+
+/** `count` seeded matrix-grid slides. */
+function matrixCorpus(count = 60) {
+  return Array.from({ length: count }, (_, i) => ({ ...matrixSlide(rng((i + 1) * 104729)), name: `matrix-grid #${i + 1}` }));
+}
+
 /** The deck source for a corpus slide. */
 const deckOf = (s) => `---\nmarp: true\n---\n\n<!-- _class: ${s.chart} -->\n\n## A\n\n${s.body}\n`;
 
@@ -145,4 +172,4 @@ function corpus(count = 30) {
   return out;
 }
 
-module.exports = { corpus, deckOf, rng, LIST_CHARTS, GRID_CHARTS, SHAPE_NAMES, WRAP_NAMES };
+module.exports = { corpus, matrixCorpus, deckOf, rng, LIST_CHARTS, GRID_CHARTS, SHAPE_NAMES, WRAP_NAMES };

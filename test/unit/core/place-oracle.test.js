@@ -16,7 +16,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { READERS, fencedTexts } = require('./place-readers.js');
-const { corpus } = require('./place-corpus.js');
+const { corpus, matrixCorpus, deckOf } = require('./place-corpus.js');
 
 /**
  * Every other reader must agree with the engine, slide by slide. The browser's DOM walk and Compose (the vitest
@@ -42,5 +42,60 @@ describe('place oracle: every reader calls the same spans the record', () => {
   test('the engine claims records on most slides, or the comparison proves nothing', () => {
     const claiming = corpus(N).filter((s) => READERS.engine(s).length > 0).length;
     assert.ok(claiming > N * 5, `only ${claiming} of ${N * 13} slides have a record the engine claims`);
+  });
+});
+
+// matrix-grid decides a sole `{done}` cell in a pass of its own (the engine's `matrixGridCells`, the browser's
+// `applyToDom`), and its three state words are not unique, so it is compared by WHICH cells became state cells,
+// in order, rather than by record text. Both passes ask the same decision with the same place counting.
+describe('place oracle: matrix-grid cells become state cells in the engine and in the browser alike', () => {
+  const { JSDOM } = require('jsdom');
+  const MarkdownIt = require('markdown-it');
+  const matrixGridCells = require('../../../lib/core/matrix-grid-cells.js');
+  const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+  const engine = require('../../../lib/engine');
+  const md = new MarkdownIt({ html: true });
+  const STATES = /class="cell cell-(?:filled|outlined|empty)"/g; // the cell element, not the stylesheet that names the classes
+  const cells = (slide) => {
+    const html = engine.render(deckOf(slide), {}).html;
+    const body = html.slice(html.indexOf('<section'), html.indexOf('</section>'));
+    const engineCells = [...body.matchAll(STATES)].map((m) => m[0]);
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><section class="matrix-grid">${md.render(`## A\n\n${slide.body}`)}</section></body></html>`);
+    matrixGridCells.applyToDom(dom.window.document, { isRecord: isOwnedRecordElement });
+    const domCells = [...dom.window.document.body.innerHTML.matchAll(STATES)].map((m) => m[0]);
+    return { engineCells, domCells };
+  };
+  const slides = matrixCorpus(60);
+  let sawState = 0;
+  for (const slide of slides) {
+    test(slide.name, () => {
+      const { engineCells, domCells } = cells(slide);
+      sawState += engineCells.length;
+      assert.deepEqual(domCells, engineCells, `the browser's state cells differ from the engine's on ${slide.name}\n${slide.body}`);
+    });
+  }
+  test('the corpus makes state cells, or the comparison proves nothing', () => {
+    assert.ok(sawState > 60, `only ${sawState} state cells across ${slides.length} slides`);
+  });
+});
+
+// Lint's `chart-row-record-unread` warns that a record is not read and the row loses its value. It classifies
+// WHY with a token loop of its own (not yet on the shared tracker), so this guards its dangerous direction: it
+// must never warn about a record the engine claims and draws.
+describe('place oracle: lint never calls a record the engine claims "unread"', () => {
+  const { lintText } = require('../../../lib/authoring/lint.js');
+  let warned = 0;
+  for (const slide of corpus(Number(process.env.ORACLE_N) || 30)) {
+    test(slide.name, () => {
+      const claimed = new Set(READERS.engine(slide));
+      for (const f of lintText(deckOf(slide)).filter((x) => x.rule === 'chart-row-record-unread')) {
+        warned++;
+        const text = /`(\{[^`]*\})`/.exec(f.message)?.[1];
+        assert.ok(!claimed.has(text), `lint calls ${text} unread, but the engine claims it on ${slide.name}: ${f.message}\n${slide.body}`);
+      }
+    });
+  }
+  test('lint warned about some records, or the guard proves nothing', () => {
+    assert.ok(warned > 20, `only ${warned} unread-record warnings across the corpus`);
   });
 });

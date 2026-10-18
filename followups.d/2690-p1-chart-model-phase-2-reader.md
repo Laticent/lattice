@@ -136,6 +136,8 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                place once from tokens (the engine's pill pass now asks it, byte-identical on 806 repo slides and 1,585 generated decks),
                and the narrator's bridge moved to `chart-source-bridge.js`, which asks it over the engine-configured parser (49 to 0;
                the double-backtick and quoted-table narration residuals close with it; markdown-it is external in the read-along
-               bundle, as in the authoring bundle). Still to do: lint's `renderedInlineSpans` and `findChartRowRecords` onto the tracker,
-               and the engine's `matrixGridCells` and the browser's `applyToDom`, which decide a sole `{done}` cell without the shared
-               decision (a seventh and eighth measurer the oracle cannot see yet).
+               bundle, as in the authoring bundle). Lint's `renderedInlineSpans` (163 to 0) and the engine's `matrixGridCells` and the browser's `applyToDom`
+               (which decided a sole `{done}` cell without the shared decision: a seventh and eighth measurer) now ask the shared
+               decision with the shared counting; a matrix-grid arm of the oracle compares which cells become state cells, engine
+               against browser. Still to do: lint's `findChartRowRecords` (the unread-record warnings) still counts depth, quote and
+               lists in a token loop of its own.
