@@ -52,6 +52,8 @@ const SHAPES = {
   twoSpans: (c) => `${c.label} \`${c.n}\` \`${c.v}\``,
   valueThenNote: (c) => `${c.label} \`${c.v}\` grew \`{+${c.n}}\``,
   continuation: (c) => `${c.label}\n  \`${c.v}\``,
+  // The record sits in the item's SECOND paragraph (the first holds no code): not the row's value, the engine says.
+  laterParagraph: (c) => `${c.label}\n\n  \`${c.v}\``,
   lazy: (c) => `${c.label}\n\`${c.v}\``,
   hardBreak: (c) => `${c.label}  \n\`${c.v}\``,
   escaped: (c) => `${c.label} \`\\${c.v}\``,

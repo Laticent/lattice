@@ -21,9 +21,14 @@ const { corpus, matrixCorpus, deckOf } = require('./place-corpus.js');
 /**
  * Every other reader must agree with the engine, slide by slide. The browser's DOM walk and Compose (the vitest
  * arm in docs/src/lib/compose/inline-objects.test.ts) are the readers that will always need their own adapter:
- * neither can run markdown-it, so they are held to the engine's answer here. The narrator and lint read the same
- * tokens through the shared place tracker (chart-places.js), so each agrees by construction, and the test is what
- * keeps the mapping from a token back to its source line honest.
+ * neither can run markdown-it, so they are held to the engine's answer here. The narrator and lint run the same
+ * tracker (chart-places.js) over the bare block parser's tokens, so they agree with the engine WHERE THE ENGINE'S
+ * TOKENS ARE THE PARSER'S. They are not the same everywhere: about twenty core rules rewrite the engine's tokens
+ * before the pill pass runs (`strip_heading_periods` empties a trailing `.` after a record on a `no-period`
+ * slide, so the engine claims a record the bare parser does not). The corpus carries no class modifiers, so it
+ * cannot see that class of difference (followups.d/2690-p1-chart-model-phase-2-reader.md, round 16). The test
+ * is also what keeps the mapping from a token back to its source line (the narrator's `lastCodeSpan`, lint's
+ * pipe counting) honest.
  */
 const ENFORCED = ['dom', 'narrator', 'lint'];
 

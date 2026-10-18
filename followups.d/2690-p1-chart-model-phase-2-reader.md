@@ -141,3 +141,18 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                decision with the shared counting; a matrix-grid arm of the oracle compares which cells become state cells, engine
                against browser. Still to do: lint's `findChartRowRecords` (the unread-record warnings) still counts depth, quote and
                lists in a token loop of its own.
+           21. Seventeenth round (2026-10-18, the Munger inversion on the shared place tracker, 8e7bb90): fixed here: the tracker's header now says
+               `inline()` must be called on EVERY inline token (it marks a list item's lead as seen; a caller that skips a code-less first
+               paragraph makes the second paragraph the lead), with a corpus shape that pins it; the oracle's comment no longer says the
+               narrator and lint agree "by construction" (they agree where the engine's tokens are the parser's); lint's token parse is
+               memoized per slide text (invalidated on `setBoundaryPluginsOff`), so a per-keystroke lint re-parses only the slide that changed.
+               Left, each low and logged: (a) the narrators' copy of the boundary parser (inlined into the read-along core) is not switched by
+               `plugin-admission.ts` under a host that narrows plugins, so with math off a chart row inside a `$$` block is read on the
+               default grammar; the fix is a setter registry like `lint-boundary-state.js`, adopted when the read-along core loads;
+               (b) about twenty engine core rules rewrite tokens before the pill pass, and `strip_heading_periods` (`no-period`) empties a trailing
+               `.` after a record, so on `bullet no-period` with `### EMEA \`{1.5, target=3}\`.` the engine claims a record the narrator and
+               lint do not (identical at 0bcab12): the corpus has no class modifiers; (c) heatmap cells written ``` ``{1.5}`` ``` or with padding
+               inside the backticks are claimed by the engine and the browser and missed by the narrator's `RECORD_CELL` and lint's pipe-column
+               match (identical at 0bcab12); (d) the oracle's matrix-grid arm compares the ordered list of cell classes, not which cell, and
+               its narrator arm calls the bridge directly, not through `readChartRows`; (e) when phase 4 deletes the bridge, the narration
+               bundle's `external: ['markdown-it']` and its third boundary-parser copy go with it, and nothing will flag them.
