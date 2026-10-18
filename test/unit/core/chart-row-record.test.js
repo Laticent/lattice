@@ -665,7 +665,8 @@ describe('the paths agree on the data row', () => {
     assert.equal(warns('piechart', '- `{1}` Direct `{60%}`').length, 1);
     // A plain-number badge before a record value loses the row too (the old form `1` North `40` draws 40).
     assert.equal(warns('bar', '- `1` North `{40}`\n- South `30`').length, 1);
-    // Silent where something is drawn: a plain value with a note record, a shaped badge, a badge before a plain value.
+    // Silent where the old form's reading is kept: a note record beside a plain value (the engine draws no bar for that row,
+    // as it draws none for the old form's note; the row's record is a pill either way), a shaped badge, a badge before a plain value.
     assert.deepEqual(warns('bar', '- North `40` grew `{+4}`'), []);
     assert.deepEqual(warns('bar', '- `{1, circle}` North `{40}`'), []);
     assert.deepEqual(warns('bar', '- `{1}` North `40`'), []);
@@ -697,7 +698,9 @@ describe('the paths agree on the data row', () => {
     // A raw list INSIDE a row is no list ahead to the engine (it counts raw lists at the slide's top level only).
     const inRow = new JSDOM('<section class="bar"><h2>A</h2><ul><li><p>A</p><ul><ul><li>x <code data-t>{1}</code></li></ul></ul></li><li>B <code>{3}</code></li></ul></section>').window.document;
     assert.equal(isOwnedRecordElement(inRow.querySelector('code[data-t]')), true, 'as the engine claims it');
-    assert.match(render(deck('bar', '- A\n\n  <ul>\n\n  - x `{1}`\n  - y `{2}`\n\n  </ul>\n- B `{3}`')), /./);
+    // And the engine agrees: the record form of that slide ends as the old form does.
+    const raw = (v) => deck('bar', `- A\n\n  <ul>\n\n  - x ${v(1)}\n  - y ${v(2)}\n\n  </ul>\n- B ${v(3)}`);
+    assert.equal(render(raw((n) => `\`{${n}}\``)), render(raw((n) => `\`${n}\``)));
   });
 
   test('a matrix-grid cell with a comment beside its record stays a pill in the browser, as in the engine', async () => {

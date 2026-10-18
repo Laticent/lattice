@@ -121,3 +121,11 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                `<ul><li>` wrapped around the chart's Markdown list makes the engine decline the records (it counts the raw list ahead)
                while the browser claims them, so the engine path shows pills where the old form draws; raw HTML around a chart list,
                rare.
+           19. Fifteenth round (2026-10-18, independent checker on 66556b7): the runtime's raw-wrapper rule cannot tell a hand-written
+               top-level `<ul><li><ul>` from a Markdown row's `li` in the DOM, so it claims records there while the engine declines
+               (a pill in the engine, `<code>` in the browser; neither draws a chart; the shape it fixes, `<ol class="steps">` around
+               the list, is the plausible one). Lint's badge warning misses a badge inside emphasis (`**`1`** North `{40}``), a badge on a
+               continuation line, and a value after the label (`North `1` grew `{40}``), and names the badge as the cause when the real
+               one is a trailing comment. The narrator reads a badge row as drawn where the engine draws no bar for it. A test comment
+               said `North `40` grew `{+4}`` draws something; it draws no North bar. All low and rare. The structural fix is one shared
+               place-measurer for the five readers (the inversion's "medium change"), not another patch per reader.
