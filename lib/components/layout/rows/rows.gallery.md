@@ -57,7 +57,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: rows -->
+<!-- _class: rows ratio-45-55 -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · rows — Progress over a four-column table, with the slide's Key Insight below both." -->
 

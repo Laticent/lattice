@@ -1,7 +1,7 @@
 /* collage — imagery · canvas · structure
  *
  * Four to six photos packed edge to edge into one frame. The packer
- * (lib/core/collage-pack.js) decides the grid at build time and the transform stamps it as
+ * (lib/components/imagery/collage/collage.pack.js) decides the grid at build time and the transform stamps it as
  * inline `grid-template-*` and one `grid-area` per tile, so the PDF needs no JavaScript.
  * See engineering/decisions/2026-10-11-collage-component.md.
  *
@@ -21,7 +21,7 @@
  */
 
 section.collage {
-	--collage-gap-ratio: 0.012; /* must equal DEFAULT_GAP in lib/core/collage-pack.js */
+	--collage-gap-ratio: 0.012; /* must equal DEFAULT_GAP in lib/components/imagery/collage/collage.pack.js */
 	--collage-snap: 0;
 	--collage-radius: var(--radius-sm);
 	--collage-text-w: 30%;

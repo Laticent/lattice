@@ -1,0 +1,1 @@
+- Design notes only: `@layer` D2 measurements for the bridges note (§3.7): layers retire none of the 19 needed specificity bumps, a design keeps author CSS winning at each host, and layering changes 3,923 of 117,299 elements (3.3%) across 282 example decks. Measurement scripts and results are committed beside the note.

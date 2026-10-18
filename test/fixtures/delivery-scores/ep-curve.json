@@ -1,0 +1,428 @@
+{
+	"restrained": [
+		{
+			"said": "A 1-in-100 year costs $410M a single event, $480M a year.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each point is the loss to expect once in that many years, the return period across on a log scale.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "OEP: from one hundred twenty million dollars at 1-in-10 to five hundred sixty million dollars at 1-in-250.",
+			"act": "visit",
+			"unit": "series",
+			"select": "path.ep-path[data-series=\"0\"], circle.ep-dot[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-10, one hundred twenty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-25, one hundred ninety million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-50, three hundred million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-100, four hundred ten million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-250, five hundred sixty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "AEP: from one hundred fifty million dollars at 1-in-10 to six hundred fifty million dollars at 1-in-250.",
+			"act": "visit",
+			"unit": "series",
+			"select": "path.ep-path[data-series=\"1\"], circle.ep-dot[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-10, one hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-25, two hundred thirty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"6\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-50, three hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"7\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-100, four hundred eighty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"8\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-250, six hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"9\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "A 1-in-100 year costs $410M a single event, $480M a year.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each point is the loss to expect once in that many years, the return period across on a log scale.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "OEP: from one hundred twenty million dollars at 1-in-10 to five hundred sixty million dollars at 1-in-250.",
+			"act": "visit",
+			"unit": "series",
+			"select": "path.ep-path[data-series=\"0\"], circle.ep-dot[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-10, one hundred twenty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-25, one hundred ninety million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-50, three hundred million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-100, four hundred ten million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-250, five hundred sixty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "AEP: from one hundred fifty million dollars at 1-in-10 to six hundred fifty million dollars at 1-in-250.",
+			"act": "visit",
+			"unit": "series",
+			"select": "path.ep-path[data-series=\"1\"], circle.ep-dot[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-10, one hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-25, two hundred thirty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"6\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-50, three hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"7\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-100, four hundred eighty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"8\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "1-in-250, six hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"9\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "A 1-in-100 year costs $410M a single event, $480M a year.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each point is the loss to expect once in that many years, the return period across on a log scale.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "OEP: from one hundred twenty million dollars at 1-in-10 to five hundred sixty million dollars at 1-in-250.",
+			"act": "visit",
+			"unit": "series",
+			"select": "path.ep-path[data-series=\"0\"], circle.ep-dot[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-10, one hundred twenty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-25, one hundred ninety million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-50, three hundred million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"2\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-100, four hundred ten million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"3\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-250, five hundred sixty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"4\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "AEP: from one hundred fifty million dollars at 1-in-10 to six hundred fifty million dollars at 1-in-250.",
+			"act": "visit",
+			"unit": "series",
+			"select": "path.ep-path[data-series=\"1\"], circle.ep-dot[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-10, one hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"5\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-25, two hundred thirty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"6\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-50, three hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"7\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-100, four hundred eighty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"8\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "1-in-250, six hundred fifty million dollars.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.ep-dot[data-mark=\"9\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

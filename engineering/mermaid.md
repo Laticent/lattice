@@ -122,16 +122,17 @@ inside a full-width box.
 
 **`width:auto` and not `width:100%`, because the natural size arrives in two shapes.** The
 split is FLOWCHART-IN-THE-PREVIEW against everything else, not CLI against browser:
-`lib/runtime/index.js` sets `useMaxWidth:false` in `PREVIEW_ONLY_FLOWCHART` alone, so a
-browser-rendered flowchart ships `width`/`height` attributes in px and no inline cap, while
-every other family there — and every family on the `mmdc` path — keeps mermaid's default
-`width="100%"` plus an inline `style="max-width:<natural>px"`. `auto` reads both.
+`lib/plugins/mermaid/mermaid.hydrate.js` sets `useMaxWidth:false` in `PREVIEW_ONLY_FLOWCHART`
+alone, so a flowchart drawn in the live preview ships `width`/`height` attributes in px and no
+inline cap, while every other family there, every family on the `mmdc` path, and every family in
+the Studio's Webpage bake keeps mermaid's default `width="100%"` plus an
+inline `style="max-width:<natural>px"`. `auto` reads both.
 
 The selector is keyed on `aria-roledescription` because every Mermaid family carries it
 (`flowchart-v2`, `sequence`, `stateDiagram`, `pie`, `class`) and our own chart SVGs carry
 none — a chart is token-driven and must keep filling its band. `class` is not usable
-(null on sequence and pie) and neither is the svg id (`lattice-mmd-N` from the CLI,
-`lattice-mermaid-N` from the browser).
+(null on sequence and pie) and neither is the svg id (`lattice-mmd-N` on every path, which
+also names the svg's internal ids).
 
 The rule lives once per host — `#lp-article` in `lib/export/player-core.mjs`, `#lat-read`
 in `lattice.js`, `.st-read-article` in `docs/src/components/studio/ReadArticle.tsx`
@@ -529,6 +530,14 @@ labels under the floor gets the export's `⚠ TYPE FLOOR` line and, at
 ER chain in a wide slot (`mermaid-sketch-labels` slide 5) measures 5.5px and is tagged. Only a
 label with no laid-out box still reads "not measured".
 
+**A pie's text is set in the diagram's own units, so the slot scales it.** `lib/core/mermaid-theme-map.js`
+sets `pieLegendTextSize` to 20px and `pieSectionTextSize` to 22px. A Mermaid pie is 450 units tall and
+the slide hands it a height, so on a `diagram` slide with a Key Insight callout (a 273px-tall pie on a
+720px slide, scale 0.607) the legend draws at 12.1px and the wedge percentages at 13.4px. They were 13px
+and 14px, which drew at 7.9px and 8.5px, barely above the 7.2px floor and well under the chart-family pie's
+19px key labels. Mermaid spaces legend rows 22 units apart and offers no config for it, so 20px is the
+largest legend size that keeps a clear gap between rows. Demo: `examples/mermaid-pie-legibility.md`.
+
 ## 5.2 Node Shapes Reference
 
 | Syntax     | Shape             | Use For             |
@@ -882,6 +891,30 @@ fourth, `flowchart.useMaxWidth`, is a deliberate preview behavior — inside
 `section.diagram` mermaid.css forces sizing with `!important` and the key cannot be
 seen; outside one, flipping the export would change how every exported diagram is
 constrained, which is a layout change rather than a parity fix.
+
+**The Studio's player bake takes the export's config, and the export's box.** The Studio's
+Webpage export draws its diagrams in a capture frame that runs the browser pass, and the frame
+writes `playerBake: true` into its export settings block (`lib/core/export-settings.js`), which the
+runtime hands the pass as `ctx.isPlayerBake()`. Only that field counts, not the block: an
+Export-to-Marp bundle carries the block too, draws its diagrams live, and keeps the preview's
+behavior. So the player bake:
+
+- initializes Mermaid with `engineInitConfig` alone, without `PREVIEW_ONLY_FLOWCHART`;
+- draws in a stage `DIAGRAM_STAGE_WIDTH` (784 px) wide outside the slide, the box the CLI's worker
+  draws in (Puppeteer's 800 px viewport less the body margins; `render-worker.js` now states it).
+  Mermaid sizes a Gantt from that box and measures an xychart's labels inside an svg scaled to it,
+  so drawing in the slide gave a 1280-wide Gantt where the PDF has a 784-wide one.
+
+The live preview keeps its own config and Mermaid's own temporary box. Two changes reach every
+browser render, the preview included, because they change no pixel: the token reader hands Mermaid
+a palette color as the palette writes it (a literal hex as written, and a `light-dark()` token as
+the hex of the side the probe resolved, which is what the CLI's offline reader returns; Mermaid
+writes a theme color into the drawing as it was handed over, so the probe's `rgb()` spelling made
+the same wedge differ between the files), and the svg id is `lattice-mmd-N` with the
+accessible-name floor applied (`shared/baked-figure.js`), as on the CLI. Measured with the Studio's
+export against the CLI's `--player`, both on one Chromium build, across 25 decks: identical files
+apart from the time stamp, the policy hashes and the `host` field
+(`engineering/decisions/2026-10-16-player-as-library-audit.md` §11.9).
 
 `test/unit/mermaid/init-config-parity.test.js` fails on an unlisted divergence, on a
 sanction that no longer diverges, and on a Mermaid upgrade that takes one of those three

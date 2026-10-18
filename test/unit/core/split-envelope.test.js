@@ -1042,6 +1042,25 @@ describe('core: the CLOSING page carries a two-beat coda without losing or break
 // They reach the page as `data-split-mods` rather than as classes, which is what makes opting in
 // safe: an attribute cannot collide with any selector already in the bundle, so a component adds
 // `[data-split-mods~="cat-3"]` to its own stylesheet and nothing else in the tree moves.
+// The card-row stamp was resolved from the AUTHORED class, which the swap replaces: an `inventory`
+// slide's `data-cards="center"` rode onto a `content` cover no card-row component governs. The live
+// runtime drops it (`stampCardsAlign`), so the Studio's export (which runs the runtime) and the CLI's
+// (which does not) disagreed on every split cover (decisions/2026-10-16-player-as-library-audit.md
+// §11.9). A page the swap leaves governed keeps the engine's stamp, author's choice and all.
+describe('core: roleOpenTag drops a card-row stamp the swapped class no longer earns', () => {
+  const tag = '<section class="inventory form" data-family="tall" data-cards="center" data-cards-coda="stretch">';
+
+  test('a content cover loses both attributes, as the runtime would leave it', () => {
+    const out = roleOpenTag(tag, 'content lat-split-cover form split-cover-inventory', true, 'cover', 'inventory');
+    assert.doesNotMatch(out, /\sdata-cards(-coda)?=/);
+  });
+
+  test('a page still governed by the component keeps the engine stamp untouched', () => {
+    const out = roleOpenTag('<section class="inventory cards-spread form" data-family="tall" data-cards="spread">', 'inventory form lat-split-native', false, 'body', 'inventory');
+    assert.match(out, /\sdata-cards="spread"/);
+  });
+});
+
 describe('core: roleOpenTag carries the authored modifiers as data', () => {
   const tag = '<section id="s1" class="split-panel cat-3 proof dark form" data-lattice-slide="4">';
 

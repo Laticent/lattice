@@ -107,7 +107,7 @@ const {
   SHEET_START_MARK, SHEET_END_MARK, readStartMark,
 } = require('../lib/core/export-shell-marks.js');
 const { paneClasses } = require('../lib/core/pane-css.js');
-const { cliThemeStore, cliDeckSheet, coveredFamilies } = require('../lib/export/cli-deck-sheet.js');
+const { cliThemeStore, cliDeckSheet, coveredFamilies, shippedSheetText } = require('../lib/export/cli-deck-sheet.js');
 const PROBE_ID = '__palette_sweep_probe__';
 
 const ROOT = path.join(__dirname, '..');
@@ -125,9 +125,10 @@ let _store = null;
 function sweepStore() {
   if (_store) return _store;
   const read = (f) => fs.readFileSync(f, 'utf8');
+  // The bytes lattice.js composes from (`shippedSheetText`): the minified builds, else the sources.
   _store = cliThemeStore(
-    read(path.join(ROOT, 'dist', 'lattice.css')),
-    listAllThemes().map((name) => ({ name, css: read(path.join(ROOT, 'themes', name, `${name}.css`)) })),
+    shippedSheetText(ROOT, 'layout') ?? read(path.join(ROOT, 'dist', 'lattice.css')),
+    listAllThemes().map((name) => ({ name, css: shippedSheetText(ROOT, 'palette', name) ?? read(path.join(ROOT, 'themes', name, `${name}.css`)) })),
   );
   return _store;
 }

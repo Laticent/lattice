@@ -117,16 +117,161 @@ describe('packTheme flat (the exported player)', () => {
   });
 });
 
-// A selector that names the slide inside a LEADING `:where(…)` cannot be packed: the packer
-// only treats a literal leading `section` (or a distributed leading `:is(…)`) as the slide, so
-// `:where(section.finish) .panel` packs to `article.lattice > section :where(section.finish)
-// .panel`, a section inside a section, and matches nothing in the Studio and Playground preview
-// while the flat CLI sheet still applies it. #2705 found two (`code.styles.css`,
-// `base.finish.css`). Write `section.x :where(…)` instead. The trailing form is the same trap:
-// `:where(.lattice-exporting) section.x` packs to `article.lattice > section :where(.lattice-exporting)
-// section.x`, which needs a slide inside a slide (#2705 follow-up: nine such arms, all redundant
-// because the Studio stamps the class on the section itself). Write `section.x.lattice-exporting`.
-describe('no engine stylesheet names the slide inside a dead leading :where()', () => {
+// A packed selector must never need a slide INSIDE a slide. The packer scopes every selector
+// under `article.lattice > section` and treats only a literal leading `section`, a distributed
+// leading `:is(…)`, a bare `:root` and (since the 2026-10-17 packer fix) a leading `:where(section…)` whose every arm
+// starts with `section` as the slide itself. Any other way of NAMING the slide packs to a
+// descendant: `.x section.x`; `:where(.lattice-exporting) section.x`; `:where(section.a, .b) .y`;
+// `:where(:root)`. Each needs a `<section>` below a `<section>`, which no deck contains, so the rule
+// matches nothing in the Studio and Playground preview while the flat CLI sheet still applies it
+// (#2705, #2715, #2720, #2735). Write `section.x :where(…)`, `section.x.lattice-exporting`, or `:root`.
+//
+// STRUCTURAL, not a regex: `nestsSlide` splits the packed selector into compounds at its
+// combinators and asks whether a `section` type selector sits below the slide compound. The first
+// version of this guard was a regex for `:where(section…` and missed `:where(:root)`,
+// `:where(.a) > section.x` and `.x section.x`.
+const { splitSelectorList } = require('../../../lib/core/leading-is.js');
+
+// Split `sel` at its TOP-LEVEL combinators into [{ text, combinator }]; `combinator` is the one
+// that PRECEDES the compound (' ', '>', '+', '~', or '' for the first). Brackets, parens and
+// strings are opaque, so `[\20 root]` and `:where(a b)` do not split.
+function compounds(sel) {
+  const out = [];
+  let cur = '';
+  let comb = '';
+  let depth = 0;
+  let quote = '';
+  const flush = () => {
+    if (!cur) return;
+    out.push({ text: cur, combinator: comb });
+    cur = '';
+    comb = '';
+  };
+  for (let i = 0; i < sel.length; i++) {
+    const c = sel[i];
+    if (quote) {
+      cur += c;
+      if (c === '\\') cur += sel[++i] ?? '';
+      else if (c === quote) quote = '';
+      continue;
+    }
+    if (c === '\\') { cur += c + (sel[++i] ?? ''); continue; }
+    if (c === '"' || c === "'") { quote = c; cur += c; continue; }
+    if (c === '(' || c === '[') depth++;
+    if (c === ')' || c === ']') depth--;
+    if (depth === 0 && /[\s>+~]/.test(c)) {
+      flush();
+      // Whitespace is a descendant combinator unless a `>`/`+`/`~` already claimed the gap.
+      comb = /\s/.test(c) ? comb || ' ' : c;
+      continue;
+    }
+    cur += c;
+  }
+  flush();
+  return out;
+}
+
+// The arms of every `:where(…)` / `:is(…)` in a compound (`:not` and `:has` are not descent
+// into the matched element's own identity or ancestry, so they are not followed).
+function functionalArms(compound) {
+  const arms = [];
+  const re = /:(?:where|is|matches)\(/g;
+  let m;
+  while ((m = re.exec(compound))) {
+    let depth = 1;
+    let j = m.index + m[0].length;
+    const start = j;
+    for (; j < compound.length && depth; j++) {
+      if (compound[j] === '(') depth++;
+      else if (compound[j] === ')') depth--;
+    }
+    arms.push(...splitSelectorList(compound.slice(start, j - 1)));
+    re.lastIndex = j;
+  }
+  return arms;
+}
+
+// True when `sel` (a compound sequence) names a `section` below the element its first compound
+// matches. `firstIsSlide` says whether that first compound IS the slide.
+function nestsIn(sel, firstIsSlide) {
+  let nested = !firstIsSlide;
+  for (const { text, combinator } of compounds(sel)) {
+    if (combinator === ' ' || combinator === '>') nested = true;
+    if (nested && /^section(?![\w-])/.test(text)) return true;
+    for (const arm of functionalArms(text)) if (armNests(arm.trim(), !nested)) return true;
+  }
+  return false;
+}
+
+// A `:where()` / `:is()` arm is a selector of its own whose LAST compound is the element the host
+// compound matches; the compounds before it are that element's ancestors. When the host is the
+// slide, the last compound is the slide, so a `section` before it is an ancestor of the slide, a
+// slide inside a slide. When the host is already nested, the last compound is a descendant, so a
+// `section` there is a slide inside a slide, but an earlier `section` may legitimately be the real
+// slide above it (`section .x:where(section .y)`), so the ancestors are not judged.
+function armNests(arm, hostIsSlide) {
+  const cs = compounds(arm);
+  for (let i = 0; i < cs.length; i++) {
+    const isHost = i === cs.length - 1;
+    const isSection = /^section(?![\w-])/.test(cs[i].text);
+    if (isHost ? !hostIsSlide && isSection : hostIsSlide && isSection) return true;
+    if (isHost) for (const sub of functionalArms(cs[i].text)) if (armNests(sub.trim(), hostIsSlide)) return true;
+  }
+  return false;
+}
+
+/** Does this PACKED selector (one arm) need a slide inside a slide? */
+function nestsSlide(packedArm) {
+  const arm = packedArm.trim();
+  const prefix = 'article.lattice > ';
+  if (!arm.startsWith(prefix)) return false;
+  return nestsIn(arm.slice(prefix.length), true);
+}
+
+// Arms that nest a slide ON PURPOSE. Add one only WITH its justification (HARD RULE #22's
+// pattern); the sheet scan below fails on a stale entry, so the list cannot rot.
+const SANCTIONED_NESTED_SLIDE = [
+  {
+    // `:root[data-lattice-view="fluid"] section[data-lattice-slide]`: the fluid viewer sets the
+    // attribute on the REAL document root, which a packed (preview) sheet has no equivalent of.
+    // The viewer exists only in an exported page, which ships the FLAT sheet, and flat packing
+    // adds the written arm, so the rule still applies there. The packed arm is dead by design.
+    file: /^lib\/base\/base\.fluid-view\.css$/,
+    match: /\[data-lattice-view="fluid"\] section\b/,
+  },
+  {
+    // Each light theme's `:where(:root) { color-scheme: light; }`. It is a DOCUMENT-ROOT default:
+    // in the CLI export it lands on `<html>` and the slides inherit it. A packed sheet cannot
+    // carry it to the slide, and must not: the preview frame's `<html>` is the host's, forced to
+    // `:root{color-scheme:dark}` for dark mode, and a `color-scheme` set ON the slide would stop
+    // inheriting it. Measured: packing it onto the slide made a palette with no `-dark` sibling
+    // render a white slide under a forced-dark frame, and made every CLI export of a deck with
+    // `style: ":root{color-scheme:dark}"` come out white. The dead packed arm is the correct one.
+    file: /^themes\/[^/]+\/[^/]+\.css$/,
+    match: /^article\.lattice > section :where\(:where\(section\):not\(\[\\20 root\]\)\)$/,
+  },
+];
+
+// The pack writes a leading `:where(section…)` as TWO arms: the slide arm and the descendant arm it always
+// packed to, so a raw `<section>` an author nests in a slide keeps matching. The second arm needs a section
+// inside a section ON PURPOSE; it is dropped here only when its slide arm sits beside it in the same rule.
+const COMPANION = 'article.lattice > ';
+const withoutCompanions = (arms) =>
+  arms.filter(
+    (a) => !arms.some((s) => s.startsWith(`${COMPANION}:where(section`) && a === s.replace(COMPANION, `${COMPANION}section `)),
+  );
+
+const packedArms = (packed) => {
+  const out = [];
+  for (const m of packed.matchAll(/[^{};]+(?=\{)/g)) {
+    const prelude = m[0].trim();
+    if (prelude.startsWith('@')) continue;
+    out.push(...withoutCompanions(splitSelectorList(prelude).map((a) => a.trim())));
+  }
+  return out;
+};
+
+describe('no packed selector needs a slide inside a slide', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const root = path.join(__dirname, '../../..');
@@ -136,31 +281,127 @@ describe('no engine stylesheet names the slide inside a dead leading :where()', 
       if (e.isDirectory()) return cssFiles(p);
       return e.name.endsWith('.css') ? [p] : [];
     });
-  const DEAD = /article\.lattice > section :where\((?:\s*section(?![\w-])|(?:[^()]|\([^()]*\))*\) section(?![\w-]))/;
+  const dead = (sel) => packedArms(packTheme(`${sel}{a:1}`)).some(nestsSlide);
 
-  test('the dead shape is what the packer makes of it (the guard can fail)', () => {
-    assert.match(scope(':where(section.finish) .panel-left'), DEAD);
-    assert.doesNotMatch(scope('section.finish :where(.panel-left)'), DEAD);
-    assert.match(packTheme('@media print { :where(section.x) .a { b: 1 } }'), DEAD, 'inside an at-rule too');
-    // The trailing form: an ancestor-led arm whose slide comes AFTER the :where().
-    assert.match(scope(':where(.lattice-exporting) section.finish'), DEAD);
-    assert.match(scope(':where(.a:not(.b)) section > .tab'), DEAD, 'nested parens in the :where()');
-    assert.doesNotMatch(scope('section.finish.lattice-exporting'), DEAD);
-    assert.doesNotMatch(scope('section :where(.x) h2'), DEAD, 'a :where() before a descendant, not a slide');
+  test('the guard fails on every shape the packer makes into a slide inside a slide', () => {
+    for (const sel of [
+      ':where(section.a, .b) .y', // a MIXED leading :where(): ambiguous, stays dead on purpose
+      ':where(.lattice-exporting) section.finish', // an ancestor-led arm, slide after the :where() (#2720)
+      ':where(.a:not(.b)) section > .tab', // nested parens in the :where()
+      ':where(.a) > section.x', // a child combinator before the slide
+      '.x section.x', // a plain ancestor class before the slide
+      ':is(.a) section.x', // a mid-selector :is() before the slide
+      ':where(:root)', // a document-root default: sanctioned for themes only, never silently
+      'section.a + .x section.y', // a descendant after a sibling combinator
+      'section.a ~ section.b section.c',
+      'section.a+.x section.y',
+    ]) {
+      assert.ok(dead(sel), `${sel} must be flagged: ${scope(sel)}`);
+    }
+    assert.ok(packedArms(packTheme('@media print { .x section.y .a { b: 1 } }')).some(nestsSlide), 'inside an at-rule too');
+  });
+
+  test('the guard passes every well-formed way of naming the slide', () => {
+    for (const sel of [
+      ':where(section.finish) .panel-left', // a leading :where() naming the slide, packed onto it (2026-10-17 packer fix)
+      ':where(section.a, section.b) .x',
+      ':where(section:not(.x)) h2',
+      ':where(section .wrap) .d', // a descendant filter: packs as a descendant, which matches
+      'section.finish.lattice-exporting',
+      'section.finish :where(.panel-left)',
+      'section :where(.x) h2',
+      'section.kpi:where(section:not([data-family]), [data-family="square"]) > .a', // attached to the slide
+      'section.x:not(.y) .z',
+      'section:where(.a section)', // `.a` may be the article: not provably a slide in a slide
+      'section:has(section.y)', // :has() is a probe, not a path
+      ':root',
+      ':root .x',
+      'section .x:where(section .y)', // the `section` is the real slide above the host
+      'section.title',
+      'h2',
+      'section.a + section.b', // a sibling slide
+      'section.x[data-a="section b"] .y',
+    ]) {
+      assert.ok(!dead(sel), `${sel} must pass: ${scope(sel)}`);
+    }
+  });
+
+  test('`:where(:root)` stays a document-root rule: it packs dead, on purpose', () => {
+    // The preview frame's `<html>` is the host's; a `color-scheme` on the slide would stop
+    // inheriting a forced dark mode. See SANCTIONED_NESTED_SLIDE.
+    assert.ok(dead(':where(:root)'));
+    assert.deepEqual(armsOf(flatScope(':where(:root)')), [scope(':where(:root)'), ':where(:root)'], 'flat keeps the written arm');
+  });
+
+  test('a leading :where(section…) names the slide: the slide arm plus the old descendant arm', () => {
+    const both = (head, rest) => `article.lattice > ${head}${rest}, article.lattice > section ${head}${rest}`;
+    assert.equal(scope(':where(section.finish) .panel-left'), both(':where(section.finish)', ' .panel-left'));
+    assert.equal(scope(':where(section.a, section.b) .x'), both(':where(section.a, section.b)', ' .x'));
+    assert.equal(scope(':where(section:not(.x)) h2'), both(':where(section:not(.x))', ' h2'));
+    assert.equal(scope(':where(section.a)::after'), both(':where(section.a)', '::after'));
+    assert.equal(scope(':where(section) > .x'), both(':where(section)', ' > .x'));
+    assert.equal(scope(':where(section.a:not(.b .c)) .x'), both(':where(section.a:not(.b .c))', ' .x'), 'a space inside parens is still one compound');
+    assert.equal(scope(':where(section[data-x="a b"]) .y'), both(':where(section[data-x="a b"])', ' .y'), 'and so is one inside a quoted value');
+  });
+
+  test('the new output is a SUPERSET of the old: every arm the pack wrote before is still written', () => {
+    // A raw `<section>` an author nests in a slide matched `article.lattice > section :where(section.a) .x`;
+    // dropping that arm would have turned a rule that worked into a dead one (HARD RULE #18).
+    for (const sel of [':where(section.finish) .panel-left', ':where(section) > .x', ':where(section.a, section.b) .x']) {
+      assert.ok(splitSelectorList(scope(sel)).map((a) => a.trim()).includes(`article.lattice > section ${sel}`), sel);
+    }
+    // FLAT keeps the as-written arm too, so the unwrapped export sheet still reaches a nested section.
+    assert.deepEqual(armsOf(flatScope(':where(section) > .x')), [
+      'article.lattice > :where(section) > .x',
+      'article.lattice > section :where(section) > .x',
+      ':where(section) > .x',
+    ]);
+  });
+
+  test('the companion arm is exempt from the guard only beside its slide arm', () => {
+    assert.ok(!dead(':where(section.finish) .panel-left'), 'both arms together pass');
+    // The same dead arm on its own is still a slide inside a slide.
+    assert.ok(packedArms('article.lattice > section :where(section.a) .x{a:1}').some(nestsSlide));
+  });
+
+  test('what stays dead stays dead: a mixed arm list, :where(:root), and the trailing form', () => {
+    // A mixed list is ambiguous (`.b` is not the slide). :where(:root) and :where(section:root) are a
+    // document default and must NEVER land on the slide, or a forced dark mode stops reaching it
+    // (the :where(:root) entry in engineering/gotchas/lattice-internals.md).
+    assert.equal(scope(':where(section.a, .b) .y'), 'article.lattice > section :where(section.a, .b) .y');
+    // An arm with a combinator inside it filters on a descendant of a section, not on the slide, so it
+    // keeps scoping as a descendant (which matches). Rescuing it would need a section ABOVE the slide.
+    for (const arm of ['section .wrap', 'section > .a', 'section *', 'section ~ section']) {
+      assert.equal(scope(`:where(${arm}) .x`), `article.lattice > section :where(${arm}) .x`, arm);
+    }
+    assert.equal(scope(':where(section.a, section .b) .z'), 'article.lattice > section :where(section.a, section .b) .z');
+    // `section\.a` is an element NAMED `section.a`, and `section|a` is `a` in a namespace: neither is a `section`.
+    assert.equal(scope(':where(section|a) .x'), 'article.lattice > section :where(section|a) .x');
+    assert.equal(scope(':where(section\\.a) .x'), 'article.lattice > section :where(section\\.a) .x');
+    // An escaped `)` does not close the `:where()`, so `.b` is seen and the mixed list stays dead.
+    assert.doesNotMatch(scope(':where(section.a\\), .b) .x'), /^article\.lattice > :where\(/);
+    assert.equal(scope(':where(:root)'), 'article.lattice > section :where(:where(section):not([\\20 root]))');
+    assert.equal(scope(':where(section:root)'), 'article.lattice > section :where(:where(section):not([\\20 root]))');
+    assert.equal(scope(':where(.lattice-exporting) section.f'), 'article.lattice > section :where(.lattice-exporting) section.f');
   });
 
   test('every lib/ and themes/ stylesheet packs without one', () => {
     const files = [...cssFiles(path.join(root, 'lib')), ...cssFiles(path.join(root, 'themes'))];
     assert.ok(files.length > 50, `found only ${files.length} stylesheets`);
+    const used = new Set();
     const hits = [];
     for (const f of files) {
+      const rel = path.relative(root, f);
       const css = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-      // The whole packed text, not split selectors: a split by braces loses the alternation inside
-      // an `@media` / `@container` block, which is where a panel rule often lives.
-      for (const m of packTheme(css).matchAll(new RegExp(`[^{}]*${DEAD.source}[^{}]*`, 'g'))) {
-        hits.push(`${path.relative(root, f)}: ${m[0].trim().slice(0, 120)}`);
+      for (const arm of packedArms(packTheme(css))) {
+        if (!nestsSlide(arm)) continue;
+        const ok = SANCTIONED_NESTED_SLIDE.findIndex((s) => s.file.test(rel) && s.match.test(arm));
+        if (ok >= 0) used.add(ok);
+        else hits.push(`${rel}: ${arm.replace(/\s+/g, ' ').slice(0, 140)}`);
       }
     }
     assert.deepEqual(hits, []);
+    const stale = SANCTIONED_NESTED_SLIDE.filter((_s, i) => !used.has(i)).map((s) => String(s.file));
+    assert.deepEqual(stale, [], 'a sanctioned nested-slide arm no longer exists; delete the entry');
   });
 });

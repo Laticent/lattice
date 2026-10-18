@@ -39,7 +39,8 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid',
  *
  * The block spans `beginDiagramRun` … `renderDiagramJob`, and closes over
  * `configureForScope`, `attachError`, `rememberDiagram`, `bindDiagramFunctions`,
- * `renderCounter` and `pinMermaidTooltip` — all injected here so the queue itself is the
+ * `renderCounter`, `pinMermaidTooltip`, the baked-figure kernel and `exportStage` — all injected
+ * here so the queue itself is the
  * only thing under test.
  */
 function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, overrides = {} }) {
@@ -86,17 +87,21 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, overrides =
     // The label-length guard is the shipped kernel itself: a fence it refuses never reaches
     // `mermaid.render` (lib/plugins/mermaid/shared/label-length.js).
     ...require('../../../lib/plugins/mermaid/shared/label-length'),
+    // The name floor and the sankey collapse are the shipped kernel too (shared/baked-figure.js).
+    ...require('../../../lib/plugins/mermaid/shared/baked-figure'),
+    // A preview render: Mermaid's own temporary box, never the export stage.
+    exportStage: () => undefined,
     ...overrides,
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion, bindDiagramFunctions, rememberDiagram, overlongLabelText, overlongMessage) {
+    `(function (configureForScope, attachError, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion, bindDiagramFunctions, rememberDiagram, overlongLabelText, overlongMessage, labelDiagramSvg, collapseSankeyText, exportStage) {
        let renderCounter = 0;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion, deps.bindDiagramFunctions, deps.rememberDiagram, deps.overlongLabelText, deps.overlongMessage);
+  const q = factory(deps.configureForScope, deps.attachError, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion, deps.bindDiagramFunctions, deps.rememberDiagram, deps.overlongLabelText, deps.overlongMessage, deps.labelDiagramSvg, deps.collapseSankeyText, deps.exportStage);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();

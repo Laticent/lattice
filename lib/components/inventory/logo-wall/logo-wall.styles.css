@@ -216,3 +216,48 @@ section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) >
 /* dense carries twice the roster — keep it denser than the default wall. */
 section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul { --logo-cols: 3; }
 
+/* ── Equal visual weight (lib/core/logo-wall-pack.js).
+   Once every mark's shape is known, the packer gives each mark the same AREA unless that would
+   make it taller than a cap, and breaks the list into balanced, centered rows. It stamps the
+   list `data-logo-wall="packed"` with both gaps as fractions of the list's width (`--logo-gx`,
+   `--logo-gy`), and each item with its cell width (`--logo-cell`), its mark's share of that cell
+   (`--logo-mw`) and its aspect (`--logo-ar`). The first and last items of a row also carry the
+   row's leftover width as inline padding (`--logo-ps` / `--logo-pe`): that centers the row AND
+   fills the line, so the browser breaks the rows exactly where the packer did. Every value is a
+   fraction of the list's width, which is what a percentage width, padding and column gap all
+   resolve against. An unstamped or `fallback` wall keeps the equal-cell grid above.
+   After the family reflow on purpose: a packed wall's columns come from the packer. */
+/* The live preview is measuring the marks: hold the space, show nothing until the wall packs, so a
+   first visit paints once instead of drawing the grid and jumping into rows. Safe because the Studio's
+   exports wait for the measure (docs/src/components/studio/export/deck-export.js waitForMeasuring)
+   and never bake a list in this state. */
+section.logo-wall > .cell-stage > ul[data-logo-wall="measuring"] {
+  visibility: hidden;
+}
+section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] {
+  /* cqi of the stage, whose width is the list's: the unit every stamped fraction is in. */
+  column-gap: calc(var(--logo-gx) * 100cqi);
+  row-gap: calc(var(--logo-gy) * 100cqi);
+  /* Every mark box in a row is the row's height (--logo-mpad below), so top alignment lines the
+   * captions up. */
+  align-items: flex-start;
+}
+section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] > li {
+  width: calc((var(--logo-cell) + var(--logo-ps, 0) + var(--logo-pe, 0)) * 100%);
+  /* A packed row is as tall as its tallest mark: the packer planned the wall's height that way. */
+  min-height: 0;
+  padding-inline: calc(var(--logo-ps, 0) * 100%) calc(var(--logo-pe, 0) * 100%);
+}
+section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] > li > .logo-mark {
+  box-sizing: content-box;
+  width: calc(var(--logo-mw) * 100%);
+  height: auto;
+  aspect-ratio: var(--logo-ar);
+  /* Pad the mark up to its row's height; the mask (preview) and the inline svg (export) both draw
+   * in the content box, so the padding stays empty. */
+  padding-block: calc(var(--logo-mpad, 0) * 100%);
+  -webkit-mask-origin: content-box;
+  mask-origin: content-box;
+  -webkit-mask-clip: content-box;
+  mask-clip: content-box;
+}

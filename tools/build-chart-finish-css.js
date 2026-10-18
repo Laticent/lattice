@@ -188,7 +188,7 @@ const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
  * kept its category hue is a mark that no longer matches its own series. Pigment and etching
  * keep a dot's hue, so they may repaint it.
  */
-const STROKE_MEMBERS = ['line', 'slope'];
+const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
 
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
 const SHARED_CLASSES = new Set(['chart-key-swatch']);
@@ -427,6 +427,21 @@ function build() {
     for (const n of SLOTS) {
       const arms = tone ? [mix(ONE, `${TONE[n - 1]}%`), mix(ONE, `${TONE[n - 1]}%`)] : [mix(hueOf(n), `${f.body[0]}%`), mix(hueOf(n), `${f.body[1]}%`)];
       w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${iconInk(arms)}`])));
+    }
+    // ── A TOWER SHARE FIGURE — printed on its share, so it takes the ink that share's
+    // finish body clears. Outside a finish the figure reads its ink off --mark-body
+    // (tower.styles.css), but a finish paints the share's `fill` directly and never
+    // touches --mark-body, so that ink was solved against a color no longer there:
+    // measured by the tower checker, a dark pigment slot-2 share fell to about 1.95:1
+    // and a tone share to 1.16:1. A share CARRIES TEXT (`bears: true` in its manifest), so a
+    // finish paints it at the quieter text-bearing level (HUE on a mark that CARRIES TEXT,
+    // above); the ink reads that same level, or it is solved against the wrong fill.
+    w('\n/* TOWER SHARE FIGURE — the ink its share\'s finish body clears. */');
+    for (const n of SLOTS) {
+      const arms = tone
+        ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
+        : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
+      w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${iconInk(arms)}`])));
     }
     const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
     const sArms = tone ? [mix(hsStatus.hue, `${TONE[2]}%`), mix(hsStatus.hue, `${TONE[2]}%`)] : [mix(hsStatus.hue, `${f.body[0]}%`), mix(hsStatus.hue, `${f.body[1]}%`)];

@@ -38,22 +38,38 @@ export async function load(id: string): Promise<User> {
 
 | Field | What it does | Example |
 |---|---|---|
-| `title=` | A file name or caption bar at the top of the panel | `title=src/load.ts`, `title="a, b.ts"` |
+| `title=` | A file name or caption bar at the top of the panel. A long path wraps inside the bar rather than running off the panel | `title=src/load.ts`, `title="a, b.ts"` |
 | `numbers` | Line numbers. They are drawn, never part of the text, so copying the code copies only the code | `numbers` |
 | `start=` | The first line number | `numbers, start=120` |
 | `focus=` | Lines at full strength; the rest recede. Same grammar as `_focus: line` | `focus=3-5 9` |
 | `mark=` | Lines tinted, nothing dimmed | `mark=4` |
 | `diff` | A leading `+`, `-` or space marks each line added, removed or unchanged; the rest is highlighted in the fence's language | ```` ```ts ```` with `diff` |
 | `wrap` | Long lines wrap inside the panel, and the continuation hangs two columns in (with numbers, under the line's own text) | `wrap` |
-| `copy` | Two buttons at the panel's top right: copy the code as text, or as HTML with the theme's colors inline. Shown only where the deck is read in a browser (the Studio, the Playground, the exported webpage), never in a PDF, PowerPoint, image or video, in Present, or in a thumbnail. Off unless asked; `code: copy` turns it on for every block | `copy`, `copy=off` |
+| `copy` | Two buttons at the right of the panel's title bar: copy the code as text, or as HTML with the theme's colors inline. A copy block always has the bar (empty without `title=`), in every surface, so the buttons never sit over the code and a PDF lays the block out exactly as the browser does. The buttons are shown only where the deck is read in a browser (the Studio, the Playground, the exported webpage), never in a PDF, PowerPoint, image or video, in Present, or in a thumbnail. Off unless asked; `code: copy` turns it on for every block | `copy`, `copy=off` |
 | `format` | Keep the block formatted: the Studio formats it when you leave the editor. `lattice fmt` and the Studio's Format command format every block except `format=off` | `format`, `format=off` |
 | `width=` | The formatter's print width, in columns | `width=48` |
 | `dialect=` | The SQL dialect the formatter reads | `dialect=postgresql` |
+| `indent=` | The formatter's indentation: `2` or `4` spaces, or `tab`. The panel draws a tab as wide as the indent (`tab` is four columns) instead of the browser's eight | `indent=4`, `indent=tab` |
+| `quotes=` | The formatter's string quote, where the language has a choice (JavaScript, TypeScript, CSS, YAML, PHP, Python). JSON, Java and SQL keep theirs, because there the quote is meaning | `quotes=single` |
 
 Lines are counted as written, from 1, whatever a comment or string spans. `lint:deck` warns when a
 record does not read (`code-record`), when a record line has no fence after it
 (`code-record-orphan`), and when `focus=`, `mark=` or a slide's `_focus: line` names a line past
-the end of the block (`code-line-range`).
+the end of the block (`code-line-range`), inside a blockquote as outside one. It also says when a line is wider than its panel fits, on
+a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`). The widths are measured
+in the browser for every canvas and every class that moves the panel: `claim-*` and `compact`, a
+`venue:` or `scale-*`, and `align-*` or `stats`, which let the panel grow until the slide's own edge
+cuts the line. A `wrap` block never clips, so it is never measured, and a tab counts as wide as the
+block's `indent=` draws it. A line's width includes what the block draws beside it: the `numbers`
+column and the `diff` marker column. Under a `venue:` or `scale-*`, the line-capacity rule
+(`capacity-scale`) counts the rows a block really takes: its lines, the rows a `wrap` line wraps to,
+and its title or copy bar, which takes about one line of the pane (more when a long title wraps).
+
+**In the Studio's Compose editor**, put the caret in a fence: the divider bar shows the fence's
+language and, beside it, a **Code block options** button. Its panel sets every field above with
+switches and boxes, and writes the record on the line above the fence. It changes only the word you
+edit, so the rest of the record stays exactly as you wrote it. A record it cannot change safely (one
+that does not read, or names a field twice) is left alone, and the panel says so.
 
 **A deck default.** `code: numbers, wrap` in the front matter applies to every fence; a block's own
 record overrides it field by field (`@code{format=off}`).

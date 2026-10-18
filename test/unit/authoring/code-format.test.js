@@ -50,6 +50,68 @@ describe('code-format — each adapter, against its golden output', () => {
   });
 });
 
+// `indent=` and `quotes=` (followups.d/2710-p2): one golden per formatter per option, so each
+// formatter's reading of the option is pinned as tightly as its default output above.
+const STYLE_IN = {
+  ts: 'function f(a:string){if(a){return "x"+a}}\n',
+  css: 'a{content:"x";color:red}\n',
+  yaml: 'a:\n  b: "x"\n',
+  json: '{"a":{"b":1}}\n',
+  php: '<?php function f($a){return "a".$a;}\n',
+  java: 'class A{void m(){String s="x";}}\n',
+  py: 'def f(a):\n  if a:\n    return "x"\n',
+  sql: "select a,b from t where x='y'",
+};
+const STYLE_GOLDEN = [
+  ['ts', { indent: '4' }, 'function f(a: string) {\n    if (a) {\n        return "x" + a;\n    }\n}\n'],
+  ['ts', { indent: 'tab' }, 'function f(a: string) {\n\tif (a) {\n\t\treturn "x" + a;\n\t}\n}\n'],
+  ['ts', { quotes: 'single' }, "function f(a: string) {\n  if (a) {\n    return 'x' + a;\n  }\n}\n"],
+  ['css', { indent: 'tab', quotes: 'single' }, "a {\n\tcontent: 'x';\n\tcolor: red;\n}\n"],
+  // YAML forbids a tab in indentation, so Prettier keeps spaces, at the tab's width.
+  ['yaml', { indent: 'tab', quotes: 'single' }, "a:\n    b: 'x'\n"],
+  // JSON's grammar requires double quotes: `quotes=single` changes nothing.
+  ['json', { quotes: 'single' }, '{ "a": { "b": 1 } }\n'],
+  ['php', { indent: '2', quotes: 'single' }, "<?php function f($a)\n{\n  return 'a' . $a;\n}\n"],
+  // Java's `"…"` is a String and `'x'` a char: the quote is meaning, so it stays.
+  ['java', { indent: 'tab', quotes: 'single' }, 'class A {\n\n\tvoid m() {\n\t\tString s = "x";\n\t}\n}\n'],
+  ['py', { indent: '2' }, 'def f(a):\n  if a:\n    return "x"\n'],
+  ['py', { indent: 'tab', quotes: 'single' }, "def f(a):\n\tif a:\n\t\treturn 'x'\n"],
+  ['sql', { indent: '4' }, "select\n    a,\n    b\nfrom\n    t\nwhere\n    x = 'y'"],
+  // sql-formatter reads no quote option, and the adapter passes none: in SQL a quote is meaning.
+  ['sql', { indent: 'tab', quotes: 'double' }, "select\n\ta,\n\tb\nfrom\n\tt\nwhere\n\tx = 'y'"],
+];
+
+describe('code-format — indent= and quotes=, against their golden outputs', () => {
+  for (const [lang, opts, want] of STYLE_GOLDEN) {
+    test(`${lang} ${JSON.stringify(opts)}`, async () => {
+      const { formatBlock } = await load();
+      const r = await formatBlock({ lang, code: STYLE_IN[lang], opts });
+      assert.equal(r.ok, true, r.error);
+      assert.equal(r.text, want);
+    });
+  }
+
+  test('a tab counts four columns toward the width, as the panel draws it', async () => {
+    const { formatBlock } = await load();
+    // `call(alpha, beta, gamma, delta);` is 32 columns, three tabs deep: 44 at a tab of 4, 38 at 2.
+    // At width 40 it must break, which it would not if a tab counted Prettier's default 2.
+    const code = 'function f(){if(a){if(b){call(alpha, beta, gamma, delta)}}}\n';
+    const out = (await formatBlock({ lang: 'ts', code, opts: { indent: 'tab', width: 40 } })).text;
+    assert.doesNotMatch(out, /^\t\t\tcall\(alpha, beta, gamma, delta\);$/m);
+    const roomy = (await formatBlock({ lang: 'ts', code, opts: { indent: 'tab', width: 44 } })).text;
+    assert.match(roomy, /^\t\t\tcall\(alpha, beta, gamma, delta\);$/m, 'guard: 44 columns fits it whole');
+  });
+
+  test('the planner hands a block its record\'s indent and quotes, over the deck default', async () => {
+    const { planFormat } = await loadPlan();
+    const md = '---\ncode: indent=4, quotes=single\n---\n\n```ts\na\n```\n\n`@code{indent=tab, numbers}`\n```ts\nb\n```\n';
+    assert.deepEqual(planFormat(md, { all: true }).jobs.map((j) => j.opts), [
+      { indent: '4', quotes: 'single' },
+      { indent: 'tab', quotes: 'single' },
+    ]);
+  });
+});
+
 describe('code-format — failure never mangles', () => {
   test('invalid code is refused with where, not reformatted', async () => {
     const { formatBlock } = await load();

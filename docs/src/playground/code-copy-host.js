@@ -32,3 +32,39 @@ export function tapCodeCopyAt(frame, clientX, clientY) {
 		return false; // a torn-down or cross-origin frame has no button to tap
 	}
 }
+
+/**
+ * HOVER, BRIDGED THE SAME WAY. The preview box takes no pointer events, so `:hover` never reaches a
+ * block inside the frame: its copy buttons stayed at rest and their tooltips never showed. The host
+ * hit-tests the pointer as it moves and marks what it is over with `data-host-hover`: the block (its
+ * buttons come up to full strength) and the button (its tooltip shows). code.styles.css reads the
+ * marker beside `:hover`, so a host whose frame takes the pointer itself needs none of this.
+ * One marked block and one marked button per frame; a move elsewhere, or `null` coordinates (the
+ * pointer left the preview), clears them.
+ * @param {HTMLIFrameElement|null|undefined} frame
+ * @param {number|null} clientX
+ * @param {number|null} clientY
+ * @returns {boolean} true when the pointer is over a copy button
+ */
+export function hoverCodeCopyAt(frame, clientX, clientY) {
+	try {
+		const doc = frame?.contentDocument;
+		if (!doc) return false;
+		let pre = null;
+		let button = null;
+		if (clientX !== null && clientY !== null && frame.style.opacity !== '0') {
+			const g = frameGeom(frame);
+			if (g?.S) {
+				const el = doc.elementFromPoint((clientX - g.fr.left) / g.S, (clientY - g.fr.top) / g.S);
+				pre = el?.closest?.('pre[data-copy-ready]') ?? null;
+				button = el?.closest?.('.lat-code-copy-btn') ?? null;
+			}
+		}
+		for (const was of doc.querySelectorAll('[data-host-hover]')) if (was !== pre && was !== button) was.removeAttribute('data-host-hover');
+		pre?.setAttribute('data-host-hover', '');
+		button?.setAttribute('data-host-hover', '');
+		return Boolean(button);
+	} catch (_e) {
+		return false; // a torn-down or cross-origin frame: nothing to mark
+	}
+}

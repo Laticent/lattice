@@ -6,16 +6,26 @@
 
 import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS } from '@/playground/layout-core.generated.js';
+import MANIFEST_SCHEMA from '../../../../lib/components/manifest.schema.json';
 
-// The manifest's top-level keys (the order the engine writes them).
-export const MANIFEST_KEYS = ['name', 'function', 'form', 'substance', 'bucket', 'tags', 'description', 'adapt', 'capacity'];
-// The enum-valued fields → their allowed values. `mode` is `adapt.mode`.
+// Derived from lib/components/manifest.schema.json, the contract the gate validates against, so a
+// key or a value the schema gains is offered without a second edit here. (The hand-listed copy
+// had 9 keys of the schema's 55 and omitted `single-orientation` from `adapt.mode`.)
+type SchemaProp = { enum?: unknown[]; properties?: Record<string, SchemaProp> };
+const SCHEMA_PROPS = (MANIFEST_SCHEMA as { properties: Record<string, SchemaProp> }).properties;
+const enumOf = (p?: SchemaProp): string[] | undefined => (Array.isArray(p?.enum) ? (p?.enum as string[]) : undefined);
+
+// The manifest's top-level keys, in schema order (`$schema` is a pointer, not a field to author).
+export const MANIFEST_KEYS = Object.keys(SCHEMA_PROPS).filter((k) => !k.startsWith('$'));
+// The enum-valued fields → their allowed values. `mode` is `adapt.mode`. `substance` keeps the gate's
+// CSS-only subset: the schema also lists substances a generated component may not claim.
 export const MANIFEST_ENUMS: Record<string, string[]> = {
+	...Object.fromEntries(Object.entries(SCHEMA_PROPS).flatMap(([k, p]) => (enumOf(p) ? [[k, enumOf(p) as string[]]] : []))),
 	bucket: BUCKETS as string[],
 	function: FUNCTIONS as string[],
 	form: FORMS as string[],
 	substance: CSS_ONLY_SUBSTANCES as string[],
-	mode: ['native', 'reflow'],
+	mode: enumOf(SCHEMA_PROPS.adapt?.properties?.mode) ?? [],
 };
 
 export type ManifestCompletion = { kind: 'key' | 'value'; token: string; options: string[] };

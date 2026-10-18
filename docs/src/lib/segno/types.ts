@@ -318,6 +318,8 @@ export function readNumberFast(t: string): NumberValue | null | undefined {
   if (digitsFrom > p && (t.charCodeAt(digitsFrom - 1) === 45 || t.charCodeAt(digitsFrom - 1) === 0x2212)) x = -x;
   if (!Number.isFinite(x)) return undefined;
   const unit = t.slice(unitFrom, unitTo);
+  // A magnitude WORD (`5Mrd`, `250mn`) may scale, which only the full reader decides.
+  if (MAGNITUDE_WORD.test(unit)) return null;
   const mag = unit === 'bn' || unit === 'Bn' || unit === 'BN' || (unit.length === 1 && 'kKmMBbT'.includes(unit)) ? unit : '';
   const value = mag ? x * MAGNITUDE[mag] : x;
   let signed = paren;
@@ -340,8 +342,99 @@ export function readNumber(raw: string): NumberValue | undefined {
   return readNumberFull(t);
 }
 
+// ── money as a global client writes it ─────────────────────────────────────
+//
+// NUMERIC takes a currency only as one to three symbols BEFORE the digits (`$4.2M`, `€3`). Decks
+// from reinsurance slips and European spreadsheets write it four other ways, and each one was not a
+// number, so the chart it sat in drew nothing:
+//   `EUR 4.2M`, `CHF 4.2M`  an ISO 4217 code first
+//   `US$4.2M`, `R$4,2M`     a country letter or two before `$`
+//   `4200€`, `4,2 M€`       the symbol after, the French, German and Italian order
+//   `4.2M EUR`              the code after
+// Only a REAL currency code counts. Any three capitals would turn a label such as `FTC 2025`, which
+// the decks in this repo contain, into the value 2025.
+//
+// It also reads the magnitude words those decks use. `Mio`/`Mrd` (German million and billion,
+// with or without the dot) are unambiguous and always read. `mn` (million in a Lloyd's slip), `Md`
+// (French milliard) and `Cr` (Indian crore, ten million) are read ONLY beside a currency: on its own
+// `15mn` is a French duration in minutes, and it must stay 15.
+const ISO_4217 = 'USD|EUR|GBP|JPY|CHF|CNY|HKD|SGD|AUD|CAD|NZD|INR|BRL|ZAR|SEK|NOK|DKK|MXN|KRW|AED|SAR|ILS|PLN|CZK|HUF|TRY|THB|MYR|IDR|PHP|TWD|CLP|COP|PEN|ARS|EGP|NGN|KES|QAR|KWD|BHD|OMR|VND|PKR|BDT|ISK|RON|BGN';
+const DOLLAR_LETTERS = 'US|AU|A|CA|C|HK|NZ|SG|S|NT|MX|R';
+const MONEY_LEAD = new RegExp(`^([(+\\-\\u2212]?\\s*)(?:(?:${ISO_4217})\\s?|(?:${DOLLAR_LETTERS})\\$)(?=[\\d.+\\-\\u2212])`);
+// Anchored at the END and a fixed width, so each start position fails in constant time: a lazy
+// `^(.*?\\d.*?)…$` took two seconds on 50,000 characters.
+const MONEY_END = new RegExp(`(\\s?)((?:${ISO_4217})|\\p{Sc})(\\)?)$`, 'u');
+const CRORE_END = /\s?Cr\.?(\)?)$/;
+const CURRENCY_TOKEN = new RegExp(`^(?:(?:${ISO_4217})|(?:${DOLLAR_LETTERS})\\$|\\p{Sc})$`, 'u');
+// A money pill is a few characters; nothing longer is read as one, so no input can make the
+// patterns below expensive. The longest form above, `(EUR -1.234.567,89 Mio.)`, is 25.
+const MONEY_MAX = 48;
+
+/** Is this token a currency the reader knows: an ISO 4217 code, a country `$` (`US$`), or a symbol? */
+export function isCurrency(token: string): boolean {
+  return CURRENCY_TOKEN.test(token);
+}
+const SYMBOL_LEAD = /^[(+\-−]?\s*\p{Sc}/u;
+const MAGNITUDE_WORD = /^(?:Mio|Mrd|mn|Md|Cr)$/;
+const WORD_ALWAYS = /(\d)\s?(Mio|Mrd)\.?(?=$|[\s)])/;
+const WORD_WITH_MONEY = /(\d)\s?(mn|Md|Cr)\.?(?=$|[\s)])/;
+const WORD_VALUE: Readonly<Record<string, string>> = { Mio: 'M', Mrd: 'B', mn: 'M', Md: 'B' };
+
+/**
+ * The body of a money amount NUMERIC can read, and the currency written after it, or undefined when
+ * the string is not money in one of the forms above. `EUR 4.2M` → `$4.2M`; `4,2 Mio. €` → `4,2M`
+ * with the tail `€`; `4.2Cr INR`, a crore, → `42000000` with the tail `INR`.
+ */
+function currencyForm(t: string): { body: string; tail: string } | undefined {
+  if (t.length > MONEY_MAX) return undefined;
+  let s = t;
+  let lead = false;
+  const head = MONEY_LEAD.exec(s);
+  if (head) {
+    s = `${head[1]}$${s.slice(head[0].length)}`;
+    lead = true;
+  }
+  let tail = '';
+  const end = MONEY_END.exec(s);
+  if (end && /\d/.test(s.slice(0, end.index))) {
+    const body = s.slice(0, end.index);
+    if (lead || SYMBOL_LEAD.test(body)) return undefined; // money on both sides is not one amount
+    s = body + end[3];
+    tail = end[2];
+  }
+  const money = lead || tail !== '' || SYMBOL_LEAD.test(s);
+  s = s.replace(WORD_ALWAYS, (_m, d: string, w: string) => d + WORD_VALUE[w]);
+  if (money) {
+    const crore = CRORE_END.exec(s);
+    if (crore) {
+      const front = s.slice(0, crore.index);
+      const digits = /[\d.,]+$/.exec(front);
+      const n = digits ? readNumberPlain(digits[0]) : undefined;
+      if (!digits || !n || n.unit) return undefined;
+      s = front.slice(0, digits.index) + String(n.value * 1e7) + crore[1];
+    }
+    s = s.replace(WORD_WITH_MONEY, (_m, d: string, w: string) => d + WORD_VALUE[w]);
+  }
+  if (s === t) return undefined;
+  return { body: s.trim(), tail };
+}
+
 /** The full reader: every shape `chart-values.js` accepts. Exported for the parity test only. */
 export function readNumberFull(t: string): NumberValue | undefined {
+  const plain = readNumberPlain(t);
+  // A magnitude WORD read as a plain unit (`5 Mrd` as 5 of "Mrd") still has to be applied.
+  if (plain !== undefined && !MAGNITUDE_WORD.test(plain.unit)) return plain;
+  const money = currencyForm(t);
+  if (money === undefined) return plain;
+  const read = readNumberPlain(money.body);
+  // A currency AFTER the number becomes the unit, as `%` is; one BEFORE it is dropped, as `$` is.
+  // A number that also carries a unit (`12% EUR`, `EUR 12%`, `USD 4bps`) is not a money amount.
+  if (!read || read.unit) return undefined;
+  return money.tail ? { ...read, unit: money.tail } : read;
+}
+
+/** NUMERIC's own shapes, with no currency code, currency after the number or magnitude word. */
+function readNumberPlain(t: string): NumberValue | undefined {
   // `..` is the range delimiter and never part of a number. Without this, the separator rule
   // (two or more dots group) read `0..10` as 10 — a range silently became its upper end.
   // An ISO-grouped number (`12 000`) is one value; NUMERIC has no room for its spaces.
@@ -374,7 +467,16 @@ const CORE_ONLY = new RegExp(`^${CORE}$`);
  */
 export function malformedNumber(raw: string): string | undefined {
   const t = collapseIsoGroups(raw.trim());
-  if (!t || t.includes('..') || !NUMBER_SHAPED.test(t) || readNumber(t) !== undefined) return undefined;
+  if (!t || t.includes('..') || readNumber(t) !== undefined) return undefined;
+  // A money form (`EUR --4M`, `--4M €`, `EUR 1,2,3`) is malformed when its number is: the body
+  // the currency layer would read is checked like any other number.
+  const money = currencyForm(t);
+  if (money && money.body !== t) {
+    if (currencyForm(money.body) && money.tail) return 'it has two currencies';
+    const why = malformedNumber(money.body);
+    if (why) return why;
+  }
+  if (!NUMBER_SHAPED.test(t)) return undefined;
   const at = t.search(/\d/);
   const before = t.slice(0, at);
   if (SIGN_LOOKALIKE.test(before)) return 'it has a look-alike where a sign goes: type `-` or `+`';

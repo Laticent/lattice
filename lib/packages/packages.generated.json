@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 75,
+    "component": 79,
     "finish": 9,
     "motion": 4,
     "plugin": 9
@@ -560,6 +560,19 @@
     },
     {
       "type": "component",
+      "name": "ep-curve",
+      "path": "lib/components/chart/ep-curve",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
       "name": "flowchart",
       "path": "lib/components/chart/flowchart",
       "roles": [
@@ -612,6 +625,19 @@
       "type": "component",
       "name": "heatmap",
       "path": "lib/components/chart/heatmap",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "histogram",
+      "path": "lib/components/chart/histogram",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -940,6 +966,19 @@
     },
     {
       "type": "component",
+      "name": "risk-matrix",
+      "path": "lib/components/chart/risk-matrix",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
       "name": "roadmap",
       "path": "lib/components/chart/roadmap",
       "roles": [
@@ -1129,6 +1168,19 @@
         "manifest.json",
         "styles.css"
       ]
+    },
+    {
+      "type": "component",
+      "name": "tower",
+      "path": "lib/components/chart/tower",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
     },
     {
       "type": "component",

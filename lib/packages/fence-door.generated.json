@@ -16,6 +16,12 @@
     {
       "pass": "chart-family",
       "classes": [
+        "ep-curve"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
         "flowchart"
       ]
     },
@@ -29,6 +35,12 @@
       "pass": "chart-family",
       "classes": [
         "gantt"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "histogram"
       ]
     },
     {
@@ -100,6 +112,12 @@
     {
       "pass": "chart-family",
       "classes": [
+        "risk-matrix"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
         "roadmap"
       ]
     },
@@ -131,6 +149,12 @@
       "pass": "chart-family",
       "classes": [
         "timeline-list"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "tower"
       ]
     },
     {

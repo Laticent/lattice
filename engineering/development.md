@@ -164,7 +164,7 @@ test/integration/invariants/  component-invariants (semantic gate),     [PR]
                               tools/check-slide-contrast.js)
 test/integration/galleries/   emulator.gallery                      [nightly]
 test/integration/components/  component- + bucket-galleries          [nightly]
-test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
+test/integration/exemplars/   exemplar-render (46 decks)            [nightly]
 test/integration/mermaid/     mermaid-smoke                         [nightly]
 test/integration/screenshot/  screenshot, svg-scaling              [nightly]
 test/integration/lint-engine/ lint-engine-equivalence: esm/lint.js  [nightly]
@@ -180,23 +180,27 @@ test/fixtures/                small .md decks for integration
 ### Contrast: two tools, one probe
 
 `tools/check-slide-contrast.js` scores the rendered DOM of a deck: fast, one scheme,
-backdrops resolved by climbing the ancestor chain. It is the one the invariants gate
+backdrops resolved by climbing the ancestor chain, reading each node's `linear-gradient`
+layers at the glyphs' own position above its `background-color` (`gradientPaintsAt`; what it
+does not evaluate is listed in its header, and `test/integration/invariants/contrast-probe-gradient.test.js`
+compares each handled form with a real pixel). It is the one the invariants gate
 imports, and its `PROBE` is the single source of truth for which runs exist, what ink
 they carry, and which AA threshold applies.
 
 `tools/check-player-contrast.js` reuses that same `PROBE` and changes three things it
 structurally cannot do: it drives the real `--player` EXPORT rather than a plain render,
 it scores BOTH scheme states (as exported, and after clicking `#lp-mode`), and it samples
-each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so a
-gradient, an image, a translucent overlay or a z-ordered rail resolves correctly because
-it is simply there. That split is what makes its report actionable: an "as exported"
+each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so an
+image, a gradient form the probe does not evaluate (radial, conic), a translucent overlay or a
+z-ordered rail resolves correctly because it is simply there. That split is what makes its report actionable: an "as exported"
 failure is in the PDF too (a deck or theme defect), while an "after the toggle" failure
 exists only in the player (a scheme defect).
 
 ```bash
 node tools/check-player-contrast.js examples/a11y.md            # a deck, exported first
 node tools/check-player-contrast.js --json out.json exported.html
-npm run contrast:player                                         # the corpus, vs the baseline
+npm run contrast:player                                         # the 75 component galleries, 3 at a time, vs the baseline
+node tools/player-contrast-select.js --since <sha>              # which galleries a diff could move (what the nightly runs)
 npm run contrast:player:bless                                   # re-record the baseline
 ```
 
@@ -215,15 +219,24 @@ the toggle, and asserts a computed value lands where the deck's own dark render 
 in a transform is a property of the transform, so one deck catches it.
 
 The CORPUS sweep runs **nightly** (`integration-nightly.yml`), because that part genuinely
-costs: ~24s per deck — 16s to export the player, 8s to audit it — so `examples/` is roughly
-55 minutes. The PDF is not the cost and is no longer written; the browser render, the
-dynamic-component bake and the CSS prune are, and the player needs all three. It compares
-against `test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with
-every theme and contrast change and a baseline blessed on a branch is stale before that branch
-merges — and fails only on a finding that is **new** or has got **worse** — the corpus's known sub-AA runs are tracked in #1745, and a nightly that
-re-lists them is one people learn to skim. Re-bless with `npm run contrast:player:bless` once
-a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
-contract and is reported in its own bucket, never as a failure.
+costs: about 16s to export a deck's player and 8s to audit it, and the player needs the browser
+render, the dynamic-component bake and the CSS prune all three times over. **The corpus is the 75
+component galleries** (owner ruling 2026-10-16; it was 280 `examples/` decks and 2 h 02 min in
+CI). `--concurrency N|auto` audits several decks at once, one browser per worker: 75 galleries
+measured 15 min on 4 cores. On weekdays the nightly audits only the galleries a diff since the
+last green run of this arm could have moved (`tools/player-contrast-select.js`, which defaults to
+"every gallery" for any path it does not recognize); on Sunday it audits all of them. The
+selector's rules, what it cannot see (a component's CSS leaking into another gallery; themes no
+gallery is on) and the measured saving are in
+`engineering/decisions/2026-10-16-player-contrast-galleries.md`. On Sunday (and on a manual dispatch) a second step audits a 41-deck sample of `examples/` for other themes and composed finish and register mixes (`player-contrast-select.js --examples`, about 8 min on 4 cores). The sweep compares against
+`test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with every theme
+and contrast change and a baseline blessed on a branch is stale before that branch merges — and
+fails only on a finding that is **new** or has got **worse**; the known sub-AA runs are tracked in
+#1745, and a nightly that re-lists them is one people learn to skim. A sweep over a subset scores
+only the decks it opened: a baseline row for a deck it did not open is neither fixed nor dropped,
+and a bless rewrites only the decks it opened. Re-bless with `npm run contrast:player:bless` once
+a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette contract
+and is reported in its own bucket, never as a failure.
 
 `[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
@@ -354,6 +367,8 @@ lib/<X>.js              → SCRIPT_FOR_LIB[X]      (e.g. palette.js → test:pal
 test/unit/<scope>/*     → test:<scope>
 themes/*.css            → test:palette
 lib/conformance/*       → test:conformance
+lib/components/*        → test:components + test:conformance   (the component contract reads every folder)
+test/conformance/*      → test:conformance   (fixtures, debt ledger, card-row corpus)
 docs/, examples/, *.md  → skip — no tests needed
 lattice.js,    → full unit suite        (safe fallback;
 lattice-runtime.js,                                renderers touch everything)
@@ -838,6 +853,14 @@ cd docs && npm install
 cd docs && npm run dev > /tmp/astro.log 2>&1 &
 #   wait until /tmp/astro.log prints "ready". In the cloud sandbox a plain `&`
 #   server can get reaped — prefer the harness's run_in_background to keep it up.
+#   Under an AI agent, astro 7 detects the agent and DAEMONIZES itself: the log
+#   ends at "Dev server running at …" (never "ready"), `npx astro dev logs`
+#   shows the server output, and `npx astro dev stop` stops it. Set
+#   ASTRO_DEV_BACKGROUND=1 to keep it in the foreground instead.
+#   The Studio paints from the dev server: `src/plugins/vite-public-esm-dev.mjs`
+#   lets the site's runtime `import()` of the engine staged under public/
+#   through, which Vite otherwise refuses with a 500. The first load after a
+#   cold dep cache reloads the page once while Vite optimizes dependencies.
 
 # 3. Screenshot any route, then VIEW the PNG with the Read tool (renders
 #    inline) or SendUserFile.
@@ -1399,6 +1422,31 @@ new key is: the reader, the row (with `vocab:` naming the lint-vocab field its r
 fails on a key that is read but has no row, a row nothing reads, a value list lint disagrees with,
 a spec row or case that is missing, or a row the schema cannot express. The live matrix is
 `dist/engineering/conformance.md`.
+
+### Adding or changing a component: what the contract checks
+
+`test/unit/conformance/static.test.js` also runs the **component contract**
+(`lib/conformance/kinds/component.contract.js`) over every folder under `lib/components/`. It fails on:
+a manifest with no stylesheet (or the reverse); a stylesheet in a shared `_` folder that
+`tools/build-css.js` never names; a variant with no gallery slide, or one `lint:deck` calls an unknown
+class; a `variantAxes` member that is not a variant; a `capacity` that is out of order or an
+`escalateTo` that names nothing real; a new physical `left`/`right` declaration (use `margin-inline-*`,
+`padding-inline-*`, `inset-inline-*`, `text-align: start`/`end`, so the layout mirrors under
+`dir="rtl"`); and a component with no entry in `test/conformance/card-row-corpus.json`. A component the
+corpus marks as having a card row must declare `cards` in its manifest.
+
+Known failures are in `test/conformance/debt.json`, each with a reason. A new component cannot carry
+debt: it conforms or it does not merge. A debt entry for a count (the physical declarations) carries a
+`ceiling`; when your change lowers the count, lower the ceiling in the same commit.
+
+The **render clauses** (every variant slide fits, has no axe violation, and meets AA in every shipped
+palette; the card-row trigger agrees with the corpus) run with `npm run conformance:render`, not in
+`npm test`: they need a browser and cost minutes. `--only=<component>` runs one component's slides
+across all palettes; `--changed` runs the components your diff touches on three palettes. They are
+report-only. The nightly runs the whole matrix (about 31 minutes in CI, 48 on a slower sandbox) in its own step, and CI runs
+`--changed` on shard 1 of each PR (seconds to under a minute) and prints it in the job summary.
+`test/integration/components/component-conformance.test.js` runs the matrix when
+`CONFORMANCE_RENDER=1`; its smaller "bite" tests, which prove each probe can fail, always run.
 
 A `tint-*` or `mark-*` treatment is the same idea on a smaller scale: add it to
 `lib/base/treatments.js` with its CSS, or `unknown-treatment` calls it unknown.

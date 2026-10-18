@@ -24,7 +24,7 @@
  *
  * ONE SUBSTITUTION. `present-guide.ts` takes `spokenValue` from the docs site's
  * read-along-core bundle, which is 120 KB of the whole narration kernel. Its source is
- * `lib/core/chart-values.js` (dependency-free, and the module that bundle inlines), so the
+ * `lib/core/chart-values-speech.js` (with chart-values.js, the module that bundle inlines), so the
  * import resolves there: 85 KB against 204 KB, and the same function.
  *
  * Flags: --check (freshness gate, exit 1 on drift), --silent.
@@ -52,7 +52,7 @@ const sourcesNotDists = {
   name: 'guide-player-sources',
   setup(build) {
     build.onResolve({ filter: /^(@\/lib\/(vetrina|cadenza)|@laticent\/ltt)$/ }, (args) => ({ path: SOURCES[args.path] }));
-    build.onResolve({ filter: /read-along-core\.generated\.js$/ }, () => ({ path: path.join(ROOT, 'lib', 'core', 'chart-values.js') }));
+    build.onResolve({ filter: /read-along-core\.generated\.js$/ }, () => ({ path: path.join(ROOT, 'lib', 'core', 'chart-values-speech.js') }));
   },
 };
 

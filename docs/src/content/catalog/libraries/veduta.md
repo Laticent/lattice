@@ -1,7 +1,7 @@
 ---
 kind: library
 name: Veduta
-order: 10
+order: 11
 promise: A long list stays fast, because only what the reader can see exists.
 intro: A slide deck, a photo set and a transcript are long lists that a reader sees a few units of at a time. Mounting all of them is slow and uses memory. Veduta decides which units each view should mount, at what quality and in what order, and you do the mounting. It has no DOM and no framework, and it costs the same at 120 units as at 100,000.
 group: Showing and reading

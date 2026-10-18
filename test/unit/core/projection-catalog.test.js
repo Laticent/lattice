@@ -65,8 +65,17 @@ const WAS = {
  *
  * `hub-spoke` — the structure member (one hub, its satellites). `figure: "svg"`
  * for the same reason; `data: true` because every satellite can carry a printed value.
+ *
+ * `tower` — a reinsurance program (#2714). `figure: "svg"`, one self-contained
+ * <svg>; `data: true` because every layer and share is a figure.
+ *
+ * `risk-matrix` — a likelihood × impact register (#2714). `figure: "svg"`, one
+ * self-contained <svg>; `data: true` because every risk is placed by two numbers.
+ *
+ * `histogram` and `ep-curve` — a loss distribution and a return-period curve (the
+ * reinsurance beta). `figure: "svg"`, `data: true`: every band and point is a number.
  */
-const ADDED_SINCE = ['heatmap', 'hub-spoke'];
+const ADDED_SINCE = ['ep-curve', 'heatmap', 'histogram', 'hub-spoke', 'risk-matrix', 'tower'];
 const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
 
 /**

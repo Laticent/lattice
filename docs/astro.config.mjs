@@ -10,6 +10,7 @@ import { defineConfig } from 'astro/config';
 import { assetVersion } from './src/playground/asset-version.mjs';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
 import viteCjsLibDev from './src/plugins/vite-cjs-lib-dev.mjs';
+import vitePublicEsmDev from './src/plugins/vite-public-esm-dev.mjs';
 
 // Emits dist/chunk-graph.json: for every CLIENT-environment JS chunk, its
 // facadeModuleId (source entry, if any), moduleIds (bundled sources), static
@@ -153,7 +154,14 @@ export default defineConfig({
 		// (src/styles/tailwind.css) imports only the theme + utilities layers —
 		// Preflight is OFF on purpose (see that file's header + the migration
 		// decision doc §0). It carries the shadcn ↔ Lattice token bridge.
-		plugins: [tailwindcss(), chunkGraphPlugin(), viteCjsLibDev(path.resolve(import.meta.dirname, '..'))],
+		plugins: [
+			tailwindcss(),
+			chunkGraphPlugin(),
+			viteCjsLibDev(path.resolve(import.meta.dirname, '..')),
+			// Dev only: serves the engine staged under public/ to the site's runtime `import()`,
+			// which the dev server otherwise refuses with a 500. See the plugin's header.
+			vitePublicEsmDev(),
+		],
 	},
 	// Markdown-wide rehype: give every content table a tab stop so its horizontal
 	// scroll is reachable without a pointer (WCAG 2.1.1). See the plugin's header for

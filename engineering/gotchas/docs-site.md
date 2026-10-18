@@ -522,3 +522,20 @@ owe nothing here. See
   check behavior can keep `page.route()`.
 - **Triggered by:** follow-up `2539-p3-fit-check-cold-start`.
 
+## A screenshot of the Studio preview reads "blank" or "different" when the frame is correct
+
+- **Symptom:** Comparing two renders of the Studio preview by screenshotting `iframe.live` gives
+  intermittent differences: a flat navy frame, or a blurred slide, on a random slide of a random
+  run. The frame's DOM at that moment is correct (text present, 1280×720, right background).
+- **Cause:** An element screenshot captures whatever is painted in that rectangle, and the Studio
+  can paint a loading placeholder over the frame while the frame is already built. It happens at
+  the same rate under any stylesheet delivery, and a pack-vs-pack control can read 0 differences on
+  one run and not on the next, so a clean control run does not prove the instrument is stable.
+- **Fix:** Do not photograph the preview. Take the document the frame built (its `outerHTML` with the
+  `<link>`, `<style>` and `<script>` elements removed, plus every `document.styleSheets` sheet's
+  `cssRules[].cssText`) and re-render that standalone at the slide size. It measures the Studio's
+  own output with no compositing. Assert the thing you changed is really in the document
+  (for `@scope`: a `CSSScopeRule`), or the run can pass while testing nothing.
+- **Also seen on the way:** the Studio's rail buttons read `3stats`, with no word boundary between
+  the number and the name, so `\bstats\b` never matches; and `astro dev` cannot mount the engine
+  bundle (`engine.js?import` is refused from `/public`), so drive `docs/dist`.

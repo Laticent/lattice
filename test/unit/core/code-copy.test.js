@@ -45,6 +45,27 @@ describe('codeCopy — the buttons', () => {
     assert.equal(win.document.querySelector('.lat-code-copy').textContent, '', 'no text in the bar');
   });
 
+  test('the buttons go in the block\'s title bar, which every copy block has, so they never sit over code', async () => {
+    const { codeCopy } = await load();
+    // The bar is in the RENDER, empty without a title: a PDF lays the block out as the browser does.
+    assert.match(render(`# A\n\n\`@code{copy}\`\n${FENCE}`), /<pre class="lat-code" data-copy><span class="lat-code-title"><\/span><code/);
+    assert.doesNotMatch(render(`# A\n\n${FENCE}`), /lat-code-title/, 'no copy, no title: no bar');
+    const win = page(render(`# A\n\n\`@code{copy}\`\n${FENCE}\n\n\`@code{copy, title=a.ts}\`\n${FENCE}`));
+    codeCopy(win).install();
+    const bars = [...win.document.querySelectorAll('pre[data-copy] > .lat-code-title')];
+    assert.equal(bars.length, 2);
+    for (const bar of bars) assert.ok(bar.querySelector(':scope > .lat-code-copy'), 'the buttons are inside the bar');
+    assert.equal(bars[1].firstChild.nodeValue, 'a.ts', 'the title text stays first');
+    assert.equal(win.document.querySelectorAll('pre > .lat-code-copy').length, 0, 'none floats over the code');
+  });
+
+  test('a block from an older render, with no bar, still gets its buttons at the panel top', async () => {
+    const { codeCopy } = await load();
+    const win = page('<section><pre class="lat-code" data-copy><code>x</code></pre></section>');
+    codeCopy(win).install();
+    assert.ok(win.document.querySelector('pre > .lat-code-copy'));
+  });
+
   test('"Copy code" writes the block\'s source exactly, line numbers and title excluded', async () => {
     const { codeCopy } = await load();
     const win = page(render(`# A\n\n\`@code{copy, numbers, title=a.ts}\`\n${FENCE}`));
@@ -97,6 +118,30 @@ describe('codeCopy — the buttons', () => {
     assert.doesNotMatch(html, /<img/, 'the code is text in the copy, never markup');
     assert.doesNotMatch(html, /class=|data-/, 'nothing of the deck but its visible code travels');
     assert.equal(item.items['text/plain'].text, '<img src=x onerror="alert(1)">');
+  });
+
+  test('"Copy as HTML" keeps a diff line\'s band and a marked line\'s tint (followups.d/2710-p3)', async () => {
+    const { codeCopy } = await load();
+    // jsdom resolves no `color-mix()`, so the bands are given here as Chromium computes them: the
+    // `color(srgb …)` form a pasted document cannot read, which the copy writes as rgba().
+    const bands = '<style>.ln[data-diff="ins"]{background-color:color(srgb 0.2 0.6 0.4 / 0.14)}'
+      + '.ln[data-diff="del"]{background-color:rgba(200, 40, 40, 0.14)}.ln.lat-mark{background-color:rgb(1, 2, 3)}</style>';
+    const win = page(bands + render(`# A\n\n\`@code{copy, diff, mark=3}\`\n\`\`\`ts\n+const a = 1;\n-const b = 2;\n keep();\n\`\`\`\n`));
+    win.ClipboardItem = class { constructor(items) { this.items = items; } };
+    win.Blob = class { constructor(parts, o) { this.text = parts.join(''); this.type = o.type; } };
+    const api = codeCopy(win);
+    api.install();
+    let item = null;
+    await api.copy(win.document.querySelector('[data-kind="html"]'), { clipboard: { write: async ([i]) => { item = i; } } });
+    const out = new JSDOM(item.items['text/html'].text).window.document;
+    const rows = [...out.querySelectorAll('pre > span')].filter((s) => /min-width: 100%/.test(s.getAttribute('style')));
+    assert.deepEqual(rows.map((r) => [r.textContent, r.style.backgroundColor]), [
+      ['+const a = 1;', 'rgba(51, 153, 102, 0.14)'],
+      ['-const b = 2;', 'rgba(200, 40, 40, 0.14)'],
+      [' keep();', 'rgb(1, 2, 3)'],
+    ]);
+    assert.equal(out.querySelector('pre').textContent, '+const a = 1;\n-const b = 2;\n keep();', 'the text is unchanged');
+    assert.equal([...rows[0].querySelectorAll('span')].some((s) => s.style.backgroundColor), false, 'the band is the row\'s, not repeated per run');
   });
 
   test('a page the clipboard API refuses copies by selection instead', async () => {

@@ -482,3 +482,284 @@ before the per-PR render tier blocks anything (§12.4).
    2711-p4).
 7. **This note holds for revision** before it merges, and the owner asked for very high
    confidence that every explicit and implicit expectation is covered. §11 is that pass.
+
+## 13. Phase 2 outcome (2026-10-16)
+
+What shipped, what it measured, and what is held for the owner. Numbers are from one sandbox
+(16 GB, one Chromium); a CI runner will differ, so treat them as ratios and order of magnitude.
+
+### 13.1 What shipped
+
+- **Static component contract** (`lib/conformance/kinds/component.contract.js`), nine clauses over
+  the 77 folders under `lib/components/` (75 components plus the shared `_chart-family` and
+  `_qr-card`, which are instances because a folder of CSS with no manifest passed every gate before):
+  `files-both-ways`, `css-wired`, `variants-rendered`, `variant-known-to-lint`, `axes-coherent`,
+  `capacity-coherent`, `logical-properties`, `card-row-labeled`, `cards-declared`. Only the last
+  three catch anything on day one: 44 components carry 402 physical left/right declarations
+  (the ratchet, §12.5), and `stats`, `actors` and `kpi` had no `cards` declaration (§12.2); the owner ruled they adopt it, which landed in the same PR (§13.6). The other six
+  catch nothing today and say so; they are the reach guarantee for the render tier and keep six
+  drifts from opening.
+- **Ledger `ceiling`.** A clause that counts (`measure`) puts an integer ceiling on its debt entries:
+  the count may not rise above it, and when it falls the ceiling must follow.
+- **Render tier** (`tools/conformance-render.js`, `npm run conformance:render`): every gallery slide
+  (858 slides, one per variant plus each gallery's generated title, closing and anti-pattern
+  slides) rendered in pages of about 150, then overflow (the shared probe), axe-core, the card-row
+  trigger, and the shared contrast PROBE swept over all 33 palettes (`palette-sweep.js`, with the
+  shared `SANCTIONED_CONTRAST_EXEMPTIONS`). It reuses the machinery every other contrast gate
+  uses rather than adding a fourth contrast implementation (HARD RULE #15). Report-only.
+
+### 13.2 Measured cost (§12.4)
+
+| Run | Wall time |
+|---|---|
+| Render the 858-slide deck to HTML (no PDF) | 17 s (29.5 s paged) |
+| Overflow + card-row + axe, all slides | about 11 s |
+| **Contrast sweep, 33 palettes, all 858 slides** | **about 46 min** |
+| Whole matrix, nightly shape | **47 min 40 s** |
+| One component, 33 palettes: `kpi` (15 slides) | 30 s |
+| One component, 33 palettes: `map` (14 slides) | 3 min 23 s |
+| 14-component covering sample (one page), 33 palettes | 17 min 33 s |
+
+So the cost is the contrast sweep and nothing else: everything that is not contrast takes about
+a minute for the whole gallery. Within the sweep, cost follows what a slide paints, not how many
+slides there are: the PROBE scores every text run, and `map`, `math` and the chart components carry
+thousands (2.0 s a palette at 73 slides, 4.7 s at 200, 85.7 s at 858 on one page; paging at about
+150 slides keeps it near linear). The existing per-PR sweep (117 slides, 32 palettes) costs about
+2 minutes by the same arithmetic.
+
+### 13.3 Owner rulings on the render tier (2026-10-16)
+
+Ruled after the measurements above. Each changes what every future run pays (the second filter in
+`CLAUDE.md`), so each is recorded as the owner's:
+
+1. **Nightly: yes.** `integration-nightly.yml` gets its own report-only step that runs the whole
+   matrix with `CONFORMANCE_RENDER=1` (about 48 minutes added to a job that already takes about two
+   hours). Findings do not fail it; a blind harness or a probe that cannot bite does, and opens the
+   rolling issue.
+2. **Per PR: in line with the recommendation.** `ci.yml` runs `tools/conformance-render.js --changed`
+   on shard 1 of the PR integration job: the components the diff touches, every cheap probe, and
+   contrast on three palettes (`indaco`, `indaco-dark`, `concrete`). Report-only, in the job summary.
+   A shared-file change (lib/core, lattice.css) maps to no component, so the nightly covers it.
+
+The options as put to the owner, kept for the record:
+
+1. **Run it nightly?** (Ruled yes.) Setting `CONFORMANCE_RENDER=1` on the existing "Integration tests (nightly
+   slice)" step adds about 48 minutes to that job. A separate nightly step costs the same and keeps
+   the existing slice's time. Without either, only the small "bite" tests run on the nightly (they
+   prove each probe can fail on a planted defect).
+2. **Per-PR?** (Ruled: changed components, three palettes.) The cheap probes (overflow, axe, card-row, about 1 minute for everything) could run
+   per PR on the changed components today. The contrast sweep is the cost: a changed component is
+   30 s to 3.5 minutes across all 33 palettes, a changed shared file is the covering sample
+   (about 17 minutes) or more. The honest options are all palettes for the changed component only,
+   or two or three palettes per PR and all 33 nightly.
+
+### 13.4 What the reviews changed
+
+Three independent reviewers (red team, inversion, checker) read the first commit. Fixed: the
+checklist claimed the render clauses "run nightly" when nothing schedules them; the physical-property
+counter missed shorthands (`margin: 0 0 0 4px`, `inset: 0 auto 0 0`), mixed case and positions, and
+the corrected count is 402, not 361; slides a gallery generates (title, closing and a `cards-stack`
+anti-pattern slide on 73 of 75) were credited to the component, which would have charged `quote`
+with `cards-stack`'s card row; a flat `lib/components/<name>/` folder was invisible to the contract;
+a card-row label that was not a boolean passed; `measure` could crash the run; a gallery edit did not
+trigger `test:conformance` before commit.
+
+Not fixed, and stated: (1) `variant-known-to-lint` is nearly circular, because the linter's
+vocabulary is built from the same manifests, so a variant of a real component is never refused; it
+keeps the two in step and no more. (2) *(Fixed later the same day, §13.7.)* `topic`'s tab labels
+scored 1.02:1 because the probe read the section's `background-color` and missed the gradient that
+paints the band, while the text renders dark on light (viewed). First left out of the render tool's
+findings; then fixed in the probe itself, as §6.3 rule 7 says. (3) `cards-declared` blocks on a hand-labeled corpus, as
+ruling §12.2 says, and the labels outside the 20 components that declare `cards` and `stats`,
+`actors`, `kpi` are provisional until the trigger's rates are reviewed against them (§13.5).
+(4) The anatomy-matches-render, `isEnriched` and manifest-autocomplete items in §9 row 2 did not
+land; they are phase 2 work still owed.
+
+### 13.5 The card-row trigger, scored
+One full run on the final configuration (`size: 4k`, generated slides excluded from each component):
+**hit rate 70%** (16 of 23 labeled positives; missed: `citation-card`, `code`, `compare-code`,
+`compare-prose`, `decision`, `split-compare`, `stats`) and **false-alarm rate 29%** (15 of 52 labeled
+negatives). Neither is acceptable, so per §6.3 rule 6 the trigger stays report-only and
+`component.cards-declared` keeps reading the corpus, not the trigger.
+
+The 15 "extra" components are not all wrong labels, and not all trigger errors. Seven hit on most of
+their own slides (`authority-chain`, `cycle`, `journey`, `roadmap`, `premise`, `policy-recommendation`,
+`checklist`): they look like card rows the corpus never considered, which is the §12.2 finding class.
+They are candidates for the owner and the next change to review by eye, not labels I will flip
+unseen. `stats` is missed by the trigger though it is a known positive, so the trigger's 60 px and
+40 px box floor and its same-size test need work before it can enforce anything.
+
+A full run on this configuration took 50 min 26 s (the earlier hd run, 47 min 40 s, is the clean
+timing; this one shared the CPU with pre-commit and review jobs).
+
+Findings from that run, unreviewed one by one: contrast under AA in 11 components (worst: `journey`
+1.55:1 on `a11y-achromatopsia`, `radar` 3.04:1, `logo-wall` 3.27:1, `word-cloud` 3.79:1, `flowchart`
+3.81:1, `redline` 3.89:1, plus near-misses on `kanban`, `roadmap`, `policy-recommendation`; `diagram`
+and `citation-card` report 1:1 on Mermaid-baked text and a decorative quote glyph the shared exemption
+ledger does not cover); axe `empty-table-header` on `heatmap` and `line`; overflow on `actors`,
+`citation-card`, `list`, `math`, `regulatory-update`; one page-level `page-has-heading-one` axe
+violation, and 2 slides with no gallery header (a harness fault to chase). (That run left 209
+run-palette scores out as the `topic` probe error; §13.7 fixes the probe, so a rerun includes them.)
+
+### 13.6 `stats`, `actors` and `kpi` adopt `cards` (owner ruling 2026-10-16)
+
+Shown today-versus-adopted renders, the owner ruled they adopt now. Each declares `cards: { default: "center" }`
+and its CSS reads `--cards-align`, `--cards-grow` / `--cards-track` and `--cards-basis` with the
+pre-adoption values as fallbacks, so a section the engine stamped nothing on (a pane, a split page)
+looks as it did. `stretch` reproduces the previous look: rows and tiles fill the stage.
+
+What changes by default: `stats` nothing visible (its strip was already centered; `top`, `spread` and
+`stretch` now work on it, wide family only, since tall, strip and square stack and fill the frame by
+design); `actors` and `kpi` stop growing short content to fill the stage and sit centered. Checked
+across `hd`, `standard`, `square`, `portrait`, `story` and `mobile-landscape` on all three
+galleries: no slide newly overflows (the six deliberate overflow demos are unchanged, and one,
+`kpi` square slide 22, now fits). Demo deck: `examples/cards-stats-actors-kpi.md`. The three debt
+entries are gone from `test/conformance/debt.json`.
+
+### 13.7 The contrast probe reads gradient backdrops (2026-10-16)
+
+The owner's rule: contrast is the ink against what is painted directly behind it, wherever that
+paint comes from. The probe (`tools/check-slide-contrast.js`, shared by five gates) read only
+`background-color`, so `topic`'s light bottom band, painted by a second `background-image` layer
+(`linear-gradient(transparent 75%, <light> 75%)`) over a dark canvas color, was invisible to it and
+dark-on-light tab labels scored 1.02:1. Fixed in the probe, not worked around in the render tool:
+`gradientPaintsAt` evaluates each `linear-gradient` layer at the glyphs' own position, for ancestors
+and for overlay siblings, and composites those layers above `background-color`. `PROBE_LIMITS` is
+gone from the render tool.
+
+What it handles (each form compared with a real Chromium pixel in
+`test/integration/invariants/contrast-probe-gradient.test.js`): size, position (keyword, percent, px,
+the 4-value form) and repeat; angle, `to <side>` and `to <corner>`; % and px stops, hard stops;
+premultiplied interpolation, in OKLab when a stop is a non-legacy color (every `color-mix` computes to
+one); a CSS transform's scale on px lengths. What it does not, and leaves unchanged: `url()` rasters
+(`rasterUnder` still flags them), radial, conic and repeating gradients, color hints, `calc()` stops
+and positions, `round`/`space` repeat, `background-origin` other than padding-box, a gradient on a
+wrapped inline box, `background-clip: text`. A run straddling a hard stop is scored at its center.
+
+Measured: `topic`'s tab labels now score 10.53:1 (lit tab 11.29:1). On a 147-slide gallery page 36
+of 2136 run scores moved, every one now within 1-2 levels of the real backdrop pixel (nine of them,
+in `state-chart`, `timeline-list` and `video`, were previously wrong and were not anticipated); none
+got worse. The independent check of the first version found five evaluator bugs for forms the engine
+does not use yet (corner angle on a non-square box, sRGB versus OKLab, 4-value positions, transforms,
+inline wraps); all are fixed and pinned against pixels, and the pixel test caught one more of mine.
+
+### 13.8 The nightly step's first run in CI (2026-10-16, run 116 on `c6d650b`)
+
+Until this run the nightly step had only run on the sandbox. Dispatched on the branch, it ran in
+CI and finished in **30 min 38 s** (palette sweep 29 min 31 s; render 21 s, load 14 s, axe 7 s,
+overflow and card-row under a second), against 48 to 50 minutes on the sandbox. The runner is
+faster than the sandbox, so §13.2's 48 minutes is an upper bound for planning, not the CI cost.
+
+It also **failed its own reach test**, which is the test doing its job: the report is
+report-only, so the step stayed green, but `every component has a slide of its own` listed
+`columns` and `rows` with zero slides. A layout consumes its own `_class`, so the rendered
+`<section>` never carries `columns` or `rows`, and the ownership test (`s.cls.includes(host)`)
+credited neither. Ownership is now `ownerOf` in `tools/conformance-render.js`: a slide belongs to
+its gallery's component unless it carries one of the classes a gallery generates itself (`title`,
+`closing`, `cards-stack`). `columns` and `rows` now own six slides each; the matrix reads
+858 slides, 0 unowned, 0 empty components.
+
+The same run showed two slides with no `<header>`. Both are the `diagram` gallery's own title and
+closing, which set `_header: ''` on purpose. A headerless slide is now a harness fault only when
+it is not a generated one; before, its findings were dropped from the generated counters, now
+they are counted.
+
+CI's findings: 17 of 75 components (the card-row trigger scored 70% hit, 29% false alarm). I did not diff them against the sandbox run component by component, so the two are not claimed to match.
+
+### 13.9 The card-row trigger, relabeled and tuned (2026-10-17)
+
+Seven components hit the trigger on most of their own slides (§13.5). I rendered each and looked
+at its gallery (`.scratch` contact sheets, sent in the PR). Four are card rows by the corpus's own
+definition; three are not:
+
+| Component | Call | Why |
+|---|---|---|
+| `authority-chain` | candidate | A stack of equal full-width tier cards hugging the top, like `actors` rows. |
+| `checklist` | candidate | A stack of equal tinted row cards, centered by its own `justify-content:center`. |
+| `cycle` | candidate | A row of 4 to 6 equal stage cards joined by arrows. |
+| `premise` | candidate | A stack of equal bordered row cards beside the argument. |
+| `journey` | false | The hits are stage header tiles and swimlane rows: chart cells, not cards. |
+| `roadmap` | false | The hits are track rows of a grid and a swimlane; only `horizons` draws cards, one of five variants. |
+| `policy-recommendation` | false | Evidence items carry a left rail, not a box. The old trigger counted a one-sided border as a box. |
+
+**Why "candidate" and not `true`.** `component.cards-declared` fails a `true` label with no
+`cards` in its manifest, and the debt ledger takes entries only on the day a clause lands
+(§6.3 rule 1), so a `true` label would fail the build. Adopting `cards` on the four changes how
+they sit on the stage by default and is a composition ruling (§13.6 was one for three components).
+`test/conformance/card-row-corpus.json` now has a `candidates` map with a reason each; a candidate
+satisfies `component.card-row-labeled`, is scored as neither positive nor negative, and does not
+gate `cards-declared`. A candidate moves to `labels: true` in the change that adopts `cards`
+(followup `2717-p4`).
+
+**The trigger changed in three ways**, each found by scoring variants over the same 858 slides
+(`.scratch/p3/harness.js`, 45 s per variant):
+
+1. A box needs a painted background or a border on three or more sides (was: one side).
+2. Three or more boxes of the same height count even when their widths differ (a row of `stats`
+   hugs its text), and a pair of equal panels counts (`decision`, `compare-prose`, `split-compare`).
+3. A component "has a card row" when a third of its own slides trigger, not one. A single table or
+   grid in a gallery (`diagram` 2 of 29, `glossary`, `kanban`, `list-tabular`) is not its form.
+
+| | Hit rate | False-alarm rate |
+|---|---|---|
+| Before (§13.5, corpus of 23 + 52) | 70% (16 of 23) | 29% (15 of 52) |
+| After (corpus of 23 + 48, four candidates set aside) | 65% (15 of 23) | 15% (7 of 48) |
+
+The hit rate fell five points while false alarms halved. The variants that kept the old hit rate
+kept 29% to 31% false alarms. Still missed: `agenda`, `inventory`, `kpi`, `citation-card` (hit on
+only one or two variant slides), and `code`, `compare-code`, `q-and-a`, `team-profile` (no slide).
+Still extra: `columns`, `glossary`, `journey`, `obligation-matrix`, `redline`, `roadmap`, `table`
+(grids of equal cells). Neither rate is good enough to gate anything, so the trigger stays
+report-only. Bite tests pin the three changes (`decision` and `stats` hit, `policy-recommendation`
+misses).
+
+### 13.10 `rows` slide 4 fits; the render tier keeps counting stress slides (2026-10-17)
+
+`rows` was credited zero slides until §13.8, then reported `overflow on 1 slide(s)`. The slide is the
+gallery's `stress-slide`: progress over a four-column table with the Key Insight below both. The
+probe read `scrollH 2192` against `clientH 2148` at the 4K matrix size, and the cause was the table
+pane: the default 50/50 split gave it 313 px of stage for 357 px of table. The fix is the one the
+component's own docs give for evidence under a header (`rows ratio-35-65`), at a milder ratio:
+`rows ratio-45-55` on that slide. The probe now reads `over: false`, the export prints no
+`OVERFLOW` line, and the panes stay stacked. (`ratio-35-65` flipped the engine to side-by-side
+panes on this content, so it is not the answer here.)
+
+**The harness does not skip `stress-slide` slides.** A stress slide shows the most a component seats,
+so it is expected to fit at that ceiling; the 65 galleries that carry one all fit except those the
+nightly lists. A slide whose point is to overflow would need its own marker, and none exists. Skipping
+the marker would also have hidden this slide, which was a real defect: the table lost 44 px of
+content at 4K.
+
+### 13.11 The three phase 2 leftovers (2026-10-17)
+
+§9 row 2 listed three static items that did not land with #2729. Each is now a clause or is dropped
+with its reason.
+
+- **`isEnriched`, now a clause: `component.enriched`.** `tools/build-component-docs.js` and
+  `tools/build-galleries.js` skip a manifest that has none of `sample`, `whenToUse`, `antiPatterns`,
+  `related` or `variantDocs`, and say nothing. The clause fails that component. Day-one catches: none;
+  all 75 manifests are enriched (measured). It is a guard against the next component.
+- **Manifest autocomplete from the schema, done.** The Studio's raw-JSON manifest view completed
+  from a hand-written list of 9 keys and a hand-written `adapt.mode` list. The schema has 55 keys,
+  and `adapt.mode` has three values, not two (`single-orientation` was never offered). Day-one
+  catch: that missing value. `docs/src/components/studio/manifest-complete.ts` now reads
+  `lib/components/manifest.schema.json`, and a unit test pins the derivation.
+- **`anatomy-matches-render`, dropped.** The anatomy block is an ASCII drawing authored in
+  `tools/ascii-preview.py`; a render is pixels. Comparing them needs a second, machine-readable
+  description of the same layout, and that description would be the thing that drifts. The part that
+  can rot mechanically, a block id that no longer exists, already fails the build:
+  `resolveAnatomy` throws on an unknown id (measured today: 0 unknown ids). What is left is that 12
+  manifests carry no `anatomyBlock` (`bullet`, `heatmap`, `map`, `slope`, `contact`, `wifi`,
+  `collage`, `video`, `columns`, `rows` and two more); that is a docs gap, not a conformance finding,
+  and a clause over it would be a debt list with no defect behind it.
+
+### 13.12 One path classification (2026-10-17)
+
+`changedComponents` (the per-PR render tier) and `selectGalleries` (the player-contrast sweep) each kept
+a copy of "which paths can change a rendered component". Both now call `classifyPath` in
+`lib/conformance/changed-paths.js`, which returns `non-render`, `component`, `theme` or `other`; the
+selector keeps its conservative default (`other` selects every gallery) and the render tier keeps
+ignoring `other`. One behavior change, in the narrower direction: a prose-only edit under a component
+directory (`<name>.docs.md`) used to name that component for the per-PR render, and is now
+`non-render`, as the sweep always treated it. The generated `docs.md` changes only with its manifest,
+which still selects the component.

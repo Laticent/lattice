@@ -98,6 +98,10 @@ section .hljs-deletion {
  * code, spaced by padding (HARD RULE #20). */
 section :where(pre).lat-code > .lat-code-title {
   display: block;
+  /* A long path wraps rather than running off the panel (or, in a copy block, under the buttons):
+   * the panel's own `white-space: pre` would otherwise reach the title too. */
+  white-space: normal;
+  overflow-wrap: anywhere;
   padding-bottom: var(--sp-xs);
   border-bottom: 1px solid var(--code-edge);
   font-family: var(--font-mono);
@@ -157,6 +161,12 @@ pre[data-focus-style="spotlight"] .ln.lat-recede span,
 pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
 section { --code-recede: 55%; }
 
+/* indent= : a tab draws as wide as the block's indent, `tab` as four columns, rather than CSS's
+ * initial eight, which on a slide spends a third of a portrait panel on one level of nesting. A block
+ * that names no indent keeps eight, and lint-core's column count (CODE_TAB_SIZE) agrees with both. */
+section :where(pre).lat-code[data-indent="2"] { tab-size: 2; }
+section :where(pre).lat-code:is([data-indent="4"], [data-indent="tab"]) { tab-size: 4; }
+
 /* wrap : long lines wrap inside the panel, and a wrapped line's continuation hangs two columns in,
  * so it does not read as a new line of code. With numbers it hangs under its own text, not under
  * the number column. */
@@ -178,6 +188,19 @@ section :where(pre).lat-code-wrap.lat-code-numbers .ln {
  * browser. Quiet until the block is pointed at or a button has focus, so they never compete with
  * the code; the tooltip is the button's own label, in the panel's colors reversed. */
 section :where(pre)[data-copy] { position: relative; }
+/* The buttons' room: a copy block's title bar (empty without `title=`) is a two-column row, the
+ * title's text and then the buttons, at least the buttons' height. The render draws the bar in
+ * every surface, so a PDF, where no button is drawn, lays the block out exactly as the browser does.
+ * Measured before: a bare copy block's buttons sat over its first line once that line reached about
+ * 95 columns at wide and 40 at portrait. */
+section :where(pre)[data-copy] > .lat-code-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-xs);
+  min-block-size: 1.9em;
+}
+section :where(pre)[data-copy] > .lat-code-title > .lat-code-copy { position: static; grid-column: 2; grid-row: 1; }
 section :where(pre) .lat-code-copy {
   position: absolute;
   top: var(--sp-xs);
@@ -188,7 +211,9 @@ section :where(pre) .lat-code-copy {
   opacity: 0.6;
   transition: opacity 120ms ease;
 }
-section :where(pre):hover .lat-code-copy,
+/* `data-host-hover` is `:hover` bridged from a host whose preview takes no pointer events (the
+ * Studio, docs/src/playground/code-copy-host.js `hoverCodeCopyAt`). */
+section :where(pre):is(:hover, [data-host-hover]) .lat-code-copy,
 section :where(pre) .lat-code-copy:focus-within { opacity: 1; }
 section :where(pre) .lat-code-copy-btn {
   position: relative;
@@ -202,9 +227,12 @@ section :where(pre) .lat-code-copy-btn {
   background-color: color-mix(in srgb, var(--code-text) 12%, var(--code-bg));
   box-shadow: inset 0 0 0 1px var(--code-edge);
   color: var(--code-text);
+  /* A button does not inherit type by default, so it drew at the browser's 13px on every canvas:
+   * tiny on a 4K slide, and short of the bar it sits in. It takes the bar's size instead. */
+  font-size: inherit;
   cursor: pointer;
 }
-section :where(pre) .lat-code-copy-btn:hover { background-color: color-mix(in srgb, var(--code-text) 22%, var(--code-bg)); }
+section :where(pre) .lat-code-copy-btn:is(:hover, [data-host-hover]) { background-color: color-mix(in srgb, var(--code-text) 22%, var(--code-bg)); }
 section :where(pre) .lat-code-copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 section :where(pre) .lat-code-copy-btn[data-copied="yes"] { color: var(--syntax-inserted); }
 section :where(pre) .lat-code-copy-btn svg { inline-size: 1.1em; block-size: 1.1em; }
@@ -224,7 +252,7 @@ section :where(pre) .lat-code-copy-btn::after {
   pointer-events: none;
   transition: opacity 120ms ease;
 }
-section :where(pre) .lat-code-copy-btn:is(:hover, :focus-visible, [data-copied])::after { opacity: 1; }
+section :where(pre) .lat-code-copy-btn:is(:hover, :focus-visible, [data-copied], [data-host-hover])::after { opacity: 1; }
 /* Backstops: the buttons are drawn only on reading surfaces, but a printed page or a section being
  * captured must never show one. */
 @media print { section :where(pre) .lat-code-copy { display: none; } }

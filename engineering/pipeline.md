@@ -380,13 +380,24 @@ the same pinned instant (`SOURCE_DATE_EPOCH`, else the epoch), and
 `test/integration/export/player-reproducible.test.js` exports a deck twice and compares the bytes.
 Before 2026-10-16 the CLI stamped the wall clock there, the only byte that moved between runs.
 
-**What keeps a player file small**, in the order the passes run:
+**The same deck gives the same player from the CLI and the Studio**, apart from three things: the
+time stamp, the policy's script hashes, and the envelope's `host` field (`cli` or `studio`), which
+records which tool wrote the file. Everything else is meant to match, formatting included: both
+hosts compose the deck sheet from the minified builds (`lib/export/cli-deck-sheet.js`
+`shippedSheetText`), build the document's stylesheet from `lib/export/export-scaffold.js`, embed
+the same font files, and stamp the same `build` and `playerVersion`. What still differs is listed
+in `engineering/decisions/2026-10-16-player-as-library-audit.md` §11.9.
+
+**What keeps a player file small**, in the order the passes run. Both hosts run every pass with
+the same code: the first two inside `assemblePlayer`'s tail (`player-seal.mjs` `sealPlayer`,
+which also writes the CSP), the rest in `player-prune.js` `prunePlayerHtml`, to which each host
+hands only a page (`lattice.js` a scratch Chromium tab, the Studio an offscreen iframe).
 
 | Pass | Where | What it removes |
 |---|---|---|
-| Glyph subset | `html-player.js` `subsetEmbeddedFonts` (CLI only) | characters the deck never draws |
-| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` (both hosts, inside `assemblePlayer`) | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
-| CSS prune | `player-prune.js`, run in a real browser by `lattice.js` and the Studio | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
+| Glyph subset | `player-fonts.js` `subsetEmbeddedFonts` (both hosts; the Studio runs it from the player-prune bundle) | characters the deck never draws |
+| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
+| CSS prune | `player-prune.js` `prunePlayerHtml`, in a real browser | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
 | Font prune | `player-prune.js` `prunePlayerFontFaces` | families nothing uses |
 | Font merge | `player-prune.js` `mergeIdenticalFontFaces` | an identical font file declared once per weight: adjacent weights that share one file become one face with a weight range, unless a weight the page uses (measured, or written in the shipped CSS) falls strictly inside the run undeclared, or another stylesheet also declares the family |
 
@@ -394,6 +405,20 @@ The font merge is exact for every weight a face declares and every weight outsid
 was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Firefox. A weight
 inside a run that no face declares (550 between 500 and 600) is the one case that would render
 differently, so the guard refuses the merge. Record: `decisions/2026-10-16-player-as-library-audit.md` §3.
+
+**The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
+fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
+Studio's own modules bundled into Chromium. That covers the packer.
+
+**And the two hosts render the same deck to the same file.** The Studio's Share → Webpage export and
+the CLI's `--player` write identical bytes for one deck, apart from three things the owner ruled out:
+the record's `generatedAt`, its `host` field (`cli` or `studio`), and the policy's script hashes.
+`docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, with the Studio
+suite), on a plain deck, a Mermaid deck and a portrait split; 25 example decks were measured identical
+when it landed. **The claim is per browser build:** both hosts read computed styles, and two Chromium
+versions spell some computed colors differently, so the spec runs the CLI on the Chromium the suite
+uses, and a Studio export made in Safari or Firefox will differ. Record:
+`decisions/2026-10-16-player-as-library-audit.md` §11.9.
 
 **This is same-machine reproducibility, and the cross-machine gap is much bigger
 than people expect.** Skia's rasterization is CPU-dispatched and not

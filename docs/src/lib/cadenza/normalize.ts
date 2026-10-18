@@ -49,6 +49,16 @@ const MAGNITUDE: Record<string, string> = {
 /** The magnitude suffixes, longest-first, as a regex alternation — so `bn` wins over `b`. */
 const MAG_RE = 'bn|mm|tn|[kmbt]';
 
+/**
+ * The value of a written number, reading its comma the way the chart reader does
+ * (`normalizeSeparators` in lib/core/chart-values.js): a GROUP comma is always followed by exactly
+ * three digits, so `1,234` is one thousand two hundred thirty-four and `4,2` is four point two.
+ * Deleting every comma read `4,2 Mio. €` as "forty-two", a number ten times the one on the slide.
+ */
+function amount(s: string): number {
+  return /^\d+,(?:\d{1,2}|\d{4,})$/.test(s) ? Number(s.replace(',', '.')) : Number(s.replace(/,/g, ''));
+}
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -459,7 +469,7 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
   // Money: optional currency symbol, grouped number, optional magnitude suffix.
   const money = core.match(new RegExp(`^([$£€])([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?$`, 'i'));
   if (money) {
-    const value = Number(money[2].replace(/,/g, ''));
+    const value = amount(money[2]);
     // Agreement, like `unitWords` does for `1pp` / `1d` / `1bps`. Money was the one value path
     // that skipped it, so `$1` read "one dollars". A MAGNITUDE always pluralizes ("one million
     // dollars"), because the unit then agrees with the magnitude, not with the bare digit.
@@ -472,7 +482,7 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
 
   // Percent.
   const pct = core.match(/^([\d,]+(?:\.\d+)?)%$/);
-  if (pct) return `${numberToWords(Number(pct[1].replace(/,/g, '')))} percent`;
+  if (pct) return `${numberToWords(amount(pct[1]))} percent`;
 
   // RANGES — "$1.2–1.4B", "50-60%", "2-3x", "12–15". The single most common shape in guidance,
   // and it used to pass through WHOLE, brackets and all, even though each side on its own
@@ -606,12 +616,12 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
   // Bare number with a magnitude suffix (4.2M → "four point two million").
   const magNum = core.match(new RegExp(`^([\\d,]+(?:\\.\\d+)?)(${MAG_RE})$`, 'i'));
   if (magNum) {
-    return `${numberToWords(Number(magNum[1].replace(/,/g, '')))} ${MAGNITUDE[magNum[2].toLowerCase()]}`;
+    return `${numberToWords(amount(magNum[1]))} ${MAGNITUDE[magNum[2].toLowerCase()]}`;
   }
 
   // Plain number (with optional grouping commas).
   const num = core.match(/^-?[\d,]+(?:\.\d+)?$/);
-  if (num) return numberToWords(Number(core.replace(/,/g, '')));
+  if (num) return numberToWords(core.startsWith('-') ? -amount(core.slice(1)) : amount(core));
 
   return core;
 }
@@ -674,6 +684,7 @@ function trailingPunct(s: string): string {
   while (i > 0 && TRAILING_PUNCT.has(s[i - 1])) i--;
   return s.slice(i);
 }
+const withoutTrailingPunct = (s: string): string => s.slice(0, s.length - trailingPunct(s).length);
 const isMonthWord = (t: string | undefined): boolean => {
   const s = String(t ?? '');
   return MONTH_WORD.has(s.slice(0, s.length - trailingPunct(s).length));
@@ -702,9 +713,40 @@ export function contextualMonth(display: string, prev: string | undefined, next:
   return CONTEXT_MONTHS[core] + punct.replace(/[:;]/g, ',');
 }
 
+// The words a European money amount puts AFTER its number, each its own token: `4,2 Mio. €`,
+// `12 Mrd. €`, `4200 €`. Read alone they reach the voice as glyphs ("Mio. €"); after a number they
+// are a magnitude and a currency. A currency is read after a magnitude word too (`Mio. €`).
+const AFTER_NUMBER_MAGNITUDE: Record<string, string> = { Mio: 'million', 'Mio.': 'million', Mrd: 'billion', 'Mrd.': 'billion' };
+const AFTER_NUMBER_CURRENCY: Record<string, readonly [string, string]> = {
+  '€': ['euro', 'euros'], '£': ['pound', 'pounds'], $: ['dollar', 'dollars'],
+};
+const BARE_NUMBER = /^-?\d[\d,]*(?:\.\d+)?$/;
+
+/** A magnitude word or a currency symbol said as one, when it follows a number, else null. */
+function afterNumber(display: string, prev: string | undefined, prevPrev: string | undefined, opts: SpokenOpts): string | null {
+  if (!isEnglishLang(opts.lang) || prev === undefined) return null;
+  const tok = String(display ?? '').trim();
+  const punct = trailingPunct(tok);
+  const core = punct ? tok.slice(0, -punct.length) : tok;
+  // `withoutTrailingPunct`, a linear reverse scan: a `/[…]+$/` regex here is polynomial on a long run of `!`.
+  const prevCore = withoutTrailingPunct(prev);
+  if (Object.hasOwn(AFTER_NUMBER_MAGNITUDE, core) && BARE_NUMBER.test(prevCore)) {
+    return AFTER_NUMBER_MAGNITUDE[core] + punct.replace(/^\./, '');
+  }
+  if (!Object.hasOwn(AFTER_NUMBER_CURRENCY, core)) return null;
+  const afterMagnitude = Object.hasOwn(AFTER_NUMBER_MAGNITUDE, prevCore) || Object.hasOwn(AFTER_NUMBER_MAGNITUDE, prev);
+  const before = afterMagnitude ? prevPrev : prevCore;
+  const number = before === undefined ? undefined : withoutTrailingPunct(before);
+  if (number === undefined || !BARE_NUMBER.test(number)) return null;
+  const one = !afterMagnitude && amount(number) === 1;
+  return AFTER_NUMBER_CURRENCY[core][one ? 0 : 1] + punct;
+}
+
 /** One word of a spoken sequence, with the neighbors the per-token rules cannot see. */
 export function spokenAt(words: readonly string[], i: number, opts: SpokenOpts = {}): string {
-  const spoken = contextualMonth(words[i], words[i - 1], words[i + 1], opts) ?? toSpoken(words[i], opts);
+  const spoken = contextualMonth(words[i], words[i - 1], words[i + 1], opts)
+    ?? afterNumber(words[i], words[i - 1], words[i - 2], opts)
+    ?? toSpoken(words[i], opts);
   return dedupeDirection(words[i - 1], spoken);
 }
 

@@ -1,0 +1,188 @@
+{
+	"restrained": [
+		{
+			"said": "Most years stay under $10M; one in thirty tops $100M.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Four bands of annual loss, on a log scale.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$1M to $10M: fifty-five percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$10M to $50M: thirty percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$50M to $100M: twelve percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$100M to $250M: three percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Most years stay under $10M; one in thirty tops $100M.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Four bands of annual loss, on a log scale.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "$1M to $10M: fifty-five percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "$10M to $50M: thirty percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "$50M to $100M: twelve percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "$100M to $250M: three percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Most years stay under $10M; one in thirty tops $100M.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Four bands of annual loss, on a log scale.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$1M to $10M: fifty-five percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$10M to $50M: thirty percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$50M to $100M: twelve percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "$100M to $250M: three percent.",
+			"act": "visit",
+			"unit": "band",
+			"select": "rect.histogram-band[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

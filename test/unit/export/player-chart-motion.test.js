@@ -71,7 +71,7 @@ test('the CLI flag overrides the deck: playerMotion false wins over motion: on',
 	// an assembler that stopped running at all, which is the failure it exists to catch.
 	// The reverse is deliberately NOT offered: the flag can only suppress, so a deck that
 	// says `motion: off` can never be made to move by whoever exports it.
-	const docHtml = '<section class="funnel"><svg><polygon data-anima-role="bar"/></svg></section>';
+	const docHtml = '<section data-lattice-slide="1" class="funnel"><svg><polygon data-anima-role="bar"/></svg></section>';
 	const caps = {
 		parseHtml: (h) => new JSDOM(h).window.document,
 		sanitize: (h) => h,

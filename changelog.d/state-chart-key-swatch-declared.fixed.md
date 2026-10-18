@@ -1,0 +1,1 @@
+- `state-chart` now declares its key swatch (`fc-key-swatch`) in `kernel.marks`, matching `flowchart`, so a chart finish can be written against it and `node tools/chart-language-census.js --check` reports no disagreement (64 rendered mark classes across 26 members agree).

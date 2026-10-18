@@ -100,6 +100,7 @@ export function librariesNav(url) {
 		lib(url, 'Calco', '@laticent/calco', 'Web slides to editable PowerPoint'),
 		lib(url, 'Tavola', '@laticent/tavola', 'Edit together from a link, no server'),
 		lib(url, 'Fuoco', '@laticent/fuoco', 'Every view of a document on one focus'),
+		lib(url, 'Mosaico', '@laticent/mosaico', 'Pictures of any shape, packed exactly'),
 		lib(url, 'Veduta', '@laticent/veduta', 'Long lists that stay fast, because only what you see exists'),
 	];
 }

@@ -200,6 +200,42 @@ vermilion, Segno's charcoal and red):
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#1b2423` | `#e3ebea` | Fraunces "Fuoco" |
 
+## Mosaico — the mosaic (built 2026-10-16)
+
+Mosaico (the box-packing library, `docs/src/lib/mosaico`) joined the family with its site page.
+*Mosaico* is Italian for **mosaic**, which is what it makes: tiles of different shapes, cut
+straight across, fitted into one box with even gutters. The mark is one of its own layouts:
+
+- **the tiles**: a tall tile on the left, a square over two slim tiles on the right, each a
+  different shape, cut the guillotine way the `tree` strategy cuts;
+- **the warm square** is the tile the eye lands on, the "live" accent;
+- **the ringed hub** sits exactly on the T where the cuts meet, the family tie.
+
+A first draft put the hub on a tile's edge, where it read as a stray dot; moving the cuts so they
+meet at the center put it on the junction. The min mark drops the two slim tiles for one, keeps
+the strokes at 11 units and enlarges the hub. Assets: `docs/public/mosaico-mark.svg`,
+`mosaico-mark-min.svg` (favicon), `mosaico-lockup.svg`. The generator was kept out of tree
+(`.scratch/mosaico-brand/gen.py`), as the siblings' were.
+
+**Palette**, olive with a sea-glass live accent: the green stone and blue glass of a Roman floor
+mosaic. A first palette, plum with amber, failed the family's own rule: its amber sat 0.015 from
+Cadenza's (a difference in OKLab under the eye's threshold), the amber Suono, Cadenza, Vetrina and
+Lente already share, and the owner judged the plum too close to Vetrina's rose. A garnet replacement
+was rejected for the same rose. So the hues were chosen by measurement: on the OKLCH hue wheel the
+siblings fill 32–87° (reds, oranges, ambers, golds), 149–190° (greens, teals), 236–310° (blues,
+indigo, purple, Lattice's own blue among them) and 358° (rose), which leaves two gaps, yellow-green and cerulean. Olive takes one, sea
+glass the other. The nearest sibling color is now 0.086 away (Tavola's dark-mode green), and Mosaico is
+the only library whose live accent is cool.
+
+| Class | Light | Dark |
+|---|---|---|
+| `pri` / `hub` | `#4f5f00` | `#a9bf4a` |
+| `warm` (the live tile, sea glass) | `#0994b9` | `#8ddefd` |
+| `ring` | `#1f2600` | `#0f1300` |
+| `wm` (wordmark) | `#1d2112` | `#e7ebdf` |
+
+The `/libraries/mosaico/` header draws the mark inline from the page's tokens, so it follows the
+page's theme toggle, as Calco's and Fuoco's do.
 
 ## Veduta — the view (built 2026-10-18)
 

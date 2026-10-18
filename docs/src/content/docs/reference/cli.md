@@ -110,10 +110,11 @@ stay the same.
 | `--fluid` | A viewer where each slide fills the screen and reflows on a phone. Same as `fluid: true` |
 | `--no-player-motion` | Ship still slides in the player even when the deck sets `motion: on`. Same as `player-motion: off` |
 | `--player-mode <m>` | Open the player in `light`, `dark` or `system` mode, over the deck's `color-mode:` |
+| `--player-consent <origins>` | Let the player load web pictures from these origins (comma-separated, such as `https://images.example.com`), but only after the reader presses **Load pictures** in a banner. Until then each picture is a placeholder, and with JavaScript off it stays one, listed as a link. The site must allow cross-origin reads (CORS); if it does not, the banner says so and lists the links. Off by default |
 | `--narrate` | Voice the player with Kokoro, the Studio's on-device voice. Needs the optional voice install (see [`lattice video`](#lattice-video)) |
 | `--no-guide` | Leave the Guide (the focus and gestures that follow the narration) out of a narrated player |
 
-`--player-mode` and `--narrate` apply to `--player` only; without it, the render
+`--player-mode`, `--player-consent` and `--narrate` apply to `--player` only; without it, the render
 prints a note and ignores them.
 
 When several apply, `--player` wins. Between `--read` and `--fluid`, a flag
@@ -181,7 +182,8 @@ formatter reads, except one whose `@code{…}` record says `format=off`. Prettie
 formats JavaScript, TypeScript, JSON, CSS, SCSS, Less, HTML, Vue, Markdown,
 YAML, GraphQL, PHP, XML and Java; ruff formats Python; sql-formatter formats SQL
 (PostgreSQL unless the record names another `dialect=`). A record's `width=`
-sets the line width. A block a formatter cannot parse keeps its text and is
+sets the line width, `indent=2|4|tab` the indentation and `quotes=single|double`
+the string quote (the deck's `code:` default sets them for every block). A block a formatter cannot parse keeps its text and is
 reported. Line endings and a byte-order mark stay as the file had them.
 
 The formatters are optional dependencies: an install without them still renders

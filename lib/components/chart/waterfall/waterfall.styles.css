@@ -56,6 +56,23 @@
 :is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="down"] {
   stroke: var(--state-fail-ink);
 }
+/* `lower-is-better` — a walk where a rise is bad news (a loss ratio, claims,
+ * cost). The transform swaps the gradient slot and adds `.waterfall-lower` to
+ * the SVG; here each bar re-points the one state pair it reads at the other, so
+ * this stroke, every finish and every theme rule keyed on `data-s` follow the
+ * meaning without a second copy. Each bar redefines only its OWN pair, so the
+ * `var()` it reads is the inherited, untouched one — never a cycle. Direction
+ * (`data-s`, the sign, the print textures) does not change. */
+:is(section.waterfall, figure.chart-frame) .waterfall-lower .waterfall-bar[data-s="up"] {
+  --state-pass-hue: var(--state-fail-hue);
+  --state-pass-ink: var(--state-fail-ink);
+  --state-pass-fill: var(--state-fail-fill);
+}
+:is(section.waterfall, figure.chart-frame) .waterfall-lower .waterfall-bar[data-s="down"] {
+  --state-fail-hue: var(--state-pass-hue);
+  --state-fail-ink: var(--state-pass-ink);
+  --state-fail-fill: var(--state-pass-fill);
+}
 /* A step that netted to ZERO is its own outcome, not a rise of nothing: a
  * hairline at the level it left the running total on, in the canvas's ink. It
  * carries no fill because there is no area to fill, and no semantic hue because

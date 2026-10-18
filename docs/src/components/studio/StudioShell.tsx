@@ -53,7 +53,7 @@ import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
-import { tapCodeCopyAt } from '../../playground/code-copy-host.js';
+import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -3823,11 +3823,35 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			pressAt = null; // a click with no press of its own (a script's) is never a drag
 			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && (tapCodeCopyAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY)))) e.preventDefault();
 		};
+		// A POINTER OVER A COPY BUTTON. `:hover` cannot reach the frame either, so a code block's copy
+		// buttons stayed at rest and their tooltips never showed (followups.d/2710-p3); the host marks
+		// what the pointer is over (code-copy-host.js `hoverCodeCopyAt`), once a frame.
+		let hoverAt: { x: number; y: number } | null = null;
+		let hoverRaf = 0;
+		const hoverFrame = () => previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+		const onHover = (e: PointerEvent) => {
+			if (e.pointerType !== 'mouse') return;
+			hoverAt = { x: e.clientX, y: e.clientY };
+			if (hoverRaf) return;
+			hoverRaf = requestAnimationFrame(() => {
+				hoverRaf = 0;
+				if (hoverAt) hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
+			});
+		};
+		const onLeave = () => {
+			hoverAt = null;
+			hoverCodeCopyAt(hoverFrame(), null, null);
+		};
 		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);
+		holder.addEventListener('pointermove', onHover);
+		holder.addEventListener('pointerleave', onLeave);
 		previewTapOffRef.current = () => {
 			holder.removeEventListener('pointerdown', onPress, true);
 			holder.removeEventListener('click', onTap);
+			holder.removeEventListener('pointermove', onHover);
+			holder.removeEventListener('pointerleave', onLeave);
+			if (hoverRaf) cancelAnimationFrame(hoverRaf);
 		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React

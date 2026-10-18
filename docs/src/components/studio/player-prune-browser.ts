@@ -1,35 +1,19 @@
-// Browser side of the self-contained player's CSS + font PRUNE (P2b) — the app-side
-// twin of the CLI emulator's prunePlayerCssInPage (lattice.js). The assembled
-// Studio player inlines the WHOLE visual contract (~1 MB lattice.css) + the whole type
-// stack; a given deck uses a fraction. This mounts the assembled player in an OFFSCREEN
-// same-origin iframe, matches every base selector against the real rendered DOM across
-// all three views, and drops the rules/faces nothing paints — bringing the download
-// down to the CLI's ~0.4 MB.
+// The Studio's PAGE for the self-contained player's CSS + font prune, and its glyph subsetter.
 //
-// It runs the SAME kernel as the CLI (lib/export/player-prune.js, bundled to
-// player-prune.generated.js) and the SAME two safety guards, so a wrongly-dropped rule
-// can't silently break the frozen file:
-//   (1) AUTHORITATIVE matching — real-DOM `querySelector` across the union of all three
-//       view-DOMs, not a token heuristic;
-//   (2) a COMPUTED-STYLE GATE — full vs pruned CSS compared over GATE_PROPS for every
-//       element (+ ::before/::after) in all three views; ANY diff rejects the CSS prune
-//       and ships the full stylesheet. css-tree/parse trouble → full CSS, never a throw.
-// The font prune is independent (it removes faces nothing references) and needs no gate.
-
-// css-tree is heavy, so this whole module (and its bundle) loads on demand, only when
-// the user actually exports a webpage — never on the initial Studio load.
-import {
-	collectBaseSelectors,
-	fontFaceFamilies,
-	GATE_PROPS,
-	isPruneSkippedStyle,
-	literalFontWeights,
-	mergeIdenticalFontFaces,
-	PRUNE_SKIP_STYLE_IDS,
-	prunePlayerCss,
-	prunePlayerFontFaces,
-} from '@/playground/player-prune.generated.js';
-import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
+// The prune orchestration (which probes run, the computed-style gate, the identical-file font
+// merge, the guarded re-wrap) is ONE kernel shared with the CLI: `prunePlayerHtml` in
+// lib/export/player-prune.js, bundled to player-prune.generated.js (HARD RULE #1). Until
+// 2026-10-16 this file carried a hand-written twin of it; now it supplies only what a browser
+// host must: an offscreen, laid-out, same-origin iframe holding the assembled player, where the
+// kernel's probes run in-process against the frame's document
+// (engineering/decisions/2026-10-16-player-as-library-audit.md §11).
+//
+// It also hands `assemblePlayer` the same `subsetEmbeddedFonts` the CLI uses, so a Studio export
+// glyph-subsets its fonts like a CLI export does (before, every kept face shipped whole).
+//
+// The bundle (css-tree, `subset-font`, the woff2 codec) is heavy, so this module loads on
+// demand, only when the author exports a webpage, never on the initial Studio load.
+import { prunePlayerHtml, setSubsetWasm, subsetEmbeddedFonts } from '@/playground/player-prune.generated.js';
 
 export type PruneResult = {
 	html: string;
@@ -42,207 +26,67 @@ export type PruneResult = {
 	fontSaved?: number;
 	fontsKept?: number;
 	fontsTotal?: number;
+	fontsMerged?: number;
 };
 
+type Probe = (arg: unknown, doc?: Document) => unknown;
+
 /**
- * Prune the assembled player HTML against an offscreen render of itself. Returns the
- * pruned HTML (or the original, `applied:false`, when there's nothing to prune / the
- * gate fails / a dep is missing) — never throws on a frozen artifact.
+ * Prune the assembled player HTML against an offscreen render of itself. Returns the pruned
+ * HTML (or the original, `applied:false`, when there is nothing to prune, the gate fails or a
+ * dependency is missing). Never throws on a frozen artifact.
  */
 export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneResult> {
-	// Two targets: the inlined lattice.css (largest non-font <style>) for the selector
-	// prune, and the base64 @font-face block (#lattice-embedded-fonts) for the font prune.
-	const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
-	let target: { full: string; css: string } | null = null;
-	let fontBlock: { full: string; css: string } | null = null;
-	for (const b of blocks) {
-		if (/lattice-embedded-fonts/.test(b[1])) {
-			fontBlock = { full: b[0], css: b[2] };
-			continue;
-		}
-		// The dark block and the hoisted-asset block are NOT the deck stylesheet and can outweigh
-		// it, so they are skipped by id, never judged by size (player-prune.js PRUNE_SKIP_STYLE_IDS).
-		if (isPruneSkippedStyle(b[1])) continue;
-		if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
-	}
-	// `legacyPseudoElements`: the Studio's engine bundle ships `lattice.css` minified, which
-	// writes `::before` as `:before`. The CLI twin opts in for the same reason.
-	const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css, { legacyPseudoElements: true }) : [];
-	if (!bases.length && !fontBlock) return { html: playerHtml, applied: false };
-
-	// Mount the player in an offscreen, laid-out (not display:none, or fonts never load)
-	// same-origin iframe. Real dimensions so present mode lays out; invisible + inert.
-	const host = document.createElement('div');
-	host.dataset.playerPrune = 'scratch';
-	host.style.cssText = 'position:fixed;left:-99999px;top:0;width:1280px;height:720px;overflow:hidden;opacity:0;pointer-events:none;';
-	const frame = document.createElement('iframe');
-	frame.setAttribute('aria-hidden', 'true');
-	frame.style.cssText = 'width:1280px;height:720px;border:0;';
-	host.appendChild(frame);
-	document.body.appendChild(host);
-
-	try {
-		// Wait for the offscreen render. On a pathological stall, FAIL SAFE (ship the full
-		// player) rather than prune against an under-rendered frame — matching the CLI,
-		// which aborts the prune on a load timeout. (srcdoc parses its DOM synchronously,
-		// so this only guards a stuck subresource load, e.g. the base64 fonts.)
+	return prunePlayerHtml(playerHtml, async (html: string) => {
+		// Laid out (not display:none, or fonts never load), at real dimensions so Present lays
+		// out, invisible and inert.
+		const host = document.createElement('div');
+		host.dataset.playerPrune = 'scratch';
+		host.style.cssText = 'position:fixed;left:-99999px;top:0;width:1280px;height:720px;overflow:hidden;opacity:0;pointer-events:none;';
+		const frame = document.createElement('iframe');
+		frame.setAttribute('aria-hidden', 'true');
+		frame.style.cssText = 'width:1280px;height:720px;border:0;';
+		host.appendChild(frame);
+		document.body.appendChild(host);
+		// On a pathological stall, FAIL SAFE (ship the full player) rather than prune against an
+		// under-rendered frame, as the CLI aborts on a load timeout. srcdoc parses its DOM
+		// synchronously, so this only guards a stuck subresource load, e.g. the base64 fonts.
 		const loaded = await new Promise<boolean>((res) => {
 			const t = window.setTimeout(() => res(false), 15000);
 			frame.addEventListener('load', () => { window.clearTimeout(t); res(true); }, { once: true });
-			frame.srcdoc = playerHtml;
+			frame.srcdoc = html;
 		});
-		if (!loaded) return { html: playerHtml, applied: false };
-		const win = frame.contentWindow as (Window & typeof globalThis) | null;
 		const doc = frame.contentDocument;
-		if (!win || !doc) return { html: playerHtml, applied: false };
-		const app = doc.getElementById('lp-app');
-		const views = ['present', 'read-slides', 'read-article'];
-
-		// Cycle all three views and force layout so every face the deck needs actually
-		// loads (fonts load lazily, only when an element needs them).
-		for (const v of views) {
-			app?.setAttribute('data-lp-view', v);
-			for (const el of doc.querySelectorAll('#lp-app *')) (el as HTMLElement).getBoundingClientRect();
-			try {
-				await doc.fonts.ready;
-			} catch {
-				/* fonts best-effort — the loaded-status + computed-family nets below still run;
-				   worst case fewer faces are marked used → MORE kept (never fewer) */
-			}
-		}
-
-		// ── FONT prune: which embedded families does the deck actually use? ──────────
-		// USED = a face the browser LOADED (lazy) OR a family named in any element's
-		// resolved font-family (so a deck applying the sketch hand keeps Caveat + Shantell).
-		let fontResult: { css: string; applied: boolean; total: number; kept: number; merged?: number } = { css: '', applied: false, total: 0, kept: 0 };
-		let usedWeights: Record<string, number[]> | null = null;
-		if (fontBlock) {
-			const strip = (s: string) => String(s).trim().replace(/^["']|["']$/g, '');
-			const fams = new Set<string>();
-			// Every computed weight, under every family the element names, for the identical-file
-			// merge's guard (player-prune.js mergeIdenticalFontFaces). Read in all three views; the
-			// CLI twin (lattice.js prunePlayerCssInPage) reads the same.
-			const weights: Record<string, number[]> = {};
-			const note = (el: Element, pseudo: string | null) => {
-				const cs = win.getComputedStyle(el, pseudo);
-				const w = Number(cs.fontWeight);
-				for (const part of (cs.fontFamily || '').split(',')) {
-					const fam = strip(part);
-					if (!fam) continue;
-					if (!pseudo) fams.add(fam);
-					if (Number.isFinite(w)) (weights[fam.toLowerCase()] ||= []).push(w);
-				}
-			};
-			for (const v of views) {
-				app?.setAttribute('data-lp-view', v);
-				for (const el of doc.querySelectorAll('*')) for (const pseudo of [null, '::before', '::after']) note(el, pseudo);
-			}
-			for (const f of doc.fonts as unknown as Iterable<FontFace>) if (f.status === 'loaded') fams.add(strip(f.family));
-			app?.setAttribute('data-lp-view', 'present');
-			fontResult = prunePlayerFontFaces(fontBlock.css, [...fams]) as typeof fontResult;
-			usedWeights = Object.fromEntries(Object.entries(weights).map(([k, v]) => [k, [...new Set(v)]]));
-		}
-
-		// ── CSS prune: authoritative match — keep a base on ANY querySelector error. ─
-		let cssResult: { css: string; applied: boolean; totalRules: number; keptRules: number } = { css: '', applied: false, totalRules: 0, keptRules: 0 };
-		if (bases.length && target) {
-			const usedSet = new Set<string>();
-			for (const s of bases) {
-				try {
-					if (doc.querySelector(s)) usedSet.add(s);
-				} catch {
-					usedSet.add(s); // an invalid selector for querySelector → keep (conservative)
-				}
-			}
-			// The Guide's focus rules match nothing until Play: kept only in a player that carries the
-			// Guide, whose switch sits in the bar (lib/export/player-prune.js `keepGuide`).
-			const keepGuide = !!doc.querySelector('body > #lp-bar > #lp-guide');
-			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b), { legacyPseudoElements: true, keepGuide }) as typeof cssResult;
-			cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { css: '', applied: false, totalRules: 0, keptRules: 0 };
-		}
-
-		// ── computed-style GATE across all three views (+ pseudo-elements) — CSS only. ─
-		let identical = true;
-		if (cssResult.applied) {
-			const styleEl = [...doc.querySelectorAll('style')]
-				.filter((s) => s.id !== 'lattice-embedded-fonts' && !PRUNE_SKIP_STYLE_IDS.includes(s.id))
-				.sort((a, b) => (b.textContent?.length || 0) - (a.textContent?.length || 0))[0];
-			const snap = () => {
-				const rows: string[] = [];
-				for (const el of doc.querySelectorAll('#lp-app *')) {
-					for (const pseudo of [null, '::before', '::after']) {
-						const cs = win.getComputedStyle(el, pseudo);
-						rows.push(GATE_PROPS.map((p: string) => cs.getPropertyValue(p)).join('|'));
-					}
-				}
-				return rows.join('\n');
-			};
-			const before: Record<string, string> = {};
-			for (const v of views) {
-				app?.setAttribute('data-lp-view', v);
-				before[v] = snap();
-			}
-			const original = styleEl?.textContent ?? '';
-			if (styleEl) styleEl.textContent = cssResult.css;
-			for (const v of views) {
-				app?.setAttribute('data-lp-view', v);
-				if (snap() !== before[v]) {
-					identical = false;
-					break;
-				}
-			}
-			if (styleEl) styleEl.textContent = original;
-			app?.setAttribute('data-lp-view', 'present');
-		}
-		const cssOk = cssResult.applied && identical;
-
-		// Then declare each identical font file once, where no used weight can tell (player-prune.js
-		// mergeIdenticalFontFaces). The literal weights come from the CSS that SHIPS, so this waits
-		// for the CSS verdict; the CLI twin (lattice.js prunePlayerCssInPage) explains why.
-		if (fontBlock && usedWeights) {
-			// The font block itself is not text styling: its own descriptors would block other merges.
-			const shipped = blocks
-				.filter((b) => b[0] !== fontBlock.full)
-				.map((b) => (cssOk && target && b[0] === target.full ? cssResult.css : b[2]))
-				.join('\n');
-			const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedWeights, any: literalFontWeights(shipped), foreign: fontFaceFamilies(shipped) }) as { css: string; applied: boolean; merged: number };
-			if (merged.applied) fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
-		}
-
-		if (!cssOk && !fontResult.applied) {
-			return { html: playerHtml, applied: false, gateFailed: cssResult.applied && !identical };
-		}
-
-		// Apply whichever prunes survived. Replacer FUNCTIONS, not strings — else a
-		// `$&`/`$1`/backtick in the CSS or a data-URI would be interpreted by replace().
-		//
-		// Re-sanitized on the way back in (HARD RULE #22), and this is NOT belt-and-braces:
-		// `prunePlayerCss` is a css-tree parse→generate, and css-tree NORMALIZES the escape
-		// straight back to a live terminator —
-		//     IN  section::after{content:"<\/style>"}   OUT  section::after{content:"</style>"}
-		// — so the guard `buildSelfContainedDoc` applied upstream is undone here, and the
-		// document this returns is what `share-export.ts` mounts in a same-origin frame and
-		// then hands to a recipient. A red-team pass drove that to a real cross-origin fetch
-		// from the shipped artifact against the built bundle. Identity return for every real
-		// stylesheet, so the exported bytes are unmoved.
-		let html = playerHtml;
-		if (cssOk && target) html = html.replace(target.full, () => `<style>${sanitizeStyleText(cssResult.css)}</style>`);
-		if (fontResult.applied && fontBlock) {
-			html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${sanitizeStyleText(fontResult.css)}</style>`);
+		if (!loaded || !doc) {
+			host.remove();
+			return null;
 		}
 		return {
-			html,
-			applied: true,
-			gateFailed: cssResult.applied && !identical,
-			saved: cssOk && target ? target.css.length - cssResult.css.length : 0,
-			keptRules: cssResult.keptRules,
-			totalRules: cssResult.totalRules,
-			fontApplied: fontResult.applied,
-			fontSaved: fontResult.applied && fontBlock ? fontBlock.css.length - fontResult.css.length : 0,
-			fontsKept: fontResult.kept,
-			fontsTotal: fontResult.total,
+			run: async (probe: Probe, arg: unknown) => probe(arg, doc),
+			close: () => host.remove(),
 		};
-	} finally {
-		host.remove();
+	}) as Promise<PruneResult>;
+}
+
+let wasmReady: Promise<void> | null = null;
+
+/**
+ * The `subsetFonts` capability for `assemblePlayer`: the CLI's own subsetter, fed HarfBuzz's
+ * wasm from the site's bundle. Any trouble loading it ships the fonts whole, as the CLI does
+ * when `subset-font` is not installed.
+ */
+export async function subsetFontsInBrowser(html: string): Promise<{ html: string; applied: boolean; saved: number }> {
+	try {
+		wasmReady ||= (async () => {
+			const { default: url } = await import('harfbuzzjs/hb-subset.wasm?url');
+			const res = await fetch(url);
+			if (!res.ok) throw new Error(`hb-subset.wasm: HTTP ${res.status}`);
+			setSubsetWasm(new Uint8Array(await res.arrayBuffer()));
+		})();
+		await wasmReady;
+	} catch {
+		wasmReady = null;
+		return { html, applied: false, saved: 0 };
 	}
+	return subsetEmbeddedFonts(html);
 }

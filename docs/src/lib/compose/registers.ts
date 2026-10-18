@@ -178,6 +178,10 @@ const TABLE_UNSUITED = new Set([
 	'slope',
 	'stacked-bar',
 	'waterfall',
+	'tower',
+	'risk-matrix',
+	'histogram',
+	'ep-curve',
 	'gantt',
 	'journey', // engine clips it with a table added
 	'kanban',

@@ -92,6 +92,7 @@ const {
   checkCalcoBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkMosaicoBoundary,
   checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
@@ -2039,6 +2040,38 @@ describe('check-ownership', () => {
 
   // Fuoco: the core takes its document model as an outliner, and ONE file — the React adapter —
   // may import `react` (2026-10-15-fuoco-focus-sync.md §12).
+  // Mosaico: the core is pure, so nothing escapes the folder, not even node: or react.
+  describe('Mosaico import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mosaico-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkMosaicoBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkMosaicoBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('relative imports pass; anything outside the folder is caught', () => {
+      assert.deepEqual(run({ 'index.ts': "import { chooseTree } from './tree.js';\nimport type { Rect } from './types.js';" }), []);
+      for (const src of [
+        "import fs from 'node:fs';",
+        "import * as React from 'react';",
+        "import { imageDimensions } from '../../../../lib/core/image-dimensions.js';",
+        "const m = await import('justified-layout');",
+      ]) {
+        assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'pack.test.ts': "import { it } from 'vitest';" }), []);
+    });
+  });
+
   describe('Fuoco import-boundary gate', () => {
     const run = (files) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fuoco-gate-'));

@@ -99,11 +99,19 @@ describe('marp fidelity ledger — the classification is complete', () => {
     assert.deepEqual(missing, [], 'a fence plugin needs a lib/core/marp-fidelity.js `package` row, hand-written or derived');
     // The shipped fence plugins carry hand rows (their notes were observed or reasoned); a derived
     // row is for a plugin an author just scaffolded, so it must not stand in for one of these.
-    for (const shipped of ['function-plot', 'anima', 'math']) {
+    for (const shipped of ['function-plot', 'anima', 'math', 'mermaid']) {
       assert.ok(!pluginPackageRows().some((r) => r.package === shipped), `${shipped} fell back to a derived row — keep its hand row`);
     }
     const names = new Set(manifests.map((m) => m.name));
     assert.deepEqual([...rows].filter((r) => !names.has(r)), [], 'these ledger rows outlived their plugin package');
+  });
+
+  // The bundle ships Mermaid's library and the runtime draws it, so the README's degrade table must
+  // never list it: a flip to `unmirrored` (or losing the hand row) would print "renders as a code
+  // block" in every bundle README again, which is false.
+  test('mermaid is drawn on a Marp render, so it never appears as a gap', () => {
+    assert.equal(LEDGER.find((e) => e.package === 'mermaid')?.coverage, 'moot');
+    assert.ok(!unmirroredEntries().some((e) => e.package === 'mermaid'));
   });
 
   test('every entry is well formed', () => {
