@@ -1,1 +1,0 @@
-- The Studio's Webpage export now waits for the deck's fonts to load before it draws a Mermaid diagram, as the CLI does. On a machine with a fallback font installed, a diagram label was measured in the fallback instead of the deck's face, which made a node 4.8 px wider than in the CLI's `--player` file.
