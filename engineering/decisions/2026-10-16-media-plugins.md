@@ -971,3 +971,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   treats a nested `url(` as one bad url, as a browser does (the regex forms were quadratic on hostile CSS, and read a `url(` inside
   a comment). With it, `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md` has nothing left and is deleted. One thing the DOM route inherits and the tokenizer did not hide: jsdom overflows its stack on about 140,000
   unclosed nested elements, in the assembler's own parse, with or without the inliner.
+- 2026-10-18: the inliner's last review round found one disagreement with a browser per pass, so the review was replaced by a
+  measurement: `test/integration/export/inliner-browser-oracle.test.js` loads a seeded corpus (500 CSS declarations over a `style`
+  attribute and a `<style>` body: comments, strings, escapes, whitespace, newlines, case, nests, one distinct file per address)
+  in headless Chromium and requires that every `file://` picture Chromium requests is one the inliner reads. It passes on
+  `b5bacb8` and fails on the `d376aff` reader, and the over-read direction is bounded to the one shape that is invalid CSS. A new
+  class of disagreement now fails a test instead of waiting for the next reviewer.
