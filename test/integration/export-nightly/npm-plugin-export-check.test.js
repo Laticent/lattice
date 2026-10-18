@@ -23,9 +23,14 @@
  * `todo` option in the commit that closes the last gap, and the check becomes an exit criterion.
  * Accepting an exit is a separate owner decision and is recorded in the note, not here.
  *
+ * NIGHTLY ONLY (owner, 2026-10-18): it lives in test/integration/export-nightly/, which only
+ * `test:integration:nightly` runs, because three engines and 20 vectors cost minutes a run.
+ * integration-nightly.yml installs Playwright's WebKit and Firefox and sets LATTICE_PLAYWRIGHT.
+ *
  * ENGINES: Chromium always (puppeteer). WebKit and Firefox when LATTICE_PLAYWRIGHT points at a
  * Playwright install (docs/node_modules/playwright), as player-no-js.test.js does; an engine that
- * cannot start is reported as UNVERIFIED, never as a pass.
+ * cannot start is reported as UNVERIFIED, never as a pass. Locally:
+ *   LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright node --test test/integration/export-nightly/npm-plugin-export-check.test.js
  */
 
 const { test, describe, before, after } = require('node:test');

@@ -30,8 +30,17 @@ verify    — tier 2 adversarial trio, because it changes an exported artifact a
             boundary.
 
 Re-run 2026-10-18 on real exports in Chromium 131, WebKit 26.0 and Firefox 142.0.1 with a control per cell
-(`test/integration/export/npm-plugin-export-check.test.js`, the threat-model note's "Measured 2026-10-18" paragraph):
+(`test/integration/export-nightly/npm-plugin-export-check.test.js`, the threat-model note's "Measured 2026-10-18" paragraph):
 `--player` leaves `navigate`, `windowopen`, `webrtc`, `metarefresh` and a `target=_blank` link open in all three engines; the plain
 export also leaves `scriptsrc`, `iframe`, `cssimport`, `linkstyle` and (Chromium) `prefetch` open. Nothing was changed: the exits are
 export-byte changes and wait for the owner's inspection and decision per policy. That test loses its `todo` when the last gap closes.
+
+Timing (the owner asked on 2026-10-18 when this should be closed). Recommendation: **before the npm door opens, in its own PR straight
+after the harness PR merges, and not earlier than the owner's inspection of the renders.** Why: the export check is an exit criterion for
+phase G (note §6 decisions 2 and 5), so the door cannot open while any cell reads an open exit, and v1 sends no plugin code to an
+export (decision 10), so nothing exploits these today and there is no reason to rush ahead of review. Order inside that PR: (1) the
+`--player` policy (it already has `default-src 'none'`; only navigation, `window.open`, WebRTC and meta refresh remain), (2) the plain
+export, which has no `default-src`, `script-src` or `frame-src`. Each step needs a dark and a light render of one demo deck sent to the
+owner before it merges; the nightly export check (`test/integration/export-nightly/`) loses its `todo` in the commit that closes the last
+cell. If the owner would rather accept an exit than close it, that is a written decision in the note, and the check then names it.
 

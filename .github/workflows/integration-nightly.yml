@@ -64,6 +64,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
 
+      # WebKit and Firefox for the npm-plugin export check (test/integration/export-nightly/). The
+      # check opens real HTML exports in Chromium, WebKit and Firefox, and an engine that cannot
+      # start is reported UNVERIFIED, never as a pass (HARD RULE #23). Playwright lives in docs/, so
+      # the docs deps are installed too, and LATTICE_PLAYWRIGHT points the test at it. Chromium is not
+      # installed here: the check drives the puppeteer one this job already has.
+      - name: Install docs deps (Playwright)
+        run: npm ci
+        working-directory: docs
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+      - name: Install Playwright WebKit and Firefox (pinned to @playwright/test)
+        run: npx playwright install --with-deps webkit firefox
+        working-directory: docs
+
       # The suite exits non-zero on a render regression. Capture the verdict into
       # an output and keep the job green so the report + issue steps always run and
       # the issue step keys off `failed` (not the step's own exit). Tee the TAP
@@ -73,6 +87,7 @@ jobs:
         run: |
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          export LATTICE_PLAYWRIGHT="$GITHUB_WORKSPACE/docs/node_modules/playwright"
           if npm run --silent test:integration:nightly 2>&1 | tee "$REPORT"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
