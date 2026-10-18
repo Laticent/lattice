@@ -149,18 +149,59 @@ test('a non-ASCII letter whose lowercase is longer (İ) does not shift the reade
   assert.equal(bake(`<h1>${'İ'.repeat(40)}</h1><style>h1{}</style><img src="${photo}">`).count, 1);
 });
 
+// `count` is the number of DISTINCT addresses baked, and these cases reuse one picture, so each assertion counts the baked
+// copies (`data:` hits) and what stayed as a file address, which is what tells a skipped url from a baked one.
+const dataHits = (html) => (html.match(/data:image\/jpeg/g) || []).length;
+const fileHits = (html) => (html.match(/file:\/\//g) || []).length;
+
 test('CSS the way a browser tokenizes it: a url( in a comment or a string is text, and a nested url( is one bad url', () => {
   const css = (v) => `<div style="${v}"></div>`;
-  assert.equal(bake(css(`/* background:url(${photo}) */color:red`)).count, 0, 'comment');
-  assert.equal(bake(css(`content:'url(${photo})';color:red`)).count, 0, 'single-quoted string');
-  assert.equal(bake(css(`content:&quot;url(${photo})&quot;;color:red`)).count, 0, 'double-quoted string');
-  assert.equal(bake(css(`content:'it\\'s url(${photo})'`)).count, 0, 'string with an escaped quote');
-  assert.equal(bake(css(`background:url(${photo}/url(${photo}))`)).count, 0, 'nest: one bad url, the inner address is not read');
-  assert.equal(bake(css(`background:url(${photo}) /* c */, url(${photo})`)).count, 1, 'real ones around a comment');
-  assert.equal(bake(css(`/* unterminated url(${photo})`)).count, 0, 'unterminated comment');
-  assert.equal(bake(css(`myurl(${photo})`)).count, 0, 'not the url function');
-  assert.equal(bake(css(`BACKGROUND:URL(${photo})`)).count, 1, 'upper-case function');
-  assert.equal(bake(`<style>/* url("${photo}") */ .a{background:url("${photo}")}</style>`).count, 1, 'a <style> body: comment skipped, rule read');
+  const cases = [
+    ['comment', `/* background:url(${photo}) */color:red`, 0, 1],
+    ['single-quoted string', `content:'url(${photo})';color:red`, 0, 1],
+    ['double-quoted string', `content:&quot;url(${photo})&quot;;color:red`, 0, 1],
+    ['string with an escaped quote', `content:'it\\'s url(${photo})'`, 0, 1],
+    ['nest: one bad url, the inner address is not read', `background:url(${photo}/url(${photo}))`, 0, 2],
+    ['real ones around a comment', `background:url(${photo}) /* c */, url(${photo})`, 2, 0],
+    ['a real one beside a commented one', `background:url(${photo}) /* url(${photo}) */`, 1, 1],
+    ['unterminated comment', `/* unterminated url(${photo})`, 0, 1],
+    ['not the url function', `myurl(${photo})`, 0, 1],
+    ['upper-case function', `BACKGROUND:URL(${photo})`, 1, 0],
+  ];
+  for (const [name, v, baked, left] of cases) {
+    const r = bake(css(v));
+    assert.equal(dataHits(r.html), baked, `${name}: baked copies`);
+    assert.equal(fileHits(r.html), left, `${name}: file addresses left as written`);
+  }
+  const body = bake(`<style>/* url("${photo}") */ .a{background:url("${photo}")}</style>`);
+  assert.equal(dataHits(body.html), 1, 'a <style> body: the rule is read');
+  assert.equal(fileHits(body.html), 1, 'a <style> body: the commented one is not');
+});
+
+test('whitespace around a url() address is allowed, as in CSS', () => {
+  for (const v of [`url( ${photo} )`, `url(\n${photo}\n)`, `url( "${photo}" )`, `url( '${photo}'\t)`, `url(${photo} )`]) {
+    const r = bake(`<div style="background:${v.replaceAll('"', '&quot;')}"></div>`);
+    assert.equal(dataHits(r.html), 1, v);
+    assert.equal(fileHits(r.html), 0, v);
+  }
+  assert.equal(dataHits(bake(`<div style="background:url(a ${photo})"></div>`).html), 0, 'inner whitespace makes a bad url');
+  assert.equal(dataHits(bake(`<div style="background:url('')"></div>`).html), 0, 'an empty string is not an address');
+});
+
+test('a newline ends an unclosed CSS string, so a url on the next line is real (a browser loads it)', () => {
+  const r = bake(`<div style='content:"oops\n;background:url(${photo})'></div>`);
+  assert.equal(dataHits(r.html), 1);
+  assert.equal(fileHits(r.html), 0);
+  // an escaped newline continues the string, so the url inside it stays text
+  const cont = bake(`<div style='content:"a\\\nurl(${photo})"'></div>`);
+  assert.equal(dataHits(cont.html), 0);
+});
+
+test('an SVG <style> with element children keeps them (each text node is baked on its own)', () => {
+  const r = bake(`<svg><style>a{background:url("${photo}")}<g id="k">c</g>b{color:red}</style></svg>`);
+  assert.equal(dataHits(r.html), 1);
+  assert.ok(r.doc.querySelector('style > g#k'), 'the child element survives');
+  assert.match(r.html, /b\{color:red\}/);
 });
 
 test('text between elements is untouched when nothing is baked', () => {
