@@ -570,13 +570,13 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ## Who owns each part of the framework lifecycle
 
-- Signal custody `Signal owner`
+- Signal custody `{Signal owner}`
   - Manages intake quality. Tunes weights only by choosing what to surface.
-- Policy `Framework operator`
+- Policy `{Framework operator}`
   - Owns scoring, cadence, rollback. One person. Noted in the risk register.
-- Consumption `Product team`
+- Consumption `{Product team}`
   - Runs intake and logging. Mostly asks the operator to change the weights.
-- Oversight `Auditor`
+- Oversight `{Auditor}`
   - Reads the audit trail. Read it once, found 18 entries, asked if that was expected.
 
 ---

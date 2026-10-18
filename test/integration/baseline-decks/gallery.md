@@ -1059,13 +1059,13 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ## Who owns each part of the framework lifecycle.
 
-- Signal custody `Signal owner`
+- Signal custody `{Signal owner}`
   - Runs intake quality. Never tunes the weights — only picks which signals surface.
-- Policy `Framework operator`
+- Policy `{Framework operator}`
   - Owns scoring policy, calibration cadence, and the rollback playbook nobody has run. One person.
-- Consumption `Product team`
+- Consumption `{Product team}`
   - Holds scoring profiles; runs intake and decision-logging; finds the bugs first.
-- Oversight `Auditor`
+- Oversight `{Auditor}`
   - Reads the trail, edits nothing — the one role anyone fears, having read it once.
 
 ---

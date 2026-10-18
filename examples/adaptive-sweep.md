@@ -106,13 +106,13 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ## Who owns each part of the framework.
 
-- Owns the scoring model `Head of Product`
+- Owns the scoring model `{Head of Product}`
   - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
+- Runs the weekly signal review `{Chief of Staff}`
   - Chairs the thirty minutes and keeps the decision log current.
-- Maintains the decision log `Program Manager`
+- Maintains the decision log `{Program Manager}`
   - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
+- Owns adoption `{Enablement Lead}`
   - Onboards each team to the weekly ritual.
 
 ---

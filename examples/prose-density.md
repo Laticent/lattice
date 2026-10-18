@@ -65,11 +65,11 @@ footer: "Budget the words, not just the elements"
 
 ## Each row gets a word budget too.
 
-- Owns the scoring model `Head of Product`
+- Owns the scoring model `{Head of Product}`
   - One short responsibility, not a job description.
-- Runs the weekly review `Chief of Staff`
+- Runs the weekly review `{Chief of Staff}`
   - A clause per row keeps the ledger scannable.
-- Maintains the log `Program Manager`
+- Maintains the log `{Program Manager}`
   - Detail belongs on a follow-up slide, not here.
 
 ---

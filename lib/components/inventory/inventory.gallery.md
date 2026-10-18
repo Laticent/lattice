@@ -14,13 +14,13 @@ Inventory — parallel sets of related items.
 
 ## The actors ledger names who owns what.
 
-- Owns one row `Each actor`
+- Owns one row `{Each actor}`
   - A verb-first responsibility, twelve words at most.
-- Reads top to bottom `The ledger`
+- Reads top to bottom `{The ledger}`
   - Order carries seniority or sequence.
-- Answers by name `The role chip`
+- Answers by name `{The role chip}`
   - The inline code names the seat.
-- Stops at six rows `This layout`
+- Stops at six rows `{This layout}`
   - Past six, reach for list-tabular.
 
 ---

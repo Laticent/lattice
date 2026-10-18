@@ -2898,7 +2898,6 @@ const SANCTIONED_PILL_READS = [
   { file: 'lib/components/chart/flowchart/flowchart.styles.css', count: 2, why: "a node label borrows the pill's font and tracking; moves to its own tokens or a pill" },
   { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
   { file: 'lib/components/evidence/kpi/kpi.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
-  { file: 'lib/components/inventory/actors/actors.styles.css', count: 1, why: 'reads the pill border color for a rule; moves to a base color token' },
   { file: 'lib/components/inventory/inventory/inventory.styles.css', count: 2, why: "matches a band's height to the pill's (`--pill-fs`, `--pill-pad-y`); reads the plugin's `--lat-pill-h` instead" },
   { file: 'lib/plugins/chart-family/chart-family.styles.css', count: 9, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
   { file: 'lib/plugins/icons/icons.styles.css', count: 1, why: "sizes an icon to the pill's type step (`--pill-fs`); a size the pills plugin should publish" },
@@ -11710,7 +11709,6 @@ const KNOWN_CONTRACT_DROPS = [
   '--cat-7-mark → --accent',
   '--lane-jur → --accent',
   '--panel-mark → --accent',
-  '--pill-border → --accent',
   // A text token onto a SURFACE. journey's mood swatch label falls back to the
   // swatch's own background, which is the one value guaranteed NOT to contrast
   // with it. Distinct from (b) and the sharpest single row in the list.

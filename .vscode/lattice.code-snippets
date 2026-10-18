@@ -10,11 +10,11 @@
       "",
       "## Who owns each part of the process.",
       "",
-      "- Owns the first part `First actor`",
+      "- Owns the first part `{First actor}`",
       "  - One-line note on what that ownership covers.",
-      "- Owns the second part `Second actor`",
+      "- Owns the second part `{Second actor}`",
       "  - One-line note.",
-      "- Owns the third part `Third actor`",
+      "- Owns the third part `{Third actor}`",
       "  - One-line note."
     ],
     "description": "Roster of responsibilities owned by named actors."

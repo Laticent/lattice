@@ -101,6 +101,10 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/data-viz-gallery.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['examples/read-article-chart-paints.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['examples/venue-marker-boxes.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['lib/components/inventory/actors/actors.gallery.md', 'actors: a `{name}` pill ends each responsibility row'],
+  ['examples/gallery-jargon.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
+  ['examples/portrait-prose-deboost.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
+  ['examples/sketch.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 
