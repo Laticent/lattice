@@ -258,7 +258,7 @@ Node-side, resolved at build time") no longer describes the plan. Superseding it
 
 - The §4 grep covers the named identifiers in the named directories. It did not read the vendored
   Mermaid or KaTeX bundles, and it cannot see obfuscated access.
-- The gate's run-time cost is unmeasured.
+- The gate's run-time cost was measured on 2026-10-18 on a prototype, not on a built check: 33 ms (regex) or 436 ms (parsed) against a 34.8 s `build:check`, one hit (`followups.d/2743-p2-plugin-purity-gate-g1.md`). The owner has not yet decided to add it.
 - The `postinstall` measurement used one tarball with no transitive dependencies. It shows the mechanism, not how a real plugin's dependency tree behaves.
 - Whether the desktop app will keep the OpenRouter key in the OS keychain is undecided (§3.2).
 - Gap 6 (the `@qr` Wi-Fi case) comes from another session's report, not from a reproduction here.
