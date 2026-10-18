@@ -2,7 +2,7 @@
  * tools/minify-css.js — the directive comments it lifts out of the source must be the
  * source's real comments, read by the shared walk in lib/core/css-comments.mjs.
  */
-'use strict';
+
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');

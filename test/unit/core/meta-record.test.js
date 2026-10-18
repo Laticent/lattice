@@ -77,3 +77,18 @@ describe('the comment finder is linear on hostile text', () => {
     assert.equal(m.hasMarker('<!-- stress-slide -->', 'other'), false);
   });
 });
+
+describe('hostile-input cost, round 1 findings', () => {
+  test('many comments against many fences stay linear (the fence scan advances one pointer)', () => {
+    const t = '```\n```\n<!-- x -->\n'.repeat(8000);
+    const t0 = performance.now();
+    m.comments(t);
+    assert.ok(performance.now() - t0 < 250, 'comments x fences took the quadratic path');
+  });
+  test('many unterminated openers on separate lines are one failed scan, not one each', () => {
+    const t = '<!-- open\n'.repeat(20000);
+    const t0 = performance.now();
+    m.scanMetaSource(t);
+    assert.ok(performance.now() - t0 < 1500, 'walkComments rescanned to EOF per opener');
+  });
+});

@@ -97,7 +97,15 @@ describe('a sixth hand-kept key list fails', () => {
   const element = `(?:'_?(?:${names})'|"_?(?:${names})")`;
   const RUN = new RegExp(`${element}(?:\\s*,\\s*(?:\\/\\/[^\\n]*\\n\\s*)?${element}){${MIN_RUN - 1},}`);
 
-  const hasList = (text) => RUN.test(text);
+  // Also an alternation (`/^_?(theme|paginate|header|footer|class)/`, `'theme' | 'paginate' | …`).
+  const bare = `(?:${names})`;
+  const ALT = new RegExp(`${bare}['"]?(?:\\s*[|]\\s*['"]?${bare}['"]?){4,}`);
+  // lint-core's `rowsDeck` test lists the FRONT-MATTER keys that carry no claim about a deck's rows
+  // (`marp|theme|paginate|header|footer|size|venue|class|acronyms|color-mode|profile|…`). That is a
+  // different vocabulary: deck front-matter keys, most of them registers and none of them comment
+  // directives. It is not the slide-comment list this guard exists to keep single.
+  const SANCTIONED = { 'lib/authoring/lint-core.js': 'front-matter keys that make no claim about rows, not the comment vocabulary' };
+  const hasList = (text) => RUN.test(text) || ALT.test(text);
 
   test('the detector sees a list, and does not see a catalog row or a CSS read', () => {
     assert.ok(hasList("const X = new Set(['theme', 'paginate', 'header', 'footer', 'class']);"));
@@ -105,6 +113,8 @@ describe('a sixth hand-kept key list fails', () => {
     assert.ok(!hasList("{ key: 'footer', kind: 'text' }, { key: 'header', kind: 'text' }"));
     assert.ok(!hasList('el.style.backgroundRepeat = x; cs.backgroundPosition; cs.backgroundSize;'));
     assert.ok(!hasList("['theme', 'paginate', 'header', 'footer']"), 'four is a coincidence, not the vocabulary');
+    assert.ok(hasList("type K = 'theme' | 'paginate' | 'header' | 'footer' | 'class';"));
+    assert.ok(hasList('const re = /^_?(theme|paginate|header|footer|class)/;'));
   });
 
   test('no source file outside the registry keeps one', () => {
@@ -118,6 +128,10 @@ describe('a sixth hand-kept key list fails', () => {
       try { text = fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch { continue; }
       if (hasList(text)) found.push(f);
     }
+    // A sanctioned hit goes in WITH ITS JUSTIFICATION, and a stale entry fails (the check-ownership discipline).
+    const stale = Object.keys(SANCTIONED).filter((f) => !found.includes(f));
+    assert.deepEqual(stale, [], 'a sanctioned file no longer holds a list: drop its entry');
+    for (const f of Object.keys(SANCTIONED)) found.splice(found.indexOf(f), 1);
     assert.deepEqual(found, [], 'a directive-key list belongs in lib/plugins/meta/meta.manifest.json; derive it from lib/core/meta-keys.mjs');
     assert.ok(files.length > 800, `expected to scan the tree, scanned ${files.length}`);
   });

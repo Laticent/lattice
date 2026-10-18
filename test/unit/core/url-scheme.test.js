@@ -87,6 +87,26 @@ describe('the engine, end to end', () => {
       assert.deepEqual(ids, []);
     });
   }
+  test('a value cannot read another property: image-set(var(--header)) is the string-to-URL route', () => {
+    for (const v of ['image-set(var(--header) 1x)', 'image-set(attr(x) 1x)', 'url(env(x))', 'VAR(--a)']) {
+      const { bg, ids } = section(`---\nheader: http://127.0.0.1:1/b\n---\n<!-- _backgroundImage: ${v} -->\n# A`);
+      assert.equal(bg, null, v);
+      assert.equal(ids.length, 1, v);
+    }
+  });
+  test('a value the declaration sink refuses is dropped WITH a diagnostic, not in silence', () => {
+    for (const v of ['url(\\66 ile:///etc/passwd)', 'image-set("http://evil/x" 1x)']) {
+      const { bg, ids } = section(`<!-- _backgroundImage: ${v} -->\n# A`);
+      assert.equal(bg, null, v);
+      assert.equal(ids.length, 1, v);
+    }
+  });
+  test('![bg] follows the same list', () => {
+    const lift = (u) => e.render(`<!-- _class: image -->\n\n![bg](${u})\n\n## T\n`).html;
+    for (const u of ['http://evil/x.png', '//evil/x.png', 'blob:x', 'ftp://e/x']) assert.doesNotMatch(lift(u), /lattice-bg|evil|blob:x|ftp:/, u);
+    assert.match(lift('https://x.example/a.png'), /lattice-bg/);
+    assert.match(lift('img/a.png'), /lattice-bg/);
+  });
   test('a gradient still renders', () => {
     assert.equal(section('<!-- _backgroundImage: linear-gradient(red, blue) -->\n# A').bg, 'linear-gradient(red, blue)');
   });

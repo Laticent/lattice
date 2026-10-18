@@ -106,3 +106,15 @@ test('none of the five fires on a plain deck of ordinary comments', () => {
   assert.deepEqual(rules(src, { metaCut: true }), []);
   assert.deepEqual(linted(src, { metaCut: true }), []);
 });
+
+// Found by the independent checker on the first cut (PR review round 1).
+test('meta-in-html-block: an inline tag with text on its line opens no HTML block', () => {
+  assert.deepEqual(rules(deck('# One\n\n<span>Revenue</span> grew\n<!-- {layout=kpi} -->')), []);
+  assert.deepEqual(rules(deck('<img src="a.png">\n<!-- {layout=kpi} -->')), ['1:meta-in-html-block']);
+  assert.deepEqual(rules(deck('<div>\n<!-- {layout=kpi} -->\n</div>')), ['1:meta-in-html-block']);
+});
+
+test('meta-opener-bare: a speaker note whose second line starts with a brace is a note, not a record', () => {
+  assert.deepEqual(rules(deck('<!--\n{pause} then reveal the number\n-->\n\n# A')), []);
+  assert.deepEqual(rules(deck('<!--\n{layout=kpi}\n-->\n\n# A')), ['1:meta-opener-bare']);
+});

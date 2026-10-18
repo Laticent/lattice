@@ -76,3 +76,14 @@ describe('_focusSteps expansion', () => {
     assert.match(slide2, /data-focus-axis="item"/);
   });
 });
+
+describe('_focusSteps is read from any comment in its html_block (checker round 1)', () => {
+  const sections = (md) => (latticeEngine.createEngine().render(md).html.match(/<section\b/g) || []).length;
+  const table = '| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n';
+  test('after another comment on the same line', () => {
+    assert.equal(sections(`<!-- _class: table --> <!-- _focusSteps: row 1 | row 2 -->\n\n${table}`), 2);
+  });
+  test('with text after the closing `-->` on the same line', () => {
+    assert.equal(sections(`<!-- _focusSteps: row 1 | row 2 -->x\n\n${table}`), 2);
+  });
+});
