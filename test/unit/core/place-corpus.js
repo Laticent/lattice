@@ -123,8 +123,9 @@ function gridSlide(chart, r) {
   };
   // A pipe inside a code span splits the row (markdown-it counts every unescaped pipe), so `x|y` is two cells.
   // A row wider than the header loses its extra cell (markdown-it drops it), so a record there is nobody's.
-  const rows = Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => (i === 0 && r() < 0.35 ? `| \`x|y\` | ${cell()} |` : i === 1 && r() < 0.4 ? `| ${LABELS[i]} | ${cell()} | ${cell()} | ${cell()} |` : `| ${LABELS[i]} | ${cell()} | ${cell()} |`));
-  let table = `| | A | B |\n|---|---|---|\n${rows.join('\n')}`;
+  const rows = Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => (i === 0 && r() < 0.35 ? `| \`x|y\` | ${cell()} |` : i === 1 && r() < 0.4 ? `| ${LABELS[i]} | ${cell()} | ${cell()} | ${cell()} |` : i === 1 && r() < 0.25 ? `| ${LABELS[i]} <table><tr><td>y | ${cell()} | ${cell()} |` : `| ${LABELS[i]} | ${cell()} | ${cell()} |`));
+  // A complete raw table in a HEADER cell nests like one in a body cell; an unclosed one in a body row (above) nests the rest of the slide.
+  let table = `${r() < 0.2 ? '| <table><tr><td>x</td></tr></table> | A | B |' : '| | A | B |'}\n|---|---|---|\n${rows.join('\n')}`;
   const wraps = [(t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`, (t) => `${t}\n\n${t.replace(/\{(\d+)\.5\}/g, '{9$1.5}')}`]; // the second table is a decoy with its own values
   table = wraps[Math.floor(r() * wraps.length)](table);
   return { chart, body: table, wrap: 'table' };
@@ -148,11 +149,13 @@ function matrixSlide(r) {
     () => '[x]', () => '[-]', () => '[ ]', () => 'text', () => '`{value=3}`',
     () => `<table><tr><td>x</td></tr></table> | \`{${state()}}\``,
   ])();
-  const table = () => `| | A | B |\n|---|---|---|\n${Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => (i === 0 && r() < 0.35 ? `| \`x|y\` | ${cell()} |` : `| ${LABELS[i]} | ${cell()} | ${cell()} |`)).join('\n')}`;
+  const table = () => `${r() < 0.2 ? '| <table><tr><td>x</td></tr></table> | A | B |' : '| | A | B |'}\n|---|---|---|\n${Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => (i === 0 && r() < 0.35 ? `| \`x|y\` | ${cell()} |` : i === 1 && r() < 0.25 ? `| ${LABELS[i]} <table><tr><td>y | ${cell()} | ${cell()} |` : `| ${LABELS[i]} | ${cell()} | ${cell()} |`)).join('\n')}`;
   const first = table();
   const wrap = pick([
     (t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`,
     (t) => `Intro <table><tr><td>x</td></tr></table> text\n\n${t}`, (t) => `${t}\n\n${table()}`, (t) => `> aside\n\n${t}`,
+    // A raw section the author wrote around the table: the nearest `section` of its cells carries no chart class.
+    (t) => `<section>\n\n${t}\n\n</section>`,
   ]);
   return { chart: 'matrix-grid', body: wrap(first) };
 }

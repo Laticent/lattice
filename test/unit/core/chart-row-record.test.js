@@ -742,4 +742,40 @@ describe('the paths agree on the data row', () => {
     assert.match(html, /cell-filled|cell-outlined/, 'the records are state cells');
     assert.doesNotMatch(html, /lat-pill/, 'and not pills');
   });
+
+  test('the narrator bridge hands a slide that needs no rewrite back exactly as it came, BOM and CRLF included', () => {
+    for (const src of ['- EMEA `4.5`\n- APAC `3.5`\n', '\uFEFF- EMEA `4.5`\n- APAC `3.5`\n', '- EMEA `4.5`\r\n- APAC `3.5`\r\n', '\uFEFF- EMEA `4.5`\r\n- APAC `3.5`\r\n']) {
+      assert.equal(bridgeRecordsSource(src, ['bar']), src, JSON.stringify(src));
+      assert.equal(bridgeRecordsSource(src, []), src, `no chart: ${JSON.stringify(src)}`);
+    }
+    // And one that does: the BOM once, CRLF restored with no stray CR.
+    assert.equal(bridgeRecordsSource('\uFEFF- EMEA `{4.5}`\r\n- APAC `3.5`\r\n', ['bar']), '\uFEFF- EMEA `4.5`\r\n- APAC `3.5`\r\n');
+  });
+
+  test('a raw table a cell leaves OPEN is ahead of the records after it; one it closes is not', () => {
+    const { ownedRecordSites } = require('../../../lib/core/chart-places.js');
+    const { boundaryParser } = require('../../../lib/core/boundary-parser');
+    const sites = (body) => ownedRecordSites(boundaryParser.parse(body, {}), ['heatmap']).map((x) => x.text);
+    const open = '| | A | B |\n|---|---|---|\n| E <table><tr><td>y | `{1.5}` | `{2.5}` |\n| F | `{3.5}` | `{4.5}` |';
+    const closed = '| | A | B |\n|---|---|---|\n| E <table><tr><td>y</td></tr></table> | `{1.5}` | `{2.5}` |';
+    const head = '| <table><tr><td>x</td></tr></table> | A | B |\n|---|---|---|\n| E | `{1.5}` | `{2.5}` |';
+    assert.deepEqual(sites(open), [], 'an unclosed raw table nests the rest of the row and the rows after it: no cell is the chart\'s');
+    assert.deepEqual(sites(closed), ['{1.5}', '{2.5}'], 'a closed one is nested in the table being read: the records are still the chart\'s');
+    assert.deepEqual(sites(head), ['{1.5}', '{2.5}'], 'and so is a closed one in a header cell');
+  });
+
+  test('applyToDom takes the matrix-grid section it iterates, so a raw section inside the slide does not hide the chart', () => {
+    const matrixGridCells = require('../../../lib/core/matrix-grid-cells.js');
+    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const dom = new JSDOM('<section class="matrix-grid"><section><table><thead><tr><th></th><th>A</th></tr></thead><tbody><tr><td>r</td><td><code>{done}</code></td></tr><tr><td>s</td><td><code>{todo}</code></td></tr></tbody></table></section></section>');
+    matrixGridCells.applyToDom(dom.window.document, { isRecord: isOwnedRecordElement });
+    assert.equal(dom.window.document.querySelectorAll('.cell').length, 2, 'both record cells became state cells');
+  });
+
+  test('lint counts a table row\'s columns on the raw line: a pipe inside an HTML comment still splits the cell', () => {
+    const { renderedInlineSpans } = require('../../../lib/authoring/lint-core.js');
+    const src = deck('heatmap', '| | A | B |\n|---|---|---|\n| E <!-- a|b --> | `{1.5}` | `{2.5}` |');
+    const candidates = renderedInlineSpans(src, () => true).map((c) => c.span.text);
+    assert.ok(!candidates.includes('{1.5}'), 'markdown-it puts {1.5} in column 2, the engine claims it, and lint does not offer it as a pill');
+  });
 });

@@ -151,9 +151,8 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                default grammar; the fix is a setter registry like `lint-boundary-state.js`, adopted when the read-along core loads;
                (b) about twenty engine core rules rewrite tokens before the pill pass, and `strip_heading_periods` (`no-period`) empties a trailing
                `.` after a record, so on `bullet no-period` with `### EMEA \`{1.5, target=3}\`.` the engine claims a record the narrator and
-               lint do not (identical at 0bcab12): the corpus has no class modifiers; (c) heatmap cells written ``` ``{1.5}`` ``` or with padding
-               inside the backticks are claimed by the engine and the browser and missed by the narrator's `RECORD_CELL` and lint's pipe-column
-               match (identical at 0bcab12); (d) the oracle's matrix-grid arm compares the ordered list of cell classes, not which cell, and
+               lint do not (identical at 0bcab12): the corpus has no class modifiers; (c) heatmap cells written ``` ``{1.5}`` ``` are claimed by the engine and the browser and missed by the narrator's `RECORD_CELL` (lint agrees
+               for the unpadded form), and a PADDED record (inside the backticks) is missed by both (identical at 0bcab12); (d) the oracle's matrix-grid arm compares the ordered list of cell classes, not which cell, and
                its narrator arm calls the bridge directly, not through `readChartRows`; (e) when phase 4 deletes the bridge, the narration
                bundle's `external: ['markdown-it']` and its third boundary-parser copy go with it, and nothing will flag them.
            22. Eighteenth round (2026-10-18, red team and independent checker on 8e7bb90): fixed here with a test or a corpus shape each: lint's
@@ -167,10 +166,19 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                chart class (`applyToDom` now passes the section it is iterating); the narrator bridge no longer folds a lone-CR source to LF
                (that added lines it read as rows) or drops a BOM. Two intended behavior changes, both for exotic input: a matrix-grid record cell
                on a slide with TWO chart classes (`matrix-grid bar`) follows the chart the dispatcher draws, as the pill pass always did; and
-               a raw table inside a cell no longer demotes the records after it.
+               a COMPLETE raw table inside a cell no longer demotes the records after it (an unclosed one still does, as the browser nests the rest of the slide in it: round 19).
                Left, each low and identical at 0bcab12 unless noted: the narrator's parser is the block parser only, so engine-only inline
                syntax around a record (a row with inline math that contains a backtick, then a record) can split the two; a padded
                double-backtick record, and a record followed by `&nbsp;` on a continuation line, or by `&ensp;`/`&#32;`, are claimed by the
                engine and missed by the narrator and lint; a comment on a continuation line differs for the DOM; the narration bundle's
                `markdown-it` resolves to the docs package's copy (14.3.0) and the engine's is the root's (14.1.1), the same split the authoring
                bundle has.
+           23. Nineteenth round (2026-10-18, the 30th agent, an independent checker on the round 17 and 18 fixes): fixed here with a test each that fails
+               without the fix: `bridgeRecordsSource` doubled a BOM and wrote `\r\r\n` on a BOM+CRLF slide that needs no rewrite (68 `state-chart` and
+               other slides then narrated nothing; the round 18 test only covered a BOM WITH a record); a raw table a cell leaves OPEN nests the rest of
+               the row and the slide in the browser, so it is "ahead" of the records after it (only a table the cell closes is nested), and a complete
+               raw table in a HEADER cell nests like one in a body cell; lint counted a row's columns on the comment-blanked line, so a pipe inside an
+               HTML comment (which markdown-it splits on) was missed; the `scope` argument of `isOwnedRecordElement` had no test; the lint memo
+               is least-recently-used now (a hit used to leave its entry first in line to be dropped). Left, low: the runtime's pill pass
+               (`lib/runtime/index.js`) still calls `isOwnedRecordElement` without a scope, so other charts inside a raw section element still disagree with
+               the engine in the DOM (matrix-grid's pass was the one fixed).
