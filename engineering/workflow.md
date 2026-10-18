@@ -1576,7 +1576,9 @@ If a card runs long, **shorten the content — never drop the fence.**
 
 ### One layout for all four cards
 
-🚦, 📋, 🎯 and ❓ share one layout, so the owner learns it once:
+🚦, 📋, 🎯 and ❓ share one layout, so the owner learns it once. Plain labels
+only: write `limited by`, not "floor", and name what a pointer points to
+("the 🎯 brief", not "see 🎯").
 
 1. **Header line**: emoji, card name, subject, and on the right how to respond.
 2. **BOTTOM LINE first.** The ask, your pick and the state come before the detail.
@@ -1586,6 +1588,12 @@ If a card runs long, **shorten the content — never drop the fence.**
 4. **75 columns or fewer** when filled in, so a phone does not wrap it badly.
    Wrap a long value onto an indented continuation line.
 5. **Fenced, always** (§Both cards are always fenced).
+6. **No unfilled template text.** Fill every field or leave the line out. A card
+   with `<sha>` or "omit if none" still in it reads as unfinished.
+7. **The card agrees with itself.** The reply words in the header must be words
+   each item accepts, and `raise it — nothing outstanding` is only allowed when
+   `not run` is "none". A reader who finds one line that does not add up
+   re-reads the rest.
 
 The 🎯 brief keeps its STANDING ORDERS block inline on purpose: it hands a cold
 session its working rules without a lookup. Tighten the wording, never move it out.
@@ -1623,11 +1631,13 @@ Template:
 📋 Standup — merged #N (<sha>)
 
 BOTTOM LINE
-  state       — <merged; thread complete | merged; N items left (see 🎯)>
+  state       — <merged, nothing needed from you | merged, N items left
+                 in the 🎯 brief>
 
 THREAD
   swimlane    — <decisions-doc / inferred label>
-  card        — <what the PR did> · <branch>
+  card        — <what the PR did>
+  branch      — <branch>
   completed   — #N <one line> (+ #M, #K earlier this thread)
   on deck     — <next step for this thread, or "thread complete">
   notes       — <N notes (+X this merge) — omit the line if none>
@@ -1911,7 +1921,7 @@ Template:
 BOTTOM LINE
   ask         — squash-merge #N?
   pick        — <merge | hold>: <one reason>
-  confidence  — <low | medium | high | very high> · floor: <the axis>
+  confidence  — <low | medium | high | very high> · limited by: <the axis>
   raise it    — <the one thing that would move it up, or
                  "nothing outstanding">
 
@@ -2024,7 +2034,7 @@ Template:
 ❓ Decisions — <PR or topic>             reply: "D1 A, W1 keep, Q1 yes"
 
 BOTTOM LINE
-  waiting     — <N decisions, M defaults, K vetoes, Q questions>
+  waiting     — <N decisions, M defaults, K to veto, Q questions>
   ask         — <which item to answer first; the rest can wait>
   merge       — #N, see the 🚦 card        (only when a merge ask is open)
 
@@ -2032,13 +2042,13 @@ NEED YOU — blocked until you answer
   D1 · <the question, in plain words?>
        why        — <one line: what is at stake>
        A          — <option>
-                    gains — <what it buys>
-                    costs — <what it costs, with a number>
-                    then  — <what I do next>
+                gains — <what it buys>
+                costs — <what it costs, with a number>
+                then  — <what I do next>
        B          — <option>
-                    gains — …
-                    costs — …
-                    then  — …
+                gains — …
+                costs — …
+                then  — …
        pick       — <A|B>: <one reason>
        default    — <what happens if you say nothing, and how to undo it>
        ref        — <#N | path>
@@ -2046,7 +2056,7 @@ NEED YOU — blocked until you answer
 CAN WAIT — I picked a default and kept going
   W1 · <the choice?>
        default    — <what I did>
-       change     — <word> to change it, keep to leave it
+       reply      — keep, or <word> to change it
 
 TO VETO — I decided these; tell me to undo any
   V1 · <what I decided, and why it was mine to decide>
