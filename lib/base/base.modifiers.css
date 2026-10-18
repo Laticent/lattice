@@ -689,7 +689,7 @@ section footer {
  * per-layout placement override before it can join the allow list:
  *   bookends/openers     title, divider, closing, split-panel
  *   single-message       big-number, kpi, stats, quote
- *   own metadata channel glossary (range-pill), agenda (page pointer),
+ *   own metadata channel glossary (range pill), agenda (page pointer),
  *                        list-steps (counter), list (own line),
  *                        verdict-grid/decision/matrix-2x2 (chrome),
  *                        compare-prose (connector), table/roadmap (table)

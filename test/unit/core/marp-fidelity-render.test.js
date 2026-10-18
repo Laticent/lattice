@@ -465,7 +465,7 @@ const PROBES = {
       '- Cadence', '  - How much new information per slide.',
       '- Zone', '  - The region a deck is scoped to.',
     ].join('\n'),
-    probe: (doc) => [...doc.querySelectorAll('.range-pill')].map((p) => p.textContent.trim()),
+    probe: (doc) => [...doc.querySelectorAll('[data-glossary-range]')].map((p) => p.textContent.trim()),
   },
 
   deckClassPropagate: {
