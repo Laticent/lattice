@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assembleSheetPdf, backgroundImageUrls, bakeDeckSections, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, waitForDiagrams } from './deck-export.js';
+import { assembleSheetPdf, backgroundImageUrls, bakeDeckSections, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, unhideMeasuringLists, waitForDiagrams, waitForMeasuring } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -337,6 +337,41 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 	});
 });
 
+// `collage` and `logo-wall` measure their pictures before they pack (lib/core/measure-kit.js) and are
+// HIDDEN while they do. An export that captures a list in that state ships it invisible, and the
+// webpage export (which strips the runtime) ships it invisible for good. The capture waits, capped,
+// then finishes what is left; the bake never serializes a list still `measuring`.
+describe('waitForMeasuring — the capture holds for a measuring collage or logo wall', () => {
+	const reg = (idle: boolean) => ({ idle: vi.fn(async () => idle), settle: vi.fn(() => 1) });
+	const docWith = (r: unknown) => ({ __latticeMeasure: r }) as unknown as Document;
+
+	it('waits at most 4 s and leaves a list that packed alone', async () => {
+		const r = reg(true);
+		expect(await waitForMeasuring(docWith(r), 4000)).toBe(true);
+		expect(r.idle).toHaveBeenCalledWith(4000);
+		expect(r.settle).not.toHaveBeenCalled();
+	});
+
+	it('at the cap, finishes whatever is still measuring instead of leaving it hidden', async () => {
+		const r = reg(false);
+		expect(await waitForMeasuring(docWith(r), 4000)).toBe(false);
+		expect(r.settle).toHaveBeenCalledTimes(1);
+	});
+
+	it('a frame whose runtime reported nothing has nothing to wait for', async () => {
+		expect(await waitForMeasuring({} as Document)).toBe(true);
+	});
+
+	it('the backstop turns a list still measuring into the unpacked grid, never a hidden one', () => {
+		const d = document.implementation.createHTMLDocument('x');
+		d.body.innerHTML = '<ul data-collage="measuring"></ul><ul data-logo-wall="measuring"></ul><ul data-logo-wall="packed"></ul>';
+		expect(unhideMeasuringLists(d)).toBe(2);
+		expect(d.querySelectorAll('[data-collage="fallback"], [data-logo-wall="fallback"]').length).toBe(2);
+		expect(d.querySelector('[data-logo-wall="packed"]')).not.toBeNull();
+		expect(d.querySelector('[data-collage="measuring"], [data-logo-wall="measuring"]')).toBeNull();
+	});
+});
+
 // The CALL SITE, not the helper. `waitForDiagrams` is pinned above, cell by cell; the
 // two arguments `bakeDeckSections` hands it were not pinned by anything at any tier —
 // `engineering/decisions/2026-09-07-diagram-render-latency.md` §16 named that hole: the
@@ -462,6 +497,22 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 			expect(pre.getAttribute('data-lattice-settle')).toBe('unavailable');
 			expect(pre.hasAttribute('data-lattice-final')).toBe(true);
 			await done;
+		} finally {
+			restore();
+		}
+	});
+
+	it('holds the capture for the frame’s measuring lists, and bakes none of them hidden', async () => {
+		// The call site of `waitForMeasuring`: drop the await in `createCaptureFrame` and the registry
+		// is never asked. The list is left `measuring` here, as a slow mark fetch would leave it.
+		const { inner, restore } = stubCaptureFrame('<div class="lattice"><section><h1>probe</h1><ul data-logo-wall="measuring"><li>a</li></ul></section></div>');
+		const registry = { idle: vi.fn(async () => false), settle: vi.fn(() => 1) };
+		(inner as unknown as { __latticeMeasure: unknown }).__latticeMeasure = registry;
+		try {
+			const out = await bakeDeckSections(render());
+			expect(registry.idle).toHaveBeenCalledWith(4000);
+			expect(registry.settle).toHaveBeenCalledTimes(1);
+			expect(out?.sections.join('')).not.toContain('data-logo-wall="measuring"');
 		} finally {
 			restore();
 		}
