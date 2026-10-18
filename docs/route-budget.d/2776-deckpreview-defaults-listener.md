@@ -1,0 +1,2 @@
+home: +41
+`DeckPreview` now listens for `lattice:plugin-defaults` and schedules a render (about 40 bytes gzipped), so a preview follows a host that narrows its plugin defaults after the deck is open (#2759). The home route mounts a `DeckPreview`; studio shrank by 49 bytes in the same build and the other routes did not move. The listener cannot be dropped: the event is the only signal a host gives.
