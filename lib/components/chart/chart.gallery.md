@@ -2,7 +2,7 @@
 
 # chart
 
-`26 components`
+`28 components`
 
 Chart — series-substance data visualizations (SVG kernel).
 
@@ -368,6 +368,22 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
+<!-- _class: risk-matrix -->
+<!-- _footer: "risk-matrix · chart survey" -->
+
+`Enterprise risk register · Q4 2026`
+
+## Cyber and hurricane risk sit in the red; both have a plan.
+
+- Cyber outage `{4, 5}` `{2, 4}`
+- Hurricane season `{3, 5}` `{3, 3}`
+- Reserve shortfall `{3, 4}`
+- FX swing `{4, 2}`
+- Key person loss `{2, 3}`
+- Pandemic `{1, 5}`
+
+---
+
 <!-- _class: roadmap -->
 <!-- _footer: "roadmap · chart survey" -->
 
@@ -489,6 +505,28 @@ Four milestones show the shape; the date chips carry the when.
    - Sixteen words is each entry's budget.
 4. `Q4` The fourth milestone
    - Four to six entries reads best.
+
+---
+
+<!-- _class: tower -->
+<!-- _footer: "tower · chart survey" -->
+
+`Property catastrophe program · 2027`
+
+## Six reinsurers carry $310M above a $50M retention.
+
+- Layer 3 `$200M xs $160M`
+  - Acme Re `30%`
+  - Globex Re `25%`
+  - Helios Re `20%`
+- Layer 2 `$70M xs $90M`
+  - Acme Re `40%`
+  - Vantage Re `35%`
+  - Umbra Re `25%`
+- Layer 1 `$40M xs $50M`
+  - Globex Re `60%`
+  - Meridian Re `40%`
+- Retention `$50M`
 
 ---
 
