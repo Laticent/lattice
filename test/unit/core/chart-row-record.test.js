@@ -633,4 +633,76 @@ describe('the paths agree on the data row', () => {
     const el = new JSDOM('<section class="slope"><ul><li>EMEA<ul><li><h3>2024 <code data-t>{55%}</code></h3></li></ul></li></ul></section>').window.document.querySelector('code[data-t]');
     assert.equal(isOwnedRecordElement(el), true);
   });
+
+  // Thirteenth round (2026-10-18): the adversarial trio on caf836b (red team + inversion).
+  test('ownership costs a row its own span, not its ancestors again: a parent of many pills over many children stays fast', () => {
+    const { lintText } = require('../../../lib/authoring/lint.js');
+    const pills = Array.from({ length: 400 }, (_, i) => `\`{NEW ${i}, tag, c3}\``).join(' ');
+    const kids = (v) => Array.from({ length: 400 }, (_, i) => `  - c${i} \`${v(i)}\``).join('\n');
+    for (const [label, v] of [['no record', (i) => `${i}`], ['records', (i) => `{${i}}`]]) {
+      const src = `<!-- _class: bar -->\n\n## A\n\n- P ${pills}\n${kids(v)}\n`;
+      for (const [path, run, budget] of [['lint', () => lintText(src), 3000], ['engine', () => render(src), 800], ['narration', () => narrateChart(src), 600]]) {
+        const t = Date.now();
+        run();
+        assert.ok(Date.now() - t < budget, `${label}, ${path}: ${Date.now() - t} ms`);
+      }
+    }
+  });
+
+  test('the pipe lint reads each table row once, however many delimiter-like rows the body has', () => {
+    const { lintText } = require('../../../lib/authoring/lint.js');
+    const row = `|${'-|'.repeat(20)}`;
+    const src = `<!-- _class: heatmap -->\n\n## A\n\n| a | b \`{> x}\` |\n${Array(4000).fill(row).join('\n')}\n`;
+    const t = Date.now();
+    lintText(src);
+    assert.ok(Date.now() - t < 2500, `${Date.now() - t} ms`);
+  });
+
+  test('a badge record before the label and a value record: the chart reads neither, and lint says so', () => {
+    const { lintText } = require('../../../lib/authoring/lint.js');
+    const warns = (cls, body) => lintText(deck(cls, body)).filter((f) => f.rule === 'chart-row-record-unread').map((f) => f.message);
+    assert.equal(warns('bar', '- `{1}` North `{40}`\n- `{2}` South `{30}`').length, 2);
+    assert.equal(warns('piechart', '- `{1}` Direct `{60%}`').length, 1);
+    // Silent where something is drawn: a plain value with a note record, a shaped badge, a badge before a plain value.
+    assert.deepEqual(warns('bar', '- North `40` grew `{+4}`'), []);
+    assert.deepEqual(warns('bar', '- `{1, circle}` North `{40}`'), []);
+    assert.deepEqual(warns('bar', '- `{1}` North `40`'), []);
+    assert.match(render(deck('bar', '- `{1, circle}` North `{40}`\n- `{2, circle}` South `{30}`')), /data-value="40"/, 'a shaped badge leaves the record its value');
+  });
+
+  test('a chart list inside a quote does not read records, and lint says so; the old form there is silent', () => {
+    const { lintText } = require('../../../lib/authoring/lint.js');
+    const warns = (body) => lintText(deck('bar', body)).filter((f) => f.rule === 'chart-row-record-unread');
+    assert.equal(warns('> - EMEA `{4.2}`\n> - APAC `{3.1}`').length, 2);
+    assert.deepEqual(warns('> - EMEA `4.2`\n> - APAC `3.1`'), []);
+  });
+
+  test('the browser does not claim a record in a list a raw <ol> wraps: the engine counts the wrapper as a list ahead', () => {
+    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const doc = new JSDOM('<section class="bar"><h2>A</h2><ol class="steps"><ul><li>A <code data-t>{1}</code></li><li>B <code>{2}</code></li></ul></ol></section>').window.document;
+    assert.equal(isOwnedRecordElement(doc.querySelector('code[data-t]')), false);
+    const plain = new JSDOM('<section class="bar"><h2>A</h2><ul><li>A <code data-t>{1}</code></li><li>B <code>{2}</code></li></ul></section>').window.document;
+    assert.equal(isOwnedRecordElement(plain.querySelector('code[data-t]')), true, 'control: the same list unwrapped is claimed');
+  });
+
+  test('a matrix-grid cell with a comment beside its record stays a pill in the browser, as in the engine', async () => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body><section class="matrix-grid"><h2>A</h2><table><thead><tr><th></th><th>A</th><th>B</th></tr></thead><tbody>'
+      + '<tr><td>r</td><td><code>{done}</code> <!-- c --></td><td><code>{done}</code></td></tr></tbody></table></section></body></html>', {
+      url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
+    });
+    dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
+    const el = dom.window.document.createElement('script');
+    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
+    dom.window.document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 300));
+    const cells = dom.window.document.querySelectorAll('tbody td');
+    assert.equal(cells[1].querySelector('.cell'), null, 'the commented cell is not a state');
+    assert.ok(cells[2].querySelector('.cell-filled'), 'control: the plain cell is');
+  });
+
+  test('the stamp strip touches only the stamp the pill pass wrote, never an author\'s attribute text', () => {
+    const soup = '<div title="a data-lat-record="" b=" onmouseover=alert(2) c="">x</div>';
+    const html = render(`---\nmarp: true\n---\n\n## Plain\n\n${soup}\n`);
+    assert.ok(html.includes('data-lat-record="" b="'), 'the author bytes reach the page as written');
+  });
 });
