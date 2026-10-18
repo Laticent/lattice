@@ -1,13 +1,15 @@
 ---
 status: in-progress
 summary: >
-  The E0 baseline and the E1 split for the on-demand style loader of 2026-10-17-on-demand-styles-brief.md,
+  E2 result: the HTML scan of a rendered deck needs a median 21% of the minified bytes (195 of 933 KB), misses
+  no module on 281 decks, and renders identically in a computed-style gate; Markdown hints alone miss modules
+  in every deck. The E0 baseline and the E1 split for the on-demand style loader of 2026-10-17-on-demand-styles-brief.md,
   plus the owner's rulings on the §5 forks and a measured test of the scanner theory. Baseline: a deck
   carries 2.1 to 2.5 MB of style whatever it uses, 40 to 48% of it fonts, while one slide matches about
   40 KB of rules and a 14-slide deck about 57 KB. E1 cuts dist/lattice.css into 183 ordered modules that
   join back byte for byte (gate: test/unit/cli/css-modules.test.js), but cutting the big base files only
-  at their existing run boundaries cuts a typical deck's fetch by about 28%, not 90%: the base needs
-  regrouping, which is the E2 question. The scanner reads the rendered HTML (0 missed files, under 8 ms
+  at their existing run boundaries cuts a typical deck's unminified fetch by about 26%, not 90%; minified,
+  the picture is better (see E2) and the regrouping left is §7. The scanner reads the rendered HTML (0 missed files, under 8 ms
   for 5,849 elements); Markdown hints can only warm the loader (they miss files on 6 of 9 decks).
 ---
 
@@ -177,8 +179,121 @@ Known limits, recorded rather than fixed (each belongs to a later step):
 - **#19.** E1 is structure only and adds no performance claim, so no bench baseline moves. The first
   performance claim is E3's, with its own cold and warm numbers.
 
-## 7. Next
+## 7. E2: the dependency inventory (2026-10-18)
 
-E2 (dependency inventory: per module, what it needs, from the same token rules as §4, with zero false
-negatives on all 281 decks) and the regrouping question for the base. Both wait for the owner's review of
-E1.
+`tools/style-needs.js` builds, from the module CSS alone, what each module needs; `tools/style-needs-audit.mjs`
+checks it against the real renderer. Decks: the 280 in `examples/` plus the 120-slide gallery, Chromium
+131 (all 281) and Playwright's Linux WebKit (every 10th, 29 decks). Not iOS.
+
+**How a module's needs are written down.** Per module, a list of alternatives, each a set of tokens (classes,
+attribute names, tag names, ids) that one selector requires; the module is needed if any alternative is fully
+present in the document. `:is()` / `:where()` arms become alternatives; `:not()`, `:has()` and `:nth-*()`
+arguments, and attribute values, are ignored, which only loosens. Besides selectors there is one more kind of
+edge, found in the CSS itself rather than invented: a module that defines `@keyframes`, an `@font-face`
+family or an `@property` is needed when a needed module mentions the name. That gives 33 `requires` edges
+today (for example `component:flowchart` needs `tail:chart-family.styles`). 13 modules are unconditional
+(the banner, `@layer` statement, `:root` and `*` rules): 220 KB unminified, 59 KB minified.
+
+**Scanner, measured (Chromium, 281 decks; WebKit sample alongside).**
+
+| | Result |
+|---|---|
+| False negatives of the HTML scan against selector truth | **0 modules in 281 decks** (token scan and verified scan) |
+| Computed-style gate: every element, plus `::before` and `::after`, in screen, print and dark scheme, full render against a render with only the scanned modules | **281 of 281 decks identical** |
+| Index size | tokens only 334 KB raw, 29 KB gzipped; with selectors 1,052 KB raw, 71 KB gzipped |
+| Scan cost in the page | token filter about 1.5 ms; verified scan median 6 ms, p95 10 ms, max 17 ms (gallery: 12,501 elements) |
+| Bytes loaded per deck, minified (`dist/styles-min/`), of 933 KB | p10 149 KB, **median 195 KB (21%)**, p90 255 KB, max 628 KB (gallery) |
+| The same, gzipped | median about 31 KB, against 117 KB for all of `lattice-min.css` |
+| Bytes loaded per deck, unminified, of 2,600 KB | token scan median 824 KB, verified scan median 659 KB; selector truth median 608 KB |
+| Rules that actually match, per deck | median 42 KB |
+| WebKit sample (29 decks, final code) | 0 false negatives; computed-style gate 29 of 29 identical; verified scan median 642 KB unminified, 9 ms in the page; Markdown hints miss modules in all 29 |
+
+- **Two scanners were compared, as the brief asked.** The HTML scan above, and a Markdown-only scan (the
+  `_class` / `class` directives, granted every attribute, tag and id for free, which is its best case). The
+  Markdown scan misses modules in **all 281 decks** (3,379 modules, about 31 MB of CSS in total, about 12 per
+  deck), because the engine adds classes and slides no Markdown line names. So the owner's ruling holds as a
+  measurement: **the HTML scan is the authority, hints only prefetch.**
+- **Verification is worth its index.** The token scan alone loads 824 KB (unminified) at the median because
+  generic selectors (`section svg path`, `section ul p`) are always "possible". Asking the document about the
+  alternatives that are met (`querySelector`) brings it to 659 KB, close to selector truth (608 KB). The
+  price is the larger index (71 KB gzipped, against 29 KB) and about 4 ms. This is a knob, not a given: a
+  consumer with a tight index budget can ship tokens only and load about 20% more.
+- **Minified, the base is not the problem it looked like.** §3 says the base is not small. That was true of
+  the unminified sheet, whose big files are mostly comments (`base.tokens` is 109 KB unminified, and all
+  the custom-property declarations in every module `focus.md` needs add up to 29 KB). Minified, the median deck needs 195 KB and the always-on floor is 59 KB. The
+  regroup question below is about the last 150 KB, not the first 700 KB.
+
+**What the gate caught that the selector check did not.** On the first full run, 8 pane decks
+(`examples/panes*.md`, `chart-lead-*.md`) rendered differently with the scanned modules, with zero selector
+misses. The engine rewrites a pane deck's stylesheet (lib/core/pane-css.js adds `section lat-pane.x` twins),
+so the raw `section.list > .cell-stage > ul` cannot be asked about a document whose list is a `<lat-pane>`.
+The fix is the adapter's: for a deck with panes the audit asks no selectors and trusts the token filter
+(`neededModules(index, tokens)` with no `doc`). The independent checker confirmed no other `composeCss` /
+`packSelector` rewrite loosens a selector the other way. That is why the gate stays in the harness: a scanner
+and a truth check built from the same CSS share their blind spots.
+
+**What the independent checker broke, and what changed.** The first version claimed zero false negatives as a
+property of the code; the checker built 13 counterexamples. Each is now fixed and pinned by a unit test
+(21 tests in `test/unit/tools/style-needs.test.js`):
+
+- `:focus-visible` / `:focus-within` were stripped as `:focus`, leaving `.btn-visible`; a state pseudo-class
+  inside `:not()` / `:is()` changed the selector's meaning. Asking is now sound or skipped: top-level state
+  pseudo-classes and pseudo-elements are removed, and a selector that keeps one deeper, is nested (`&`),
+  sits in `@scope`, starts with a combinator or carries `:scope` is never asked (its alternative is kept).
+  The state list is broader than the export prune's on purpose.
+- A scan is a snapshot, so script-added state was a false negative (`section[data-guide]` stamped at Play,
+  `:root[data-lattice-view]`, `[data-copied]`, `.anima-live`). The caller now names **runtime tokens**; the
+  Lattice list comes from the export prune's own keep-lists (`lib/export/player-prune.js`, now also exporting
+  `GUIDE_PRUNE_SAFELIST`). Cost: `component:scene` (21 KB), `base:focus` (16 KB) and `tail:base.fluid-view`
+  (7 KB) load for every deck, which moved the verified median from 599 KB to 659 KB unminified.
+- Escaped names (`.a\:b`), namespaces (`[*|lang]`) and case (quirks mode) are normalized; two modules defining
+  one name both count; font names compare without case; an inline `style="animation: spin"` creates the edge;
+  CSS the parser cannot read keeps its module instead of failing the build.
+- The harness: `@media` rules were not counted in the truth, and the truth shared the scanner's pseudo-class
+  stripping. Both fixed; the gate remains the independent evidence.
+
+**Limits that stay.** Anything that changes after the scan and is not a declared runtime token (a class a
+script adds from data) is invisible, which is E3's job: a unit that appears later asks the loader for its
+modules before it shows. `::highlight(x)` rules (the Guide's read-along) can only be requested by the script
+that registers the highlight. The gate never enters hover or focus, so those rules rest on the sound-asking
+rules and the unit tests, not on a render. Custom properties declared in unscanned modules differ on 260
+of 281 decks (registered `@property` initial values and unused tokens); no rendered property differs, and
+script that reads tokens at run time must request their modules. Verified in Chromium and WebKit on Linux
+only; iOS Safari is UNVERIFIED.
+
+**The regrouping question, answered with data.** Loaded bytes whose rules match nothing, summed over the 281
+decks, concentrate in a few modules (unminified sizes): `head:base.tokens#head` 107 KB (15% of all waste;
+most of it is comments and font faces), `component:journey` 51 KB (8%; it
+carries a `:root` token block, so it is unconditional), `tail:mermaid.styles` and `tail:chart-family.styles`
+114 KB each (14% together, loaded by 116 and 98 decks because a generic `section svg path` alternative is
+met), `tail:stage` 39 KB, `head:base.elements` 28 KB, `base:card-tag` 25 KB (a `*`-style rule makes it
+unconditional). Three moves would remove most of it, each a source change with its own review:
+1. **Move global rules out of component files** (the `:root` block in `journey`, the universal rule in
+   `card-tag`, `variants#rest`) into the tokens/elements modules. Removes about 90 KB unminified from
+   the always-on floor.
+2. **Give the diagram sheets a real gate.** Their `section svg path`-style selectors meet in every deck with
+   an icon. Verified mode already drops the Mermaid sheet for 165 decks and the chart-family sheet for 183; a
+   pane deck or a token-only consumer still loads them. A marker class on diagram figures would make the token filter enough.
+3. **Split `base.tokens` by token family**, with the `var()` edge used for named definitions (a module that
+   declares `--x` is needed when a needed module reads `--x`). Estimated from the closure: 75% of the
+   declarations in the needed modules are read for `focus.md`, 93% for the gallery, so the saving is
+   smaller than the module's size suggests. Not worth doing before the minified numbers are the baseline.
+
+## 8. Open items
+
+- **Owner decision, package size.** Ship `dist/styles/` and `dist/styles-min/` in the tarball (about 0.94 MB
+  gzipped together, measured by `tar czf`) or generate them on install.
+- **Owner decision, index shape.** Ship the verified index (71 KB gzipped, 21% fewer bytes loaded) or the
+  token-only index (29 KB gzipped). The harness measures both on any deck.
+- **Unify the state-pseudo lists.** `tools/style-needs.js` and `lib/export/player-prune.js` each keep one;
+  the core must not import the export pipeline, so the shared piece belongs in a generic kernel (E4).
+- **WebKit** was sampled (29 of 281 decks), not run in full.
+- **Not built:** E3 (the loader), E4 (the generic core and a second domain), E5 (integrations and export
+  bytes, which need the owner's dark and light sign-off).
+
+## 9. Next
+
+E3 (the Playground loader prototype: first-slide bytes and time against the §2 baseline, cold and warm,
+Chromium and WebKit, no flash of unstyled content, and a late-appearing unit loading its modules before it
+shows) and the three regrouping moves in §7, in that order of value. Both wait for the owner's review of E1
+and E2. E3 is a style sink (HARD RULE #22) and gets the adversarial trio on its final shape.
