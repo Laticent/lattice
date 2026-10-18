@@ -2,6 +2,7 @@
 origin: 2744
 priority: P3
 recorded: 2026-10-18
+reviewed: 2026-10-18
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-16-mosaico-layout-library.md §8.6
@@ -20,3 +21,8 @@ done when — a pane declares a minimum width or a shape range and the layout ho
 evidence  — before/after renders of every committed pane deck; a demo deck (HARD RULE #9) for the new limit,
             light and dark
 verify    — tier 2 adversarial trio, because it changes every pane slide
+
+status    — reviewed 2026-10-18 and left open on purpose. No pane in `lib/components/layout/columns` or
+            `rows` (docs, manifests, galleries) declares a floor, cap or shape range, so a migration moves
+            no pixel while touching every pane slide (tier 2 trio). Do it with the first pane that needs
+            one, and decide the authoring syntax for that limit then: it is a new author-facing surface.

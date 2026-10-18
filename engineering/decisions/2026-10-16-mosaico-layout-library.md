@@ -572,8 +572,33 @@ the moment `print()` is called, with every picture delayed 3 s. Against main's p
 state before `packed` is `measuring` with `visibility: hidden`, never the grid; with one mark delayed
 9 s the cap shows the unpacked grid, visible. Exports of a collage and logo-wall deck with every
 picture delayed 1.5 s and 3 s, light and dark: no list baked hidden, and at 1.5 s the pages are
-pixel-identical to exports built from main's code. **Found, not caused:** the Studio export draws the
-logo wall as `fallback` in both builds (followup `2763-p2`).
+pixel-identical to exports built from main's code. **Found, not caused:** the Studio Webpage export drew the
+logo wall as `fallback` in both builds. Resolved below (§8.5.1).
+
+#### 8.5.1 The Webpage export packed nothing: a `;charset` blind spot (2026-10-18)
+
+**Cause.** The Studio inlines each `sample:` mark into the capture frame as
+`data:image/svg+xml;charset=utf-8,<percent-encoded svg>`. `svgFromDataUri`
+(`lib/core/logo-wall-pack.js`) matched only `data:image/svg+xml,` and `;base64,`, so it returned null,
+`planWall` saw an unknown aspect and chose `fallback`, and `deck-export.js` baked that. The kit's
+measuring, the cap and the export wait were never involved: the wall was already `fallback` before the
+wait began, because `measureMark` reads a data: mark in place and found it unreadable.
+**The clue in the brief was a red herring:** the CSP was never the cause: in the capture frame the marks arrive as
+data: URIs, so nothing is fetched at all.
+
+**Fix.** `svgFromDataUri` accepts any media-type parameters and still detects `;base64` as the last one
+(unit tests in `test/unit/components/logo-wall-pack.test.js`).
+
+**Measured** on the real Studio, `examples/logo-wall-equal-weight.md`, light and dark:
+
+| Export lane | Before | After |
+|---|---|---|
+| Webpage (.html) | 6 walls `fallback` (4/4/2 equal cells, oversized marks) | 6 walls `packed` (4/3/3 balanced rows, equal weight) |
+| PDF | packed | packed, 8 of 8 pages pixel-identical to before |
+| Images (.zip) | packed | packed, every PNG byte-identical to before |
+
+Only the Webpage lane was affected. Why the raster lanes already packed was not traced; their output is unchanged, which is what matters here.
+`docs/e2e/webpage-export-logo-wall.spec.ts` pins the Webpage lane.
 
 ### 8.6 Slice 2: range items and `template`, as built (2026-10-18)
 
