@@ -80,6 +80,8 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['examples/logo-wall-equal-weight.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
+  ['lib/components/legal/policy-recommendation/policy-recommendation.gallery.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
+  ['examples/policy-recommendation.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

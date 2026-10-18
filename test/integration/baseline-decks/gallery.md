@@ -1759,11 +1759,11 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 ## Adopt Colorado's deployer-duties framework as the federal floor.
 
 - The audit trail already exists
-  - Every score is logged, signed, DSAR-exportable `Colorado SB 24-205`.
+  - Every score is logged, signed, DSAR-exportable `{Colorado SB 24-205}`.
 - Compliance is a moat, not a cost
-  - Logged decisions saw 31% fewer disputes litigated `Stanford HAI 2025`.
+  - Logged decisions saw 31% fewer disputes litigated `{Stanford HAI 2025}`.
 - One federal floor beats fifty ceilings
-  - Retires conflicting state duties without lowering the bar `EU AI Act Title III`.
+  - Retires conflicting state duties without lowering the bar `{EU AI Act Title III}`.
 
 > Co-sponsor the deployer-duties title in § 4, or move it as a floor amendment.
 
