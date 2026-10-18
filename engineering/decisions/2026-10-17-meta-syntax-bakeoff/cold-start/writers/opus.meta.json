@@ -1,0 +1,154 @@
+{
+  "duration_api_ms": 374663,
+  "stop_reason": "end_turn",
+  "session_id": "24c66920-f9c2-5c84-a5c9-9e90f2a72048",
+  "total_cost_usd": 0.1323451,
+  "usage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 8854,
+    "cache_read_input_tokens": 2145,
+    "output_tokens": 3034,
+    "output_tokens_details": {
+      "thinking_tokens": 858
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 8854,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3028,
+        "cache_read_input_tokens": 1496,
+        "cache_creation_input_tokens": 4028,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4028
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-haiku-5-5": {
+      "inputTokens": 3781,
+      "outputTokens": 20,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.00038810000000000006,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5-5": {
+      "inputTokens": 4,
+      "outputTokens": 3034,
+      "cacheReadInputTokens": 2145,
+      "cacheCreationInputTokens": 8854,
+      "webSearchRequests": 0,
+      "costUSD": 0.131957,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 858,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 2,
+  "subtype": "success",
+  "api_error_status": null,
+  "ttft_ms": 2178,
+  "type": "result",
+  "duration_ms": 376967,
+  "uuid": "983574d2-7e64-46e4-baf5-6d7edfa8062e",
+  "ttft_stream_ms": 1876,
+  "time_to_request_ms": 247,
+  "time_to_request_phases_ms": {
+    "other": 27,
+    "system_prompt": 27,
+    "resume_other": 0,
+    "process_user_input": 8,
+    "input_attachments": 9,
+    "input_hooks": 4,
+    "tool_pool_refresh": 3,
+    "init_message": 3,
+    "engine_pickup": 2,
+    "message_prep": 3,
+    "model_config_wait": 133,
+    "autocompact": 3,
+    "query_setup": 1,
+    "model_gates": 1,
+    "tool_schema_build": 2,
+    "message_normalization": 4,
+    "client_creation": 4,
+    "request_build": 13
+  },
+  "turn_start_resume_kind": "none",
+  "process_turn_index": 0,
+  "time_to_request_loop_lag_ms": 146,
+  "time_to_request_cpu_ms": 239,
+  "time_to_request_major_faults": 0,
+  "process_rss_mib_turn_start": 235,
+  "process_anon_mib_turn_start": 118,
+  "process_rss_mib_result": 222,
+  "process_anon_mib_result": 103,
+  "process_peak_rss_mib": 247,
+  "process_cpu_ms_turn": 2132,
+  "process_wall_ms_turn": 376967,
+  "input_attachments_detail": {
+    "slowest_producer": "queued_commands",
+    "slowest_producer_ms": 5,
+    "cpu_ms": 9,
+    "major_faults": 0
+  },
+  "first_content_frame_ms": 1876,
+  "time_to_request_from_spawn_ms": 1288324,
+  "warm_spare_claimed": false,
+  "flag_fetch_kick": "not_asked_warm",
+  "time_origin_ms": 1792326530035.0874,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
