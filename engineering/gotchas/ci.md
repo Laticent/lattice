@@ -530,3 +530,128 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   accepted because the alternative is a green check over no tests.
 - **Triggered by:** #2524 (`followups.d/2524-p1-ci-path-filter-skipped-tiers-on-rerun.md`).
 - **Removable when:** never; this documents the gate's contract.
+
+## A PR that changes only markdown fails the route budget by a few bytes, and a local build reads +0
+
+- **Symptom:** `docs-build` fails in `check:route-budget` with "this PR adds N bytes of eager JS
+  vs main, and N of them are not free", N from 1 to 13, on a diff of markdown, `followups.d/`
+  files and one code comment. The route is already over its soft target, so every byte is owed.
+  A local build against the same base reads +0 on every route. Seen on #2749: studio +3, +3,
+  then +13 and playground +1, +2, then −3 across successive heads, and the figures moved on
+  commits that changed only markdown.
+- **Cause: not found.** Ruled out: none of the changed text reaches a built chunk (the note's
+  text, the new header and `os-sandbox` are absent from `docs/dist/_astro`, and
+  `lib/core/code-sandbox.js` is not bundled); two docs builds at different markdown states gave
+  byte-identical chunk sets (553 files); a root rebuild left every root `dist/` file identical
+  (365 files); a build against the exact CI base (`a64ecd5`) read +0. CI's playground asset hash
+  (`039cbdbab432`) differs from the local one (`77673e351d41`), so CI builds something the cloud
+  sandbox does not. Also ruled out (2026-10-17), each by a build: the same commit built in a throwaway worktree and in
+  the checkout (identical bytes on all five routes); a comment-only change to `code-sandbox.js`
+  (same playground hash `77673e351d41` with and without it); `main` against `main` plus the PR
+  merged in, the exact comparison CI makes (identical playground hash, and +0 on every metric of
+  every route, 23 numbers); the same merge after running the docs typecheck and unit tests first,
+  as `ci.yml` does (still +0). The build embeds no commit ID or timestamp (a grep of `docs/dist`
+  for the commit and for ISO dates found none), so signing and time stamps are not in the bytes.
+  The one per-build value in the bundle is the playground hash in `__LATTICE_ASSET_BASE__`; studio
+  and playground embed it and the other three routes do not, which matches where CI reads a
+  delta, but no local build produced a different hash. So the delta appears only on CI's runners
+  and its source there is unknown.
+- **Fix:** the gate's own remedy. Add `docs/route-budget.d/<slug>.md` with a `route: +N` line
+  and a sentence, as `docs/route-budget.d/README.md` says. Read N from the failing log's
+  `per-PR allowance` block, never from a local build. Say in the sentence that no growth is
+  claimed and that the cause was not reproduced. Precedent: #2361 and #2548 declared the same
+  kind of variation.
+- **How to avoid the treadmill:** finish the markdown before you declare. Each push that edits
+  the notes can move the number again. A push that changed only the declaration file passed on
+  its next run (#2749, `8b05bcb`).
+- **Triggered by:** #2749.
+- **Removable when:** someone explains the delta. Then replace this entry with the cause.
+
+## The CI-green beacon says green, but unit, integration and docs-build were canceled
+
+- **Symptom:** a bot comment reads "`ci` workflow green for `<sha>` (ran: lint; cancelled: unit
+  · integration · docs-build)" and "Every other check on this commit had also concluded
+  successfully". Seen on #2749 at `1a17c46`.
+- **Cause:** you pushed again. `concurrency: cancel-in-progress` canceled that run's tiers, and
+  a PR run accepts a `cancelled` tier by design (see "The `ci` check is green on a PR whose test
+  tiers never ran"). The beacon reports the old commit's lint and nothing else.
+- **How to tell:** the list after "ran:" names fewer tiers than a full run (lint · unit ·
+  integration · docs-build), and the SHA is not the PR's current head.
+- **Fix:** ignore it and wait for the run on the head SHA. Never count it as evidence in a
+  pre-merge card.
+- **Triggered by:** two pushes close together.
+- **Removable when:** the beacon stops posting for superseded commits.
+
+## A red check names a commit that is no longer the PR's head
+
+- **Symptom:** after you push a fix, a failure event for `ci` or `docs-build` arrives, and it is
+  the same failure you just fixed.
+- **Cause:** the old run finishes, or is canceled, after your push, and GitHub delivers its
+  result late. `ci` is an aggregate: it reads red when a tier it lists failed, or when `changes`
+  was canceled.
+- **How to tell:** compare the event's `head_sha` with the PR's current head. In the `ci` job
+  log, `changes=cancelled lint=cancelled …` is a superseded run. `docs-build=failure` with the
+  other tiers `success` is a real failure, so read the `docs-build` job.
+- **Fix:** act only on the run for the current head. Seen on #2749 (`5f3d824` after `1108d53`,
+  `6384c73` after `8b05bcb`).
+- **Triggered by:** pushing while a run is in flight.
+- **Removable when:** never; it follows from run supersession.
+
+## The pre-push hook throws in `lint:deck` on code you did not touch
+
+- **Symptom:** `git push` fails in the pre-push hook with `lint:deck — TypeError:
+  pillSlot(...).tryRead is not a function`, while lint and format pass and your diff is
+  documentation.
+- **Cause:** not proven. `npm run build` fixed it, which points at a `dist/` (built, not
+  committed) that predates the commits your branch was cut from. Seen on #2747, after the branch
+  was cut from an `origin/main` that was 56 commits ahead of the sandbox's last build.
+- **Fix:** `npm run build`, then push again. Never `--no-verify` (HARD RULE #14).
+- **Same family, other symptom:** after switching between branches, `npm run build:check` can
+  say "stale: guide-player bundle (engine export)" on a branch with no code changes, even with
+  your edits stashed. `npm run build` fixed it and changed no tracked file, so the committed
+  bundle was right and the local build output was not. Do not commit anything from that rebuild.
+- **Also:** the cloud sandbox's local `main` can be a stale snapshot, 50 commits ahead and 56
+  behind. Cut branches from `origin/main` and do not reset local `main`.
+- **Triggered by:** cutting a branch from a newer `origin/main` than the one `dist/` was built
+  from.
+- **Removable when:** `lint:deck` rebuilds or refuses a stale `dist/` on its own.
+
+## `studio-smoke` is red or green on its own; the `ci` gate does not count it
+
+- **Symptom:** `studio-smoke` is red while `ci` is green, or the reverse. On a markdown-only PR
+  one e2e test fails.
+- **Cause:** `studio-smoke` is advisory by design. The `ci` job's `needs` are `changes`, `lint`,
+  `unit`, `integration`, `docs-build` and `player-webkit`, and `.github/workflows/ci.yml`
+  (around lines 975-982) says `golden-diff` and `studio-smoke` are "intentionally ABSENT" from
+  them: they run and report, and they do not gate. It promotes into `needs` only after a nightly
+  green streak (#800).
+- **How to tell:** open the job and read the failing test. On #2749 `studio-smoke` failed on
+  `51577ea` and `6010676` and passed on `f80571a` and `9ee7827`. Only the `6010676` failure's
+  error was read: `docs/e2e/library-images-complete.spec.ts:67` timed out waiting for editor
+  text (the editor still read `<!-- _class: collage -->## Site walk- te- `), and 115 other
+  tests passed.
+- **That test is a known, tracked flake.** `followups.d/2649-p3-library-images-complete-flake.md`
+  records the same test failing with the same symptom on #2649 and #2673, and calls it ready for
+  a root-cause fix. Add each new repeat there (#2749 is one more) instead of re-deriving it.
+- **Fix for a PR you are driving:** a `studio-smoke` failure does not block the `ci` gate, and
+  a failure in a test your diff cannot reach is not yours to fix on that PR. Do not edit the
+  test, skip it, or quarantine it there. Name the follow-up in your stand-down note. A failure
+  in a test your diff does touch is real.
+- **Triggered by:** an intermittent e2e test.
+- **Removable when:** the flaky test is fixed (`followups.d/2649-p3-library-images-complete-flake.md`)
+  and `studio-smoke` has joined the gate or this entry is trimmed to the advisory rule.
+
+## The build fails with `Could not resolve "@laticent/<package>"` after you cut from a newer `origin/main`
+
+- **Symptom:** `npm run build` or `npm run build:check` aborts at "bootstrap step
+  lattice-runtime.js failed" with `Could not resolve "@laticent/mosaico"`, naming files you did
+  not touch (`collage.pack.js`, `logo-wall-pack.js`).
+- **Cause:** `origin/main` gained a workspace package after your `node_modules` was installed, so
+  the link under `node_modules/@laticent/` does not exist. Seen on the branch for this entry: the
+  fix was `npm install`, which added one package.
+- **Fix:** `npm install` at the repo root, then rebuild. This is the same family as the stale
+  `dist/` in the pre-push hook: both come from branching off a `main` newer than the sandbox's
+  last install and build.
+- **Triggered by:** cutting a branch from `origin/main` after a PR that adds a workspace
+  package has landed.
+- **Removable when:** the SessionStart hook installs on a changed lockfile or workspace list.

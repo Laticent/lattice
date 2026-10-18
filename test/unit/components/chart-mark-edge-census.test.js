@@ -59,6 +59,8 @@ const KNOCKOUTS = {
   'risk-cell': 'risk-matrix',
   'risk-marker': 'risk-matrix',
   'risk-key-marker': 'risk-matrix',
+  // An EP curve's dots are knocked out of the other curve where two cross, as line's are.
+  'ep-dot': 'ep-curve',
   'quadrant-trail-after': 'quadrant',
   // The heatmap grid: at a 1.2-unit gap the canvas shows between cells and reads
   // as a black lattice over the data on a dark slide, so each cell strokes the

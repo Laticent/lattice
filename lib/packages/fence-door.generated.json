@@ -16,6 +16,12 @@
     {
       "pass": "chart-family",
       "classes": [
+        "ep-curve"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
         "flowchart"
       ]
     },
@@ -29,6 +35,12 @@
       "pass": "chart-family",
       "classes": [
         "gantt"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "histogram"
       ]
     },
     {

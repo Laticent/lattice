@@ -5659,6 +5659,10 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/tower/tower.transform.js', true, true],
   // A risk matrix names each risk on its marker, with its likelihood and impact.
   ['components/chart/risk-matrix/risk-matrix.transform.js', true, true],
+  // A histogram names each band (its label, or its range) with its value.
+  ['components/chart/histogram/histogram.transform.js', true, true],
+  // An EP curve names each dot by its return period, with its loss, and each curve by its name.
+  ['components/chart/ep-curve/ep-curve.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
   // A hub-spoke names its hub, every satellite, and (tiered) every branch and leaf — each
@@ -9513,6 +9517,8 @@ const SANCTIONED_DENSITY_EXEMPT = {
     waterfall: 'data viz — series, not prose',
     tower: 'data viz — layers and shares, not prose',
     'risk-matrix': 'data viz — a register of placed risks, not prose',
+    histogram: 'data viz — bands of one quantity, not prose',
+    'ep-curve': 'data viz — loss by return period, not prose',
   heatmap: 'data viz — a numeric matrix, not prose',
   gantt: 'data viz — schedule, not prose',
   journey: 'data viz — stage map, not prose bodies',

@@ -272,6 +272,13 @@ distinct, stable ID.
 | `gantt-dangling-after` | error | — | A gantt `after=` naming no task on the slide. |
 | `gantt-inverted-dependency` | warning | — | A gantt task that starts before the task it depends on. |
 | `journey-actor-shortcut` | warning | ✓ | A journey actor in the retired `@sales` shortcut, which renders as code and drops the actor. Autofixes to `{who=sales}`. |
+| `ep-curve-duplicate` | warning | — | An EP curve point whose return period is already in its curve; the chart keeps the first. |
+| `ep-curve-point` | warning | — | An EP curve record the chart cannot read as `{return period, loss}`, such as one with a thousands separator; the point is left out. |
+| `ep-curve-too-many` | warning | — | An EP curve slide with more than four curves; the chart draws the first four. |
+| `histogram-bands-join` | warning | — | Neighboring histogram bands that leave a gap or overlap. |
+| `histogram-dash-range` | warning | — | A histogram band written with a dash instead of `..`; the row is left out. |
+| `histogram-log-zero` | warning | — | `log` on a histogram axis whose domain reaches zero; the chart draws a linear axis. |
+| `histogram-negative` | warning | — | A histogram value below zero; the band draws with no height. |
 | `quadrant-axis-part` | warning | — | A quadrant axis list with the wrong number of members, or a member part the chart ignores. |
 | `quadrant-retired-axis` | error | ✓ | The retired quadrant axis format. Autofixes to the bracketed list. |
 
