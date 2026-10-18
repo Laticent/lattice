@@ -40,13 +40,33 @@ flowchart LR
 
 ---
 
-# Code that is not a diagram stays code
+# Under a bullet, the shape that always drew
 
-A four-space indented block is code, not a fence:
+- First point, with its diagram:
 
-    ```mermaid
-    flowchart LR
-      Not --> Drawn
-    ```
+  ```mermaid
+  flowchart LR
+    Idea --> Draft --> Review
+  ```
 
-It prints as the source it is.
+- Second point.
+
+---
+
+# What the CLI reads now
+
+- A fence under a `>` quote
+- A fence four spaces in under `10.`
+- Any fence the engine itself marks as Mermaid
+
+An indented code sample, a fence quoted inside another fence and a `$$` math block stay what they are.
+
+---
+
+# Try it
+
+Write a diagram where it belongs in your outline, then export:
+
+`lattice deck.md deck.pdf --player`
+
+The PDF and the player draw every diagram, in the order you wrote them.
