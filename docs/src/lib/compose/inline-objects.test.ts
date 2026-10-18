@@ -860,3 +860,39 @@ describe('sparks are objects too (phase 2)', () => {
 		expect(view.state.doc.eq(before)).toBe(true);
 	});
 });
+
+// The PLACE ORACLE's Compose arm (test/unit/core/place-oracle.test.js holds the other readers). Compose measures a
+// span's place from a ProseMirror document, a third way. For the shared corpus it must leave as code exactly the
+// record spans the engine claims, and turn every other pill-shaped span into an object. A slide with a raw list or
+// table is locked in Compose (edited in Markdown), so it has no objects to compare.
+describe('the place oracle: Compose leaves exactly the engine\'s record spans as code', () => {
+	const req = createRequire(import.meta.url);
+	const { corpus, deckOf } = req('../../../../test/unit/core/place-corpus.js') as {
+		corpus: (n: number) => { chart: string; body: string; name: string }[];
+		deckOf: (s: { chart: string; body: string }) => string;
+	};
+	const { READERS, fencedTexts } = req('../../../../test/unit/core/place-readers.js') as {
+		READERS: { engine: (s: { chart: string; body: string }) => string[] };
+		fencedTexts: (body: string) => Set<string>;
+	};
+	const seen = { owned: 0, pills: 0 };
+	for (const slide of corpus(Number(process.env.ORACLE_N) || 10)) {
+		it(slide.name, () => {
+			if (/<(?:ul|ol|table)\b/i.test(slide.body.replace(/`[^`]*`/g, ''))) return; // locked in Compose
+			const fenced = fencedTexts(slide.body);
+			const owned = new Set(READERS.engine(slide));
+			const made = new Set(texts(mount(deckOf(slide))));
+			const candidates = [...new Set([...slide.body.replace(/\r/g, '').matchAll(/(?<!`)`(\{[^{}`\n]*\})`(?!`)/g)].map((m) => m[1]))]
+				.filter((t) => !fenced.has(t) && kindOf(t, kernels) !== null);
+			seen.owned += candidates.filter((t) => owned.has(t)).length;
+			seen.pills += candidates.filter((t) => !owned.has(t)).length;
+			for (const t of candidates) {
+				expect(made.has(t), `${t} in ${slide.name}: engine ${owned.has(t) ? 'claims it as the record' : 'draws a pill'}\n${slide.body}`).toBe(!owned.has(t));
+			}
+		});
+	}
+	it('compared both kinds of span, or the arm proves nothing', () => {
+		expect(seen.owned).toBeGreaterThan(40);
+		expect(seen.pills).toBeGreaterThan(40);
+	});
+});
