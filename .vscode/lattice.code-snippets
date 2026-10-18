@@ -362,6 +362,20 @@
     ],
     "description": "Section boundary slide. Dark canvas with a single heading."
   },
+  "lattice: ep-curve": {
+    "prefix": "lattice-ep-curve",
+    "body": [
+      "<!-- _class: ep-curve -->",
+      "",
+      "## A 1-in-100 year costs $410M.",
+      "",
+      "- `{10, $120M}`",
+      "- `{50, $300M}`",
+      "- `{100, $410M}`",
+      "- `{250, $560M}`"
+    ],
+    "description": "An exceedance-probability curve: the loss to expect once every N years, with return periods across on a log scale and up to four curves (OEP and AEP, gross and net)."
+  },
   "lattice: flowchart": {
     "prefix": "lattice-flowchart",
     "body": [
@@ -438,6 +452,20 @@
       "| Second row | 21 | 43 |"
     ],
     "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
+  },
+  "lattice: histogram": {
+    "prefix": "lattice-histogram",
+    "body": [
+      "<!-- _class: histogram -->",
+      "",
+      "## Most values sit in the first band.",
+      "",
+      "- `0..10` `45%`",
+      "- `10..20` `30%`",
+      "- `20..30` `15%`",
+      "- `30..40` `10%`"
+    ],
+    "description": "One quantity cut into bands that join end to end: each bar is as wide as its band and its area is the band's share, with an optional log axis for bands that widen toward the tail."
   },
   "lattice: hub-spoke": {
     "prefix": "lattice-hub-spoke",

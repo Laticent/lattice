@@ -792,6 +792,62 @@ panel token, not to re-litigate that. -->
 
 ---
 
+<!-- _class: histogram -->
+
+`[{Annual aggregate loss, log}, {Share of simulated years}]`
+
+## Twelve unequal bands on a log axis, the tail under one percent.
+
+- Attritional `$1M..$2M` `18%`
+- `$2M..$5M` `21%`
+- `$5M..$10M` `16%`
+- `$10M..$20M` `13%`
+- `$20M..$50M` `11%`
+- `$50M..$100M` `8%`
+- `$100M..$200M` `6%`
+- `$200M..$400M` `3.5%`
+- `$400M..$700M` `2%`
+- `$700M..$1B` `0.9%`
+- `$1B..$2B` `0.5%`
+- Cat tail `$2B..$5B` `0.1%`
+
+---
+
+<!-- _class: ep-curve -->
+
+`[{Return period}, {Gross loss}]`
+
+## Four curves, ten return periods from 1-in-2 to 1-in-10,000.
+
+- Gross OEP
+  - `{2, $20M}`
+  - `{5, $55M}`
+  - `{10, $120M}`
+  - `{25, $190M}`
+  - `{50, $300M}`
+  - `{100, $410M}`
+  - `{200, $520M}`
+  - `{250, $560M}`
+  - `{1000, $900M}`
+  - `{10000, $1.6B}`
+- Gross AEP
+  - `{2, $35M}`
+  - `{10, $150M}`
+  - `{100, $480M}`
+  - `{10000, $1.9B}`
+- Net OEP after the cat program
+  - `{2, $20M}`
+  - `{10, $50M}`
+  - `{100, $90M}`
+  - `{10000, $1.2B}`
+- Net AEP after the cat program
+  - `{2, $30M}`
+  - `{10, $70M}`
+  - `{100, $130M}`
+  - `{10000, $1.4B}`
+
+---
+
 <!-- _class: scatter bubble -->
 
 ## Ten entities with a size measure — the cluster case.

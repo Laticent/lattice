@@ -154,13 +154,17 @@ section.print.waterfall .waterfall-bar[data-s="total"] { fill: url(#latt-a11y-ch
  * distinction hue cannot. The `line` chart needs its endpoint dot to match its
  * own line, which is why the dot is in the same rule as the path. */
 section.print.line :is(.line-path, .line-dot)[data-series="0"],
+section.print.ep-curve .ep-path[data-series="0"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="0"],
 section.print.scatter .scatter-trend[data-series="0"] { stroke-dasharray: none !important; }
 section.print.line :is(.line-path, .line-dot)[data-series="1"],
+section.print.ep-curve .ep-path[data-series="1"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="1"] { stroke-dasharray: 7 4 !important; }
 section.print.line :is(.line-path, .line-dot)[data-series="2"],
+section.print.ep-curve .ep-path[data-series="2"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="2"] { stroke-dasharray: 1.5 3.5 !important; stroke-linecap: round; }
 section.print.line :is(.line-path, .line-dot)[data-series="3"],
+section.print.ep-curve .ep-path[data-series="3"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="3"] { stroke-dasharray: 9 3 2 3 !important; }
 section.print.line :is(.line-path, .line-dot)[data-series="4"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="4"] { stroke-dasharray: 4 3 !important; }

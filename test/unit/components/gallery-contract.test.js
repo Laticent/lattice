@@ -91,6 +91,8 @@ const VOICE_EXEMPT = {
   waterfall: { rules: ['density'], reason: 'chart data; no prose axis' },
   tower: { rules: ['density'], reason: 'chart data; no prose axis' },
   'risk-matrix': { rules: ['density'], reason: 'chart data; no prose axis' },
+  histogram: { rules: ['density'], reason: 'chart data; no prose axis' },
+  'ep-curve': { rules: ['density'], reason: 'chart data; no prose axis' },
   gantt: { rules: ['density'], reason: 'chart data; no prose axis' },
   journey: { rules: ['density'], reason: 'chart data; no prose axis' },
   map: { rules: ['density'], reason: 'chart data; no prose axis' },
