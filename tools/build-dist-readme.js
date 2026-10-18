@@ -46,6 +46,13 @@ const silent = argv.includes('--silent') || check;
 // count while adding a single deliverable.
 const GROUPS = [
   {
+    prefix: 'styles/',
+    purpose:
+      '`lattice.css` cut into ordered style modules plus `manifest.json` (id, file, UTF-8 bytes, SHA-256, source). '
+      + 'Joined in manifest order they are `lattice.css` byte for byte. The groundwork for loading only the CSS a deck uses.',
+    consume: 'Read `manifest.json`, then fetch the module files you need in order. Module files keep `lattice.css`\'s `fonts/` URLs, so resolve them against `dist/`.',
+  },
+  {
     prefix: 'marp-kit/',
     purpose:
       'The copy-and-go Marp kit — engine, default palette, runtime, Mermaid, fonts, '

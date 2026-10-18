@@ -46,12 +46,17 @@ if (!input) {
 }
 const runs = Math.max(1, Number(opt('--runs', '3')) || 3);
 const engines = { chromium: [['chromium', chromium]], webkit: [['webkit', webkit]], both: [['chromium', chromium], ['webkit', webkit]] }[opt('--engine', 'both')];
+if (!engines) {
+  console.error('--engine must be chromium, webkit or both');
+  process.exit(2);
+}
 
 let htmlPath = path.resolve(input);
+let tmpDir = null;
 if (input.endsWith('.md')) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'style-baseline-'));
-  htmlPath = path.join(dir, 'deck.html');
-  execFileSync('node', [path.join(ROOT, 'lattice.js'), path.resolve(input), htmlPath, '-q'], { stdio: 'ignore' });
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'style-baseline-'));
+  htmlPath = path.join(tmpDir, 'deck.html');
+  execFileSync('node', [path.join(ROOT, 'lattice.js'), path.resolve(input), htmlPath, '-q'], { stdio: ['ignore', 'ignore', 'inherit'] });
 }
 
 let modules = null;
@@ -189,6 +194,7 @@ function measure({ modules, runs }) {
 
   // One poster-style capture of the whole sheet: the sheet rides inside an SVG image because an
   // SVG image cannot see the page's stylesheet. Native size, drawn to a 320x180 tile.
+  if (secs.length === 0) throw new Error('no <section> in the page: not a rendered deck');
   const sec = secs[Math.min(3, secs.length - 1)];
   const box = sec.getBoundingClientRect();
   const css = styles.map((s) => s.textContent).join('\n');
@@ -230,6 +236,8 @@ for (const [name, type] of engines) {
   results[name] = await page.evaluate(measure, { modules, runs });
   await browser.close();
 }
+
+if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
 
 if (flag('--json')) {
   console.log(JSON.stringify(results, null, 2));

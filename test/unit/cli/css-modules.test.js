@@ -1,0 +1,68 @@
+/**
+ * Unit: tools/css-modules.js + build-css.js bundleModules() — the style-module split.
+ *
+ * The split is structure only. The one thing that must hold is that the modules, joined, ARE
+ * dist/lattice.css: if a cut reordered or dropped a byte, a loader that fetches modules would
+ * render a different cascade than the single file (HARD RULE #1, #26).
+ *
+ *   1. joined modules === bundle(), byte for byte
+ *   2. the built dist/styles/ (dist is gitignored; skipped when absent) matches what the build would write (no stale or extra file)
+ *   3. every cut inside a run-split source lands between top-level rules, so each module parses
+ *   4. module ids are unique, and the manifest hashes match the module files
+ */
+const { describe, test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const csstree = require('css-tree');
+const { bundle, bundleModules, moduleFiles, MODULES_DIR } = require('../../../tools/build-css');
+const { joinModules, splitRuns, sha256, MIN_RUN_BYTES } = require('../../../tools/css-modules');
+
+describe('css-modules', () => {
+  const modules = bundleModules();
+
+  test('modules joined are byte-identical to bundle()', () => {
+    assert.equal(joinModules(modules), bundle());
+  });
+
+  test('ids are unique and every module is non-empty', () => {
+    const ids = modules.map((m) => m.id);
+    assert.equal(new Set(ids).size, ids.length);
+    for (const m of modules) assert.ok(m.text.length > 0, `${m.id} is empty`);
+  });
+
+  test('every module parses with no css-tree error', () => {
+    for (const m of modules) {
+      const errors = [];
+      csstree.parse(m.text, { onParseError: (e) => errors.push(e.message) });
+      assert.deepEqual(errors, [], `${m.id}: ${errors[0]}`);
+    }
+  });
+
+  test('splitRuns concatenates back to its input and folds runs under the floor', () => {
+    const text = `${'section.a { color: red; }\n'.repeat(120)}section.b { color: blue; }\n${'section.c { color: red; }\n'.repeat(120)}`;
+    const runs = splitRuns(text);
+    assert.equal(runs.map((r) => r.text).join(''), text);
+    assert.equal(runs.length, 2, 'the one-rule b run folds into a neighbor');
+    for (const r of runs.slice(0, -1)) assert.ok(r.text.length >= MIN_RUN_BYTES);
+  });
+
+  test('the manifest hashes match the module files and the full bundle', () => {
+    const files = moduleFiles();
+    const manifest = JSON.parse(files['manifest.json']);
+    assert.equal(manifest.sha256, sha256(bundle()));
+    assert.equal(manifest.modules.length, modules.length);
+    assert.equal(manifest.bytes, Buffer.byteLength(bundle(), 'utf8'), 'bytes are UTF-8 bytes, not characters');
+    for (const m of manifest.modules) assert.equal(m.bytes, Buffer.byteLength(files[m.file], 'utf8'), m.file);
+    for (const m of manifest.modules) assert.equal(sha256(files[m.file]), m.sha256, m.file);
+  });
+
+  test('dist/styles/ on disk is what the build writes (skipped before the first build)', (t) => {
+    if (!fs.existsSync(MODULES_DIR)) return t.skip('dist/styles/ not built yet');
+    const want = moduleFiles();
+    assert.deepEqual(fs.readdirSync(MODULES_DIR).sort(), Object.keys(want).sort());
+    for (const [name, text] of Object.entries(want)) {
+      assert.equal(fs.readFileSync(path.join(MODULES_DIR, name), 'utf8'), text, name);
+    }
+  });
+});
