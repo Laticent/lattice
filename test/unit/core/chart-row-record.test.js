@@ -567,7 +567,9 @@ describe('the paths agree on the data row', () => {
       el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
       dom.window.document.body.appendChild(el);
       await new Promise((r) => setTimeout(r, 300));
-      return dom.window.document.body.innerHTML.replace(/<script[\s\S]*?<\/script>/g, ''); // not the runtime's own source text
+      // Not the runtime's own source text: take the script elements out of the DOM, then read the markup.
+      for (const script of dom.window.document.querySelectorAll('script')) script.remove();
+      return dom.window.document.body.innerHTML;
     };
     const built = await run('<!DOCTYPE html><html><body><section class="progress chart-frame"><div><ul><li>x <code data-lat-record="">{24%, done}</code></li></ul></div></section></body></html>');
     assert.doesNotMatch(built, /data-lat-record/);
