@@ -1947,7 +1947,7 @@ Four kinds of item, in this order, each under its own heading:
 |---|---|---|
 | **NEED YOU** | A decision the owner must make, and the work does not go further without it | It hits a row of CLAUDE.md's second-filter table (shared state, CI or hook contract, a number the owner set, a canonical doc's meaning, anything irreversible) or the direction is genuinely ambiguous |
 | **CAN WAIT** | A real choice where you picked a safe default and kept going | Reversible, contained to this branch. The default is stated, so silence is an answer |
-| **I DID THIS** | A judgment call you made inside your own remit that the owner may want to veto | The owner would reasonably want to know. Skip routine work |
+| **TO VETO** | A judgment call you made inside your own remit that the owner may want to veto | The owner would reasonably want to know. Skip routine work |
 | **QUESTIONS** | A fact only the owner knows ("does the iPhone render this?") | It has no options, only the question and what changes with the answer |
 
 **Status never goes on it.** CI state, what shipped and what is next belong to the
@@ -1955,24 +1955,29 @@ Four kinds of item, in this order, each under its own heading:
 
 ### The shape of one item
 
-A NEED YOU item has these six parts, so the owner's eye lands on the same place in
-each. CAN WAIT, I DID THIS and QUESTIONS items are one or two lines, as in the
-template.
+The card copies the 🎯 brief's layout on purpose: an ID and a title, then
+`label — value` lines in fixed order, so the owner's eye lands on the same line in
+every item. Keep each line short enough not to wrap on a phone (about 70
+characters).
 
-1. **The question**, as a sentence a non-specialist can answer. No priority codes,
-   file paths or internal names in it; those go on the `ref:` line.
-2. **Why it matters**: one line on what is at stake.
-3. **Options**: two or three, lettered `A` to `C`. Each has `+` what it buys, `−`
-   what it costs and `→` what you do next. Use a measured number where you can get
-   one in under a minute ("30s slower nightly", not "a bit slower"), and write
-   `about` when it is an estimate.
-4. **Recommendation**: which option, and the one reason. An item without a pick
-   pushes the analysis back to the owner, which is the failure this card fixes.
-5. **If you say nothing**: what happens by default, and how to undo it.
-6. **ref:** the issue, PR or file, for whoever wants to dig.
+A NEED YOU item (`D1`, `D2`, …) has these lines:
 
-A NEED YOU item with two options runs about 11 lines. A fourth option means the
-question is too big, so split it into two items.
+- **title**: the question, as a sentence a non-specialist can answer. No priority
+  codes, file paths or internal names; those go on `ref`.
+- **why**: one line on what is at stake.
+- **A, B, C**: two or three options. Each has `gains` (what it buys), `costs` (what
+  it costs) and `then` (what you do next). Use a measured number where you can get
+  one in under a minute ("30s slower nightly", not "a bit slower"), and write
+  `about` when it is an estimate.
+- **pick**: which option, and the one reason. An item without a pick pushes the
+  analysis back to the owner, which is the failure this card fixes.
+- **default**: what happens if the owner says nothing, and how to undo it.
+- **ref**: the issue, PR or file, for whoever wants to dig.
+
+The other kinds are shorter. CAN WAIT (`W1`, …) has `default` and `change`. TO VETO
+(`V1`, …) is the title alone. QUESTIONS (`Q1`, …) has `changes`, the thing the
+answer decides. A fourth option on a NEED YOU item means the question is too big,
+so split it into two items.
 
 ### Writing it so anyone can act on it
 
@@ -1982,45 +1987,47 @@ the plain word (HARD RULE #30, `engineering/house-style.md`). Use active voice w
 a named actor ("I added a size check", not "a size check was added") and US English
 (#21).
 
-**Replying.** Number the items 1 to n across the whole card. The owner answers with
-the number and a letter or word: `1 A`, `2 keep`. A CAN WAIT item accepts `keep`
-(use the default) or the change word printed on its line. "go with your
-recommendations" accepts every recommendation and every default.
+**Replying.** Items are numbered by kind: `D1`, `W1`, `V1`, `Q1`. The owner answers
+with the ID and a letter or word, for example `D1 A`, `W1 keep`, `V1 undo`,
+`Q1 yes`. A CAN WAIT item accepts `keep` (use the default) or the change word on
+its line. `all recommended` accepts every pick and every default.
 
 Template:
 
 ```
-❓ Decisions — <PR or topic>        <N> need you · <M> can wait · <K> to veto · <Q> questions
+❓ Decisions — <PR or topic>             reply like: "D1 A, W1 keep, Q1 yes"
 
-NEED YOU — I cannot go further without these
-1. <the question, in plain words?>
-   Why it matters: <one line>
-   A) <option>
-        + <what it buys>
-        − <what it costs, with a number>
-        → <what I do next>
-   B) <option>
-        + …  − …  → …
-   I recommend <A|B>: <one reason>.
-   If you say nothing: <what happens by default, and how to undo it>.
-   ref: <#N | path>
+NEED YOU — blocked until you answer
+  D1 · <the question, in plain words?>
+       why     — <one line: what is at stake>
+       A       — <option>
+                 gains — <what it buys>
+                 costs — <what it costs, with a number>
+                 then  — <what I do next>
+       B       — <option>
+                 gains — …
+                 costs — …
+                 then  — …
+       pick    — <A|B>, because <one reason>
+       default — <what happens if you say nothing, and how to undo it>
+       ref     — <#N | path>
 
 CAN WAIT — I picked a default and kept going
-2. <the choice?>  Default: <what I did>. Say "<change word>" to change it, "keep" to leave it.   ref: …
+  W1 · <the choice?>
+       default — <what I did>
+       change  — <word> to change it, keep to leave it
 
-I DID THIS — tell me to undo any
-3. <what I decided, one line, and why it was mine to decide>
+TO VETO — I decided these; tell me to undo any
+  V1 · <what I decided, and why it was mine to decide>
 
 QUESTIONS — only you know
-4. <the fact I need?>  Answer changes: <what>.
+  Q1 · <the fact I need?>
+       changes — <what the answer decides>
 
-Merge #N: see the 🚦 card.          (only when a merge ask is open; otherwise omit)
-
-REPLY WITH  "1 A, 2 keep"   or   "go with your recommendations"
+MERGE   — #N, see the 🚦 card        (only when a merge ask is open)
 ```
 
-A section with no items is left out, not printed empty. Leave a count out of the
-header when it is zero.
+A section with no items is left out, not printed empty.
 
 ### Where it goes, and how it stays alive
 
@@ -2037,7 +2044,7 @@ header when it is zero.
   contract in `followups.d/README.md`), and the 🎯 brief lists it on its
   `Decisions:` line with the card's recommendation. A fresh session applies the
   stated default, does not re-ask, and still treats the item as open until the
-  owner answers. An unanswered I DID THIS item stands, because silence is consent
+  owner answers. An unanswered TO VETO item stands, because silence is consent
   there. An unanswered QUESTION goes to `followups.d/` too, since only the owner
   can close it.
 - **Live use.** When the owner is at the keyboard, the same items can go out
