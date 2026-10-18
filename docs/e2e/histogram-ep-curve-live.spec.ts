@@ -142,6 +142,53 @@ test('hovering each histogram band opens that band’s card', async ({ page }) =
 	await page.screenshot({ path: test.info().outputPath('histogram-card.png') });
 });
 
+test('a seam between two bands never takes the pointer, and steps aside for a held band', async ({ page }) => {
+	await page.addInitScript(
+		([k, s]) => {
+			try {
+				localStorage.setItem(k as string, s as string);
+			} catch {
+				/* a blocked store just means the draft does not seed */
+			}
+		},
+		[SOURCE_KEY, HISTOGRAM],
+	);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	const preview = page.frameLocator('iframe').first();
+	await expect(preview.locator('.histogram-svg')).toBeVisible({ timeout: 40_000 });
+	// ANTI-VACUITY: four touching bands, so three seams.
+	await expect(preview.locator('line.histogram-seam')).toHaveCount(3);
+	// The point right ON the seam between Attritional and Working hits a band, not the seam.
+	const hit = await page.evaluate(() => {
+		const doc = (document.querySelector('iframe') as HTMLIFrameElement).contentDocument as Document;
+		const seam = doc.querySelector('line.histogram-seam') as SVGLineElement;
+		const b = seam.getBoundingClientRect();
+		const el = doc.elementFromPoint(b.x + b.width / 2, b.y + b.height * 0.75);
+		return { cls: el?.getAttribute('class') ?? '', events: getComputedStyle(seam).pointerEvents };
+	});
+	expect(hit.events).toBe('none');
+	expect(hit.cls, 'the pointer lands on a band, not the seam').toContain('histogram-band');
+	// Hold Working: its strong edge shows, so every seam is hidden while it is held.
+	const text = await revealText(page, 'rect.histogram-band[data-mark="1"]');
+	expect(text).toContain('Working');
+	await expect(preview.locator('rect.histogram-band.chart-mark-active')).toHaveCount(1);
+	const vis = await page.evaluate(() =>
+		[...((document.querySelector('iframe') as HTMLIFrameElement).contentDocument as Document).querySelectorAll('line.histogram-seam')].map(
+			(n) => getComputedStyle(n).visibility,
+		),
+	);
+	expect(vis).toEqual(['hidden', 'hidden', 'hidden']);
+	await page.screenshot({ path: test.info().outputPath('histogram-held.png') });
+	await page.mouse.move(20, 20);
+	await expect(preview.locator('rect.histogram-band.chart-mark-active')).toHaveCount(0);
+	const back = await page.evaluate(() =>
+		[...((document.querySelector('iframe') as HTMLIFrameElement).contentDocument as Document).querySelectorAll('line.histogram-seam')].map(
+			(n) => getComputedStyle(n).visibility,
+		),
+	);
+	expect(back).toEqual(['visible', 'visible', 'visible']);
+});
+
 /** Play `source` in Present with the Guide on, and record every ink stroke the Guide draws. */
 async function playWithGuide(page: import('@playwright/test').Page, source: string, svgSel: string, marks: number) {
 	await gotoStudio(page);

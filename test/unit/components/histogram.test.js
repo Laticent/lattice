@@ -79,6 +79,22 @@ describe('histogram kernel', () => {
     assert.equal(seams[0]('data-hue'), null, 'no finish repaints it');
   });
 
+  test('bands that overlap take a seam on the later band\'s edge; a gap takes none', () => {
+    const svg = buildHistogram(parseHistogram(li([['', '70..80', '9%'], ['', '75..90', '4%'], ['', '95..99', '1%']])), {});
+    const seams = tags(svg, 'histogram-seam');
+    assert.equal(seams.length, 1);
+    assert.equal(num(seams[0], 'x1'), num(tags(svg, 'histogram-band')[1], 'x'));
+  });
+
+  test('the seam paints the canvas, wider than an edge, and never takes the pointer', () => {
+    const css = require('node:fs').readFileSync(require.resolve('../../../lib/components/chart/histogram/histogram.styles.css'), 'utf8');
+    const rule = css.split('.histogram-seam {')[1].split('}')[0];
+    for (const decl of ['stroke: var(--bg);', 'stroke-width: calc(2 * var(--chart-hairline));', 'vector-effect: non-scaling-stroke;', 'pointer-events: none;']) {
+      assert.ok(rule.includes(decl), `the seam rule keeps \`${decl}\``);
+    }
+    assert.match(css, /:has\(\.histogram-band\.chart-mark-active\) \.histogram-seam \{\s*visibility: hidden;/);
+  });
+
   test('a band carries the mark contract, so a `chart-finish:` repaints it', () => {
     const svg = buildHistogram(parseHistogram(li([['', '0..10', '40%'], ['', '10..20', '20%']])), {});
     for (const a of tags(svg, 'histogram-band')) {

@@ -43,4 +43,13 @@
   stroke: var(--bg);
   stroke-width: calc(2 * var(--chart-hairline));
   vector-effect: non-scaling-stroke;
+  /* Not a mark: a pointer crossing it must stay on the band it is over, or the hover card
+   * would close and reopen at every edge. */
+  pointer-events: none;
+}
+/* A hovered band takes the strong edge (chart-family.styles.css § EMPHASIS), and the seams,
+ * drawn after the bands, would cover it on each shared side. The active band's edge and the
+ * dim on every other band separate it while it is held, so the seams step aside. */
+:is(section.histogram, figure.chart-frame) .histogram-figure:has(.histogram-band.chart-mark-active) .histogram-seam {
+  visibility: hidden;
 }
