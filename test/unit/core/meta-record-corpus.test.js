@@ -105,3 +105,33 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
     assert.deepEqual(wrong, []);
   });
 });
+
+describe('scanMetaSource ≡ the engine, for the keys no committed deck exercises', () => {
+  // The corpus carries no `color` or `background*` comment, so this synthetic deck stands in: running
+  // (`key:`) and spot (`_key:`) forms, an override, and a later running value, per key.
+  const KEYS = ['backgroundColor', 'color', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize'];
+  const VAL = { backgroundColor: ['#102030', '#abcdef', 'navy'], color: ['#ffffff', '#111111', 'white'], backgroundPosition: ['left', 'right top', 'center'], backgroundRepeat: ['no-repeat', 'repeat-x', 'repeat'], backgroundSize: ['cover', 'contain', '50%'] };
+  test('running, spot and overriding values resolve identically on every slide', () => {
+    const slides = [];
+    for (let i = 0; i < 3; i++) {
+      slides.push(KEYS.map((k) => `<!-- ${k}: ${VAL[k][i]} -->`).join('\n') + `\n\n# Running ${i}`);
+      slides.push(KEYS.map((k) => `<!-- _${k}: ${VAL[k][(i + 1) % 3]} -->`).join('\n') + `\n\n# Spot ${i}`);
+      slides.push(`# Inherits ${i}`);
+    }
+    const src = `---\nmarp: true\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+    const html = createEngine().render(src, undefined, { preview: true }).html;
+    const sections = [...html.matchAll(/<section\b([^>]*)>/g)].map((m) => m[1]);
+    const scanned = scanMetaSource(src).slides.slice(2);
+    assert.equal(sections.length, scanned.length);
+    const wrong = [];
+    sections.forEach((attrs, i) => {
+      for (const key of KEYS) {
+        const m = new RegExp(`\\sdata-${kebab(key)}="([^"]*)"`).exec(attrs);
+        const got = m ? htmlUnescape(m[1]) : null;
+        const want = scanned[i].resolved.get(key)?.value ?? null;
+        if ((got ?? '') !== (want ?? '')) wrong.push(`slide ${i + 1} ${key}: engine ${JSON.stringify(got)} vs scan ${JSON.stringify(want)}`);
+      }
+    });
+    assert.deepEqual(wrong, []);
+  });
+});
