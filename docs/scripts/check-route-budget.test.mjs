@@ -353,7 +353,7 @@ describe('the hashes an engine change moves', () => {
 	const A = { hex: 'aaaaaaaaaaaa', hashes: ['aaaaaaaa', 'aaaaaaaa', 'aaaaaaaa'] };
 	const B = { hex: '9f3e1c7a2b64', hashes: ['_HQlLF-y', 'AbCdEfGh', 'Cb-C8llU'] };
 
-	it.skip('measures two builds that differ only in those hashes at the same size', () => {
+	it('measures two builds that differ only in those hashes at the same size', () => {
 		const a = measure('home', 'studio/index.html', route(A));
 		const b = measure('home', 'studio/index.html', route(B));
 		expect(b.eagerJsGz).toBe(a.eagerJsGz);
@@ -372,7 +372,7 @@ describe('the hashes an engine change moves', () => {
 		expect(withFixedHashes(src).toString()).toBe('import"./chunk-00000000.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js"');
 	});
 
-	it.skip('measures an engine whose chunk names changed at the same size', () => {
+	it('measures an engine whose chunk names changed at the same size', () => {
 		const build = (a, b) => {
 			const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-e-'));
 			const esm = path.join(dist, 'playground/v/aaaaaaaaaaaa/esm');
