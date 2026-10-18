@@ -43,7 +43,7 @@ const puppeteer = require('puppeteer');
 const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
 const { pluginDigest, grantTrust } = require('../../../lib/packages/trust.js');
 const { launchSandboxBrowser, openPackageSandbox, runPackage } = require('../../../lib/core/code-sandbox.js');
-const { SECRET, attempts, markupVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
+const { PLANTED, attempts, markupVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
 
 const DECK = '---\ntheme: indaco\n---\n\n## Canary\n\n```canary\nrender me\n```\n';
 const CHROME = process.env.CHROME_PATH || undefined;
@@ -66,9 +66,9 @@ before(async () => {
     if (req.url === '/control') {
       // The control page: storage planted where the canary can see it, then the canary itself on the page.
       const body = controlSource.replace(/export \{ render as default \};\s*$/, '').replace(/<\/script/gi, '<\\/script');
-      res.writeHead(200, { 'content-type': 'text/html', 'set-cookie': `secret=${SECRET}; Path=/` });
+      res.writeHead(200, { 'content-type': 'text/html' });
       return res.end(
-        `<!doctype html><html><body><script>localStorage.setItem('secret','${SECRET}');sessionStorage.setItem('secret','${SECRET}');</script>` +
+        `<!doctype html><html><body><script>document.cookie='planted=${PLANTED}; Path=/';localStorage.setItem('planted','${PLANTED}');sessionStorage.setItem('planted','${PLANTED}');</script>` +
           `<script>${body};window.__report = render({ body: 'x', id: 'control' });</script></body></html>`,
       );
     }
@@ -163,7 +163,7 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
       }
       assert.ok(got.includes('webrtc-udp'), `the control sent no WebRTC packet: ${got.join(' ')}`);
       for (const n of ['localstorage', 'sessionstorage', 'cookie']) {
-        assert.ok(report[n]?.includes(SECRET), `the control did not read planted ${n}: ${report[n]}`);
+        assert.ok(report[n]?.includes(PLANTED), `the control did not read planted ${n}: ${report[n]}`);
       }
     } finally {
       await browser.close();
@@ -189,7 +189,7 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     for (const n of ['localstorage', 'sessionstorage', 'cookie', 'cookiestore', 'indexeddb', 'caches', 'storage-bucket', 'serviceworker', 'filesystem', 'eval', 'function', 'settimeout-string']) {
       if (n in report && !report[n].startsWith('blocked:')) problems.push(`${n} did not throw: ${report[n]}`);
     }
-    if (html.includes(SECRET)) problems.push('planted data reached the output');
+    if (html.includes(PLANTED)) problems.push('planted data reached the output');
     for (const v of vectorsHit()) problems.push(`the listener saw ${v}`);
     // Markup half: what the page would load is gone from the output (HARD RULE #22, markup channel).
     const kept = html.match(/127\.0\.0\.1|<script|<iframe|<form|<link|<meta|<base|<object|<embed|<style|<video|<audio|ping=|onerror|javascript:/gi);

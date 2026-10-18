@@ -31,7 +31,7 @@
  */
 
 /** Seed values the control arm plants where the canary can see them (the locked page must read none). */
-const SECRET = 'canary-secret-7f3a';
+const PLANTED = 'canary-planted-7f3a';
 
 /**
  * Every attempt the renderer makes. `H` is the listener's origin, `P` its port, `udp` the ports of
@@ -64,12 +64,12 @@ function attempts({ H, P, udp }) {
     ['webtransport', `return new WebTransport(${bits(`https://127.0.0.1:${udp.quic}/webtransport`)});`],
     ['webrtc', `var pc = new RTCPeerConnection({ iceServers: [{ urls: ${bits(`stun:127.0.0.1:${udp.stun}`)} }] }); pc.createDataChannel('x'); pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }); return pc;`],
     // — storage, read and write
-    ['localstorage', `localStorage.setItem('canary', 'w'); return localStorage.getItem('secret');`],
-    ['sessionstorage', `sessionStorage.setItem('canary', 'w'); return sessionStorage.getItem('secret');`],
+    ['localstorage', `localStorage.setItem('canary', 'w'); return localStorage.getItem('planted');`],
+    ['sessionstorage', `sessionStorage.setItem('canary', 'w'); return sessionStorage.getItem('planted');`],
     ['cookie', `document.cookie = 'canary=w'; return document.cookie;`],
-    ['cookiestore', `return cookieStore.get('secret');`],
-    ['indexeddb', `return indexedDB.open('secret');`],
-    ['caches', `return caches.open('secret');`],
+    ['cookiestore', `return cookieStore.get('planted');`],
+    ['indexeddb', `return indexedDB.open('planted');`],
+    ['caches', `return caches.open('planted');`],
     ['storage-bucket', `return navigator.storage.getDirectory();`],
     ['serviceworker', `return navigator.serviceWorker.register(${bits(`${H}/serviceworker.js`)});`],
     // — code built from a string
@@ -121,6 +121,9 @@ function markupVectors(H) {
  * @param {{ H: string, P: number, udp: { stun: number, quic: number }, withMarkup?: boolean }} o
  * @returns {string}
  */
+/** A string literal safe to paste into script text: `<` and the line separators are written as escapes. */
+const asJsString = (v) => JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+
 function canarySource(o) {
   const list = attempts(o);
   const markup = o.withMarkup === false ? '' : Object.values(markupVectors(o.H)).join('');
@@ -140,10 +143,10 @@ ${list.map(([n, body]) => `    [${JSON.stringify(n)}, function () { ${body} }]`)
       note(a[0], 'blocked:' + (e && e.name));
     }
   });
-  return '<ul class="canary-report" id="' + fence.id + '">' + out.join('') + '</ul>' + ${JSON.stringify(markup)};
+  return '<ul class="canary-report" id="' + fence.id + '">' + out.join('') + '</ul>' + ${asJsString(markup)};
 }
 export { render as default };
 `;
 }
 
-module.exports = { SECRET, attempts, markupVectors, canarySource };
+module.exports = { PLANTED, attempts, markupVectors, canarySource };
