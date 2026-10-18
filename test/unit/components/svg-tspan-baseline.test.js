@@ -191,6 +191,8 @@ describe('the tspan-builder census', () => {
 const CHART_CSS = [
   'lib/plugins/chart-family/chart-family.styles.css',
   'lib/components/chart/funnel/funnel.styles.css',
+  'lib/components/chart/tower/tower.styles.css',
+  'lib/components/chart/risk-matrix/risk-matrix.styles.css',
   'lib/components/chart/word-cloud/word-cloud.styles.css',
 ];
 

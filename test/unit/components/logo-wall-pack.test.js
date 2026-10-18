@@ -243,6 +243,13 @@ test('a mark\'s aspect comes from its inline svg or a data: SVG mask', () => {
   const b64 = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="80"/>').toString('base64');
   assert.equal(aspectOfMarkHtml(`<span class="logo-mark" style="--logo-mask:url('data:image/svg+xml;base64,${b64}')"></span>`), 0.5);
   assert.equal(aspectOfMarkHtml(`<span class="logo-mark" style="--logo-mask:url('data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 10 10">')}')"></span>`), 1);
+  // The Studio's asset inliner writes `;charset=utf-8`; a media-type parameter must not hide the mark.
+  assert.equal(aspectOfMarkHtml(`<span class="logo-mark" style="--logo-mask:url('data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg viewBox="0 0 320 80">')}')"></span>`), 4);
+  assert.equal(aspectOfMarkHtml(`<span class="logo-mark" style="--logo-mask:url('data:image/svg+xml;charset=utf-8;base64,${b64}')"></span>`), 0.5);
+  // The real producer (the Studio's inliner), with a BOM and single-quoted attributes it must escape.
+  const { bytesToDataUri } = require('../../../lib/core/data-uri');
+  const produced = bytesToDataUri(Buffer.from("\uFEFF<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80'></svg>"), 'image/svg+xml');
+  assert.equal(aspectOfMarkHtml(`<span class="logo-mark" style="--logo-mask:url('${produced}')"></span>`), 4);
   assert.equal(aspectOfMarkHtml(`<span class="logo-mark" style="--logo-mask:url('https://x.test/a.svg')"></span>`), null);
 });
 

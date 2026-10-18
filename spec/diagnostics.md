@@ -146,6 +146,8 @@ distinct, stable ID.
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
+| `bg-side-unread` | warning | — | A `![bg left]` / `![bg right]` (or a ratio) on a slide that is not `image`: only the image layout places a picture beside the text, so it fills the whole slide behind it instead. |
+| `bg-ratio-unread` | warning | — | A ratio such as `![bg left:40%]` on an `image` slide: the ratio is not read, so the slide falls back to a full-bleed background and loses its panel. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
 | `shell-fence-is-script` | info | — | A `shell` (or similar) fence holding a script; the language only colors terminal prompts, so it renders nearly plain. |
@@ -261,6 +263,13 @@ distinct, stable ID.
 | `gantt-dangling-after` | error | — | A gantt `after=` naming no task on the slide. |
 | `gantt-inverted-dependency` | warning | — | A gantt task that starts before the task it depends on. |
 | `journey-actor-shortcut` | warning | ✓ | A journey actor in the retired `@sales` shortcut, which renders as code and drops the actor. Autofixes to `{who=sales}`. |
+| `ep-curve-duplicate` | warning | — | An EP curve point whose return period is already in its curve; the chart keeps the first. |
+| `ep-curve-point` | warning | — | An EP curve record the chart cannot read as `{return period, loss}`, such as one with a thousands separator; the point is left out. |
+| `ep-curve-too-many` | warning | — | An EP curve slide with more than four curves; the chart draws the first four. |
+| `histogram-bands-join` | warning | — | Neighboring histogram bands that leave a gap or overlap. |
+| `histogram-dash-range` | warning | — | A histogram band written with a dash instead of `..`; the row is left out. |
+| `histogram-log-zero` | warning | — | `log` on a histogram axis whose domain reaches zero; the chart draws a linear axis. |
+| `histogram-negative` | warning | — | A histogram value below zero; the band draws with no height. |
 | `quadrant-axis-part` | warning | — | A quadrant axis list with the wrong number of members, or a member part the chart ignores. |
 | `quadrant-retired-axis` | error | ✓ | The retired quadrant axis format. Autofixes to the bracketed list. |
 

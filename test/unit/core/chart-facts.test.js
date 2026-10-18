@@ -370,7 +370,8 @@ test('word-cloud — an empty cloud degrades to nulls rather than throwing', () 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { toSpokenText } = require('@laticent/cadenza');
-const { spokenValue, parseValue } = require('../../../lib/core/chart-values.js');
+const { parseValue } = require('../../../lib/core/chart-values.js');
+const { spokenValue } = require('../../../lib/core/chart-values-speech.js');
 const say = (raw) => spokenValue(raw, toSpokenText);
 
 test('spoken value — the SAME QUANTITY reads the same way however it was spelled', () => {

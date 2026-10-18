@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-17 — measured on the histogram and EP curve charts built on top of main at f25ed16
+
+Raises the lint core's ceiling to 106000 bytes (102736 → 106000), soft target unchanged; the owner chose this on 2026-10-17 for the histogram and EP curve charts (the reinsurance beta, `engineering/decisions/2026-10-15-business-deck-gaps.md` §7.4). Main alone measured 102695 bytes, 41 bytes under the old ceiling, so any lint change past that would trip it. The charts add seven `lint:deck` warnings and the row and point readers they share with the charts and their narrators: the histogram's dash range, gap or overlap, log over zero and negative value, and the EP curve's unreadable point (a thousands separator, `{1,000, $900M}`, drops a point without a word otherwise), duplicate return period and fifth curve. Before asking, the work shared one slide loop between the two rule sets and shortened their messages (149 bytes back). Measured on top of main: 105932 bytes with both rule sets, 104439 with the histogram's only, 102950 with neither (the `log` axis word in the shared axis reader and the two chart names alone pass the old ceiling). The owner chose to keep all seven. The lint core loads after the Studio's first paint (engine-spine note §5).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 106000 |
+
 ### 2026-10-16 — measured on #2716 built on top of main at 72ae80f
 
 Raises the lint core's ceiling by 1KB (101712 → 102736 bytes), soft target unchanged; the owner chose this on 2026-10-16 (#2716). #2716 (the code record follow-ups) adds the measured code-pane column and bar tables and the rules that read them to the lint core. Before asking, it gave back what it could: the column table is written without its keys (655 bytes) and the record writer moved to its own entry, esm/code-record.js, which only the Studio's code options panel loads (about 0.8KB). That left it at 101813 bytes on top of main (main alone, at the same commit: 98317 bytes), 101 bytes past the old ceiling. The other give-backs on offer (an encoding about 20 bytes under the ceiling, or dropping the bar and wrapped-row counting) were weighed and refused: the first fails on the next lint change anywhere, the second reopens a clip the lint should name. The lint core loads after the Studio's first paint (engine-spine note §5).

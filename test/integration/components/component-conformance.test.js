@@ -148,6 +148,16 @@ describe('component conformance, render tier (report-only)', () => {
         assert.equal((await probeCardRows(miss)).some((s) => s.cardRow), false, 'quote should not trigger');
       } finally { await hit.close(); await miss.close(); }
     });
+    test('card-row: a pair of panels (decision) and a hugging row (stats) are hits; one-sided rails (policy-recommendation) are a miss', async () => {
+      const pair = await open(deckFromSample(manifest('decision').sample), 'decision-sample');
+      const strip = await open(deckFromSample(manifest('stats').sample), 'stats-sample');
+      const rails = await open(deckFromSample(manifest('policy-recommendation').sample), 'policy-recommendation-sample');
+      try {
+        assert.equal((await probeCardRows(pair)).some((s) => s.cardRow), true, 'two equal panels should trigger');
+        assert.equal((await probeCardRows(strip)).some((s) => s.cardRow), true, 'equal-height stat cards of differing widths should trigger');
+        assert.equal((await probeCardRows(rails)).some((s) => s.cardRow), false, 'evidence items with a left rail are not boxes');
+      } finally { await pair.close(); await strip.close(); await rails.close(); }
+    });
   });
 
   describe('report — findings are printed, never failed on', { skip: !MATRIX && 'set CONFORMANCE_RENDER=1 to run the matrix' }, () => {

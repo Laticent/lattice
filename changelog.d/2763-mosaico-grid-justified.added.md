@@ -1,0 +1,1 @@
+- `@laticent/mosaico` (unpublished) gains a `grid` strategy (uniform cells, the column count chosen to make the items biggest) and a `justified` goal for `rows` (every row fills the width at one height, as a photo gallery does). The library's demo page has a tab for each.

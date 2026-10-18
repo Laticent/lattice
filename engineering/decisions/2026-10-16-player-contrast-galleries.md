@@ -92,6 +92,15 @@ quiet day (a docs-only day, a weekend) costs seconds.
   rendered by the golden-diff and the regression gate. Auditing them for contrast again would be
   a separate, owner-sized decision (a weekly job at about two hours).
 
+  **Ruled 2026-10-17: a weekly sample (option C).** Sundays only, `tools/player-contrast-select.js
+  --examples 40` picks 41 decks: every deck on a theme other than indaco (27), every deck that sets
+  `finish:` or `mode:`, and an even stride of the rest. Measured on the 4-core sandbox: **478 s for
+  41 decks** (about 11.7 s a deck at 4 workers). It shares `test/oracle/player-contrast.json` with
+  the galleries (a bless rewrites only the decks it opened). First bless: 9,676 runs, 22 below AA,
+  all new rows: `gallery-jargon` 6, `a11y` 5, `form` 4, `accent-on-accent`, `finish-split-covers`
+  and `seven-steps-problem-to-code` 2 each, `split-panels-jank` 1. They are now the baseline and
+  the nightly alarms only if one gets worse; reading them is its own piece of work.
+
 ## 5. The "last green run" marker
 
 The nightly job as a whole is not a usable signal: the committed-golden arm is knowingly red, and

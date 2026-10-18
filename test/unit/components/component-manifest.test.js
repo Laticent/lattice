@@ -918,10 +918,10 @@ describe('component-manifest', () => {
       // `heatmap` as the numeric-matrix member that note deferred,
       // `flowchart` (2026-09-25-flowchart-authoring.md), and `hub-spoke` as the
       // structure member (one center and its satellites).
-      assert.equal(g.chart.length, 24, 'chart bucket has 24 components');
+      assert.equal(g.chart.length, 28, 'chart bucket has 28 components');
       assert.deepEqual(
         g.chart.map((m) => m.name).sort(),
-        ['bar', 'bullet', 'flowchart', 'funnel', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'waterfall', 'word-cloud'],
+        ['bar', 'bullet', 'ep-curve', 'flowchart', 'funnel', 'gantt', 'heatmap', 'histogram', 'hub-spoke', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'risk-matrix', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'tower', 'waterfall', 'word-cloud'],
       );
       // diagram = 1: diagram
       assert.equal(g.diagram.length, 1, 'diagram bucket has 1 component');

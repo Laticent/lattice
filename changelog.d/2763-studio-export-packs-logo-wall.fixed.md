@@ -1,0 +1,1 @@
+- The Studio's Webpage (.html) export now draws the logo wall packed in equal-weight rows, as the live preview does. The Studio inlines each mark as `data:image/svg+xml;charset=utf-8,…`, and the wall's shape reader accepted only a bare or `;base64` data URI, so every wall in that export fell back to equal cells.

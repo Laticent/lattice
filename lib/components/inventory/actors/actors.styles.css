@@ -128,6 +128,29 @@ section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell
 }
 
 
+/* ── Dense roster (five rows or more) ─────────────────────────────────────
+ * Measured at hd: a two-line row is 101px (two lines + gap + padding), so the stage seats four
+ * (4 × 101 + gaps = 428 of 435px). Five rows needed 537px, and flex-shrink squeezed each row
+ * below its own content, so every title overprinted its body. From five rows the row becomes ONE
+ * line — responsibility, body, chip — which is 50px, so seven rows need 386px and fit.
+ * That holds while each body stays on one line (about 10 words at hd). A body that wraps makes
+ * its row 83px, and seven rows then outgrow the stage; the export's OVERFLOW line and the render
+ * tier's overflow probe report it (nothing here does). Tall and strip decks keep their stacked
+ * reflow above (their stage is shaped for it). */
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li {
+  flex-wrap:nowrap;
+  padding-block:var(--sp-xs);
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > strong {
+  order:1; flex:0 0 22%;
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > :is(ul, ol) {
+  order:2; flex:1 1 0; min-width:0;
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > code {
+  order:3;
+}
+
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */

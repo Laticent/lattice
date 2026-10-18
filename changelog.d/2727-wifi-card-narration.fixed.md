@@ -1,0 +1,1 @@
+- Narration and `--captions` now speak a `wifi` slide's network name and security type, not just its heading. The password is never spoken or captioned.

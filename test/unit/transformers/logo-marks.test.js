@@ -85,3 +85,71 @@ describe('logo-marks — the live stamp packs the same lists the CLI stamp does'
     assert.equal(await live(html), null);
   });
 });
+
+describe('logo-marks — a wall seen before stamps at once', () => {
+  const { JSDOM } = require('jsdom');
+  const svg = (w, h) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"/>`;
+  const wall = (names) =>
+    `<section class="logo-wall"><h2>Trusted by</h2><div class="cell-stage"><ul>${names.map((n) => `<li><img src="/marks/${n}.svg" alt="${n}"></li>`).join('')}</ul></div></section>`;
+  // A same-origin page whose fetch counts requests and serves each mark's SVG.
+  const page = (shapes, fail = new Set(), missing = new Set()) => {
+    const dom = new JSDOM('<body></body>', { url: 'https://deck.test/studio/' });
+    const calls = [];
+    dom.window.fetch = (url) => {
+      calls.push(url);
+      const name = /\/marks\/([^/]+)\.svg$/.exec(url)?.[1];
+      if (fail.has(name)) return Promise.reject(new Error('offline'));
+      if (missing.has(name)) return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve('<html>not found</html>') });
+      return Promise.resolve({ ok: true, text: () => Promise.resolve(svg(...shapes[name])) });
+    };
+    return { dom, calls };
+  };
+  const stampOf = (document) => document.querySelector('.cell-stage > ul').getAttribute('data-logo-wall');
+
+  test('marks known inline stamp in the same task, never painted as measuring', () => {
+    const { document } = new JSDOM('<body></body>').window;
+    const data = (w, h) => `data:image/svg+xml;base64,${Buffer.from(svg(w, h)).toString('base64')}`;
+    document.body.innerHTML = `<section class="logo-wall"><div class="cell-stage"><ul><li><img src="${data(240, 80)}" alt="a"></li><li><img src="${data(80, 160)}" alt="b"></li></ul></div></section>`;
+    t.applyToDom(document);
+    assert.equal(stampOf(document), 'packed');
+  });
+
+  test('a fetched mark is fetched once per document; the next wall with it stamps at once', async () => {
+    const { dom, calls } = page({ acme: [240, 80], crest: [80, 160], dot: [80, 80] });
+    const { document } = dom.window;
+    document.body.innerHTML = wall(['acme', 'crest', 'dot']);
+    t.applyToDom(document);
+    assert.equal(stampOf(document), 'measuring', 'the first visit waits for the fetches');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(stampOf(document), 'packed');
+    assert.equal(calls.length, 3);
+    // The Studio swaps the slide in place: a fresh wall with the same marks.
+    document.body.innerHTML = wall(['crest', 'acme', 'dot']);
+    t.applyToDom(document);
+    assert.equal(stampOf(document), 'packed', 'stamped in the same task, before any paint');
+    assert.equal(calls.length, 3, 'no second fetch');
+  });
+
+  test('a failed fetch is not remembered: the next visit tries again', async () => {
+    const { dom, calls } = page({ late: [240, 80] }, new Set(['late']));
+    const { document } = dom.window;
+    document.body.innerHTML = wall(['late']);
+    t.applyToDom(document);
+    await new Promise((r) => setTimeout(r, 20));
+    document.body.innerHTML = wall(['late']);
+    t.applyToDom(document);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(calls.filter((u) => u.endsWith('/late.svg')).length, 2);
+  });
+
+  test('a non-OK response is not remembered either', async () => {
+    const { dom, calls } = page({}, new Set(), new Set(['gone']));
+    const { document } = dom.window;
+    for (let visit = 0; visit < 2; visit++) {
+      document.body.innerHTML = wall(['gone']);
+      t.applyToDom(document);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assert.equal(calls.filter((u) => u.endsWith('/gone.svg')).length, 2);
+  });
+});

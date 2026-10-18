@@ -28,6 +28,8 @@
 // in this PR if the engine's font set changes.
 
 // Vite bundles each .woff2 and resolves the import to its served URL.
+import faceRuleCore from '../../../lib/fonts/face-rule.js';
+import textFacesCore from '../../../lib/fonts/text-faces.js';
 import caveat400 from './fonts/caveat-400.woff2';
 import caveat700 from './fonts/caveat-700.woff2';
 import jetbrains400 from './fonts/jetbrains-mono-400.woff2';
@@ -79,11 +81,6 @@ function bytesToBase64(bytes) {
 	return btoa(bin);
 }
 
-async function faceDataUri(url) {
-	const buf = await (await fetch(url)).arrayBuffer();
-	return `data:font/woff2;base64,${bytesToBase64(new Uint8Array(buf))}`;
-}
-
 function faceRule(face, src) {
 	return (
 		'@font-face{' +
@@ -110,10 +107,22 @@ export function previewFontFaceCss() {
 // Build the data-URI @font-face stylesheet once and memoize it. Fetches are
 // same-origin (Vite-served bundled assets), so this is fast and offline-safe.
 let cssPromise = null;
+// THE CLI'S FONT BLOCK, BYTE FOR BYTE. Walked in the manifest's order (lib/fonts/text-faces.js) and
+// written by the CLI's own rule (lib/fonts/face-rule.js): this used to be FACES order with this
+// file's `faceRule`, joined by newlines, so the same faces made a different block from the CLI's and
+// the same deck exported two players (decisions/2026-10-16-player-as-library-audit.md §11.9).
+const FACE_URL = new Map(FACES.map((f) => [`${f.family} ${f.weight} ${f.style}`, f.url]));
+const EMBED_FACES = textFacesCore.TEXT_FACES.filter((f) => FACE_URL.has(`${f.family} ${f.weight} ${f.style}`));
+
+async function faceBase64(url) {
+	const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+	return bytesToBase64(bytes);
+}
+
 export function buildFontEmbedCss() {
 	if (!cssPromise) {
-		cssPromise = Promise.all(FACES.map((f) => faceDataUri(f.url)))
-			.then((uris) => FACES.map((f, i) => faceRule(f, uris[i])).join('\n'))
+		cssPromise = Promise.all(EMBED_FACES.map((f) => faceBase64(FACE_URL.get(`${f.family} ${f.weight} ${f.style}`))))
+			.then((b64s) => EMBED_FACES.map((f, i) => faceRuleCore.faceRuleCss(f, 'swap', b64s[i])).join(''))
 			.catch((err) => {
 				cssPromise = null; // let a later export retry
 				throw err;

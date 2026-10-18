@@ -53,6 +53,14 @@ const KNOCKOUTS = {
   'radar-dot': 'radar',
   'scatter-dot': 'scatter',
   'sbar-seg': 'stacked-bar',
+  'tower-share': 'tower',
+  // The risk grid strokes the canvas between cells and round each marker, so a
+  // marker reads apart from the cell under it: separators, not outlines.
+  'risk-cell': 'risk-matrix',
+  'risk-marker': 'risk-matrix',
+  'risk-key-marker': 'risk-matrix',
+  // An EP curve's dots are knocked out of the other curve where two cross, as line's are.
+  'ep-dot': 'ep-curve',
   'quadrant-trail-after': 'quadrant',
   // The heatmap grid: at a 1.2-unit gap the canvas shows between cells and reads
   // as a black lattice over the data on a dark slide, so each cell strokes the

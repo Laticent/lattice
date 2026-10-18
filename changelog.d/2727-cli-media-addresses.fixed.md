@@ -1,0 +1,2 @@
+- A CLI export (PDF, PNG, HTML) now shows `![bg]` and `![bg contain]` on an ordinary slide, the same picture the Studio shows. It used to print a blank slide with no warning.
+- A relative image in slide text (`![a](pic.jpg)`) now loads when `-o` writes the export to another folder. It resolves against the deck's folder, not the output folder.

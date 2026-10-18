@@ -1,0 +1,2 @@
+studio: +4
+This PR changes chart gallery source, two chart stylesheets, a manifest and a census tool; none of it is imported by the Studio's eager chunks. CI read studio eagerJsGz +1 B against main on a diff that adds no code to that route; a local build against the same base reads +0 (the variation documented in engineering/gotchas/ci.md, seen on #2749 and declared on #2361 and #2548). No growth is claimed and the cause was not reproduced; +4 covers the 1 B CI reported with room for gzip spread.

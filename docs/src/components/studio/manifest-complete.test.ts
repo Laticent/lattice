@@ -2,7 +2,8 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { MANIFEST_KEYS, manifestCompletion } from './manifest-complete';
+import schema from '../../../../lib/components/manifest.schema.json';
+import { MANIFEST_ENUMS, MANIFEST_KEYS, manifestCompletion } from './manifest-complete';
 
 // The pure matcher behind the JSON manifest autocomplete. CodeMirror positions
 // are mapped in the wrapper; here we prove the SCHEMA logic — it can only suggest
@@ -18,7 +19,7 @@ describe('manifest-complete — schema-aware JSON completion', () => {
 
 	it('suggests the adapt mode values for the nested mode key', () => {
 		const r = manifestCompletion('    "mode": "');
-		expect(r?.options).toEqual(['native', 'reflow']);
+		expect(r?.options).toEqual(['reflow', 'native', 'single-orientation']);
 	});
 
 	it('suggests the manifest keys when typing a property name', () => {
@@ -36,6 +37,17 @@ describe('manifest-complete — schema-aware JSON completion', () => {
 	it('does not suggest enum values for a free-text field or a number', () => {
 		expect(manifestCompletion('  "description": "A grid of ')).toBeNull();
 		expect(manifestCompletion('  "sweet": 4')).toBeNull();
+	});
+
+	it('derives every key and every enum from the manifest schema', () => {
+		expect(MANIFEST_KEYS).toEqual(Object.keys(schema.properties).filter((k) => !k.startsWith('$')));
+		expect(MANIFEST_KEYS.length).toBeGreaterThan(40);
+		for (const [key, prop] of Object.entries(schema.properties) as [string, { enum?: string[] }][]) {
+			if (key === 'substance') continue; // the gate's CSS-only subset, asserted below
+			if (prop.enum) expect(MANIFEST_ENUMS[key], key).toEqual(prop.enum);
+		}
+		expect(MANIFEST_ENUMS.mode).toContain('single-orientation');
+		expect(MANIFEST_ENUMS.substance.length).toBeGreaterThan(0);
 	});
 
 	it('does not resolve prototype-named keys to inherited Object members', () => {

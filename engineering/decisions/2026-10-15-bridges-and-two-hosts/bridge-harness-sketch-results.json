@@ -1,0 +1,924 @@
+[
+  {
+    "deck": "a11y",
+    "slides": 7,
+    "ms": {
+      "reference": 7731,
+      "marp": 4631,
+      "calco": 6706,
+      "libreoffice": 2072
+    },
+    "marp": {
+      "pages": 7,
+      "pageCountMatches": true,
+      "medianRecall": 0.97,
+      "medianPrecision": 0.968,
+      "medianRmse": 0.060795,
+      "worstRmse": 0.070271,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 30,
+          "gotWords": 31,
+          "recall": 1,
+          "precision": 0.968,
+          "rmse": 0.060795
+        },
+        {
+          "slide": 2,
+          "refWords": 47,
+          "gotWords": 48,
+          "recall": 1,
+          "precision": 0.979,
+          "rmse": 0.0500917
+        },
+        {
+          "slide": 3,
+          "refWords": 32,
+          "gotWords": 31,
+          "recall": 0.938,
+          "precision": 0.968,
+          "rmse": 0.070271
+        },
+        {
+          "slide": 4,
+          "refWords": 31,
+          "gotWords": 30,
+          "recall": 0.935,
+          "precision": 0.967,
+          "rmse": 0.0592116
+        },
+        {
+          "slide": 5,
+          "refWords": 66,
+          "gotWords": 67,
+          "recall": 0.97,
+          "precision": 0.955,
+          "rmse": 0.0623978
+        },
+        {
+          "slide": 6,
+          "refWords": 22,
+          "gotWords": 21,
+          "recall": 0.909,
+          "precision": 0.952,
+          "rmse": 0.041307
+        },
+        {
+          "slide": 7,
+          "refWords": 36,
+          "gotWords": 37,
+          "recall": 1,
+          "precision": 0.973,
+          "rmse": 0.0669223
+        }
+      ]
+    },
+    "calco": {
+      "slidesInFile": 7,
+      "pageCountMatches": true,
+      "editableTextRecall": 0.636,
+      "editableTextPrecision": 0.977,
+      "slidesWithNoEditableText": 0,
+      "medianRmse": 0.113978,
+      "worstRmse": 0.169533,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 30,
+          "gotWords": 30,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.154643
+        },
+        {
+          "slide": 2,
+          "refWords": 47,
+          "gotWords": 47,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.121747
+        },
+        {
+          "slide": 3,
+          "refWords": 32,
+          "gotWords": 31,
+          "recall": 0.938,
+          "precision": 0.968,
+          "rmse": 0.106122
+        },
+        {
+          "slide": 4,
+          "refWords": 31,
+          "gotWords": 13,
+          "recall": 0.387,
+          "precision": 0.923,
+          "rmse": 0.105155
+        },
+        {
+          "slide": 5,
+          "refWords": 66,
+          "gotWords": 43,
+          "recall": 0.636,
+          "precision": 0.977,
+          "rmse": 0.113978
+        },
+        {
+          "slide": 6,
+          "refWords": 22,
+          "gotWords": 8,
+          "recall": 0.318,
+          "precision": 0.875,
+          "rmse": 0.0748471
+        },
+        {
+          "slide": 7,
+          "refWords": 36,
+          "gotWords": 9,
+          "recall": 0.25,
+          "precision": 1,
+          "rmse": 0.169533
+        }
+      ]
+    }
+  },
+  {
+    "deck": "auto-glossary",
+    "slides": 7,
+    "ms": {
+      "reference": 3266,
+      "marp": 3575,
+      "calco": 3822,
+      "libreoffice": 2161
+    },
+    "marp": {
+      "pages": 7,
+      "pageCountMatches": true,
+      "medianRecall": 1,
+      "medianPrecision": 1,
+      "medianRmse": 0.0509978,
+      "worstRmse": 0.0636539,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 33,
+          "gotWords": 34,
+          "recall": 1,
+          "precision": 0.971,
+          "rmse": 0.0492819
+        },
+        {
+          "slide": 2,
+          "refWords": 39,
+          "gotWords": 39,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0452171
+        },
+        {
+          "slide": 3,
+          "refWords": 46,
+          "gotWords": 46,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0636539
+        },
+        {
+          "slide": 4,
+          "refWords": 51,
+          "gotWords": 51,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0524943
+        },
+        {
+          "slide": 5,
+          "refWords": 40,
+          "gotWords": 40,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0509978
+        },
+        {
+          "slide": 6,
+          "refWords": 52,
+          "gotWords": 52,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0499019
+        },
+        {
+          "slide": 7,
+          "refWords": 58,
+          "gotWords": 58,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0588188
+        }
+      ]
+    },
+    "calco": {
+      "slidesInFile": 7,
+      "pageCountMatches": true,
+      "editableTextRecall": 1,
+      "editableTextPrecision": 1,
+      "slidesWithNoEditableText": 0,
+      "medianRmse": 0.093352,
+      "worstRmse": 0.122687,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 33,
+          "gotWords": 33,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.122687
+        },
+        {
+          "slide": 2,
+          "refWords": 39,
+          "gotWords": 39,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.115538
+        },
+        {
+          "slide": 3,
+          "refWords": 46,
+          "gotWords": 46,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0919874
+        },
+        {
+          "slide": 4,
+          "refWords": 51,
+          "gotWords": 51,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.092298
+        },
+        {
+          "slide": 5,
+          "refWords": 40,
+          "gotWords": 40,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0944315
+        },
+        {
+          "slide": 6,
+          "refWords": 52,
+          "gotWords": 52,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.093352
+        },
+        {
+          "slide": 7,
+          "refWords": 58,
+          "gotWords": 58,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0843635
+        }
+      ]
+    }
+  },
+  {
+    "deck": "anima-scene",
+    "slides": 6,
+    "ms": {
+      "reference": 3037,
+      "marp": 3615,
+      "calco": 3607,
+      "libreoffice": 1929
+    },
+    "marp": {
+      "pages": 6,
+      "pageCountMatches": true,
+      "medianRecall": 1,
+      "medianPrecision": 0.7555000000000001,
+      "medianRmse": 0.2675638,
+      "worstRmse": 0.557836,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 52,
+          "gotWords": 53,
+          "recall": 1,
+          "precision": 0.981,
+          "rmse": 0.0426565
+        },
+        {
+          "slide": 2,
+          "refWords": 12,
+          "gotWords": 12,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0404472
+        },
+        {
+          "slide": 3,
+          "refWords": 33,
+          "gotWords": 98,
+          "recall": 1,
+          "precision": 0.337,
+          "rmse": 0.548627
+        },
+        {
+          "slide": 4,
+          "refWords": 32,
+          "gotWords": 126,
+          "recall": 1,
+          "precision": 0.254,
+          "rmse": 0.557836
+        },
+        {
+          "slide": 5,
+          "refWords": 56,
+          "gotWords": 105,
+          "recall": 1,
+          "precision": 0.533,
+          "rmse": 0.483004
+        },
+        {
+          "slide": 6,
+          "refWords": 45,
+          "gotWords": 46,
+          "recall": 1,
+          "precision": 0.978,
+          "rmse": 0.0521236
+        }
+      ]
+    },
+    "calco": {
+      "slidesInFile": 6,
+      "pageCountMatches": true,
+      "editableTextRecall": 1,
+      "editableTextPrecision": 1,
+      "slidesWithNoEditableText": 0,
+      "medianRmse": 0.0972844,
+      "worstRmse": 0.15829,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 52,
+          "gotWords": 52,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.120213
+        },
+        {
+          "slide": 2,
+          "refWords": 12,
+          "gotWords": 12,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.132496
+        },
+        {
+          "slide": 3,
+          "refWords": 33,
+          "gotWords": 33,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0625694
+        },
+        {
+          "slide": 4,
+          "refWords": 32,
+          "gotWords": 32,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0743558
+        },
+        {
+          "slide": 5,
+          "refWords": 56,
+          "gotWords": 56,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0678372
+        },
+        {
+          "slide": 6,
+          "refWords": 45,
+          "gotWords": 45,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.15829
+        }
+      ]
+    }
+  },
+  {
+    "deck": "pane-layouts",
+    "slides": 7,
+    "ms": {
+      "reference": 4068,
+      "marp": 3535,
+      "calco": 4266,
+      "libreoffice": 1901
+    },
+    "marp": {
+      "pages": 7,
+      "pageCountMatches": true,
+      "medianRecall": 1,
+      "medianPrecision": 0.917,
+      "medianRmse": 0.104509,
+      "worstRmse": 0.232631,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 11,
+          "gotWords": 12,
+          "recall": 1,
+          "precision": 0.917,
+          "rmse": 0.025941
+        },
+        {
+          "slide": 2,
+          "refWords": 50,
+          "gotWords": 51,
+          "recall": 0.8,
+          "precision": 0.784,
+          "rmse": 0.11191
+        },
+        {
+          "slide": 3,
+          "refWords": 50,
+          "gotWords": 50,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0929448
+        },
+        {
+          "slide": 4,
+          "refWords": 37,
+          "gotWords": 37,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.112551
+        },
+        {
+          "slide": 5,
+          "refWords": 54,
+          "gotWords": 34,
+          "recall": 0.556,
+          "precision": 0.882,
+          "rmse": 0.232631
+        },
+        {
+          "slide": 6,
+          "refWords": 45,
+          "gotWords": 47,
+          "recall": 1,
+          "precision": 0.957,
+          "rmse": 0.104509
+        },
+        {
+          "slide": 7,
+          "refWords": 11,
+          "gotWords": 12,
+          "recall": 1,
+          "precision": 0.917,
+          "rmse": 0.0379105
+        }
+      ]
+    },
+    "calco": {
+      "slidesInFile": 7,
+      "pageCountMatches": true,
+      "editableTextRecall": 1,
+      "editableTextPrecision": 1,
+      "slidesWithNoEditableText": 0,
+      "medianRmse": 0.105848,
+      "worstRmse": 0.109494,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 11,
+          "gotWords": 11,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.08611
+        },
+        {
+          "slide": 2,
+          "refWords": 50,
+          "gotWords": 44,
+          "recall": 0.88,
+          "precision": 1,
+          "rmse": 0.108028
+        },
+        {
+          "slide": 3,
+          "refWords": 50,
+          "gotWords": 50,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0964779
+        },
+        {
+          "slide": 4,
+          "refWords": 37,
+          "gotWords": 37,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.10664
+        },
+        {
+          "slide": 5,
+          "refWords": 54,
+          "gotWords": 54,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.105848
+        },
+        {
+          "slide": 6,
+          "refWords": 45,
+          "gotWords": 45,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.0993958
+        },
+        {
+          "slide": 7,
+          "refWords": 11,
+          "gotWords": 11,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.109494
+        }
+      ]
+    }
+  },
+  {
+    "deck": "chart-lead-blocks",
+    "slides": 7,
+    "ms": {
+      "reference": 3369,
+      "marp": 3895,
+      "calco": 4711,
+      "libreoffice": 1915
+    },
+    "marp": {
+      "pages": 7,
+      "pageCountMatches": true,
+      "medianRecall": 0.966,
+      "medianPrecision": 0.981,
+      "medianRmse": 0.0553935,
+      "worstRmse": 0.169591,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 9,
+          "gotWords": 10,
+          "recall": 1,
+          "precision": 0.9,
+          "rmse": 0.0375023
+        },
+        {
+          "slide": 2,
+          "refWords": 58,
+          "gotWords": 57,
+          "recall": 0.966,
+          "precision": 0.982,
+          "rmse": 0.0666069
+        },
+        {
+          "slide": 3,
+          "refWords": 58,
+          "gotWords": 57,
+          "recall": 0.966,
+          "precision": 0.982,
+          "rmse": 0.0553935
+        },
+        {
+          "slide": 4,
+          "refWords": 42,
+          "gotWords": 41,
+          "recall": 0.952,
+          "precision": 0.976,
+          "rmse": 0.0456503
+        },
+        {
+          "slide": 5,
+          "refWords": 56,
+          "gotWords": 55,
+          "recall": 0.964,
+          "precision": 0.982,
+          "rmse": 0.0717238
+        },
+        {
+          "slide": 6,
+          "refWords": 55,
+          "gotWords": 54,
+          "recall": 0.964,
+          "precision": 0.981,
+          "rmse": 0.169591
+        },
+        {
+          "slide": 7,
+          "refWords": 9,
+          "gotWords": 10,
+          "recall": 1,
+          "precision": 0.9,
+          "rmse": 0.0408895
+        }
+      ]
+    },
+    "calco": {
+      "slidesInFile": 7,
+      "pageCountMatches": true,
+      "editableTextRecall": 0.862,
+      "editableTextPrecision": 0.98,
+      "slidesWithNoEditableText": 0,
+      "medianRmse": 0.0966706,
+      "worstRmse": 0.11324,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 9,
+          "gotWords": 9,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.11191
+        },
+        {
+          "slide": 2,
+          "refWords": 58,
+          "gotWords": 51,
+          "recall": 0.862,
+          "precision": 0.98,
+          "rmse": 0.0966706
+        },
+        {
+          "slide": 3,
+          "refWords": 58,
+          "gotWords": 42,
+          "recall": 0.707,
+          "precision": 0.976,
+          "rmse": 0.0857882
+        },
+        {
+          "slide": 4,
+          "refWords": 42,
+          "gotWords": 35,
+          "recall": 0.81,
+          "precision": 0.971,
+          "rmse": 0.0844019
+        },
+        {
+          "slide": 5,
+          "refWords": 56,
+          "gotWords": 55,
+          "recall": 0.964,
+          "precision": 0.982,
+          "rmse": 0.0925385
+        },
+        {
+          "slide": 6,
+          "refWords": 55,
+          "gotWords": 48,
+          "recall": 0.855,
+          "precision": 0.979,
+          "rmse": 0.102552
+        },
+        {
+          "slide": 7,
+          "refWords": 9,
+          "gotWords": 9,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.11324
+        }
+      ]
+    }
+  },
+  {
+    "deck": "accent-finishes",
+    "slides": 12,
+    "ms": {
+      "reference": 4497,
+      "marp": 4316,
+      "calco": 5977,
+      "libreoffice": 2547
+    },
+    "marp": {
+      "pages": 12,
+      "pageCountMatches": true,
+      "medianRecall": 0.971,
+      "medianPrecision": 0.981,
+      "medianRmse": 0.05837155,
+      "worstRmse": 0.0778972,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 45,
+          "gotWords": 46,
+          "recall": 1,
+          "precision": 0.978,
+          "rmse": 0.0406884
+        },
+        {
+          "slide": 2,
+          "refWords": 75,
+          "gotWords": 74,
+          "recall": 0.973,
+          "precision": 0.986,
+          "rmse": 0.0515166
+        },
+        {
+          "slide": 3,
+          "refWords": 100,
+          "gotWords": 99,
+          "recall": 0.98,
+          "precision": 0.99,
+          "rmse": 0.0778972
+        },
+        {
+          "slide": 4,
+          "refWords": 52,
+          "gotWords": 49,
+          "recall": 0.904,
+          "precision": 0.959,
+          "rmse": 0.0635447
+        },
+        {
+          "slide": 5,
+          "refWords": 43,
+          "gotWords": 42,
+          "recall": 0.953,
+          "precision": 0.976,
+          "rmse": 0.057289
+        },
+        {
+          "slide": 6,
+          "refWords": 79,
+          "gotWords": 78,
+          "recall": 0.975,
+          "precision": 0.987,
+          "rmse": 0.0565119
+        },
+        {
+          "slide": 7,
+          "refWords": 46,
+          "gotWords": 45,
+          "recall": 0.957,
+          "precision": 0.978,
+          "rmse": 0.0418023
+        },
+        {
+          "slide": 8,
+          "refWords": 43,
+          "gotWords": 42,
+          "recall": 0.953,
+          "precision": 0.976,
+          "rmse": 0.0453367
+        },
+        {
+          "slide": 9,
+          "refWords": 80,
+          "gotWords": 79,
+          "recall": 0.975,
+          "precision": 0.987,
+          "rmse": 0.0624622
+        },
+        {
+          "slide": 10,
+          "refWords": 83,
+          "gotWords": 82,
+          "recall": 0.976,
+          "precision": 0.988,
+          "rmse": 0.0656535
+        },
+        {
+          "slide": 11,
+          "refWords": 65,
+          "gotWords": 64,
+          "recall": 0.969,
+          "precision": 0.984,
+          "rmse": 0.0614247
+        },
+        {
+          "slide": 12,
+          "refWords": 38,
+          "gotWords": 37,
+          "recall": 0.947,
+          "precision": 0.973,
+          "rmse": 0.0594541
+        }
+      ]
+    },
+    "calco": {
+      "slidesInFile": 12,
+      "pageCountMatches": true,
+      "editableTextRecall": 0.963,
+      "editableTextPrecision": 0.985,
+      "slidesWithNoEditableText": 0,
+      "medianRmse": 0.10145185,
+      "worstRmse": 0.145289,
+      "slides": [
+        {
+          "slide": 1,
+          "refWords": 45,
+          "gotWords": 45,
+          "recall": 1,
+          "precision": 1,
+          "rmse": 0.105763
+        },
+        {
+          "slide": 2,
+          "refWords": 75,
+          "gotWords": 74,
+          "recall": 0.973,
+          "precision": 0.986,
+          "rmse": 0.0964073
+        },
+        {
+          "slide": 3,
+          "refWords": 100,
+          "gotWords": 54,
+          "recall": 0.54,
+          "precision": 1,
+          "rmse": 0.117005
+        },
+        {
+          "slide": 4,
+          "refWords": 52,
+          "gotWords": 49,
+          "recall": 0.904,
+          "precision": 0.959,
+          "rmse": 0.0751914
+        },
+        {
+          "slide": 5,
+          "refWords": 43,
+          "gotWords": 42,
+          "recall": 0.953,
+          "precision": 0.976,
+          "rmse": 0.0797251
+        },
+        {
+          "slide": 6,
+          "refWords": 79,
+          "gotWords": 78,
+          "recall": 0.975,
+          "precision": 0.987,
+          "rmse": 0.0971407
+        },
+        {
+          "slide": 7,
+          "refWords": 46,
+          "gotWords": 45,
+          "recall": 0.957,
+          "precision": 0.978,
+          "rmse": 0.0876223
+        },
+        {
+          "slide": 8,
+          "refWords": 43,
+          "gotWords": 42,
+          "recall": 0.953,
+          "precision": 0.976,
+          "rmse": 0.092164
+        },
+        {
+          "slide": 9,
+          "refWords": 80,
+          "gotWords": 79,
+          "recall": 0.975,
+          "precision": 0.987,
+          "rmse": 0.107973
+        },
+        {
+          "slide": 10,
+          "refWords": 83,
+          "gotWords": 82,
+          "recall": 0.976,
+          "precision": 0.988,
+          "rmse": 0.109627
+        },
+        {
+          "slide": 11,
+          "refWords": 65,
+          "gotWords": 64,
+          "recall": 0.969,
+          "precision": 0.984,
+          "rmse": 0.11304
+        },
+        {
+          "slide": 12,
+          "refWords": 38,
+          "gotWords": 37,
+          "recall": 0.947,
+          "precision": 0.973,
+          "rmse": 0.145289
+        }
+      ]
+    }
+  }
+]

@@ -9,6 +9,9 @@
  * passes its column width) and at least as wide as its item; the item is centered in it. A row
  * holds at most `maxPerRow` cells, and its cells and gaps fit the width.
  *
+ * Each row sits by `align` (centered by default); `justify` spreads its leftover width into its
+ * gaps. The placement never changes the breaks.
+ *
  * The area. Equal area makes a tall item tall, so the area is capped first: the largest area at
  * which an item of aspect max(narrowest aspect, aspectFloor) is exactly `heightCap` tall, and never
  * more than a square at the cap, unless the host passes its own `area`. An item narrower than `aspectFloor`
@@ -28,7 +31,7 @@
  * leaving an orphan pair. Deterministic: ties keep the earliest break.
  */
 
-import type { Rect } from './types.js';
+import type { Align, Rect } from './types.js';
 
 export interface RowsOptions {
   /** Gap between cells in a row, as a fraction of the width. */
@@ -49,12 +52,16 @@ export interface RowsOptions {
   minCell: number;
   /** Items narrower than this aspect are held at the height cap rather than shrinking the wall. */
   aspectFloor: number;
+  /** How each row but the last sits across the width (placement only). */
+  align: Align;
+  /** How the last row sits. */
+  lastRow: Align;
 }
 
 export interface RowsChoice {
   /** The area every item gets unless the cap holds it. */
   area: number;
-  /** Item boxes, centered in their cells and their rows. */
+  /** Item boxes, centered in their cells, each row placed by `align`. */
   rects: Rect[];
   /** Cell boxes: the item's box widened to the cell, as tall as its row. */
   cells: Rect[];
@@ -171,11 +178,16 @@ export function chooseRows(aspects: number[], o: RowsOptions): RowsChoice | null
     if (r > 0) y += o.rowGap;
     const used = row.reduce((s, i) => s + cell[i], 0) + (row.length - 1) * o.gap;
     const rowH = Math.max(...row.map((i) => h[i]));
-    let x = (1 - used) / 2;
+    let align = r === rows.length - 1 ? o.lastRow : o.align;
+    // One cell has no gap to widen: a justified row of one starts at the left edge, as text does.
+    if (align === 'justify' && row.length < 2) align = 'start';
+    const slack = 1 - used;
+    let x = align === 'center' ? slack / 2 : align === 'end' ? slack : 0;
+    const step = align === 'justify' ? o.gap + slack / (row.length - 1) : o.gap;
     for (const i of row) {
       cells[i] = { x, y, w: cell[i], h: rowH };
       rects[i] = { x: x + (cell[i] - w[i]) / 2, y: y + (rowH - h[i]) / 2, w: w[i], h: h[i] };
-      x += cell[i] + o.gap;
+      x += cell[i] + step;
     }
     y += rowH;
   });

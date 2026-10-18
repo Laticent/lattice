@@ -891,3 +891,35 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
 - 2026-10-16: §4.6 added: each plugin's guide, fixtures, drawn icon and docs-site entry.
 - 2026-10-16: §4.5 added after #2725's attack. The design now takes every address from the author's block.
   The inline records stay off the runtime DOM mirror, and every slice gets the adversarial trio.
+- 2026-10-17: slice 1 started (branch `claude/media-cli-fixes-and-sources`). Landed: `lib/core/media-sources.js` with the six rows;
+  `isRemoteUrl` in `remote-ref.js` is now `isRemoteRef`, derived from each row's `locality`, with `sampleName`, `assetName` and
+  `urlAsParsed` moved to the table; `resolveAssetUrl` and `installBackgroundImage` classify through the table instead of their
+  own `sample:` / `asset:` regexes; a relative reference that leaves the deck's folder (`../x`, `/etc/x`) becomes the drawn
+  stand-in. D1 and D3 were fixed first (the CLI passes `baseUrl` and uses the class-aware lift). The `file` row is `remote`
+  to the markup gates on purpose (§4.11 asks for stricter or equal, and today `file:` is remote). Confinement applies only
+  on a `file:` base: the Studio and the playground pass the site's samples folder as `baseUrl`, where `/images/x.jpg` is a
+  same-origin fetch the site ships on purpose (changelog 2358), so a web base resolves as before. Found by the red team and
+  the inversion pass on this slice. The confinement is a **breaking** change for a CLI deck that reaches into a sibling folder
+  (`![bg](../assets/a.jpg)`), which the owner's decision 2 accepts (no GA users) and the changelog says so.
+  **Still owed by slice 1:** `asset:` resolving in the CLI against a deck-folder map; the symlink half of "paths stay inside the
+  deck" (it needs the file system, so it lands with the inline export); a typed `file:///abs/path` still loads in the CLI, so
+  "a `file` row is refused unless the deck was authored on this machine" is not enforced yet (it needs an authored-here signal);
+  "only in-tree rows may declare `local`" (vacuous until a plugin can contribute a row, slice 2); and the `check-ownership`
+  census of rows; the two CSS `url(sample:…)` matchers left in `bg-image.js` (`SAMPLE_CSS_URL` and the `(?:sample|asset):` pre-checks
+  beside it), which scan text rather than classify a reference; and the rows' `scheme` and `resolve(id, host)` fields from §4.1
+  (`resolveAssetUrl` still branches on `row.id`). The differential test (`test/unit/core/media-sources.test.js`) ran 53 corpus
+  entries, all with the same answer as before, plus a fuzzed set that is never looser. The fuzzed set does contain stricter
+  strings (`sample:a<TAB>b`, `<U+0001>sample:a`: the table parses the raw string where the old code parsed it after the URL
+  parser's clean-up, so these are now remote). The red team's 3M-string fuzz over every code point to U+2FFFF found none looser.
+- 2026-10-17: CI caught what the slice's three reviewers did not: `lib/packages/code-door-worker.js` injects `remote-ref.js`
+  into the sanitizer page as a raw script (no module system), so its new `require('./media-sources')` left every code package
+  unable to draw ("Waiting failed: 5000ms exceeded", `code-package-door.test.js`, 3 tests). `asPageScript` now inlines a
+  `require('./sibling')` and refuses any other `require(` loudly. The two places that load `remote-ref.js` outside a bundler
+  (this loader and the docs dev shim) are the full list; a third would need the same treatment.
+- 2026-10-17: the player's `file://` inliner (`lib/export/html-player.js`) took four independent checker passes. The late
+  commits fixed a CSS sample in a code block, a `style='…'` typed inside another attribute (alt text), an `<img>` whose
+  `data-src` or alt text held `src='file://…'`, scanner reads inside end tags, bogus comments and raw-text bodies, and a
+  quadratic `url(` scan (now bounded at 4096 characters). The inliner now tokenizes real start tags and reads exactly three
+  places: an `<img src>`, a `style` attribute value and a `<style>` body. Two behaviors the last checker judged off the path are
+  in `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md`. The unclosed-quote scan of the tag pattern is
+  quadratic on input no serializer produces, so it is not guarded.
