@@ -102,5 +102,13 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                row owner (hub-spoke), only to a record, so the engine's HTML for that slide is as on main. Left, rare: jsdom (not Chromium) runs
                the ownership check slowly on thousands of rows (a `querySelector('ul, ol')` per row-ending span); on the docs site's
                on-demand kernel path a declined slide before its kernel loads keeps its claimed `{…}` as code until the host reloads and
-               renders again; the dispatch's final strip removes the literal ` data-lat-record=""` from the whole page, so a raw-HTML
-               attribute of that exact form an author wrote would go too.
+               renders again. (The dispatch's whole-page strip of ` data-lat-record=""` is fixed in round 13.)
+           17. Thirteenth round (2026-10-18, the adversarial trio on caf836b): fixed here with a test each that fails on the earlier code:
+               the ownership check re-read every ancestor span for each child row (8.6 s of lint for a hostile 14 KB deck with no record,
+               43 ms on main; now memoized and span-first: 73 ms); the pipe lint rescanned table bodies; a badge record before the label
+               (`{1}` North `{40}`) and a record in a quoted chart list were silent value losses (lint now warns); the browser claimed a
+               record inside a raw `<ol>` wrapper and read a commented matrix-grid cell as a state (both now as the engine); the final
+               strip touched an author's attribute text (now only the exact stamped `<code>`); a lint fix text named the record itself;
+               Compose read a trailing comment as content. The generated differential gained lint and browser arms. Left, low: a record
+               cannot write digit grouping (`{1,200}`), stated in the changelog; scope of nested-list records is the owner's revisit
+               (followups.d/2746-p1-revisit-nested-list-records.md).

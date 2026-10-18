@@ -258,7 +258,10 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    `isOwnedRecordElement` from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source
    line. This is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders.
    "After another code span" is a fact about the source, so the engine snapshots it before its own pass turns an earlier span
-   into a pill (otherwise the answer would depend on visit order).
+   into a pill (otherwise the answer would depend on visit order). **Owner, 2026-10-18:** a record in a nested list row of a series chart (bar,
+   line, slope, stacked-bar) is kept for now, though §2 moves series data to tables, so phase 4's codemod may meet a third
+   source form. That is an explicit call to revisit before phase 4 (`followups.d/2746-p1-revisit-nested-list-records.md`);
+   meanwhile a lint that keeps a series' name the same in every group is `followups.d/2746-p2-series-name-consistency-lint.md`.
 
    (2) **The bridge.** The chart family calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so
    the engine and the runtime share it, and rewrites a data row's record to the spans each transform reads (`legacySpans`);
