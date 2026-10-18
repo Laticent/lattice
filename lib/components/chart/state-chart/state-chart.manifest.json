@@ -69,6 +69,12 @@
         "paint": "fill",
         "encodes": "hue",
         "bears": false
+      },
+      {
+        "class": "fc-key-swatch",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": false
       }
     ]
   },
