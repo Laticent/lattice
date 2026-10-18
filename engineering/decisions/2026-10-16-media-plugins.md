@@ -942,3 +942,7 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   Evidence: the differential test is unchanged and green; HTML exports of seven decks (the baseline gallery, jargon and
   data-viz galleries, collage, avatars, adaptive-image, deck-logo) are byte-identical old versus new; the engine bench
   moves inside the base-versus-base spread.
+- 2026-10-18: the §4.11 census exists: `SANCTIONED_MEDIA_SOURCES` and `checkMediaSourceCensus` in `tools/check-ownership.js`. It fails on
+  a row without an entry, an entry without a row, a changed `locality`, a `contributed` row that says `local`, and two rows
+  claiming one scheme. It runs inside the existing `build:check` step, so it adds no CI job, step or hook (CLAUDE.md second
+  filter, row 2). A scratch `drive` row made it fail with the message recorded in the PR body.

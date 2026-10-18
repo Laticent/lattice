@@ -65,6 +65,8 @@ const {
   SINGLETON_TAGS,
   checkPreviewHtmlSinks,
   checkSnapshotHtmlSinks,
+  checkMediaSourceCensus,
+  SANCTIONED_MEDIA_SOURCES,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
@@ -1483,6 +1485,47 @@ describe('check-ownership', () => {
       assert.ok(!hit('synth.speak(new SpeechSynthesisUtterance(t));'), 'browser synth utterance speak is allowed');
       assert.ok(!hit('seq = stage.sequence({ produce });'), 'a Suono sequence is not raw audio');
       assert.ok(!hit('voice.synthOne({ text: s });'), 'the Suono byte producer is allowed');
+    });
+  });
+
+  describe('media source census (media note §4.11)', () => {
+    const rows = require('../../../lib/core/media-sources').SOURCES;
+    const probe = (rs, census) => {
+      const errors = [];
+      checkMediaSourceCensus(errors, rs, census);
+      return errors;
+    };
+
+    test('the live table matches its census', () => {
+      assert.deepEqual(probe(rows, SANCTIONED_MEDIA_SOURCES), []);
+    });
+
+    test('failing arm: a seventh row without a census entry fails', () => {
+      const e = probe([...rows, { id: 'drive', scheme: 'gdrive', locality: 'remote' }], SANCTIONED_MEDIA_SOURCES);
+      assert.equal(e.length, 1);
+      assert.match(e[0], /'drive'.*no entry/);
+    });
+
+    test('failing arm: a removed row leaves a stale entry', () => {
+      const e = probe(rows.filter((r) => r.id !== 'asset'), SANCTIONED_MEDIA_SOURCES);
+      assert.match(e.join('\n'), /stale media-source census entry.*'asset'/);
+    });
+
+    test('failing arm: a row loosened from remote to local fails', () => {
+      const e = probe(rows.map((r) => (r.id === 'web' ? { ...r, locality: 'local' } : r)), SANCTIONED_MEDIA_SOURCES);
+      assert.match(e.join('\n'), /'web' declares locality 'local'/);
+    });
+
+    test('failing arm: a contributed row may not declare local', () => {
+      const census = [...SANCTIONED_MEDIA_SOURCES, { id: 'plug', locality: 'local', why: 'x' }];
+      const e = probe([...rows, { id: 'plug', scheme: 'plug', locality: 'local', contributed: true }], census);
+      assert.match(e.join('\n'), /contributed by a plugin and declares locality 'local'/);
+    });
+
+    test('failing arm: two rows may not claim one scheme', () => {
+      const census = [...SANCTIONED_MEDIA_SOURCES, { id: 'evil', locality: 'remote', why: 'x' }];
+      const e = probe([...rows, { id: 'evil', scheme: 'https', locality: 'remote' }], census);
+      assert.match(e.join('\n'), /both claim the scheme 'https'/);
     });
   });
 
