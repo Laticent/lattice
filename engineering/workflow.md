@@ -1592,8 +1592,10 @@ only: write `limited by`, not "floor", and name what a pointer points to
    with `<sha>` or "omit if none" still in it reads as unfinished.
 7. **The card agrees with itself.** The reply words in the header must be words
    each item accepts, and `raise it — nothing outstanding` is only allowed when
-   `not run` is "none". A reader who finds one line that does not add up
-   re-reads the rest.
+   `not run` is "none". `ran` lists only what has finished: a check still
+   running goes under `not run`. Cards posted together tell one story, so the
+   facts they share (counts, what is live, what is next) match word for word.
+   A reader who finds one line that does not add up re-reads the rest.
 
 The 🎯 brief keeps its STANDING ORDERS block inline on purpose: it hands a cold
 session its working rules without a lookup. Tighten the wording, never move it out.
@@ -1916,7 +1918,7 @@ everything becomes `high` because the work felt thorough.
 Template:
 
 ```
-🚦 Pre-merge — #N <title>                        reply: "merge" or "hold"
+🚦 Pre-merge — #N <title>                        reply: merge | hold
 
 BOTTOM LINE
   ask         — squash-merge #N?
@@ -2063,8 +2065,12 @@ TO VETO — I decided these; tell me to undo any
 
 QUESTIONS — only you know
   Q1 · <the fact I need?>
-       changes    — <what the answer decides>
+       changes    — yes: <what happens> · no: <what happens>
 ```
+
+A CAN WAIT or TO VETO item is a real choice with something the owner can change
+or undo. If nothing can be changed, it is not an item, so leave it out. Rules
+about how the card works belong in this spec, never on a card.
 
 A section with no items is left out, not printed empty.
 
