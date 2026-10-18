@@ -15,7 +15,11 @@
  * control does not reach the listener with, in that engine, is reported as UNVERIFIED for that cell
  * and fails the cell: a zero from a vector that cannot fire proves nothing (HARD RULE #23).
  *
- * THE CHECK IS `todo` TODAY, AND MUST NOT PASS BY ACCEPTING AN EXIT. Navigation, `window.open` and
+ * TWO TESTS PER CELL. The HARNESS test is a hard failure: the engine started, every vector ran, and the
+ * control reached the listener. The EXITS test is `todo`. Marking the whole cell `todo` would let a
+ * broken Playwright install pass the nightly in silence (the checker, 2026-10-18).
+ *
+ * THE EXITS TEST IS `todo` TODAY, AND MUST NOT PASS BY ACCEPTING AN EXIT. Navigation, `window.open` and
  * WebRTC reach the listener in both exports, and the plain export's policy leaves script, frame,
  * stylesheet and meta-refresh loads open (followups.d/2749-p2-export-csp-gaps.md). Closing them
  * changes the bytes of an exported artifact, which needs the owner's inspection of a dark and a
@@ -29,7 +33,7 @@
  *
  * ENGINES: Chromium always (puppeteer). WebKit and Firefox when LATTICE_PLAYWRIGHT points at a
  * Playwright install (docs/node_modules/playwright), as player-no-js.test.js does; an engine that
- * cannot start is reported as UNVERIFIED, never as a pass. Locally:
+ * cannot start FAILS the harness test, never passes. Locally:
  *   LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright node --test test/integration/export-nightly/npm-plugin-export-check.test.js
  */
 
@@ -191,25 +195,52 @@ async function reached(browser, file) {
   return { got, unrun };
 }
 
-describe('export check: no exit in a real HTML export reaches a listener', () => {
-  for (const eng of engines()) {
-    for (const kind of ['player', 'plain']) {
-      test(`${eng.name} · ${kind} export`, { todo: TODO, timeout: TIMEOUT }, async (t) => {
-        if (eng.needs) assert.fail(`UNVERIFIED: ${eng.name} is not reachable (${eng.needs})`);
+/**
+ * One cell measured once, for both tests that read it. A launch failure rejects, so the HARNESS test
+ * below fails (not `todo`): a broken Playwright install must turn the nightly red.
+ */
+const cells = new Map();
+function cell(eng, kind) {
+  const key = `${eng.name}/${kind}`;
+  if (!cells.has(key)) {
+    cells.set(
+      key,
+      (async () => {
+        if (eng.needs) throw new Error(`UNVERIFIED: ${eng.name} is not reachable (${eng.needs})`);
         const browser = await eng.launch();
         try {
-          const names = Object.keys(vectors());
           const control = await reached(browser, built[kind].control);
-          const unverified = names.filter((v) => !control.got.includes(v));
           const real = await reached(browser, built[kind].file);
-          assert.deepEqual([...control.unrun, ...real.unrun], [], 'a vector did not run, so its zero would mean nothing');
-          t.diagnostic(`${eng.name} ${kind}: open exits ${JSON.stringify(real.got)}; control missed ${JSON.stringify(unverified)}`);
-          const surprising = unverified.filter((v) => !MAY_MISS[eng.name].includes(v));
-          assert.deepEqual(surprising, [], `UNVERIFIED in ${eng.name}: the control did not reach the listener with these, so their zero would mean nothing`);
-          assert.deepEqual(real.got, [], `exits that reach the listener from the ${kind} export in ${eng.name}`);
+          return { control, real };
         } finally {
           await browser.close();
         }
+      })(),
+    );
+  }
+  return cells.get(key);
+}
+
+describe('export check: no exit in a real HTML export reaches a listener', () => {
+  for (const eng of engines()) {
+    for (const kind of ['player', 'plain']) {
+      // HARD: the engine started, every vector RAN, and the control reached the listener with every
+      // vector the engine can fire. If this fails, the zeros in the next test mean nothing.
+      test(`${eng.name} · ${kind} export · the harness works`, { timeout: TIMEOUT }, async (t) => {
+        const { control, real } = await cell(eng, kind);
+        const names = Object.keys(vectors());
+        const unverified = names.filter((v) => !control.got.includes(v));
+        t.diagnostic(`${eng.name} ${kind}: UNVERIFIED in this engine (its control cannot fire them) ${JSON.stringify(unverified)}`);
+        assert.deepEqual([...control.unrun, ...real.unrun], [], 'a vector did not run, so its zero would mean nothing');
+        const surprising = unverified.filter((v) => !MAY_MISS[eng.name].includes(v));
+        assert.deepEqual(surprising, [], `UNVERIFIED in ${eng.name}: the control did not reach the listener with these, so their zero would mean nothing`);
+      });
+
+      // `todo` until the owner closes the gaps: the exports leave exits open today.
+      test(`${eng.name} · ${kind} export · no exit is open`, { todo: TODO, timeout: TIMEOUT }, async (t) => {
+        const { real } = await cell(eng, kind);
+        t.diagnostic(`${eng.name} ${kind}: open exits ${JSON.stringify(real.got)}`);
+        assert.deepEqual(real.got, [], `exits that reach the listener from the ${kind} export in ${eng.name}`);
       });
     }
   }

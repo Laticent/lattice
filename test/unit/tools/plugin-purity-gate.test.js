@@ -56,6 +56,22 @@ describe('checkPluginPurity: code that MUST fire', () => {
     assert.equal(gate({ [P]: 'export const a = () => window.fetch("x");\n' }).length, 1);
     assert.equal(gate({ [P]: 'export const a = () => navigator.sendBeacon("x");\n' }).length, 1);
   });
+  test('our OpenRouter key fires as a property read, a bracket read and a string', () => {
+    assert.equal(gate({ [P]: 'export const k = process.env.OPEN_ROUTER' + '_KEY;\n' }).length, 1);
+    assert.equal(gate({ [P]: "export const k = process.env['OPEN_ROUTER' + '_KEY'];\n" }).length, 0, 'a built-up string is the obfuscation the note says it cannot catch');
+    assert.equal(gate({ [P]: 'export const k = process.env["OPEN_ROUTER' + '_KEY"];\n' }).length, 1);
+  });
+  test('a computed member fires: window["fetch"], globalThis[`fetch`]', () => {
+    assert.equal(gate({ [P]: 'export const a = () => window["fetch"]("x");\n' }).length, 1);
+    assert.equal(gate({ [P]: 'export const a = () => globalThis[`fetch`]("x");\n' }).length, 1);
+  });
+  test('more network names fire: importScripts, WebTransport, RTCPeerConnection', () => {
+    for (const n of ['importScripts', 'WebTransport', 'RTCPeerConnection']) assert.equal(gate({ [P]: `export const a = () => ${n}("x");\n` }).length, 1, n);
+  });
+  test('a shorthand property counts once, not twice', () => {
+    const errors = gate({ [P]: 'const { fetch } = globalThis;\nfetch("x");\n' });
+    assert.match(errors[0], /\(2x\)/, errors.join('\n'));
+  });
   test('our OpenRouter key names fire as strings', () => {
     assert.equal(gate({ [P]: 'export const k = "OPEN_ROUTER' + '_KEY";\n' }).length, 1);
     assert.equal(gate({ [P]: 'export const k = localKey("lattice-db-or-key");\nfunction localKey(x){return x}\n' }).length, 1);
@@ -80,8 +96,17 @@ describe('checkPluginPurity: code that must NOT fire', () => {
   test('a local variable that merely contains the name is fine', () => {
     assert.deepEqual(gate({ [P]: 'export const prefetchCount = 1; const fetchLater = 2;\n' }), []);
   });
-  test('test files, vendored libraries, minified and generated files are not scanned', () => {
-    assert.deepEqual(gate({ 'lib/plugins/probe/x.test.js': 'fetch("x");\n', 'lib/plugins/probe/lib.min.js': 'fetch("x");\n', 'lib/plugins/probe/a.generated.js': 'fetch("x");\n', 'lib/plugins/probe/vendor/v.js': 'fetch("x");\n' }), []);
+  test('test files and a plugin’s vendored library are not scanned', () => {
+    assert.deepEqual(gate({ 'lib/plugins/probe/x.test.js': 'fetch("x");\n', 'lib/plugins/probe/vendor/v.js': 'fetch("x");\n' }), []);
+  });
+  test('a file named .min is scanned: the name cannot hide code from the gate', () => {
+    assert.equal(gate({ 'lib/plugins/probe/lib.min.js': 'fetch("x");\n' }).length, 1);
+  });
+  test('a file named .generated is scanned too', () => {
+    assert.equal(gate({ 'lib/plugins/probe/a.generated.js': 'fetch("x");\n' }).length, 1);
+  });
+  test('an object key or a method name that spells a forbidden word is a definition, not a use', () => {
+    assert.deepEqual(gate({ [P]: 'export const o = { fetch: 1, sendBeacon() {} };\nexport class C { fetch() {} }\n' }), []);
   });
   test('a clean file passes', () => {
     assert.deepEqual(gate({ [P]: 'export function render(x) { return `<p>${x}</p>`; }\n' }), []);

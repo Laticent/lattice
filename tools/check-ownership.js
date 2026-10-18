@@ -8186,7 +8186,7 @@ function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = R
 // SANCTIONED_PURITY_HITS entry carrying its justification and the exact count, so a second use
 // beside a sanctioned one fires; an entry whose hit is gone fails as stale.
 const PURITY_ROOTS = ['lib/plugins', 'lib/components', 'lib/runtime'];
-const PURITY_NAMES = Object.freeze(['fetch', 'XMLHttpRequest', 'WebSocket', 'WebSocketStream', 'EventSource', 'sendBeacon', 'localStorage', 'sessionStorage', 'indexedDB', 'OPEN_ROUTER_KEY', 'lattice-db-or-key']);
+const PURITY_NAMES = Object.freeze(['fetch', 'XMLHttpRequest', 'WebSocket', 'WebSocketStream', 'EventSource', 'WebTransport', 'RTCPeerConnection', 'importScripts', 'sendBeacon', 'localStorage', 'sessionStorage', 'indexedDB', 'OPEN_ROUTER_KEY', 'lattice-db-or-key']);
 /** The names above that a STRING is checked for (a key name is data, the others are code). */
 const PURITY_STRINGS = new Set(['OPEN_ROUTER_KEY', 'lattice-db-or-key']);
 /** @type {Array<{ file: string, name: string, count: number, justification: string }>} */
@@ -8221,8 +8221,27 @@ function purityHits(src) {
       stack.push(...n);
       continue;
     }
-    const name = n.type === 'Identifier' ? n.name : n.type === 'Literal' && typeof n.value === 'string' && PURITY_STRINGS.has(n.value) ? n.value : null;
-    if (name && names.has(name) && (n.type === 'Literal' || !PURITY_STRINGS.has(name))) hits.set(name, (hits.get(name) ?? 0) + 1);
+    // A shorthand property (`{ fetch }`) holds the same node as key and value: count it once.
+    if (n.type === 'Property' && n.shorthand) {
+      stack.push(n.value);
+      continue;
+    }
+    // An object key or a method name DEFINES a name (`{ fetch: 1 }`, `fetch() {}`); it uses nothing.
+    if ((n.type === 'Property' || n.type === 'MethodDefinition' || n.type === 'PropertyDefinition') && !n.computed && n.key?.type === 'Identifier') {
+      if (n.value) stack.push(n.value);
+      continue;
+    }
+    let name = null;
+    if (n.type === 'Identifier') name = n.name;
+    // A string is a use when it names one of our keys (data), or when it is a computed member key:
+    // `window['fetch']`, ``globalThis[`fetch`]``. Any other string is prose.
+    else if (n.type === 'Literal' && typeof n.value === 'string' && PURITY_STRINGS.has(n.value)) name = n.value;
+    else if (n.type === 'MemberExpression' && n.computed) {
+      const k = n.property;
+      const text = k.type === 'Literal' && typeof k.value === 'string' ? k.value : k.type === 'TemplateLiteral' && !k.expressions.length ? k.quasis[0].value.cooked : null;
+      if (text !== null && names.has(text) && !PURITY_STRINGS.has(text)) hits.set(text, (hits.get(text) ?? 0) + 1);
+    }
+    if (name && names.has(name)) hits.set(name, (hits.get(name) ?? 0) + 1);
     for (const k of Object.keys(n)) if (k !== 'type' && n[k] && typeof n[k] === 'object') stack.push(n[k]);
   }
   return hits;
@@ -8241,7 +8260,7 @@ function checkPluginPurity(errors, sanctions = SANCTIONED_PURITY_HITS, root = RO
   }
   for (const base of PURITY_ROOTS) {
     for (const file of listSourceFiles(path.join(root, base))) {
-      if (!/\.(?:m?js|cjs)$/.test(file) || /\.(?:test|min|generated)\./.test(path.basename(file))) continue;
+      if (!/\.(?:m?js|cjs)$/.test(file) || /\.test\./.test(path.basename(file))) continue;
       const rel = path.relative(root, file).split(path.sep).join('/');
       const hits = purityHits(fs.readFileSync(file, 'utf8'));
       if (!hits) {

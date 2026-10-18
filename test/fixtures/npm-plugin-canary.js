@@ -93,6 +93,11 @@ function markupVectors(H) {
     img: `<img src="${H}/m-img" alt="">`,
     // A string held in a custom property and read where an address goes (found by the red team, 2026-10-18).
     'css-imageset-var': `<div style="--q:'${H}/m-imageset';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
+    // The same address on a PARENT, read by a CHILD, with a space in it, and with backslashes (the checker, 2026-10-18).
+    'css-imageset-inherit': `<div style="--q:'${H}/m-inherit'"><div style="background-image:image-set(var(--q) 1x);width:9px;height:9px"></div></div>`,
+    'css-imageset-space': `<div style="--q:'${H}/m-space/b c';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
+    // CSS source with four leading backslashes and two inside: the parser reads `\\host\path`, which a URL parser reads as an address.
+    'css-imageset-backslash': `<div style="--q:'${'\\'.repeat(4)}${new URL(H).host}${'\\'.repeat(2)}m-bslash';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
     'css-background': `<div style="background:url(${H}/m-cssbg);width:9px;height:9px"></div>`,
     'style-import': `<style>@import url(${H}/m-import);</style>`,
     'style-breakout': `<style></style><img src="${H}/m-breakout"></style>`,

@@ -41,6 +41,6 @@ phase G (note §6 decisions 2 and 5), so the door cannot open while any cell rea
 export (decision 10), so nothing exploits these today and there is no reason to rush ahead of review. Order inside that PR: (1) the
 `--player` policy (it already has `default-src 'none'`; only navigation, `window.open`, WebRTC and meta refresh remain), (2) the plain
 export, which has no `default-src`, `script-src` or `frame-src`. Each step needs a dark and a light render of one demo deck sent to the
-owner before it merges; the nightly export check (`test/integration/export-nightly/`) loses its `todo` in the commit that closes the last
+owner before it merges; the nightly export check (`test/integration/export-nightly/`) loses its `todo` (the "no exit is open" tests; the "harness works" tests are already hard failures) in the commit that closes the last
 cell. If the owner would rather accept an exit than close it, that is a written decision in the note, and the check then names it.
 
