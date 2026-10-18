@@ -26,9 +26,10 @@ where     — 1. The `{> …}` production and the table description (model note 
                them, lint `chart-row-record-unread` is what keeps a record that carries one from losing it silently.
             4. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the census
                counts 78 grouped funnel values: the codemod writes `1200` and the chart shows it grouped.
-            5. Lint's `recordPlace` and `bridgeRecordsSource` read a row's lead per line, so a record on a continuation line, or after a
-               bullet-character switch, can differ from the engine (no visible effect found); the narrator picks its chart by the first
-               class token (`pictureDataClass`), not in dispatch order. Both go away when the kernels read `readRecord`.
+            5. Lint's `recordPlace` reads a row's lead per line, so a record on a continuation line, or after a bullet-character switch,
+               can differ from the engine (no visible effect found; the place oracle counts 163 slides, to be taken to 0 by moving
+               lint's line walker onto the shared tracker); the narrator picks its chart by the first class token
+               (`pictureDataClass`), not in dispatch order. `bridgeRecordsSource` no longer reads lines (round 16).
             6. Residuals found by the third review round (2026-10-17), no visible effect: lint's `recordPlace` differs from the engine after an
                ordered-to-bullet list switch and after a margin comment; a record on `map` takes any `{word}`; a bullet keyword row (`Target`, `Floor`, `Band`)
                written as a record under a measure that has a value is read as that measure's note (lint warns); the narrator picks its
@@ -65,8 +66,8 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                is bounded on a huge raw block (the `ANY_TAG` comment claimed more than the 4000-piece bound gives); an inline raw
                `<ul>`/`<table>` in a paragraph and a raw `<table>` ahead of a matrix-grid count as ahead in the pill pass and the
                cell decoder; the source bridge reads a record before `&nbsp;` and leaves a record behind a raw list alone; the DOM
-               mirror ends a lead at a comment or a raw `<div>`/`<hr>`. Left, narration only and rare: a record in a double-backtick
-               span is drawn but not narrated; the narrator still rewrites a record after a quoted grid table or a `|` continuation line.
+               mirror ends a lead at a comment or a raw `<div>`/`<hr>`. (Both of the narration-only residuals this item listed, a record in a double-backtick span and the quoted grid table, are
+               fixed in round 16: the narrator reads the engine's tokens.)
            13. Ninth round (2026-10-17, fourth independent checker on 2b98e9b): fixed here with a test each: the runtime reads a code span
                inside an inline wrapper (`**`40`**`) as part of the row's lead, as the engine and Compose do (a delta beside it stayed
                a pill on `main` and lost its text in the runtime); the HTML bridge reads a pill an earlier pass drew in the row as code
@@ -129,3 +130,12 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                one is a trailing comment. The narrator reads a badge row as drawn where the engine draws no bar for it. A test comment
                said `North `40` grew `{+4}`` draws something; it draws no North bar. All low and rare. The structural fix is one shared
                place-measurer for the five readers (the inversion's "medium change"), not another patch per reader.
+           20. Sixteenth round (2026-10-18, the owner's call to build the shared place-measurer): `place-oracle.test.js` runs a seeded
+               corpus of 390 hostile slides through each reader and holds it to the engine's answer; it found the browser and Compose in
+               agreement and lint's line walker disagreeing on 163 slides and the narrator's on 49. `chart-places.js` counts a span's
+               place once from tokens (the engine's pill pass now asks it, byte-identical on 806 repo slides and 1,585 generated decks),
+               and the narrator's bridge moved to `chart-source-bridge.js`, which asks it over the engine-configured parser (49 to 0;
+               the double-backtick and quoted-table narration residuals close with it; markdown-it is external in the read-along
+               bundle, as in the authoring bundle). Still to do: lint's `renderedInlineSpans` and `findChartRowRecords` onto the tracker,
+               and the engine's `matrixGridCells` and the browser's `applyToDom`, which decide a sole `{done}` cell without the shared
+               decision (a seventh and eighth measurer the oracle cannot see yet).

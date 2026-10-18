@@ -265,8 +265,11 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
 
    (2) **The bridge.** The chart family calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so
    the engine and the runtime share it, and rewrites a data row's record to the spans each transform reads (`legacySpans`);
-   a slide the chart declines shows that rewritten list, as the old form would, not the braces. `bridgeRecordsSource` does the
-   same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. The
+   a slide the chart declines shows that rewritten list, as the old form would, not the braces. `bridgeRecordsSource` (`chart-source-bridge.js`) does the
+   same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. It
+   decides nothing about place: the engine-configured block parser reads the slide and the shared token tracker
+   (`chart-places.js`, the same counting the engine's pill pass uses) says which spans `ownsRecordSpan` claims and on which
+   line they end. `test/unit/core/place-oracle.test.js` holds every other reader to the engine's answer on a seeded corpus. The
    bridge decides nothing: whoever CLAIMS a span (the markdown-it pill pass on the engine path, the DOM mirror in the browser, each
    asking `ownsRecordSpan` from its own surface, tokens or DOM) stamps it with `data-lat-record`, and `bridgeRecordsHtml`
    rewrites exactly the stamped spans and strips the stamp. A claimed span is therefore always rewritten or shown as it was, and

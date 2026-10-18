@@ -119,7 +119,7 @@ function gridSlide(chart, r) {
   };
   const rows = Array.from({ length: 2 + Math.floor(r() * 2) }, (_, i) => `| ${LABELS[i]} | ${cell()} | ${cell()} |`);
   let table = `| | A | B |\n|---|---|---|\n${rows.join('\n')}`;
-  const wraps = [(t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`, (t) => `${t}\n\n${t}`];
+  const wraps = [(t) => t, (t) => t.split('\n').map((l) => `> ${l}`).join('\n'), (t) => `<table><tr><td>x</td></tr></table>\n\n${t}`, (t) => `${t}\n\n${t.replace(/\{(\d+)\.5\}/g, '{9$1.5}')}`]; // the second table is a decoy with its own values
   table = wraps[Math.floor(r() * wraps.length)](table);
   return { chart, body: table, wrap: 'table' };
 }

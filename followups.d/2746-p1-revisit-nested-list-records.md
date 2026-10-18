@@ -16,8 +16,8 @@ source: https://github.com/Laticent/lattice/pull/2746
                    while §2 of the model note moves series data to tables. The Munger inversion on #2746 flagged it as a third source
                    form for phase 4's codemod. Owner, 2026-10-18: keep it for now, with an explicit call to revisit.
        where     — lib/core/chart-rows.js `isDetailRow` / `rows.nested: point-unless-valued`; the `ancestors` plumbing in the five readers
-                   (plugins.js pill pass, resolve-inline-code.js, docs/src/lib/compose/inline-objects.ts, lint-core.js, chart-rows.js
-                   `bridgeLines`).
+                   (plugins.js pill pass via chart-places.js, resolve-inline-code.js, docs/src/lib/compose/inline-objects.ts, lint-core.js,
+                   chart-source-bridge.js).
        done when — before phase 4's codemod is designed, the owner decides: keep nested-list records as a long-term form (the codemod
                    migrates them), or narrow claims to a chart's first data depth (nested series rows stay pills, lint points to the
                    table), and the model note §2/§10 says which.

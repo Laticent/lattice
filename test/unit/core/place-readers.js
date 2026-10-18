@@ -16,6 +16,8 @@ rows.ownsRecordSpan = function wrapped(classTokens, text, place) {
   return owned;
 };
 
+// After the wrapper, so every module that destructures the decision (chart-places, the engine) gets the wrapper.
+const { bridgeRecordsSource } = require('../../../lib/core/chart-source-bridge.js');
 const engine = require('../../../lib/engine');
 const { lintText } = require('../../../lib/authoring/lint.js');
 const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
@@ -60,10 +62,10 @@ const READERS = {
   // the narrator is read by what it did: the record texts the rewritten source no longer carries.
   narrator: (s) => {
     const src = `## A\n\n${s.body}\n`;
-    const out = rows.bridgeRecordsSource(src, [s.chart]);
-    const seen = new Set();
-    // A record the narrator claimed was a single-backtick span in the input and is gone from the output.
-    return [...src.matchAll(/(?<!`)`(\{[^{}`\n]*\})`(?!`)/g)].map((m) => m[1]).filter((t) => !seen.has(t) && seen.add(t) && !out.includes(`\`${t}\``));
+    const out = bridgeRecordsSource(src, [s.chart]);
+    // A record the narrator claimed was a code span of any backtick-run length in the input (never an escape: a
+    // backslash sits between the run and the brace) and its braces are gone from the output.
+    return [...new Set([...src.matchAll(/`+(\{[^{}`\n]*\})`+/g)].map((m) => m[1]))].filter((t) => !out.includes(t));
   },
   lint: (s) => owned('lint', () => lintText(deckOf(s))),
   dom: (s) => {

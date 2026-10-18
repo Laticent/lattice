@@ -69,6 +69,11 @@ const BUILD_OPTIONS = {
   bundle: true,
   format: 'esm',
   platform: 'browser',
+  // MARKDOWN-IT STAYS EXTERNAL, as in tools/build-authoring-core.js. The narrators reach the engine's block parser
+  // (lib/core/boundary-parser.mjs) through chart-source-bridge.js to read where a chart row's record sits; inlined,
+  // markdown-it and its dependencies add ~270 KB to this bundle and ship a second copy to a site that already
+  // imports markdown-it eagerly. Left external this file emits a bare `import` and Vite resolves it to that one copy.
+  external: ['markdown-it'],
   target: ['chrome109'],
   minify: false, // readable: this is committed source the docs build serves
   legalComments: 'none',

@@ -20,23 +20,24 @@ const { corpus } = require('./place-corpus.js');
 
 /**
  * Readers that must agree with the engine slide by slide. The browser's DOM walk is the only reader that
- * will always need its own adapter (it cannot run markdown-it), so it is held to the engine's answer here.
+ * will always need its own adapter (it cannot run markdown-it), so it is held to the engine's answer here;
+ * the narrator reads the same tokens through the shared place tracker (chart-source-bridge.js), so it agrees by construction.
  */
-const ENFORCED = ['dom'];
+const ENFORCED = ['dom', 'narrator'];
 
 /**
- * Readers that still measure a span's place with a hand-rolled line walker (lint's `renderedInlineSpans`, the
- * narrator's `bridgeLines`) and so disagree with the engine on the slides counted here. The shared place walker
- * replaces them; each step lowers its number, and the ratchet is exact so a fix cannot leave a stale count
- * behind. A reader leaves this table when its number reaches 0 and joins ENFORCED. Counts are for the default
- * corpus size (30 seeds per chart), so the ratchet is skipped when ORACLE_N says otherwise.
+ * Readers that still measure a span's place with a hand-rolled line walker (lint's `renderedInlineSpans`) and so
+ * disagree with the engine on the slides counted here. The shared place walker replaces it; the ratchet is exact
+ * so a fix cannot leave a stale count behind. A reader leaves this table when its number reaches 0 and joins
+ * ENFORCED. Counts are for the default corpus size (30 seeds per chart), so the ratchet is skipped when ORACLE_N
+ * says otherwise.
  */
-const PENDING = { narrator: 49, lint: 163 };
+const PENDING = { lint: 163 };
 
 describe('place oracle: every reader calls the same spans the record', () => {
   const N = Number(process.env.ORACLE_N) || 30;
   const slides = corpus(N);
-  const wrong = { narrator: [], lint: [] };
+  const wrong = { lint: [] };
   for (const slide of slides) {
     test(slide.name, () => {
       const fenced = fencedTexts(slide.body);

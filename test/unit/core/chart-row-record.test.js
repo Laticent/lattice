@@ -13,6 +13,7 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const rows = require('../../../lib/core/chart-rows.js');
+const { bridgeRecordsSource } = require('../../../lib/core/chart-source-bridge.js');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
 
@@ -258,7 +259,7 @@ describe('the paths agree on the data row', () => {
   test('a pipe-less table narrates its records as the old form', () => {
     const rec = 'Skill | A | B\n---|---|---\nS | `{done}` | `{todo}`';
     const old = 'Skill | A | B\n---|---|---\nS | [x] | [ ]';
-    assert.equal(rows.bridgeRecordsSource(rec, ['matrix-grid']), old);
+    assert.equal(bridgeRecordsSource(rec, ['matrix-grid']), old);
   });
 
   test('lint: a span the chart would draw is silent; one it would lose is named', () => {
@@ -290,7 +291,7 @@ describe('the paths agree on the data row', () => {
     // Only a row's lead paragraph can hold its value, so a later paragraph's `{24.6}` stays a pill, as on main.
     const html = render(deck('stacked-bar', body((n) => `\`{${n}}\``)));
     assert.doesNotMatch(html, /<code>\{24\.6\}<\/code>/);
-    assert.equal(rows.bridgeRecordsSource(body((n) => `\`{${n}}\``).split('\n').slice(0, 3).join('\n'), ['stacked-bar']), body((n) => `\`{${n}}\``).split('\n').slice(0, 3).join('\n'), 'the narrator leaves it too');
+    assert.equal(bridgeRecordsSource(body((n) => `\`{${n}}\``).split('\n').slice(0, 3).join('\n'), ['stacked-bar']), body((n) => `\`{${n}}\``).split('\n').slice(0, 3).join('\n'), 'the narrator leaves it too');
   });
 
   test('a comment cannot make the bridge quadratic', () => {
@@ -373,7 +374,7 @@ describe('the paths agree on the data row', () => {
     // A second paragraph is not the row's lead: its `{6}` is a pill, and the narrator leaves it, as the pass does.
     const loose = (v) => `- Q1\n\n  about ${v('6')}\n- Q2 ${v('5')}\n- Q3 ${v('4')}`;
     const asRecord = loose((n) => `\`{${n}}\``);
-    assert.equal(rows.bridgeRecordsSource(asRecord, ['bar']).split('\n')[2], '  about `{6}`');
+    assert.equal(bridgeRecordsSource(asRecord, ['bar']).split('\n')[2], '  about `{6}`');
   });
 
   // Fifth round (2026-10-17): decks that write no record must render as on main; each case is a repro.
@@ -400,9 +401,9 @@ describe('the paths agree on the data row', () => {
   test('the source bridge ends a paragraph at a setext underline, a rule, an HTML block and a table', () => {
     for (const end of ['---', '***', '<div>x</div>', '| a | b |']) {
       const src = `- A\n  ${end}\n  later \`{6}\`\n`;
-      assert.ok(typeof rows.bridgeRecordsSource(src, ['bar']) === 'string', end);
+      assert.ok(typeof bridgeRecordsSource(src, ['bar']) === 'string', end);
     }
-    assert.equal(rows.bridgeRecordsSource('- Q1\n\n  about `{6}`\n', ['bar']), '- Q1\n\n  about `{6}`\n');
+    assert.equal(bridgeRecordsSource('- Q1\n\n  about `{6}`\n', ['bar']), '- Q1\n\n  about `{6}`\n');
   });
 
   test('a raw list or table ahead of the chart\'s own makes it the second one on every path', () => {
@@ -417,8 +418,8 @@ describe('the paths agree on the data row', () => {
 
   test('a record after a heading item is a second block: the narrator leaves it, as the pass does', () => {
     const src = '- EMEA `{3}`\n- ## North\n  `{7}`\n';
-    assert.equal(rows.bridgeRecordsSource(src, ['bar']), '- EMEA `3`\n- ## North\n  `{7}`\n');
-    assert.equal(rows.bridgeRecordsSource('- ## North `{7}`\n', ['bar']), '- ## North `7`\n', 'on the heading line it is the lead');
+    assert.equal(bridgeRecordsSource(src, ['bar']), '- EMEA `3`\n- ## North\n  `{7}`\n');
+    assert.equal(bridgeRecordsSource('- ## North `{7}`\n', ['bar']), '- ## North `7`\n', 'on the heading line it is the lead');
   });
 
   test('lint says a record in a later paragraph of a row is not read', () => {
@@ -433,11 +434,11 @@ describe('the paths agree on the data row', () => {
   test('a different bullet or ordered delimiter starts a new list, so its `{N}` is a pill and the narrator leaves it', () => {
     for (const second of ['* Note `{7}`', '+ Note `{7}`']) {
       const src = `- EMEA \`4\`\n- APAC \`3\`\n${second}`;
-      assert.equal(rows.bridgeRecordsSource(src, ['bar']), src, second);
+      assert.equal(bridgeRecordsSource(src, ['bar']), src, second);
     }
     const ordered = '- EMEA `4`\n2) X `{4}`';
-    assert.equal(rows.bridgeRecordsSource(ordered, ['bar']), ordered);
-    assert.equal(rows.bridgeRecordsSource('- EMEA `4`\n- APAC `{3}`', ['bar']), '- EMEA `4`\n- APAC `3`', 'control: the same list');
+    assert.equal(bridgeRecordsSource(ordered, ['bar']), ordered);
+    assert.equal(bridgeRecordsSource('- EMEA `4`\n- APAC `{3}`', ['bar']), '- EMEA `4`\n- APAC `3`', 'control: the same list');
   });
 
   test('a record before a no-break space is claimed and drawn on every path, with no raw braces', () => {
@@ -497,8 +498,8 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a record followed by a no-break space entity narrates as the old form does', () => {
-    assert.equal(rows.bridgeRecordsSource('- EMEA `{4.2}`&nbsp;\n- APAC `3`\n', ['bar']), '- EMEA `4.2`&nbsp;\n- APAC `3`\n');
-    assert.equal(rows.bridgeRecordsSource('<ul><li>x</li></ul>\n\n- EMEA `{4.2}`\n', ['bar']), '<ul><li>x</li></ul>\n\n- EMEA `{4.2}`\n', 'a raw list ahead: left alone');
+    assert.equal(bridgeRecordsSource('- EMEA `{4.2}`&nbsp;\n- APAC `3`\n', ['bar']), '- EMEA `4.2`&nbsp;\n- APAC `3`\n');
+    assert.equal(bridgeRecordsSource('<ul><li>x</li></ul>\n\n- EMEA `{4.2}`\n', ['bar']), '<ul><li>x</li></ul>\n\n- EMEA `{4.2}`\n', 'a raw list ahead: left alone');
   });
 
   test('rawBlockCounts stays bounded on a huge hostile raw block', () => {
@@ -551,7 +552,7 @@ describe('the paths agree on the data row', () => {
 
   test('the source bridge leaves a record behind an inline raw list alone, as the render does', () => {
     const src = 'Intro <ul><li>x</li></ul> text\n\n- `code` lead `{1.5}`\n';
-    assert.equal(rows.bridgeRecordsSource(src, ['bar']), src);
+    assert.equal(bridgeRecordsSource(src, ['bar']), src);
   });
 
   test('a literal-mode slide narrates its spans as written', () => {
@@ -625,7 +626,7 @@ describe('the paths agree on the data row', () => {
 
   test('the source bridge reads CRLF', () => {
     // The line endings stay: a CRLF slide narrates as the old spans do (nothing either way), and no `\r` is dropped.
-    assert.equal(rows.bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\r\n  - P `6.9`\r\n');
+    assert.equal(bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\r\n  - P `6.9`\r\n');
   });
 
   test('the DOM mirror reads a record in a heading item, as the engine does', () => {
