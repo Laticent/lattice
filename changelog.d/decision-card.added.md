@@ -7,3 +7,11 @@
   request, on the PR and in chat with the same wording. Unanswered items are
   carried into the continuation brief and `followups.d/`.
   (`engineering/workflow.md` §❓ Decision card)
+- **The four agent cards (🚦 pre-merge, 📋 standup, 🎯 continuation, ❓ decision)
+  now share one layout.** Each opens with a BOTTOM LINE (the ask, the pick, the
+  state), then CAPS sections of aligned `label — value` lines, at most 75 columns.
+  The 🚦 card gains a `pick` line (merge or hold, with the one reason) and a
+  `read by` line in PROOF. The 🎯 brief's template shrinks from 51 to about 41
+  lines by tightening the STANDING ORDERS wording; the block stays inline so a
+  cold session needs no lookup. (`engineering/workflow.md` §One layout for all
+  four cards)

@@ -1574,6 +1574,22 @@ Two reasons, both of which bite in practice:
 
 If a card runs long, **shorten the content — never drop the fence.**
 
+### One layout for all four cards
+
+🚦, 📋, 🎯 and ❓ share one layout, so the owner learns it once:
+
+1. **Header line**: emoji, card name, subject, and on the right how to respond.
+2. **BOTTOM LINE first.** The ask, your pick and the state come before the detail.
+   The reader should be able to stop after that block and still act.
+3. **CAPS sections** of `label — value` lines, labels aligned. Items get an ID
+   (`P1`, `D1`, `W1`) so a reply can name one.
+4. **75 columns or fewer** when filled in, so a phone does not wrap it badly.
+   Wrap a long value onto an indented continuation line.
+5. **Fenced, always** (§Both cards are always fenced).
+
+The 🎯 brief keeps its STANDING ORDERS block inline on purpose: it hands a cold
+session its working rules without a lookup. Tighten the wording, never move it out.
+
 ### 📋 The standup card
 
 Keep it to ~5 lines, *derived from signals already in the repo and GitHub* —
@@ -1605,11 +1621,16 @@ Template:
 
 ```
 📋 Standup — merged #N (<sha>)
-• Swimlane:  <decisions-doc / inferred label>
-• Card:      <what the PR did> · <branch>
-• Completed: #N <one line> (+ #M, #K earlier this thread)
-• On deck:   <next step for this thread, or "thread complete — awaiting direction">
-• Notes:     <N notes (+X this merge) — omit the line if the merge touched none>
+
+BOTTOM LINE
+  state       — <merged; thread complete | merged; N items left (see 🎯)>
+
+THREAD
+  swimlane    — <decisions-doc / inferred label>
+  card        — <what the PR did> · <branch>
+  completed   — #N <one line> (+ #M, #K earlier this thread)
+  on deck     — <next step for this thread, or "thread complete">
+  notes       — <N notes (+X this merge) — omit the line if none>
 ```
 
 ### 🎯 The continuation brief — the handoff card
@@ -1660,57 +1681,48 @@ Six rules make it work:
 Template — everything between the fences is written *to the next session*:
 
 ```
-🎯 Continuation — <swimlane>          [paste this whole block into a new session]
+🎯 Continuation — <swimlane>                    paste into a new session
+
+BOTTOM LINE
+  ask         — work P1 to Pn top-down, one PR, one commit each
+  first       — P1: <the change, one line>
 
 CONTEXT
-  Swimlane:     <engineering/decisions/… path, or the stable label>
-  Just shipped: #N (<sha>) — <what it changed, one line>
-  Read first:   <2–3 canonical docs/paths for this area>, then CLAUDE.md.
-  State:        <where the tree stands; anything half-applied, tried and
+  swimlane    — <engineering/decisions/… path, or the stable label>
+  shipped     — #N (<sha>) — <what it changed, one line>
+  read first  — <2–3 canonical docs/paths for this area>, then CLAUDE.md
+  state       — <where the tree stands; anything half-applied, tried and
                  rejected, or deliberately left alone>
-  Decisions:    <unanswered ❓ items with the recommended option, or "none">
+  decisions   — <unanswered ❓ items with the pick, or "none">
 
-PRIORITIES — work them in this order
+PRIORITIES — in this order
   P1 · [#1234] <the change, one line>
-       why now   — <what it unblocks or de-risks>
-       where     — <file:line, entry points, the doc that governs it>
-       done when — <acceptance check a reviewer can run>
-       evidence  — <the artifact that proves it: rendered PDF via SendUserFile |
-                    tools/pixel-check.js | tools/screenshot.js @1440/820/390 |
-                    npm run bench before/after>
-       verify    — <tier 0 gates | tier 1 checker | tier 2 trio>, because <reason>
+       why        — <what it unblocks or de-risks>
+       where      — <file:line, entry points, the doc that governs it>
+       done when  — <acceptance check a reviewer can run>
+       evidence   — <rendered PDF via SendUserFile | tools/pixel-check.js |
+                     tools/screenshot.js @1440/820/390 | npm run bench>
+       verify     — <tier 0 gates | tier 1 checker | tier 2 trio>,
+                    because <reason>
   P2 · [followups.d/<origin-pr>-p<n>-<slug>.md] <the change, one line>
-       …same five fields…
-  P3 · …
+       …same five lines…
 
-WORKING AGREEMENT
-  • I am away from the keyboard. Decide and proceed — a reversible default beats
-    a question (CLAUDE.md DEFAULT OP MODE #3). Do not idle waiting on me; if a
-    call is genuinely mine, make the safe choice, note it in the PR, keep going.
-  • Don't settle. Green gates are the floor, not the finish. Visual work meets
-    the QUALITY BAR: rebuild it and actually look at it before handing back.
-  • One branch, one PR: `claude/<slug>`. One commit per priority above,
-    `area(scope): summary` (#13). The matching docs update and the
-    `changelog.d/` fragment ride in that same commit (#10, #6).
-  • Each item lands with the evidence named above, attached or pasted under its
-    own heading in the PR body. A "verified" with no artifact from the real
-    surface is not verified (#23) — if a surface can't be reached from here, say
-    UNVERIFIED.
-  • Agent budget: up to 8 agents, pre-authorized — don't ask. Spend them on the
-    highest-blast item, at the tier named there. Need more? Cut the lowest
-    priority to the next handoff and say so; never idle for authorization.
-  • Run the gates yourself (`npm run lint`, unit suite, `npm run build:check`,
-    integration where it applies) before each push. Rebase only on a real
-    conflict with `main`, never because it moved (#16).
-  • If an item proves wrong or blocked, finish every other item, then say in the
-    PR body exactly what you left and why. Never ship a window you created (#18).
-  • STOP at the merge gate: open the PR, drive CI green, leave it
-    conflict-free and review-ready — then post your own standup + continuation brief and wait. Do
-    not merge. Merge authorization is mine and never carries forward (#7).
+STANDING ORDERS
+  • I am away. Decide and proceed; a safe default beats a question.
+  • Gates are the floor. Look at visual work before handing it back.
+  • One branch claude/<slug>, one PR, one commit per priority (#13).
+    Docs and changelog ride in the same commit (#10, #6).
+  • Attach each item's evidence in the PR body. If a surface cannot
+    be reached from here, write UNVERIFIED (#23).
+  • Up to 8 agents are pre-approved. More needs the owner's OK.
+  • Run the gates before each push. Rebase only on a real conflict (#16).
+  • If an item is blocked, finish the rest and say why in the PR body.
+    Never ship a break you made (#18).
+  • STOP at the merge gate: green, no conflict, cards posted.
+    Do not merge (#7).
 
 DELIVERABLE
-  One green, conflict-free PR waiting for my review — its body carrying, per item, the
-  evidence and the verification call that was made.
+  one green, conflict-free PR waiting for review, evidence under each item
 ```
 
 **The 8-agent budget in that card is a pre-registered exemption to HARD RULE
@@ -1894,16 +1906,30 @@ everything becomes `high` because the work felt thorough.
 Template:
 
 ```
-🚦 Pre-merge — #N <title>
-WHAT        <one line: what actually lands>
-WHY         <one line: the problem it solves>
-HOW         <2–4 lines: the mechanism, plus anything a reviewer would find surprising>
-EVIDENCE    <what was RUN or MEASURED, per load-bearing claim — artifacts, numbers,
-             the surface each came from>
-RISK        <blast radius if wrong> · revert: <how it is undone>
-UNVERIFIED  <the caveats that bear on this decision, or "none">
-CONFIDENCE  <low | medium | high | very high> — <the axis that set the floor>
-            raise it by: <the one thing that would move it up, or "nothing outstanding">
+🚦 Pre-merge — #N <title>                        reply: "merge" or "hold"
+
+BOTTOM LINE
+  ask         — squash-merge #N?
+  pick        — <merge | hold>: <one reason>
+  confidence  — <low | medium | high | very high> · floor: <the axis>
+  raise it    — <the one thing that would move it up, or
+                 "nothing outstanding">
+
+CHANGE
+  what        — <one line: what actually lands>
+  why         — <one line: the problem it solves>
+  how         — <the mechanism, plus anything a reviewer would find
+                 surprising>
+
+PROOF
+  ran         — <what was RUN or MEASURED, per load-bearing claim: the
+                 artifact, the number, the surface it came from>
+  read by     — <who looked, and on what surface; or "nobody yet">
+  not run     — <caveats that bear on this decision, or "none">
+
+RISK
+  if wrong    — <blast radius>
+  revert      — <how it is undone>
 ```
 
 ## ❓ Decision card — what is waiting on the owner, in plain words
@@ -1995,36 +2021,39 @@ its line. `all recommended` accepts every pick and every default.
 Template:
 
 ```
-❓ Decisions — <PR or topic>             reply like: "D1 A, W1 keep, Q1 yes"
+❓ Decisions — <PR or topic>             reply: "D1 A, W1 keep, Q1 yes"
+
+BOTTOM LINE
+  waiting     — <N decisions, M defaults, K vetoes, Q questions>
+  ask         — <which item to answer first; the rest can wait>
+  merge       — #N, see the 🚦 card        (only when a merge ask is open)
 
 NEED YOU — blocked until you answer
   D1 · <the question, in plain words?>
-       why     — <one line: what is at stake>
-       A       — <option>
-                 gains — <what it buys>
-                 costs — <what it costs, with a number>
-                 then  — <what I do next>
-       B       — <option>
-                 gains — …
-                 costs — …
-                 then  — …
-       pick    — <A|B>, because <one reason>
-       default — <what happens if you say nothing, and how to undo it>
-       ref     — <#N | path>
+       why        — <one line: what is at stake>
+       A          — <option>
+                    gains — <what it buys>
+                    costs — <what it costs, with a number>
+                    then  — <what I do next>
+       B          — <option>
+                    gains — …
+                    costs — …
+                    then  — …
+       pick       — <A|B>: <one reason>
+       default    — <what happens if you say nothing, and how to undo it>
+       ref        — <#N | path>
 
 CAN WAIT — I picked a default and kept going
   W1 · <the choice?>
-       default — <what I did>
-       change  — <word> to change it, keep to leave it
+       default    — <what I did>
+       change     — <word> to change it, keep to leave it
 
 TO VETO — I decided these; tell me to undo any
   V1 · <what I decided, and why it was mine to decide>
 
 QUESTIONS — only you know
   Q1 · <the fact I need?>
-       changes — <what the answer decides>
-
-MERGE   — #N, see the 🚦 card        (only when a merge ask is open)
+       changes    — <what the answer decides>
 ```
 
 A section with no items is left out, not printed empty.
