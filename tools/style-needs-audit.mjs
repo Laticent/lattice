@@ -228,10 +228,17 @@ async function auditDeck(browser, deck, tmp) {
   // fall back to the token filter. Found by the computed-style gate on examples/chart-lead-blocks.md.
   const verifiable = !tokens.t.includes('lat-pane');
   // The verified scan runs in the page, where `querySelector` can answer for the met alternatives.
+  // Data goes in as an ARGUMENT, never spliced into code: the tokens come from the deck being audited.
+  // Only the scanner's own function text is turned back into code in the page.
   const ver = await page.evaluate(
-    `(() => { const need = ${neededModules.toString()}; const index = ${JSON.stringify(indexSel)}; const tok = ${JSON.stringify(tokens)};
-      const tokens = { c: new Set(tok.c), a: new Set(tok.a), t: new Set(tok.t), i: new Set(tok.i), s: tok.s };
-      const t0 = performance.now(); const flags = need(index, tokens, ${verifiable} ? document : undefined, ${JSON.stringify(runtime)}); return { flags, ms: performance.now() - t0 }; })()`,
+    ({ fnSrc, index: idx, tok, rt, useDoc }) => {
+      const need = new Function(`return (${fnSrc})`)();
+      const t = { c: new Set(tok.c), a: new Set(tok.a), t: new Set(tok.t), i: new Set(tok.i), s: tok.s };
+      const t0 = performance.now();
+      const flags = need(idx, t, useDoc ? document : undefined, rt);
+      return { flags, ms: performance.now() - t0 };
+    },
+    { fnSrc: neededModules.toString(), index: indexSel, tok: tokens, rt: runtime, useDoc: verifiable },
   );
   const need = ver.flags;
   r.verifiedMs = +ver.ms.toFixed(2);
