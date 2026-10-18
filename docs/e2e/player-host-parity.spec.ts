@@ -77,6 +77,12 @@ for (const deck of DECKS) {
 
 		const a = comparable(fromCli);
 		const b = comparable(fromStudio);
-		expect(a === b, firstDifference(a, b)).toBe(true);
+		// What this browser does with text, so a runner-only difference arrives with its own cause.
+		const text = await page.evaluate(() => {
+			const ctx = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+			ctx.font = '14px sans-serif';
+			return `${navigator.userAgent}; 'The quick brown fox' = ${ctx.measureText('The quick brown fox').width}px at 14px sans-serif`;
+		});
+		expect(a === b, `${firstDifference(a, b)}\n  studio browser: ${text}`).toBe(true);
 	});
 }

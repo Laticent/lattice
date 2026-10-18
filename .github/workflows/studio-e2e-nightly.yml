@@ -524,7 +524,7 @@ jobs:
         timeout-minutes: 20
         run: |
           set -uo pipefail
-          if npm run test:e2e -- e2e/player-host-parity.spec.ts --project=desktop --retries=0 2>&1 \
+          if npm run test:e2e -- e2e/player-host-parity.spec.ts --project=player-parity --retries=0 2>&1 \
             | tee "$GITHUB_WORKSPACE/studio-parity-report.txt"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
