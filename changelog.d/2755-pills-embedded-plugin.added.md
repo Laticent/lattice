@@ -2,3 +2,4 @@
 - Plugins: the pill notation (`{LIVE}`, `{BETA, tag, c4}`) is now the embedded `pills` plugin. Decks render byte-identically to before. `--disable-plugin=pills` is an error instead of a flag that does nothing, and the Studio's Plugins tab shows pills as one quiet "Always on" line, with no row or list checkbox.
 - Plugins: a plugin manifest can declare an `untagged` inline kind (the bare record `{…}`); only the embedded plugin may claim it, and only one may.
 - Docs: the Plugins page gains a Pills page (a demo with three live examples, and the Learn guide) and the site navigation lists it. The hub now says there are eight plugins and that pills are always on.
+- Build gate `checkHandRolledPills`: no stylesheet outside `lib/plugins/pills/` may read a `--pill-*` or `--lat-pill-*` token, counted per file against a measured allowlist that only shrinks (a stale entry fails too).

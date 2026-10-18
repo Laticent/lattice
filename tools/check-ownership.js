@@ -2880,6 +2880,87 @@ function checkReadingRole(errors) {
   errors.push(...readingRoleFindings(counts, SANCTIONED_READING_ROLE));
 }
 
+// ─── No hand-rolled pill (pills plugin note, engineering/decisions/2026-10-17-pills-plugin.md §4.4) ──
+// THE RULE: the pills plugin owns the pill's rendering AND styling, so no stylesheet outside
+// `lib/plugins/pills/` reads a `--pill-*` or `--lat-pill-*` token. A component that wants a pill
+// authors one (`{…}` in backticks) and passes color/size/case through the `--lat-pill-*` interface
+// properties the plugin documents; reading the plugin's own tokens is how a second pill got
+// painted by hand fifteen times. Token FILES (`*.tokens.css`, where `--pill-*` is defined) and
+// generated CSS (its source is counted) are exempt.
+//
+// WHAT IS COUNTED: every `var(--pill-…)` / `var(--lat-pill-…)` per stylesheet under lib/,
+// comments stripped. The allowlist is the measured starting point and only shrinks: each entry
+// names why the read still exists, and the commit that removes the site lowers or deletes it.
+// The gate fails both ways, like the reading-role gate: a count above its entry (a new hand-rolled
+// read) and an entry above its count (stale).
+const SANCTIONED_PILL_READS = [
+  { file: 'lib/base/base.modifiers.css', count: 27, why: 'the universal trailing-`code` pill rule; leaves with the clean break to `{…}`' },
+  { file: 'lib/components/chart/flowchart/flowchart.styles.css', count: 2, why: "a node label borrows the pill's font and tracking; moves to its own tokens or a pill" },
+  { file: 'lib/components/chart/roadmap/roadmap.styles.css', count: 12, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
+  { file: 'lib/components/chart/state-chart/state-chart.styles.css', count: 8, why: 'state chips and tiles are not pills; they take their own tokens that reference `--radius-*`' },
+  { file: 'lib/components/comparison/pricing/pricing.styles.css', count: 4, why: 'the `.badge` family and the ribbon; the badge waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
+  { file: 'lib/components/comparison/redline/redline.styles.css', count: 6, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
+  { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
+  { file: 'lib/components/evidence/kpi/kpi.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/inventory/actors/actors.styles.css', count: 1, why: 'reads the pill border color for a rule; moves to a base color token' },
+  { file: 'lib/components/inventory/cards-grid/cards-grid.styles.css', count: 21, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/inventory/cards-stack/cards-stack.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/inventory/glossary/glossary.styles.css', count: 7, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
+  { file: 'lib/components/inventory/inventory/inventory.styles.css', count: 2, why: "matches a band's height to the pill's (`--pill-fs`, `--pill-pad-y`); reads the plugin's `--lat-pill-h` instead" },
+  { file: 'lib/components/inventory/list-tabular/list-tabular.styles.css', count: 4, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/inventory/logo-wall/logo-wall.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css', count: 7, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/legal/regulatory-update/regulatory-update.styles.css', count: 17, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/components/legal/statute-stack/statute-stack.styles.css', count: 18, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
+  { file: 'lib/plugins/chart-family/chart-family.styles.css', count: 9, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
+  { file: 'lib/plugins/icons/icons.styles.css', count: 1, why: "sizes an icon to the pill's type step (`--pill-fs`); a size the pills plugin should publish" },
+  { file: 'lib/plugins/sparks/sparks.styles.css', count: 2, why: "sizes a spark to the pill's type step (`--pill-fs`); a size the pills plugin should publish" },
+];
+
+/** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
+function pillReadsIn(css) {
+  return (stripComments(css).match(/var\(\s*--(?:lat-)?pill-[a-z0-9-]+/g) || []).length;
+}
+
+/** Errors for `counts` (`[{ file, n }]`) judged against `sanctions`. */
+function handRolledPillFindings(counts, sanctions) {
+  const errors = [];
+  const have = new Map(counts.map((c) => [c.file, c.n]));
+  const allowed = new Map(sanctions.map((s) => [s.file, s]));
+  for (const c of counts) {
+    const s = allowed.get(c.file);
+    if (!s || c.n > s.count) {
+      errors.push(
+        `${c.file} reads a \`--pill-*\` token ${c.n} time(s), ${s ? `${s.count} sanctioned` : 'none sanctioned'}. ` +
+        'The pills plugin owns the pill: author `{…}` in backticks and pass color/size/case through ' +
+        '`--lat-pill-edge` / `-bg` / `-ink` / `-scale`. If a read is provably needed, add or raise its ' +
+        'SANCTIONED_PILL_READS entry in tools/check-ownership.js with the reason.',
+      );
+    }
+  }
+  for (const s of sanctions) {
+    const n = have.get(s.file) || 0;
+    if (n < s.count) {
+      errors.push(
+        `stale pill-read sanction in tools/check-ownership.js — ${s.file} reads a \`--pill-*\` token ${n} time(s), ` +
+        `${s.count} sanctioned. Lower or remove the SANCTIONED_PILL_READS entry so the allowlist stays honest.`,
+      );
+    }
+  }
+  return errors;
+}
+
+function checkHandRolledPills(errors) {
+  const counts = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    if (rel.startsWith('lib/plugins/pills/') || rel.endsWith('.tokens.css') || rel.endsWith('.generated.css')) continue;
+    const n = pillReadsIn(fs.readFileSync(file, 'utf8'));
+    if (n) counts.push({ file: rel, n });
+  }
+  errors.push(...handRolledPillFindings(counts, SANCTIONED_PILL_READS));
+}
+
 // ─── One type size per deck (typography.md §7, "One size across modifiers") ──
 // THE RULE: a type role's size is set by the deck's venue, and no per-slide class changes
 // it. Spacing, chrome and color may change per slide; the size of `--fs-body`, `--fs-h2`
@@ -13572,6 +13653,7 @@ function run() {
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
   checkReadingRole(errors);
+  checkHandRolledPills(errors);
   checkTypeSizeModifiers(errors);
   checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
@@ -13684,6 +13766,10 @@ module.exports = {
   checkFuocoBoundary,
   checkMosaicoBoundary,
   checkReadingRole,
+  checkHandRolledPills,
+  handRolledPillFindings,
+  pillReadsIn,
+  SANCTIONED_PILL_READS,
   readingRoleCountsIn,
   readingRoleFindings,
   SANCTIONED_READING_ROLE,
