@@ -406,6 +406,11 @@ was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Fi
 inside a run that no face declares (550 between 500 and 600) is the one case that would render
 differently, so the guard refuses the merge. Record: `decisions/2026-10-16-player-as-library-audit.md` §3.
 
+**The Studio's raster exports carry the export setting's overflow marker.** PDF, images, PowerPoint and LibreOffice rasterize a
+capture frame whose runtime paints the marker, so `share-export.ts` passes each one the workspace's level (`reader` by
+default); `docs/e2e/studio-raster-export-marker.spec.ts` reads the left-edge pixel of a clipped slide in each (an
+authoring ring is red there).
+
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
 Studio's own modules bundled into Chromium. That covers the packer.
