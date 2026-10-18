@@ -15,6 +15,9 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
 // `oklch(… none)` for one `color-mix()`), and the bake reads computed styles. The parity claim is
 // per browser build, and this pins it to one.
 //
+// RUNS IN ITS OWN NIGHTLY JOB (`player-parity` in .github/workflows/studio-e2e-nightly.yml); the
+// `@player-parity` tag keeps the big `e2e` job from running it a second time.
+//
 // Three decks, each standing for a class of gap the audit closed: a plain deck (the sheet, the fonts,
 // the record), Mermaid diagrams with `light-dark()` tokens and a drop shadow (the baked figure, the
 // token reader, the export render's config and box), and a portrait split (the structural cut).
@@ -42,7 +45,7 @@ function firstDifference(a: string, b: string): string {
 }
 
 for (const deck of DECKS) {
-	test(`${deck}: the Studio's Webpage export is the CLI's --player, byte for byte`, async ({ page }, testInfo) => {
+	test(`${deck}: the Studio's Webpage export is the CLI's --player, byte for byte @player-parity`, async ({ page }, testInfo) => {
 		test.setTimeout(480_000);
 		const source = await readFile(path.join(REPO, 'examples', `${deck}.md`), 'utf8');
 

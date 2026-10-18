@@ -413,8 +413,8 @@ Studio's own modules bundled into Chromium. That covers the packer.
 **And the two hosts render the same deck to the same file.** The Studio's Share → Webpage export and
 the CLI's `--player` write identical bytes for one deck, apart from three things the owner ruled out:
 the record's `generatedAt`, its `host` field (`cli` or `studio`), and the policy's script hashes.
-`docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, with the Studio
-suite), on a plain deck, a Mermaid deck and a portrait split; 25 example decks were measured identical
+`docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, in its own
+`player-parity` job in `studio-e2e-nightly.yml`, which also runs on every dispatch), on a plain deck, a Mermaid deck and a portrait split; 25 example decks were measured identical
 when it landed. **The claim is per browser build:** both hosts read computed styles, and two Chromium
 versions spell some computed colors differently, so the spec runs the CLI on the Chromium the suite
 uses, and a Studio export made in Safari or Firefox will differ. Record:
