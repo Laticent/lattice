@@ -758,9 +758,10 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * rings). One property, both behaviors, no pin to fight.
  *
  * Both directions are covered, but MIND WHICH ONE ACTUALLY RUNS. `check:chart-fit`
- * renders the split pages and is the sharpest check here — and it runs only in
- * `integration-nightly.yml` (its `chartfit` step), never per PR. The other unattended guard is
- * `overflow:check` via `overflow-nightly.yml`: a regression of this rule pushes the corpus from 7 clipped
+ * renders the split pages and is the sharpest check here — and it is wired to NO CI
+ * job (`grep -rn chart-fit .github/` is empty), so it only ever runs when somebody
+ * types it. The guard that runs unattended is `overflow:check` via
+ * `overflow-nightly.yml`: a regression of this rule pushes the corpus from 7 clipped
  * slides to 12, because `examples/portrait-roadmap.md` clips five pages. The carousel
  * suite asserts an overstuffed roadmap still divides. See #1209.
  *
