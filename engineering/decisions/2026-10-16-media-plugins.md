@@ -946,3 +946,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   a row without an entry, an entry without a row, a changed `locality`, a `contributed` row that says `local`, and two rows
   claiming one scheme. It runs inside the existing `build:check` step, so it adds no CI job, step or hook (CLAUDE.md second
   filter, row 2). A scratch `drive` row made it fail with the message recorded in the PR body.
+- 2026-10-18: the player inliner's tokenizer is replaced by a linear start-tag reader that follows the HTML tokenizer's tag states
+  (`readTag`, `mapPlayerContexts`) and a forward-pass `url(file://…)` reader (`rewriteFileUrls`); `resolveStyleUrls` got the same
+  treatment (`replacePlainUrls`), because a 1 MB `url(file://` style attribute took 277 s there. **Decision on the owner's DOM
+  question** (put to the owner in the PR body, not blocking): the owner was away, so the safe, reversible default was the
+  tokenizer fix the follow-up already described. **Decision:** `<template>` content IS a CSS context, so a style attribute in it is
+  baked (a script clones it into the page, and a browser then loads the picture). Players of six decks are byte-identical old
+  versus new.
