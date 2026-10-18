@@ -936,3 +936,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   the CLI always hands the render an `assetUrls` map, even an empty one, so a missing name draws the stand-in and never prints a
   dead `asset:` address. `lint:deck` carries the `asset-missing` warning (the linter core is fs-free, so the folder check
   lives in `tools/lint-deck.js`).
+- 2026-10-18: the rows take the §4.1 shape. Each has `scheme` and `resolve(ref, host)` (a URL, the reference itself to pass it
+  through, or `null` for the drawn stand-in); `classify` looks the scheme up in the table; `resolveAssetUrl` is one loop over it;
+  the two CSS-text matchers in `bg-image.js` read `NAMED_SCHEMES`. A test greps `lib/` for the scheme pair outside the table.
+  Evidence: the differential test is unchanged and green; HTML exports of seven decks (the baseline gallery, jargon and
+  data-viz galleries, collage, avatars, adaptive-image, deck-logo) are byte-identical old versus new; the engine bench
+  moves inside the base-versus-base spread.
