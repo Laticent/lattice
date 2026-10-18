@@ -562,6 +562,12 @@ Studio export captures a list still measuring. `finishBake` also turns any list 
 `fallback` (the unpacked grid), the backstop for a frame whose runtime never reported. With that in
 place the logo wall hides while measuring, as collage does, so a first visit paints once.
 
+**Print.** The Studio's vector print builds its own frame and calls `print()` on a timer (`PrintOptionsPanel.tsx`), so
+it waits for the kit too: `idle(2500)` inside the same 3 s bound, then `settle()` just before `print()`.
+`docs/e2e/print-waits-for-measuring.spec.ts` records each list's state and computed visibility inside the print frame at
+the moment `print()` is called, with every picture delayed 3 s. Against main's panel: collage packed/visible, logo wall
+**measuring/hidden** (a gap on the page). With the wait: both packed/visible, `print()` 4.7 s after the click.
+
 **Measured.** `logo-wall-first-visit.spec.ts` on the real Studio, marks delayed 300 ms: every painted
 state before `packed` is `measuring` with `visibility: hidden`, never the grid; with one mark delayed
 9 s the cap shows the unpacked grid, visible. Exports of a collage and logo-wall deck with every
