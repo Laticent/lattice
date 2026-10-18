@@ -1,0 +1,2 @@
+playground: +1
+The engine pack gained two small helpers, `leadingWhereNamesSlide` and `isOneCompound`, so a leading `:where(section…)` is packed onto the slide. The route-budget gate reads the playground's eager JS +1 B and the studio's -4 B for the same change, so this looks like gzip variation on routes the PR changes only inside the lazily loaded engine chunk (the engine chunk itself reads 678.6KB on every route), as #2361 and #2548 saw. Nothing was given back because nothing measurable grew.
