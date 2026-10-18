@@ -62,6 +62,8 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/hub-spoke-icons.md', 'the demo deck for icons on hub-spoke (HARD RULE #9). Its `{icon=…}` records are counted here but render as disc icons, not pills — the census reads spans without their slide, and hub-spoke owns the rows it reads (lib/core/resolve-inline-code.js `ownedRowDepth`); the table slide escapes its examples'],
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
+  ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'the cards-stack gallery: a card title carries a `{status}` pill, written in the pills plugin\'s own notation (HARD RULE #9)'],
+  ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill, in the pills plugin\'s notation'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
 ]);
 

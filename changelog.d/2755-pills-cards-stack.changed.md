@@ -1,0 +1,1 @@
+- **Breaking:** `cards-stack` draws its title-row pill with the pills plugin. Write the pill as `` `{shipped}` ``; a bare trailing `` `shipped` `` is now plain inline code. The first-party gallery and examples are migrated.
