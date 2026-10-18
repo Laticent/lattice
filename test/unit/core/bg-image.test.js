@@ -255,6 +255,13 @@ describe('bg-image — liftImageBgImages reads slides and directives as the engi
     'a directive indented as code is code': ['\t<!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
     'a directive indented four spaces is code': ['    <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
     'text after the closing `-->` voids the directive': ['<!-- _class: image --> trailing\n\n![bg left](a.jpg)\n', false],
+    // The paragraph rule must look at the whole run above the `---`: these all split the slide in the engine,
+    // and the picture below belongs to a plain slide that must keep its full-bleed background.
+    'a wrapped list item above `---` is not a setext heading': ['<!-- _class: image -->\n\n# One\n\n- an item that wraps\n  onto a second line\n---\n\n![bg](a.jpg)\n', false],
+    'a quote continuation line above `---` is not a setext heading': ['<!-- _class: image -->\n\n# One\n\n> a quote\ncontinued lazily\n---\n\n![bg](a.jpg)\n', false],
+    'an indented code line above `---` is not a setext heading': ['<!-- _class: image -->\n\n# One\n\nText\n\n    code line\n---\n\n![bg](a.jpg)\n', false],
+    'a directive on the second line of an indented code block is code': ['# One\n\n    code\n    <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
+    'a directive indented straight under a heading is code': ['# One\n    <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
     'the plain case still lifts': ['<!-- _class: image -->\n\n# T\n\n![bg left](a.jpg)\n', true],
     'a blank line before `---` is a real break': ['<!-- _class: image -->\n\n# T\n\n---\n\n![bg left](a.jpg)\n', false],
     'a list item then `---` is a break, not a setext underline': ['- item\n---\n\n<!-- _class: image -->\n\n![bg left](a.jpg)\n', true],

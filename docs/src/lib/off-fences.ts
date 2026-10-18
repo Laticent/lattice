@@ -5,6 +5,7 @@
 // answer from the source: `deckPluginsOff` names the plugins left off, the registry names each one's
 // fences, and the count is the fences of those names the deck holds. Generic on purpose: it names no plugin.
 
+import fenceLanguagesCore from '../../../lib/core/fence-languages.js';
 import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
 import { deckPluginsOff } from './plugin-admission';
 
@@ -14,13 +15,18 @@ export type OffFences = { count: number; plugins: { name: string; title: string;
 export function offFences(source: string): OffFences | null {
 	const off = deckPluginsOff(source);
 	if (!off.length) return null;
+	// The fence walker the Studio already shares (`lib/core/fence-languages.js`): it tracks a fence opened inside another,
+	// so a sample in a code block is not counted. Quote and list prefixes are removed first so a fence under `>` or `1.` is seen.
+	const flat = String(source)
+		.split('\n')
+		.map((l) => l.replace(/^(?:[ \t]*>)+[ \t]?/, '').replace(/^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]+(?=`{3,}|~{3,})/, '$1'))
+		.join('\n');
+	const fences = fenceLanguagesCore.scanFences(flat) as { lang: string }[];
 	const plugins: OffFences['plugins'] = [];
 	for (const g of PLUGIN_GRAMMAR) {
 		if (!off.includes(g.name)) continue;
 		for (const fence of Object.keys(g.fences || {})) {
-			// A fence opens a line (up to three spaces in, or any depth inside a quote or a list) with 3+ backticks or tildes.
-			const re = new RegExp(`^[ \\t>]*(?:[-*+]\\s+)?(?:\`{3,}|~{3,})\\s*${fence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`, 'gim');
-			const count = (source.match(re) || []).length;
+			const count = fences.filter((f) => f.lang === fence.toLowerCase()).length;
 			if (count) plugins.push({ name: g.name, title: g.title, fence, count });
 		}
 	}

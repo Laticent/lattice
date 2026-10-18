@@ -42,7 +42,7 @@ import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
-import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
+import { buildDeckRender, type DeckRender, type ExtraTheme, withExportMarker } from './share-export';
 import { hasDrawnFence } from './slide-thumb';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 
@@ -436,7 +436,7 @@ export function PrintOptionsPanel({
 		// it could not be built.
 		const imageFailures = ex.createImageFailureLog();
 		if (!imgs) {
-			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
+			const out = await ex.rasterizeDeckImages(await withExportMarker(render), (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
 			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
 			if (mountedRef.current) setImgCache(imgs);
 		}

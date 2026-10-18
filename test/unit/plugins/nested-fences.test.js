@@ -49,3 +49,14 @@ test('reprefix keeps every line in the container, turns a list marker into space
 	assert.equal(reprefix('<div>\n<svg/>', '10. '), '10. <div>\n    <svg/>');
 	assert.equal(reprefix('<div>\n<svg/>', '    '), '    <div>\n    <svg/>');
 });
+
+test('a fence between two `$$` lines is math to the engine, so it is skipped', () => {
+	assert.deepEqual(nested('> $$\n> ```mermaid\n> graph\n> ```\n> $$\n'), []);
+});
+
+test('the narrator reads a nested fence too (firstMermaidFenceBody)', () => {
+	const { firstMermaidFenceBody } = require('../../../lib/core/mermaid-fences');
+	assert.match(firstMermaidFenceBody('> ```mermaid\n> flowchart LR\n>   A --> B\n> ```\n'), /^flowchart LR\n {2}A --> B/);
+	assert.match(firstMermaidFenceBody('10. Tenth\n\n    ```mermaid\n    flowchart LR\n      A --> B\n    ```\n'), /^flowchart LR/);
+	assert.equal(firstMermaidFenceBody('no fence here'), null);
+});

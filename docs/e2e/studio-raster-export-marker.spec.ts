@@ -32,6 +32,18 @@ async function leftEdge(page: import('@playwright/test').Page, png: Buffer): Pro
 
 const isAuthorRed = ([r, g, b]: [number, number, number]) => r > 180 && g < 100 && b < 80;
 
+/** The bottom-center pixel: the reader pill ("Content clipped") is painted there, so a clipped slide is not white. A positive control: without it a deck that fits would pass the checks below for any reason. */
+async function bottomCenter(page: import('@playwright/test').Page, png: Buffer): Promise<[number, number, number]> {
+	return page.evaluate(async (b64) => {
+		const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+		const ctx = (new OffscreenCanvas(bmp.width, bmp.height).getContext('2d')) as OffscreenCanvasRenderingContext2D;
+		ctx.drawImage(bmp, 0, 0);
+		const d = ctx.getImageData(Math.floor(bmp.width / 2), bmp.height - 3, 1, 1).data;
+		return [d[0], d[1], d[2]] as [number, number, number];
+	}, png.toString('base64'));
+}
+const isPill = ([r, g, b]: [number, number, number]) => !(r > 240 && g > 240 && b > 240);
+
 async function exportOverflowDeck(page: import('@playwright/test').Page, format: 'pdf' | 'images' | 'pptx') {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
@@ -49,6 +61,7 @@ test('the Studio images export shows no authoring ring on a clipped slide', asyn
 	expect(slide, 'the clipped slide is in the zip').toBeTruthy();
 	const px = await leftEdge(page, Buffer.from(await zip.files[slide].async('uint8array')));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
+	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[slide].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
 });
 
 test('the Studio PowerPoint export shows no authoring ring on a clipped slide', async ({ page }) => {
@@ -58,6 +71,7 @@ test('the Studio PowerPoint export shows no authoring ring on a clipped slide', 
 	expect(media, 'the clipped slide picture is in the deck').toBeTruthy();
 	const px = await leftEdge(page, Buffer.from(await zip.files[media].async('uint8array')));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
+	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[media].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
 });
 
 test('the Studio PDF export shows no authoring ring on a clipped slide', async ({ page }) => {
@@ -74,4 +88,5 @@ test('the Studio PDF export shows no authoring ring on a clipped slide', async (
 	expect(png, 'pdftoppm wrote page 2').toBeTruthy();
 	const px = await leftEdge(page, fs.readFileSync(path.join(dir, png as string)));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
+	expect(isPill(await bottomCenter(page, fs.readFileSync(path.join(dir, png as string)))), 'the clipped slide carries the reader pill').toBe(true);
 });

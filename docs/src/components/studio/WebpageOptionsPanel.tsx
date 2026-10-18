@@ -84,7 +84,15 @@ export function WebpageOptionsPanel({
 	// either way — the recipient's copy carries the bytes and its policy loads nothing on open.
 	const [embedWebPictures, setEmbedWebPictures] = React.useState(false);
 	// FENCES WHOSE PLUGIN IS OFF ship as source; say so before the export, not after (#2758).
-	const offFenceList = React.useMemo(() => offFences(source), [source]);
+	// Re-read when the host changes its plugin defaults with the panel open, as the preview does.
+	const [defaultsTick, setDefaultsTick] = React.useState(0);
+	React.useEffect(() => {
+		const bump = () => setDefaultsTick((n) => n + 1);
+		window.addEventListener('lattice:plugin-defaults', bump);
+		return () => window.removeEventListener('lattice:plugin-defaults', bump);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: defaultsTick is the re-read signal, not an input.
+	const offFenceList = React.useMemo(() => offFences(source), [source, defaultsTick]);
 	const webOrigins = React.useMemo(() => webPictureOrigins(source, typeof location === 'undefined' ? undefined : location.origin), [source]);
 	const deckHasWebPictures = webOrigins.length > 0;
 	// ASK THE READER INSTEAD: the origins the author lets the player load from, behind a "Load pictures" button in the file.

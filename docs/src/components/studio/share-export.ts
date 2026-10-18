@@ -376,7 +376,7 @@ async function exportOverflowMarker(): Promise<OverflowMarker> {
 }
 
 /** An export's render, with the marker level the export setting names (`reader` unless the author chose otherwise). The capture frame paints the runtime's marker into every raster, so without this a clipped slide reached a PDF, PNG or PowerPoint reader with the red ring and "OVERFLOWS" (followups.d/2739-p6). */
-async function withExportMarker(render: DeckRender): Promise<DeckRender> {
+export async function withExportMarker(render: DeckRender): Promise<DeckRender> {
 	return { ...render, overflowMarker: await exportOverflowMarker() };
 }
 
@@ -939,7 +939,7 @@ export async function shareHtmlPlayer(
  */
 export async function renderThemeShowcase(options: SingleSlideOptions, theme: { name: string; label?: string; css: string }): Promise<Blob> {
 	const { showcaseDeck } = await import('./asset-bundle');
-	const render = await buildDeckRender(options, showcaseDeck(theme.label || theme.name), theme.name, 'light', { name: theme.name, css: theme.css });
+	const render = await withExportMarker(await buildDeckRender(options, showcaseDeck(theme.label || theme.name), theme.name, 'light', { name: theme.name, css: theme.css }));
 	const ex = await exporters();
 	return ex.renderPdfBlob(render, `${theme.name}-showcase`, undefined, { deck: `${theme.name} showcase`, engine: 'lattice' });
 }
