@@ -931,3 +931,8 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   zip, so it does not try. A typed `file:` address is allowed exactly when its real path is inside the deck's folder or
   Lattice's install (the same two roots `pdf-asset-reader.js` uses), which is where a deck's own relative references land. The
   `file` row stays `remote` for the markup gates. The Studio and the playground have no local file system and are unchanged.
+- 2026-10-18: slice 1's `asset:` in the CLI (`lib/export/deck-assets.js`). **Decision:** the folder is `assets/` beside the deck. The
+  Library's own name rule applies to the file stem (lowercase, digits, `-`, `_`); a symlink out of the folder is not listed;
+  the CLI always hands the render an `assetUrls` map, even an empty one, so a missing name draws the stand-in and never prints a
+  dead `asset:` address. `lint:deck` carries the `asset-missing` warning (the linter core is fs-free, so the folder check
+  lives in `tools/lint-deck.js`).
