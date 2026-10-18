@@ -171,7 +171,6 @@ export function shareOut(total: number, kids: readonly Share[]): number[] {
     }
     if (Math.abs(violation) < 1e-12 * Math.max(1, Math.abs(total))) {
       for (const i of open) out[i] = target.get(i) as number;
-      free = 0;
       break;
     }
     // Net growth needed: freeze the children held at their floors; net shrink: those held at their caps.
@@ -188,7 +187,6 @@ export function shareOut(total: number, kids: readonly Share[]): number[] {
     }
     if (!froze) {
       for (const i of open) out[i] = target.get(i) as number;
-      free = 0;
       break;
     }
   }
