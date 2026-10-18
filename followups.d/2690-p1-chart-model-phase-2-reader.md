@@ -74,3 +74,13 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                about that shape was false). Left, lint-only and no visible effect found: lint's `recordPlace` treats a trailing `&nbsp;`
                as content, does not count a bullet-to-ordered delimiter switch, a quoted list ahead, or an inline raw `<ul>` as lists
                ahead; Compose's `ownsRecord` does not count an inline raw `<ul>` ahead; the narrator reads CRLF text as LF once it rewrites.
+           14. Tenth round (2026-10-18, fifth independent checker on 1a5aa32): its six confirmed defects shared one root, a second decision:
+               the HTML bridge re-decided ownership from the HTML and drifted from the pill pass (raw `<blockquote>`, a stray `</ul>`,
+               a no-break space after a grid cell, a comment, an escaped span). Fixed structurally: the claimer stamps
+               (`data-lat-record`), the bridge only follows the stamp, so a claimed span cannot be left as raw braces. The DOM mirror
+               and the pill pass still decide independently per path, so a rare shape can draw on one path and stay a pill on the
+               other (a pill is what `main` drew); lint and Compose are separate readers. Also fixed: an escaped span earlier in the
+               row is no value to the mirror; a comment after the record is content to the mirror, as to the pill pass; the
+               matrix-grid cell decoder counts a cell's sole record as the pill pass does. Left, low: the runtime's descendant query
+               for wrapped lead spans is slow on thousands of wrappers in a parent with thousands of children; jsdom (not Chromium)
+               runs the ownership check slowly on 8,000 old-form rows (a `querySelector` per code element).

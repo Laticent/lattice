@@ -264,7 +264,11 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    the engine and the runtime share it, and rewrites a data row's record to the spans each transform reads (`legacySpans`);
    a slide the chart declines shows that rewritten list, as the old form would, not the braces. `bridgeRecordsSource` does the
    same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. The
-   bridge asks `ownsRecordSpan` the same question, so a span the pill pass left alone is a span it rewrites. Grid charts convert
+   bridge decides nothing: whoever CLAIMS a span (the markdown-it pill pass on the engine path, the DOM mirror in the browser, each
+   asking `ownsRecordSpan` from its own surface, tokens or DOM) stamps it with `data-lat-record`, and `bridgeRecordsHtml`
+   rewrites exactly the stamped spans and strips the stamp. A claimed span is therefore always rewritten or shown as it was, and
+   a second, different reading of the HTML (a raw `<blockquote>`, a stray `</ul>`, a no-break space, a comment) cannot leave it
+   as raw braces, which is what four independent review rounds kept finding when the bridge re-decided. Grid charts convert
    through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut table), and matrix-grid's
    cell decoder, which runs before any bridge, reads the same text. The transforms themselves are untouched, which is why
    parity is exact; phase 4 deletes the bridge with the old spellings.

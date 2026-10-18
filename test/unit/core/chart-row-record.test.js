@@ -114,11 +114,18 @@ describe('runtime: a pill drawn earlier in the row does not change who owns the 
     assert.doesNotMatch(nested, /<code>\{-12%\}<\/code>/, 'the detail keeps a pill, not raw braces');
   });
 
-  test('a record followed by a no-break space is still the row\'s record in the runtime', async () => {
-    const body = '- EMEA `{4}` &nbsp;\n- APAC `3`';
-    assert.match(engine.render(deck('bar', body), {}).html, /data-value="4"/, 'control: the engine draws EMEA');
-    const html = await boot('bar', body);
-    assert.match(html, /<desc>EMEA 4; APAC 3<\/desc>/);
+  test('a comment between a non-value span and the record, and an escaped span earlier in the row, leave the record claimed in the runtime too', async () => {
+    for (const body of ['- EMEA `on-track` <!-- c --> `{3}`\n- APAC `4`', '- EMEA `\\{4}` more `{3}`\n- APAC `40`']) {
+      const html = await boot('bar', body);
+      assert.doesNotMatch(html, /\{3\}/, `${body}: no raw braces and no pill: the row draws its value`);
+      assert.match(html, /<desc>EMEA [\s\S]*?3; APAC /, body);
+    }
+  });
+
+  test('a record followed by a no-break space draws in the runtime as the old form does, with no raw braces', async () => {
+    const was = await boot('bar', '- EMEA `4` &nbsp;\n- APAC `3`');
+    const html = await boot('bar', '- EMEA `{4}` &nbsp;\n- APAC `3`');
+    assert.equal(html, was, 'identical to the old form on this surface (the kernel drops a value followed by a no-break space either way)');
     assert.doesNotMatch(html, /\{4\}/);
   });
   test('a badge `{1, circle, c5}` before the record is a pill and not a value, as in the engine', async () => {
@@ -235,11 +242,16 @@ describe('the paths agree on the data row', () => {
     assert.match(html, /lat-pill/);
   });
 
-  test('the bridge reads an HTML-escaped non-breaking space, and a tag-like attribute value', () => {
-    assert.equal(rows.bridgeRecordsHtml('<ul><li>U <code>{4.2M,&nbsp;target=5.0M}</code></li></ul>', ['bullet']),
+  test('the bridge rewrites a stamped record, reads an HTML-escaped no-break space inside it, and leaves an unstamped span alone', () => {
+    const st = '<code data-lat-record="">';
+    assert.equal(rows.bridgeRecordsHtml(`<ul><li>U ${st}{4.2M,&nbsp;target=5.0M}</code></li></ul>`, ['bullet']),
       '<ul><li>U <code>4.2M</code> <code>5.0M</code></li></ul>');
-    const tricky = '<ul><li><a href="x" title="a <pre> b">EMEA</a> <code>{4.2}</code></li><li>APAC <code>{1.8}</code></li></ul>';
+    const tricky = `<ul><li><a href="x" title="a <pre> b">EMEA</a> ${st}{4.2}</code></li><li>APAC ${st}{1.8}</code></li></ul>`;
     assert.equal(rows.bridgeRecordsHtml(tricky, ['bar']).match(/<code>\d/g).length, 2);
+    const unstamped = '<ul><li>EMEA <code>{4.2}</code></li></ul>';
+    assert.equal(rows.bridgeRecordsHtml(unstamped, ['bar']), unstamped, 'the bridge decides nothing: no stamp, no rewrite');
+    const unreadable = `<ul><li>EMEA ${st}{4.2, nosuchfield=1}</code></li></ul>`;
+    assert.equal(rows.bridgeRecordsHtml(unreadable, ['bar']), '<ul><li>EMEA <code>{4.2, nosuchfield=1}</code></li></ul>', 'a span with no old form is shown as it was, minus the stamp');
   });
 
   test('a pipe-less table narrates its records as the old form', () => {
@@ -288,12 +300,14 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a grid chart owns the first table only, and not a quoted one', () => {
-    const two = '<table><tr><td><code>{3}</code></td></tr></table><table><tr><td><code>{7}</code></td></tr></table>';
+    const st = '<code data-lat-record="">';
+    const two = `<table><tr><td>${st}{3}</code></td></tr></table><table><tr><td><code>{7}</code></td></tr></table>`;
     assert.equal(rows.bridgeRecordsHtml(two, ['heatmap']), '<table><tr><td>3</td></tr></table><table><tr><td><code>{7}</code></td></tr></table>');
-    const quoted = '<blockquote><table><tr><td><code>{3}</code></td></tr></table></blockquote>';
-    assert.equal(rows.bridgeRecordsHtml(quoted, ['heatmap']), quoted);
-    // Control: a description quote that closed before the table does not switch the chart off.
-    assert.match(rows.bridgeRecordsHtml('<blockquote><p>note</p></blockquote><table><tr><td><code>{3}</code></td></tr></table>', ['heatmap']), /<td>3<\/td>/);
+    // A trailing no-break space after the record stays, as it does in the old form.
+    assert.equal(rows.bridgeRecordsHtml(`<table><tr><td>${st}{3}</code>&nbsp;</td></tr></table>`, ['heatmap']), '<table><tr><td>3&nbsp;</td></tr></table>');
+    // Ownership is the pill pass's call: a quoted table, a second table, a raw table ahead are never stamped.
+    const stamped = (cls, body) => engine.render(deck(cls, body), {}).html.includes('data-lat-record');
+    assert.equal(stamped('heatmap', '> | | A |\n> |---|---|\n> | R | `{3}` |'), false);
     const html = engine.render(deck('matrix-grid', '> | | A |\n> |---|---|\n> | S | `{done}` |'), {}).html;
     assert.match(html, /lat-pill|<code>/, 'a quoted matrix-grid table keeps its span');
   });
@@ -425,9 +439,14 @@ describe('the paths agree on the data row', () => {
     assert.equal(rows.bridgeRecordsSource('- EMEA `4`\n- APAC `{3}`', ['bar']), '- EMEA `4`\n- APAC `3`', 'control: the same list');
   });
 
-  test('the bridge sees the lead end behind a no-break space, as the DOM mirror does', () => {
-    assert.equal(rows.bridgeRecordsHtml('<ul><li>EMEA <code>{4}</code> &nbsp;</li><li>APAC <code>{3}</code></li></ul>', ['bar']),
-      '<ul><li>EMEA <code>4</code> &nbsp;</li><li>APAC <code>3</code></li></ul>');
+  test('a record before a no-break space is claimed and drawn on every path, with no raw braces', () => {
+    for (const [cls, body] of [['bar', '- EMEA `{4}` &nbsp;\n- APAC `3`'], ['heatmap', '| | A |\n|---|---|\n| R | `{3}`&nbsp; |'], ['matrix-grid', '| | A | B |\n|---|---|---|\n| R0 | `{done}`&nbsp; | `{todo}` |']]) {
+      const html = engine.render(deck(cls, body), {}).html;
+      assert.doesNotMatch(html, /\{(?:4|3|done)\}/, `${cls}: no raw braces`);
+      assert.doesNotMatch(html, /data-lat-record/, `${cls}: the stamp never reaches the page`);
+    }
+    const html = engine.render(deck('matrix-grid', '| | A | B |\n|---|---|---|\n| R0 | `{done}`&nbsp; | `{todo}` |'), {}).html;
+    assert.doesNotMatch(html, />\[x\]</, 'the cell is a state, not the literal marker text');
   });
 
   test('a `<ul>` in a comment or an attribute is not a list', () => {
@@ -459,11 +478,11 @@ describe('the paths agree on the data row', () => {
     assert.ok(Date.now() - t < 1500, `${n} spans in ${Date.now() - t} ms`);
   });
 
-  test('a lead ends at a comment or a raw block in the DOM mirror, as it does in the engine', () => {
+  test('a lead ends at a raw block in the DOM mirror, and a comment after the record is content, as in the pill pass', () => {
     const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
     const owned = (inner) => isOwnedRecordElement(new JSDOM(`<section class="bar"><ul>${inner}</ul></section>`).window.document.querySelector('code'));
-    assert.equal(owned('<li>EMEA <code>{4}</code><!-- x --></li><li>APAC <code>3</code></li>'), true);
     assert.equal(owned('<li>EMEA <code>{4}</code><div>x</div></li><li>APAC <code>3</code></li>'), true);
+    assert.equal(owned('<li>EMEA <code>{4}</code><!-- x --></li><li>APAC <code>3</code></li>'), false, 'the engine counts the comment as a kid after the record');
   });
 
   test('raw HTML in a paragraph ahead of the list counts as a list ahead, as the bridge counts it', () => {
@@ -488,14 +507,26 @@ describe('the paths agree on the data row', () => {
     assert.ok(Date.now() - t < 1500, `${Date.now() - t} ms`);
   });
 
-  test('the HTML bridge reads a pill drawn earlier in the row as code and as a lead span, as the pill pass does', () => {
-    const live = '<span class="lat-pill" data-shape="pill">LIVE</span>';
-    const row = `<ul><li>North ${live} <code>{40%, at-risk}</code></li><li>South <code>60%</code> <code>on-track</code></li></ul>`;
-    assert.equal(rows.bridgeRecordsHtml(row, ['progress']), row, 'code right before: not the record');
-    const value = '<ul><li>North <span class="lat-pill" data-shape="pill">9</span> up <code>{+3%}</code></li><li>South <code>30</code></li></ul>';
-    assert.equal(rows.bridgeRecordsHtml(value, ['bar']), value, 'a bare label pill is a value: the delta stays');
-    const badge = '<ul><li>North <span class="lat-pill" data-shape="circle" data-c="c5">1</span> grew <code>{4}</code></li><li>South <code>3</code></li></ul>';
-    assert.match(rows.bridgeRecordsHtml(badge, ['bar']), /<code>4<\/code>/, 'a badge is not a value: the record is');
+  test('a record after an earlier pill is not claimed, so it is shown as on main and never as raw braces it did not stamp', () => {
+    const html = engine.render(deck('progress', '- North `{LIVE}` `{40%, at-risk}`\n- South `60%` `on-track`\n- East `30%` `done`'), {}).html;
+    assert.doesNotMatch(html, /data-lat-record/);
+    assert.doesNotMatch(html, /data-s="at-risk"/, 'the pill pass declined it, so the chart does not read it');
+    assert.match(findings(deck('progress', '- North `{LIVE}` `{40%, at-risk}`'))[0].message, /after another code span/, 'and lint says the same');
+  });
+
+  test('a record never shows as raw braces when a raw block, a stray tag or a quote wrapper sits ahead', () => {
+    const cases = [
+      ['bar', '<blockquote>\n\n- EMEA `{3}`\n- APAC `{4}`\n\n</blockquote>'],
+      ['bar', '</ul>\n\n- EMEA `{3}`\n- APAC `{4}`'],
+      ['bar', 'Some text </ul> here.\n\n- EMEA `{3}`\n- APAC `{4}`'],
+      ['heatmap', '<blockquote>\n\n| | A | B |\n|---|---|---|\n| R0 | `{3}` | `{5}` |\n| R1 | `{2}` | `{4}` |\n\n</blockquote>'],
+    ];
+    for (const [cls, body] of cases) {
+      const html = engine.render(deck(cls, body), {}).html;
+      assert.doesNotMatch(html, /<code[^>]*>\{[0-9]\}<\/code>/, `${cls}: ${body.slice(0, 30)}`);
+      assert.doesNotMatch(html, /data-lat-record/, 'the stamp never reaches the page');
+      assert.doesNotMatch(html, /\{[0-9]\}/, `${cls}: no braces anywhere in the output`);
+    }
   });
 
   test('the source bridge reads CRLF', () => {
