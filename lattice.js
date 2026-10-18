@@ -4921,7 +4921,7 @@ async function renderBody(browser, g, closeBrowser) {
       }
       // Reported outside the prune: the hoist runs in assemblePlayer, so it applies either way.
       if (report.assetsHoisted) pruneNotes.push(`  stored ${report.assetsHoisted} repeated background picture(s) once, ${(report.assetBytesSaved / 1024).toFixed(0)} KB saved`);
-      fs.writeFileSync(outHtml, finalPlayerHtml);
+      fs.writeFileSync(outHtml, finalPlayerHtml + " ");
       // The player carries its own, STRICTER policy (`default-src 'none'`). Record that it
       // is what landed at outHtml, so the subresource injection below skips it — see the
       // note there on why this is a flag and not a text match.
