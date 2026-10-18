@@ -1147,15 +1147,15 @@
       "",
       "## Jurisdiction comparison framing the three obligations.",
       "",
-      "- Federal `Citation`",
+      "- Federal `{Citation}`",
       "  - Headline obligation in one sentence.",
-      "  - `Status or effective date`",
-      "- State `Citation`",
+      "  - `{Status or effective date}`",
+      "- State `{Citation}`",
       "  - Headline obligation in one sentence.",
-      "  - `Status or effective date`",
-      "- Local `Citation`",
+      "  - `{Status or effective date}`",
+      "- Local `{Citation}`",
       "  - Headline obligation in one sentence.",
-      "  - `Status or effective date`"
+      "  - `{Status or effective date}`"
     ],
     "description": "Citation hierarchy — federal / state / local rows with citation, headline obligation, and status."
   },

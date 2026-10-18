@@ -34,31 +34,31 @@ A long register can't shrink to fit — so when it holds more than one record, t
 - Federal
   - `15 U.S.C. §6501 · COPPA`
   - Verifiable parental consent for under-13 personal data.
-  - `In effect since 2000`
+  - `{In effect since 2000}`
 - California
   - `Cal. Civ. Code §1798.120 · CCPA/CPRA`
   - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-  - `Enforced 2023`
+  - `{Enforced 2023}`
 - New York City
   - `NYC Admin Code §22-1201`
   - Bias-audit obligation for AEDTs used in employment decisions.
-  - `Effective 2023`
+  - `{Effective 2023}`
 - Illinois
   - `740 ILCS 14 · BIPA`
   - Written release before collecting biometric identifiers.
-  - `Private right of action`
+  - `{Private right of action}`
 - Texas
   - `Tex. Bus. & Com. §503.001 · CUBI`
   - Consent before capturing a biometric identifier for commerce.
-  - `AG enforcement only`
+  - `{AG enforcement only}`
 - Virginia
   - `Va. Code §59.1-575 · VCDPA`
   - Opt-in consent for sensitive data, including children's.
-  - `Effective 2023`
+  - `{Effective 2023}`
 - Colorado
   - `Colo. Rev. Stat. §6-1-1301 · CPA`
   - Universal opt-out mechanism honored for targeted advertising.
-  - `Effective 2023`
+  - `{Effective 2023}`
 
 ---
 

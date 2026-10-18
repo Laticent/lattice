@@ -92,6 +92,9 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/cover-paginate.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
   ['examples/reflow-legal.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
   ['examples/universal-pill.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['lib/components/legal/statute-stack/statute-stack.gallery.md', 'statute-stack: a `{citation}` and a `{status}` pill on each jurisdiction card'],
+  ['examples/cards-register-catalog.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
+  ['examples/typography-categories.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

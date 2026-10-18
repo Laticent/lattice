@@ -1652,18 +1652,18 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ## The signal store answers to three regimes on day one.
 
-- Federal `15 U.S.C. §45`
+- Federal `{15 U.S.C. §45}`
   - Reasonable security for stored customer conversations.
   - An FTC consent order follows the data, not the vendor.
-  - `In effect · FTC Act §5`
-- State `Cal. Civ. §1798.100`
+  - `{In effect · FTC Act §5}`
+- State `{Cal. Civ. §1798.100}`
   - Access, deletion, and correction rights over logged signals.
   - DSAR handling within 45 days; deletion verified.
-  - `Enforced 2023`
-- International `GDPR Art. 5`
+  - `{Enforced 2023}`
+- International `{GDPR Art. 5}`
   - Purpose limitation and storage limits on intake data.
   - Minimization applies to the transcript, not the summary.
-  - `In effect since 2018`
+  - `{In effect since 2018}`
 
 ---
 
