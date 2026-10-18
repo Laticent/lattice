@@ -5,7 +5,7 @@
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const m = require('../../../lib/core/meta-record.mjs');
+const m = { ...require('../../../lib/core/meta-record.mjs'), ...require('../../../lib/core/meta-edit.mjs') };
 
 const SRC = '---\ntheme: indaco\n---\n\n<!-- class: dark -->\n<!-- _footer: One -->\n\n# A\n\n---\n\n<!-- _class: cards -->\n\n# B\n\n---\n\n# C\n';
 

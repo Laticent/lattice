@@ -741,10 +741,13 @@ function renderMeta(ordered) {
     markers.push(...(p.manifest.contributes.meta.markers || []));
     Object.assign(commentKeys, p.manifest.contributes.meta.comments || {});
   }
+  // `describe` is prose for the manifest's readers; no runtime reads it, and this file ships in the
+  // linter's browser bundle (docs/route-budget.json `lintCoreGz`), so it is left out. The
+  // `/* @__PURE__ */` marks let a bundler drop every export a consumer does not import.
   const freeze = (v) => (Array.isArray(v)
-    ? `Object.freeze([${v.map(freeze).join(', ')}])`
+    ? `/* @__PURE__ */ Object.freeze([${v.map(freeze).join(', ')}])`
     : v && typeof v === 'object'
-      ? `Object.freeze({ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${freeze(x)}`).join(', ')} })`
+      ? `/* @__PURE__ */ Object.freeze({ ${Object.entries(v).filter(([k, x]) => !(k === 'describe' && typeof x === 'string')).map(([k, x]) => `${JSON.stringify(k)}: ${freeze(x)}`).join(', ')} })`
       : JSON.stringify(v));
   const registers = ordered.flatMap((p) => Object.entries(p.manifest.contributes.registers || {}).map(([key, decl]) => ({
     key,

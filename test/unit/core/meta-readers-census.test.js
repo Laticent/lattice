@@ -90,7 +90,7 @@ const CENSUS = [
   ['lib/plugins/chart-family/chart-family.dispatch.js', S, 'only strips, skips or tokenizes comments'],
 ];
 
-const SHARED = /meta-record|meta-keys|comment-directive|class-directive-scan|slide-directives|lib\/engine\/directives|\.\/directives|deck-source|classNameOf|classPayloadOf|slide-class-spans/;
+const SHARED = /meta-record|meta-edit|meta-keys|comment-directive|class-directive-scan|slide-directives|lib\/engine\/directives|\.\/directives|deck-source|classNameOf|classPayloadOf|slide-class-spans/;
 
 describe('the reader census (design note §14)', () => {
   const note = fs.readFileSync(path.join(ROOT, 'engineering/decisions/2026-10-17-meta-record.md'), 'utf8');

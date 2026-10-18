@@ -8,8 +8,9 @@
 // never splits-mutates-rejoins the deck, never normalizes, and never edits inside a
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
+import { readMetaField, writeMeta } from '../../../../lib/core/meta-edit.mjs';
 import { KNOWN_KEYS } from '../../../../lib/core/meta-keys.mjs';
-import { readMetaField, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges, writeMeta } from '../../../../lib/core/meta-record.mjs';
+import { comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../../lib/core/meta-record.mjs';
 
 // The directive KEYS the engine recognizes as scoped/global directives (a comment whose first
 // `key:` is one of these is a DIRECTIVE, not a speaker note). They come from the shared vocabulary

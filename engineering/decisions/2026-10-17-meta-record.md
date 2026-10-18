@@ -493,8 +493,9 @@ per step (HARD RULE #17).
 **Status, 2026-10-18.** Step 1 is built (PR for this branch). What exists: the `meta` plugin
 (`lib/plugins/meta/`, `contributes.meta` in `plugin.schema.json`, always on, refused by `disabled`), the generated
 vocabulary (`lib/plugins/meta.generated.mjs`, read through `lib/core/meta-keys.mjs`), and the reader and writer
-(`lib/core/meta-record.mjs`: `scanMetaSource`, `walkComments`, `metaAt`, `readMeta`, `readMarker`, `hasMarker`,
-`classifyComment`, `readMetaField`, `writeMeta`). The five key lists in §3 are gone. Of the 42 hand-rolled readers, 20
+(`lib/core/meta-record.mjs`: `scanMetaSource`, `walkComments`, `walkSlides`, `readMeta`, `readMarker`, `hasMarker`, `directiveKey`;
+`lib/core/meta-edit.mjs`: `readMetaField`, `writeMeta`, `classifyComment`; `metaAt` lives in `class-directive-scan.mjs`. The edit half is
+a separate module because the linter's browser bundle is a route-budget metric and only reads). The five key lists in §3 are gone. Of the 42 hand-rolled readers, 20
 moved and 22 stay, each with a reason in `test/unit/core/meta-readers-census.test.js`: the pane marker grammar waits for the
 step 2 door (§5.4), and the rest are strips, over-matching probes and producer-owned pragmas. The five lint rules are in
 `lint-core.js`; `legacy-directive-comment` is off until the cut (`vocab.metaCut`). `compileMeta`, the source hook and
