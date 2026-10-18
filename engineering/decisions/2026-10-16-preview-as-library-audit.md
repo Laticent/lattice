@@ -351,7 +351,7 @@ and narrowed it in three more. I reproduced the two hub defects below on the rea
    no-op scroll report cancels it (focus stays 1, wanted 3). (b) Reports made during a delivery are
    judged against stale focus (map `go(3)` ends at focus 2, origin stage). (c) `reportUnit` has no
    `quiet`, so a scroll-driven stage cannot tell its own scroll from the reader's, which is why the
-   Playground keeps a hand-written guard. Logged as `followups.d/2704-p3-fuoco-report-defects.md`;
+   Playground keeps a hand-written guard. Logged as the Fuoco report-defects follow-up (fixed);
    each needs a failing arm in `hub.test.ts`. `ignoreOrigin` stops self-echo only, not a ping-pong
    between two scrolling views.
 6. **Promotion "by distance from focus" is wrong for a map.** A reader scrolls the map to slide 300
@@ -735,8 +735,8 @@ same idea as `rev` for text); and `quiet` on `reportUnit` never publishes and ne
 rule makes a separate loop guard unnecessary. With it, the repo's `hub.test.ts` model passes at 5,000 runs, the new
 properties pass, every failing arm goes red with a shrunk counterexample (`clearOnAnyReport`, `eagerReports`,
 `loudQuiet`, `ignoreBasis`), and five "next" presses with a scrolled stage and a map publish exactly once each (the
-unfixed hub gave `3[keys,stage,stage]` on the fifth, a 5 to 4 to 5 flicker). The diff is not applied; it is
-`followups.d/2704-p3-fuoco-report-defects.md`'s work. Further limits the spike found: browsers do not say why a scroll
+unfixed hub gave `3[keys,stage,stage]` on the fifth, a 5 to 4 to 5 flicker). The fix is applied on this branch
+(`docs/src/lib/fuoco/hub.ts`, `scroll.test.ts`). Further limits the spike found: browsers do not say why a scroll
 happened, so a stage must infer its own scrolls from input events (a loud reflow report sent before a frame-lane stage
 catches up would still pull the focus back; a compare-and-set "I was reacting to focus X" field would close it and was
 not built); `reportUnit` always publishes cause `caret`; views must select the unit id, not only the index (an edit and
@@ -825,7 +825,7 @@ These replace the matching 2026-10-17 rulings in section 9 and the phase order i
    and the export sign-off gate does not apply.
 
 **Order of work (by what each unblocks):** the core with its property tests; the Fuoco fix
-(`followups.d/2704-p3-fuoco-report-defects.md`); the rendered index and stamping at `splitForPreview`; the library's
+(the Fuoco report-defects follow-up (fixed)); the rendered index and stamping at `splitForPreview`; the library's
 trappings (mark, catalog, docs, demo, guide, build, gate); then the Studio picture-in-picture on live, wireframe and
 pill tiles; posters last.
 

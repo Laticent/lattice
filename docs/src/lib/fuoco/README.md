@@ -92,7 +92,7 @@ matches ids inside that region itself, drawing them from the shared `nextUnitId`
 |---|---|
 | `update(text, { span?, by?, duringRender? })` | Feed the text. Returns the outline revision; equal text is a no-op. |
 | `report(origin, { head, anchor?, line?, rev?, quiet? })` | A view's caret moved. A report against an older `rev` is dropped. `quiet` marks the caret move a reveal made. |
-| `reportUnit(origin, { unitIndex, part? })` | A view without offsets (a form, a card editor) says which unit it is on. |
+| `reportUnit(origin, { unitIndex, part?, line?, rev?, quiet? })` | A view without offsets (a form, a card editor, a scrolled preview) says which unit it is on. `quiet` is for a view that moved itself to follow the focus (a programmatic scroll and the reflow after it): it never publishes and never cancels a pending move, so a view that cannot centre the focused unit cannot pull the focus away. |
 | `go(origin, target, { after? })` | Navigate to `{ unit }`, `{ unitIndex, part }` or `{ flat }`, optionally a `page`. With `after`, wait for exactly that text. |
 | `step(origin, 'next' \| 'prev' \| 'first' \| 'last', { view?, pages? })` | Pages of the rendering first, then parts, then units. `view` limits it to the units a filtered view shows. |
 | `pages(origin, { unit, part, count, shown, canSplit? })` | The rendering view reports how many pages the focused part has. |
@@ -112,6 +112,8 @@ view once. `idle` delivers when the browser is idle, for saving and presence. Pa
 
 | Guarantee | Mechanism |
 |---|---|
+| A report never cancels a move it does not replace | A report clears a pending `go(…, { after })` or waiting `step` only when it publishes. A report that agrees with the focus is not a new request. |
+| A report is judged against the focus the earlier ones left | `report` and `reportUnit` run through the same guarded queue as publications, and each carries the focus sequence it was made against: if a different origin has published since, the hub drops it, the way `rev` drops a stale text report. |
 | A view never hears its own move | Each publication names its `origin`; subscribe with `ignoreOrigin`. A reveal's caret is reported `quiet`, so the hub agrees and publishes nothing. |
 | A late answer never moves anyone | A report carries the `rev` it was computed against; an older one is dropped. |
 | Nothing re-enters | A publication made during a delivery is queued until the delivery ends. |
