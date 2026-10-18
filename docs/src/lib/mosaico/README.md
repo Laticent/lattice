@@ -4,7 +4,7 @@
 the same input gives the same layout, byte for byte.**
 
 Mosaico takes a list of items and a container and returns one rectangle per item. This version
-ships two strategies: `rows` (below) and `tree`.
+ships three strategies: `rows` (below), `tree` and `template`.
 
 The `tree` strategy tries every guillotine layout of up to six fixed-shape items (a layout
 where every cut runs all the way across the region it divides) and keeps the one that leaves
@@ -94,6 +94,55 @@ the layout's natural height; `frame` is what is drawn.
 
 A layout whose gutters are nearly as wide as the box is the one exception to exact gutters: when a
 box would get no room at the drawn height, `placed` scales the layout down whole instead.
+
+## Template: you give the arrangement, items give their size rules
+
+`template` does no search. You name the arrangement, in the string a `tree` result reports
+(`V(0,H(1,2))` is item 0 beside items 1 over 2; a join may take more children, `V(0,1,2)`), and mosaico
+sizes it. Items are size rules, not just shapes:
+
+```ts
+// A 16:9 image beside a text pane, in a 1280 x 720 slide, 20 apart.
+const r = pack(
+  [
+    { aspect: 16 / 9, fit: 'contain', weight: 3 }, // the image: any cell shape, the picture sits inside it
+    { minWidth: 400 },                             // the text pane: at least 400 wide
+  ],
+  { width: 1280, height: 720 },
+  { strategy: 'template', template: 'V(0,1)', gap: 20 },
+);
+r.placed; // the two cells, tiling the container: the pane 400 wide, the image's cell 860 wide, both 720 tall
+r.fitted; // the visible rectangles: the pane's cell, and the largest 16:9 inside the image's cell
+```
+
+An item takes `aspect` (a number, or `[min, max]`), `minWidth`, `maxWidth`, `minHeight`, `maxHeight`
+(in the container's units), `weight`, and `fit`.
+
+- **Shape.** With `fit: 'exact'` (the default) an item fills its cell, so a fixed `aspect` makes the cell
+  that shape and the layout can only be one size per height. With `fit: 'contain'` the cell may be any shape
+  and `fitted` holds the largest rectangle of the item's shape inside it, centered. Use `contain` for a
+  picture beside text.
+- **Sharing.** Each join hands its width (or height) to its children the way CSS flex does: in proportion to
+  `weight` (default 1), except that a child stops at the edge of the sizes it allows at the shared height (or
+  width), and the rest share what it leaves. A child that is itself a join counts as one child, so
+  `V(0,H(1,2))` is two equal columns whatever items 1 and 2 weigh.
+- **Floors.** An item with no stated `minWidth` or `minHeight` gets 2% of the container's short side
+  (`DEFAULT_MIN_ITEM`), so a flexible pane is never squeezed to nothing. State `0` to opt out.
+- **Fit.** When the container is exactly a size the layout allows, it is filled. When it is not, the layout is
+  the largest size that fits inside, placed by `align`, and `empty` says how much is left. A container below the
+  floors, or a layout that would leave an item no visible size, returns `{ ok: false, reason: 'does-not-fit' }`;
+  items whose own limits conflict return `'no-valid-layout'`; more than `MAX_TEMPLATE_ITEMS` (64) items return
+  `'too-many'`. Bad input (a template that does not name each item once, an aspect that is not positive) throws a
+  `RangeError`.
+- **Width only.** With a `width` and no height, the height is an output: the shortest the layout can stand at
+  that width, which the floors keep above zero.
+- **Units.** "No upper bound" is a size larger than the container, in whatever units it uses.
+
+Under the hood every item and every join is a convex region of the (width, height) plane, and a join is the sum
+of two regions. `leafRegion`, `joinSideBySide`, `joinStacked`, `regionContains`, `sliceAtH`, `sliceAtW` and
+`isConvex` are exported for a host that wants to ask whether a layout fits before it packs. **They are
+experimental and may change before 1.0.** A text pane whose height depends on its width is not a convex region
+and is not supported yet. `tree` and `rows` read a range `aspect` as its geometric mean.
 
 ## Rows: equal visual weight
 

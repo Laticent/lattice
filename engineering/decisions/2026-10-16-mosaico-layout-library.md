@@ -81,7 +81,7 @@ duplicate and change a tie-break.
 
 ### 4.1 Items are size rules
 
-**Status:** proposed; the closure argument below is a sketch that slice 2 owes as a property test.
+**Status:** built in slice 2 (§8.6). The closure argument below is checked by a property test, `test/unit/mosaico/template.test.js`.
 
 | Item | Size rule in the (width, height) plane | Example |
 |---|---|---|
@@ -568,6 +568,60 @@ state before `packed` is `measuring` with `visibility: hidden`, never the grid; 
 picture delayed 1.5 s and 3 s, light and dark: no list baked hidden, and at 1.5 s the pages are
 pixel-identical to exports built from main's code. **Found, not caused:** the Studio export draws the
 logo wall as `fallback` in both builds (followup `2763-p2`).
+
+### 8.6 Slice 2: range items and `template`, as built (2026-10-18)
+
+`docs/src/lib/mosaico/region.ts` holds the regions and `template.ts` the strategy; `pack(items, container,
+{ strategy: 'template', template })` is the entry. Nothing renders through it yet.
+
+- **Regions are convex polygons** of `[w, h]` points, with a "no upper bound" size larger than the container
+  standing in for infinity, so every region is closed. A fixed shape is a segment, a range a clipped wedge, a
+  floor or cap a box. A join slices both polygons at every vertex height of either; between those heights both
+  slices are linear, so the joined polygon is exact, not sampled. A stacked join is the same with the axes
+  swapped. Collinear vertices are dropped after each join, because without that the vertex count roughly doubled
+  per alternating join (the checker measured 1,448 vertices at 12 items).
+- **The sizing step is a flex-style share, not a convex program.** Each join splits its width (or height) in
+  proportion to weight, freezing a child at the edge of the sizes it allows at the shared height (or width), and
+  the rest share what is left. §4.1 expected "a small convex program"; this is its common case (linear bounds,
+  the quadratic goal "stay close to the proportional split") and it is exact per join. A nested join counts as
+  one child, as a nested flex container does, so the share is not the same as the flat n-ary join once a bound
+  freezes. A goal that wants something else, such as `equal-size`, would need the program. **The goal that
+  matters today is the root-size choice** (below), and "largest area" is provisional.
+- **Fixed shapes come in two kinds.** `exact` fills the cell, so a fixed shape pins the cell's shape. That
+  was the first cut's only kind, and it failed the use case §6 gives for `template`: a text pane beside a 16:9
+  image got width 0 (the image took the whole height, the pane's floor of 0 was the cheapest place to find room).
+  The red team, the checker and the inversion each found it. `contain` lets the cell be any shape and returns the
+  largest picture inside it in `fitted`.
+- **Fit.** The container's own size is used when the root region contains it. Otherwise the layout is the size in
+  the region, inside the container, with the largest area. Two guards make that safe: an item with no stated
+  floor gets 2% of the short side, and any layout that leaves an item with no visible size is refused
+  (`does-not-fit`), as `tree` refuses a zero track. With a width and no height the height is the region's lowest
+  at that width, which the floors keep above zero.
+- **Limits.** At most 64 items and 64 levels of nesting (deeper recursion overflowed the stack at about 2,000
+  levels).
+- **The property tests** (seeded; `test/unit/mosaico/template.test.js`): a size of A and a size of B at one
+  height always sum to a size of the join (6,000 pairs); a size of a stacked join splits back into one from each
+  (3,000 points, by a grid search and an exact interval check); every join of joins, not only a join of a node
+  and a leaf, is convex and holds the midpoint of two of its sizes; for any size a random root allows, every item
+  lands inside its own rule, nothing overlaps and the container is filled exactly; and for any container, inside
+  the root region or not, with n-ary, nested and width-only layouts, every ok result shows every item, obeys the
+  limits it was given, stays inside the container and does not overlap. Dropping the join's gutter fails
+  completeness, sizing and the round-trip test, and using only the lower and upper ends as breakpoints fails
+  soundness.
+- **Cost, measured** (200 random left-leaning folds per size, feasible rules, one machine, 2026-10-18): mean
+  0.16 ms at 6 items, 0.19 at 12, 0.44 at 40 and 0.43 at 64; the slowest single run was 4.6 ms. Pane-like layouts
+  (floors only, 1280 x 720) mean 0.04 to 0.24 ms. All inside the 16 ms re-pack budget of §4.5. The first cut's
+  figures were taken on mostly infeasible inputs, which refuse early; the checker found 4.4 ms mean and 519 ms
+  worst at 40 items before the vertex fix.
+- **Stated limits of the hardening:** the region helpers are exported as experimental, and `tree` and `rows`
+  read a range as its geometric mean rather than throwing.
+
+**The `columns` / `rows` panes do not route through it yet.** The owner's slice-2 brief named them as the first
+user, with a demo deck. They are fixed-ratio pairs (`ratio-60-40`, nine lines of CSS), so a move changes no pixel
+and touches every pane slide, and the gallery-isolation rule (HARD RULE #8) makes each pane deck a separate
+review. The exact weighted case is the first test in `template.test.js`; the image-beside-pane case is the second
+test block. This is a deviation from the brief, taken without the owner's say: it is logged for the owner in the
+PR and as `followups.d/2744-p3-panes-through-template.md`.
 
 ## 9. Decisions
 

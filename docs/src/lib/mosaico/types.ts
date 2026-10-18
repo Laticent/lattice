@@ -7,12 +7,33 @@ export interface Rect {
 }
 
 /**
- * One box to place. Slice 1 takes fixed shapes only: `aspect` is width / height. An aspect that
- * is missing, not finite or outside (0.05, 20) is read as 1:1, the stand-in for an item whose
- * shape is not known (a data URL, an unreadable header).
+ * One box to place, as a size rule. `aspect` is width / height. A number is a fixed shape; an aspect that
+ * is missing, not finite or outside (0.05, 20) is read as 1:1, the stand-in for an item whose shape is
+ * not known (a data URL, an unreadable header).
+ *
+ * The `template` strategy reads the whole rule (design note §4.1): `aspect: [min, max]` is a shape
+ * range, `minWidth`, `maxWidth`, `minHeight` and `maxHeight` are limits in the container's units, and
+ * an item with limits and no `aspect` is flexible. `tree` and `rows` read only a fixed `aspect`; for a
+ * range they use its geometric mean as the stand-in shape.
  */
 export interface Item {
-  aspect: number;
+  aspect?: number | readonly [number, number];
+  /** `template`: the narrowest the item may be, in the container's units (default 0). */
+  minWidth?: number;
+  /** `template`: the widest the item may be (default: no limit). */
+  maxWidth?: number;
+  /** `template`: the shortest the item may be (default 0). */
+  minHeight?: number;
+  /** `template`: the tallest the item may be (default: no limit). */
+  maxHeight?: number;
+  /** `template`: the item's share of the join's free space (default 1; a nested join counts as one child). */
+  weight?: number;
+  /**
+   * `template`, for an item with an `aspect`: `exact` (default) makes the item fill its cell, so its shape
+   * sizes the cell; `contain` lets the cell be any shape and puts the largest item of that shape inside,
+   * centered, which is what an image beside a text pane wants. See `PackResult.fitted`.
+   */
+  fit?: 'exact' | 'contain';
 }
 
 /**
@@ -63,7 +84,7 @@ export interface PackOptions {
    * `tree` (default): every guillotine arrangement, for up to six items. `rows`: an ordered list
    * broken into centered rows, any number of items.
    */
-  strategy?: 'tree' | 'rows';
+  strategy?: 'tree' | 'rows' | 'template';
   /**
    * `fill` (default for `tree`, the only goal it takes): least empty space and crop, with a penalty
    * on very small tiles. `equal-weight` (default for `rows`, the only goal it takes): every item at
@@ -94,6 +115,12 @@ export interface PackOptions {
   align?: Align;
   /** `rows`: how the last row sits (default: `align`, or `start` when `align` is `justify`). */
   lastRow?: Align;
+  /**
+   * `template`: the arrangement, as the string a `tree` result reports: `V(0,H(1,2))` puts item 0 beside
+   * items 1 over 2, and a join may take more than two children, `V(0,1,2)`. Every item appears once.
+   * The strategy takes no goal and does not search.
+   */
+  template?: string;
   /** `tree`: index of the item that must hold the largest tile, or -1 (default). */
   hero?: number;
   /** `tree`: score weights. */
@@ -122,7 +149,7 @@ export interface PackOptions {
   aspectFloor?: number;
 }
 
-export type PackFailure = 'empty' | 'too-many' | 'no-valid-layout' | 'too-wide';
+export type PackFailure = 'empty' | 'too-many' | 'no-valid-layout' | 'too-wide' | 'does-not-fit';
 
 export interface PackResult {
   ok: true;
@@ -168,6 +195,11 @@ export interface PackResult {
    * took to fit `maxRows` as `scored`. Deterministic, so a benchmark can gate on it.
    */
   work: { arrangements: number; scored: number };
+  /**
+   * `template`: each item's visible rectangle, in the container's units. Equal to `placed` for an `exact`
+   * item; for a `contain` item, the largest rectangle of its shape inside its cell.
+   */
+  fitted?: Rect[];
   /** `rows`: item indices per row. */
   rows?: number[][];
   /** `rows`: each item's cell (its box widened to the cell width, as tall as its row), in layout units like `rects`. */
