@@ -78,10 +78,10 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ## register pairs names with status chips.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. radar `{beta}`
+4. word-cloud `{preview}`
 
 
 ---
@@ -129,9 +129,9 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ## outline boxes each row in a keyline.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. quote `stable`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. quote `{stable}`
 
 
 ---
@@ -229,12 +229,12 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ## Six rows is the register's practical page.
 
-1. title `stable`
-2. big-number `stable`
-3. cards-grid `stable`
-4. split-panel `stable`
-5. funnel `stable`
-6. radar `beta`
+1. title `{stable}`
+2. big-number `{stable}`
+3. cards-grid `{stable}`
+4. split-panel `{stable}`
+5. funnel `{stable}`
+6. radar `{beta}`
 
 
 ---

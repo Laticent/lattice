@@ -404,34 +404,24 @@ section.list-tabular.register ol > li {
   font-weight:600;
   color:var(--text-heading);
 }
-section.list-tabular.register ol > li > code {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  line-height:1;
-  background:var(--accent-soft);
-  color:var(--accent);
-  border:none;
-  padding:var(--pill-pad-y) 1.09375cqi;     /* sanctioned: wide "stamp" padding */
-  border-radius:var(--pill-radius);
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:700;                  /* sanctioned: heavier stamp weight */
-  letter-spacing:0.1em;             /* sanctioned: wide tracking pairs with the uppercase opt-in */
-  text-transform:uppercase;
-  text-align:center;
-  /* wraps rather than bleeds, at the same cap as the pill above. */
-  min-width:0;
-  overflow-wrap:anywhere;
+/* The tag is a pill — the author writes it `{META}` and the pills plugin draws it; register asks
+ * for its stamp look through the plugin's color, case and tracking properties and places it at
+ * the row's end. */
+section.list-tabular.register ol > li > .lat-pill[data-shape] {
+  --lat-pill-bg: var(--accent-soft);
+  --lat-pill-edge: var(--accent-soft);
+  --lat-pill-ink: var(--accent);
+  --lat-pill-case: uppercase;
+  --lat-pill-tracking: 0.1em;
   justify-self:end;
   align-self:center;
 }
 
 /* register.outline — hairline-bordered tag */
-section.list-tabular.register.outline ol > li > code {
-  background:transparent;
-  border:1px solid var(--border);
-  color:var(--text-label);
+section.list-tabular.register.outline ol > li > .lat-pill[data-shape] {
+  --lat-pill-bg: transparent;
+  --lat-pill-edge: var(--border);
+  --lat-pill-ink: var(--text-label);
 }
 
 /* ── Column modifiers — which columns are responsive ──────────────────────

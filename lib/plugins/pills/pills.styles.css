@@ -24,7 +24,7 @@
    * tracked label carries half a letter-space of dead room on its right and reads left
    * of center. Measured, 0.3–0.5px left in all three engines at 15px. Indenting the line
    * by the same tracking puts the matching space on the left. */
-  text-indent:var(--pill-tracking);
+  text-indent:var(--lat-pill-tracking, var(--pill-tracking));
   /* `middle`, not `baseline`. When this was an inline-flex box its baseline was its
    * BOTTOM MARGIN EDGE, so a baseline-aligned pill hung below the text it sits in — and by a distance that
    * scales with the type: measured, 2.9px low in 21px body prose and 11px low in a 37px
@@ -49,7 +49,9 @@
    * component whose pill sits beside a caption it should match, not undercut, sets it to 1. */
   font-size:calc(min(var(--lat-pill-cap, 0.85) * 1em, var(--lat-pill-base)) * var(--lat-pill-scale, 1));
   font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
+  letter-spacing:var(--lat-pill-tracking, var(--pill-tracking));
+  /* A component that wants capitals asks through `--lat-pill-case`; the default keeps the text's own. */
+  text-transform:var(--lat-pill-case, inherit);
   /* Vertical padding goes through two variables so the centering branches below can
    * set them, and a shape with a heavier stroke (`tag-bordered`) can take its extra
    * stroke width back out via `--lat-pill-inset` without undoing either branch. */

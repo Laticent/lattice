@@ -76,10 +76,10 @@ const after = pages(deck).length;
 
 ## A register with no clause still paginates.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. radar `{beta}`
+4. word-cloud `{preview}`
 
 ---
 

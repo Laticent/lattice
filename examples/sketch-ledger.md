@@ -57,10 +57,10 @@ footer: "The sketch ledger — its frame hugs the rows"
 
 ## The register keeps its pills inside the frame.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. radar `{beta}`
+4. word-cloud `{preview}`
 
 ---
 

@@ -82,6 +82,10 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
   ['lib/components/legal/policy-recommendation/policy-recommendation.gallery.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
   ['examples/policy-recommendation.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
+  ['lib/components/inventory/list-tabular/list-tabular.gallery.md', 'list-tabular register: a `{tag}` pill ends each row'],
+  ['examples/autosplit-coverage.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
+  ['examples/list-tabular-responsive.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
+  ['examples/sketch-ledger.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

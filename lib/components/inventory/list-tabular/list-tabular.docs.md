@@ -147,10 +147,10 @@ Status pills on each row.
 
 ## register pairs names with status chips.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. radar `{beta}`
+4. word-cloud `{preview}`
 ```
 
 ### `rule` — def + rule
@@ -206,9 +206,9 @@ Outline pills — a lighter register.
 
 ## outline boxes each row in a keyline.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. quote `stable`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. quote `{stable}`
 ```
 
 ### `fit-name` — fit-name
