@@ -182,7 +182,7 @@ const REGRESSION_EPSILON = 0.01;
 /**
  * One `.chart-status` gradient stop as a scored surface.
  *
- * The pill's ground is `color-mix(in oklab, var(--pill-hue) N%, <base>)` — `--bg` on the
+ * The pill's ground is `color-mix(in oklab, var(--chart-status-hue) N%, <base>)` — `--bg` on the
  * light arm, `black` on the dark one — and its label is the shared `--text-heading`,
  * which flips dark-on-light / light-on-dark. So each stop is a real, separately-failing
  * surface on each arm, and both are listed rather than one being argued safe.
@@ -213,9 +213,9 @@ function pillStop(state, which, lightPct, darkPct) {
     min: 4.5,
     src: CHARTFAMILY,
     requires: [
-      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
-      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${darkPct}%, black\\)`),
-      new RegExp(`--pill-hue: var\\(--state-${state}-hue\\)`),
+      new RegExp(`color-mix\\(in oklab, var\\(--chart-status-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
+      new RegExp(`color-mix\\(in oklab, var\\(--chart-status-hue\\) ${darkPct}%, black\\)`),
+      new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
     ],
   };
 }

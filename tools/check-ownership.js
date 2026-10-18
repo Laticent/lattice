@@ -2897,7 +2897,6 @@ const SANCTIONED_PILL_READS = [
   { file: 'lib/base/base.modifiers.css', count: 27, why: 'the universal trailing-`code` pill rule; leaves with the clean break to `{…}`' },
   { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
   { file: 'lib/components/evidence/kpi/kpi.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
-  { file: 'lib/plugins/chart-family/chart-family.styles.css', count: 9, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
   { file: 'lib/plugins/icons/icons.styles.css', count: 1, why: "sizes an icon to the pill's type step (`--pill-fs`); a size the pills plugin should publish" },
   { file: 'lib/plugins/sparks/sparks.styles.css', count: 2, why: "sizes a spark to the pill's type step (`--pill-fs`); a size the pills plugin should publish" },
 ];

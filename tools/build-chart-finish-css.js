@@ -102,7 +102,7 @@ const STATUS_MARKS = [
   // a flowchart's status shapes keep their paint under a finish and so must its key.
   { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
-  { sel: '.chart-status[data-s]', hue: 'var(--pill-hue)', ink: 'var(--pill-ink)', paint: 'bg', bears: true },
+  { sel: '.chart-status[data-s]', hue: 'var(--chart-status-hue)', ink: 'var(--chart-status-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
   { sel: '.waterfall-bar[data-s="down"]', hue: 'var(--state-fail-hue)', ink: 'var(--state-fail-ink)', paint: 'fill', bears: false },
   // hub-spoke paints a status on the one spoke that carries it — its node, or a tiered leaf —

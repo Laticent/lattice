@@ -301,9 +301,9 @@ figure.chart-finish-pigment :where(.progress-fill[data-s]) {
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
 section.chart-finish-pigment :where(.chart-status[data-s]),
 figure.chart-finish-pigment :where(.chart-status[data-s]) {
-  background: light-dark(color-mix(in oklab, var(--pill-hue) 30%, var(--chart-cat-base)), color-mix(in oklab, var(--pill-hue) 35%, var(--chart-cat-base))) !important;
-  box-shadow: inset 0 0 0 var(--chart-edge) var(--pill-ink) !important;
-  color: light-dark(oklch(from color-mix(in oklab, var(--pill-hue) 30%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--pill-hue) 35%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-status-hue) 30%, var(--chart-cat-base)), color-mix(in oklab, var(--chart-status-hue) 35%, var(--chart-cat-base))) !important;
+  box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-status-ink) !important;
+  color: light-dark(oklch(from color-mix(in oklab, var(--chart-status-hue) 30%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-status-hue) 35%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
 }
 }
 section.chart-finish-pigment :where(.waterfall-bar[data-s="up"]),
@@ -815,9 +815,9 @@ figure.chart-finish-etching :where(.progress-fill[data-s]) {
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
 section.chart-finish-etching :where(.chart-status[data-s]),
 figure.chart-finish-etching :where(.chart-status[data-s]) {
-  background: light-dark(color-mix(in oklab, var(--pill-hue) 14%, var(--bg)), color-mix(in oklab, var(--pill-hue) 19%, var(--bg))) !important;
-  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 3) var(--pill-ink) !important;
-  color: light-dark(oklch(from color-mix(in oklab, var(--pill-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--pill-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-status-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-status-hue) 19%, var(--bg))) !important;
+  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 3) var(--chart-status-ink) !important;
+  color: light-dark(oklch(from color-mix(in oklab, var(--chart-status-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-status-hue) 19%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
 }
 }
 section.chart-finish-etching :where(.waterfall-bar[data-s="up"]),
@@ -1371,9 +1371,9 @@ figure.chart-finish-tone :where(.progress-fill[data-s]) {
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
 section.chart-finish-tone :where(.chart-status[data-s]),
 figure.chart-finish-tone :where(.chart-status[data-s]) {
-  background: light-dark(color-mix(in oklab, var(--pill-hue) 30%, var(--bg)), color-mix(in oklab, var(--pill-hue) 35%, var(--bg))) !important;
-  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2.5) var(--pill-ink) !important;
-  color: light-dark(oklch(from color-mix(in oklab, var(--pill-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--pill-hue) 35%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-status-hue) 30%, var(--bg)), color-mix(in oklab, var(--chart-status-hue) 35%, var(--bg))) !important;
+  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2.5) var(--chart-status-ink) !important;
+  color: light-dark(oklch(from color-mix(in oklab, var(--chart-status-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-status-hue) 35%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
 }
 }
 section.chart-finish-tone :where(.waterfall-bar[data-s="up"]),
