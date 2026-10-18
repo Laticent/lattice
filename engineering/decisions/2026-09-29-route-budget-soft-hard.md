@@ -190,7 +190,7 @@ transitions nor server islands, and React's ids come from the separate `prefix` 
 So the gate needs no noise band: three `measure-route-base.sh` runs of one commit, each in a
 fresh temp folder, measure every metric of every route identically. #2709 records the runs.
 
-## 8. The gate ignores the hashes an engine change moves (2026-10-17)
+## 8. The gate ignores the hashes an engine change moves (2026-10-17, widened 2026-10-18)
 
 §7 made two builds of one tree in two folders agree, and CI still charged #2708 and #2718
 (which bundled nothing) a few bytes. The asset version `/playground/v/<12 hex>/` is the
@@ -221,3 +221,15 @@ imports or preloads them (StudioIsland +3, architect -2, diff-card -2 on one pai
    on the same runner (`measure-route-base.sh` keeps the base's staged assets for it). It runs
    unless the job is cancelled, never fails the job, and comes out once one bundle-free PR has
    reported and the cause is fixed at its source.
+
+**A second checker found a third hash (2026-10-18).** esbuild's engine chunks are named
+`chunk-<8 A-Z0-9>.js` (hyphen, no leading dot), so the Rollup pattern missed them, and a CI runner
+showed all 29 differ between base and PR. Renaming them on a real build moved engineJsGz +5,
+studio chartKernelGz +7, chartKernelsGz +20 and lintCoreGz +4, and eagerJsGz 0. Only `eagerJsGz`
+is compared with the base (`evaluateAllowance`), so the allowance was never affected; the other
+four are checked against the ledger's limits, where the noise can tip a metric sitting near one
+(lintCoreGz was 99.3KB against a 100.3KB ceiling). `closure()` now fixes these names too.
+The Rollup pattern also matches an ordinary 8-character file name (`lib.polyfill.js`): the length
+is kept and base and PR go through the same code, so no comparison changes, only a tiny shift in
+absolute numbers. Zeros gzip a little smaller than random characters, so a PR that adds many new
+hash references is undercounted by a few bytes per hash; it never hides a change in the shipped bytes.

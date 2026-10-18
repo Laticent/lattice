@@ -367,6 +367,29 @@ describe('the hashes an engine change moves', () => {
 		expect(b.eagerJsGz - a.eagerJsGz).toBeGreaterThan(100);
 	});
 
+	it('fixes esbuild engine chunk names, which have a hyphen and no leading dot', () => {
+		const src = Buffer.from('import"./chunk-3MJJUJ6G.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js"', 'utf8');
+		expect(withFixedHashes(src).toString()).toBe('import"./chunk-00000000.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js"');
+	});
+
+	it('measures an engine whose chunk names changed at the same size', () => {
+		const build = (a, b) => {
+			const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-e-'));
+			const esm = path.join(dist, 'playground/v/aaaaaaaaaaaa/esm');
+			fs.mkdirSync(esm, { recursive: true });
+			fs.mkdirSync(path.join(dist, 'studio'), { recursive: true });
+			fs.writeFileSync(path.join(dist, 'studio/index.html'), '<script src="/playground/v/aaaaaaaaaaaa/esm/engine.js"></script>');
+			fs.writeFileSync(path.join(esm, 'engine.js'), `import"./chunk-${a}.js";import"./chunk-${b}.js";`);
+			fs.writeFileSync(path.join(esm, `chunk-${a}.js`), 'export const a=1;');
+			fs.writeFileSync(path.join(esm, `chunk-${b}.js`), 'export const b=2;');
+			return dist;
+		};
+		const x = measure('home', 'studio/index.html', build('AAAAAAAA', 'AAAAAAAA'.replace(/A/g, 'B')));
+		const y = measure('home', 'studio/index.html', build('3MJJUJ6G', '47LLA435'));
+		expect(y.engineJsGz).toBe(x.engineJsGz);
+		expect(x.engineJsGz).toBeGreaterThan(0);
+	});
+
 	it('rewrites only the 12-hex version and the 8-character chunk hash, and keeps the length', () => {
 		const src = Buffer.from(`import"./a.Cp3wbWjU.js";x="${ver('abcdef012345')}";y="${ver('abc')}z";w="./a.Cp3wbWjUx.js";v="a.b.js"`, 'utf8');
 		const out = withFixedHashes(src).toString();
