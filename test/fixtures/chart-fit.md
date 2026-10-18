@@ -153,8 +153,8 @@ only the shapes that broke above. The authoring mirrors
 is the gate's stable copy of it (the gallery is long-running and moves; a gate
 fixture must not).
 
-`tools/check-chart-fit.js` renders this deck at landscape, portrait AND square,
-so each slide below is really three cases.
+`tools/check-chart-fit.js` renders this deck at landscape, portrait, square AND strip,
+so each slide below is really four cases.
 
 ---
 

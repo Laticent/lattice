@@ -1,0 +1,1 @@
+- `npm run check:chart-fit` now also renders the chart fixture at the `strip` family (`size: mobile`, 1080x2340), so a later tall/strip edit to a chart no longer needs a by-hand check. It runs in the nightly integration tier only: +26s per run, green on the first run across 57 chart slides.
