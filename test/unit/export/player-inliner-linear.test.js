@@ -60,6 +60,12 @@ test('a <style> body is CSS in a page and in <svg>/<math>, and an unclosed <svg>
   assert.equal(baked(`<svg width="10"><p>x</p></div><style scoped>.a{background:url("${photo}")}</style>`), 1);
 });
 
+test('a comment ends at --!> as well as -->', () => {
+  assert.equal(baked(`<!-- x --!><img src="${photo}">`), 1);
+  assert.equal(baked(`<!-- x --><img src="${photo}">`), 1);
+  assert.equal(baked(`<!-- x <img src="${photo}"> --!>`), 0);
+});
+
 test('a non-ASCII letter whose lowercase is longer (İ) does not shift the readers', () => {
   assert.equal(baked(`<p style="content:'İİİİ';background:url(${photo})"></p>`), 1);
   assert.equal(baked(`<h1>${'İ'.repeat(40)}</h1><style>h1{}</style><img src="${photo}">`), 1);
