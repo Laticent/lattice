@@ -1,0 +1,1 @@
+- `![bg left:40%]` (and `right:30%`, or with a modifier such as `blur:10px`) on an `image` slide now keeps its image panel on the side named, in the CLI and the Studio, instead of falling back to a full-bleed background. The panel takes the layout's own share; the declared ratio is not read, and `lint:deck` says so (`bg-ratio-unread`).
