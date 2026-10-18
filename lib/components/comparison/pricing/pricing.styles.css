@@ -84,15 +84,16 @@ section.pricing > .cell-stage > ul > li > code {
   background: none; border: none; padding: var(--sp-2xs) 0 var(--sp-sm) 0;
 }
 
-/* ── Recommendation ribbon ── the author's *marker* renders top-right. */
+/* ── Recommendation ribbon ── the author's *marker* renders top-right. A corner tab, not a pill:
+ * it owns its type and padding. */
 section.pricing > .cell-stage > ul > li > em {
   position: absolute; top: 0; right: 0;
   font-style: normal; font-weight: 700;
-  font-family: var(--pill-font);
-  font-size: var(--pill-fs); letter-spacing: var(--pill-tracking);
+  font-family: var(--font-body);
+  font-size: var(--fs-meta); letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--on-accent); background: var(--accent);
-  padding: var(--pill-pad-y) var(--sp-sm);
+  padding: 0.3em var(--sp-sm);
   border-bottom-left-radius: var(--radius-md);
 }
 
