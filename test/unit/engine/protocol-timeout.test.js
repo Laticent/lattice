@@ -21,7 +21,7 @@ const path = require('node:path');
 const src = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lattice.js'), 'utf8');
 
 test('the render launch passes protocolTimeout, and nothing overrides it', () => {
-  const launch = src.match(/const launchOpts = \{[\s\S]*?\n {2}\};/);
+  const launch = src.match(/const launchOpts = \{[\s\S]*?\n  \};/);
   assert.ok(launch, 'renderExport builds launchOpts');
   assert.match(launch[0], /protocolTimeout:\s*PROTOCOL_TIMEOUT_MS/);
   assert.equal(src.match(/launchOpts\.protocolTimeout\s*=/g), null, 'no later reassignment');
