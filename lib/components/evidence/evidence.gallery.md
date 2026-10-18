@@ -16,16 +16,16 @@ Evidence — data that supports the argument.
 
 1. 4
    - tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 2. 8
    - words per tile
-   - soft budget `Board`
+   - soft budget `{Board}`
 3. 5s
    - scan time
-   - the target `On plan`
+   - the target `{On plan}`
 4. 0
    - prose sentences
-   - allowed here `Audit`
+   - allowed here `{Audit}`
 
 ---
 

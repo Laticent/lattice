@@ -22,16 +22,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 4
    - tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 2. 8
    - words per tile
-   - soft budget `Board`
+   - soft budget `{Board}`
 3. 5s
    - scan time
-   - the target `On plan`
+   - the target `{On plan}`
 4. 0
    - prose sentences
-   - allowed here `Audit`
+   - allowed here `{Audit}`
 
 
 ---
@@ -43,16 +43,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 1
    - tile flagged
-   - the miss `Attention`
+   - the miss `{Attention}`
 2. 3
    - tiles steady
-   - for context `On plan`
+   - for context `{On plan}`
 3. 0
    - alarms hidden
-   - honesty `Board`
+   - honesty `{Board}`
 4. 4
    - tiles total
-   - the row `On plan`
+   - the row `{On plan}`
 
 
 ---
@@ -66,16 +66,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 99.9%
    - the SLO frame
-   - target line `SLO`
+   - target line `{SLO}`
 2. 4
    - tiles per row
-   - unchanged `On plan`
+   - unchanged `{On plan}`
 3. 1
    - breach shown
-   - never hidden `Ops`
+   - never hidden `{Ops}`
 4. 30d
    - the window
-   - rolling `SLO`
+   - rolling `{SLO}`
 
 
 ---
@@ -89,13 +89,13 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 0
    - open findings
-   - the goal `Clean`
+   - the goal `{Clean}`
 2. 4
    - frameworks tracked
-   - one row `Audit`
+   - one row `{Audit}`
 3. 1
    - in remediation
-   - dated `Watch`
+   - dated `{Watch}`
 
 
 ---
@@ -109,13 +109,13 @@ Executive KPI system — one base, five layout modifiers.
 
 1. +9%
    - the delta leads
-   - vs plan `Up`
+   - vs plan `{Up}`
 2. 4
    - tiles still rule
-   - per row `On plan`
+   - per row `{On plan}`
 3. −2
    - down is shown
-   - not spun `Honest`
+   - not spun `{Honest}`
 
 
 ---
@@ -127,13 +127,13 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 1
    - tile promoted
-   - the headline `Spotlight`
+   - the headline `{Spotlight}`
 2. 2
    - support tiles
-   - beside it `On plan`
+   - beside it `{On plan}`
 3. 0
    - competing heroes
-   - one only `Rule`
+   - one only `{Rule}`
 
 
 ---
@@ -146,16 +146,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 4
    - the grid's seat count
-   - a fifth never renders `Max`
+   - a fifth never renders `{Max}`
 2. 14
    - words per tile, the budget
-   - spends the allowance `Budget`
+   - spends the allowance `{Budget}`
 3. 1
    - line per label
-   - wrapping ends the scan `Rule`
+   - wrapping ends the scan `{Rule}`
 4. 2
    - slides beat one crowd
-   - split past this `Advice`
+   - split past this `{Advice}`
 
 
 ---
@@ -167,16 +167,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 4
    - tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 2. 8
    - words per tile
-   - soft budget `Board`
+   - soft budget `{Board}`
 3. 5s
    - scan time
-   - the target `On plan`
+   - the target `{On plan}`
 4. 0
    - prose sentences
-   - allowed here `Audit`
+   - allowed here `{Audit}`
 
 
 ---
@@ -188,16 +188,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 4
    - tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 2. 8
    - words per tile
-   - soft budget `Board`
+   - soft budget `{Board}`
 3. 5s
    - scan time
-   - the target `On plan`
+   - the target `{On plan}`
 4. 0
    - prose sentences
-   - allowed here `Audit`
+   - allowed here `{Audit}`
 
 
 ---
@@ -209,16 +209,16 @@ Executive KPI system — one base, five layout modifiers.
 
 1. 4
    - tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 2. 8
    - words per tile
-   - soft budget `Board`
+   - soft budget `{Board}`
 3. 5s
    - scan time
-   - the target `On plan`
+   - the target `{On plan}`
 4. 0
    - prose sentences
-   - allowed here `Audit`
+   - allowed here `{Audit}`
 
 
 ---

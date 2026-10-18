@@ -99,16 +99,16 @@ card floats without ever changing its fill.
 ## The lift carries onto metric tiles, too.
 
 1. Uptime
-   - `99.98%`
+   - `{99.98%}`
    - Rolling 90-day availability across all regions.
 2. Latency
-   - `142 ms`
+   - `{142 ms}`
    - p95 response, edge to origin and back.
 3. Error rate
-   - `0.03%`
+   - `{0.03%}`
    - Failed requests as a share of total volume.
 4. Throughput
-   - `4.1M / day`
+   - `{4.1M / day}`
    - Peak sustained requests without degradation.
 
 ---

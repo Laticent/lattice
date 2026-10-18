@@ -60,9 +60,9 @@
   --lat-pill-pt:var(--pill-pad-y);
   --lat-pill-pb:var(--pill-pad-y);
   padding:calc(var(--lat-pill-pt) - var(--lat-pill-inset, 0px)) calc(var(--pill-pad-x) - var(--lat-pill-inset, 0px)) calc(var(--lat-pill-pb) - var(--lat-pill-inset, 0px));
-  border:1px solid var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
-  background:var(--lat-pill-bg, var(--pill-bg, var(--bg)));
-  color:var(--lat-pill-ink, var(--pill-fg, var(--text-body)));
+  border:1px solid var(--lat-pill-edge, var(--muted-mark));
+  background:var(--lat-pill-bg, var(--bg));
+  color:var(--lat-pill-ink, var(--text-body));
   border-radius:var(--pill-radius);
   white-space:nowrap;
   /* A capsule's outer height: one line of pill type (line-height 1), both paddings,
@@ -212,7 +212,7 @@
   content:'';
   position:absolute;
   inset:-1px;
-  background:var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
+  background:var(--lat-pill-edge, var(--muted-mark));
   pointer-events:none;
 }
 /* The extra inline padding is the room the point needs. */

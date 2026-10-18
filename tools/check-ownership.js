@@ -2899,7 +2899,6 @@ function checkReadingRole(errors) {
 const SANCTIONED_PILL_READS = [
   { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the checks note (engineering/decisions/2026-10-18-checks.md)" },
   { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
-  { file: 'lib/components/evidence/kpi/kpi.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
 ];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */

@@ -44,7 +44,7 @@ section.kpi > .cell-stage {
  * rule (base.modifiers.css) supplies the mono/uppercase chrome; kpi only tunes
  * the gap to the headline. Authored as `code`, never an h3, so it never trips
  * a heading-order lint. */
-section.kpi > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
+section.kpi > .cell-stage > p:has(> .lat-pill:only-child):not(:where([data-prose])) {
   margin: 0;
   padding: 0 0 var(--sp-xs) 0;
 }
@@ -129,7 +129,7 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { 
  * floor of 1.120 with NOTHING under 1.05, to a floor of 1.000 with 51 pairs under 1.02 and
  * 116 under 1.05 — 371 of 384 get worse. It is not an `--accent-soft` phenomenon either;
  * `--bg-alt`, the tile under `.ops` and `.trajectory`, reaches 1.003. So on many palettes
- * the FILL no longer guarantees the chip's edge at all, not merely on the worst one. `--pill-border` does — the state hue at full
+ * the FILL no longer guarantees the chip's edge at all, not merely on the worst one. `--lat-pill-edge` does — the state hue at full
  * saturation, 2.60:1 against the tile at worst, above the repo's justified
  * `PANEL_EDGE_MIN` of 1.5 though under WCAG 1.4.11's 3:1. It is modeled and floored
  * per-tile in tools/composed-contrast.js rather than left unmeasured (#1847). The bet was
@@ -141,33 +141,16 @@ section.kpi {
   --kpi-warn-pill-bg: color-mix(in srgb, var(--warn) 8%, var(--bg));
 }
 
-/* Pills — any `code` inside a kpi slide renders as a pill. First pill on
- * each row carries the status color (set per-row by the modifier's
- * nth-child hooks); subsequent pills stay neutral. */
-section.kpi code {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  line-height: 1;
-  font-family: var(--pill-font);
-  font-size: var(--pill-fs);
-  font-weight: var(--pill-weight);
-  letter-spacing: 0.12em;       /* wider tracking pairs with the uppercase opt-in */
-  text-transform: uppercase;
-  border: 1px solid var(--pill-border, var(--muted-mark));
-  background: var(--pill-bg, var(--bg));
-  color: var(--pill-fg, var(--text-body));
-  border-radius: var(--pill-radius);
-  padding: var(--pill-pad-y) var(--pill-pad-x);
-  white-space: nowrap;
-  vertical-align: 1px;
-}
-/* A spark (lib/plugins/sparks/sparks.inline.js) sizes its frame in THESE pills' units — plain
- * `--pill-fs`, not the `.lat-pill` formula base.modifiers.css uses — so it stands a fixed step
- * taller than the status pill beside it. A `bare` spark does not read the unit. */
-section.kpi .lat-spark {
-  --spark-u: calc(var(--pill-fs) * var(--spark-frame-scale, 1));
+/* Pills — an author writes a pill with the pills plugin's notation (`` `{On plan}` ``) and the
+ * plugin draws it (lib/plugins/pills/). First pill on each row carries the status color (set per
+ * row by the modifier's nth-child hooks, through `--lat-pill-edge` / `-bg` / `-ink`); subsequent
+ * pills stay neutral. kpi asks for three things of its own: UPPERCASE labels, the wider
+ * tracking that pairs with them, and the meta type step at every tile size (a pill beside a hero
+ * figure must not grow with it). */
+section.kpi {
+  --lat-pill-case: uppercase;
+  --lat-pill-tracking: 0.12em;
+  --lat-pill-size: var(--fs-meta);
 }
 /* A row that carries a spark centers its items: the frame is a step taller than the pill, so
  * a baseline row would hang the pill and the text off the top of the frame (measured 3.2px
@@ -186,21 +169,21 @@ section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol
  *  · the eyebrow paragraph holds a single pill (no preceding sibling), so its
  *    former left indent is preserved as padding-left on the <p> (no background on
  *    the eyebrow paragraph, so the padding adds no fill). */
-section.kpi > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
+section.kpi > .cell-stage > p:has(> .lat-pill:only-child):not(:where([data-prose])) {
   padding-left: 0.46875cqi;
 }
-section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:has(code) {
+section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:has(.lat-pill) {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: 0.46875cqi;
   row-gap: 0;
 }
-section.kpi > .cell-stage > :where(ol, ul) > li :where(ul, ol) > li code ~ code,
-section.kpi > .cell-stage > :where(ol, ul) > li > code ~ code {
-  --pill-border: var(--muted-mark);
-  --pill-bg: var(--bg);
-  --pill-fg: var(--text-muted);
+section.kpi > .cell-stage > :where(ol, ul) > li :where(ul, ol) > li .lat-pill ~ .lat-pill,
+section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill {
+  --lat-pill-edge: var(--muted-mark);
+  --lat-pill-bg: var(--bg);
+  --lat-pill-ink: var(--text-muted);
 }
 
 /* Shared number / label / target typography. */
@@ -402,17 +385,17 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 }
 section.kpi.briefing > .cell-stage > ol > li,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li {
-  --pill-border: var(--pass);
-  --pill-bg: var(--kpi-pass-pill-bg);
-  --pill-fg: var(--pass);
+  --lat-pill-edge: var(--pass);
+  --lat-pill-bg: var(--kpi-pass-pill-bg);
+  --lat-pill-ink: var(--pass);
 }
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
  * warn-colored and the accent left-border picks up --warn too. Use
  * when the hero metric is below target / off plan. */
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
-  --pill-border: var(--warn);
-  --pill-bg: var(--kpi-warn-pill-bg);
-  --pill-fg: var(--warn);
+  --lat-pill-edge: var(--warn);
+  --lat-pill-bg: var(--kpi-warn-pill-bg);
+  --lat-pill-ink: var(--warn);
 }
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
@@ -450,15 +433,15 @@ section.kpi.ops > .cell-stage > ol > li > strong {
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1),
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
-  --pill-border: var(--warn);
-  --pill-bg: var(--kpi-warn-pill-bg);
-  --pill-fg: var(--warn);
+  --lat-pill-edge: var(--warn);
+  --lat-pill-bg: var(--kpi-warn-pill-bg);
+  --lat-pill-ink: var(--warn);
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(2),
 section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
-  --pill-border: var(--pass);
-  --pill-bg: var(--kpi-pass-pill-bg);
-  --pill-fg: var(--pass);
+  --lat-pill-edge: var(--pass);
+  --lat-pill-bg: var(--kpi-pass-pill-bg);
+  --lat-pill-ink: var(--pass);
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) > strong { color: var(--warn); }
@@ -610,14 +593,14 @@ section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(n+3) {
 section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
-  --pill-border: var(--pass);
-  --pill-bg: var(--kpi-pass-pill-bg);
-  --pill-fg: var(--pass);
+  --lat-pill-edge: var(--pass);
+  --lat-pill-bg: var(--kpi-pass-pill-bg);
+  --lat-pill-ink: var(--pass);
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
-  --pill-border: var(--warn);
-  --pill-bg: var(--kpi-warn-pill-bg);
-  --pill-fg: var(--warn);
+  --lat-pill-edge: var(--warn);
+  --lat-pill-bg: var(--kpi-warn-pill-bg);
+  --lat-pill-ink: var(--warn);
 }
 section.kpi.compliance > .cell-stage > p:last-of-type {
   font-family: var(--font-label);
@@ -680,9 +663,9 @@ section.kpi.trajectory > .cell-stage > ol > li > strong {
   line-height: 1;
 }
 section.kpi.trajectory > .cell-stage > ol > li {
-  --pill-border: var(--pass);
-  --pill-bg: var(--kpi-pass-pill-bg);
-  --pill-fg: var(--pass);
+  --lat-pill-edge: var(--pass);
+  --lat-pill-bg: var(--kpi-pass-pill-bg);
+  --lat-pill-ink: var(--pass);
 }
 
 /* ─ MODIFIER · SPOTLIGHT (single hero metric) ───────────────────────── */
@@ -758,9 +741,9 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li + li {
   line-height: var(--lh-snug);
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
-  --pill-border: var(--pass);
-  --pill-bg: var(--kpi-pass-pill-bg);
-  --pill-fg: var(--pass);
+  --lat-pill-edge: var(--pass);
+  --lat-pill-bg: var(--kpi-pass-pill-bg);
+  --lat-pill-ink: var(--pass);
 }
 /* Every support belongs in the rail column. Only children 2-4 were placed, so a 5th
  * metric auto-placed into COLUMN 1 — under the hero card — and the separator rule
@@ -919,7 +902,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li + li {
   font-size: var(--fs-meta);
   padding-top: 0.15625cqi;
 }
-section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) .lat-pill {
   padding: 0.15625cqi 0.625cqi;
   font-size: var(--fs-meta);
 }
@@ -1030,7 +1013,7 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): shed the
  * status pills, the lowest-priority unit (manifest `adapt.droppable`), so the
  * numbers and their labels own the narrow frame instead of crowding it. */
-section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul) li code { display: none; }
+section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul) li .lat-pill { display: none; }
 
 
 /* ── card composition (resolve-cards.js) ────────────────────────────────────────────────

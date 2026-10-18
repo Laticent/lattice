@@ -103,13 +103,13 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 1. $2.4B
    - Total revenue
    - `~{1.6 1.7 1.9 2.0 2.2 2.4, fill, area, lg, end}`
-   - target $2.2B · +9% `On plan`
+   - target $2.2B · +9% `{On plan}`
 2. 42%
    - Gross margin
-   - `~{38 39 39 40 41 42, end}` +2pp QoQ `On plan`
+   - `~{38 39 39 40 41 42, end}` +2pp QoQ `{On plan}`
 3. $1.1B
    - Cash & equivalents
-   - `~{0.8 0.9 0.85 0.95 1.0 1.1, bar}` +$180M QoQ `On plan`
+   - `~{0.8 0.9 0.85 0.95 1.0 1.1, bar}` +$180M QoQ `{On plan}`
 
 ---
 

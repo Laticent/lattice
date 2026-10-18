@@ -403,7 +403,7 @@ const SURFACES = [
     }),
   ),
   // ── kpi · the status pill on its own-hue fill ────────────────────────────
-  // The universal pill (base.modifiers.css) inks `--pill-fg` on `--pill-bg`;
+  // The pills plugin inks `--lat-pill-ink` on `--lat-pill-bg`;
   // kpi points both at a status token and its 12% tint. `.ops` tiles sit on
   // `--bg-alt` — the same stack `redline/ins` already scores — so the surfaces
   // listed are the ones that are NOT duplicates: the WARN arm (which redline has
@@ -437,14 +437,14 @@ const SURFACES = [
   // gate. Mutate a site and re-run before trusting a pin here.
   ...[
     ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill ink on its own 8% ground over the --bg-alt tile',
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--kpi-warn-pill-bg\)/,
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/],
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-warn-pill-bg\)/,
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-ink: var\(--warn\)/],
     ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on its 8% ground over the accent-soft hero tile',
-      /section\.kpi\.briefing[^{]*\{[^}]*--pill-bg: var\(--kpi-pass-pill-bg\)/,
-      /section\.kpi\.briefing[^{]*\{[^}]*--pill-fg: var\(--pass\)/],
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-pass-pill-bg\)/,
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-ink: var\(--pass\)/],
     ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on its 8% ground over the accent-soft hero tile',
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--kpi-warn-pill-bg\)/,
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/],
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-warn-pill-bg\)/,
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-ink: var\(--warn\)/],
   ].map(([slug, state, tile, ctx, bgPin, fgPin]) => ({
     id: `kpi/${slug}`,
     ctx,
@@ -488,16 +488,17 @@ const SURFACES = [
   // exception now read 7.91 (pass) and 4.70 (warn) on the hero. The bimodality is gone,
   // so the exception goes with it and the hero takes the same 3 the card always had.
   ...[
-    ['pass', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(2\)[\s\S]{0,120}?--pill-border: var\(--pass\)/],
-    ['pass', 'hero', '--accent-soft', 3,   /section\.kpi\.briefing[\s\S]{0,200}?--pill-border: var\(--pass\)/],
-    ['warn', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
-    ['warn', 'hero', '--accent-soft', 3,   /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
+    ['pass', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(2\)[\s\S]{0,120}?--lat-pill-edge: var\(--pass\)/],
+    ['pass', 'hero', '--accent-soft', 3,   /section\.kpi\.briefing[\s\S]{0,200}?--lat-pill-edge: var\(--pass\)/],
+    ['warn', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(1\)[\s\S]{0,120}?--lat-pill-edge: var\(--warn\)/],
+    ['warn', 'hero', '--accent-soft', 3,   /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--lat-pill-edge: var\(--warn\)/],
   ].map(([state, tile, base, min, pin]) => ({
     id: `kpi/${state}-pill-border-on-${tile}`,
     ctx: `kpi: the ${state} pill's 1px border against the ${base} tile it sits on`,
     base, groups: [], ink: `--${state}`, min,
     src: KPI,
-    requires: [/border: 1px solid var\(--pill-border, var\(--muted-mark\)\)/, pin],
+    // The 1px border is the pills plugin's own rule, read through --lat-pill-edge; kpi sets the edge.
+    requires: [['lib/plugins/pills/pills.styles.css', /border:1px solid var\(--lat-pill-edge,/], pin],
   })),
   // ── kanban · the [data-s] card's status wash, and the two inks on it ─────
   // The wash is `--state-{s}-fill` mixed into the card — 55% light, 26% dark — and it is

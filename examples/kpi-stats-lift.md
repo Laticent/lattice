@@ -42,16 +42,16 @@ header: "Lattice · kpi + stats auto-lift"
 
 1. $2.4B
    - Total revenue
-   - target $2.2B · +9% `On plan`
+   - target $2.2B · +9% `{On plan}`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan`
+   - +2pp QoQ `{On plan}`
 3. $1.1B
    - Cash & equivalents
-   - +$180M QoQ `On plan`
+   - +$180M QoQ `{On plan}`
 4. +18%
    - YoY revenue growth
-   - vs 14% prior year `Ahead`
+   - vs 14% prior year `{Ahead}`
 
 ---
 

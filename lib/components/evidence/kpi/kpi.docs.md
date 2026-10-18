@@ -60,13 +60,13 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 1. $2.4B
    - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
+   - target $2.2B · +9% `{On plan}` `{Board}`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan` `Audit`
+   - +2pp QoQ `{On plan}` `{Audit}`
 3. $1.1B
    - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
+   - +$180M QoQ `{On plan}` `{Investor}`
 ```
 
 ## Anatomy
@@ -96,16 +96,16 @@ Flags the tile that misses.
 
 1. 1
    - tile flagged
-   - the miss `Attention`
+   - the miss `{Attention}`
 2. 3
    - tiles steady
-   - for context `On plan`
+   - for context `{On plan}`
 3. 0
    - alarms hidden
-   - honesty `Board`
+   - honesty `{Board}`
 4. 4
    - tiles total
-   - the row `On plan`
+   - the row `{On plan}`
 ```
 
 ### `ops` — ops
@@ -121,16 +121,16 @@ Reads the tiles against SLOs.
 
 1. 99.9%
    - the SLO frame
-   - target line `SLO`
+   - target line `{SLO}`
 2. 4
    - tiles per row
-   - unchanged `On plan`
+   - unchanged `{On plan}`
 3. 1
    - breach shown
-   - never hidden `Ops`
+   - never hidden `{Ops}`
 4. 30d
    - the window
-   - rolling `SLO`
+   - rolling `{SLO}`
 ```
 
 ### `compliance` — compliance
@@ -146,13 +146,13 @@ Tallies findings per framework.
 
 1. 0
    - open findings
-   - the goal `Clean`
+   - the goal `{Clean}`
 2. 4
    - frameworks tracked
-   - one row `Audit`
+   - one row `{Audit}`
 3. 1
    - in remediation
-   - dated `Watch`
+   - dated `{Watch}`
 ```
 
 ### `trajectory` — trajectory
@@ -168,13 +168,13 @@ Pairs each tile with its delta.
 
 1. +9%
    - the delta leads
-   - vs plan `Up`
+   - vs plan `{Up}`
 2. 4
    - tiles still rule
-   - per row `On plan`
+   - per row `{On plan}`
 3. −2
    - down is shown
-   - not spun `Honest`
+   - not spun `{Honest}`
 ```
 
 ### `spotlight` — spotlight
@@ -188,13 +188,13 @@ One tile earns double width.
 
 1. 1
    - tile promoted
-   - the headline `Spotlight`
+   - the headline `{Spotlight}`
 2. 2
    - support tiles
-   - beside it `On plan`
+   - beside it `{On plan}`
 3. 0
    - competing heroes
-   - one only `Rule`
+   - one only `{Rule}`
 ```
 
 ## Universal modifiers
