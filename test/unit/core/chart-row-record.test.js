@@ -530,8 +530,54 @@ describe('the paths agree on the data row', () => {
     }
   });
 
+  // Eleventh round (2026-10-18): the sixth independent checker's confirmed defects.
+  test('many large hostile raw blocks on a chart slide stay linear in the whole slide', () => {
+    const block = `<div>${'<a'.repeat(9990)}</div>`;
+    const t = Date.now();
+    engine.render(deck('bar', `${Array(30).fill(block).join('\n\n')}\n\n- A \`1\``), {});
+    findings(deck('bar', `${Array(30).fill(block).join('\n\n')}\n\n- A \`1\``));
+    assert.ok(Date.now() - t < 2500, `render and lint in ${Date.now() - t} ms`);
+  });
+
+  test('an author-written chart-frame class cannot leave a stamp or raw braces', () => {
+    const html = engine.render(deck('bar chart-frame', '- EMEA `{4.2}`'), {}).html;
+    assert.doesNotMatch(html, /data-lat-record|\{4\.2\}/);
+  });
+
+  test('a matrix-grid behind an inline raw table reads the same on the engine and the pill pass', () => {
+    const html = engine.render(deck('matrix-grid', 'Intro <table><tr><td>t</td></tr></table> x\n\n| L | A |\n|---|---|\n| r | `{done}` |'), {}).html;
+    assert.match(html, /lat-pill/, 'the table is the second one: the span stays a pill, as on main');
+  });
+
+  test('the source bridge leaves a record behind an inline raw list alone, as the render does', () => {
+    const src = 'Intro <ul><li>x</li></ul> text\n\n- `code` lead `{1.5}`\n';
+    assert.equal(rows.bridgeRecordsSource(src, ['bar']), src);
+  });
+
+  test('a literal-mode slide narrates its spans as written', () => {
+    const slide = (cls) => `<!-- _class: ${cls} -->\n\n## A\n\n- EMEA \`{3.5}\`\n- APAC \`2\`\n`;
+    assert.notEqual(narrateChart(slide('line inline-code-literal')), narrateChart(slide('line')));
+  });
+
+  test('no stamp survives the runtime: a built chart that kept a source list, and an export with the chart family off', async () => {
+    const run = async (doc) => {
+      const dom = new JSDOM(doc, { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true });
+      dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
+      const el = dom.window.document.createElement('script');
+      el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
+      dom.window.document.body.appendChild(el);
+      await new Promise((r) => setTimeout(r, 300));
+      return dom.window.document.body.innerHTML.replace(/<script[\s\S]*?<\/script>/g, ''); // not the runtime's own source text
+    };
+    const built = await run('<!DOCTYPE html><html><body><section class="progress chart-frame"><div><ul><li>x <code data-lat-record="">{24%, done}</code></li></ul></div></section></body></html>');
+    assert.doesNotMatch(built, /data-lat-record/);
+    const off = await run('<!DOCTYPE html><html><body><script type="application/lattice-export-settings">{"pluginsOff":["chart-family"]}</script><section class="bar"><h2>A</h2><ul><li>EMEA <code>{4.2}</code></li></ul></section></body></html>');
+    assert.doesNotMatch(off, /data-lat-record|\{4\.2\}/, 'the old-form list shows, not braces or a stamp');
+  });
+
   test('the source bridge reads CRLF', () => {
-    assert.equal(rows.bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\n  - P `6.9`\n');
+    // The line endings stay: a CRLF slide narrates as the old spans do (nothing either way), and no `\r` is dropped.
+    assert.equal(rows.bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\r\n  - P `6.9`\r\n');
   });
 
   test('the DOM mirror reads a record in a heading item, as the engine does', () => {

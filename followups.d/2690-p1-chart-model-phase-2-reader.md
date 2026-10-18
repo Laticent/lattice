@@ -84,3 +84,13 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                matrix-grid cell decoder counts a cell's sole record as the pill pass does. Left, low: the runtime's descendant query
                for wrapped lead spans is slow on thousands of wrappers in a parent with thousands of children; jsdom (not Chromium)
                runs the ownership check slowly on 8,000 old-form rows (a `querySelector` per code element).
+           15. Eleventh round (2026-10-18, sixth independent checker on c89f073, the first review of the stamp design): fixed here with a
+               test each: a stamp can no longer leak (an author-written `chart-frame` class bridges before its guard; the dispatch strips a
+               stamp from a section the chart family never reached; the runtime settles every stamp left after its chart pass: it strips one
+               on a built chart and rewrites an unbuilt one, such as an export with the chart family off, to the old-form spans);
+               raw-block counting has a per-slide budget (the cost of many large hostile blocks was bounded per block, not per slide);
+               a matrix-grid behind an inline raw table, a source bridge behind an inline raw list, a literal-mode slide's narration, and
+               the CRLF narration now follow the render; the runtime reads a flowchart-owned row span before a record, as the engine does.
+               Left: the browser cannot tell a raw `<code>{1}</code>` from a backticked span in the Marp path, so it claims it where the
+               engine does not (HTML, not a deck an author writes in Markdown); a deck-wide `inline-code: literal` register is front matter
+               the narrator is not handed; Compose ignores a raw list ahead (editor display only; a slide with raw HTML is locked there).
