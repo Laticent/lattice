@@ -8475,6 +8475,57 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
   }
 }
 
+// ── Platform suites: the registry the macOS / Windows workflow runs (engineering/development.md § Platform suites) ──
+// `.github/platform-suites.json` lists checks that need a real macOS or Windows runner. A malformed entry would make the
+// planner drop a suite silently, and a `run` that names a deleted file fails only on the runner, a day later, so the gate reads
+// the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
+// non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
+// SANCTIONED_* lists).
+const PLATFORM_SUITE_OS = ['macos-latest', 'windows-latest'];
+
+function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', 'platform-suites.json'), root = ROOT) {
+  let registry;
+  try {
+    registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  } catch (e) {
+    errors.push(`.github/platform-suites.json is missing or not valid JSON (${e.message}) — the platform-suites workflow plans from it.`);
+    return;
+  }
+  const suites = Array.isArray(registry.suites) ? registry.suites : null;
+  if (!suites || suites.length === 0) {
+    errors.push('.github/platform-suites.json needs a non-empty `suites` array.');
+    return;
+  }
+  const seen = new Set();
+  for (const s of suites) {
+    const at = `platform suite '${s?.name}'`;
+    if (typeof s?.name !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s.name)) {
+      errors.push(`${at}: \`name\` must be kebab-case.`);
+      continue;
+    }
+    if (seen.has(s.name)) errors.push(`${at}: the name is used twice.`);
+    seen.add(s.name);
+    if (!Array.isArray(s.os) || s.os.length === 0 || s.os.some((o) => !PLATFORM_SUITE_OS.includes(o))) {
+      errors.push(`${at}: \`os\` must be a non-empty list drawn from ${PLATFORM_SUITE_OS.join(', ')}.`);
+    }
+    if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
+      errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
+    }
+    if (typeof s.why !== 'string' || s.why.trim().length < 20) {
+      errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
+    }
+    if (typeof s.run !== 'string' || !s.run.trim()) {
+      errors.push(`${at}: \`run\` must be a command.`);
+      continue;
+    }
+    for (const token of s.run.split(/\s+/)) {
+      if (/^(?:test|tools)\/\S+\.(?:js|mjs|cjs)$/.test(token) && !fs.existsSync(path.join(root, token))) {
+        errors.push(`stale platform suite '${s.name}' — its \`run\` names ${token}, which no longer exists. Update or remove the entry in .github/platform-suites.json.`);
+      }
+    }
+  }
+}
+
 // ── HARD RULE #24: OpenRouter budget — our paid key stays off the site AND out of tests ──
 // Two separate invariants (engineering/workflow.md §OpenRouter budget):
 //   1. NO EXPOSURE — our server-side OPEN_ROUTER_KEY must never reach the deployed site.
@@ -13669,6 +13720,7 @@ function run() {
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
   checkMediaSourceCensus(errors);
+  checkPlatformSuites(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -13905,6 +13957,7 @@ module.exports = {
   checkSnapshotHtmlSinks,
   checkMediaSourceCensus,
   SANCTIONED_MEDIA_SOURCES,
+  checkPlatformSuites,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,

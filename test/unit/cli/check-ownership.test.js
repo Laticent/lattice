@@ -67,6 +67,7 @@ const {
   checkSnapshotHtmlSinks,
   checkMediaSourceCensus,
   SANCTIONED_MEDIA_SOURCES,
+  checkPlatformSuites,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
@@ -1485,6 +1486,46 @@ describe('check-ownership', () => {
       assert.ok(!hit('synth.speak(new SpeechSynthesisUtterance(t));'), 'browser synth utterance speak is allowed');
       assert.ok(!hit('seq = stage.sequence({ produce });'), 'a Suono sequence is not raw audio');
       assert.ok(!hit('voice.synthOne({ text: s });'), 'the Suono byte producer is allowed');
+    });
+  });
+
+  describe('platform suites registry (.github/platform-suites.json)', () => {
+    const os = require('node:os');
+    const probe = (registry) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plat-suites-'));
+      const file = path.join(dir, 'platform-suites.json');
+      fs.writeFileSync(file, typeof registry === 'string' ? registry : JSON.stringify(registry));
+      const errors = [];
+      checkPlatformSuites(errors, file);
+      fs.rmSync(dir, { recursive: true, force: true });
+      return errors;
+    };
+    const good = { name: 'ok-suite', os: ['macos-latest'], paths: ['lib/**'], run: 'node --test test/unit/cli/check-ownership.test.js', why: 'Proves a thing Linux cannot show.' };
+
+    test('the live registry is well formed', () => {
+      const errors = [];
+      checkPlatformSuites(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('a well-formed entry passes', () => {
+      assert.deepEqual(probe({ suites: [good] }), []);
+    });
+
+    test('failing arms: bad JSON, no suites, bad name, duplicate, bad os, no paths, no why, no run', () => {
+      assert.match(probe('{nope').join(), /not valid JSON/);
+      assert.match(probe({ suites: [] }).join(), /non-empty `suites`/);
+      assert.match(probe({ suites: [{ ...good, name: 'Bad Name' }] }).join(), /kebab-case/);
+      assert.match(probe({ suites: [good, good] }).join(), /used twice/);
+      assert.match(probe({ suites: [{ ...good, os: ['ubuntu-latest'] }] }).join(), /`os` must be/);
+      assert.match(probe({ suites: [{ ...good, paths: [] }] }).join(), /`paths` must be/);
+      assert.match(probe({ suites: [{ ...good, why: 'short' }] }).join(), /`why` must say/);
+      assert.match(probe({ suites: [{ ...good, run: '' }] }).join(), /`run` must be a command/);
+    });
+
+    test('failing arm: a run that names a deleted test file is stale', () => {
+      const e = probe({ suites: [{ ...good, run: 'node --test test/unit/cli/no-such-file.test.js' }] });
+      assert.match(e.join(), /stale platform suite 'ok-suite'.*no-such-file/);
     });
   });
 
