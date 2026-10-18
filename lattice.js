@@ -3245,19 +3245,26 @@ async function renderBody(browser, g, closeBrowser) {
   const page = await g(() => browser.newPage(), 'new page');
   // LOCAL FILES stay inside the deck. The page loads the deck's pictures as `file://` addresses, and Chromium
   // follows a symlink or a typed `file:///etc/x` wherever it points. Each `file:` request is checked by REAL
-  // path against the deck folder and Lattice's install (the output page itself aside); one that lands outside is answered
+  // path against the deck folder, Lattice's install and the folders of the stylesheet and palettes the command line names (the output page itself aside); one that lands outside is answered
   // with the drawn missing-picture stand-in (an image) or refused (anything else) and named once on stderr.
   // The decks in the galleries never trip it, so their bytes do not move.
   {
     const { WEB_IMAGE_PLACEHOLDER } = require('./lib/core/remote-ref.js');
+    // The command line names two more places the caller trusts by construction: the layout stylesheet and the
+    // palette files (their `url()` assets sit beside them). They join the deck folder and the install.
+    const { createFileConfiner } = require('./lib/export/file-confine.js');
+    const confine = createFileConfiner([...DECK_CONFINE.roots, path.dirname(path.resolve(cssFile)), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
     const outHtmlReal = fs.realpathSync(path.resolve(outHtml));
+    // The output page itself, compared by REAL path (the output folder may be reached through a symlink, as
+    // /tmp is on macOS), and never throwing: a `file://host/share` address has no local path.
+    const isOutputPage = (url) => { try { return fs.realpathSync(fileURLToPath(url.split(/[?#]/)[0])) === outHtmlReal; } catch { return false; } };
     const standIn = decodeURIComponent(WEB_IMAGE_PLACEHOLDER.slice(WEB_IMAGE_PLACEHOLDER.indexOf(',') + 1));
     const refused = new Set();
     await g(() => page.setRequestInterception(true), 'confine local files');
     page.on('request', (req) => {
       if (req.isInterceptResolutionHandled()) return;
       const url = req.url();
-      if (!/^file:/i.test(url) || DECK_CONFINE.allows(url) || (req.isNavigationRequest() && fileURLToPath(url) === outHtmlReal)) { req.continue(); return; }
+      if (!/^file:/i.test(url) || confine.allows(url) || (req.isNavigationRequest() && isOutputPage(url))) { req.continue(); return; }
       if (!refused.has(url)) {
         refused.add(url);
         console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
