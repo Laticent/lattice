@@ -577,6 +577,52 @@ describe('the paths agree on the data row', () => {
     assert.doesNotMatch(off, /data-lat-record|\{4\.2\}/, 'the old-form list shows, not braces or a stamp');
   });
 
+  // Twelfth round (2026-10-18): the seventh independent checker's confirmed defects.
+  test('raw HTML on a slide that is not a chart costs nothing: no scan, and a matrix-grid scan has a per-slide budget', () => {
+    const block = `<div>${'<a '.repeat(2600)}</div>`;
+    const plain = `---\nmarp: true\n---\n\n## Plain slide\n\n${Array(240).fill(block).join('\n\n')}\n`;
+    let t = Date.now();
+    engine.render(plain, {});
+    assert.ok(Date.now() - t < 1500, `a plain slide in ${Date.now() - t} ms`);
+    t = Date.now();
+    engine.render(deck('matrix-grid', `${Array(240).fill(block).join('\n\n')}\n\n| | A |\n|---|---|\n| r | \`{done}\` |`), {});
+    assert.ok(Date.now() - t < 2500, `a matrix-grid slide in ${Date.now() - t} ms`);
+  });
+
+  test('a hand-written chart-frame class in the browser shows the old-form list, never raw braces', async () => {
+    const md = new MarkdownIt({ html: true });
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><section class="bar chart-frame">${md.render('## A\n\n- EMEA `{4}`\n- APAC `{3}`')}</section></body></html>`, {
+      url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
+    });
+    dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
+    const el = dom.window.document.createElement('script');
+    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
+    dom.window.document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 300));
+    for (const script of dom.window.document.querySelectorAll('script')) script.remove();
+    const html = dom.window.document.body.innerHTML;
+    assert.doesNotMatch(html, /data-lat-record|\{4\}|\{3\}/);
+  });
+
+  test('inline code that mentions a list tag is no list ahead, for the narrator', () => {
+    const slide = (v) => `<!-- _class: bullet -->\n\n## A\n\nUse \`<ul>\` for lists.\n\n- EMEA ${v('4', 'target=5')}\n- APAC ${v('3', 'target=6')}\n`;
+    const rec = narrateChart(slide((n, t) => `\`{${n}, ${t}}\``));
+    assert.ok(rec);
+    assert.equal(rec, narrateChart(slide((n, t) => `\`${n}\` \`${t.replace('target=', '')}\``)));
+  });
+
+  test('a deck-wide inline-code: literal register narrates the spans as written', () => {
+    const deckSrc = (reg) => `---\nmarp: true\n${reg}---\n\n<!-- _class: bullet -->\n\n## A\n\n- EMEA \`{4, target=5}\`\n- APAC \`{3, target=6}\`\n`;
+    // The chart is not drawn in literal mode, so the narration must not describe one (the plain deck's does: "against a five target").
+    assert.match(narrateChart(deckSrc('')), /against a five target/, 'control: the plain deck narrates the chart');
+    assert.doesNotMatch(narrateChart(deckSrc('inline-code: literal\n')), /against a five target/);
+  });
+
+  test('a raw list ahead is no list to a row owner: a hub-spoke slide renders as on main', () => {
+    const html = engine.render(deck('hub-spoke bar', '<ul><li>raw</li></ul>\n\n- Hub\n  - Spoke `{risk}`'), {}).html;
+    assert.match(html, /<code>\{risk\}<\/code>/, 'as on main: the raw list does not make the hub-spoke owner skip its spans');
+  });
+
   test('the source bridge reads CRLF', () => {
     // The line endings stay: a CRLF slide narrates as the old spans do (nothing either way), and no `\r` is dropped.
     assert.equal(rows.bridgeRecordsSource('- EMEA\r\n  - P `{6.9}`\r\n', ['line']), '- EMEA\r\n  - P `6.9`\r\n');

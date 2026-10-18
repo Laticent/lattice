@@ -94,3 +94,13 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                Left: the browser cannot tell a raw `<code>{1}</code>` from a backticked span in the Marp path, so it claims it where the
                engine does not (HTML, not a deck an author writes in Markdown); a deck-wide `inline-code: literal` register is front matter
                the narrator is not handed; Compose ignores a raw list ahead (editor display only; a slide with raw HTML is locked there).
+           16. Twelfth round (2026-10-18, seventh independent checker on c11c86f): fixed here with a test each: the matrix-grid pass scanned raw
+               HTML on every slide of every deck, with no budget (now only on a matrix-grid slide, within the per-slide budget); a hand-written
+               `chart-frame` class in the browser showed raw braces (a built chart is now told by its `.chart-body`, so the old-form list shows);
+               narration and lint read inline code that mentions `<ul>` as a list ahead (code spans are text); a deck-wide `inline-code:
+               literal` register is now honored by the narrator, which is handed the deck; a raw list ahead no longer counts as a list to a
+               row owner (hub-spoke), only to a record, so the engine's HTML for that slide is as on main. Left, rare: jsdom (not Chromium) runs
+               the ownership check slowly on thousands of rows (a `querySelector('ul, ol')` per row-ending span); on the docs site's
+               on-demand kernel path a declined slide before its kernel loads keeps its claimed `{…}` as code until the host reloads and
+               renders again; the dispatch's final strip removes the literal ` data-lat-record=""` from the whole page, so a raw-HTML
+               attribute of that exact form an author wrote would go too.
