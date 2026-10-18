@@ -175,7 +175,7 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 			throw new Error(`check-route-budget: ${owner} needs /${rel}, which is not in dist/ — the build is broken, not smaller.`);
 		}
 		const src = fs.readFileSync(file);
-		if (!exclude.has(rel)) gz += zlib.gzipSync(withFixedHashes(src), { level: 6 }).length;
+		if (!exclude.has(rel)) gz += zlib.gzipSync((src), { level: 6 }).length;
 		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
 			const next = path.posix.join(path.posix.dirname(rel), m[1]);
 			if (!seen.has(next)) {
