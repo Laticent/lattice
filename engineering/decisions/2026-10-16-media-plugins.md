@@ -923,3 +923,11 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   places: an `<img src>`, a `style` attribute value and a `<style>` body. Two behaviors the last checker judged off the path are
   in `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md`. The unclosed-quote scan of the tag pattern is
   quadratic on input no serializer produces, so it is not guarded.
+- 2026-10-18: §4.11 "Paths stay inside the deck" gets its file-system half (`lib/export/file-confine.js`). The CLI checks the REAL
+  path of every local file a render reads: Chromium's `file:` requests (answered with the drawn stand-in for an image, refused
+  for anything else), the player's inliner, the logo-wall mark reader and the SVG rasterizer. A symlink in the deck folder that
+  points out, and a typed `file:///abs/path` outside the folder, are refused and named on stderr. **Decision (the "authored
+  here" signal the follow-up asked for):** the CLI has no way to tell a deck its author wrote on this machine from a stranger's
+  zip, so it does not try. A typed `file:` address is allowed exactly when its real path is inside the deck's folder or
+  Lattice's install (the same two roots `pdf-asset-reader.js` uses), which is where a deck's own relative references land. The
+  `file` row stays `remote` for the markup gates. The Studio and the playground have no local file system and are unchanged.
