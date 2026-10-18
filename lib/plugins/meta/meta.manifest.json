@@ -1,0 +1,63 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "meta",
+  "api": 1,
+  "title": "Slide metadata",
+  "description": "How a deck is read. Owns the slide-metadata fields an author sets in an HTML comment (`<!-- _class: cards -->`, `<!-- _footer: Q3 review -->`) and nothing else: it draws nothing, writes `data-*` attributes and classes on the slide, and every other reader (CSS, the runtime, other plugins, the linter, the editor) learns which keys exist from this one manifest. Always on and in-tree: the host never lets a deck or a host setting switch it off, because without it a deck cannot be read. Each other plugin's `contributes.registers` joins this vocabulary automatically. Contract: engineering/decisions/2026-10-17-meta-record.md §5.0.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "line",
+        "d": "M24 26H104A12 12 0 0 1 116 38V90A12 12 0 0 1 104 102H24A12 12 0 0 1 12 90V38A12 12 0 0 1 24 26Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M36 52H92M36 64H80M36 76H64",
+        "width": 8
+      }
+    ]
+  },
+  "contributes": {
+    "diagnostics": {
+      "meta/url-scheme": "A URL-typed field (a background image, the deck logo) named a scheme outside the allowlist and was dropped."
+    },
+    "meta": {
+      "fields": {
+        "theme": { "type": "text", "scope": "deck", "applied": true, "describe": "The theme name. Deck-only: it picks the CSS bundle before any slide is read." },
+        "paginate": { "type": "enum", "values": ["true", "false", "skip", "hold"], "local": true, "applied": true, "complete": true, "describe": "Page numbers on or off; `skip` and `hold` are Marp's pagination extensions." },
+        "header": { "type": "text", "local": true, "applied": true, "complete": true, "describe": "A running header." },
+        "footer": { "type": "text", "local": true, "applied": true, "complete": true, "describe": "A running footer." },
+        "class": { "type": "classes", "local": true, "applied": true, "complete": true, "describe": "The slide's component and modifier words." },
+        "backgroundColor": { "type": "css", "local": true, "applied": true, "complete": true, "describe": "A background color for the slide." },
+        "backgroundImage": { "type": "url", "local": true, "applied": true, "describe": "A background image for the slide." },
+        "backgroundPosition": { "type": "css", "local": true, "applied": true, "describe": "The background image position." },
+        "backgroundRepeat": { "type": "css", "local": true, "applied": true, "describe": "The background image repeat." },
+        "backgroundSize": { "type": "css", "local": true, "applied": true, "describe": "The background image size." },
+        "color": { "type": "css", "local": true, "applied": true, "complete": true, "describe": "The text color for the slide." },
+        "size": { "type": "text", "scope": "deck", "describe": "The slide format. Deck-only." },
+        "style": { "type": "css", "describe": "Deck CSS. Consumed by the engine, never a section attribute." },
+        "lang": { "type": "text", "scope": "deck", "applied": true, "describe": "The deck language. Deck-only." },
+        "marp": { "type": "text", "scope": "deck", "describe": "Marp's switch. Deck-only." },
+        "logo": { "type": "url", "describe": "The deck logo. Consumed by the deck-logo plugin, never a section attribute." },
+        "focus": { "type": "text", "applied": true, "complete": true, "describe": "An ordinal target to highlight (`row 4`, `item 3`, `line 3-4`). Design: engineering/decisions/2026-06-16-focus-highlighting.md." },
+        "focusStyle": { "type": "enum", "values": ["spotlight", "blur", "ring", "list-fill", "pop"], "applied": true, "complete": true, "describe": "How the focus target is shown." },
+        "focusSteps": { "type": "steps", "complete": true, "describe": "A pipe-separated walk that expands one slide into one slide per step. Consumed before the slide is built, so it is known (stripped from the body) but never applied as a section attribute." },
+        "build": { "type": "text", "bare": true, "applied": true, "customProp": false, "describe": "Progressive disclosure: an axis and grouping, or bare for the default (`_build`, `_build: rows`, `_build: none`). Design: engineering/decisions/2026-06-16-narrative-step-spec.md. Code reads `data-build`, so no `--build` property." },
+        "debug": { "type": "text", "bare": true, "applied": true, "customProp": false, "describe": "Layout debug overlay, in the previewers only: `data-debug` is stripped from exports. A profile keyword (`on`, `off`, `all`) or a list of facets. Design: engineering/decisions/2026-07-01-debug-bounding-boxes.md." },
+        "lens": { "type": "words", "bare": true, "describe": "Reader-lens membership (`<!-- _lens: brief ask -->`). Known so it is stripped from the body and never leaks into shared HTML; never a section attribute, because @laticent/lente reads it from the source. Design: engineering/decisions/2026-07-13-lente-reader-lenses.md." },
+        "track": { "type": "text", "applied": true, "customProp": false, "describe": "The scale a `topic` slide sits in when the derived one is not what the author wants (`Cost to win | Lifetime value | [Payback]`). One `data-track` string for both render arms (lib/core/track-spec.js); code reads it, so no `--track` property." }
+      },
+      "markers": ["stress-slide"],
+      "comments": {
+        "pane": { "kind": "structure", "describe": "Where a pane begins, naming its component (`<!-- _pane: list no-title -->`, or the `pane:` alias). Read by the pane carve (lib/core/panes.js) before directives are applied." },
+        "panes": { "kind": "structure", "describe": "A slide's pane layout (`<!-- panes: 60/40 stack -->`). Read by the pane carve." },
+        "say": { "kind": "channel", "describe": "The slide's read-as text, the highest-precedence narration source. A separate channel from the speaker note; lowercase only." },
+        "describe": { "kind": "channel", "describe": "The slide's accessible description (WCAG 1.1.1), an objective equivalent of what the slide shows. A separate channel from the speaker note." }
+      }
+    }
+  }
+}

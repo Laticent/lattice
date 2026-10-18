@@ -172,6 +172,56 @@
             }
           }
         },
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fields"],
+          "description": "A DATA PROVIDER for the slide-metadata vocabulary: the keys an author may set in an HTML comment on a slide, each with a type. It renders nothing. The build derives every key list the engine, the linter, the notes extractor and the editor used to keep by hand (lib/plugins/meta.generated.mjs, read through lib/core/meta-keys.mjs), and every plugin's `registers` join the vocabulary on their own. Always on and in-tree only: the host refuses to disable a plugin that contributes it, because a deck cannot be read without it. Contract: engineering/decisions/2026-10-17-meta-record.md §5.0.",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9]*$"},
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type"],
+                "properties": {
+                  "type": {"enum": ["text", "enum", "classes", "css", "url", "steps", "words"], "description": "The field's type. The host validates a value against it at the boundary (record note §5.7)."},
+                  "values": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}, "description": "The words an `enum` field accepts."},
+                  "scope": {"enum": ["deck"], "description": "`deck`: the key is written once, at the top of the deck, and never per slide (Marp's global-only keys). Omitted: it may be set per slide, or from a slide on."},
+                  "bare": {"const": true, "description": "The key may be written with no value (`<!-- _build -->`). Every other key requires a colon, so prose such as `<!-- color -->` stays a note."},
+                  "local": {"const": true, "description": "One of Marp's local directives, which a bare (non-underscore) comment may also set."},
+                  "applied": {"const": true, "description": "The engine writes the key on the slide as `data-<key>`."},
+                  "customProp": {"const": false, "description": "An applied key that gets its `data-*` attribute and NOT the `--<key>` custom property, because code rather than CSS reads it."},
+                  "complete": {"const": true, "description": "The editor offers the key's name when an author types `<!-- _`."},
+                  "describe": {"type": "string", "minLength": 1}
+                }
+              }
+            },
+            "markers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+              "description": "Bare marker comments (`<!-- stress-slide -->`) that carry no value: tooling reads them, they are never speaker notes."
+            },
+            "comments": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+              "description": "Comment keys that are not slide directives but are not speaker notes either, each with the channel that reads it. `structure`: the pane carve splits the slide at it (`<!-- _pane: list -->`, `<!-- panes: 60/40 -->`). `channel`: a note-like comment with its own sink (`say:` is read-as text for narration, `describe:` is the slide's accessible description). Readers that must not mistake one for a speaker note, or must find one, ask the vocabulary instead of keeping a list.",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "kind": {"enum": ["structure", "channel"]},
+                  "describe": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        },
         "data": {
           "const": true,
           "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through lib/plugins/plugin-data.js `pluginData(name)`, never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."

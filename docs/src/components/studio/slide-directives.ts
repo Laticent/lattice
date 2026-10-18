@@ -8,31 +8,22 @@
 // never splits-mutates-rejoins the deck, never normalizes, and never edits inside a
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
-// The directive KEYS the engine recognizes as scoped/global directives (a comment
-// whose first `key:` is one of these is a DIRECTIVE, not a speaker note). This
-// mirrors `KNOWN_DIRECTIVES` in lib/engine/directives.js and is held in lock-step by
-// a parity test (slide-directives.test.ts) — the SAME drift-gate discipline as the
-// autocomplete-parity test, so this list can never silently fall behind the engine
-// (the old slide-notes.ts hand-list HAD drifted, eating `_focus`/`_build`/`style`).
-export const DIRECTIVE_KEYS: ReadonlySet<string> = new Set([
-	'theme', 'paginate', 'header', 'footer', 'class', 'backgroundColor',
-	'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize',
-	'color', 'size', 'style', 'lang', 'marp', 'logo',
-	'focus', 'focusStyle', 'focusSteps', 'build', 'debug', 'lens', 'track',
-]);
+import { KNOWN_KEYS } from '../../../../lib/core/meta-keys.mjs';
+import { readMetaField, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges, writeMeta } from '../../../../lib/core/meta-record.mjs';
+
+// The directive KEYS the engine recognizes as scoped/global directives (a comment whose first
+// `key:` is one of these is a DIRECTIVE, not a speaker note). They come from the shared vocabulary
+// (lib/core/meta-keys.mjs, derived from the `meta` plugin's manifest), the same list the engine
+// reads, so there is no copy here to keep in step. This module used to hold its own and a parity
+// test to catch drift (the old slide-notes.ts hand-list HAD drifted, eating `_focus`/`_build`/`style`).
+export const DIRECTIVE_KEYS: ReadonlySet<string> = KNOWN_KEYS;
 
 /** The bare `key` of a comment body's FIRST directive line (leading `_` stripped),
  *  or '' when the body opens with prose. `<!-- _focus: row 2 -->` → 'focus';
- *  `<!-- note: … -->` → ''; `<!-- remember to smile -->` → ''. */
+ *  `<!-- note: … -->` → ''; `<!-- remember to smile -->` → ''. A key alone with no colon is only
+ *  a directive if it is a bare-able (flag) key (`<!-- _build -->`). */
 export function directiveKey(body: string): string {
-	const m = String(body).trim().match(/^_?([A-Za-z][\w-]*)\s*(?::|$)/);
-	if (!m) return '';
-	// A key alone with no colon is only a directive if it's a bare FLAG directive
-	// (`<!-- _build -->`). Otherwise `<!-- remember … -->` would misread as 'remember'.
-	const key = m[1];
-	const hasColon = /^_?[A-Za-z][\w-]*\s*:/.test(String(body).trim());
-	if (!hasColon && key !== 'build' && key !== 'debug' && key !== 'lens') return '';
-	return DIRECTIVE_KEYS.has(key) ? key : '';
+	return sharedDirectiveKey(body);
 }
 
 /** True when the comment body is an engine directive (not a speaker note). */
@@ -74,49 +65,9 @@ export function isPaneMarkerBody(body: string): boolean {
 // block's `---` front matter split the slide and a `code` slide showing a `_class`
 // comment got its example edited. We mask fenced regions before any scan.
 
-/** The column a line's leading whitespace reaches, with a tab advancing to the next
- *  multiple of four — CommonMark's tab-stop rule, so `\t```` sits at column 4. */
-function indentWidth(ws: string): number {
-	let col = 0;
-	for (const ch of ws) col = ch === '\t' ? col + 4 - (col % 4) : col + 1;
-	return col;
-}
-
-/** Char ranges `[start, end)` covered by fenced code blocks (``` / ~~~). An
- *  unterminated fence masks to end-of-string (matching how a renderer reads it).
- *
- *  A CLOSER may be indented at most three columns past the container the fence sits
- *  in (CommonMark §4.5), so a `    ```` line inside a top-level fence is body, not the
- *  end. This scanner sees no containers, so it bounds the closer at the opener's column
- *  plus three: exact at top level (opener at 0, bound 3), and never too tight inside a
- *  list item, whose content column is at most the opener's. The opener keeps accepting
- *  any indent for the same reason. */
-export function fenceRanges(text: string): Array<[number, number]> {
-	const ranges: Array<[number, number]> = [];
-	const src = String(text ?? '');
-	let pos = 0;
-	let open: { char: string; len: number; start: number; maxCloseIndent: number } | null = null;
-	for (const line of src.split('\n')) {
-		const lineStart = pos;
-		const lineEnd = pos + line.length;
-		const fm = line.match(/^([ \t]*)(`{3,}|~{3,})(.*)$/);
-		if (fm) {
-			const indent = indentWidth(fm[1]);
-			const char = fm[2][0];
-			const len = fm[2].length;
-			if (!open) open = { char, len, start: lineStart, maxCloseIndent: indent + 3 };
-			else if (open.char === char && len >= open.len && fm[3].trim() === '' && indent <= open.maxCloseIndent) {
-				ranges.push([open.start, lineEnd]);
-				open = null;
-			}
-		}
-		pos = lineEnd + 1; // + the '\n'
-	}
-	if (open) ranges.push([open.start, src.length]);
-	return ranges;
-}
-
-const inRanges = (ranges: Array<[number, number]>, idx: number) => ranges.some(([a, b]) => idx >= a && idx < b);
+/** Char ranges `[start, end)` covered by fenced code blocks (``` / ~~~); see lib/core/meta-record.mjs. */
+// The cast: TS infers the untyped `.mjs` kernel's ranges as `number[][]`; each is a `[start, end)` pair.
+export const fenceRanges = sharedFenceRanges as (text: string) => Array<[number, number]>;
 
 /** Collapse blank-line runs and strip trailing spaces, but ONLY outside fenced code
  *  blocks — so a note edit never disturbs meaningful whitespace (hard breaks, blank
@@ -139,18 +90,7 @@ export function tidyOutsideFences(text: string): string {
 export type Comment = { start: number; end: number; body: string; bodyStart: number };
 
 /** Every HTML comment in `chunk` that is NOT inside a fenced code block, in order. */
-export function comments(chunk: string): Comment[] {
-	const text = String(chunk ?? '');
-	const fences = fenceRanges(text);
-	const re = /<!--([\s\S]*?)-->/g;
-	const out: Comment[] = [];
-	let m: RegExpExecArray | null;
-	while ((m = re.exec(text))) {
-		if (inRanges(fences, m.index)) continue;
-		out.push({ start: m.index, end: m.index + m[0].length, body: m[1], bodyStart: m.index + 4 });
-	}
-	return out;
-}
+export const comments: (chunk: string) => Comment[] = sharedComments;
 
 // ── The `_class` directive: read, and surgically write ───────────────────────
 
@@ -174,38 +114,19 @@ export type ClassDirective = {
 
 /** Locate and parse the slide's `_class` directive (the first such comment). */
 export function readClassDirective(chunk: string): ClassDirective {
-	const text = String(chunk ?? '');
-	const carriers = comments(text).filter((c) => /(?:^|\n)\s*_?class\s*:/.test(c.body));
-	if (!carriers.length) return { tokens: [], present: false, editable: true };
-	if (carriers.length > 1) return { tokens: [], present: true, editable: false, reason: 'duplicate' };
-
-	const c = carriers[0];
-	// The `_class:` line within the comment body: value runs to end-of-line (or the
-	// end of a single-line comment body). Other lines (`_paginate: false`) are left be.
-	const line = c.body.match(/(?:^|\n)([ \t]*)_?class\s*:[ \t]*([^\n]*)/);
-	if (!line) return { tokens: [], present: false, editable: true };
-	const rawValue = line[2];
-	if (/^\[/.test(rawValue.trim())) return { tokens: [], present: true, editable: false, reason: 'array-form' };
-
-	// Value offset inside the whole chunk. line.index is within the body; the value
-	// starts after the matched prefix (`\n` + indent + `_class:` + spaces).
-	const matchStartInBody = (line.index ?? 0) + line[0].length - rawValue.length;
-	const absValueStart = c.bodyStart + matchStartInBody;
-	// Trim trailing whitespace from the value span so we never disturb the ` -->` gap.
-	const trimmed = rawValue.replace(/[ \t]+$/, '');
-	const absValueEnd = absValueStart + trimmed.length;
-	const tokens = trimmed.split(/\s+/).filter(Boolean);
-	// Sole directive ⇔ the body has no OTHER directive line beyond this `_class`.
-	const otherDirectiveLines = c.body
-		.split('\n')
-		.some((l) => l.trim() && !/^\s*_?class\s*:/.test(l) && directiveKey(l) !== '');
+	const f = readMetaField(chunk, 'class');
+	if (!f.present || !f.editable) {
+		return f.present
+			? { tokens: [], present: true, editable: false, reason: f.reason }
+			: { tokens: [], present: false, editable: true };
+	}
 	return {
-		tokens,
+		tokens: f.value.split(/\s+/).filter(Boolean),
 		present: true,
 		editable: true,
-		valueSpan: [absValueStart, absValueEnd],
-		commentSpan: [c.start, c.end],
-		soleDirective: !otherDirectiveLines,
+		valueSpan: f.valueSpan,
+		commentSpan: f.commentSpan,
+		soleDirective: f.soleDirective,
 	};
 }
 
@@ -230,32 +151,7 @@ export function canEditClass(chunk: string): boolean {
  * hand-authored tokens by reading getClassTokens() first and mutating that array.
  */
 export function setClassTokens(chunk: string, tokens: string[]): string {
-	const text = String(chunk ?? '');
-	const dir = readClassDirective(text);
-	if (!dir.editable) return text;
-	const value = tokens.filter(Boolean).join(' ').replace(/--+>/g, '->'); // never close the comment early
-
-	if (!dir.present) {
-		if (!value) return text;
-		const lead = `<!-- _class: ${value} -->`;
-		return text.trim() ? `${lead}\n\n${text.replace(/^\n+/, '')}` : lead;
-	}
-
-	if (value) {
-		const [s, e] = dir.valueSpan as [number, number];
-		return text.slice(0, s) + value + text.slice(e);
-	}
-
-	// Clearing to empty. Rebuild the comment from its remaining directive lines; if
-	// nothing is left, remove the whole comment (and one trailing blank-line gap).
-	const [cs, ce] = dir.commentSpan as [number, number];
-	const inner = text.slice(cs + 4, ce - 3); // between `<!--` and `-->`
-	const kept = inner.split('\n').map((l) => l.trim()).filter((l) => l && !/^_?class\s*:/.test(l));
-	if (kept.length) return `${text.slice(0, cs)}<!-- ${kept.join('\n')} -->${text.slice(ce)}`;
-	let end = ce;
-	const gap = text.slice(ce).match(/^[ \t]*\r?\n(?:[ \t]*\r?\n)?/);
-	if (gap) end += gap[0].length;
-	return (text.slice(0, cs) + text.slice(end)).replace(/^\n+/, '');
+	return writeMeta(String(chunk ?? ''), { class: tokens.filter(Boolean).join(' ') });
 }
 
 /** Add or remove a single token, preserving order and all other tokens. */

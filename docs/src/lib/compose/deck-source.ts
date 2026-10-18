@@ -1,4 +1,7 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+
+import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
+import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
@@ -19,7 +22,22 @@ export type ParsedSlide = SlideChunk & { raw: string };
 
 const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
 const PANE_MARKER_RE = /^[ \t]*<!--\s*_pane\s*:/;
-export const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)/;
+
+/** The `class` slice of the directive vocabulary (lib/core/comment-directive.mjs binds one key). */
+
+/** The class PAYLOAD one directive line carries (`<!-- _class: kpi dark -->` → `kpi dark`), or null
+ *  when the line is not a class directive. Read through the engine's own comment grammar
+ *  (lib/core/comment-directive.mjs, what lib/engine/slides.js binds), so Compose cannot read a
+ *  class the render does not apply: quotes are stripped the engine's way, and a compound comment
+ *  is a class directive only when `_class` is its FIRST key. */
+export function classPayloadOf(directive: string): string | null {
+	return readDirectiveComment(String(directive ?? '').trim(), CLASS_VOCAB)?.value ?? null;
+}
+
+/** The component of one directive line: the first token of its class payload, or null. */
+export function classNameOf(directive: string): string | null {
+	return classPayloadOf(directive)?.split(/\s+/)[0] || null;
+}
 const SEP = '\n\n---\n\n';
 
 /** CRLF → LF. The slide separator `\n-{3,}\n` doesn't match `\r\n---\r\n`, so a CRLF
@@ -135,8 +153,8 @@ export function hasLossyConstruct(prose: string): boolean {
 /** The `_class` component name of a slide's directives (first token), or 'content'. */
 export function slideClassOf(directives: string[]): string {
 	for (const d of directives) {
-		const m = d.match(CLASS_RE);
-		if (m) return m[1];
+		const name = classNameOf(d);
+		if (name) return name;
 	}
 	return 'content';
 }

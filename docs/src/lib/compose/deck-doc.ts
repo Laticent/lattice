@@ -2,7 +2,7 @@ import { Fragment, type Node as PMNode, Schema } from 'prosemirror-model';
 import segnoSlots from '../../../../lib/core/segno-slots.generated.js';
 import { CLIP_ORIGIN } from './clip-origin';
 import { latticeMarkdownSerializer, parseSlideProse, proseSchema } from './deck-markdown';
-import { composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
+import { classNameOf, composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
 
 // The ONE-DOCUMENT model (Option B). The whole deck is a single ProseMirror
 // document: `doc → slide+`, each `slide` a block container carrying its own
@@ -160,7 +160,7 @@ const ROW_LIST_CHARTS = new Set<string>([
  * the author never touches still re-emits its own bytes (`raw`), so nothing changes unasked.
  */
 function tightenChartLists(json: unknown, directives: string[]): unknown {
-	const cls = directives.map((d) => /(?:^|[\s-])_?class\s*:\s*([\w-]+)/.exec(d)?.[1]).find(Boolean);
+	const cls = directives.map(classNameOf).find(Boolean);
 	if (!cls || !ROW_LIST_CHARTS.has(cls) || !Array.isArray(json)) return json;
 	const walk = (node: { type?: string; attrs?: Record<string, unknown>; content?: unknown[] }) => {
 		if (node.type === 'bullet_list' || node.type === 'ordered_list') node.attrs = { ...node.attrs, tight: true };
