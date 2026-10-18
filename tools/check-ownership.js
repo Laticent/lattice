@@ -2895,7 +2895,6 @@ function checkReadingRole(errors) {
 // read) and an entry above its count (stale).
 const SANCTIONED_PILL_READS = [
   { file: 'lib/base/base.modifiers.css', count: 27, why: 'the universal trailing-`code` pill rule; leaves with the clean break to `{…}`' },
-  { file: 'lib/components/chart/flowchart/flowchart.styles.css', count: 2, why: "a node label borrows the pill's font and tracking; moves to its own tokens or a pill" },
   { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
   { file: 'lib/components/evidence/kpi/kpi.styles.css', count: 10, why: 'trailing author `code` painted as a pill by hand; moves to the `{…}` notation in the per-component commit' },
   { file: 'lib/plugins/chart-family/chart-family.styles.css', count: 9, why: "an engine-made chip element that borrows the pill's chrome; the per-component commit decides pill or own tokens" },
