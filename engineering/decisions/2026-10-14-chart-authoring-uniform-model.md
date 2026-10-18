@@ -254,9 +254,10 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    segments, and bullet's keyword rows (`Target`, `Floor`, `Band`) under a measure. A delta note in the same place is a pill on
    main and cannot be told from a segment by position, so a record there stays a pill, and lint `chart-row-record-unread`
    says so; those two shapes read from the old spans until phase 4. A detail row keeps its pill. Every path asks
-   this one question and measures the place its own way: the engine's `inlinePills` from tokens, the runtime's
-   `isOwnedRecordElement` from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source
-   line. This is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders.
+   this one question. The engine's `inlinePills`, lint (`chartRecordSites`) and the narrator (`chart-source-bridge.js`) count the
+   place once, from tokens, in `chart-places.js`; the runtime's `isOwnedRecordElement` counts it from the DOM and Compose's
+   `ownsRecord` from the ProseMirror doc, the two readers that cannot run markdown-it, and the place oracle holds both to the
+   engine's answer. This is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders.
    "After another code span" is a fact about the source, so the engine snapshots it before its own pass turns an earlier span
    into a pill (otherwise the answer would depend on visit order). **Owner, 2026-10-18:** a record in a nested list row of a series chart (bar,
    line, slope, stacked-bar) is kept for now, though §2 moves series data to tables, so phase 4's codemod may meet a third

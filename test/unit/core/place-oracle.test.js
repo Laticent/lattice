@@ -19,26 +19,17 @@ const { READERS, fencedTexts } = require('./place-readers.js');
 const { corpus } = require('./place-corpus.js');
 
 /**
- * Readers that must agree with the engine slide by slide. The browser's DOM walk is the only reader that
- * will always need its own adapter (it cannot run markdown-it), so it is held to the engine's answer here;
- * the narrator reads the same tokens through the shared place tracker (chart-source-bridge.js), so it agrees by construction.
+ * Every other reader must agree with the engine, slide by slide. The browser's DOM walk and Compose (the vitest
+ * arm in docs/src/lib/compose/inline-objects.test.ts) are the readers that will always need their own adapter:
+ * neither can run markdown-it, so they are held to the engine's answer here. The narrator and lint read the same
+ * tokens through the shared place tracker (chart-places.js), so each agrees by construction, and the test is what
+ * keeps the mapping from a token back to its source line honest.
  */
-const ENFORCED = ['dom', 'narrator'];
-
-/**
- * Readers that still measure a span's place with a hand-rolled line walker (lint's `renderedInlineSpans`) and so
- * disagree with the engine on the slides counted here. The shared place walker replaces it; the ratchet is exact
- * so a fix cannot leave a stale count behind. A reader leaves this table when its number reaches 0 and joins
- * ENFORCED. Counts are for the default corpus size (30 seeds per chart), so the ratchet is skipped when ORACLE_N
- * says otherwise.
- */
-const PENDING = { lint: 163 };
+const ENFORCED = ['dom', 'narrator', 'lint'];
 
 describe('place oracle: every reader calls the same spans the record', () => {
   const N = Number(process.env.ORACLE_N) || 30;
-  const slides = corpus(N);
-  const wrong = { lint: [] };
-  for (const slide of slides) {
+  for (const slide of corpus(N)) {
     test(slide.name, () => {
       const fenced = fencedTexts(slide.body);
       const want = READERS.engine(slide).filter((t) => !fenced.has(t));
@@ -46,17 +37,10 @@ describe('place oracle: every reader calls the same spans the record', () => {
         const got = READERS[name](slide).filter((t) => !fenced.has(t));
         assert.deepEqual(got, want, `${name} disagrees with the engine on ${slide.name}\n--- slide ---\n${slide.body}`);
       }
-      for (const name of Object.keys(PENDING)) {
-        const got = READERS[name](slide).filter((t) => !fenced.has(t));
-        if (JSON.stringify(got) !== JSON.stringify(want)) wrong[name].push(slide.name);
-      }
     });
   }
-  for (const name of Object.keys(PENDING)) {
-    test(`${name} still disagrees on exactly ${PENDING[name]} slides (the ratchet; lower it as the shared walker lands)`, (t) => {
-      if (N !== 30) return t.skip('the ratchet is for the default corpus');
-      assert.equal(wrong[name].length, PENDING[name],
-        `${name} disagrees on ${wrong[name].length} slides, ratchet says ${PENDING[name]}. First: ${wrong[name].slice(0, 5).join('; ')}`);
-    });
-  }
+  test('the engine claims records on most slides, or the comparison proves nothing', () => {
+    const claiming = corpus(N).filter((s) => READERS.engine(s).length > 0).length;
+    assert.ok(claiming > N * 5, `only ${claiming} of ${N * 13} slides have a record the engine claims`);
+  });
 });

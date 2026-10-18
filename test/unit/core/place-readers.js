@@ -19,7 +19,7 @@ rows.ownsRecordSpan = function wrapped(classTokens, text, place) {
 // After the wrapper, so every module that destructures the decision (chart-places, the engine) gets the wrapper.
 const { bridgeRecordsSource } = require('../../../lib/core/chart-source-bridge.js');
 const engine = require('../../../lib/engine');
-const { lintText } = require('../../../lib/authoring/lint.js');
+const { renderedInlineSpans } = require('../../../lib/authoring/lint-core.js');
 const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
 const { deckOf } = require('./place-corpus.js');
 
@@ -67,7 +67,12 @@ const READERS = {
     // backslash sits between the run and the brace) and its braces are gone from the output.
     return [...new Set([...src.matchAll(/`+(\{[^{}`\n]*\})`+/g)].map((m) => m[1]))].filter((t) => !out.includes(t));
   },
-  lint: (s) => owned('lint', () => lintText(deckOf(s))),
+  // Lint's pill rules skip a span the engine claims as a record. Ask it which record-shaped spans it will NOT
+  // treat as pill candidates: those are the ones it calls the record (the decision itself is made inside chart-places).
+  lint: (s) => {
+    const candidates = new Set(renderedInlineSpans(deckOf(s), () => true).map((c) => c.span.text));
+    return [...new Set([...s.body.matchAll(/`+(\{[^{}`\n]*\})`+/g)].map((m) => m[1]))].filter((t) => !candidates.has(t));
+  },
   dom: (s) => {
     const dom = new JSDOM(`<!DOCTYPE html><html><body><section class="${s.chart}">${md.render(`## A\n\n${s.body}`)}</section></body></html>`);
     return owned('dom', () => {
