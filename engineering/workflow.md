@@ -46,8 +46,8 @@ created it. Nothing in git stops a second session from pushing to it, so this se
 
 **Why it exists.** PR #2777 was opened from `claude/preview-adaptive-library-db7rfe`, a branch another
 session had built (28 of its 36 commits). A second session was told to "check out" that branch, treated it
-as its own, and pushed 8 commits, two merges of `main` and three fixes to the first session's files. The PR
-then held two lines of work, the first session kept pushing to the same branch while the second worked, and
+as its own, and pushed 8 commits (6 for its own work, 2 fixes to the first session's files) and 3 merge
+commits. The PR then held two lines of work, the first session kept pushing to the same branch while the second worked, and
 untangling it took a split, a closed PR and a hand-off card. Nothing was lost, and none of it was needed.
 
 **The rules**

@@ -40,8 +40,17 @@ if ! git rev-parse --verify --quiet "origin/$branch" >/dev/null; then
 fi
 
 # Per-commit session ids on the branch beyond main (merge commits carry no work of their own).
+# Only a `Claude-Session:` TRAILER line names the author: a session id quoted in the subject or body
+# (a commit that discusses another session) must not count. The last trailer line in a message wins.
 ids="$(git log --no-merges --format='%H%x09%B%x1e' "origin/main..origin/$branch" \
-  | awk 'BEGIN{RS="\036"; FS="\t"} NF > 1 { id="unattributed"; if (match($0, /session_[A-Za-z0-9]+/)) id=substr($0, RSTART, RLENGTH); n[id]++ } END { for (k in n) print n[k], k }' \
+  | awk 'BEGIN{RS="\036"; FS="\n"}
+         index($0, "\t") > 0 {
+           id = "unattributed"
+           for (i = 1; i <= NF; i++)
+             if ($i ~ /^Claude-Session:/ && match($i, /session_[A-Za-z0-9]+/)) id = substr($i, RSTART, RLENGTH)
+           n[id]++
+         }
+         END { for (k in n) print n[k], k }' \
   | sort -rn)"
 
 if [ -z "$ids" ]; then
