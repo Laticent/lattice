@@ -15,8 +15,9 @@ name: Platform suites (macOS / Windows)
 # suite is shown honestly (no continue-on-error); promoting one to required is a separate decision, made once it has run
 # clean for a while (owner ruling 2026-10-18).
 #
-# COST. The repository is public, so GitHub-hosted macOS and Windows minutes are free. The `plan` job is a few seconds on
-# Linux. Per-suite wall-clock is not yet measured on a runner: read it from the first runs and write it into the suite's `why`.
+# COST. The repository is public, so GitHub-hosted macOS and Windows minutes are free. First run on #2771 (2026-10-18): the
+# `export-confine` macOS job took 2 m 23 s (install, build and the three test files), and the `plan` job took 2 m 16 s
+# because it checked out the full history; it now does a shallow checkout and one API call (re-measure on the next run).
 
 on:
   schedule:
@@ -31,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: platform-suites-${{ github.event.pull_request.number || github.ref }}
@@ -45,17 +47,18 @@ jobs:
       count: ${{ steps.plan.outputs.count }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Changed files (pull requests)
         if: github.event_name == 'pull_request'
+        # One API call, not a full-history checkout: the first version used `fetch-depth: 0` on a 4.5 GB repository and the
+        # `plan` job took 2 m 16 s, paid on every pull request.
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: git diff --name-only "$BASE...$HEAD" > "$RUNNER_TEMP/changed.txt"
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
       - name: Plan
         id: plan
         env:
