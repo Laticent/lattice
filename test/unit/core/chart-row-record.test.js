@@ -663,6 +663,8 @@ describe('the paths agree on the data row', () => {
     const warns = (cls, body) => lintText(deck(cls, body)).filter((f) => f.rule === 'chart-row-record-unread').map((f) => f.message);
     assert.equal(warns('bar', '- `{1}` North `{40}`\n- `{2}` South `{30}`').length, 2);
     assert.equal(warns('piechart', '- `{1}` Direct `{60%}`').length, 1);
+    // A plain-number badge before a record value loses the row too (the old form `1` North `40` draws 40).
+    assert.equal(warns('bar', '- `1` North `{40}`\n- South `30`').length, 1);
     // Silent where something is drawn: a plain value with a note record, a shaped badge, a badge before a plain value.
     assert.deepEqual(warns('bar', '- North `40` grew `{+4}`'), []);
     assert.deepEqual(warns('bar', '- `{1, circle}` North `{40}`'), []);
@@ -682,6 +684,8 @@ describe('the paths agree on the data row', () => {
     const warns = (body) => lintText(deck('bar', body)).filter((f) => f.rule === 'chart-row-record-unread');
     assert.equal(warns('> - EMEA `{4.2}`\n> - APAC `{3.1}`').length, 2);
     assert.deepEqual(warns('> - EMEA `4.2`\n> - APAC `3.1`'), []);
+    // A quote that is a row's description holds no chart rows: neither form draws Q1 there, so lint is silent.
+    assert.deepEqual(warns('- EMEA\n  > - Q1 `{5}`\n- APAC `3`'), []);
   });
 
   test('the browser does not claim a record in a list a raw <ol> wraps: the engine counts the wrapper as a list ahead', () => {
@@ -690,6 +694,10 @@ describe('the paths agree on the data row', () => {
     assert.equal(isOwnedRecordElement(doc.querySelector('code[data-t]')), false);
     const plain = new JSDOM('<section class="bar"><h2>A</h2><ul><li>A <code data-t>{1}</code></li><li>B <code>{2}</code></li></ul></section>').window.document;
     assert.equal(isOwnedRecordElement(plain.querySelector('code[data-t]')), true, 'control: the same list unwrapped is claimed');
+    // A raw list INSIDE a row is no list ahead to the engine (it counts raw lists at the slide's top level only).
+    const inRow = new JSDOM('<section class="bar"><h2>A</h2><ul><li><p>A</p><ul><ul><li>x <code data-t>{1}</code></li></ul></ul></li><li>B <code>{3}</code></li></ul></section>').window.document;
+    assert.equal(isOwnedRecordElement(inRow.querySelector('code[data-t]')), true, 'as the engine claims it');
+    assert.match(render(deck('bar', '- A\n\n  <ul>\n\n  - x `{1}`\n  - y `{2}`\n\n  </ul>\n- B `{3}`')), /./);
   });
 
   test('a matrix-grid cell with a comment beside its record stays a pill in the browser, as in the engine', async () => {

@@ -112,3 +112,12 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                Compose read a trailing comment as content. The generated differential gained lint and browser arms. Left, low: a record
                cannot write digit grouping (`{1,200}`), stated in the changelog; scope of nested-list records is the owner's revisit
                (followups.d/2746-p1-revisit-nested-list-records.md).
+           18. Fourteenth round (2026-10-18, independent checker on the round-13 fixes): fixed here with a test each: round 13's Compose
+               change wrongly read a trailing comment as no content (the engine keeps it as an html_inline child, so the record is not
+               the row's last span; Compose now agrees again); the runtime's raw-wrapper rule also declined a raw list inside a row,
+               which the engine claims (now only a wrapper at the slide's top level); lint was silent on a plain-number badge before a
+               record value (`1` North `{40}`, the row is lost; now warns); the quoted-list warning fired on a row's quoted description,
+               where neither form draws (now only a quote that holds the chart list). Left, pre-existing (identical at caf836b): a raw
+               `<ul><li>` wrapped around the chart's Markdown list makes the engine decline the records (it counts the raw list ahead)
+               while the browser claims them, so the engine path shows pills where the old form draws; raw HTML around a chart list,
+               rare.

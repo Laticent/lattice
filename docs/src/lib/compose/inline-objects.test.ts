@@ -144,8 +144,9 @@ describe('the inline object node', () => {
 		expect(texts(mount(src('piechart', '- Direct `60%`\n  - Online `{40%}`')))).toEqual(['{40%}']);
 		// Only the slide's first list is the chart's.
 		expect(texts(mount(src('bar', '- EMEA `{4.2}`\n\nStatus:\n\n1. Shipped `{12}`')))).toEqual(['{12}']);
-		// A comment after the record is no content to the engine, so the record is still the row's last span.
-		expect(texts(mount(src('bar', '- A `{3}` <!-- c -->\n- B `{4}`')))).toEqual([]);
+		// A comment after the record is content to the engine (an html_inline child), so the record is not the row's last span.
+		expect(texts(mount(src('bar', '- A `{3}` <!-- c -->\n- B `{4}`')))).toEqual(['{3}']);
+		expect(texts(mount(src('matrix-grid', '| | A |\n|---|---|\n| S | `{done}` <!-- c --> |')))).toEqual(['{done}']);
 	});
 
 	it('agrees with the engine on the lead paragraph: a row holds its value once, in its first block', () => {

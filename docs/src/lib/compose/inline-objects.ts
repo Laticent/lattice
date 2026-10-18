@@ -251,17 +251,7 @@ function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, dire
 	const cell = row.type.name === 'table_cell';
 	const inItem = (row.type.name === 'paragraph' || row.type.name === 'heading') && $at.depth >= 2 && $at.node($at.depth - 1).type.name === 'list_item';
 	if (!cell && !inItem) return false;
-	// An inline `<!-- … -->` is no content to the engine's pill pass, so it does not end the row's last span.
-	const blank = (n: PMNode) => {
-		if (!n.isText) return false;
-		let rest = (n.text ?? '').trim();
-		while (rest.startsWith('<!--')) {
-			const end = rest.indexOf('-->', 4);
-			if (end < 0) return false;
-			rest = rest.slice(end + 3).trim();
-		}
-		return !rest;
-	};
+	const blank = (n: PMNode) => n.isText && !(n.text ?? '').trim(); // a comment is content, as the pill pass counts it
 	let lastInRow = true;
 	for (let i = index + 1; i < row.childCount; i++) if (!blank(row.child(i))) lastInRow = false;
 	let prev = index - 1;
