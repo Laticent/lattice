@@ -131,6 +131,13 @@ describe('createStyleLoader', () => {
 		expect(fetched).toContain('3-fx.css');
 	});
 
+	it('loads the module that defines a name the composed sheet mentions (a palette naming a font only lattice.css declares)', async () => {
+		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
+		await s.ready();
+		expect(await s.ensureFor('<section></section>', ':root{--font-body:fx}')).toBe('grew');
+		expect(fetched).toContain('3-fx.css');
+	});
+
 	it('neutralizes a `</style` carried in a module (HARD RULE #22) before anything holds it', async () => {
 		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
 		await s.ready();

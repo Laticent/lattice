@@ -74,6 +74,7 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	let lastScanMs = 0;
 	/** The slides the last COMPLETED scan read; a scan that threw leaves it unset so the next render retries. */
 	let lastScanned = '';
+	let lastSheetLength = -1;
 
 	function loadIndex(): Promise<Needs> {
 		if (!indexPromise) {
@@ -156,9 +157,9 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	 * 'whole' when the slides need so much of the sheet that the host should load all of it instead
 	 * (nothing was fetched for them); 'same' when there is nothing new.
 	 */
-	async function ensureFor(html: string): Promise<'same' | 'grew' | 'whole'> {
-		// The same slides again (a re-render for a palette or a mode, a second pass): nothing new to find.
-		if (html === lastScanned) return 'same';
+	async function ensureFor(html: string, sheetText = ''): Promise<'same' | 'grew' | 'whole'> {
+		// The same slides and sheet again (a second pass): nothing new to find.
+		if (html === lastScanned && sheetText.length === lastSheetLength) return 'same';
 		const n = await loadIndex();
 		const t0 = performance.now();
 		const shell = typeof opts.shell === 'function' ? opts.shell() : opts.shell;
@@ -171,7 +172,11 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 			t: shell?.runtime.t || [],
 			i: shell?.runtime.i || [],
 		};
-		const flags = neededModules(n.index, tokens, verifiable ? doc : undefined, runtime) as boolean[];
+		// `sheetText` is the composed sheet the engine returned for these slides: the palette and the deck's own
+		// CSS can MENTION a font family, keyframe or property that a lattice.css module defines (a palette that
+		// sets `--font-body` to a face only lattice.css declares), and no module's text says so. Found on
+		// accent-on-accent.md in WebKit: with the face missing, the text wrapped to fewer lines.
+		const flags = neededModules(n.index, tokens, verifiable ? doc : undefined, { ...runtime, text: sheetText }) as boolean[];
 		scans++;
 		lastScanMs = performance.now() - t0;
 		const total = n.modules.reduce((a, m) => a + m.bytes, 0);
@@ -182,6 +187,7 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 			flags.flatMap((f, i) => (f ? [i] : [])),
 		);
 		lastScanned = html;
+		lastSheetLength = sheetText.length;
 		return grew ? 'grew' : 'same';
 	}
 

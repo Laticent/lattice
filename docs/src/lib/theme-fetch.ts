@@ -240,7 +240,7 @@ export function createThemeFetcher(themeBase: string, opts: { styles?: StyleLoad
 	 * the registered base changed, so the caller must take a fresh sheet (the engine's `restyle()`). False
 	 * when the base is the whole sheet already (another consumer demanded it), or nothing new is needed.
 	 */
-	async function growBase(html: string, renderedUnder: number = state.baseVersion): Promise<boolean> {
+	async function growBase(html: string, renderedUnder: number = state.baseVersion, sheetText = ''): Promise<boolean> {
 		const PG = window.LatticePlayground;
 		if (!styles || !PG) return false;
 		// A base registered since the render began (a stranger's whole sheet, another render's modules)
@@ -249,7 +249,7 @@ export function createThemeFetcher(themeBase: string, opts: { styles?: StyleLoad
 		if (state.baseMode === 'full' && PG.hasTheme('lattice')) return stale();
 		let verdict: 'same' | 'grew' | 'whole';
 		try {
-			verdict = await styles.ensureFor(html);
+			verdict = await styles.ensureFor(html, sheetText);
 		} catch {
 			// Cannot say what the slides need: the whole sheet is the only safe answer. If it cannot be
 			// had either (offline, or a tab that outlived a deploy and its hashed folder), keep drawing

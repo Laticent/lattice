@@ -82,10 +82,21 @@ async function session(browser, md, mode) {
   // have all run. The static comparison below cannot see anything those add; this can (the red team found three
   // breaks that way). Only the mounted slides, which are the same window in every session of one deck.
   const frame = frameOf();
-  // Animations are frozen first, as the static comparison does: an animated scene sampled mid-flight differs
-  // from itself (found on anima-heatmap, WebKit: 1 of 632 elements, absent in six repeat runs).
-  if (frame) await frame.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' }).catch(() => {});
-  const live = frame ? await frame.evaluate(pageFingerprint).catch(() => []) : [];
+  // Fingerprinted until two readings in a row agree. A reading taken while a web font is still arriving, or while
+  // an animated scene moves, differs from the next one; the first stable pair is the page's settled state. (An
+  // earlier version froze animations with an injected style tag instead; the injection forced a relayout at an
+  // unlucky moment and made the two modes disagree about a paragraph's line count, so it was dropped.) A scene
+  // that never settles falls through to its last reading, and the second whole-sheet session is its noise floor.
+  let live = [];
+  if (frame) {
+    let prev = null;
+    for (let i = 0; i < 10; i++) {
+      live = await frame.evaluate(pageFingerprint).catch(() => []);
+      if (prev && prev.length === live.length && prev.every((h, k) => h === live[k])) break;
+      prev = live;
+      await page.waitForTimeout(500);
+    }
+  }
   await ctx.close();
   return { css, firstSlideMs, assets, live };
 }

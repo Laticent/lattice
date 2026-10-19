@@ -190,7 +190,7 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// The slides are rendered; now the styles they need. A scan that brings in a module the base
 			// lacks re-registers the base, and the engine recomposes the sheet so it has the
 			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
-			if (await themes.growBase(html, startedUnder)) {
+			if (await themes.growBase(html, startedUnder, out.css)) {
 				mark('modules');
 				// The sheet for this deck against the base as it is now: the engine recomputes it without
 				// rendering the slides again (a result that lost the hook, through a spread or a clone,
