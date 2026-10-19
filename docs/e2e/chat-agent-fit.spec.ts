@@ -73,6 +73,9 @@ test('an overfull draft slide comes back flagged from a real render, and holds t
 	expect(text).toMatch(/slide 2 overflows its frame[^\n]*\(you changed this slide: an error/);
 	// The untouched title slide fits, so it is not named.
 	expect(text).not.toMatch(/slide 1 (overflows|has text cut)/);
+	// It was not rendered either: the check measures the slides the turn changed, and says so rather
+	// than claiming the whole deck was looked at.
+	expect(text).toContain('The other 1 slide was not re-measured');
 
 	// The review card still offers the change; the author decides.
 	await page.screenshot({ path: test.info().outputPath('chat-agent-fit-card.png') });

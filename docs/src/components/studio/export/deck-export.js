@@ -671,13 +671,23 @@ const UNDRAWN_FIGURES = '[data-lattice-hydrate]:is([data-lattice-settle="pending
  * deck that splits one source slide into several (`split:`, focus steps) yields more rows
  * than it has slides, and the caller must not read row N as source slide N.
  *
+ * `scope` measures only the slides a turn changed. The frame lays out every slide it is given, and
+ * that layout is nearly all of the cost (a 40-slide deck blocked the page for ~2 s at 4x CPU), so
+ * the slides outside `scope.only` are handed to the frame as EMPTY sections: each keeps its open
+ * tag, its place in the order and its number, and holds nothing to lay out. Their rows come back
+ * `skipped`, never as "fits". A deck whose rendered sections do not match `scope.slideCount` (an
+ * auto-glossary, a `split:` slide) cannot be addressed by slide number, so it is measured whole.
+ *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
- * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean }[] | null>}
+ * @param {{ only: number[], slideCount: number }} [scope] 1-based source slides to measure
+ * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean, skipped?: boolean }[] | null>}
  *   one row per source slide, or null when the frame held no slides. `undrawn` marks a slide
  *   holding a figure that had not drawn when it was measured: its other flags are not a verdict.
+ *   `skipped` marks a slide `scope` left out: it was not measured at all.
  */
-export async function measureDeckFit(render) {
-	const { frame, dispose } = await createCaptureFrame(render);
+export async function measureDeckFit(render, scope) {
+	const kept = scope ? await emptyOtherSlides(render, scope.only, scope.slideCount).catch(() => null) : null;
+	const { frame, dispose } = await createCaptureFrame(kept ?? render);
 	try {
 		const doc = frame.contentDocument;
 		const win = frame.contentWindow;
@@ -698,10 +708,27 @@ export async function measureDeckFit(render) {
 			row.undrawn ||= !!sec.querySelector(UNDRAWN_FIGURES);
 			bySlide.set(n, row);
 		});
-		return [...bySlide.values()].sort((a, b) => a.slide - b.slide);
+		const rows = [...bySlide.values()].sort((a, b) => a.slide - b.slide);
+		if (kept) {
+			const only = new Set(scope.only);
+			for (const row of rows) if (!only.has(row.slide)) Object.assign(row, { overflows: false, clipped: false, illegible: false, undrawn: false, skipped: true });
+		}
+		return rows;
 	} finally {
 		dispose();
 	}
+}
+
+/** The render with every slide outside `only` emptied, or null when its sections cannot be told
+ *  apart by number (the count differs from the deck's slides). Depth-aware, like `slideChannelRecord`. */
+async function emptyOtherSlides(render, only, slideCount) {
+	const { splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	const parts = splitSectionsCore(String(render.html || ''));
+	if (parts.filter((p) => p.type === 'section').length !== slideCount) return null;
+	const keep = new Set(only);
+	let n = 0;
+	const html = parts.map((p) => (p.type !== 'section' ? p.text : keep.has(++n) ? `${p.openTag}${p.inner}${p.close}` : `${p.openTag}${p.close}`)).join('');
+	return { ...render, html };
 }
 
 /**

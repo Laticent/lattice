@@ -20,6 +20,7 @@ import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, 
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
 import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
+import type { FitScope } from './draft-fit';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
@@ -345,15 +346,15 @@ export function checkerNote(warnings: string[]): string {
  *  is imported HERE, from the lazy agent, and never from the shell: an `import()` in
  *  StudioShell lists every chunk the export renderer needs in the shell's preload map, which
  *  cost +361 B of startup JavaScript once main's plugin split (#2525) added chunks to it. */
-function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCheck>) | undefined {
+function withFit(grounding?: ChatGrounding): ((source: string, fitScope?: FitScope) => Promise<DeckCheck>) | undefined {
 	const check = grounding?.check;
 	const fr = grounding?.fitRender;
 	if (!check) return undefined;
 	if (!fr) return check;
-	return async (source) => {
+	return async (source, fitScope) => {
 		const [base, fit] = await Promise.all([
 			check(source),
-			import('./draft-fit').then((m) => m.measureDraftFit(fr.options, source, fr.palette, fr.mode, fr.extra, fr.extraCss)).catch(() => undefined),
+			import('./draft-fit').then((m) => m.measureDraftFit(fr.options, source, fr.palette, fr.mode, fr.extra, fr.extraCss, fitScope)).catch(() => undefined),
 		]);
 		return fit ? { ...base, fit } : base;
 	};

@@ -51,7 +51,7 @@ export type AgentFinding = { slide?: number; rule?: string; severity?: string; m
 /** What `check_deck` gets back from the host: the lint + review findings for a source,
  *  Mermaid's own parse errors, and each slide's fit from a real render of the source
  *  (undefined = not checked, never a guess). */
-export type DeckCheck = { findings: AgentFinding[]; diagrams?: { slide: number; message: string }[]; fit?: { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean }[] };
+export type DeckCheck = { findings: AgentFinding[]; diagrams?: { slide: number; message: string }[]; fit?: { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean; skipped?: boolean }[] };
 
 /** The doc loaders the read tools sit on. Each resolves to raw Markdown or null. */
 export type AgentLibrary = {
@@ -417,7 +417,9 @@ export function createToolbox(opts: {
 	catalog: AgentComponent[];
 	frontMatterKeys: { key: string; info: string }[];
 	library: AgentLibrary;
-	check?: (source: string) => Promise<DeckCheck>;
+	/** `fitScope`: the slides whose fit to measure (1-based) and the deck's slide count. Slides outside
+	 *  it come back `skipped`. Omitted, every slide is measured. */
+	check?: (source: string, fitScope?: { only: number[]; slideCount: number }) => Promise<DeckCheck>;
 	slideWordBudget?: number;
 	/** The Library, when the chat may use it. Absent → the asset tools answer that there is none. */
 	assets?: AgentAssets;
@@ -640,9 +642,18 @@ export function createToolbox(opts: {
 	async function checkDeck(scoped = false): Promise<string> {
 		note('checked the deck');
 		if (!opts.check) return 'The checker is not available in this session — say so rather than claiming the deck is clean.';
+		// A slide is the turn's when its text is new — or, once the turn changed front matter
+		// (a size, a finish, a theme), every slide is: a deck-level change can break any of them
+		// without changing a word (checker).
+		const now = deckSlides(draft);
+		const mine = (n?: number) => !!n && !!now[n - 1] && (fmTouched.size > 0 || !originalSlides.has(now[n - 1]));
+		// The check that rides an edit measures fit on the slides the turn changed only: the verdict
+		// below already charges nothing else to the turn, and a real render costs the page ~2 s on a
+		// 40-slide deck (decisions/2026-10-19-studio-main-thread-jank.md). `check_deck` measures all.
+		const fitScope = scoped && fmTouched.size === 0 ? { only: now.map((_, i) => i + 1).filter((n) => mine(n)), slideCount: now.length } : undefined;
 		let res: DeckCheck;
 		try {
-			res = await opts.check(draft);
+			res = await (fitScope ? opts.check(draft, fitScope) : opts.check(draft));
 		} catch {
 			return 'The checker failed to run — say so rather than claiming the deck is clean.';
 		}
@@ -656,11 +667,6 @@ export function createToolbox(opts: {
 		// Fit, from a real render of the draft. A slide this turn wrote that overflows or cuts
 		// text is an error: the author would see it ringed in the preview the moment they apply.
 		// The same problem on a slide the turn left alone is reported, not charged to the change.
-		const now = deckSlides(draft);
-		// A slide is the turn's when its text is new — or, once the turn changed front matter
-		// (a size, a finish, a theme), every slide is: a deck-level change can break any of them
-		// without changing a word (checker).
-		const mine = (n?: number) => !!n && !!now[n - 1] && (fmTouched.size > 0 || !originalSlides.has(now[n - 1]));
 		// The render numbers SECTIONS. A deck that splits one source slide into several
 		// (`split:`, focus steps) renders more sections than it has slides, and section N is
 		// then not slide N; attributing by number would charge an untouched slide and miss the
@@ -668,8 +674,9 @@ export function createToolbox(opts: {
 		const fitMapped = !!res.fit && res.fit.length === now.length;
 		// A slide whose diagram had not drawn when the render was measured has no verdict: it was
 		// measured with the diagram's source text in its place. It is neither "fits" nor an error.
-		const undrawn = (res.fit ?? []).filter((f) => f.undrawn);
-		const measured = (res.fit ?? []).filter((f) => !f.undrawn);
+		const skipped = (res.fit ?? []).filter((f) => f.skipped);
+		const undrawn = (res.fit ?? []).filter((f) => f.undrawn && !f.skipped);
+		const measured = (res.fit ?? []).filter((f) => !f.undrawn && !f.skipped);
 		const misfits = measured.filter((f) => f.overflows || f.clipped || f.illegible);
 		const fitErrors = fitMapped ? misfits.filter((f) => (f.overflows || f.clipped) && mine(f.slide)).length : 0;
 		// The turn answers for errors on the slides it changed. An error already on a slide it
@@ -703,6 +710,7 @@ export function createToolbox(opts: {
 		if (res.diagrams?.length) out.push(`Mermaid parse errors:\n${res.diagrams.map((d) => `- slide ${d.slide}: ${JSON.stringify(String(d.message ?? ''))}`).join('\n')}`);
 		const unit = fitMapped ? 'slide' : 'section';
 		if (res.fit === undefined) out.push('Fit was not measured: the draft could not be rendered. Do not say the slides fit.');
+		else if (!misfits.length && !undrawn.length && skipped.length) out.push(`Fit, measured from a real render of the draft: ${measured.length ? `the ${measured.length} slide${measured.length === 1 ? '' : 's'} this turn changed fit` : 'no slide this turn changed needed a measure'}. The other ${skipped.length} ${skipped.length === 1 ? 'was' : 'were'} not re-measured, so do not say the whole deck fits.`);
 		else if (!misfits.length && !undrawn.length) out.push(`Fit, measured from a real render of the draft: all ${res.fit.length} slide${res.fit.length === 1 ? '' : 's'} fit.`);
 		else if (!misfits.length) {
 			if (measured.length) out.push(`Fit, measured from a real render of the draft: the other ${measured.length} ${unit}${measured.length === 1 ? '' : 's'} fit.`);
@@ -712,6 +720,7 @@ export function createToolbox(opts: {
 			else out.push(`Fit, measured from a real render of the draft, which renders ${res.fit.length} sections for its ${now.length} slides (a split or stepped slide), so these are rendered sections, not slide numbers:\n${misfits.map((f) => `- section ${f.slide} ${say(f)}`).join('\n')}`);
 		}
 		if (undrawn.length) out.push(`Fit was not measured for ${unit}${undrawn.length === 1 ? '' : 's'} ${undrawn.map((f) => f.slide).join(', ')}: a diagram there had not drawn when the render was measured. Do not say ${undrawn.length === 1 ? 'it fits' : 'they fit'}; the author's preview will show it.`);
+		if (skipped.length && (misfits.length || undrawn.length)) out.push(`The other ${skipped.length} slide${skipped.length === 1 ? ' was' : 's were'} not re-measured: this turn did not change ${skipped.length === 1 ? 'it' : 'them'}.`);
 		const overShown = scoped ? over.filter((x) => mine(x.n)) : over;
 		if (overShown.length) out.push(`Over the ${budget}-word slide budget: ${overShown.map((x) => `slide ${x.n} (${x.w}w)`).join(', ')}.`);
 		if (over.length > overShown.length) out.push(`${over.length - overShown.length} slide${over.length - overShown.length === 1 ? '' : 's'} this turn did not change ${over.length - overShown.length === 1 ? 'is' : 'are'} over the budget too — leave ${over.length - overShown.length === 1 ? 'it' : 'them'} unless the author asks.`);
