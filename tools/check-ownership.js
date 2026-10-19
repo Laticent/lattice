@@ -54,6 +54,9 @@
 const fs = require('node:fs');
 const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
+// A repo-relative path with forward slashes on every platform: the allowlists and messages below are written with `/`,
+// and `path.relative` returns backslashes on Windows (where it made every sanction look stale, so `npm run build` aborted there).
+const relPosix = (from, to) => path.relative(from, to).split(path.sep).join('/');
 const { discoverPackages, listFolderPackages } = require('../lib/packages/fs.js');
 
 // ── A WORKING TREE IS NOT A FROZEN TREE ───────────────────────────────────────
@@ -1006,7 +1009,7 @@ function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
     .filter((f) => f.result.ok)
     .map((f) => f.result.pkg.name);
   const raw = fs.readFileSync(css, 'utf8');
-  const rel = path.relative(root, css);
+  const rel = relPosix(root, css);
   // The generated region is delimited by two comments, so find it BEFORE comments are stripped.
   const from = raw.indexOf('/* ── BEGIN GENERATED FINISH PRESETS');
   const to = raw.indexOf('/* ── END GENERATED FINISH PRESETS ── */');
@@ -1305,7 +1308,7 @@ function checkThemeRegistrationCallSites(
       }
       if (!THEME_REG_EXTS.has(path.extname(f)) || f.includes('.generated.')) return;
       if (isTransientProbe(path.basename(f))) return;
-      scanFile(path.relative(root, f), f);
+      scanFile(relPosix(root, f), f);
     };
     walk(p);
   }
@@ -1689,7 +1692,7 @@ function checkRetiredTokenNames(errors) {
   const files = [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)];
   for (const file of files) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const seen = new Set();
     for (const m of css.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
       const name = m[1];
@@ -1755,7 +1758,7 @@ function offendingMargins(css) {
 function checkTypographyTokens(errors) {
   for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const name of nonCanonicalFsTokens(css)) {
       errors.push(
         `non-canonical typography token "${name}" declared in ${rel} — HARD RULE #4: ` +
@@ -1923,7 +1926,7 @@ function checkLabelVoiceFont(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const hit of monoFontFamilies(css)) offenses.push({ file: rel, ...hit });
   }
   // Consume offenses per sanction by FILE + SELECTOR MATCH, so a sanction names the
@@ -2210,7 +2213,7 @@ function checkSectionBoxOwnership(errors) {
   for (const root of SECTION_BOX_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
-      const rel = path.relative(ROOT, file);
+      const rel = relPosix(ROOT, file);
       for (const o of sectionBoxOffenses(fs.readFileSync(file, 'utf8'))) {
         offenses.push({ file: rel, ...o });
       }
@@ -2285,7 +2288,7 @@ function checkSizeRegistryOwnership(errors) {
     for (const file of listCssFiles(dir)) {
       if (!SIZE_DECL_RE.test(fs.readFileSync(file, 'utf8'))) continue;
       errors.push(
-        `${path.relative(ROOT, file)}: declares \`@size\`. Geometry belongs to the engine's registry ` +
+        `${relPosix(ROOT, file)}: declares \`@size\`. Geometry belongs to the engine's registry ` +
         `(lib/engine/sizes.js), not to a stylesheet — the renderer resolves \`size:\` against the ` +
         `registry and would IGNORE this table, so it is a second source of truth that is silently ` +
         `inert. Add or edit the canvas in lib/engine/sizes.js; the build stamps the \`@size\` block ` +
@@ -2564,7 +2567,7 @@ function checkSectionCqAnchoring(errors) {
   for (const root of SECTION_CQ_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
-      const rel = path.relative(ROOT, file);
+      const rel = relPosix(ROOT, file);
       for (const o of sectionCqOffenses(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
     }
   }
@@ -2596,7 +2599,7 @@ function checkSectionCqAnchoring(errors) {
   for (const root of SECTION_CQ_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
-      const rel = path.relative(ROOT, file);
+      const rel = relPosix(ROOT, file);
       for (const o of rootOnlyAnchorOffenses(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
     }
   }
@@ -2605,7 +2608,7 @@ function checkSectionCqAnchoring(errors) {
   for (const root of SECTION_CQ_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
-      cssFiles.push({ file: path.relative(ROOT, file), css: fs.readFileSync(file, 'utf8') });
+      cssFiles.push({ file: relPosix(ROOT, file), css: fs.readFileSync(file, 'utf8') });
     }
   }
   const tokenLeaks = sectionOwnTokenLeaks(cssFiles);
@@ -2702,7 +2705,7 @@ function varInMultiLayerBackground(css) {
 function checkBackgroundLayerVars(errors) {
   const offenders = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const hit of varInMultiLayerBackground(fs.readFileSync(file, 'utf8'))) {
       offenders.push({ file: rel, line: hit.line, value: hit.value });
     }
@@ -2739,7 +2742,7 @@ function checkMarginDiscipline(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const value of offendingMargins(css)) offenses.push({ file: rel, value });
   }
   // Consume one offense per sanction (by file + value); track sanctions that match nothing.
@@ -2874,7 +2877,7 @@ function checkReadingRole(errors) {
   const counts = [];
   for (const file of listCssFiles(LIB_DIR)) {
     if (file.endsWith('.tokens.css')) continue;
-    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const rel = relPosix(ROOT, file);
     for (const [role, n] of Object.entries(readingRoleCountsIn(fs.readFileSync(file, 'utf8')))) counts.push({ file: rel, role, n });
   }
   errors.push(...readingRoleFindings(counts, SANCTIONED_READING_ROLE));
@@ -3087,7 +3090,7 @@ function typeSizeModifierOffenses() {
   const ctx = typeSizeContext();
   const offenses = [];
   for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
-    offenses.push(...typeSizeOffensesIn(fs.readFileSync(file, 'utf8'), path.relative(ROOT, file), ctx));
+    offenses.push(...typeSizeOffensesIn(fs.readFileSync(file, 'utf8'), relPosix(ROOT, file), ctx));
   }
   return offenses;
 }
@@ -3339,7 +3342,7 @@ function checkStageInsetOwnership(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const o of offendingStageInsets(css)) offenses.push({ file: rel, ...o });
     for (const o of offendingBodyPadding(css)) offenses.push({ file: rel, ...o });
   }
@@ -3478,7 +3481,7 @@ function registeredPlaneTokens() {
 function collectZIndexDeclarations() {
   const out = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const css = stripComments(fs.readFileSync(file, 'utf8'));
     const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
     let m;
@@ -3727,7 +3730,7 @@ function katexOnlySelectors(css) {
 function checkMathRendererParity(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const selector of katexOnlySelectors(fs.readFileSync(file, 'utf8'))) {
       offenses.push({ file: rel, selector });
     }
@@ -3792,7 +3795,7 @@ function checkCascadeLayers(errors) {
   // 1. Footgun guard — no layer block in engine CSS source OR the built bundle.
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     for (const opener of layerBlocksIn(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, opener });
   }
   if (fs.existsSync(LATTICE_BUNDLE)) {
@@ -3800,7 +3803,7 @@ function checkCascadeLayers(errors) {
     // blocks); a lib opener mirrored into dist is attributed to its lib file, not
     // double-counted.
     const libOpeners = new Set(offenses.map((o) => o.opener));
-    const rel = path.relative(ROOT, LATTICE_BUNDLE);
+    const rel = relPosix(ROOT, LATTICE_BUNDLE);
     for (const opener of layerBlocksIn(fs.readFileSync(LATTICE_BUNDLE, 'utf8'))) {
       if (!libOpeners.has(opener)) offenses.push({ file: rel, opener });
     }
@@ -3926,7 +3929,7 @@ function checkHexLiterals(errors) {
   const offenses = []; // { file, hex } (hex lower-cased)
   for (const file of listCssFiles(LIB_DIR)) {
     if (/\.tokens\.css$/.test(file)) continue; // token-definition layer — hex is the point
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const css = stripCommentsKeepOffsets(fs.readFileSync(file, 'utf8'));
     for (const hit of findHexLiterals(css)) {
       if (hexInsideVar(css, hit.index)) continue; // `var(--token, #fallback)` — compliant
@@ -3984,7 +3987,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
     if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
-    const rel = path.relative(ROOT, p);
+    const rel = relPosix(ROOT, p);
     // The emulator writes an .html sibling beside every PDF it renders
     // (lattice.js:2752, unconditional — no flag suppresses it), and
     // examples/**/*.html is gitignored (.gitignore:56-57). Same local-only
@@ -4322,7 +4325,7 @@ function checkTypedGlyphs(errors) {
   const chromeSeen = new Set();
   const engineHits = [];
   for (const file of listEngineGlyphSurfaces()) {
-    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const rel = relPosix(ROOT, file);
     // Blank comments rather than delete them, so a hit's line number still
     // points at the real line in the file on disk.
     const text = fs.readFileSync(file, 'utf8')
@@ -4367,7 +4370,7 @@ function checkTypedGlyphs(errors) {
   let total = 0;
   const byFile = [];
   for (const file of listRepoTextFiles()) {
-    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const rel = relPosix(ROOT, file);
     const text = fs.readFileSync(file, 'utf8');
     if (!isGlyphDeck(rel, text)) continue;
     // A glyph inside a ``` fence is quoted material (two decks quote the CLI's
@@ -4922,7 +4925,7 @@ function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB
     for (const t of rootScopedTokens(css)) rootDefaults.add(t);
     for (const t of slideScopedTokens(css)) slideDefaults.add(t);
     for (const t of scopedTokens(css, isExportParsedRoot)) mapDefaults.add(t);
-    bareVarReads(css, path.relative(ROOT, f), bareReads);
+    bareVarReads(css, relPosix(ROOT, f), bareReads);
   }
   let mapTokens = 0;
   for (const rel of NO_SAFE_DEFAULT_MAP_READERS) {
@@ -5740,7 +5743,7 @@ function checkMarkIdentity(errors) {
   const listed = new Map(SANCTIONED_MARK_IDENTITY.map(([rel, label, value]) => [rel, { label, value }]));
   const seen = new Set();
   for (const abs of libSources()) {
-    const rel = path.relative(path.join(ROOT, 'lib'), abs).split(path.sep).join('/');
+    const rel = relPosix(path.join(ROOT, 'lib'), abs);
     const src = fs.readFileSync(abs, 'utf8');
     const writes = { label: writesMarkIdentity(src, 'label'), value: writesMarkIdentity(src, 'value') };
     if (!writes.label && !writes.value) continue;
@@ -6582,7 +6585,7 @@ function e2eSleepCensus(dir) {
   const files = listE2EFiles(dir);
   const parsed = files.map((f) => ({
     file: f,
-    rel: path.relative(ROOT, f).replace(/\\/g, '/'),
+    rel: relPosix(ROOT, f),
     sf: ts.createSourceFile(f, fs.readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true),
   }));
 
@@ -6868,7 +6871,7 @@ function checkDiagramScopeSelectors(errors) {
     return;
   }
   for (const { f, css } of sources) {
-    const rel = path.relative(ROOT, f);
+    const rel = relPosix(ROOT, f);
     for (const rule of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const declared = [...rule[2].matchAll(/--([\w-]+)\s*:/g)].map((m) => m[1]).filter((t) => closure.has(t));
       if (!declared.length) continue;
@@ -7038,7 +7041,7 @@ function checkFrontMatterReaders(errors) {
     ...[path.join(ROOT, 'lattice.js')].filter((f) => fs.existsSync(f)),
   ];
   for (const file of files) {
-    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const rel = relPosix(ROOT, file);
     // Tests assert the rule's OUTPUT (and one deliberately writes the idiom down to prove
     // the mirror matches), so they are not readers in the sense this gate polices.
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue;
@@ -7477,7 +7480,7 @@ function checkLineEndingBoundaries(
     ...EOL_BOUNDARY_FILES.map((f) => path.join(root, f)).filter((f) => fs.existsSync(f)),
   ];
   for (const file of files) {
-    const rel = path.relative(root, file).split(path.sep).join('/');
+    const rel = relPosix(root, file);
     // Tests assert the rule's OUTPUT and one deliberately writes both spellings down to prove
     // they differ, so they are not boundaries in the sense this gate polices. Generated bundles
     // inline their sources' folds and are regenerated from them, never hand-edited (#2).
@@ -7620,7 +7623,7 @@ function classAttrOffenses(dirs = {}) {
   const files = [...roots.flatMap((d) => listClassAttrFiles(d)), ...extra.filter((f) => fs.existsSync(f))];
   const out = [];
   for (const file of files) {
-    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const rel = relPosix(ROOT, file);
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue; // tests assert payloads, not render behavior
     const src = fs.readFileSync(file, 'utf8');
     const spans = commentSpans(src);
@@ -7669,7 +7672,7 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
   const sanctioned = new Map(sanctions.map((s) => [s.file, s]));
   const seen = new Set();
   for (const file of listSourceFiles(DOCS_SRC)) {
-    const rel = path.relative(root, file);
+    const rel = relPosix(root, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests assert payloads, not preview frames
     const src = fs.readFileSync(file, 'utf8');
     if (!PREVIEW_BUILDER_MARKER.test(src)) continue;
@@ -7737,7 +7740,7 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
     // and `path.relative` hands back `\` on Windows. The markup arm above is deliberately
     // left as it was — its non-normalization is pre-existing and off this change's path
     // (HARD RULE #18), and it is inert on every platform CI runs.
-    const rel = path.relative(root, file).split(path.sep).join('/');
+    const rel = relPosix(root, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
     const src = fs.readFileSync(file, 'utf8');
     if (!DOC_ASSEMBLER_MARKER.test(src) || !STYLE_SINK_MARKER.test(src)) continue;
@@ -7851,7 +7854,7 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
   }
   const seen = [];
   for (const file of files) {
-    const rel = path.relative(root, file).split(path.sep).join('/');
+    const rel = relPosix(root, file);
     if (/\.test\.[cm]?[jt]s$/.test(rel)) continue;
     const src = fs.readFileSync(file, 'utf8');
     if (!PRUNE_CALL.test(src)) continue;
@@ -7980,7 +7983,7 @@ function pluginMigrationCounts(root = ROOT) {
   fenceFiles.push(path.join(root, 'lattice.js'));
   let fenceWrappers = 0;
   for (const file of fenceFiles) {
-    const rel = path.relative(root, file).split(path.sep).join('/');
+    const rel = relPosix(root, file);
     if (rel === 'lib/plugins/host.js' || /\.test\.[cm]?[jt]s$/.test(rel) || /\.generated\.[cm]?[jt]s$/.test(rel)) continue;
     if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
     fenceWrappers += (stripCodeComments(fs.readFileSync(file, 'utf8')).match(FENCE_OVERRIDE) || []).length;
@@ -8002,7 +8005,7 @@ function pluginMigrationCounts(root = ROOT) {
     for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
     files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      const rel = relPosix(root, file);
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
       if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
@@ -8020,7 +8023,7 @@ function pluginMigrationCounts(root = ROOT) {
     for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
     files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      const rel = relPosix(root, file);
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]sx?$/.test(rel)) continue;
       if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
@@ -8045,7 +8048,7 @@ function pluginMigrationCounts(root = ROOT) {
     for (const dir of ['lib', 'tools', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css'], files);
     files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      const rel = relPosix(root, file);
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /(^|\/)dist\//.test(rel)) continue;
       if (!fs.existsSync(file)) continue;
@@ -8073,7 +8076,7 @@ function pluginMigrationCounts(root = ROOT) {
     const files = [];
     listSourceFiles(path.join(root, 'lib', 'runtime'), files);
     for (const file of files) {
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      const rel = relPosix(root, file);
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
       const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
       for (const m of stripCodeComments(code).matchAll(re)) runtimeHits.push(`${rel}: ${m[0]}`);
@@ -8094,7 +8097,7 @@ function pluginMigrationCounts(root = ROOT) {
     const files = [path.join(root, 'lattice.js')];
     for (const dir of ['lib', 'tools']) listSourceFiles(path.join(root, dir), files);
     for (const file of files) {
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      const rel = relPosix(root, file);
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
       for (const m of stripCodeComments(fs.readFileSync(file, 'utf8')).matchAll(re)) bakeHits.push(`${rel}: ${m[0]}`);
@@ -8119,7 +8122,7 @@ function pluginMigrationCounts(root = ROOT) {
     for (const dir of ['lib', 'tools', 'themes', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css', '.json'], files);
     files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
-      const rel = path.relative(root, file).split(path.sep).join('/');
+      const rel = relPosix(root, file);
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s(?:on)?$/.test(rel) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /(^|\/)dist\//.test(rel)) continue;
       // A component manifest is the one JSON that carries selectors; every other JSON is data.
@@ -8241,7 +8244,7 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
   const pluginsDir = path.join(root, 'lib', 'plugins');
   if (fs.existsSync(pluginsDir)) listSourceFiles(pluginsDir, files);
   for (const file of files) {
-    const rel = path.relative(root, file).split(path.sep).join('/');
+    const rel = relPosix(root, file);
     if (/\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
     // REUSE the repo's conservative stripper (HARD RULE #15) rather than a local regex. The first
     // cut used `/(^|[^:])\/\/.*$/gm`, which truncates any line holding `//` inside a STRING or a
@@ -8384,7 +8387,7 @@ function checkSnapshotHtmlSinks(errors) {
   const sanctioned = new Map(SANCTIONED_SNAPSHOT_SINKS.map((s) => [s.file, s]));
   const seen = new Set();
   for (const file of listSnapshotFiles(DOCS_SRC)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue; // tests assert payloads, not real sinks
     const src = fs.readFileSync(file, 'utf8');
     if (!referencesSnapshot(src)) continue; // not part of the snapshot path
@@ -8587,7 +8590,7 @@ function checkOpenRouterBudget(errors) {
   for (const file of listDocsCodeFiles(path.join(ROOT, 'docs'))) {
     if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
       errors.push(
-        `${path.relative(ROOT, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
+        `${relPosix(ROOT, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
         `reach the site (HARD RULE #24). The deployed docs are a static bundle; the Playground uses ` +
         `the USER's own OpenRouter key via OAuth. A reference here leaks our key into the bundle and ` +
         `spends our budget on the live site. Keep the site bring-your-own-key.`,
@@ -8601,7 +8604,7 @@ function checkOpenRouterBudget(errors) {
   // key. Only a COMMITTED test that reads OUR key (and would then run in CI) is the budget hole.
   // (The bare name also catches bracket/destructure reads.)
   for (const file of listSourceFiles(path.join(ROOT, 'test'))) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     if (OPENROUTER_SCAN_EXEMPT.has(rel)) continue;
     if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
       errors.push(
@@ -8784,7 +8787,7 @@ const VETRINA_SANCTIONED_DEP = '@laticent/ltt';
 // Shared by the Vetrina, Suono, Lente and Segno gates; the strict package walker below has its own.
 function staysInFolder(dir, file, spec) {
   if (!spec.startsWith('./')) return false;
-  const rel = path.relative(dir, path.resolve(path.dirname(file), spec));
+  const rel = relPosix(dir, path.resolve(path.dirname(file), spec));
   return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
@@ -8793,7 +8796,7 @@ function staysInFolder(dir, file, spec) {
 function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
   if (!fs.existsSync(dir)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(dir)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev test runner (a devDep, not host coupling)
     const isAdapter = base === VETRINA_ADAPTER;
@@ -8951,7 +8954,7 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
   const root = path.resolve(dir);
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const raw = fs.readFileSync(file, 'utf8');
     for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
     const src = stripJsComments(raw);
@@ -9089,8 +9092,8 @@ function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapter = TAVOLA_ADAPTER)
       for (const m of src.matchAll(pattern)) {
         if (m[1] !== TAVOLA_SANCTIONED_BARE) continue;
         errors.push(
-          `${path.relative(ROOT, file)} imports '${TAVOLA_SANCTIONED_BARE}'. Only ` +
-          `${path.relative(ROOT, adapter)} may: the Tavola core stays transport-free, and the adapter ` +
+          `${relPosix(ROOT, file)} imports '${TAVOLA_SANCTIONED_BARE}'. Only ` +
+          `${relPosix(ROOT, adapter)} may: the Tavola core stays transport-free, and the adapter ` +
           `is the one sanctioned exception (2026-10-06-studio-live-collaboration.md §7.1).`,
         );
       }
@@ -9123,7 +9126,7 @@ function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
     // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
     for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
       errors.push(
-        `${path.relative(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Fuoco core declares ` +
+        `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Fuoco core declares ` +
           `no ambient types; import what it needs from inside docs/src/lib/fuoco/.`,
       );
     }
@@ -9132,7 +9135,7 @@ function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
       for (const m of src.matchAll(pattern)) {
         if (m[1] !== 'react') continue;
         errors.push(
-          `${path.relative(ROOT, file)} imports 'react'. Only ${path.relative(ROOT, adapter)} may: ` +
+          `${relPosix(ROOT, file)} imports 'react'. Only ${relPosix(ROOT, adapter)} may: ` +
           `the Fuoco core is framework-free, and the React adapter is the one sanctioned exception.`,
         );
       }
@@ -9164,7 +9167,7 @@ function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
     // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
     for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
       errors.push(
-        `${path.relative(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Veduta core declares ` +
+        `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Veduta core declares ` +
           `no ambient types; import what it needs from inside docs/src/lib/veduta/.`,
       );
     }
@@ -9253,7 +9256,7 @@ const SUONO_SPEC_PATTERNS = [
 function checkSuonoBoundary(errors, dir = SUONO_DIR) {
   if (!fs.existsSync(dir)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(dir)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
@@ -9329,8 +9332,8 @@ const ANIMA_ADAPTER_DEPS = {
 function checkAnimaBoundary(errors) {
   if (!fs.existsSync(ANIMA_DIR)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(ANIMA_DIR)) {
-    const rel = path.relative(ROOT, file);
-    const relInLib = path.relative(ANIMA_DIR, file).split(path.sep).join('/');
+    const rel = relPosix(ROOT, file);
+    const relInLib = relPosix(ANIMA_DIR, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use vitest, not host coupling
     const allowed = ANIMA_ADAPTER_DEPS[relInLib] || [];
@@ -9398,7 +9401,7 @@ function checkAjvBoundary(errors, dirs = [LIB_DIR, path.join(ROOT, 'docs', 'src'
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) continue;
     for (const file of listSourceFiles(dir)) {
-      const rel = path.relative(ROOT, file).split(path.sep).join('/');
+      const rel = relPosix(ROOT, file);
       const src = stripJsComments(fs.readFileSync(file, 'utf8'));
       // Dedupe per file, like checkSuonoBoundary: one module importing ajv two
       // ways is one defect, not two error lines.
@@ -9428,7 +9431,7 @@ function checkAjvBoundary(errors, dirs = [LIB_DIR, path.join(ROOT, 'docs', 'src'
 function checkLenteBoundary(errors, dir = LENTE_DIR) {
   if (!fs.existsSync(dir)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(dir)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
@@ -9464,7 +9467,7 @@ const SEGNO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'segno');
 function checkSegnoBoundary(errors, dir = SEGNO_DIR) {
   if (!fs.existsSync(dir)) return;
   for (const file of listSourceFiles(dir)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue;
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
@@ -9528,7 +9531,7 @@ function checkAudioPlaybackBoundary(errors) {
   const sanctioned = new Map(SANCTIONED_LEGACY_AUDIO.map((s) => [s.file, s]));
   const seen = new Set();
   for (const file of collectAudioSourceFiles(DOCS_SRC)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests mock the engine, not a real player
     if (rel === SUONO_REL || rel.startsWith(SUONO_REL + path.sep)) continue; // Suono IS the player
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
@@ -10084,7 +10087,7 @@ function checkCatInkFallback(errors, libDir = LIB_DIR) {
         const rest = `${m[2]}${m[3]}`;
         if (!new RegExp(`^,\\s*var\\(\\s*--cat-${n}-mark\\b`).test(rest.trim())) {
           const line = src.slice(0, m.index).split('\n').length;
-          offenders.push(`${path.relative(ROOT, p)}:${line} — var(--cat-${n}-ink${rest.trim() ? `${rest.trim()}` : ''}…`);
+          offenders.push(`${relPosix(ROOT, p)}:${line} — var(--cat-${n}-ink${rest.trim() ? `${rest.trim()}` : ''}…`);
         }
       }
     }
@@ -10335,7 +10338,7 @@ function checkCodeRecede(errors, themesDir = THEMES_DIR, cssFile = path.join(ROO
   const css = fs.readFileSync(cssFile, 'utf8');
   const m = /--code-recede:\s*(\d+(?:\.\d+)?)%/.exec(css);
   if (!m) {
-    errors.push(`checkCodeRecede: no \`--code-recede: N%\` in ${path.relative(ROOT, cssFile)} — the receded-line mix this gate measures is gone; restore it or retire this gate with its reason.`);
+    errors.push(`checkCodeRecede: no \`--code-recede: N%\` in ${relPosix(ROOT, cssFile)} — the receded-line mix this gate measures is gone; restore it or retire this gate with its reason.`);
     return;
   }
   const a = Number(m[1]) / 100;
@@ -10811,7 +10814,7 @@ function checkAgentModelPinning(errors, dirs = {}) {
       );
     }
     for (const file of agents) {
-      const rel = path.relative(ROOT, file);
+      const rel = relPosix(ROOT, file);
       const src = fs.readFileSync(file, 'utf8');
       const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src); // \r? — CRLF is still valid frontmatter
       if (!fm) {
@@ -10837,7 +10840,7 @@ function checkAgentModelPinning(errors, dirs = {}) {
     }
   }
   for (const file of listWorkflowFiles(workflowsDir)) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const { error, calls } = agentCallPins(fs.readFileSync(file, 'utf8'));
     if (error) {
       errors.push(
@@ -11087,7 +11090,7 @@ function checkSplitOracle(manifests, errors) {
 function checkCssSyntax(errors) {
   const esbuild = require('esbuild');
   for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     let warnings = [];
     try {
       ({ warnings } = esbuild.transformSync(fs.readFileSync(file, 'utf8'), { loader: 'css' }));
@@ -11219,7 +11222,7 @@ function universalTableClaims(componentNames, dirs = {}) {
   const claims = new Map();
   for (const file of listCssFiles(libDir)) {
     if (file === guardCss) continue;
-    const rel = path.relative(ROOT, file);
+    const rel = relPosix(ROOT, file);
     const css = stripComments(fs.readFileSync(file, 'utf8'));
     for (const sel of topLevelSelectors(css).flatMap(splitTopLevel)) {
       if (!subjectIsTableElement(sel)) continue;
@@ -11238,7 +11241,7 @@ function checkUniversalTableGuard(manifests, errors, dirs = {}) {
   const componentNames = new Set(manifests.map((m) => m.name));
   const guardCssPath = dirs.guardCss || UNIVERSAL_TABLE_CSS;
   const perSelector = universalTableDenyEntries(stripComments(fs.readFileSync(guardCssPath, 'utf8')));
-  const relGuard = path.relative(ROOT, guardCssPath);
+  const relGuard = relPosix(ROOT, guardCssPath);
 
   if (perSelector.length === 0 || perSelector.every((r) => r.entries.size === 0)) {
     errors.push(
@@ -11362,8 +11365,8 @@ const PDF_OWNERSHIP = [
     // gate has to assert the `producer:` field is true OF THIS FILE. (Red team.)
     test: (f) => (/^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
       && hasSourceDeck(f, f.replace(/\.(light|dark)\.pdf$/, '.md')))
-      || EXTRA_NAMES.some((n) => f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.light.pdf`
-        || f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.dark.pdf`),
+      || EXTRA_NAMES.some((n) => f === `${relPosix(ROOT, EXTRA_GALLERIES[n])}/${n}.gallery.light.pdf`
+        || f === `${relPosix(ROOT, EXTRA_GALLERIES[n])}/${n}.gallery.dark.pdf`),
     what: 'component, bucket and hand-authored galleries',
     producer: 'tools/build-galleries.js · tools/build-bucket-galleries.js (EXTRA_GALLERIES covers the ones outside lib/components)',
     watcher: 'build:galleries:check · build:bucket-galleries:check · npm run regress (pixel) · tools/golden-diff.mjs (PR montage) · overflow:check',
@@ -11833,7 +11836,7 @@ function fallbackHops(libDir = LIB_DIR) {
       if (!/\.(css|js|mjs)$/.test(e.name)) continue;
       let src = fs.readFileSync(p, 'utf8');
       if (/\.(js|mjs)$/.test(e.name)) src = stripLineComments(src);
-      bareVarReads(src, path.relative(ROOT, p), into);
+      bareVarReads(src, relPosix(ROOT, p), into);
     }
   };
   walk(libDir);
@@ -12207,7 +12210,7 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
   const MIN_THEME_FILES = 20;
   if (themes.length < MIN_THEME_FILES) {
     errors.push(
-      `checkMutedTierFloors found only ${themes.length} theme file(s) in ${path.relative(ROOT, themesDir)} `
+      `checkMutedTierFloors found only ${themes.length} theme file(s) in ${relPosix(ROOT, themesDir)} `
       + `— the repo ships 32, so under ${MIN_THEME_FILES} means the scan is broken, not that palettes were retired.`);
     return;
   }
@@ -12644,7 +12647,7 @@ function checkPhantomTokenReads(errors) {
   // Template-literal reads (`var(--chart-cat-${n})`) are skipped: the scanner sees a
   // truncated prefix, not a token.
   for (const f of listFilesByExt(LIB_DIR, ['.css'])) {
-    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    const rel = relPosix(ROOT, f);
     fs.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").split('\n').forEach((line, i) => {
       if (/var\(\s*--[A-Za-z0-9_-]+\$\{/.test(line)) return;
       for (const m of line.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) {
@@ -13351,13 +13354,13 @@ function checkDanglingTokenReads(errors, dirs = {}) {
   for (const f of [...docsFiles, ...engineCss]) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
 
   const authored = docsFiles.filter((f) => {
-    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    const rel = relPosix(ROOT, f);
     return !/\.test\./.test(rel) && !/(^|\/)dist\//.test(rel);
   });
 
   const reads = new Map();   // token -> [where]
   for (const f of authored) {
-    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    const rel = relPosix(ROOT, f);
     stripCodeComments(fs.readFileSync(f, 'utf8')).split('\n').forEach((line, i) => {
       for (const m of line.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) {
         const t = m[1];
@@ -13452,7 +13455,7 @@ function checkDanglingTokenReads(errors, dirs = {}) {
 function checkAnimaColorVocabulary(errors) {
   const file = path.join(ROOT, 'docs', 'src', 'lib', 'anima', 'scene-palette.ts');
   if (!fs.existsSync(file)) {
-    errors.push(`checkAnimaColorVocabulary: ${path.relative(ROOT, file)} is missing — the gate cannot run.`);
+    errors.push(`checkAnimaColorVocabulary: ${relPosix(ROOT, file)} is missing — the gate cannot run.`);
     return;
   }
   // COMMENTS STRIPPED FIRST. The scan looks for `var(--x)` literals, so a commented-out entry
@@ -13600,14 +13603,14 @@ function checkSyntaxInkContrast(errors) {
     return;
   }
   if (!fs.existsSync(SYNTAX_INK_GENERATED_CSS)) {
-    errors.push(`checkSyntaxInkContrast: ${path.relative(ROOT, SYNTAX_INK_GENERATED_CSS)} is missing — run \`npm run docs:landing-tokens\`.`);
+    errors.push(`checkSyntaxInkContrast: ${relPosix(ROOT, SYNTAX_INK_GENERATED_CSS)} is missing — run \`npm run docs:landing-tokens\`.`);
     return;
   }
   const blocks = parseGeneratedPaletteBlocks(SYNTAX_INK_GENERATED_CSS);
   if (blocks.size < 20) {
     errors.push(
       `checkSyntaxInkContrast parsed only ${blocks.size} palette-mode blocks out of ` +
-      `${path.relative(ROOT, SYNTAX_INK_GENERATED_CSS)} — 18 base palettes x 2 modes is 36, so this is a ` +
+      `${relPosix(ROOT, SYNTAX_INK_GENERATED_CSS)} — 18 base palettes x 2 modes is 36, so this is a ` +
       'broken parse, not a clean tree.',
     );
     return;
