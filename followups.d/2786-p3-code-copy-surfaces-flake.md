@@ -8,14 +8,16 @@ swimlane: engineering/decisions/2026-10-18-platform-suites.md
 source: https://github.com/Laticent/lattice/pull/2786
 ---
 
-# `code-copy-surfaces.test.js` failed once in the merge queue and passes locally
+# `code-copy-surfaces.test.js` failed once in the merge queue, and the cause is still unknown
 
 why now   — `test/unit/runtime/code-copy-surfaces.test.js` failed in the merge queue run for #2786 (run 39284743444, job 118167431359, `unit (node 22)`,
-            1.2 s) and dequeued it. It passed 6 of 6 afterwards on the same merge tree (main plus the branch) and again with the CPU saturated, and
-            the CI log carries no assertion text, so the cause is not known. Its helper `buttonsOn` waits a fixed 50 ms (`setTimeout(r, 50)`) after
-            `w.eval(runtime)` before counting the copy buttons, which a loaded runner could miss.
-where     — `test/unit/runtime/code-copy-surfaces.test.js` (`buttonsOn`); the runtime draws the buttons in `lib/core/code-copy.mjs`.
-done when — the test waits for the buttons (poll the DOM with a deadline) instead of 50 ms, and the failing assertion would print its message;
-            20 passes under CPU load.
-verify    — `node --test test/unit/runtime/code-copy-surfaces.test.js` in a loop under `stress`-style load.
----
+            1.2 s) with only `'test failed'` against the file. The dot reporter prints that for an uncaught exception or an unhandled
+            rejection outside any test; a failed assertion prints its diff instead. So the fixed 50 ms wait in `buttonsOn`, the first
+            suspect, did not fail: jsdom fires `DOMContentLoaded` from a promise chain, so the runtime boots before any timer. The helper
+            now waits for the boot and the buttons under a 5 s deadline anyway, and the file's last test prints every error that escaped a
+            test or that jsdom reported from the window. Not reproduced locally: 40 runs under 3x CPU oversubscription, and a probe with
+            process-level handlers closing the window 0 to 50 ms after boot, all clean.
+where     — `test/unit/runtime/code-copy-surfaces.test.js`; the runtime's boot and copy buttons are `lib/runtime/index.js` (`drawCopyButtons`)
+            and `lib/core/code-copy.mjs`.
+done when — the next failure's printed stack names the source, and that source is fixed; or 30 days with no recurrence, then delete this entry.
+verify    — read the `no error escaped the runtime` test's message in the failing job's log.
