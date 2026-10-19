@@ -105,6 +105,11 @@ describe('judgeWindowsRows (decision 13: Windows is read from chrome://sandbox)'
     assert.equal(judgeWindowsRows(['1234\tRenderer\tLockdown', '5678\tRenderer\tNot Sandboxed']), false);
     assert.equal(judgeWindowsRows([]), null);
     assert.equal(judgeWindowsRows(['1234\tRenderer\tsomething new']), null);
+    // What a real windows-latest runner's page held (2026-10-19): the table rows, then the policy JSON, which names
+    // renderers and no state. The JSON must not turn four locked-down renderers into `null`.
+    const real = ['9248\tRenderer\t\tRenderer\tLockdown\tS-1-16-0 Untrusted\t\u279501111001100110000100000020010000', '4868\tRenderer\t\tRenderer\tLockdown\tS-1-16-0 Untrusted\t\u279501111001100110000100000020010000', '    "name": "RendererAppContainer"', '    "tag": "renderer!kRenderer",'];
+    assert.equal(judgeWindowsRows(real), true);
+    assert.equal(judgeWindowsRows(['    "tag": "renderer!kRenderer",']), null, 'policy JSON alone is no reading');
   });
 });
 
