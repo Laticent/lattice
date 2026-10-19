@@ -44,7 +44,7 @@ async function bottomCenter(page: import('@playwright/test').Page, png: Buffer):
 }
 const isPill = ([r, g, b]: [number, number, number]) => !(r > 240 && g > 240 && b > 240);
 
-async function exportOverflowDeck(page: import('@playwright/test').Page, format: 'pdf' | 'images' | 'pptx') {
+async function exportOverflowDeck(page: import('@playwright/test').Page, format: 'pdf' | 'images' | 'pptx' | 'print') {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect.poll(() => persistedSource(page)).toContain('# Overflows');
@@ -89,4 +89,32 @@ test('the Studio PDF export shows no authoring ring on a clipped slide', async (
 	const px = await leftEdge(page, fs.readFileSync(path.join(dir, png as string)));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
 	expect(isPill(await bottomCenter(page, fs.readFileSync(path.join(dir, png as string)))), 'the clipped slide carries the reader pill').toBe(true);
+});
+
+// The Print panel builds its own sheet PDF from the same capture frame (PrintOptionsPanel.tsx), so it owes the same level.
+test('the Studio Print deck PDF shows no authoring ring on a clipped slide', async ({ page }) => {
+	test.setTimeout(300_000);
+	try {
+		execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
+	} catch {
+		test.skip(true, 'pdftoppm (poppler-utils) is not installed');
+	}
+	const file = await exportOverflowDeck(page, 'print');
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-print-marker-'));
+	execFileSync('pdftoppm', ['-r', '60', '-png', file, path.join(dir, 'page')]);
+	const pages = fs.readdirSync(dir).filter((n) => n.endsWith('.png')).sort();
+	expect(pages.length, 'the sheet PDF has pages').toBeGreaterThan(0);
+	// A sheet may hold both slides on one page: no pixel anywhere on any page is the author red.
+	for (const n of pages) {
+		const red = await page.evaluate(async (b64) => {
+			const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+			const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d') as OffscreenCanvasRenderingContext2D;
+			ctx.drawImage(bmp, 0, 0);
+			const d = ctx.getImageData(0, 0, bmp.width, bmp.height).data;
+			let hits = 0;
+			for (let i = 0; i < d.length; i += 4) if (d[i] > 190 && d[i + 1] < 90 && d[i + 2] < 70) hits++;
+			return hits;
+		}, fs.readFileSync(path.join(dir, n)).toString('base64'));
+		expect(red, `${n}: author-red pixels`).toBeLessThan(40);
+	}
 });
