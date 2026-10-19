@@ -490,6 +490,19 @@ per step (HARD RULE #17).
 | 6 | **The cut.** The engine stops reading authored directive comments; the lint warning and its autofix (D3) are the safety net. The changelog fragment leads with `**Breaking:**` (HARD RULE #10); a per-feature demo deck `examples/meta.md` (HARD RULE #9) | `build:check` |
 | 7 | Spec 2.0 draft, `spec/LPM.md`, and conformance cases | `tools/lfm-conformance.js` |
 
+**Status, 2026-10-18.** Step 1 is built (PR for this branch). What exists: the `meta` plugin
+(`lib/plugins/meta/`, `contributes.meta` in `plugin.schema.json`, always on, refused by `disabled`), the generated
+vocabulary (`lib/plugins/meta.generated.mjs`, read through `lib/core/meta-keys.mjs`), and the reader and writer
+(`lib/core/meta-record.mjs`: `scanMetaSource`, `walkComments`, `walkSlides`, `readMeta`, `readMarker`, `hasMarker`, `directiveKey`;
+`lib/core/meta-edit.mjs`: `readMetaField`, `writeMeta`, `classifyComment`; `metaAt` lives in `class-directive-scan.mjs`. The edit half is
+a separate module because the linter's browser bundle is a route-budget metric and only reads). The five key lists in §3 are gone. Of the 42 hand-rolled readers, 20
+moved and 22 stay, each with a reason in `test/unit/core/meta-readers-census.test.js`: the pane marker grammar waits for the
+step 2 door (§5.4), and the rest are strips, over-matching probes and producer-owned pragmas. The five lint rules are in
+`lint-core.js`; `legacy-directive-comment` is off until the cut (`vocab.metaCut`). `compileMeta`, the source hook and
+`readMeta` over the record syntax are step 2 and are not built. The URL scheme allowlist (§5.7) shipped early, in
+`lib/core/url-scheme.js`, because it guards the existing comment path too. The cold-start writer result is in
+`2026-10-17-meta-syntax-bakeoff/results.md`.
+
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
 
@@ -527,10 +540,10 @@ Marp output; I will render the demo deck in dark and light mode and send both fo
 - **Opt-in versus automatic registers.** `contributes.registers` makes every plugin register a record field. No register key
   collides with a core field today (measured, §5.7) and a collision becomes a build error. Decide whether every register is
   meant to be set per slide, or whether a per-register opt-out is needed before a third-party plugin exists.
-- **The URL guard.** Build the scheme allowlist on background images and the logo (§5.7); `lib/core/bg-image.js` is where to
-  start. Tracked in `followups.d/`.
-- **A cold-start writer test.** Three models, 12 slides each, "make a Lattice deck" with no rule sheet; count how many emit
-  `<!-- _class: -->`. It sizes the cost of a hard cut (§13.4).
+- **The URL guard.** Built (2026-10-18): `lib/core/url-scheme.js` guards `_backgroundImage` and the deck `logo:`. The record's
+  URL fields reuse it.
+- **A cold-start writer test.** Done (2026-10-18), in `2026-10-17-meta-syntax-bakeoff/results.md`: 20 of 36 cold-written
+  slides used the old form, none used a record. D3 (hard cut, with the lint warning and fix) stands: the result says the authoring skill must teach the record before step 6, not that the cut should soften (§13.4).
 - **The `key: |` block grammar** inside the comment. Reuse the line grammar the bake-off measured (`key: value`, a JSON
   string when quoted, `|` for blocks); a second grammar next to Segno is the cost, and a measurement of note lengths in
   the corpus should decide whether blocks are needed at all.
@@ -636,7 +649,7 @@ The red team, an inversion and a checker ran again, on the comment-carrier and p
    lint, and the Playground is where that shows. A soft cut would keep the engine reading the old form with a diagnostic
    until GA. **The owner chose the hard cut, with a linter warning and a fix.** The risk the inversion named stays
    recorded: the warning is a gate on the CLI and in the Studio, not on a pasted reply, and a cold-start writer test
-   (§10) would size it. If that test shows most models emit the old form, the soft cut is a one-commit reversal.
+   (§10) would size it. If that test shows most models emit the old form, the soft cut is a one-commit reversal. **Resolved 2026-10-18:** the test ran (20 of 36 slides in the old form, none in the record), and the owner re-confirmed the hard cut with the lint warning and fix. The project is not GA, so there is no installed base to protect.
 2. **Automatic or opt-in plugin registers** (§10), which can wait for the first third-party plugin.
 
 ## 14. Appendix: the reader census, file by file

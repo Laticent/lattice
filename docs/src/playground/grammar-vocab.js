@@ -1,6 +1,8 @@
 // Static, editor-intrinsic vocabularies for deck-grammar autocomplete.
 //
-// Pure and import-free. These are the closed token sets the editor itself
+// Pure. The slide-directive names and the enum values of `_focusStyle` / `_paginate` come from the
+// shared vocabulary (lib/core/meta-keys.mjs, derived from the `meta` plugin's manifest), so a key
+// added there is completable the day it lands; the rest are closed token sets the editor owns. These are the closed token sets the editor itself
 // defines (Marp slide directives, the fence languages it highlights, the
 // Mermaid keyword grammar) — distinct from the build-time catalog/theme
 // handoff. complete.js consumes them; editor.js consumes MERMAID_KEYWORDS to
@@ -9,12 +11,14 @@
 // Slide-scoped Marp directives authored as `<!-- _name: value -->`. `_class` is
 // completed with its full grammar elsewhere (component names + modifiers); it's
 // listed here too so the NAME completes before the colon is typed.
-export const DIRECTIVE_NAMES = ['_class', '_paginate', '_header', '_footer', '_backgroundColor', '_color', '_focus', '_focusStyle', '_focusSteps'];
+import { COMPLETE_KEYS, enumValues } from '../../../lib/core/meta-keys.mjs';
+
+export const DIRECTIVE_NAMES = COMPLETE_KEYS.map((k) => `_${k}`);
 
 // Value vocabulary for `_focusStyle:` — the focus treatment styles. MUST mirror
 // FOCUS_STYLES in lib/authoring/lint-core.js (asserted by the completion test,
 // so a new style can't be lint-valid yet un-completable).
-export const FOCUS_STYLE_VALUES = ['spotlight', 'blur', 'ring', 'list-fill', 'pop'];
+export const FOCUS_STYLE_VALUES = enumValues('focusStyle');
 
 // Axis keywords for `_focus:` / `_focusSteps:` (the ordinal that follows — `row
 // 4`, `item 2-4` — isn't completable). MUST mirror the focus resolver's
@@ -24,7 +28,7 @@ export const FOCUS_AXIS_VALUES = ['item', 'row', 'col', 'cell', 'line', 'mark', 
 // Value vocabulary for `_paginate:` (Marp accepts the booleans; `skip`/`hold`
 // are Marp's pagination extensions). The other directives take free strings or
 // colors — not completable.
-export const PAGINATE_VALUES = ['true', 'false', 'skip', 'hold'];
+export const PAGINATE_VALUES = enumValues('paginate');
 
 
 // Value vocabulary for the Lattice `split:` front-matter directive, which picks

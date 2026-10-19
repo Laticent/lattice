@@ -309,3 +309,39 @@ describe('the boundary parser\'s generated block installer agrees with the host'
     assert.deepEqual([...blocks.OPAQUE_BLOCK_TOKENS], opaque);
   });
 });
+
+describe('resolvePlugins — the meta data provider', () => {
+  const provider = (fields, extra = {}) => ({
+    folder: 'meta',
+    manifest: {
+      type: 'plugin', format: 1, name: 'meta', api: 1, title: 'meta', description: 'meta',
+      contributes: { meta: { fields, ...extra } },
+    },
+    exports: {},
+  });
+  const withRegister = (key) => ({
+    ...plugin('badge', { trigger: '%' }),
+    manifest: { ...plugin('badge', { trigger: '%' }).manifest, contributes: { ...plugin('badge', { trigger: '%' }).manifest.contributes, registers: { [key]: { axes: { look: ['a', 'b'] } } } } },
+  });
+
+  test('a provider alone resolves', () => {
+    const { errors, order } = resolvePlugins([provider({ footer: { type: 'text' } })]);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(order, ['meta']);
+  });
+  test('two providers fail by name', () => {
+    const other = { ...provider({ footer: { type: 'text' } }), folder: 'meta2' };
+    other.manifest = { ...other.manifest, name: 'meta2' };
+    expectError([provider({ header: { type: 'text' } }), other], /both contribute meta/);
+  });
+  test('a plugin register named like a metadata field fails by name', () => {
+    expectError([provider({ footer: { type: 'text' } }), withRegister('footer')], /plugin "badge" declares register "footer", which is a slide-metadata field/);
+  });
+  test('a register with a free name resolves beside the provider', () => {
+    const { errors } = resolvePlugins([provider({ footer: { type: 'text' } }), withRegister('badge')]);
+    assert.deepEqual(errors, []);
+  });
+  test('a comment key may not repeat a field', () => {
+    expectError([provider({ footer: { type: 'text' } }, { comments: { footer: { kind: 'channel' } } })], /both a meta field and a meta comment key/);
+  });
+});

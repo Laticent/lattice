@@ -1805,3 +1805,11 @@ describe('notes-core: SCRUB_BOUNDARIES', () => {
     });
   }
 });
+
+test('isLatticePragma: lat-meta comments are tooling, a hyphenated word that begins with them is a note', () => {
+  assert.equal(core.isLatticePragma('lat-meta: {"class":"x"}'), true);
+  assert.equal(core.isLatticePragma('lat-pane: {}'), true);
+  assert.equal(core.isLatticePragma('lat-meta-analysis says churn is up'), false);
+  assert.equal(core.isLatticePragma('stress-slide'), true);
+  assert.equal(core.isLatticePragma('stress-slide is the next topic'), false);
+});

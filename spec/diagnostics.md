@@ -371,6 +371,21 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 | `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. |
 | `narration-passthrough` | suggestion | — | Slash, ratio and identifier tokens that narration will read as glyphs. |
 
+### 3.11 Slide metadata comments
+
+A **record comment** opens with `{` or `@meta{` (`<!-- {layout=content} -->`). These rules report a
+record in a position no reader will take it from, and the old directive form the record replaces
+(`engineering/decisions/2026-10-17-meta-record.md` §5.3, §5.5). A record inside a code fence is
+literal text and is never reported.
+
+| Rule ID | Severity | Autofix | What it catches |
+|---|---|---|---|
+| `meta-opener-bare` | error | — | A bare `<!--` with the record on the next line: the comment is a note, not a record. |
+| `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
+| `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
+| `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
+| `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
+
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
 > source line. `card-style-inline-title`, `ledger-inline-title`, and
@@ -451,6 +466,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 
 ## 7. Change log
 
+- **Unreleased.** §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
+  `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
+  `legacy-directive-comment` (off by default).
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two
