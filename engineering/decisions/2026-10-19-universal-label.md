@@ -1,5 +1,5 @@
 ---
-status: decided (design); not built
+status: proposed
 summary: >
   Every chart should take custom labels, and the family has at least seven separate label
   mechanisms that do not share a model. The proposal is ONE label model with two emitters (HTML,
