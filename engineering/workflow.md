@@ -1576,22 +1576,31 @@ If a card runs long, **shorten the content — never drop the fence.**
 
 ### One layout for all four cards
 
-🚦, 📋, 🎯 and ❓ share one layout, so the owner learns it once. Plain labels
-only: write `limited by`, not "floor", and name what a pointer points to
+🚦, 📋, 🎯 and ❓ share one layout, so the owner learns it once. It is built for
+a phone: **the chat app shows about 38 characters of a fenced block**, and a
+fence never re-wraps, so wider lines scroll sideways or break mid-word. Plain
+labels only: write `limited by`, not "floor", and name what a pointer points to
 ("the 🎯 brief", not "see 🎯").
 
-1. **Header line**: emoji, card name, subject, and on the right how to respond.
+1. **Header lines**: emoji, card name and subject on the first line; how to
+   respond on the second.
 2. **BOTTOM LINE first.** The ask, your pick and the state come before the detail.
    The reader should be able to stop after that block and still act.
-3. **CAPS sections** of `label — value` lines, labels aligned. Items get an ID
-   (`P1`, `D1`, `W1`) so a reply can name one.
-4. **75 columns or fewer** when filled in, so a phone does not wrap it badly.
-   Wrap a long value onto an indented continuation line.
-5. **Fenced, always** (§Both cards are always fenced).
-6. **No unfilled template text.** Fill every field or leave the line out. A card
+3. **CAPS sections.** Each field is a label on its own line, indented 2, with its
+   value below it, indented 4. Items get an ID (`P1`, `D1`, `W1`) so a reply can
+   name one; their fields indent one more step.
+4. **38 columns or fewer, hard-wrapped by you.** Count the card before you post it.
+   Each value takes at most 2 wrapped lines, so the card stays short as well as
+   narrow. If a value needs more, it is two fields.
+5. **CAPS carry the emphasis, because a fence cannot show bold.** Put the word
+   that drives the decision in CAPS: the confidence level, the pick, the state
+   (`MERGED`), the one word to answer first. One CAPS word or short phrase per
+   field, never a whole sentence, or nothing stands out.
+6. **Fenced, always** (§Both cards are always fenced).
+7. **No unfilled template text.** Fill every field or leave the field out. A card
    with `<sha>` or "omit if none" still in it reads as unfinished.
-7. **The card agrees with itself.** The reply words in the header must be words
-   each item accepts, and `raise it — nothing outstanding` is only allowed when
+8. **The card agrees with itself.** The reply words in the header must be words
+   each item accepts, and `raise it` may say "nothing outstanding" only when
    `not run` is "none". `ran` lists only what has finished: a check still
    running goes under `not run`. Cards posted together tell one story, so the
    facts they share (counts, what is live, what is next) match word for word.
@@ -1633,16 +1642,27 @@ Template:
 📋 Standup — merged #N (<sha>)
 
 BOTTOM LINE
-  state       — <merged, nothing needed from you | merged, N items left
-                 in the 🎯 brief>
+  state
+    <MERGED, nothing needed from
+    you | MERGED, N items left in
+    the 🎯 brief>
 
 THREAD
-  swimlane    — <decisions-doc / inferred label>
-  card        — <what the PR did>
-  branch      — <branch>
-  completed   — #N <one line> (+ #M, #K earlier this thread)
-  on deck     — <next step for this thread, or "thread complete">
-  notes       — <N notes (+X this merge) — omit the line if none>
+  swimlane
+    <decisions doc or stable label>
+  card
+    <what the PR did>
+  branch
+    <branch>
+  completed
+    #N <one line> (+ #M, #K
+    earlier this thread)
+  on deck
+    <next step for this thread,
+    or "thread complete">
+  notes
+    <N notes (+X this merge);
+    leave out if none>
 ```
 
 ### 🎯 The continuation brief — the handoff card
@@ -1693,48 +1713,84 @@ Six rules make it work:
 Template — everything between the fences is written *to the next session*:
 
 ```
-🎯 Continuation — <swimlane>                    paste into a new session
+🎯 Continuation — <swimlane>
+paste into a new session
 
 BOTTOM LINE
-  ask         — work P1 to Pn top-down, one PR, one commit each
-  first       — P1: <the change, one line>
+  ask
+    work P1 to Pn top-down, one
+    PR, one commit each
+  first
+    P1: <the change, one line>
 
 CONTEXT
-  swimlane    — <engineering/decisions/… path, or the stable label>
-  shipped     — #N (<sha>) — <what it changed, one line>
-  read first  — <2–3 canonical docs/paths for this area>, then CLAUDE.md
-  state       — <where the tree stands; anything half-applied, tried and
-                 rejected, or deliberately left alone>
-  decisions   — <unanswered ❓ items with the pick, or "none">
+  swimlane
+    <decisions doc path or label>
+  shipped
+    #N (<sha>): <what it changed>
+  read first
+    <2-3 docs>, then CLAUDE.md
+  state
+    <where the tree stands;
+    anything half-applied, tried
+    and rejected, or left alone>
+  decisions
+    <unanswered ❓ items with the
+    pick, or "none">
 
 PRIORITIES — in this order
-  P1 · [#1234] <the change, one line>
-       why        — <what it unblocks or de-risks>
-       where      — <file:line, entry points, the doc that governs it>
-       done when  — <acceptance check a reviewer can run>
-       evidence   — <rendered PDF via SendUserFile | tools/pixel-check.js |
-                     tools/screenshot.js @1440/820/390 | npm run bench>
-       verify     — <tier 0 gates | tier 1 checker | tier 2 trio>,
-                    because <reason>
-  P2 · [followups.d/<origin-pr>-p<n>-<slug>.md] <the change, one line>
-       …same five lines…
+  P1 · [#1234] <the change>
+    why
+      <what it unblocks>
+    where
+      <file:line, governing doc>
+    done when
+      <check a reviewer can run>
+    evidence
+      <PDF | pixel-check |
+      screenshot | bench>
+    verify
+      <tier 0 gates | tier 1
+      checker | tier 2 trio>,
+      because <reason>
+  P2 · [followups.d/<file>]
+    <the change>
+    …same five fields…
 
 STANDING ORDERS
-  • I am away. Decide and proceed; a safe default beats a question.
-  • Gates are the floor. Look at visual work before handing it back.
-  • One branch claude/<slug>, one PR, one commit per priority (#13).
-    Docs and changelog ride in the same commit (#10, #6).
-  • Attach each item's evidence in the PR body. If a surface cannot
-    be reached from here, write UNVERIFIED (#23).
-  • Up to 8 agents are pre-approved. More needs the owner's OK.
-  • Run the gates before each push. Rebase only on a real conflict (#16).
-  • If an item is blocked, finish the rest and say why in the PR body.
-    Never ship a break you made (#18).
-  • STOP at the merge gate: green, no conflict, cards posted.
-    Do not merge (#7).
+  • I am away. Decide and
+    proceed; a safe default beats
+    a question.
+  • Gates are the floor. Look at
+    visual work before handing it
+    back.
+  • One branch claude/<slug>, one
+    PR, one commit per priority
+    (#13). Docs and changelog
+    ride in the same commit (#10,
+    #6).
+  • Attach each item's evidence
+    in the PR body. If a surface
+    cannot be reached, write
+    UNVERIFIED (#23).
+  • Up to 8 agents are
+    pre-approved. More needs the
+    owner's OK.
+  • Run the gates before each
+    push. Rebase only on a real
+    conflict (#16).
+  • If an item is blocked, finish
+    the rest and say why in the PR
+    body. Never ship a break you
+    made (#18).
+  • STOP at the merge gate: green,
+    no conflict, cards posted. Do
+    not merge (#7).
 
 DELIVERABLE
-  one green, conflict-free PR waiting for review, evidence under each item
+  one green, conflict-free PR
+  waiting for review, evidence
+  under each item
 ```
 
 **The 8-agent budget in that card is a pre-registered exemption to HARD RULE
@@ -1918,30 +1974,48 @@ everything becomes `high` because the work felt thorough.
 Template:
 
 ```
-🚦 Pre-merge — #N <title>                        reply: merge | hold
+🚦 Pre-merge — #N <title>
+reply: merge | hold
 
 BOTTOM LINE
-  ask         — squash-merge #N?
-  pick        — <merge | hold>: <one reason>
-  confidence  — <low | medium | high | very high> · limited by: <the axis>
-  raise it    — <the one thing that would move it up, or
-                 "nothing outstanding">
+  ask
+    squash-merge #N?
+  pick
+    <MERGE | HOLD>: <one reason>
+  confidence
+    <LOW | MEDIUM | HIGH |
+    VERY HIGH> · limited by:
+    <the axis>
+  raise it
+    <the one thing that moves it
+    up, or "nothing outstanding">
 
 CHANGE
-  what        — <one line: what actually lands>
-  why         — <one line: the problem it solves>
-  how         — <the mechanism, plus anything a reviewer would find
-                 surprising>
+  what
+    <what actually lands>
+  why
+    <the problem it solves>
+  how
+    <the mechanism, and anything
+    a reviewer would find
+    surprising>
 
 PROOF
-  ran         — <what was RUN or MEASURED, per load-bearing claim: the
-                 artifact, the number, the surface it came from>
-  read by     — <who looked, and on what surface; or "nobody yet">
-  not run     — <caveats that bear on this decision, or "none">
+  ran
+    <what finished: the artifact,
+    the number, the surface>
+  read by
+    <who looked, on what surface,
+    or "nobody yet">
+  not run
+    <caveats on this decision,
+    or "none">
 
 RISK
-  if wrong    — <blast radius>
-  revert      — <how it is undone>
+  if wrong
+    <blast radius>
+  revert
+    <how it is undone>
 ```
 
 ## ❓ Decision card — what is waiting on the owner, in plain words
@@ -1993,10 +2067,9 @@ Four kinds of item, in this order, each under its own heading:
 
 ### The shape of one item
 
-The card copies the 🎯 brief's layout on purpose: an ID and a title, then
-`label — value` lines in fixed order, so the owner's eye lands on the same line in
-every item. Keep each line short enough not to wrap on a phone (about 70
-characters).
+The card follows the shared layout above: an ID and a title, then fields in a
+fixed order, each a label line with its value below, so the owner's eye lands on
+the same place in every item.
 
 A NEED YOU item (`D1`, `D2`, …) has these lines:
 
@@ -2012,7 +2085,7 @@ A NEED YOU item (`D1`, `D2`, …) has these lines:
 - **default**: what happens if the owner says nothing, and how to undo it.
 - **ref**: the issue, PR or file, for whoever wants to dig.
 
-The other kinds are shorter. CAN WAIT (`W1`, …) has `default` and `change`. TO VETO
+The other kinds are shorter. CAN WAIT (`W1`, …) has `default` and `reply`. TO VETO
 (`V1`, …) is the title alone. QUESTIONS (`Q1`, …) has `changes`, the thing the
 answer decides. A fourth option on a NEED YOU item means the question is too big,
 so split it into two items.
@@ -2033,39 +2106,58 @@ its line. `all recommended` accepts every pick and every default.
 Template:
 
 ```
-❓ Decisions — <PR or topic>             reply: "D1 A, W1 keep, Q1 yes"
+❓ Decisions — <PR or topic>
+reply: "D1 A, W1 keep, Q1 yes"
 
 BOTTOM LINE
-  waiting     — <N decisions, M defaults, K to veto, Q questions>
-  ask         — <which item to answer first; the rest can wait>
-  merge       — #N, see the 🚦 card        (only when a merge ask is open)
+  waiting
+    <N decisions, M defaults,
+    K to veto, Q questions>
+  ask
+    <ANSWER D1 first; the rest
+    can wait>
+  merge
+    #N, see the 🚦 card (only
+    when a merge ask is open)
 
-NEED YOU — blocked until you answer
-  D1 · <the question, in plain words?>
-       why        — <one line: what is at stake>
-       A          — <option>
-                gains — <what it buys>
-                costs — <what it costs, with a number>
-                then  — <what I do next>
-       B          — <option>
-                gains — …
-                costs — …
-                then  — …
-       pick       — <A|B>: <one reason>
-       default    — <what happens if you say nothing, and how to undo it>
-       ref        — <#N | path>
+NEED YOU — blocked until answered
+  D1 · <the question, in plain
+       words?>
+    why
+      <what is at stake>
+    A — <option>
+      gains: <what it buys>
+      costs: <what it costs,
+        with a number>
+      then: <what I do next>
+    B — <option>
+      gains: …
+      costs: …
+      then: …
+    pick
+      <A | B>: <one reason>
+    default
+      <what happens if you say
+      nothing, and how to undo>
+    ref
+      <#N | path>
 
-CAN WAIT — I picked a default and kept going
+CAN WAIT — default picked
   W1 · <the choice?>
-       default    — <what I did>
-       reply      — keep, or <word> to change it
+    default
+      <what I did>
+    reply
+      keep, or <word> to change
 
-TO VETO — I decided these; tell me to undo any
-  V1 · <what I decided, and why it was mine to decide>
+TO VETO — tell me to undo any
+  V1 · <what I decided, and why
+       it was mine to decide>
 
 QUESTIONS — only you know
   Q1 · <the fact I need?>
-       changes    — yes: <what happens> · no: <what happens>
+    changes
+      yes: <what happens>
+      no: <what happens>
 ```
 
 A CAN WAIT or TO VETO item is a real choice with something the owner can change
