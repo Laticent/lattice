@@ -290,6 +290,7 @@
           "series"
         ],
         "quotes": true,
+        "nested": "point-unless-valued",
         "legacy": [
           "value"
         ]

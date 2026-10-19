@@ -93,3 +93,37 @@ describe('lint: chart-value-malformed', () => {
     )), []);
   });
 });
+
+// A bare `|` inside a table cell's `{> …}` description splits the row before Segno reads the cell
+// (GFM does not spare a code span): the extra cell shifts every value after it. The owner decided
+// the author escapes it as `\|` (model note §7), and lint says so (followups.d/2723).
+describe('lint: chart-table-unescaped-pipe', () => {
+  const pipes = (src) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === 'chart-table-unescaped-pipe');
+  const table = (cell) => deck(slide('heatmap', `| | Mon | Tue |\n|---|---|---|\n| AM | ${cell} | 5 |\n| PM | 7 | 2 |`));
+
+  test('one extra cell after a {> …} description warns, and the fix says to write \\|', () => {
+    const [f, ...rest] = pipes(table('3 `{> up | down}`'));
+    assert.equal(rest.length, 0);
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.line, '| AM | 3 `{> up | down}` | 5 |');
+    assert.match(f.message, /4 cells under a 3-column header/);
+    assert.match(f.fix, /\\\|/);
+    assert.equal(f.autofixable, undefined);
+  });
+
+  test('the escaped pipe is silent, and so is a table with no description', () => {
+    assert.deepEqual(pipes(table('3 `{> up \\| down}`')), []);
+    assert.deepEqual(pipes(table('3 `{> up and down}`')), []);
+    assert.deepEqual(pipes(table('3')), []);
+  });
+
+  test('a pipe in a list row\'s description is just text', () => {
+    assert.deepEqual(pipes(deck(slide('bar', '- EMEA `4.2`\n  > up | down\n- APAC `1.8`'))), []);
+    assert.deepEqual(pipes(deck(slide('bar', '- EMEA `4.2`\n  > up `{> a | b}` down'))), []);
+  });
+
+  test('an extra cell that is not a description is not this rule\'s', () => {
+    assert.deepEqual(pipes(table('3 | 4')), [], 'an author\'s extra column');
+    assert.deepEqual(pipes(deck(slide('list', '| A | B |\n|---|---|\n| `{> x | y}` | z |'))), [], 'a slide outside the model');
+  });
+});

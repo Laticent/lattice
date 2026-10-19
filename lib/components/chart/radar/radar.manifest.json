@@ -312,6 +312,7 @@
       "rows": {
         "shape": "series",
         "quotes": true,
+        "nested": "detail",
         "markless": {
           "default": [
             1

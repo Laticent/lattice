@@ -26,6 +26,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
 import { isObjectSource } from './inline-object';
 import { PILL_SCOPE } from './pill-sheet';
+import { classTokens } from './registers';
 
 /** What the engine reads out of a pill (lib/core/inline-pills.js `resolve`). */
 export interface PillFields {
@@ -98,6 +99,28 @@ export interface InlineKernels {
 	};
 	isLiteralFromSource(source: string): boolean;
 	INLINE_CODE_LITERAL: string;
+	/**
+	 * Is this span a chart row's data record (`{4.2M, target=5.0M}`), which the chart reads itself and
+	 * the pill pass leaves alone (lib/core/chart-rows.js `ownsRecordSpan`)? Absent in a kernel set from
+	 * before the chart authoring model, which owns nothing.
+	 */
+	ownsChartRecord?(classTokens: readonly string[], text: string, place: ChartRecordPlace): boolean;
+}
+
+/** Where a span sits in its row, as `ownsRecordSpan` asks. */
+export interface ChartRecordPlace {
+	cell?: boolean;
+	depth?: number;
+	lastInRow: boolean;
+	afterCode?: boolean;
+	quoted?: boolean;
+	firstList?: boolean;
+	/** Is this the row's own lead (its first block), and the code spans in it, with this span's index among them. */
+	lead?: boolean;
+	leadSpans?: string[];
+	at?: number;
+	/** The code spans of each enclosing row's lead, outermost first. */
+	ancestors?: string[][];
 }
 
 // ── The kinds ────────────────────────────────────────────────────────────────
@@ -212,6 +235,95 @@ export interface NormalizeOptions {
 }
 
 /**
+ * Is this code-marked run a chart row's data record: the last thing in a list row's lead (or the whole of a
+ * table cell) of a chart slide, with no code run right before it, outside a quote, in the slide's first list,
+ * on a row that is data and not the detail of a valued row? Then the chart reads it and it stays a code span,
+ * as the engine leaves it (`ownsRecordSpan`). The twin of the engine's token check, the runtime's DOM check
+ * and lint's source check.
+ */
+function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, directives: string[], kernels: InlineKernels): boolean {
+	if (!kernels.ownsChartRecord) return false;
+	const codeMark = deckSchema.marks.code;
+	// A span wrapped in emphasis or a link is not the row's last child in the engine's token stream.
+	if (node.marks.length !== 1 || !codeMark.isInSet(node.marks)) return false;
+	const $at = doc.resolve(from);
+	const row = $at.parent;
+	const cell = row.type.name === 'table_cell';
+	const inItem = (row.type.name === 'paragraph' || row.type.name === 'heading') && $at.depth >= 2 && $at.node($at.depth - 1).type.name === 'list_item';
+	if (!cell && !inItem) return false;
+	const blank = (n: PMNode) => n.isText && !(n.text ?? '').trim(); // a comment is content, as the pill pass counts it
+	let lastInRow = true;
+	for (let i = index + 1; i < row.childCount; i++) if (!blank(row.child(i))) lastInRow = false;
+	let prev = index - 1;
+	while (prev >= 0 && blank(row.child(prev))) prev--;
+	if (cell && prev >= 0) lastInRow = false; // the record is the whole cell
+	let depth = 0;
+	let quoted = false;
+	const ancestors: string[][] = [];
+	for (let d = 1; d <= $at.depth; d++) {
+		const anc = $at.node(d);
+		if (anc.type.name === 'blockquote') quoted = true;
+		if (anc.type.name !== 'list_item') continue;
+		depth++;
+		// An enclosing item's lead spans: the code runs of its first paragraph or heading.
+		if (d < $at.depth - 1) {
+			const lead = anc.firstChild;
+			ancestors.push(lead && (lead.type.name === 'paragraph' || lead.type.name === 'heading') ? codeSpans(lead) : []);
+		}
+	}
+	// Only the slide's first list is the chart's (`spliceFirstList`): no list before this one in the slide.
+	let firstList = true;
+	if ($at.depth >= 2) {
+		const slide = $at.node(1);
+		const here = $at.index(1);
+		// A list inside an earlier quote counts, as it does for the engine; a grid chart owns the first table only.
+		const kind = cell ? /^table$/ : /_list$/;
+		for (let i = 0; i < here; i++) {
+			const child = slide.child(i);
+			let found = kind.test(child.type.name);
+			if (!found && child.type.name === 'blockquote') child.descendants((n) => { if (kind.test(n.type.name)) found = true; return !found; });
+			if (found) firstList = false;
+		}
+	}
+	// The row's lead is its item's first block; only there does a span count as the row's value or record.
+	const item = inItem ? $at.node($at.depth - 1) : null;
+	const isLead = Boolean(item && item.firstChild === row);
+	const leadSpans = isLead ? codeSpans(row) : [];
+	let at = -1;
+	if (isLead) {
+		let n = 0;
+		row.forEach((child, _o, i) => {
+			if (!isCodeish(child)) return;
+			if (i === index) at = n;
+			n++;
+		});
+	}
+	return kernels.ownsChartRecord(classTokens(directives), node.text ?? '', {
+		lead: cell ? undefined : isLead,
+		leadSpans,
+		at,
+		cell,
+		depth,
+		lastInRow,
+		quoted,
+		firstList,
+		ancestors,
+		// An object already drawn from an earlier span (a pill) was code in the source, as it is for the engine.
+		afterCode: prev >= 0 && (codeMark.isInSet(row.child(prev).marks) !== undefined || row.child(prev).type === objectType()),
+	});
+}
+
+/** The source text of each code span in a block: a code-marked run, or a drawn object's `src`. */
+function codeSpans(block: PMNode): string[] {
+	const out: string[] = [];
+	block.forEach((child) => {
+		if (child.type === objectType()) out.push(String(child.attrs.src ?? ''));
+		else if (child.isText && code().isInSet(child.marks)) out.push(child.text ?? '');
+	});
+	return out;
+}
+
+/**
  * The transaction that turns every code span the engine reads as an object into a node, and keeps
  * two code spans from touching, or null when there is nothing to do. A span is skipped when:
  *   · the selection touches it and `sparing` is on (see NormalizeOptions);
@@ -240,7 +352,7 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 		if (slide.type.name !== 'slide' || slide.attrs.locked) return;
 		if (opts.slides && !opts.slides.has(index)) return;
 		const literal = deckLiteral || ((slide.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL));
-		slide.descendants((node, pos) => {
+		slide.descendants((node, pos, _parent, at) => {
 			const from = offset + 1 + pos;
 			if (literal) {
 				if (node.type === type) strays.push({ from, to: from + 1, src: node.attrs.src as string, marks: node.marks });
@@ -253,6 +365,7 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 			const to = from + node.nodeSize;
 			if (sparing && sel.from <= to && sel.to >= from) return;
 			if (!kindOf(node.text, kernels)) return;
+			if (ownsRecord(state.doc, from, at, node, slide.attrs.directives as string[], kernels)) return;
 			found.push({ from, to, src: node.text, marks: node.marks.filter((m) => m.type !== codeMark) });
 		});
 	});
