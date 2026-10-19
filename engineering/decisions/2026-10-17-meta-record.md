@@ -346,6 +346,31 @@ already produces), and the other keys become `lat-meta`. The one change to the c
 first (§5.1 item 4). Downstream the carve is unchanged, and a note stays where it is: `panes.js:606-628` copies spot directives onto every pane page and keeps
 notes on page 1, and the split preserves that. The `meta-pane-mixed` lint is dropped; mixing is legal.
 
+### 5.4.1 The six pane marker readers: all move at the door
+
+Two kinds of reader touch a pane marker, and the door treats them differently.
+
+- **Readers of authored text** run on the source a person typed, before or outside the engine: the Studio and Compose. They
+  must accept `_pane:`, the `pane:` alias, and the record form `{pane="…"}` / `{panes="…"}`. One shared parser,
+  `parsePaneMarker(line)` in `lib/core/meta-record.mjs`, recognizes all three. Each of these files calls it instead of
+  keeping its own regex.
+- **Readers of the internal form** run after the door, on `lat-pane` and `lat-panes`. They stay as readers (the internal
+  channel survives the cut, §5.1 item 5), but the authored-spelling regexes they carry (`PANE_RE`, `MARKER_RE`) go, because
+  the door has already rewritten every authored marker.
+
+| File | Reads | Moves to | Why |
+|---|---|---|---|
+| `lib/core/pane-spec.js` | authored `_pane:` and `pane:` (`PANE_RE`, `MARKER_RE`) plus the internal form | the authored regexes go to `parsePaneMarker`; the `INTERNAL_*` regexes stay | after the door nothing authored reaches the engine |
+| `lib/core/panes.js` | `normalizePaneSyntax` rewrites authored markers; the carve reads the internal form | the rewrite and its forgery guard become part of `compileMetaSource` (§5.1 item 4); the carve stays | one guard, run first, and the carve is the largest single risk (§9), so it is not rewritten |
+| `docs/src/components/studio/PresentOverlay.tsx` | `hasPaneMarker`, a `<!-- pane:` regex | `hasPaneMarker` from the shared module | the regex misses the `_pane:` spelling today and would miss the record form |
+| `docs/src/components/studio/pane-pages.ts` | `PANE_MARKER` | `parsePaneMarker` | same three spellings |
+| `docs/src/components/studio/pane-probe.ts` | `PANE_PROBE`, a cheap over-matching reject | the regex is built from the shared marker vocabulary and adds `{pane` / `{panes` | it must stay cheap and must never reject a deck the door would accept |
+| `docs/src/lib/compose/pane-model.ts` | `markerFor` writes `<!-- _pane: … -->`; class read is `pane-spec` `classOf` | writes through `writeMeta`; the class read follows `pane-spec` | Compose must write the form the cut leaves standing |
+
+The census marks these six `door`. The other 16 `stays` keep the reason they were given in step 1: a strip, a positional
+rewrite, an over-matching probe, a producer-owned pragma, or a published package that cannot import `lib/core`. Step 2 is
+done with this table only when the six rows read `migrated` and no `door` row is left.
+
 ### 5.5 Edge cases
 
 | Case | Behavior |
@@ -495,9 +520,9 @@ per step (HARD RULE #17).
 vocabulary (`lib/plugins/meta.generated.mjs`, read through `lib/core/meta-keys.mjs`), and the reader and writer
 (`lib/core/meta-record.mjs`: `scanMetaSource`, `walkComments`, `walkSlides`, `readMeta`, `readMarker`, `hasMarker`, `directiveKey`;
 `lib/core/meta-edit.mjs`: `readMetaField`, `writeMeta`, `classifyComment`; `metaAt` lives in `class-directive-scan.mjs`. The edit half is
-a separate module because the linter's browser bundle is a route-budget metric and only reads). The five key lists in §3 are gone. Of the 42 hand-rolled readers, 20
-moved and 22 stay, each with a reason in `test/unit/core/meta-readers-census.test.js`: the pane marker grammar waits for the
-step 2 door (§5.4), and the rest are strips, over-matching probes and producer-owned pragmas. The five lint rules are in
+a separate module because the linter's browser bundle is a route-budget metric and only reads). The five key lists in §3 are gone. Of the 61 files in the census, 21
+moved, 6 wait for the door and 34 stay, each with a reason in `test/unit/core/meta-readers-census.test.js`: the six pane marker readers wait for the
+step 2 door and are decided in §5.4.1, and the rest are strips, over-matching probes and producer-owned pragmas. The five lint rules are in
 `lint-core.js`; `legacy-directive-comment` is off until the cut (`vocab.metaCut`). `compileMeta`, the source hook and
 `readMeta` over the record syntax are step 2 and are not built. The URL scheme allowlist (§5.7) shipped early, in
 `lib/core/url-scheme.js`, because it guards the existing comment path too. The cold-start writer result is in
