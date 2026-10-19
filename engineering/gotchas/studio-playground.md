@@ -1641,3 +1641,12 @@ never turn "passed in headless" into "works on iOS."
   (testing-library treats `[hidden]` as inaccessible). A closed kept surface also drops its
   `role="dialog"`, so `getByRole('dialog')` means "open". In Playwright, filter with
   `{ visible: true }` rather than counting elements.
+
+## Present playback keeps the main thread busy even though almost nothing changes on screen
+
+- **Symptom** — with a deck playing in Present, a trace shows a style, layout and paint cycle on nearly every frame, and the cost grows on a big display. Mutation counts say little changed: about 30 DOM writes a second.
+- **Cause** — a CSS transition on a layout property keeps every frame dirty for its whole length. The rail's played range transitioned `width` and the playhead transitioned `left`, each for 150 ms, and the reader updates them several times a second, so the transitions overlapped and the page never went quiet. Each frame pays the fixed cost of the pipeline (style, layout, pre-paint, layerize, commit) over the whole tree, whatever changed.
+- **Mitigation** — animate `transform` and `opacity` only. `PresentRail.tsx` slides a full-width fill left by `100 - p` percent inside a clip that rounds its start, and moves the playhead with a full-width carrier the same way (a percentage in `translateX` is of the element's own width, which is the segment's). Caption words change colour with no transition.
+- **Triggered by** — any surface that animates `width`, `height`, `left`, `top` or `margin` while a clock drives it.
+- **Removable when** — never. Measure with `Performance.getMetrics` (`TaskDuration`, `LayoutCount`) over a 3 s window with the CPU slowed 4x; record video and trace off, because Playwright's screen recording copies every frame and made 4K look nine times slower than it is.
+- **Commits** — the PR that added `present-rail-compositor.fixed.md`.

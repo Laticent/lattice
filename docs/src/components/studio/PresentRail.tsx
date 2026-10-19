@@ -194,11 +194,13 @@ function PresentRailImpl({
 											/>
 										)}
 										{proPct > 0 && (
-											<span
-												data-tier="progress"
+											<span className="latt-rail-run">
+												<span
+													data-tier="progress"
 													className="latt-rail-fill"
-												style={{ width: `${proPct}%`, background: progressTier }}
-											/>
+													style={{ transform: `translateX(${proPct - 100}%)`, background: progressTier }}
+												/>
+											</span>
 										)}
 										{/* THE PLAYHEAD — painted LAST, so nothing can cover it.
 										
@@ -216,11 +218,9 @@ function PresentRailImpl({
 										    of the current slide and says "here"; under playback it rides the progress
 										    front. One mechanism for both. */}
 										{here && (
-											<span
-												data-tier="playhead"
-													className="latt-rail-head"
-												style={{ left: `${proPct}%`, marginLeft: -1, background: progressTier, boxShadow: '0 0 0 1px var(--bg)' }}
-											/>
+											<span className="latt-rail-headrun" style={{ transform: `translateX(${proPct - 100}%)` }}>
+												<span data-tier="playhead" className="latt-rail-head" style={{ background: progressTier, boxShadow: '0 0 0 1px var(--bg)' }} />
+											</span>
 										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}
 										<span className="latt-rail-hit" aria-hidden="true" />

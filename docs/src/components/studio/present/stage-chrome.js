@@ -41,7 +41,7 @@ export const STAGE_CHROME_CSS = `
 .latt-cc-line{padding:.125rem .5rem;text-align:center;font-size:16px;font-weight:600;line-height:1.375;transition:color .3s;color:var(--text-heading);}
 .latt-cc-line[data-state="read"]{color:color-mix(in srgb,var(--text-muted) 45%,transparent);}
 .latt-cc-line[data-state="up"]{color:color-mix(in srgb,var(--text-muted) 55%,transparent);}
-.latt-cc-w{transition:color .15s;}
+.latt-cc-w{}
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:var(--text-muted);}
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:var(--accent);}
 .latt-cc--still .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:var(--text-muted);}
@@ -58,12 +58,22 @@ export const STAGE_CHROME_CSS = `
 .latt-rail-fill{position:absolute;bottom:0;left:0;height:8px;border-radius:999px;}
 .latt-rail-fill[data-tier="track"]{left:0;right:0;}
 .latt-rail-fill[data-tier="prefetch"]{transition:width .3s;}
-.latt-rail-fill[data-tier="progress"]{transition:width .15s;}
-.latt-rail-head{position:absolute;bottom:0;height:8px;width:2px;border-radius:999px;transition:left .15s;}
+/* THE PLAYED RANGE AND THE PLAYHEAD MOVE BY TRANSFORM, NOT BY width OR left. Both used to transition a layout
+   property, so every update ran a 150ms style, layout and paint cycle on the main thread, about 60 times a second
+   for as long as the deck played. Measured on the built Studio at 3840x2160 with the CPU at 4x: 148 layouts and
+   2.5s of main-thread work per 3s of playback, against 22 layouts and 1.4s with the transitions off. A transform
+   transition runs on the compositor, so the main thread does nothing between updates. The fill is a full-width pill
+   slid left by (100 - p)% inside a clip that rounds its start, so its right end is the same rounded edge a width
+   gave it; the head rides a full-width carrier moved the same way, since a percentage in translateX is of the
+   element's own width. */
+.latt-rail-run{position:absolute;bottom:0;left:0;right:0;height:8px;overflow:hidden;border-radius:999px;}
+.latt-rail-fill[data-tier="progress"]{right:0;will-change:transform;transition:transform .15s;}
+.latt-rail-headrun{position:absolute;bottom:0;left:0;right:0;height:8px;pointer-events:none;will-change:transform;transition:transform .15s;}
+.latt-rail-head{position:absolute;bottom:0;right:-1px;height:8px;width:2px;border-radius:999px;}
 .latt-rail-hit{position:absolute;left:-2px;right:-2px;top:-10px;bottom:-10px;}
 @keyframes latt-fade-rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 @media (prefers-reduced-motion:reduce){
-.latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-cc-w,.latt-rail-fill,.latt-rail-head{transition:none!important;}
+.latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-cc-w,.latt-rail-fill,.latt-rail-headrun{transition:none!important;}
 .latt-rail-title>span{animation:none!important;}
 }
 `;
