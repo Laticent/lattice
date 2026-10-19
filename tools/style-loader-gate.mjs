@@ -82,6 +82,9 @@ async function session(browser, md, mode) {
   // have all run. The static comparison below cannot see anything those add; this can (the red team found three
   // breaks that way). Only the mounted slides, which are the same window in every session of one deck.
   const frame = frameOf();
+  // Animations are frozen first, as the static comparison does: an animated scene sampled mid-flight differs
+  // from itself (found on anima-heatmap, WebKit: 1 of 632 elements, absent in six repeat runs).
+  if (frame) await frame.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' }).catch(() => {});
   const live = frame ? await frame.evaluate(pageFingerprint).catch(() => []) : [];
   await ctx.close();
   return { css, firstSlideMs, assets, live };
