@@ -76,7 +76,8 @@ test('a finding points at the source line of the string, and names the property'
 
 test('an image-set type() is a MIME type, not a target, and an unquoted url( … ) run is one token', () => {
   assert.deepEqual(findAddressStrings('a{b:image-set("x.png" type("image/png") 1x)}').map((a) => a.value), ['x.png']);
-  assert.deepEqual(findAddressStrings(`a{--q:url(${E}/"y")}`), []);
+  // The quote inside an unquoted url( … ) run is part of the url, not the start of a string the custom property holds.
+  assert.deepEqual(findAddressStrings(`a{--q:url(${E}/"y")}`).map((a) => [a.kind, a.value]), [['url', `${E}/"y"`]]);
 });
 
 test('the walk is linear on nested parentheses and strings (it was 29 s on 160 KB)', () => {
@@ -109,4 +110,17 @@ test('a package carrying it is REFUSED at the front door, not only reported (com
   assert.match(refusePackage(comp, { forRender: true }) ?? '', /custom property/);
   const theme = { type: 'theme', name: 'q', manifest: { name: 'q', type: 'theme' }, roles: { css: 'q.css' }, files: { 'q.css': `/* @theme q */\n@import 'lattice';\n${css}` } };
   assert.match(refusePackage(theme) ?? '', /custom property/);
+});
+
+test('url() targets are read by the linear walk: an escaped ) is decoded, an unterminated url( still counts, and url( repeated is fast', () => {
+  // The old regex took 10.9 s on url( x 50 000 (followups.d/2749-p4-url-re-quadratic.md).
+  assert.deepEqual(rules(`a{b:url(${E}/a\\29 b)}`), ['css-url-remote']);
+  assert.match(findCssExfil(`a{b:url(${E}/a\\29 b)}`)[0].message, /url\(https:\/\/evil\.example\/a\)b\)/);
+  assert.deepEqual(rules(`a{b:url(${E}/unterminated`), ['css-url-remote']);
+  assert.match(findCssExfil(`a{b:url("${E}/q")}`)[0].message, /url\("https:\/\/evil\.example\/q"\)/, 'a quoted target keeps its quotes in the message');
+  assert.deepEqual(rules('a{b:url(data:image/png;base64,AA) url(#f) url( "data:x" )}'), []);
+  const t = Date.now();
+  findCssExfil('url('.repeat(50000));
+  findCssExfil('url("'.repeat(50000));
+  assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
 });

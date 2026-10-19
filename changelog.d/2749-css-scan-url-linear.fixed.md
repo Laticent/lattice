@@ -1,0 +1,1 @@
+- The stylesheet safety scan no longer stalls on a sheet full of unclosed `url(`. Those 50,000 unclosed `url(` took 10.9 s, and now take a fraction of a second. The scan now also reports a `url(` left unclosed at the end of a sheet, which a browser still fetches.
