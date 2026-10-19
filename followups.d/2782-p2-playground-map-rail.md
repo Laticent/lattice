@@ -2,7 +2,7 @@
 origin: 2782
 priority: P2
 recorded: 2026-10-19
-area: playground
+area: website
 severity: medium
 swimlane: engineering/decisions/2026-10-16-preview-as-library-audit.md
 source: https://github.com/Laticent/lattice/pull/2782

@@ -2,7 +2,7 @@
 origin: 2782
 priority: P3
 recorded: 2026-10-19
-area: veduta
+area: infra
 severity: low
 swimlane: engineering/decisions/2026-10-16-preview-as-library-audit.md
 source: https://github.com/Laticent/lattice/pull/2782
