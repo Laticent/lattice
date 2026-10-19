@@ -164,22 +164,32 @@ const KEEP_OVERSCAN = 5;
 const STAGE_BAND = { need: NEED_OVERSCAN, mount: MOUNT_OVERSCAN, keep: KEEP_OVERSCAN };
 
 /**
- * The run of slides to hold for a reader at `vp`, from Veduta's `multi` policy: the same band rule
- * this file used to restate (NEED / MOUNT / KEEP), now in one place. `held` is the run mounted
- * right now, or null on a cold start. Pure arithmetic, no DOM, so it is safe on the scroll path.
+ * What the window does for a reader at `vp` (the frame's viewport over the slide list), from
+ * Veduta's `multi` policy. `mount` is the visible slides plus MOUNT either side and `keep` is
+ * the visible slides plus KEEP: the same two runs this file always computed. `settled` is
+ * whether the run mounted right now (`held`) is still the answer, by the band rule (NEED /
+ * KEEP + MOUNT), so a move is skipped; it is only worked out when `held` is given. Pure
+ * arithmetic with no DOM, so it is safe on the scroll path.
  */
-function windowRun(count, vp, first, held) {
-	const intent = windowFor({
-		policy: 'multi',
-		stage: 'scrolled',
-		count,
-		focus: first,
-		viewports: { stage: vp },
-		overscan: { stage: STAGE_BAND },
-		previous: held ? { runs: { stage: held }, caps: {} } : null,
-	});
-	return intent.state.runs.stage;
+export function mountPlan(count, vp, first, held) {
+	const at = (over, previous) =>
+		windowFor({
+			policy: 'multi',
+			stage: 'scrolled',
+			count,
+			focus: first,
+			viewports: { stage: vp },
+			overscan: { stage: over },
+			hysteresis: !!previous,
+			previous,
+		}).state.runs.stage;
+	const mount = at({ need: NEED_OVERSCAN, mount: MOUNT_OVERSCAN, keep: KEEP_OVERSCAN }, null);
+	const keep = at({ need: NEED_OVERSCAN, mount: KEEP_OVERSCAN, keep: KEEP_OVERSCAN }, null);
+	if (!held) return { mount, keep, settled: null };
+	const run = at(STAGE_BAND, { runs: { stage: held }, caps: {} });
+	return { mount, keep, settled: run.lo === held.lo && run.hi === held.hi };
 }
+
 // Scroll seek: a scroll crossing the viewport in under this many ms is a fling, not reading.
 const SEEK_VIEWPORT_MS = 150;
 // …and a fling that stops (no frame for this long) mounts where it landed.
@@ -262,8 +272,8 @@ export function syncVirtual(frame, state) {
 		// Unmount lazily: a run up to MOUNT past KEEP is left alone, so trimming one slide off
 		// the back never costs a move of its own — the next mount trims it. Veduta's band rule
 		// answers "no move" by handing the held run back unchanged.
-		const run = windowRun(sections.length, { y: win.scrollY, h: win.innerHeight, top: g.top, pitch: g.pitch }, vis.first, { lo: g.lo, hi: g.hi });
-		if (g.contiguous && run.lo === g.lo && run.hi === g.hi) return false;
+		const plan = mountPlan(sections.length, { y: win.scrollY, h: win.innerHeight, top: g.top, pitch: g.pitch }, vis.first, { lo: g.lo, hi: g.hi });
+		if (g.contiguous && plan.settled) return false;
 	}
 	const lattice = frame.contentDocument?.querySelector('.lattice');
 	if (!lattice) return false;
@@ -276,15 +286,14 @@ export function syncVirtual(frame, state) {
 	const top = win.scrollY + r0.top;
 	const vis = visibleRange(win.scrollY, win.innerHeight, top, pitch, cur.length);
 	if (!vis) return false;
-	const run0 = windowRun(cur.length, { y: win.scrollY, h: win.innerHeight, top, pitch }, vis.first, now.hi >= now.lo ? now : null);
+	const { mount, keep: kept } = mountPlan(cur.length, { y: win.scrollY, h: win.innerHeight, top, pitch }, vis.first, null);
+	const keep = { lo: kept.lo, hi: kept.hi };
 	// A pinned landing (mountAround) stays mounted until its scroll has had time to arrive.
 	const pin = win.__lvPin;
-	const keep = { lo: run0.lo, hi: run0.hi };
 	if (pin && pin.until > Date.now()) {
 		keep.lo = Math.min(keep.lo, pin.lo);
 		keep.hi = Math.max(keep.hi, pin.hi);
 	}
-	const mount = run0;
 	const changed = applyWindow(frame, sections, mount.lo, mount.hi, keep.lo, keep.hi);
 	// Re-read the run after a move (the old NodeList holds the replaced nodes). This runs only
 	// when something mounted, never on the settled frames the cache answers.
@@ -308,9 +317,8 @@ function isContiguous(cur, run) {
  *  the reader lands on a real slide rather than on a placeholder that fills in a frame later. */
 export function mountAround(frame, state, index) {
 	const n = state?.lastSections?.length || 0;
-	if (!n) return false;
-	// A landing is not a reading position, so no held run applies: mount MOUNT around `index`.
-	const mount = windowFor({ policy: 'multi', stage: 'paged', count: n, focus: index, overscan: { stage: STAGE_BAND }, hysteresis: false }).state.runs.stage;
+	const mount = windowRange(index, index, n, MOUNT_OVERSCAN);
+	if (!mount) return false;
 	// Keep what is mounted now as well: the scroll that follows passes through it.
 	const lat = frame?.contentDocument?.querySelector('.lattice');
 	const cur = lat?.querySelectorAll(SLIDE_SELECTOR);
