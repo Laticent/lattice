@@ -143,8 +143,13 @@ export interface FocusHub {
 	 *  part it refreshes the caret without publishing, and keeps the page navigation chose. */
 	report(origin: Origin, at: { head: number; anchor?: number; line?: string; rev?: number; quiet?: boolean }): void;
 	/** A view without offsets: its caret is in this unit. Without `part`, a report inside the
-	 *  focused unit keeps the focused part and page — such a view cannot tell parts apart. */
-	reportUnit(origin: Origin, at: { unitIndex: number; part?: number; line?: string; rev?: number }): void;
+	 *  focused unit keeps the focused part and page — such a view cannot tell parts apart.
+	 *  `quiet`: the view moved itself to follow the focus (a programmatic scroll, the reflow after
+	 *  it). A quiet report never publishes and never cancels a pending move: inside the focused
+	 *  unit it refreshes the line silently, and in any other unit it is dropped — a scrolled view
+	 *  that cannot centre the focused unit (the last one, a tie at a boundary) must not pull the
+	 *  focus to the unit it can centre. */
+	reportUnit(origin: Origin, at: { unitIndex: number; part?: number; line?: string; rev?: number; quiet?: boolean }): void;
 	/** Move. With `after`, wait until the outline holds exactly that text. */
 	go(origin: Origin, target: Target, opts?: { after?: string }): void;
 	/** Step through pages, then parts, then units — the order a reader pages a document. */
@@ -174,6 +179,14 @@ export interface HubStats {
 export interface Unsafe {
 	deliverOwnOrigin?: boolean;
 	acceptStale?: boolean;
+	/** Any report, even one that changes nothing, cancels a deferred move and a waiting step. */
+	clearOnAnyReport?: boolean;
+	/** Judge a report the moment it is made, even inside a delivery (against stale focus). */
+	eagerReports?: boolean;
+	/** `reportUnit` ignores `quiet`. */
+	loudQuiet?: boolean;
+	/** A queued report is judged even when another origin moved the focus after it was made. */
+	ignoreBasis?: boolean;
 }
 
 export interface FocusHubOptions {
@@ -226,9 +239,16 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 	// ONE step may wait for the part just entered to report its pages. One, not a queue: a held
 	// key must stop when the key does. It runs when that report lands, or is dropped by any move.
 	let waitingStep: { origin: Origin; action: StepAction; opts: StepOptions } | null = null;
+	// The last publication each origin made, by seq: a queued report is stale when ANOTHER origin
+	// moved the focus after the report was made (the focus analogue of `rev`).
+	const lastBy = new Map<Origin, number>();
 
 	// ── Delivery ──────────────────────────────────────────────────────────────
+	// `delivering`: a subscriber loop is running. `draining`: the queue of calls made during one
+	// is being worked off. Queued calls run in order, each OUTSIDE any delivery, so a call reads
+	// the focus every call queued before it produced.
 	let delivering = false;
+	let draining = false;
 	const queue: Array<() => void> = [];
 	let frameArmed = false;
 	let idleArmed = false;
@@ -251,24 +271,38 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 		if (lane === 'frame') frameArmed = false;
 		if (lane === 'idle') idleArmed = false;
 		if (lane === 'sync') syncArmed = false;
-		guarded(() => {
-			for (const s of subs) if (s.lane === lane && s.pending) deliver(s);
-		});
+		guarded(() =>
+			delivery(() => {
+				for (const s of subs) if (s.lane === lane && s.pending) deliver(s);
+			}),
+		);
 	}
 
-	// Run `fn` with re-entry protection: publications made inside it queue until it returns.
+	function delivery(fn: () => void) {
+		delivering = true;
+		try {
+			fn();
+		} finally {
+			delivering = false;
+		}
+	}
+
+	// Run `fn` with re-entry protection: a call made while a delivery runs queues until that
+	// delivery returns, then runs — in the order the calls were made, and each one fully (its own
+	// publication delivered) before the next is judged.
 	function guarded(fn: () => void) {
 		if (delivering) {
 			stats.queued++;
 			queue.push(fn);
 			return;
 		}
-		delivering = true;
+		fn();
+		if (draining) return;
+		draining = true;
 		try {
-			fn();
 			while (queue.length) queue.shift()?.();
 		} finally {
-			delivering = false;
+			draining = false;
 		}
 	}
 
@@ -278,18 +312,21 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 			const run = shownPages && shownPages.unit === next.unit && shownPages.part === next.part ? shownPages : null;
 			focus = Object.freeze({ ...next, seq: ++seq, rev: ol?.rev ?? 0, flat, pages: run ? run.count : 1, shown: run ? run.shown : 0 });
 			stats.published++;
+			lastBy.set(next.origin, seq);
 			let frame = false;
 			let idle = false;
 			let sync = false;
-			for (const s of subs) {
-				if (s.lane === 'sync' && !inRender) deliver(s);
-				else {
-					s.pending = true;
-					if (s.lane === 'frame') frame = true;
-					else if (s.lane === 'idle') idle = true;
-					else sync = true;
+			delivery(() => {
+				for (const s of subs) {
+					if (s.lane === 'sync' && !inRender) deliver(s);
+					else {
+						s.pending = true;
+						if (s.lane === 'frame') frame = true;
+						else if (s.lane === 'idle') idle = true;
+						else sync = true;
+					}
 				}
-			}
+			});
 			if (sync && !syncArmed) {
 				syncArmed = true;
 				queueMicrotask(() => runLane('sync'));
@@ -329,6 +366,79 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 	}
 
 	const stale = (rev?: number) => !unsafe.acceptStale && rev !== undefined && ol !== null && rev !== ol.rev;
+
+	// A report cancels a deferred move and a waiting step only when it PUBLISHES: a report that
+	// agrees with the focus (a reflow, scroll anchoring, a quiet reveal) is not a new request.
+	function movedByOther(origin: Origin, basis: number) {
+		if (unsafe.ignoreBasis) return false;
+		for (const [o, s] of lastBy) if (o !== origin && s > basis) return true;
+		return false;
+	}
+
+	function cancelPending() {
+		deferred = null;
+		waitingStep = null;
+	}
+
+	function reportNow(origin: Origin, at: { head: number; anchor?: number; line?: string; rev?: number; quiet?: boolean; basis: number }) {
+		if (stale(at.rev) || movedByOther(origin, at.basis)) {
+			stats.droppedStale++;
+			return;
+		}
+		if (!ol) return;
+		if (unsafe.clearOnAnyReport) cancelPending();
+		const p = partAt(ol, at.head);
+		if (!p) return;
+		const unit = ol.units[p.unit];
+		const anchor = at.anchor ?? at.head;
+		const line = at.line ?? '';
+		if (at.quiet && focus.unit === unit.id && focus.part === p.part) {
+			// While navigation holds a page, the caret line decides nothing: refresh silently.
+			// While the rendering follows the caret (page null), a new line is news — but a quiet
+			// one, so it does not cancel what is pending.
+			if (focus.page !== null || focus.line === line) {
+				focus = Object.freeze({ ...focus, head: at.head, anchor, line });
+				return;
+			}
+			publish({ ...draftOf(focus), origin, cause: 'caret', head: at.head, anchor, line });
+			return;
+		}
+		// A caret move that changes nothing a subscriber could select is not a publication.
+		if (focus.unit === unit.id && focus.part === p.part && focus.head === at.head && focus.anchor === anchor && focus.line === line && focus.page === null && focus.element === null) return;
+		cancelPending();
+		publish({ origin, cause: 'caret', unit: unit.id, unitIndex: p.unit, part: p.part, page: null, head: at.head, anchor, line, element: null, grab: false });
+	}
+
+	function reportUnitNow(origin: Origin, at: { unitIndex: number; part?: number; line?: string; rev?: number; quiet?: boolean; basis: number }) {
+		if (stale(at.rev) || movedByOther(origin, at.basis)) {
+			stats.droppedStale++;
+			return;
+		}
+		if (!ol?.units.length) return;
+		if (unsafe.clearOnAnyReport) cancelPending();
+		const u = Math.max(0, Math.min(at.unitIndex, ol.units.length - 1));
+		const unit = ol.units[u];
+		const line = at.line ?? '';
+		if (at.quiet && !unsafe.loudQuiet) {
+			if (focus.unit === unit.id) focus = Object.freeze({ ...focus, line });
+			return;
+		}
+		if (at.part === undefined && focus.unit === unit.id) {
+			// Same unit, no part information: keep the part and page navigation chose. A line
+			// change is news only while the rendering follows the caret (page null).
+			if (focus.page !== null || focus.line === line) {
+				focus = Object.freeze({ ...focus, line });
+				return;
+			}
+			cancelPending();
+			publish({ ...draftOf(focus), origin, cause: 'caret', head: null, anchor: null, line });
+			return;
+		}
+		const k = Math.max(0, Math.min(at.part ?? 0, unit.parts.length - 1));
+		if (focus.unit === unit.id && focus.part === k && focus.line === line && focus.head === null && focus.page === null) return;
+		cancelPending();
+		publish({ origin, cause: 'caret', unit: unit.id, unitIndex: u, part: k, page: null, head: null, anchor: null, line, element: null, grab: false });
+	}
 
 	const hub: FocusHub = {
 		get: () => focus,
@@ -383,57 +493,17 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 		},
 
 		report(origin, at) {
-			if (stale(at.rev)) {
-				stats.droppedStale++;
-				return;
-			}
-			if (!ol) return;
-			deferred = null;
-			waitingStep = null;
-			const p = partAt(ol, at.head);
-			if (!p) return;
-			const unit = ol.units[p.unit];
-			const anchor = at.anchor ?? at.head;
-			const line = at.line ?? '';
-			if (at.quiet && focus.unit === unit.id && focus.part === p.part) {
-				// While navigation holds a page, the caret line decides nothing: refresh silently.
-				// While the rendering follows the caret (page null), a new line is news.
-				if (focus.page !== null || focus.line === line) {
-					focus = Object.freeze({ ...focus, head: at.head, anchor, line });
-					return;
-				}
-				publish({ ...draftOf(focus), origin, cause: 'caret', head: at.head, anchor, line });
-				return;
-			}
-			// A caret move that changes nothing a subscriber could select is not a publication.
-			if (focus.unit === unit.id && focus.part === p.part && focus.head === at.head && focus.anchor === anchor && focus.line === line && focus.page === null && focus.element === null) return;
-			publish({ origin, cause: 'caret', unit: unit.id, unitIndex: p.unit, part: p.part, page: null, head: at.head, anchor, line, element: null, grab: false });
+			// The revision and the focus are fixed when the report is MADE: a report queued behind an
+			// edit, or behind another view's move, is stale.
+			const r = { ...at, rev: at.rev ?? ol?.rev, basis: focus.seq };
+			if (unsafe.eagerReports) reportNow(origin, r);
+			else guarded(() => reportNow(origin, r));
 		},
 
 		reportUnit(origin, at) {
-			if (stale(at.rev)) {
-				stats.droppedStale++;
-				return;
-			}
-			if (!ol?.units.length) return;
-			deferred = null;
-			waitingStep = null;
-			const u = Math.max(0, Math.min(at.unitIndex, ol.units.length - 1));
-			const unit = ol.units[u];
-			const line = at.line ?? '';
-			if (at.part === undefined && focus.unit === unit.id) {
-				// Same unit, no part information: keep the part and page navigation chose. A line
-				// change is news only while the rendering follows the caret (page null).
-				if (focus.page !== null || focus.line === line) {
-					focus = Object.freeze({ ...focus, line });
-					return;
-				}
-				publish({ ...draftOf(focus), origin, cause: 'caret', head: null, anchor: null, line });
-				return;
-			}
-			const k = Math.max(0, Math.min(at.part ?? 0, unit.parts.length - 1));
-			if (focus.unit === unit.id && focus.part === k && focus.line === line && focus.head === null && focus.page === null) return;
-			publish({ origin, cause: 'caret', unit: unit.id, unitIndex: u, part: k, page: null, head: null, anchor: null, line, element: null, grab: false });
+			const r = { ...at, rev: at.rev ?? ol?.rev, basis: focus.seq };
+			if (unsafe.eagerReports) reportUnitNow(origin, r);
+			else guarded(() => reportUnitNow(origin, r));
 		},
 
 		go(origin, target, o) {

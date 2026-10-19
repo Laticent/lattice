@@ -1752,9 +1752,16 @@ and `…-cvd-redundant-encoding.md`.
 
 In the Studio, a photo you add to the Library is a picture any deck can show: `![](asset:team-offsite)` on a slide, or
 `![bg](asset:hero)` as a background. The name is the one on the photo's card. It works wherever an image does (an
-`image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`), and it exists only in the Studio's browser. The CLI
-leaves the reference as written, and a Markdown or Marp export carries the reference, not the photo (a workspace backup
-carries the photo).
+`image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`). The Library exists only in the Studio's browser; in
+the CLI the same name reads a file in an `assets/` folder beside the deck (see below). A Markdown or Marp export carries
+the reference, not the photo (a workspace backup carries the photo).
+
+**In the CLI: an `assets/` folder beside the deck.** `assets/team-offsite.jpg` answers `asset:team-offsite`. The name is the
+file's name without its extension, lowercased (letters, digits, `-` and `_`); pictures and clips only (`.jpg` `.png`
+`.gif` `.webp` `.avif` `.svg` `.mp4` `.webm` `.mov`). Two files with one name (`logo.png`, `logo.svg`): the first in
+alphabetical order is used and the run names the other. A file whose real path is outside the deck folder (a symlink)
+is not listed. A name the folder lacks draws the missing-image stand-in, and `npm run lint:deck` warns
+(`asset-missing`), naming the slide.
 
 **You write the picture; the photo's own details fill in the rest.**
 

@@ -18,7 +18,7 @@ why now   — the Studio player export now embeds every same-origin picture the 
             pass on the fix for 2358-p2.
 where     — `shareHtmlPlayer` in docs/src/components/studio/share-export.ts: run `deckCss` and
             `extraCss` through the same kernel (its `<style>` arm already skips `@font-face` and
-            custom properties). The CLI's `inlineFileUrls` already reads `<style>` for `file://`.
+            custom properties). The CLI's `inlineDocAssets` already reads `<style>` for `file://`.
 done when — a Studio player export of a deck whose `style:` sets `background:url(/x.png)` on a
             slide shows it in Present and Read · Slides, and a failure is named in the toast.
 evidence  — the export opened in a browser, before and after.

@@ -146,7 +146,7 @@ test('hub-spoke owns only the rows it reads; its detail sublist renders pills as
 
 test('the runtime counts the same depth', () => {
   const { JSDOM } = require('jsdom');
-  const { isOwnedElement } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
+  const { isOwnedElement } = require(path.join(ROOT, 'lib/core/record-dom.js'));
   const doc = new JSDOM('<section class="hub-spoke"><ul><li>H <code id="h">x</code><ul><li>S <code id="s">x</code><ul><li>D <code id="d">x</code></li></ul></li></ul></li></ul></section>').window.document;
   assert.equal(isOwnedElement(doc.getElementById('h')), true);
   assert.equal(isOwnedElement(doc.getElementById('s')), true);

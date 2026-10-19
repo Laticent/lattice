@@ -19,6 +19,7 @@ import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { windowFor } from '../lib/veduta/core.js';
 import { buildSrcdoc, docStyleText } from './deck-preview.js';
 import { paneComponentsSig } from './pane-sheet-sig.js';
 import { splitSections } from './preview-virtual.js';
@@ -160,6 +161,35 @@ function mountedRange(cur, lattice) {
 const NEED_OVERSCAN = 1;
 const MOUNT_OVERSCAN = 3;
 const KEEP_OVERSCAN = 5;
+const STAGE_BAND = { need: NEED_OVERSCAN, mount: MOUNT_OVERSCAN, keep: KEEP_OVERSCAN };
+
+/**
+ * What the window does for a reader at `vp` (the frame's viewport over the slide list), from
+ * Veduta's `multi` policy. `mount` is the visible slides plus MOUNT either side and `keep` is
+ * the visible slides plus KEEP: the same two runs this file always computed. `settled` is
+ * whether the run mounted right now (`held`) is still the answer, by the band rule (NEED /
+ * KEEP + MOUNT), so a move is skipped; it is only worked out when `held` is given. Pure
+ * arithmetic with no DOM, so it is safe on the scroll path.
+ */
+export function mountPlan(count, vp, first, held) {
+	const at = (over, previous) =>
+		windowFor({
+			policy: 'multi',
+			stage: 'scrolled',
+			count,
+			focus: first,
+			viewports: { stage: vp },
+			overscan: { stage: over },
+			hysteresis: !!previous,
+			previous,
+		}).state.runs.stage;
+	const mount = at({ need: NEED_OVERSCAN, mount: MOUNT_OVERSCAN, keep: KEEP_OVERSCAN }, null);
+	const keep = at({ need: NEED_OVERSCAN, mount: KEEP_OVERSCAN, keep: KEEP_OVERSCAN }, null);
+	if (!held) return { mount, keep, settled: null };
+	const run = at(STAGE_BAND, { runs: { stage: held }, caps: {} });
+	return { mount, keep, settled: run.lo === held.lo && run.hi === held.hi };
+}
+
 // Scroll seek: a scroll crossing the viewport in under this many ms is a fling, not reading.
 const SEEK_VIEWPORT_MS = 150;
 // …and a fling that stops (no frame for this long) mounts where it landed.
@@ -239,12 +269,11 @@ export function syncVirtual(frame, state) {
 	if (g && g.sections === sections && g.w === win.innerWidth && g.h === win.innerHeight && g.first?.isConnected && g.first.style.transform === g.scale) {
 		const vis = visibleRange(win.scrollY, win.innerHeight, g.top, g.pitch, sections.length);
 		if (!vis) return false;
-		const need = windowRange(vis.first, vis.last, sections.length, NEED_OVERSCAN);
 		// Unmount lazily: a run up to MOUNT past KEEP is left alone, so trimming one slide off
-		// the back never costs a move of its own — the next mount trims it.
-		const slack = windowRange(vis.first, vis.last, sections.length, KEEP_OVERSCAN + MOUNT_OVERSCAN);
-		const settled = g.contiguous && need.lo >= g.lo && need.hi <= g.hi && g.lo >= slack.lo && g.hi <= slack.hi;
-		if (settled) return false;
+		// the back never costs a move of its own — the next mount trims it. Veduta's band rule
+		// answers "no move" by handing the held run back unchanged.
+		const plan = mountPlan(sections.length, { y: win.scrollY, h: win.innerHeight, top: g.top, pitch: g.pitch }, vis.first, { lo: g.lo, hi: g.hi });
+		if (g.contiguous && plan.settled) return false;
 	}
 	const lattice = frame.contentDocument?.querySelector('.lattice');
 	if (!lattice) return false;
@@ -257,8 +286,8 @@ export function syncVirtual(frame, state) {
 	const top = win.scrollY + r0.top;
 	const vis = visibleRange(win.scrollY, win.innerHeight, top, pitch, cur.length);
 	if (!vis) return false;
-	const mount = windowRange(vis.first, vis.last, cur.length, MOUNT_OVERSCAN);
-	const keep = windowRange(vis.first, vis.last, cur.length, KEEP_OVERSCAN);
+	const { mount, keep: kept } = mountPlan(cur.length, { y: win.scrollY, h: win.innerHeight, top, pitch }, vis.first, null);
+	const keep = { lo: kept.lo, hi: kept.hi };
 	// A pinned landing (mountAround) stays mounted until its scroll has had time to arrive.
 	const pin = win.__lvPin;
 	if (pin && pin.until > Date.now()) {

@@ -57,7 +57,7 @@ const { VALUE_BY_FLAG, SWITCH_BY_FLAG, PAPER_CHOICES, ORIENT_CHOICES, PLAYER_MOD
 // captured attrs — so a future change to the span's attribute order can't silently
 // drop the inline-SVG swap and leave the unreliable mask in the PDF.
 const LOGO_MARK_RE = /<span\b([^>]*\sclass="[^"]*\blogo-mark\b[^"]*"[^>]*)><\/span>/g;
-function inlineLogoMarkSvg(html, baseFileUrl) {
+function inlineLogoMarkSvg(html, baseFileUrl, confine) {
   if (typeof html !== 'string' || html.indexOf('logo-mark') === -1) return html;
   return html.replace(LOGO_MARK_RE, (whole, attrs) => {
     const urlM = attrs.match(/--logo-mask:url\('([^']*)'\)/);
@@ -65,7 +65,9 @@ function inlineLogoMarkSvg(html, baseFileUrl) {
     const labelM = attrs.match(/aria-label="([^"]*)"/);
     const label = labelM ? ` aria-label="${labelM[1]}"` : '';
     try {
-      const svg = fs.readFileSync(fileURLToPath(new URL(urlM[1], baseFileUrl)), 'utf8')
+      const markPath = fileURLToPath(new URL(urlM[1], baseFileUrl));
+      if (confine && !confine.allows(markPath)) return whole; // a real path outside the deck folder is not read
+      const svg = fs.readFileSync(markPath, 'utf8')
         .replace(/<\?xml[^>]*\?>/, '').trim();
       return `<span class="logo-mark logo-mark-svg" role="img"${label}>${svg}</span>`;
     } catch {
@@ -654,6 +656,9 @@ const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFA
 // named flags overriding. Positional shape:
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
 const mdFile = positional[0];
+// Where a render may read local files: the deck's folder and Lattice's own install, judged by REAL path, so a
+// symlink in the deck folder and a typed `file:///etc/x` are refused (lib/export/file-confine.js; media note §4.11).
+const DECK_CONFINE = require('./lib/export/file-confine.js').createFileConfiner([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
 let cssFile, outFile, paletteArg;
 // Did the CALLER supply the layout stylesheet, or did we construct the default? On
 // the default path the sheet is `dist/lattice.css` and its name is unambiguously
@@ -1356,7 +1361,7 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 // else — an uncovered face keeps its relative url, still broken, exactly as before. An
 // earlier cut of this change also REBASED those onto the sheet's own directory; that is
 // withdrawn, because it could not help the case it named AND it fed
-// `html-player.js`'s `inlineFileUrls` an arbitrary local-file read that got baked into
+// `html-player.js`'s `inlineDocAssets` an arbitrary local-file read that got baked into
 // the shipped `--player` HTML. The full argument is in the function's docblock.
 //
 // DROPPING is also the fast answer, measured before it was chosen: making all 37 resolve
@@ -2208,7 +2213,12 @@ function engineSlides(deckSource = rawMd) {
   // `sample:<name>` images resolve into the package's one sample-art folder, wherever the
   // deck sits (lib/core/bg-image.js resolveAssetUrl; lib/samples/README.md).
   const samplesUrl = pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href;
-  const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl);
+  // `asset:<name>` names a picture in `assets/` beside the deck (lib/export/deck-assets.js). The CLI owns every
+  // `asset:` reference, so a name the folder lacks draws the missing-picture stand-in, not a dead address.
+  const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
+  for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
+  const assetUrls = deckAssets.urls;
+  const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl, assetUrls);
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
@@ -2216,7 +2226,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/packages/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, baseUrl: deckBaseUrl }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2229,7 +2239,7 @@ function engineSlides(deckSource = rawMd) {
     }
     rendered = r.rendered;
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl, baseUrl: deckBaseUrl });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
@@ -2237,7 +2247,7 @@ function engineSlides(deckSource = rawMd) {
   // names, so a code package's output must never name one: the door keeps only the addresses a
   // package was handed (lib/core/door-attr.mjs doorFilterAttr; the red team read a local file into
   // the export through here before that rule).
-  const renderedHtml = inlineLogoMarkSvg(rendered.html, deckBaseUrl);
+  const renderedHtml = inlineLogoMarkSvg(rendered.html, deckBaseUrl, DECK_CONFINE);
   // No pre-render split pass. There used to be one — it counted each collection against
   // `capacity.hard` and handed every over-budget slide to the measured loop as a candidate —
   // and it was the second of two triggers. Splitting now has exactly ONE trigger, measured
@@ -3245,6 +3255,36 @@ async function renderExport({ hardened }) {
 
 async function renderBody(browser, g, closeBrowser) {
   const page = await g(() => browser.newPage(), 'new page');
+  // LOCAL FILES stay inside the deck. The page loads the deck's pictures as `file://` addresses, and Chromium
+  // follows a symlink or a typed `file:///etc/x` wherever it points. Each `file:` request is checked by REAL
+  // path against the deck folder, Lattice's install and the folders of the stylesheet and palettes the command line names (the output page itself aside); one that lands outside is answered
+  // with the drawn missing-picture stand-in (an image) or refused (anything else) and named once on stderr.
+  // The decks in the galleries never trip it, so their bytes do not move.
+  {
+    const { WEB_IMAGE_PLACEHOLDER } = require('./lib/core/remote-ref.js');
+    // The command line names two more places the caller trusts by construction: the layout stylesheet and the
+    // palette files (their `url()` assets sit beside them). They join the deck folder and the install.
+    const { createFileConfiner } = require('./lib/export/file-confine.js');
+    const confine = createFileConfiner([...DECK_CONFINE.roots, path.dirname(path.resolve(cssFile)), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
+    const outHtmlReal = fs.realpathSync(path.resolve(outHtml));
+    // The output page itself, compared by REAL path (the output folder may be reached through a symlink, as
+    // /tmp is on macOS), and never throwing: a `file://host/share` address has no local path.
+    const isOutputPage = (url) => { try { return fs.realpathSync(fileURLToPath(url.split(/[?#]/)[0])) === outHtmlReal; } catch { return false; } };
+    const standIn = decodeURIComponent(WEB_IMAGE_PLACEHOLDER.slice(WEB_IMAGE_PLACEHOLDER.indexOf(',') + 1));
+    const refused = new Set();
+    await g(() => page.setRequestInterception(true), 'confine local files');
+    page.on('request', (req) => {
+      if (req.isInterceptResolutionHandled()) return;
+      const url = req.url();
+      if (!/^file:/i.test(url) || confine.allows(url) || (req.isNavigationRequest() && isOutputPage(url))) { req.continue(); return; }
+      if (!refused.has(url)) {
+        refused.add(url);
+        console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
+      }
+      if (req.resourceType() === 'image') req.respond({ status: 200, contentType: 'image/svg+xml', body: standIn });
+      else req.abort('blockedbyclient');
+    });
+  }
   // AUTHOR-DEFERRAL PROBE — installed here, before the first navigation, because
   // `evaluateOnNewDocument` is the only hook that runs ahead of the document's own
   // scripts, and it re-runs on every re-navigation (auto-split, rails) for free.
@@ -4843,6 +4883,7 @@ async function renderBody(browser, g, closeBrowser) {
         // asset inliner can bake in. Without it every prose image in a shared player is a
         // dangling relative path (see the note in html-player.js).
         assetBaseUrl: pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href,
+        assetRoots: [path.join(PKG_ROOT, 'lib', 'samples')],
         // The browser-baked DOM (captured after the overflow-marker level was applied,
         // with state-chart / function-plot inflated to static SVG). Falls back to the
         // clean static render only if that capture failed — which also means no marker,
@@ -5309,6 +5350,7 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
         // A file:// SVG can't load as a subresource of the about:blank scratch
         // page (Chromium blocks local subresources off non-file pages), so
         // inline it as a data: URL; data:/http(s) sources load as-is.
+        if (url.startsWith('file:') && !DECK_CONFINE.allows(url)) continue; // a real path outside the deck folder is not read
         const src = url.startsWith('file:')
           ? `data:image/svg+xml;base64,${fs.readFileSync(fileURLToPath(url)).toString('base64')}`
           : url;
