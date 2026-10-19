@@ -21,8 +21,11 @@ found     — a pane matrix on 2026-10-19: four photo shapes (`lib/samples/photo
             wide at 75%, tall at 50% and 75% (the sun is cut off), square at 75%. At 25% it is a small
             thumbnail with empty space below.
 where     — the pane frame (`lib/forms/cell/pane/pane.css`) and whatever the plugin emits for a figure
-            in a pane; the plugin already stamps `aspect-ratio` from known dimensions (media-plugins
-            §4.7, "The box is known before the bytes arrive"), so the layout can size from it
+            in a pane; the plugin is owed to stamp `aspect-ratio` from known dimensions (media-plugins
+            §4.11, "The box is known before the bytes arrive", slices 2 and 3), so the layout can size
+            from it once it lands. Note `pane.css:266-281` already gives an `image` pane `object-fit:
+            cover`, a deliberate crop; the matrix tested `_pane: content`, a different rule. The fix
+            must say whether it changes the `image` pane's cover
 done when — a photo of any shape in a pane of any share is scaled to fit inside its box, never cropped,
             and no "Content clipped" stamp appears; a pane with no shaped figure renders byte-identical
 evidence  — the same 12-slide matrix before and after, light and dark, via SendUserFile

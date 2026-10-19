@@ -677,13 +677,20 @@ additive, in `docs/src/lib/mosaico/grid.ts` and `justified.ts`.
 ### 8.8 What the pane matrix showed, and a correction (2026-10-19)
 
 An earlier line in this thread said no pane declares a floor. That was wrong: it read the `columns` and
-`rows` docs, not the manifests of the components inside the panes.
+`rows` manifests (which declare `false`, as hosts), not the manifests of the components inside the panes.
 
-**What exists.** 79 manifests carry `pane.side` and `pane.stack`, the least share of the slide a component
-reads at (for example `line`, `diagram`, `table`: 35% side by side; `funnel`, `slope`: 50%; `roadmap`: 65%).
-Below its floor the engine stacks the slide or splits it into one slide per pane (`lib/core/pane-spec.js`).
-Ten charts also receive the pane's own box (`data-pane-view`, `viewFor` in `_chart-family/cartesian.js`) and
-redraw to it, so `bar` and `line` fill any pane. Mermaid draws once and scales uniformly with a floor.
+**What exists.** All 79 component manifests carry a `pane` object; 67 declare a numeric floor, the least share
+of the slide the component reads at (`pane.side` in 66, `pane.stack` in 53; for example `line`, `diagram`,
+`table`: 35% side by side; `funnel`, `slope`: 50%; `roadmap`: 65%). The other 12 are `false` in both directions
+(`columns`, `rows`, `title`, `divider`, `split-panel` and others): they do not sit in a pane. When a pane is below
+its floor, `arrangePanes` (`lib/core/pane-spec.js`) picks one of three outcomes: keep the layout, turn it (side by
+side to stacked, or the reverse), or split the slide into one slide per pane.
+The engine stamps every pane with its box (`data-pane-view`, `paneView()` in `lib/engine/index.js`). Twelve charts
+redraw to it through `viewFor` (`bar`, `stacked-bar`, `histogram`, `scatter`, `slope`, `risk-matrix`, `tower`,
+`bullet`, `line`, `waterfall`, `ep-curve`, `heatmap`), so they fill any pane. `map`, `quadrant`, `piechart` and
+`radar` read it only to refit their legend key; the drawing stays fixed. A Mermaid fence in a pane scales
+uniformly into the pane's box and may turn orientation for a tall one, with no size floor (the `--lp-fig-*` clamp
+is the Read hosts', `engineering/mermaid.md`).
 
 **Measured** on a CLI render of each component beside a text pane at 25/75, 50/50 and 75/25:
 
@@ -696,7 +703,7 @@ redraw to it, so `bar` and `line` fill any pane. Mermaid draws once and scales u
 | photo in a plain pane | takes the pane width at its own shape, cropped with "Content clipped" when that is taller than the pane (wide 75%, tall 50% and 75%, square 75%) |
 
 **Reading.** The gap is sizing by a figure's shape, for fixed-shape figures. A photo's shape comes from the
-`image` plugin's stamped `aspect-ratio` (media-plugins §4.7), not from a manifest. Recorded as followup
+`image` plugin's stamped `aspect-ratio` (media-plugins §4.11, a guard owed by its slices 2 and 3; the plugin does not exist yet), not from a manifest. Recorded as followup
 `2779-p1`; `2744-p3` (route panes through `template`) waits on it. Not tested: a photo as a plugin figure
 (the plugin is unbuilt), dark themes, `rows`.
 
