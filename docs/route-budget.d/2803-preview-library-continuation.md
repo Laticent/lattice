@@ -1,0 +1,2 @@
+studio: +260
+The Studio's eager JS grows by the parts of this PR that ship on its startup path: `PreviewPool`'s capacity report (`onSettle`, `maxSlots`, the mount-time layout effect) and the blank-slide rule in `splitSlides` and the deck outliner (`rawChunks`, and the incremental update's start-based sort), measured +169 B gz in CI against main. The map rail, its poster tile and the poster cache stay in the map's lazy chunk. The Playground's eager JS fell 72 B, because its index bridge no longer carries the chrome probe. Declared +260 over the measured 169 for gzip spread.
