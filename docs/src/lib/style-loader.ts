@@ -199,7 +199,8 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 				// prefetching its modules one by one would be fetched twice.
 				const total = n.modules.reduce((a, m) => a + m.bytes, 0);
 				const held = n.modules.reduce((a, m, i) => a + (included[i] || named.includes(i) ? m.bytes : 0), 0);
-				if (total > 0 && held / total > wholeAbove) return;
+				// Prefetch is a guess, and a wrong guess is bytes nobody uses: stop well short of the whole-sheet line.
+				if (total > 0 && held / total > wholeAbove * 0.7) return;
 				for (const i of named) void moduleText(n, i).catch(() => {});
 			})
 			.catch(() => {});
