@@ -181,3 +181,20 @@ test('an underscore host name can be allowed', async () => {
   assert.equal(webOrigin('https://my_host.example/a.png'), 'https://my_host.example');
   assert.match(subresourceCspPolicy({ webOrigins: ['https://my_host.example'] }), /img-src 'self' data: blob: https:\/\/my_host\.example https:\/\/\*\.my_host\.example;/);
 });
+
+// ── lockLoads: the CLI plain export closes script, style and frame loads (npm-plugin threat model, 2026-10-18) ──
+test('lockLoads adds default-src, script-src, style-src and frame-src, and only when asked', async () => {
+  const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
+  const plain = subresourceCspPolicy();
+  for (const d of ['default-src', 'script-src', 'style-src', 'frame-src']) assert.doesNotMatch(plain, new RegExp(`${d} `), `the shared default must not carry ${d}: the Playground preview loads KaTeX's stylesheet from a remote origin`);
+  const locked = subresourceCspPolicy({ lockLoads: true });
+  assert.match(locked, /default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:/);
+  assert.match(locked, /script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:/);
+  assert.match(locked, /style-src 'self' 'unsafe-inline' data:/);
+  assert.match(locked, /frame-src 'none'/);
+  // No remote origin can reach a script, style or frame source through the web-image list.
+  const hostile = subresourceCspPolicy({ lockLoads: true, webOrigins: ['https://x.example'] });
+  for (const d of ['default-src', 'script-src', 'style-src']) assert.doesNotMatch(hostile.split('; ').find((x) => x.startsWith(d)), /x\.example/);
+  // The image and media lists are untouched by the option.
+  assert.equal(locked.split('; ').slice(0, 7).join('; '), plain);
+});

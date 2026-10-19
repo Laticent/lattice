@@ -104,7 +104,7 @@ font-src 'self' data: <katex origin>; connect-src 'self';
 object-src 'none'; base-uri 'none'; form-action 'none'
 ```
 
-**There is deliberately no `default-src`.** Script, style and worker loading stay exactly as
+**There is deliberately no `default-src`** (in the shared default; the CLI's plain `.html` export opts into one since 2026-10-18, `npm-plugin-threat-model.md` §5.4). Script, style and worker loading stay exactly as
 unrestricted as before, so this change cannot break Mermaid, KaTeX or the runtime by starving
 a directive nobody thought to enumerate. What is listed is only what a *deck* can aim at a
 remote host:

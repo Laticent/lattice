@@ -5107,7 +5107,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Immediately after `<head>`, because a CSP meta governs only what the parser has not
     // already reached — a stylesheet link above it is already in flight. Measured on a real
     // export: the meta lands at byte 56, the charset at 253, the (since inlined) KaTeX <link> at ~865k.
-    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${subresourceCspMeta()}`);
+    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${subresourceCspMeta({ lockLoads: true })}`);
     if (withCsp !== live) fs.writeFileSync(outHtml, withCsp);
     else if (!QUIET) console.warn(`  warning: ${outHtml} has no <head>, so it carries no remote-subresource policy.`);
   }
