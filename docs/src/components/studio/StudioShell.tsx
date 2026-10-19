@@ -4199,7 +4199,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (!req || !compose) return;
 			// A look's modifiers ride its skeleton's `_class` (SlidePicker `variantSample`); they go
 			// on the pane's marker the way a slide's go on its `_class`.
-			const classWords = (item.skeleton.match(/<!--\s*_class:\s*([^>]*?)\s*-->/)?.[1] || '').split(/\s+/).filter(Boolean);
+			// Read through the shared reader (slide-directives → lib/core/meta-record.mjs), not a local regex.
+			const classWords = getClassTokens(item.skeleton);
 			const modifiers = classWords[0] === item.name ? classWords.slice(1) : [];
 			const keeps = item.name === req.current || req.fit[item.name] === 'keeps';
 			const token = compose.applyPane(req, { cls: item.name, modifiers, skeleton: keeps ? null : item.skeleton });

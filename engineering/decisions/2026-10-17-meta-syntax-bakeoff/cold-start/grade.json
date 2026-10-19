@@ -1,0 +1,674 @@
+{
+  "writers": {
+    "haiku": {
+      "servedBy": [
+        "claude-haiku-5-5"
+      ],
+      "outputTokens": 3549,
+      "costUsd": 0.00249685,
+      "frontMatter": false,
+      "slidesReturned": 12,
+      "tally": {
+        "old": 4,
+        "record": 0,
+        "other": 8,
+        "none": 0,
+        "needed": 12,
+        "missingSlides": 0
+      },
+      "fields": {
+        "expected": 11,
+        "recovered": 6
+      },
+      "perSlide": [
+        {
+          "n": 1,
+          "category": "layout-only",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "silent"
+          },
+          "got": {}
+        },
+        {
+          "n": 2,
+          "category": "layout+variant",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "list takeaway"
+          },
+          "got": {}
+        },
+        {
+          "n": 3,
+          "category": "register-heavy",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other",
+            "other",
+            "other",
+            "other",
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "content eyebrow-bar finish-ledger head-left lifted rule-short spectrum-trim-restrained"
+          },
+          "got": {}
+        },
+        {
+          "n": 4,
+          "category": "class+footer",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "old"
+          ],
+          "want": {
+            "class": "split-compare",
+            "footer": "Recommendation bar · split-compare"
+          },
+          "got": {
+            "footer": "Recommendation bar · split-compare"
+          }
+        },
+        {
+          "n": 5,
+          "category": "class+header+footer",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "split-panel",
+            "header": "Northwind · Q3 FY26",
+            "footer": "split-panel · full-bleed, chrome on the 16:9 inset"
+          },
+          "got": {
+            "header": "Northwind · Q3 FY26",
+            "footer": "split-panel · full-bleed, chrome on the 16:9 inset"
+          }
+        },
+        {
+          "n": 6,
+          "category": "paginate",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "other",
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "divider",
+            "paginate": "false",
+            "header": "",
+            "footer": ""
+          },
+          "got": {
+            "header": "",
+            "footer": ""
+          }
+        },
+        {
+          "n": 7,
+          "category": "two-panes",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other",
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "columns ratio-55-45"
+          },
+          "got": {}
+        },
+        {
+          "n": 8,
+          "category": "note-with-quote",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "bullet"
+          },
+          "got": {}
+        },
+        {
+          "n": 9,
+          "category": "note-multi-paragraph",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "list-steps"
+          },
+          "got": {}
+        },
+        {
+          "n": 10,
+          "category": "focusSteps",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "cards-grid",
+            "focusSteps": "item 1 | item 2 | item 3 | item 4"
+          },
+          "got": {}
+        },
+        {
+          "n": 11,
+          "category": "image-bg",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "old"
+          ],
+          "want": {
+            "class": "image",
+            "footer": "wide photo becomes clean — the card takes the photo's own shape"
+          },
+          "got": {
+            "footer": "wide photo becomes clean — the card takes the photo's own shape"
+          }
+        },
+        {
+          "n": 12,
+          "category": "stress-slide",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "authority-chain"
+          },
+          "got": {}
+        }
+      ]
+    },
+    "opus": {
+      "servedBy": [
+        "claude-haiku-5-5",
+        "claude-opus-5-5"
+      ],
+      "outputTokens": 3034,
+      "costUsd": 0.1323451,
+      "frontMatter": false,
+      "slidesReturned": 12,
+      "tally": {
+        "old": 12,
+        "record": 0,
+        "other": 0,
+        "none": 0,
+        "needed": 12,
+        "missingSlides": 0
+      },
+      "fields": {
+        "expected": 20,
+        "recovered": 18
+      },
+      "perSlide": [
+        {
+          "n": 1,
+          "category": "layout-only",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old"
+          ],
+          "want": {
+            "class": "silent"
+          },
+          "got": {
+            "class": "silent"
+          }
+        },
+        {
+          "n": 2,
+          "category": "layout+variant",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old"
+          ],
+          "want": {
+            "class": "list takeaway"
+          },
+          "got": {
+            "class": "list takeaway"
+          }
+        },
+        {
+          "n": 3,
+          "category": "register-heavy",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old"
+          ],
+          "want": {
+            "class": "content eyebrow-bar finish-ledger head-left lifted rule-short spectrum-trim-restrained"
+          },
+          "got": {
+            "class": "content eyebrow-bar finish-ledger headline-left lift rule-short spectrum-restrained"
+          }
+        },
+        {
+          "n": 4,
+          "category": "class+footer",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "split-compare",
+            "footer": "Recommendation bar · split-compare"
+          },
+          "got": {
+            "class": "split-compare",
+            "footer": "Recommendation bar · split-compare"
+          }
+        },
+        {
+          "n": 5,
+          "category": "class+header+footer",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "split-panel",
+            "header": "Northwind · Q3 FY26",
+            "footer": "split-panel · full-bleed, chrome on the 16:9 inset"
+          },
+          "got": {
+            "class": "split-panel",
+            "header": "Northwind · Q3 FY26",
+            "footer": "split-panel · full-bleed, chrome on the 16:9 inset"
+          }
+        },
+        {
+          "n": 6,
+          "category": "paginate",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "old",
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "divider",
+            "paginate": "false",
+            "header": "",
+            "footer": ""
+          },
+          "got": {
+            "class": "divider",
+            "paginate": "false",
+            "header": "",
+            "footer": ""
+          }
+        },
+        {
+          "n": 7,
+          "category": "two-panes",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "columns ratio-55-45"
+          },
+          "got": {
+            "class": "columns ratio-55-45"
+          }
+        },
+        {
+          "n": 8,
+          "category": "note-with-quote",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "other"
+          ],
+          "want": {
+            "class": "bullet"
+          },
+          "got": {
+            "class": "bullet"
+          }
+        },
+        {
+          "n": 9,
+          "category": "note-multi-paragraph",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "note"
+          ],
+          "want": {
+            "class": "list-steps"
+          },
+          "got": {
+            "class": "list-steps"
+          }
+        },
+        {
+          "n": 10,
+          "category": "focusSteps",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "cards-grid",
+            "focusSteps": "item 1 | item 2 | item 3 | item 4"
+          },
+          "got": {
+            "class": "cards-grid",
+            "focusSteps": "item 1 | item 2 | item 3 | item 4"
+          }
+        },
+        {
+          "n": 11,
+          "category": "image-bg",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "image",
+            "footer": "wide photo becomes clean — the card takes the photo's own shape"
+          },
+          "got": {
+            "class": "image",
+            "footer": "wide photo becomes clean — the card takes the photo's own shape"
+          }
+        },
+        {
+          "n": 12,
+          "category": "stress-slide",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "old"
+          ],
+          "want": {
+            "class": "authority-chain"
+          },
+          "got": {
+            "class": "authority-chain stress"
+          }
+        }
+      ]
+    },
+    "sonnet": {
+      "servedBy": [
+        "claude-haiku-5-5",
+        "claude-sonnet-5-5"
+      ],
+      "outputTokens": 130572,
+      "costUsd": 1.5535290999999998,
+      "frontMatter": false,
+      "slidesReturned": 12,
+      "tally": {
+        "old": 4,
+        "record": 0,
+        "other": 8,
+        "none": 0,
+        "needed": 12,
+        "missingSlides": 0
+      },
+      "fields": {
+        "expected": 11,
+        "recovered": 6
+      },
+      "perSlide": [
+        {
+          "n": 1,
+          "category": "layout-only",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other"
+          ],
+          "want": {
+            "class": "silent"
+          },
+          "got": {}
+        },
+        {
+          "n": 2,
+          "category": "layout+variant",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "list takeaway"
+          },
+          "got": {}
+        },
+        {
+          "n": 3,
+          "category": "register-heavy",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other",
+            "other",
+            "other",
+            "other",
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "content eyebrow-bar finish-ledger head-left lifted rule-short spectrum-trim-restrained"
+          },
+          "got": {}
+        },
+        {
+          "n": 4,
+          "category": "class+footer",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "old"
+          ],
+          "want": {
+            "class": "split-compare",
+            "footer": "Recommendation bar · split-compare"
+          },
+          "got": {
+            "footer": "Recommendation bar · split-compare"
+          }
+        },
+        {
+          "n": 5,
+          "category": "class+header+footer",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "split-panel",
+            "header": "Northwind · Q3 FY26",
+            "footer": "split-panel · full-bleed, chrome on the 16:9 inset"
+          },
+          "got": {
+            "header": "Northwind · Q3 FY26",
+            "footer": "split-panel · full-bleed, chrome on the 16:9 inset"
+          }
+        },
+        {
+          "n": 6,
+          "category": "paginate",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "other",
+            "old",
+            "old"
+          ],
+          "want": {
+            "class": "divider",
+            "paginate": "false",
+            "header": "",
+            "footer": ""
+          },
+          "got": {
+            "header": "",
+            "footer": ""
+          }
+        },
+        {
+          "n": 7,
+          "category": "two-panes",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other",
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "columns ratio-55-45"
+          },
+          "got": {}
+        },
+        {
+          "n": 8,
+          "category": "note-with-quote",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "note"
+          ],
+          "want": {
+            "class": "bullet"
+          },
+          "got": {}
+        },
+        {
+          "n": 9,
+          "category": "note-multi-paragraph",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "note"
+          ],
+          "want": {
+            "class": "list-steps"
+          },
+          "got": {}
+        },
+        {
+          "n": 10,
+          "category": "focusSteps",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "cards-grid",
+            "focusSteps": "item 1 | item 2 | item 3 | item 4"
+          },
+          "got": {}
+        },
+        {
+          "n": 11,
+          "category": "image-bg",
+          "needsSettings": true,
+          "label": "old",
+          "carriers": [
+            "other",
+            "old"
+          ],
+          "want": {
+            "class": "image",
+            "footer": "wide photo becomes clean — the card takes the photo's own shape"
+          },
+          "got": {
+            "footer": "wide photo becomes clean — the card takes the photo's own shape"
+          }
+        },
+        {
+          "n": 12,
+          "category": "stress-slide",
+          "needsSettings": true,
+          "label": "other",
+          "carriers": [
+            "other",
+            "other"
+          ],
+          "want": {
+            "class": "authority-chain"
+          },
+          "got": {}
+        }
+      ]
+    }
+  },
+  "slideCount": 12
+}

@@ -572,8 +572,33 @@ the moment `print()` is called, with every picture delayed 3 s. Against main's p
 state before `packed` is `measuring` with `visibility: hidden`, never the grid; with one mark delayed
 9 s the cap shows the unpacked grid, visible. Exports of a collage and logo-wall deck with every
 picture delayed 1.5 s and 3 s, light and dark: no list baked hidden, and at 1.5 s the pages are
-pixel-identical to exports built from main's code. **Found, not caused:** the Studio export draws the
-logo wall as `fallback` in both builds (followup `2763-p2`).
+pixel-identical to exports built from main's code. **Found, not caused:** the Studio Webpage export drew the
+logo wall as `fallback` in both builds. Resolved below (§8.5.1).
+
+#### 8.5.1 The Webpage export packed nothing: a `;charset` blind spot (2026-10-18)
+
+**Cause.** The Studio inlines each `sample:` mark into the capture frame as
+`data:image/svg+xml;charset=utf-8,<percent-encoded svg>`. `svgFromDataUri`
+(`lib/core/logo-wall-pack.js`) matched only `data:image/svg+xml,` and `;base64,`, so it returned null,
+`planWall` saw an unknown aspect and chose `fallback`, and `deck-export.js` baked that. The kit's
+measuring, the cap and the export wait were never involved: the wall was already `fallback` before the
+wait began, because `measureMark` reads a data: mark in place and found it unreadable.
+**The clue in the brief was a red herring:** the CSP was never the cause: in the capture frame the marks arrive as
+data: URIs, so nothing is fetched at all.
+
+**Fix.** `svgFromDataUri` accepts any media-type parameters and still detects `;base64` as the last one
+(unit tests in `test/unit/components/logo-wall-pack.test.js`).
+
+**Measured** on the real Studio, `examples/logo-wall-equal-weight.md`, light and dark:
+
+| Export lane | Before | After |
+|---|---|---|
+| Webpage (.html) | 6 walls `fallback` (4/4/2 equal cells, oversized marks) | 6 walls `packed` (4/3/3 balanced rows, equal weight) |
+| PDF | packed | packed, 8 of 8 pages pixel-identical to before |
+| Images (.zip) | packed | packed, every PNG byte-identical to before |
+
+Only the Webpage lane was affected. Why the raster lanes already packed was not traced; their output is unchanged, which is what matters here.
+`docs/e2e/webpage-export-logo-wall.spec.ts` pins the Webpage lane.
 
 ### 8.6 Slice 2: range items and `template`, as built (2026-10-18)
 
@@ -648,6 +673,39 @@ additive, in `docs/src/lib/mosaico/grid.ts` and `justified.ts`.
   comparison and un-capping the last row each fail three tests.
 - **Demo page** (`/libraries/mosaico/`): two new tabs, "Even grid" and "Justified".
 - **Still out:** the past-six-items heuristic for `tree`, as the owner said.
+
+### 8.8 What the pane matrix showed, and a correction (2026-10-19)
+
+An earlier line in this thread said no pane declares a floor. That was wrong: it read the `columns` and
+`rows` manifests (which declare `false`, as hosts), not the manifests of the components inside the panes.
+
+**What exists.** All 79 component manifests carry a `pane` object; 67 declare a numeric floor, the least share
+of the slide the component reads at (`pane.side` in 66, `pane.stack` in 53; for example `line`, `diagram`,
+`table`: 35% side by side; `funnel`, `slope`: 50%; `roadmap`: 65%). The other 12 are `false` in both directions
+(`columns`, `rows`, `title`, `divider`, `split-panel` and others): they do not sit in a pane. When a pane is below
+its floor, `arrangePanes` (`lib/core/pane-spec.js`) picks one of three outcomes: keep the layout, turn it (side by
+side to stacked, or the reverse), or split the slide into one slide per pane.
+The engine stamps every pane with its box (`data-pane-view`, `paneView()` in `lib/engine/index.js`). Twelve charts
+redraw to it through `viewFor` (`bar`, `stacked-bar`, `histogram`, `scatter`, `slope`, `risk-matrix`, `tower`,
+`bullet`, `line`, `waterfall`, `ep-curve`, `heatmap`), so they fill any pane. `map`, `quadrant`, `piechart` and
+`radar` read it only to refit their legend key; the drawing stays fixed. A Mermaid fence in a pane scales
+uniformly into the pane's box and may turn orientation for a tall one, with no size floor (the `--lp-fig-*` clamp
+is the Read hosts', `engineering/mermaid.md`).
+
+**Measured** on a CLI render of each component beside a text pane at 25/75, 50/50 and 75/25:
+
+| Figure | Result |
+|---|---|
+| `bar`, `line` | fill the pane at every share |
+| `piechart`, `radar`, `funnel`, `map` | scale a fixed drawing: small, with empty space, at narrow shares |
+| `diagram` (wide LR flowchart) | empty bands above and below even at 75% |
+| `table` | flows to any shape; splits below its 35% floor, as designed |
+| photo in a plain pane | takes the pane width at its own shape, cropped with "Content clipped" when that is taller than the pane (wide 75%, tall 50% and 75%, square 75%) |
+
+**Reading.** The gap is sizing by a figure's shape, for fixed-shape figures. A photo's shape comes from the
+`image` plugin's stamped `aspect-ratio` (media-plugins §4.11, a guard owed by its slices 2 and 3; the plugin does not exist yet), not from a manifest. Recorded as followup
+`2779-p1`; `2744-p3` (route panes through `template`) waits on it. Not tested: a photo as a plugin figure
+(the plugin is unbuilt), dark themes, `rows`.
 
 ## 9. Decisions
 

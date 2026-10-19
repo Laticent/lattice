@@ -42,6 +42,9 @@
  *                                        engine registers with lib/plugins/plugin-data.js.
  *   lib/plugins/data-probe.generated.mjs  ESM. Each data plugin's `detect` and on-demand file, for a
  *                                        browser surface that fetches the data before rendering.
+ *   lib/plugins/meta.generated.mjs      ESM, data only. The slide-metadata vocabulary: the `meta` plugin's
+ *                                        fields and markers plus every plugin's registers. The ONE source
+ *                                        of the comment-directive key lists (lib/core/meta-keys.mjs reads it).
  *
  * GENERATED, NOT SCANNED AT RUN TIME, for the reason the chart registry is: a bundler cannot
  * follow `require(templateLiteral)`, and the runtime should pay nothing to find its plugins. Both
@@ -85,6 +88,7 @@ const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
 const REGISTERS_FILE = path.join(PLUGINS_DIR, 'registers.generated.js');
 const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
 const DATA_PROBE_FILE = path.join(PLUGINS_DIR, 'data-probe.generated.mjs');
+const META_FILE = path.join(PLUGINS_DIR, 'meta.generated.mjs');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -367,6 +371,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
       `    diagnostics: Object.freeze(${JSON.stringify(m.contributes.diagnostics || {})}),`,
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
       `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
+      `    alwaysOn: ${Boolean(m.contributes.meta)},`,
       `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
       `    pass: ${m.render?.exec?.hydrate === 'pass'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
@@ -720,6 +725,46 @@ module.exports = { PLUGINS, COMPONENT_PLUGINS };
 `;
 }
 
+
+/**
+ * The slide-metadata vocabulary as DATA: the `meta` plugin's fields and markers, in manifest order,
+ * and every plugin's registers (record note §5.0). One generated file so the engine, the linter, the
+ * notes extractor and the editor read the same list instead of each keeping a copy.
+ */
+function renderMeta(ordered) {
+  const providers = ordered.filter((p) => p.manifest.contributes.meta);
+  const fields = {};
+  const markers = [];
+  const commentKeys = {};
+  for (const p of providers) {
+    Object.assign(fields, p.manifest.contributes.meta.fields);
+    markers.push(...(p.manifest.contributes.meta.markers || []));
+    Object.assign(commentKeys, p.manifest.contributes.meta.comments || {});
+  }
+  // `describe` is prose for the manifest's readers; no runtime reads it, and this file ships in the
+  // linter's browser bundle (docs/route-budget.json `lintCoreGz`), so it is left out. The
+  // `/* @__PURE__ */` marks let a bundler drop every export a consumer does not import.
+  const freeze = (v) => (Array.isArray(v)
+    ? `/* @__PURE__ */ Object.freeze([${v.map(freeze).join(', ')}])`
+    : v && typeof v === 'object'
+      ? `/* @__PURE__ */ Object.freeze({ ${Object.entries(v).filter(([k, x]) => !(k === 'describe' && typeof x === 'string')).map(([k, x]) => `${JSON.stringify(k)}: ${freeze(x)}`).join(', ')} })`
+      : JSON.stringify(v));
+  const registers = ordered.flatMap((p) => Object.entries(p.manifest.contributes.registers || {}).map(([key, decl]) => ({
+    key,
+    plugin: p.manifest.name,
+    axes: Object.entries(decl.axes).map(([axis, names]) => ({ axis, names })),
+  })));
+  return `${HEADER('The slide-metadata vocabulary: the `meta` plugin\'s fields and markers, and every plugin\'s registers. Read through lib/core/meta-keys.mjs.')}
+export const META_FIELDS = ${freeze(fields)};
+
+export const META_MARKERS = ${freeze(markers)};
+
+export const META_COMMENTS = ${freeze(commentKeys)};
+
+export const META_REGISTERS = ${freeze(registers)};
+`;
+}
+
 /** @param {{ reservedFences?: Set<string> }} [opts] — `reservedFences` overrides the installed highlight.js set (tests). */
 async function build(opts = {}) {
   const listed = listPlugins();
@@ -757,6 +802,7 @@ async function build(opts = {}) {
       [REGISTERS_FILE, renderRegisters(ordered)],
       [DATA_FILE, renderData(ordered)],
       [DATA_PROBE_FILE, renderDataProbe(ordered, exportsByName)],
+      [META_FILE, renderMeta(ordered)],
     ],
   };
 }
@@ -777,7 +823,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,extension-points,inline,services,registers,data,data-probe}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,extension-points,inline,services,registers,data,data-probe,meta}.generated.*\n`);
 }
 
 if (require.main === module) {

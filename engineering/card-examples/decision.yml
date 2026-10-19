@@ -1,0 +1,30 @@
+# ❓ Decision card. Render: npm run card -- engineering/card-examples/decision.yml
+card: decision
+subject: "#2778 card layout"
+merge: "#2778"
+decisions:
+  - question: How do we enforce the card layout?
+    why: nothing stops a card that scrolls sideways
+    options:
+      - label: YAML source plus a generator
+        gains: the layout is correct by construction; no hand-wrapping
+        costs: the agent must run it and paste the output
+        next: I build it in this PR
+      - label: add a posting hook
+        gains: blocks a bad PR comment when it is posted
+        costs: edits shared agent settings for every session
+        next: I add it after your OK
+    pick: A
+    pick_why: it removes the hand-wrapping that causes the mistakes
+    default: A is built either way; the hook waits for your answer
+    ref: workflow.md §One layout for all four cards
+defaults:
+  - question: "Merge #2778 before the generator exists?"
+    default: "no: the generator rides this PR"
+    change: merge now
+vetoes:
+  - I reworded the 🎯 standing orders to fit 38 columns; no rule was dropped
+questions:
+  - question: Does the generated card read right on your phone?
+    yes: I merge and the generator becomes the way to build cards
+    no: tell me which line and I fix the renderer
