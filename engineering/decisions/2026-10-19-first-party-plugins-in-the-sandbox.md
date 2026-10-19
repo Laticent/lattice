@@ -65,7 +65,7 @@ sanitized markup is used.
 | What | Result |
 |---|---|
 | Mermaid, every gallery and fixture diagram | 32 / 32 SVGs byte-identical; PDFs of `examples/mermaid-diagram-surface.md`, `dark-diagram-fills.md`, `mermaid-init-merge.md` identical |
-| function-plot | PDF and `--player` files of `examples/plugin-system-phase-b.md`, `math-form-frame.md`, `marp-export-fidelity.md` identical; a debug run read `window.functionPlot` as undefined in the capture page |
+| function-plot | PNG, PPTX (but its timestamp), PDF and `--player` files of `examples/plugin-system-phase-b.md`, `math-form-frame.md`, `marp-export-fidelity.md` identical to `main`'s, after the locked page took the capture page's pixel density (d3's axis offsets its lines by half a pixel only at 1x, so a 2x PNG first came out a pixel off); a debug run read `window.functionPlot` as undefined in the capture page |
 | math | every shipped formula identical (`math-sandbox-parity.test.js`); `.html` of `math.fixtures.md`, the gallery and `math-form-frame.md` identical; their PDFs identical except the gallery's, which differs run to run on `main` as well |
 | KaTeX out of the CLI process | `math-locked.test.js` loads a `require.cache` probe: `KATEX_IN_PROCESS=false` |
 | Cost | Mermaid: no measurable change. Math: +1.3 s on `math-form-frame.md` (3.1 s to 4.4 s), the locked page's launch, plus one extra engine render per `engineSlides` call for any deck holding a `$` or a math fence (the collect render; a `$` in prose is enough to trigger it, and it starts no second worker once the formulas are known). function-plot: about 0.8 s per export that captures a page |

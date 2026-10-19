@@ -31,6 +31,11 @@ test('DRAW: a plot comes back as the in-page draw makes it; a bad config as its 
   const out = await drawLocked(puppeteer, [{ config: b64('{ "data": [{ "fn": "x^2" }] }'), w: 600, h: 300 }, { config: b64('{ not json'), w: 600, h: 300 }], { executablePath: CHROME });
   assert.match(out[0].html, /^<svg class="function-plot"[^>]*width="600" height="300" viewBox="0 0 600 300"/);
   assert.match(out[1].error, /^functionplot error: /);
+  // At the capture page's pixel density: d3's axis offsets its lines by half a pixel only at 1x, so a 2x raster export
+  // drawn at 1x came out a pixel off (the PNG of examples/plugin-system-phase-b.md, slide 2).
+  const at2 = await drawLocked(puppeteer, [{ config: b64('{ "data": [{ "fn": "x^2" }] }'), w: 600, h: 300 }], { executablePath: CHROME, deviceScaleFactor: 2 });
+  assert.match(out[0].html, /class="domain"[^>]*d="M0\.5,/);
+  assert.match(at2[0].html, /class="domain"[^>]*d="M0,/);
 });
 
 test('SANITIZE: a handler or a script in a drawing is gone before it leaves', { timeout: TIMEOUT }, async () => {

@@ -3476,11 +3476,12 @@ async function renderBody(browser, g, closeBrowser) {
     const fpLocked = require('./lib/export/locked-figures.js');
     const plots = await g(() => page.evaluate(fpLocked.READ), `read function plots${label}`);
     if (!plots.some((p) => p.pending)) return;
-    const key = JSON.stringify(plots.map(({ config, w, h }) => [config, w, h]));
+    const deviceScaleFactor = await g(() => page.evaluate(() => window.devicePixelRatio), `read pixel ratio${label}`);
+    const key = JSON.stringify([deviceScaleFactor, plots.map(({ config, w, h }) => [config, w, h])]);
     let drawn = hostDrawnMemo.get(key);
     if (!drawn) {
       try {
-        drawn = await fpLocked.drawLocked(puppeteer, plots, { executablePath: CHROME_EXEC });
+        drawn = await fpLocked.drawLocked(puppeteer, plots, { executablePath: CHROME_EXEC, deviceScaleFactor });
         hostDrawnMemo.set(key, drawn);
       } catch (e) {
         // Released at once with their source showing, as the in-page host releases a plot whose library is missing,
