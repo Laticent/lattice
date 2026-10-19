@@ -84,6 +84,16 @@ describe('MapRail', () => {
 		expect((p.onStep as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])).toEqual(['next', 'prev', 'first', 'last']);
 	});
 
+	it('End on a long rail leaves keyboard focus on the new last tile once it mounts', () => {
+		const p = props({ count: 200, focus: 0 });
+		const { rerender } = render(<MapRail {...p} />);
+		const tile = screen.getByRole('button', { name: 'Slide 1' });
+		tile.focus();
+		fireEvent.keyDown(tile, { key: 'End' });
+		rerender(<MapRail {...p} focus={199} />);
+		expect(document.activeElement?.getAttribute('data-unit')).toBe('199');
+	});
+
 	it('has exactly one tab stop among its tiles: the focused one', () => {
 		render(<MapRail {...props({ count: 30, focus: 4 })} />);
 		const stops = [...document.querySelectorAll<HTMLElement>('button[data-unit]')].filter((b) => b.tabIndex === 0);

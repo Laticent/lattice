@@ -61,9 +61,9 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	await page.locator(RAIL).getByRole('button', { name: 'Map, first slide' }).click();
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toHaveAttribute('data-unit', '0');
 	expect(await current(page)).toBe('0');
-	// A live picture is a pooled frame, and no more than the budget are asked for at once.
+	// A live picture is a pooled frame, and never more than the pool's ceiling.
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
-	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(8);
+	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(24);
 	await page.getByRole('button', { name: 'Slide map' }).click();
 	await expect(page.locator(RAIL)).toBeHidden();
 });

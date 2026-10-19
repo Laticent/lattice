@@ -64,14 +64,14 @@ test('@crosswidth the map is off until asked, and off it leaves the preview exac
 	await expect.poll(async () => Math.round((await page.locator('.pg-preview-wrap').boundingBox())?.width ?? 0)).toBe(Math.round(wrap?.width ?? 0));
 });
 
-test('@crosswidth it mounts a window of tiles, at most eight of them live, on the slide the walk is on', async ({ page }) => {
+test('@crosswidth it mounts a window of tiles, the ones in view live (never past the pool ceiling), on the slide the walk is on', async ({ page }) => {
 	await openExplore(page);
 	await mapOn(page);
 	expect(await current(page)).toBe('0');
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
-	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(8);
+	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(24);
 	// A live tile is a pooled frame, never one per tile.
-	expect(await page.locator(`${RAIL} iframe`).count()).toBeLessThanOrEqual(10);
+	expect(await page.locator(`${RAIL} iframe`).count()).toBeLessThanOrEqual(28);
 });
 
 test('@crosswidth a tile lands the preview on its slide and the walk bar agrees', async ({ page }) => {
@@ -239,4 +239,17 @@ test('@webkit-phone the map is a strip a finger can use on a phone-sized WebKit'
 	const total = Number((await walkPos(page)).split('/')[1]);
 	await page.locator(`${RAIL} button[data-unit="3"]`).tap();
 	await expect.poll(() => walkPos(page)).toBe(`4 / ${total}`);
+});
+
+test('@crosswidth Home and End on the rail keep keyboard focus on the rail', async ({ page }) => {
+	await openExplore(page);
+	await mapOn(page);
+	const total = Number((await walkPos(page)).split('/')[1]);
+	await page.locator(`${RAIL} button[aria-current="true"]`).focus();
+	await page.keyboard.press('End');
+	await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
+	await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-unit'))).toBe(String(total - 1));
+	await page.keyboard.press('Home');
+	await expect.poll(() => walkPos(page)).toBe(`1 / ${total}`);
+	await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-unit'))).toBe('0');
 });

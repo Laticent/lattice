@@ -228,12 +228,21 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 		veduta.current.settle({ map: plan.units, live: liveMounted, ...(liveOn ? {} : { cap: { live: 0 } }) });
 	}, [plan, liveMounted, liveOn]);
 
-	// After a key moved the focus, put keyboard focus on the new current tile.
+	// After a key moved the focus, put keyboard focus on the new current tile. A jump (Home, End) lands on a tile
+	// the window has not mounted yet, so the request waits for it, and gives up after a second.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the focus and the plan are the triggers (the tile may not be mounted until the plan lands); the body reads the DOM.
 	React.useEffect(() => {
 		if (!keyNav.current) return;
-		keyNav.current = false;
-		scrollerRef.current?.querySelector<HTMLElement>('button[aria-current="true"]')?.focus({ preventScroll: true });
+		const tile = scrollerRef.current?.querySelector<HTMLElement>('button[aria-current="true"]');
+		if (tile) {
+			keyNav.current = false;
+			tile.focus({ preventScroll: true });
+			return;
+		}
+		const t = window.setTimeout(() => {
+			keyNav.current = false;
+		}, 1000);
+		return () => window.clearTimeout(t);
 	}, [focus, plan]);
 
 	const onKeyDown = (e: React.KeyboardEvent) => {

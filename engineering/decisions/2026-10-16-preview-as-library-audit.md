@@ -952,13 +952,15 @@ run: from slides 0..7 mounted, a jump to slide 12 left `[7, 9..17]`, a placehold
 `deck-render.hole.test.ts` (a deterministic case and a seeded 4,000-step walk with 20% jump frames; both red before the fix).
 `applyWindow` now keeps a slide inside the keep range only while mounted slides connect it to the run just mounted
 (`joined`); `mountAround`'s landing pin is its own island and is kept whole, and `mountAround` itself is unchanged. Measured on
-2,000 seeded walks of 60 steps with 20% jumps: HOLE_BEFORE walks hit a hole before, HOLE_AFTER after. The 976-of-2,000 in
+2,000 seeded walks of 60 steps with 20% jumps: 559 walks (674 of 120,000 frames) hit a hole before and 0 after. The 976-of-2,000 in
 section 11d.2 used longer walks. `deck-render.window.test.ts` still pins the arithmetic, and all 398 `src/playground` tests pass.
 
-**The empty-slide defect is reproduced and filed.** The outliner drops an empty chunk and the engine renders it. The rendered
-index now reports the surplus page instead of absorbing it, and `rendered-index.test.ts` holds an `it.fails` arm that turns red
-the day the outline counts the blank slide. No shipped deck has one (0 of 292); the fix touches the unit model every Studio editor
-reads, so it is `followups.d/*-p3-outliner-drops-empty-slides.md`, not part of this change.
+**The empty-slide defect is reproduced; the map no longer suffers it, and the outline half is filed.** The outliner drops an
+empty chunk and the engine renders it. A checker pointed out that the map is the surface this PR adds, so the index now finds the
+blank page from its markup (`blanksOf`), gives it no part, and keeps every other page on its own (tested through the real engine
+on decks with one and three blank slides). The outline still drops the slide, which the Studio's pills and counters inherit; that
+unit model is read by every editor path, so it is `followups.d/*-p3-outliner-drops-empty-slides.md`, with an `it.fails` arm in
+`rendered-index.test.ts` that turns red the day the outline counts it. No shipped deck has a blank slide (0 of 292).
 
 ## 12. Next step
 
