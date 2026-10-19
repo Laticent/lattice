@@ -53,7 +53,7 @@ const CENSUS = [
   // ── Core, engine, render path ───────────────────────────────────────────
   ['lib/conformance/kinds/component.contract.js', M, 'galleryRealizes reads _class and _footer through readDirectiveComment'],
   ['lib/core/auto-split.js', M, 'deckChromeFrom already reads through readDirectiveComment'],
-  ['lib/core/bg-image.js', M, 'parses each comment with readDirectiveComment'],
+  ['lib/core/bg-lift.js', M, 'reads each slide\'s class through slideClassSpans (the lift left bg-image.js, #2776)'],
   ['lib/core/chart-narration.js', M, 'spot class read through commentBodies and readDirectiveComment'],
   ['lib/core/class-directive-scan.mjs', M, 'a view over scanMetaSource'],
   ['lib/core/marp-bundle-math.js', S, 'inserts escapes at byte offsets inside header and footer values; needs a positional reader'],

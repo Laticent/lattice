@@ -869,7 +869,10 @@ defects where they met:
   differential run (fuzzed decks, with every `![bg]` replaced by a marker the engine renders as plain
   text): 0 of 15,843 markers differ from the engine across both split modes, against 673 on `main`.
   The cost is one more markdown-it parse, only for a deck that has a `![bg]`: 4.6 ms against 2.0 ms
-  on the 60 KB gallery deck, out of a 120 ms render.
+  on the 60 KB gallery deck, out of a 120 ms render. The lift moved to its own file, `lib/core/bg-lift.js`:
+  `bg-image.js` also ships in the viewer runtime, and with the lift in it the runtime carried markdown-it
+  (+23.7 KB gz on `engineJsGz`, which the route budget caught). Split, the runtime is 1 KB gz smaller than
+  on `main`, because the old line walk no longer ships in it.
 
 ### 11.8 The Studio's player shipped the authoring overflow marker to its reader
 

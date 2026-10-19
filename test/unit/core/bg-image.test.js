@@ -9,6 +9,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const bg = require('../../../lib/core/bg-image');
+const { liftImageBgImages } = require('../../../lib/core/bg-lift');
 const { render, createEngine } = require('../../../lib/engine');
 
 describe('bg-image — liftBgImages (markdown pre-pass)', () => {
@@ -200,7 +201,7 @@ describe('bg-image — the page number never folds into .image-text', () => {
 });
 
 describe('bg-image — liftImageBgImages carries a class run to later slides', () => {
-  const lifted = (md) => bg.liftImageBgImages(md, 'file:///d/');
+  const lifted = (md) => liftImageBgImages(md, 'file:///d/');
   test('`<!-- class: image -->` lifts every later slide until another class run replaces it', () => {
     const md = '# a\n\n![bg left](a.svg)\n\n---\n\n<!-- class: image -->\n\n![bg right](b.svg)\n\n---\n\n![bg left](c.svg)\n\n---\n\n<!-- class: plain -->\n\n![bg](d.svg)\n';
     const out = lifted(md);
@@ -250,7 +251,7 @@ describe('bg-image — liftImageBgImages reads slides and directives as the engi
   // draw a `.lattice-bg` panel exactly then (a panel on a `content form` slide is an empty box).
   // The picture is always on the LAST slide in these decks.
   const engineSaysImage = (md) => /\bimage\b/.test(readClassAttr((String(render(md, {}).html).match(/<section\b[^>]*>/g) || []).pop() || ''));
-  const liftDraws = (md) => /lattice-bg /.test(bg.liftImageBgImages(md, 'file:///d/'));
+  const liftDraws = (md) => /lattice-bg /.test(liftImageBgImages(md, 'file:///d/'));
   const cases = {
     'a `---` directly under a text line is a setext underline, not a slide break': ['<!-- _class: image -->\n\nTitle\n---\n\n![bg left](a.jpg)\n', true],
     'a directive indented as code is code': ['\t<!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
@@ -301,7 +302,7 @@ describe('bg-image — liftImageBgImages reads slides and directives as the engi
 });
 
 describe('bg-image — the lift reads the engine\'s boundaries, not a line walk', () => {
-  const lifted = (md, fm) => bg.liftImageBgImages(md, 'file:///d/', undefined, undefined, fm);
+  const lifted = (md, fm) => liftImageBgImages(md, 'file:///d/', undefined, undefined, fm);
   test('a `![bg]` quoted in a fence or a comment on an image slide stays text', () => {
     assert.match(lifted('<!-- _class: image -->\n\n# T\n\n```md\n![bg left](a.jpg)\n```\n'), /!\[bg left\]\(a\.jpg\)/);
     assert.match(lifted('<!-- _class: image -->\n\n# T\n\n<!--\n![bg left](a.jpg)\n-->\n'), /!\[bg left\]\(a\.jpg\)/);
@@ -338,7 +339,7 @@ describe('bg-image — the lift reads the engine\'s boundaries, not a line walk'
 });
 
 describe('bg-image — a Marp ratio keeps the panel (followups.d/2739-p4)', () => {
-  const lifted = (md) => bg.liftImageBgImages(md, 'file:///d/');
+  const lifted = (md) => liftImageBgImages(md, 'file:///d/');
   test('`![bg left:40%]` on an image slide lifts to the left panel; the share is the layout\'s own', () => {
     assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg left:40%](a.svg)\n'), /lattice-bg-left[^>]*a\.svg/);
     assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg right:30%](a.svg)\n'), /lattice-bg-right[^>]*a\.svg/);

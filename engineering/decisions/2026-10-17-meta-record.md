@@ -683,7 +683,7 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `lib/authoring/review-core.js`
 - `lib/conformance/kinds/component.contract.js`
 - `lib/core/auto-split.js`
-- `lib/core/bg-image.js`
+- `lib/core/bg-lift.js`
 - `lib/core/chart-narration.js`
 - `lib/core/class-directive-scan.mjs`
 - `lib/core/marp-bundle-math.js`

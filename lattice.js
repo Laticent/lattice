@@ -2113,6 +2113,7 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').sp
 // lattice-bg/image-text panel, since lib/engine matches marp WEB mode (which
 // collapses bg left/right to a full-bleed background). See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
+const { liftImageBgImages } = require('./lib/core/bg-lift');
 const imageDimensions    = require('./lib/core/image-dimensions');
 const collageStamp       = require('./lib/core/collage-stamp');
 const logoWallPack       = require('./lib/core/logo-wall-pack');
@@ -2211,7 +2212,7 @@ function engineSlides(deckSource = rawMd) {
   const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
   for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
   const assetUrls = deckAssets.urls;
-  const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl, assetUrls);
+  const deckMd = liftImageBgImages(deckSource, deckBaseUrl, samplesUrl, assetUrls);
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
