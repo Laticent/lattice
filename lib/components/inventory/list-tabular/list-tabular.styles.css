@@ -178,8 +178,8 @@ section.list-tabular ol > li > code {
  * counter column. On `def` it landed at the name's own x. The trailing column happened
  * to be right on `spec` — by luck, because nothing else had claimed it.
  *
- * `[data-shape]`, NOT `.lat-pill` alone — the class was already taken. `pill-tag.js` has
- * put `lat-pill` on a trailing `<code>` since #88, so an ordinary deck with no pill in it
+ * `[data-shape]`, NOT `.lat-pill` alone — the class was already taken. The `pill-tag.js`
+ * transformer (since removed) put `lat-pill` on a trailing `<code>` from #88, so an ordinary deck with no pill in it
  * renders `<code class="lat-pill">Term</code>`, and a bare `.lat-pill` rule here scores
  * (0,2,3) against that `code` rule's (0,1,4) — it WINS, and applied `justify-self:end`
  * and `align-self:center` to decks that asked for neither (measured on a two-row deck
@@ -404,34 +404,26 @@ section.list-tabular.register ol > li {
   font-weight:600;
   color:var(--text-heading);
 }
-section.list-tabular.register ol > li > code {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  line-height:1;
-  background:var(--accent-soft);
-  color:var(--accent);
-  border:none;
-  padding:var(--pill-pad-y) 1.09375cqi;     /* sanctioned: wide "stamp" padding */
-  border-radius:var(--pill-radius);
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:700;                  /* sanctioned: heavier stamp weight */
-  letter-spacing:0.1em;             /* sanctioned: wide tracking pairs with the uppercase opt-in */
-  text-transform:uppercase;
-  text-align:center;
-  /* wraps rather than bleeds, at the same cap as the pill above. */
-  min-width:0;
-  overflow-wrap:anywhere;
+/* The tag is a pill — the author writes it `{META}` and the pills plugin draws it; register asks
+ * for its stamp look through the plugin's color, case and tracking properties and places it at
+ * the row's end. */
+section.list-tabular.register ol > li > .lat-pill:not([data-c])[data-shape] {
+  --lat-pill-bg: var(--accent-soft);
+  --lat-pill-edge: var(--accent-soft);
+  --lat-pill-ink: var(--accent);
+}
+section.list-tabular.register ol > li > .lat-pill[data-shape] {
+  --lat-pill-case: uppercase;
+  --lat-pill-tracking: 0.1em;
   justify-self:end;
   align-self:center;
 }
 
 /* register.outline — hairline-bordered tag */
-section.list-tabular.register.outline ol > li > code {
-  background:transparent;
-  border:1px solid var(--border);
-  color:var(--text-label);
+section.list-tabular.register.outline ol > li > .lat-pill:not([data-c])[data-shape] {
+  --lat-pill-bg: transparent;
+  --lat-pill-edge: var(--border);
+  --lat-pill-ink: var(--text-label);
 }
 
 /* ── Column modifiers — which columns are responsive ──────────────────────

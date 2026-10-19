@@ -20,15 +20,15 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## Three jurisdictions, one obligation each.
 
-- Federal `15 U.S.C. §6501`
+- Federal `{15 U.S.C. §6501}`
   - Parental consent for under-13 data.
-  - `In effect since 2000`
-- State `Cal. Civ. §1798.120`
+  - `{In effect since 2000}`
+- State `{Cal. Civ. §1798.120}`
   - The right to opt out of sale.
-  - `In effect since 2020`
-- International `GDPR Art. 8`
+  - `{In effect since 2020}`
+- International `{GDPR Art. 8}`
   - Member-state consent age, 13 to 16.
-  - `In effect since 2018`
+  - `{In effect since 2018}`
 
 
 ---
@@ -38,11 +38,11 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## hierarchy orders the stack by supremacy.
 
-- Federal `15 U.S.C. §6501` `In effect since 2000`
+- Federal `{15 U.S.C. §6501}` `{In effect since 2000}`
   - Verifiable parental consent for under-13 personal data.
-- State `Cal. Civ. §1798.120` `Enforced 2023`
+- State `{Cal. Civ. §1798.120}` `{Enforced 2023}`
   - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-- Local `NYC §22-1201` `Effective 2023`
+- Local `{NYC §22-1201}` `{Effective 2023}`
   - Bias-audit obligation for AEDTs used in employment decisions.
 
 
@@ -53,11 +53,11 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## bands strips each jurisdiction full-width.
 
-- Federal `15 U.S.C. §6501` `In effect since 2000`
+- Federal `{15 U.S.C. §6501}` `{In effect since 2000}`
   - Verifiable parental consent for under-13 personal data.
-- State `Cal. Civ. §1798.120` `Enforced 2023`
+- State `{Cal. Civ. §1798.120}` `{Enforced 2023}`
   - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-- Local `NYC §22-1201` `Effective 2023`
+- Local `{NYC §22-1201}` `{Effective 2023}`
   - Bias-audit obligation for AEDTs used in employment decisions.
 
 
@@ -68,11 +68,11 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## preemption marks which law yields.
 
-- Federal `15 U.S.C. §6501` `Preempts state rules`
+- Federal `{15 U.S.C. §6501}` `{Preempts state rules}`
   - Sets the floor for under-13 personal data collection.
-- State `Cal. Civ. §1798.120` `Survives preemption`
+- State `{Cal. Civ. §1798.120}` `{Survives preemption}`
   - Stricter opt-in regime on top of COPPA's baseline.
-- Local `NYC §22-1201` `Independent of preemption`
+- Local `{NYC §22-1201}` `{Independent of preemption}`
   - Bias-audit obligation distinct from privacy preemption scope.
 
 
@@ -98,21 +98,21 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## Five jurisdictions is the rail's hard ceiling.
 
-- Federal `COPPA §6501`
+- Federal `{COPPA §6501}`
   - The anchor tier reads first.
-  - `2000`
-- State `CCPA §1798`
+  - `{2000}`
+- State `{CCPA §1798}`
   - Twenty-four words is each tier's line.
-  - `2020`
-- State `Tex. 541`
+  - `{2020}`
+- State `{Tex. 541}`
   - Parallel tiers must match shapes.
-  - `2024`
-- Intl `GDPR 8`
+  - `{2024}`
+- Intl `{GDPR 8}`
   - The fourth passed the soft mark.
-  - `2018`
-- Intl `PIPL 31`
+  - `{2018}`
+- Intl `{PIPL 31}`
   - The stop; six collapses the rail.
-  - `2021`
+  - `{2021}`
 
 
 ---
@@ -122,15 +122,15 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## Three jurisdictions, one obligation each.
 
-- Federal `15 U.S.C. §6501`
+- Federal `{15 U.S.C. §6501}`
   - Parental consent for under-13 data.
-  - `In effect since 2000`
-- State `Cal. Civ. §1798.120`
+  - `{In effect since 2000}`
+- State `{Cal. Civ. §1798.120}`
   - The right to opt out of sale.
-  - `In effect since 2020`
-- International `GDPR Art. 8`
+  - `{In effect since 2020}`
+- International `{GDPR Art. 8}`
   - Member-state consent age, 13 to 16.
-  - `In effect since 2018`
+  - `{In effect since 2018}`
 
 
 ---
@@ -140,15 +140,15 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## Three jurisdictions, one obligation each.
 
-- Federal `15 U.S.C. §6501`
+- Federal `{15 U.S.C. §6501}`
   - Parental consent for under-13 data.
-  - `In effect since 2000`
-- State `Cal. Civ. §1798.120`
+  - `{In effect since 2000}`
+- State `{Cal. Civ. §1798.120}`
   - The right to opt out of sale.
-  - `In effect since 2020`
-- International `GDPR Art. 8`
+  - `{In effect since 2020}`
+- International `{GDPR Art. 8}`
   - Member-state consent age, 13 to 16.
-  - `In effect since 2018`
+  - `{In effect since 2018}`
 
 
 ---
@@ -158,15 +158,15 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ## Three jurisdictions, one obligation each.
 
-- Federal `15 U.S.C. §6501`
+- Federal `{15 U.S.C. §6501}`
   - Parental consent for under-13 data.
-  - `In effect since 2000`
-- State `Cal. Civ. §1798.120`
+  - `{In effect since 2000}`
+- State `{Cal. Civ. §1798.120}`
   - The right to opt out of sale.
-  - `In effect since 2020`
-- International `GDPR Art. 8`
+  - `{In effect since 2020}`
+- International `{GDPR Art. 8}`
   - Member-state consent age, 13 to 16.
-  - `In effect since 2018`
+  - `{In effect since 2018}`
 
 
 ---

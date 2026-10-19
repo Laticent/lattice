@@ -28,19 +28,15 @@ section.glossary td:first-child strong { color:var(--accent); padding-right:var(
  * which would otherwise shrink this h2 to its content and collapse the pill against the title —
  * `align-self:stretch` opts back into full width so `justify-content:space-between` works. */
 section.glossary h2 { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-md); align-self:stretch; }
-/* Auto-derived alphabet range pill, emitted into the h2 by the runtime
- * (lib/engine) and the markdown-it plugin. Matches the
- * neutral .badge pill recipe so it sits naturally alongside other
- * categorical chips elsewhere in the deck. */
-section.glossary h2 .range-pill {
-  display:inline-flex; align-items:center; justify-content:center;
-  text-align:center; line-height:1;
-  font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x);
-  background:var(--accent-soft); border:1px solid var(--on-accent-soft);
-  color:var(--on-accent-soft); white-space:nowrap;
-  vertical-align:middle;
+/* Auto-derived alphabet range pill, emitted into the h2 by the runtime (lib/engine) and the
+ * markdown-it plugin as a pills-plugin pill marked `data-glossary-range`. The plugin draws it; the
+ * glossary says which colors it wears and that it keeps the meta type step rather than following
+ * the heading's size. */
+section.glossary h2 > .lat-pill[data-glossary-range] {
+  --lat-pill-size:var(--fs-meta);
+  --lat-pill-bg:var(--accent-soft);
+  --lat-pill-edge:var(--on-accent-soft);
+  --lat-pill-ink:var(--on-accent-soft);
 }
 
 /* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).

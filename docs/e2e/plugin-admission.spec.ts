@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import JSZip from 'jszip';
-import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, shareExport, slideCount, test } from './studio-fixture';
+import { expect, gotoStudio, livePreview, persistedSource, SHARE_EXPORTS, setEditorContent, shareExport, slideCount, test } from './studio-fixture';
 
 // ── A deck that does not load a plugin draws none of it in the real Studio ─────────────
 //
@@ -300,3 +300,83 @@ test('the Playground page PREVIEW follows the host\'s admission too: a defaults 
 	await expect(slides).toHaveCount(2, { timeout: 30_000 });
 	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-on.png') });
 });
+
+/** Write the deck at any width: at phone width the editor sits behind the Source cell, so open it and come back to Preview. */
+async function writeDeck(page: import('@playwright/test').Page, md: string): Promise<void> {
+	// The editor is on screen at desktop width; at phone width it is behind the Source cell.
+	const phone = !(await page.getByLabel('Deck source').isVisible());
+	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
+	await setEditorContent(page, md);
+	if (phone) await page.getByRole('button', { name: 'Preview', exact: true }).click();
+}
+
+// THE TOGGLE, ON THE SAME DECK, WITH NO EDIT (#2759). The case above sets the defaults before it loads
+// the deck, so it never sees a deck that is already drawn when the host narrows the set. The Studio
+// preview must follow: off puts each fence back to its source, on draws it again, no reload and no edit.
+test('the Studio preview follows a defaults change on an open deck: on, off, on @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
+	test.setTimeout(420_000);
+	await gotoStudio(page);
+	await setDefaults(page, null);
+	await writeDeck(page, DECK('Mermaid toggled'));
+	await expect.poll(() => persistedSource(page)).toContain('# Mermaid toggled');
+	const frame = livePreview(page);
+	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
+	await expect(frame.locator('pre[data-lattice-off]')).toHaveCount(0);
+
+	await setDefaults(page, []);
+	const pre = frame.locator('pre[data-lattice-off="mermaid"]').first();
+	await expect(pre).toBeVisible({ timeout: 30_000 });
+	await expect(frame.locator('[data-lattice-figure]')).toHaveCount(0);
+	await expect(pre.locator('code')).toContainText('flowchart LR');
+	// An export made now ships the source too, matching the preview.
+	expect(await webpageExport(page)).toMatch(/data-lattice-off=\\?"mermaid/);
+
+	await setDefaults(page, null);
+	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
+	await expect(frame.locator('pre[data-lattice-off]')).toHaveCount(0);
+	expect(await webpageExport(page)).not.toMatch(/data-lattice-off=\\?"mermaid/);
+});
+
+/** Share → Webpage, read back as text. */
+async function webpageExport(page: import('@playwright/test').Page): Promise<string> {
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const download = page.waitForEvent('download', { timeout: 180_000 });
+	await shareExport(page, 'webpage');
+	const file = await (await download).path();
+	await page.keyboard.press('Escape');
+	return fs.readFileSync(file, 'utf8');
+}
+
+// THE EXPORT SAYS SO WHEN A FENCE WILL SHIP AS SOURCE (#2758). Both arms through the real Share sheet:
+// the Webpage options panel names the fences before the export, and nothing shows when the plugin is on.
+for (const [label, defaults, shows] of [
+	['Mermaid off', [] as string[], true],
+	['Mermaid on', null, false],
+] as const) {
+	test(`the Webpage export panel ${shows ? 'warns' : 'is silent'} when ${label} @crosswidth @webkit-tablet @webkit-phone @gecko`, async ({ page }) => {
+		test.setTimeout(120_000);
+		await gotoStudio(page);
+		await setDefaults(page, defaults === null ? null : [...defaults]);
+		await writeDeck(page, DECK(`Notice ${label}`));
+		await expect.poll(() => persistedSource(page)).toContain(`# Notice ${label}`);
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		await page.getByRole('dialog').getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
+		const notice = page.getByRole('dialog').locator('[data-off-fences-notice]');
+		if (shows) {
+			await expect(notice).toBeVisible();
+			await expect(notice).toContainText('1 mermaid fence will ship as source: the Mermaid diagrams plugin is off for this deck');
+		} else {
+			await expect(page.getByRole('dialog').getByText('Export webpage')).toBeVisible();
+			await expect(notice).toHaveCount(0);
+		}
+		if (process.env.ADMISSION_EVIDENCE && shows) {
+			for (const [w, h] of [[1440, 900], [820, 1100], [390, 844]]) {
+				await page.setViewportSize({ width: w, height: h });
+				await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+				await page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, `p3-notice-${w}.png`) });
+			}
+		}
+		await page.keyboard.press('Escape');
+		await setDefaults(page, null);
+	});
+}

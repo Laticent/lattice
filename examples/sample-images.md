@@ -72,16 +72,16 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 - ![Acme](sample:logo-acme.svg)
   - Acme
-  - `Series B`
+  - `{Series B}`
 - ![Globex](sample:logo-globex.svg)
   - Globex
-  - `Enterprise`
+  - `{Enterprise}`
 - ![Vantage](sample:logo-vantage.svg)
   - Vantage
-  - `Public`
+  - `{Public}`
 - ![Umbra](sample:logo-umbra.svg)
   - Umbra
-  - `Series C`
+  - `{Series C}`
 
 ---
 

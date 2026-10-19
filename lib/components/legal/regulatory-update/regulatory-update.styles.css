@@ -138,26 +138,16 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :
 section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child) {
   grid-column:2 / span 3; grid-row:2;
 }
-/* Impact / date pill — last nested item, only-child <code>. Row 1, col 5. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) {
+/* Impact / date pill — last nested item, only-child pill (`{Effective Feb 2026}`), drawn by the
+ * pills plugin in the panel's accent. Row 1, col 5. */
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
   grid-column:5; grid-row:1;
   justify-self:end;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) > code {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  line-height:1;
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  border-radius:var(--pill-radius);
-  border:1px solid var(--accent);
-  color:var(--accent);
-  background:var(--accent-soft);
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
+  --lat-pill-edge:var(--accent);
+  --lat-pill-ink:var(--accent);
+  --lat-pill-bg:var(--accent-soft);
 }
 
 /* ── `cards:` register (#2317) ── not `timeline`, which is its own composition. The default
@@ -217,8 +207,8 @@ section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul)
   position:absolute; top:0; left:50%; transform:translate(-50%, -50%);
   display:inline-flex; align-items:center; justify-content:center; line-height:1;
   background:var(--accent); color:var(--on-accent);
-  border-radius:var(--pill-radius);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
+  border-radius:var(--radius-full);
+  padding:0.3em 0.75em;
   z-index:1;
 }
 section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul) > li > strong:first-child { font-size:var(--fs-body); }
@@ -259,14 +249,14 @@ section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li::before {
   content:'TIER ' counter(upd);
   display:inline-flex; align-items:center; justify-content:center; line-height:1;
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
+  font-family:var(--font-body);
+  font-size:var(--fs-meta);
+  font-weight:600;
+  letter-spacing:0.04em;
   background:var(--accent);
   color:var(--on-accent);
-  border-radius:var(--pill-radius);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
+  border-radius:var(--radius-full);
+  padding:0.3em 0.75em;
 }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1) { border-left-color:var(--fail); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1)::before { background:var(--fail); }
@@ -302,7 +292,7 @@ section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff
 }
 section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
 section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) {
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
   grid-column: 2;
   grid-row: auto;
   justify-self: start;

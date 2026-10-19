@@ -34,13 +34,13 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ## Who owns each part of the lifecycle.
 
-- Signal custody `Signal owner`
+- Signal custody `{Signal owner}`
   - Runs intake quality. Never tunes the weights — only picks which signals surface.
-- Policy `Framework operator`
+- Policy `{Framework operator}`
   - Owns scoring policy, calibration cadence, and the rollback playbook. One person.
-- Consumption `Product team`
+- Consumption `{Product team}`
   - Holds scoring profiles; runs intake and decision-logging; finds the bugs first.
-- Oversight `Auditor`
+- Oversight `{Auditor}`
   - Reads the audit trail, cannot edit weights, and is the only role anyone fears.
 
 ---

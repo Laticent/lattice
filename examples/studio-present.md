@@ -60,13 +60,13 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 1. 12 hrs
    - per board deck
-   - most of it re-doing chrome `Ops`
+   - most of it re-doing chrome `{Ops}`
 2. 40%
    - reused, badly
-   - and drifting every quarter `Ops`
+   - and drifting every quarter `{Ops}`
 3. 0
    - talk tracks that survive export
-   - lost in the author's head `Gap`
+   - lost in the author's head `{Gap}`
 
 <!-- note: Land the numbers slowly. Twelve hours a deck, forty percent reused badly, and zero of the speaker's actual talk track surviving. The waste is real, and it compounds every quarter. -->
 

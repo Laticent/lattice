@@ -54,15 +54,15 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 ## Jurisdiction comparison framing the three obligations.
 
-- Federal `Citation`
+- Federal `{Citation}`
   - Headline obligation in one sentence.
-  - `Status or effective date`
-- State `Citation`
+  - `{Status or effective date}`
+- State `{Citation}`
   - Headline obligation in one sentence.
-  - `Status or effective date`
-- Local `Citation`
+  - `{Status or effective date}`
+- Local `{Citation}`
   - Headline obligation in one sentence.
-  - `Status or effective date`
+  - `{Status or effective date}`
 ```
 
 ## Anatomy
@@ -94,11 +94,11 @@ Ordered by supremacy.
 
 ## hierarchy orders the stack by supremacy.
 
-- Federal `15 U.S.C. §6501` `In effect since 2000`
+- Federal `{15 U.S.C. §6501}` `{In effect since 2000}`
   - Verifiable parental consent for under-13 personal data.
-- State `Cal. Civ. §1798.120` `Enforced 2023`
+- State `{Cal. Civ. §1798.120}` `{Enforced 2023}`
   - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-- Local `NYC §22-1201` `Effective 2023`
+- Local `{NYC §22-1201}` `{Effective 2023}`
   - Bias-audit obligation for AEDTs used in employment decisions.
 ```
 
@@ -111,11 +111,11 @@ Full-width strips.
 
 ## bands strips each jurisdiction full-width.
 
-- Federal `15 U.S.C. §6501` `In effect since 2000`
+- Federal `{15 U.S.C. §6501}` `{In effect since 2000}`
   - Verifiable parental consent for under-13 personal data.
-- State `Cal. Civ. §1798.120` `Enforced 2023`
+- State `{Cal. Civ. §1798.120}` `{Enforced 2023}`
   - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-- Local `NYC §22-1201` `Effective 2023`
+- Local `{NYC §22-1201}` `{Effective 2023}`
   - Bias-audit obligation for AEDTs used in employment decisions.
 ```
 
@@ -128,11 +128,11 @@ Which law yields.
 
 ## preemption marks which law yields.
 
-- Federal `15 U.S.C. §6501` `Preempts state rules`
+- Federal `{15 U.S.C. §6501}` `{Preempts state rules}`
   - Sets the floor for under-13 personal data collection.
-- State `Cal. Civ. §1798.120` `Survives preemption`
+- State `{Cal. Civ. §1798.120}` `{Survives preemption}`
   - Stricter opt-in regime on top of COPPA's baseline.
-- Local `NYC §22-1201` `Independent of preemption`
+- Local `{NYC §22-1201}` `{Independent of preemption}`
   - Bias-audit obligation distinct from privacy preemption scope.
 ```
 

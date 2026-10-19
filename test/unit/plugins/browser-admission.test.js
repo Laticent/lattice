@@ -72,6 +72,21 @@ describe('the engine marks a fence whose plugin the deck did not load', () => {
     assert.throws(() => api.setPluginDefaults(['mermiad']), /no plugin is named "mermiad"/);
   });
 
+  test('an embedded plugin is never in the off list a narrowed host derives (so Export-to-Marp never stamps `@pill{…}` literal)', async () => {
+    const { default: api } = await import('../../../lib/playground/index.js');
+    const { deckPluginsOffFor } = await import('../../../docs/src/playground/editor-diagnostics.js');
+    const { PLUGIN_NAMES } = await import('../../../lib/plugins/blocks.generated.mjs');
+    try {
+      api.setPluginDefaults(['icons']);
+      assert.ok(api.pluginAdmission('# Hi\n').includes('pills'), 'the deck loads pills, so its admission says so');
+      const off = deckPluginsOffFor('# Hi\n', api.pluginAdmission, PLUGIN_NAMES);
+      assert.ok(off.includes('math'), 'a plugin the host narrowed away is off');
+      assert.ok(!off.includes('pills'), 'the embedded plugin never is');
+    } finally {
+      api.setPluginDefaults(null);
+    }
+  });
+
   test('ADMISSION IS DECK-WIDE: a slide rendered alone takes the whole deck\'s answer', async () => {
     // Slide 1's `diagram` class loads Mermaid for the deck, so slide 2's plain fence is drawn in
     // the whole-deck render. Rendered alone (the Studio's slice route), slide 2 would admit on
@@ -86,7 +101,7 @@ describe('the engine marks a fence whose plugin the deck did not load', () => {
       assert.ok(!api.render(deck).html.includes('data-lattice-off'), 'the whole deck draws both');
       assert.match(api.render(fm + slide2).html, /data-lattice-off="mermaid"/, 'the slice alone would not');
       const admitted = api.pluginAdmission(deck);
-      assert.deepEqual(admitted, ['mermaid', 'meta']);
+      assert.deepEqual(admitted, ['mermaid', 'meta', 'pills'], 'what the deck loads: Mermaid, the always-on meta plugin, and the embedded pills plugin');
       assert.ok(!api.render(fm + slide2, undefined, { pluginDefaults: admitted }).html.includes('data-lattice-off'));
       assert.notEqual(api.pluginDefaultsKey(), '*');
     } finally {

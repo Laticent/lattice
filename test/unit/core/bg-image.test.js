@@ -241,3 +241,18 @@ describe('bg-image — liftImageBgImages carries a class run to later slides', (
     assert.match(out, /!\[bg left\]\(b\.svg\)/);
   });
 });
+
+
+describe('bg-image — a Marp ratio keeps the panel (followups.d/2739-p4)', () => {
+  const lifted = (md) => bg.liftImageBgImages(md, 'file:///d/');
+  test('`![bg left:40%]` on an image slide lifts to the left panel; the share is the layout\'s own', () => {
+    assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg left:40%](a.svg)\n'), /lattice-bg-left[^>]*a\.svg/);
+    assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg right:30%](a.svg)\n'), /lattice-bg-right[^>]*a\.svg/);
+  });
+  test('modifiers with a value ride along: `![bg left:40% blur:10px]` still reads its side', () => {
+    assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg left:40% blur:10px](a.svg)\n'), /lattice-bg-left/);
+  });
+  test('a non-image slide keeps its picture as the engine\'s full-bleed background', () => {
+    assert.match(lifted('# T\n\n![bg left:40%](a.svg)\n'), /!\[bg left:40%\]\(a\.svg\)/);
+  });
+});

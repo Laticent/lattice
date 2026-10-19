@@ -57,7 +57,7 @@ This is a graduate seminar for students with calculus, basic linear algebra, and
 
 ## How the course unfolds across the term.
 
-| Module | Weeks 1–4 `Single neuron` | Weeks 5–8 `Populations` | Weeks 9–12 `Learning` |
+| Module | Weeks 1–4 `{Single neuron}` | Weeks 5–8 `{Populations}` | Weeks 9–12 `{Learning}` |
 | --- | --- | --- | --- |
 | Theory | [x] Membrane & cable | [-] Network dynamics | [ ] Synaptic plasticity |
 | Coding labs | [x] Integrate-and-fire | [-] Recurrent networks | [ ] Learning rules |

@@ -577,13 +577,15 @@ section.state-chart .state-chip {
   text-align: center;
   line-height: 1;
   gap: 0.3125cqi;
-  font-family: var(--pill-font);
-  font-size: var(--pill-fs);
-  font-weight: var(--pill-weight);
-  letter-spacing: var(--pill-tracking);
-  padding: var(--pill-pad-y) var(--pill-pad-x);
+  /* A transition chip is not a pill — it is the state chart's own mark, so it owns its type and
+   * shape and shares only the base radius scale with the pills plugin. */
+  font-family: var(--font-body);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.3em 0.75em;
   border: var(--chart-hairline) solid var(--state-node-stroke);
-  border-radius: var(--pill-radius);
+  border-radius: var(--radius-full);
   background: color-mix(in oklab, var(--bg-alt) 60%, transparent);
 }
 section.state-chart .state-chip[data-dir="back"] {
@@ -620,6 +622,6 @@ section.state-chart .state-group-row {
   padding: var(--sp-xs) 0 0;
   font-family: var(--font-label);
   font-size: var(--fs-meta);
-  letter-spacing: var(--pill-tracking);
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }

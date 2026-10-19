@@ -57,4 +57,10 @@ describe('--disable-plugin', () => {
     assert.equal(r.status, 1);
     assert.match(r.stderr, /no plugin is named "mermiad"/);
   });
+
+  test('an embedded plugin cannot be switched off, and naming one fails the run rather than doing nothing', { timeout: TIMEOUT }, () => {
+    const { r } = render('--disable-plugin', 'pills');
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /"pills" is an embedded plugin.*cannot be switched off/);
+  });
 });

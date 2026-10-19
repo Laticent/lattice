@@ -119,13 +119,13 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 1. 9 min
    - Median MTTR
-   - down from 47 `5.2× faster`
+   - down from 47 `{5.2× faster}`
 2. −68%
    - Time-to-diagnose
-   - across 40 teams `Measured`
+   - across 40 teams `{Measured}`
 3. 92%
    - Incidents auto-explained
-   - root cause surfaced `Verified`
+   - root cause surfaced `{Verified}`
 
 ---
 
@@ -136,7 +136,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ## How Lumen Trace rolls out from GA to enterprise.
 
-| Workstream | GA `Q3 2026` | Expand `Q4 2026` | Scale `Q1 2027` |
+| Workstream | GA `{Q3 2026}` | Expand `{Q4 2026}` | Scale `{Q1 2027}` |
 | --- | --- | --- | --- |
 | Product | [x] Ask + causal graph | [-] Custom runbooks | [ ] Predictive alerts |
 | Platforms | [x] Kubernetes, AWS | [-] Azure, GCP | [ ] On-prem agent |

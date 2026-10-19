@@ -7,7 +7,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const lintCore = require('../../../lib/authoring/lint-core.js');
-const pills = require('../../../lib/core/inline-pills.js');
+const pills = require('../../../lib/plugins/pills/pills.inline.js');
 
 const deck = (body, fm = '') => `---\nmarp: true\n${fm}---\n\n${body}\n`;
 

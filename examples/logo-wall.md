@@ -53,28 +53,28 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 - ![Acme](sample:logo-acme.svg)
   - Acme
-  - `Series B`
+  - `{Series B}`
 - ![Globex](sample:logo-globex.svg)
   - Globex
-  - `Enterprise`
+  - `{Enterprise}`
 - ![Vantage](sample:logo-vantage.svg)
   - Vantage
-  - `Public`
+  - `{Public}`
 - ![Umbra](sample:logo-umbra.svg)
   - Umbra
-  - `Series C`
+  - `{Series C}`
 - ![Meridian](sample:logo-meridian.svg)
   - Meridian
-  - `Seed`
+  - `{Seed}`
 - ![Helios](sample:logo-helios.svg)
   - Helios
-  - `Public`
+  - `{Public}`
 - ![Northwind](sample:logo-northwind.svg)
   - Northwind
-  - `Anchor`
+  - `{Anchor}`
 - ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
-  - `Series A`
+  - `{Series A}`
 
 ---
 

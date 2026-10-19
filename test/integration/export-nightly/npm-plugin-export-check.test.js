@@ -19,13 +19,12 @@
  * control reached the listener. The EXITS test is `todo`. Marking the whole cell `todo` would let a
  * broken Playwright install pass the nightly in silence (the checker, 2026-10-18).
  *
- * THE EXITS TEST IS `todo` TODAY, AND MUST NOT PASS BY ACCEPTING AN EXIT. Navigation, `window.open` and
- * WebRTC reach the listener in both exports, and the plain export's policy leaves script, frame,
- * stylesheet and meta-refresh loads open (followups.d/2749-p2-export-csp-gaps.md). Closing them
- * changes the bytes of an exported artifact, which needs the owner's inspection of a dark and a
- * light demo deck first. A `todo` test that fails is reported and does not fail the run; remove the
- * `todo` option in the commit that closes the last gap, and the check becomes an exit criterion.
- * Accepting an exit is a separate owner decision and is recorded in the note, not here.
+ * THE EXITS TEST NAMES THE FIVE ACCEPTED EXITS (owner, 2026-10-18, threat-model note §5.4). A policy cannot
+ * close navigation, `window.open`, WebRTC, meta refresh or a `target=_blank` link, so both exports keep them
+ * and the check pins them: it fails when a SIXTH exit opens, and fails when an accepted one closes (the list
+ * would otherwise rot). The plain export's script, frame and stylesheet loads are closed by the load lock
+ * (lib/core/export-load-lock.js), so they are not in the list. Accepting another exit is a separate owner
+ * decision recorded in the note, not here.
  *
  * NIGHTLY ONLY (owner, 2026-10-18): it lives in test/integration/export-nightly/, which only
  * `test:integration:nightly` runs, because three engines and 20 vectors cost minutes a run.
@@ -50,7 +49,6 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 600000;
 const SETTLE_MS = 2000;
-const TODO = 'the exports leave exits open: followups.d/2749-p2-export-csp-gaps.md (needs the owner’s sign-off to change export bytes)';
 
 const DECK = '---\ntheme: indaco\n---\n\n# Canary export\n\nOne\n\n---\n\n## Two\n\n- A\n- B\n';
 
@@ -140,6 +138,8 @@ after(async () => {
  * misses is reported UNVERIFIED for that cell, not counted as passed; one the control misses and
  * that is NOT listed fails the cell. (Measured 2026-10-18: WebKit 26.0, Firefox 142.0.1, Chromium 131.)
  */
+/** The five exits a policy cannot close (threat-model note §5.4). */
+const ACCEPTED_EXITS = ['navigate', 'windowopen', 'webrtc', 'metarefresh', 'blanklink'];
 const MAY_MISS = { chromium: [], webkit: ['prefetch', 'blanklink'], firefox: ['prefetch', 'ping'] };
 
 /** The engines this run can reach: name → launch. */
@@ -236,11 +236,14 @@ describe('export check: no exit in a real HTML export reaches a listener', () =>
         assert.deepEqual(surprising, [], `UNVERIFIED in ${eng.name}: the control did not reach the listener with these, so their zero would mean nothing`);
       });
 
-      // `todo` until the owner closes the gaps: the exports leave exits open today.
-      test(`${eng.name} · ${kind} export · no exit is open`, { todo: TODO, timeout: TIMEOUT }, async (t) => {
+      // Exactly the accepted exits, no more and no fewer. An exit the control cannot fire in this engine
+      // (MAY_MISS) cannot be told apart from a closed one, so it is left out of the comparison.
+      test(`${eng.name} · ${kind} export · only the accepted exits are open`, { timeout: TIMEOUT }, async (t) => {
         const { real } = await cell(eng, kind);
         t.diagnostic(`${eng.name} ${kind}: open exits ${JSON.stringify(real.got)}`);
-        assert.deepEqual(real.got, [], `exits that reach the listener from the ${kind} export in ${eng.name}`);
+        const expected = ACCEPTED_EXITS.filter((v) => !MAY_MISS[eng.name].includes(v));
+        const open = real.got.filter((v) => !MAY_MISS[eng.name].includes(v)).sort();
+        assert.deepEqual(open, [...expected].sort(), `open exits in the ${kind} export in ${eng.name} differ from the accepted five`);
       });
     }
   }

@@ -41,7 +41,7 @@ describe('glossary slide — applyToDom', () => {
   test('appends the A – N range pill to the heading', () => {
     const doc = dom(LIST);
     kernel.applyToDom(doc);
-    const pill = doc.querySelector('h2 .range-pill');
+    const pill = doc.querySelector('h2 [data-glossary-range]');
     assert.ok(pill, 'the heading gained a range pill');
     assert.equal(pill.textContent, 'A – N');
     assert.match(doc.querySelector('h2').textContent, /Glossary A – N$/);
@@ -50,7 +50,7 @@ describe('glossary slide — applyToDom', () => {
   test('a single-letter range collapses to one character', () => {
     const doc = dom('<ul><li>ARR<ul><li>d1</li></ul></li><li>ACV<ul><li>d2</li></ul></li></ul>');
     kernel.applyToDom(doc);
-    assert.equal(doc.querySelector('.range-pill').textContent, 'A');
+    assert.equal(doc.querySelector('[data-glossary-range]').textContent, 'A');
   });
 
   test('unwraps the <p> markdown-it adds to a loose list item', () => {
@@ -82,7 +82,7 @@ describe('glossary slide — applyToDom', () => {
     kernel.applyToDom(doc);
     kernel.applyToDom(doc);
     assert.equal(doc.querySelector('section.glossary').innerHTML, once);
-    assert.equal(doc.querySelectorAll('.range-pill').length, 1);
+    assert.equal(doc.querySelectorAll('[data-glossary-range]').length, 1);
   });
 
   // The cells are built by MOVING the author's nodes, never by serializing them
@@ -115,7 +115,7 @@ describe('glossary slide — applyToDom', () => {
     const section = doc.querySelector('section.glossary');
     assert.ok(!section.querySelector('ul'), 'the term list was still converted');
     assert.equal(section.querySelectorAll('table').length, 2, "the author's table survives");
-    assert.equal(doc.querySelector('.range-pill').textContent, 'A – N');
+    assert.equal(doc.querySelector('[data-glossary-range]').textContent, 'A – N');
   });
 
   test('every top-level list is converted, and the pill reads the last table', () => {
@@ -128,14 +128,14 @@ describe('glossary slide — applyToDom', () => {
     const section = doc.querySelector('section.glossary');
     assert.equal(section.querySelectorAll('table').length, 2);
     assert.ok(!section.querySelector('ul'), 'neither list was left behind');
-    assert.equal(doc.querySelector('.range-pill').textContent, 'Z');
+    assert.equal(doc.querySelector('[data-glossary-range]').textContent, 'Z');
   });
 
   test('leaves a non-glossary section alone', () => {
     const doc = dom(LIST, 'content');
     assert.doesNotThrow(() => kernel.applyToDom(doc));
     assert.ok(doc.querySelector('section.content ul'), 'the list survives untouched');
-    assert.equal(doc.querySelector('.range-pill'), null);
+    assert.equal(doc.querySelector('[data-glossary-range]'), null);
   });
 
   test('survives a null / non-DOM root, and a slide with no list', () => {
@@ -143,7 +143,7 @@ describe('glossary slide — applyToDom', () => {
     assert.doesNotThrow(() => kernel.applyToDom({}));
     const doc = dom('<p>Nothing to define.</p>');
     assert.doesNotThrow(() => kernel.applyToDom(doc));
-    assert.equal(doc.querySelector('.range-pill'), null);
+    assert.equal(doc.querySelector('[data-glossary-range]'), null);
   });
 });
 
@@ -169,9 +169,9 @@ describe('glossary slide — the two render paths agree', () => {
       .map((tr) => [tr.children[0].innerHTML, tr.children[1].innerHTML]);
     assert.deepEqual(domRows, engineRows);
 
-    const enginePill = engineHtml.match(/<span class="range-pill">([^<]*)<\/span>/);
+    const enginePill = engineHtml.match(/<span class="lat-pill" data-glossary-range="true" data-shape="pill">([^<]*)<\/span>/);
     assert.ok(enginePill, 'the engine emitted a range pill');
-    assert.equal(section.querySelector('.range-pill').textContent, enginePill[1]);
+    assert.equal(section.querySelector('[data-glossary-range]').textContent, enginePill[1]);
   });
 
   // The two divergences the descendant-table guard closed, each pinned against a
@@ -182,7 +182,7 @@ describe('glossary slide — the two render paths agree', () => {
       '<!-- _class: glossary -->', '', '## Glossary', '', body, '',
     ].join('\n');
     const html = latticeEngine.createEngine().render(deck).html;
-    const pill = html.match(/<span class="range-pill">([^<]*)<\/span>/);
+    const pill = html.match(/<span class="lat-pill" data-glossary-range="true" data-shape="pill">([^<]*)<\/span>/);
     return { pill: pill?.[1], tables: (html.match(/<table[ >]/g) || []).length };
   };
 
@@ -197,7 +197,7 @@ describe('glossary slide — the two render paths agree', () => {
     );
     kernel.applyToDom(doc);
     assert.equal(engine.pill, 'A – N', 'sanity: the engine reads the generated table');
-    assert.equal(doc.querySelector('.range-pill').textContent, engine.pill);
+    assert.equal(doc.querySelector('[data-glossary-range]').textContent, engine.pill);
     assert.equal(doc.querySelectorAll('table').length, engine.tables);
   });
 
@@ -213,7 +213,7 @@ describe('glossary slide — the two render paths agree', () => {
     const doc = dom(LIST + rawTable);
     kernel.applyToDom(doc);
     assert.equal(engine.pill, 'A – N', "the engine ignores the author's raw table");
-    assert.equal(doc.querySelector('.range-pill').textContent, engine.pill);
+    assert.equal(doc.querySelector('[data-glossary-range]').textContent, engine.pill);
     assert.equal(doc.querySelectorAll(`table.${GLOSSARY_TABLE_CLASS}`).length, 1, 'one generated table');
     assert.equal(doc.querySelectorAll('table').length, 2, "the author's table survives");
   });
@@ -226,7 +226,7 @@ describe('glossary slide — the two render paths agree', () => {
     );
     kernel.applyToDom(doc);
     assert.equal(engine.pill, 'Z', 'sanity: the engine reads the LAST generated table');
-    assert.equal(doc.querySelector('.range-pill').textContent, engine.pill);
+    assert.equal(doc.querySelector('[data-glossary-range]').textContent, engine.pill);
     assert.equal(doc.querySelectorAll('table').length, engine.tables);
   });
 });

@@ -23,11 +23,11 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 ## Adopt a 30-day deadline for breach notification.
 
 - Faster notice cuts identity-theft losses
-  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `{FTC 2025}`.
 - The window is already industry practice
-  - 14 of the top 20 processors already do `IAPP survey`.
+  - 14 of the top 20 processors already do `{IAPP survey}`.
 - Enforcement is self-funding
-  - Penalties fund the oversight office `LBB fiscal note`.
+  - Penalties fund the oversight office `{LBB fiscal note}`.
 
 > Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
@@ -44,9 +44,9 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 Consumers now learn of a breach 78 days late on average.
 
 - Faster notice cuts identity-theft losses
-  - 22% lower per-victim costs where the rule exists `FTC 2025`.
+  - 22% lower per-victim costs where the rule exists `{FTC 2025}`.
 - Already industry practice
-  - 14 of the top 20 processors notify within 30 days `IAPP`.
+  - 14 of the top 20 processors notify within 30 days `{IAPP}`.
 
 > Vote YES on HB 214 § 3.
 
@@ -63,9 +63,9 @@ Consumers now learn of a breach 78 days late on average.
 Post-hoc audits catch bias only after applicants are screened out.
 
 - Pre-deployment testing is preventive
-  - Later audits cannot un-reject candidates `EEOC 2025`.
+  - Later audits cannot un-reject candidates `{EEOC 2025}`.
 - The change is one clause
-  - Move the trigger from § 4(b) to § 3 `Leg. counsel`.
+  - Move the trigger from § 4(b) to § 3 `{Leg. counsel}`.
 
 > Adopt the § 4(b) to § 3 move in the committee substitute.
 
@@ -82,9 +82,9 @@ Post-hoc audits catch bias only after applicants are screened out.
 A state-held decryption key is a single point of failure for every resident's data.
 
 - It weakens security for everyone
-  - A mandated backdoor is exploitable by any attacker who finds it `NIST`.
+  - A mandated backdoor is exploitable by any attacker who finds it `{NIST}`.
 - It won't stop determined actors
-  - Open-source encryption stays available outside the state's reach `EFF`.
+  - Open-source encryption stays available outside the state's reach `{EFF}`.
 
 > Vote NO on AB 402, or strike the § 5 escrow mandate.
 
@@ -101,9 +101,9 @@ A state-held decryption key is a single point of failure for every resident's da
 Error rates for the proposed system are unpublished for the populations it would scan.
 
 - The evidence base is missing
-  - No demographic accuracy audit exists for this vendor `GAO request`.
+  - No demographic accuracy audit exists for this vendor `{GAO request}`.
 - A study is already funded
-  - The oversight office can report within one session `fiscal note`.
+  - The oversight office can report within one session `{fiscal note}`.
 
 > Refer HR 19 to interim study; revisit with the audit in hand.
 
@@ -119,11 +119,11 @@ Error rates for the proposed system are unpublished for the populations it would
 ## Amend SB 88 to require bias audits before deployment.
 
 - Pre-deployment testing is the only preventive control
-  - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.
+  - Audits after launch cannot un-reject filtered candidates `{EEOC 2025}`.
 - The change is narrow and drafted
-  - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.
+  - It moves one clause from § 4(b) to § 3; no new agency `{Leg. counsel memo}`.
 - Vendors can meet it today
-  - Three of five major ATS vendors already ship pre-deployment reports `vendor survey`.
+  - Three of five major ATS vendors already ship pre-deployment reports `{vendor survey}`.
 
 > Move the § 4(b) audit trigger to § 3 before markup.
 
@@ -138,11 +138,11 @@ Error rates for the proposed system are unpublished for the populations it would
 ## Adopt a 30-day deadline for breach notification.
 
 - Faster notice cuts identity-theft losses
-  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `{FTC 2025}`.
 - The window is already industry practice
-  - 14 of the top 20 processors already do `IAPP survey`.
+  - 14 of the top 20 processors already do `{IAPP survey}`.
 - Enforcement is self-funding
-  - Penalties fund the oversight office `LBB fiscal note`.
+  - Penalties fund the oversight office `{LBB fiscal note}`.
 
 > Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
@@ -157,11 +157,11 @@ Error rates for the proposed system are unpublished for the populations it would
 ## Adopt a 30-day deadline for breach notification.
 
 - Faster notice cuts identity-theft losses
-  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `{FTC 2025}`.
 - The window is already industry practice
-  - 14 of the top 20 processors already do `IAPP survey`.
+  - 14 of the top 20 processors already do `{IAPP survey}`.
 - Enforcement is self-funding
-  - Penalties fund the oversight office `LBB fiscal note`.
+  - Penalties fund the oversight office `{LBB fiscal note}`.
 
 > Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
@@ -176,11 +176,11 @@ Error rates for the proposed system are unpublished for the populations it would
 ## Adopt a 30-day deadline for breach notification.
 
 - Faster notice cuts identity-theft losses
-  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `{FTC 2025}`.
 - The window is already industry practice
-  - 14 of the top 20 processors already do `IAPP survey`.
+  - 14 of the top 20 processors already do `{IAPP survey}`.
 - Enforcement is self-funding
-  - Penalties fund the oversight office `LBB fiscal note`.
+  - Penalties fund the oversight office `{LBB fiscal note}`.
 
 > Vote YES on HB 214 § 3, or sponsor the floor amendment.
 

@@ -32,13 +32,13 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 1. $2.4B
    - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
+   - target $2.2B · +9% `{On plan}` `{Board}`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan` `Audit`
+   - +2pp QoQ `{On plan}` `{Audit}`
 3. $1.1B
    - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
+   - +$180M QoQ `{On plan}` `{Investor}`
 
 ---
 
@@ -49,13 +49,13 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 1. 94%
    - Signal-classification success
-   - target 99%, +2pp QoQ `On plan` `Board`
+   - target 99%, +2pp QoQ `{On plan}` `{Board}`
 2. 0
    - Open findings
-   - the goal `Clean` `Audit`
+   - the goal `{Clean}` `{Audit}`
 3. 1
    - In remediation
-   - dated `Watch` `Legal`
+   - dated `{Watch}` `{Legal}`
 
 ---
 
@@ -76,16 +76,16 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 1. $2.4B
    - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
+   - target $2.2B · +9% `{On plan}` `{Board}`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan` `Audit`
+   - +2pp QoQ `{On plan}` `{Audit}`
 3. $1.1B
    - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
+   - +$180M QoQ `{On plan}` `{Investor}`
 4. $180M
    - Free cash flow
-   - +$44M QoQ `On plan` `Treasury`
+   - +$44M QoQ `{On plan}` `{Treasury}`
 
 ---
 
@@ -96,13 +96,13 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 1. +9%
    - the delta leads
-   - vs plan `Up`
+   - vs plan `{Up}`
 2. 4
    - tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 3. −2
    - down is shown
-   - not spun `Honest`
+   - not spun `{Honest}`
 
 ---
 

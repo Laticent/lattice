@@ -230,7 +230,8 @@ OPTIONS
                           mermaid,math; repeatable). The engine and the plugins' CLI
                           bakes both honor it, and so does every plugin that requires
                           one, so the PDF shows the deck's source instead. No deck can
-                          turn it back on.
+                          turn it back on. An embedded plugin (pills) cannot be switched
+                          off, and naming one is an error.
       --default-plugins N Narrow the default plugin set for this run, comma-separated,
                           or 'none' (default: every shipped plugin). A plugin outside
                           it loads only when the deck lists it in 'plugins:' or a
@@ -281,7 +282,7 @@ OPTIONS
                           stays one, listed as a plain link. The site must allow
                           cross-origin reads (CORS); if it does not, the banner
                           says so and lists the links. Off by default.
-      --allow-remote      Let the render fetch remote images, media and fonts.
+      --allow-remote      Let the render fetch remote images, media and fonts, and let the .html keep remote scripts, frames and stylesheets.
                           By default every browser this command starts is kept
                           off the network, so a web image in the deck shows
                           as a drawn placeholder in every output, and the run
@@ -616,6 +617,12 @@ const PLUGINS_DISABLED = Object.freeze([...new Set(process.argv.slice(2).flatMap
   const unknown = PLUGINS_DISABLED.filter((n) => !known.includes(n));
   if (unknown.length) {
     console.error(`error: --disable-plugin: no plugin is named ${unknown.map((n) => `"${n}"`).join(', ')} (plugins: ${known.join(', ')})`);
+    process.exit(1);
+  }
+  // An EMBEDDED plugin loads on every render and nothing switches it off; saying so beats a flag that quietly does nothing.
+  const embedded = PLUGIN_GRAMMAR.filter((g) => g.embedded && PLUGINS_DISABLED.includes(g.name)).map((g) => g.name);
+  if (embedded.length) {
+    console.error(`error: --disable-plugin: ${embedded.map((n) => `"${n}"`).join(', ')} ${embedded.length > 1 ? 'are embedded plugins' : 'is an embedded plugin'}, part of how Lattice draws a slide, and cannot be switched off`);
     process.exit(1);
   }
 }
@@ -1196,6 +1203,7 @@ const { sanitizeStyleText } = require('./lib/core/sanitize-style-text.mjs');
 // The remote-subresource policy for the LIVE html this run writes — shared with the docs-site
 // preview frames so an author's preview and their reader's file cannot disagree (HARD RULE #1).
 const { subresourceCspMeta } = require('./lib/core/subresource-csp.mjs');
+const { lockedCspMeta } = require('./lib/core/export-load-lock.js');
 // Pin /CreationDate + /ModDate on the way out, so re-rendering an unchanged deck
 // writes byte-identical bytes and git stores nothing new (HARD RULE #1: both PDF
 // write sites below call the one kernel).
@@ -5104,10 +5112,12 @@ async function renderBody(browser, g, closeBrowser) {
       const shown = rel && !rel.startsWith('..') ? rel : outHtml;
       for (const line of formatLiveAuthorHtmlWarning(countLiveAuthorHtml(live), shown, { sidecar: OUT_FORMAT !== 'html' })) console.warn(line);
     }
+    // The load lock (script, frame, stylesheet) applies unless the author passed --allow-remote, the flag that
+    // already means "this export may reach the network" (lib/core/export-load-lock.js).
     // Immediately after `<head>`, because a CSP meta governs only what the parser has not
     // already reached — a stylesheet link above it is already in flight. Measured on a real
     // export: the meta lands at byte 56, the charset at 253, the (since inlined) KaTeX <link> at ~865k.
-    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${subresourceCspMeta()}`);
+    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${flags['allow-remote'] ? subresourceCspMeta() : lockedCspMeta()}`);
     if (withCsp !== live) fs.writeFileSync(outHtml, withCsp);
     else if (!QUIET) console.warn(`  warning: ${outHtml} has no <head>, so it carries no remote-subresource policy.`);
   }

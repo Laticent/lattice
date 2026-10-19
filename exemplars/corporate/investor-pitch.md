@@ -122,13 +122,13 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 1. $6.4M
    - ARR
-   - up from $2.1M `3.0× YoY` `Audited`
+   - up from $2.1M `{3.0× YoY}` `{Audited}`
 2. 140
    - manufacturers live
-   - +96 in 12 months `Net new`
+   - +96 in 12 months `{Net new}`
 3. 128%
    - net revenue retention
-   - expansion outruns churn `12-mo`
+   - expansion outruns churn `{12-mo}`
 
 ---
 
@@ -182,7 +182,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ## What the Series B builds, by workstream.
 
-| Workstream | Now `H2 2026` | Build `2027` | Scale `2028` |
+| Workstream | Now `{H2 2026}` | Build `{2027}` | Scale `{2028}` |
 | --- | --- | --- | --- |
 | Product | [x] Touchless AP | [-] Autonomous spend controls | [ ] Cash-flow forecasting |
 | Go-to-market | [x] US direct | [-] ERP marketplace | [ ] EU expansion |
@@ -195,11 +195,11 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ## A team that has built and sold AP automation before.
 
-- Founder & CEO `Maya Okonkwo`
+- Founder & CEO `{Maya Okonkwo}`
   - Built the AP platform at a top-three procurement suite and scaled it to $90M ARR.
-- Founder & CTO `Daniel Reyes`
+- Founder & CTO `{Daniel Reyes}`
   - Led document AI at a fintech unicorn; nine patents in invoice extraction.
-- VP Sales `Priya Nair`
+- VP Sales `{Priya Nair}`
   - Took two vertical-SaaS companies from $5M to $50M ARR.
 
 ---
@@ -211,13 +211,13 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 1. $25M
    - ARR target
-   - 3.9× from today `FY2028`
+   - 3.9× from today `{FY2028}`
 2. 450
    - manufacturers
-   - up from 140 `FY2028`
+   - up from 140 `{FY2028}`
 3. 85%
    - gross margin
-   - +3pp at scale `FY2028`
+   - +3pp at scale `{FY2028}`
 
 ---
 

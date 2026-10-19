@@ -4,7 +4,7 @@
  * The `{LABEL}` pill and `[x]` mark grammar reads EVERY single-backtick span in every
  * deck (`lib/core/inline-code-directives.js`). That is the whole risk the grammar carries:
  * an author writes `` `{ ok, scene }` `` meaning object-literal prose and gets a pill.
- * `lib/core/inline-pills.js` justifies the brace choice by measuring the alternative —
+ * `lib/plugins/pills/pills.inline.js` justifies the brace choice by measuring the alternative —
  * the ADR's bracket geometry would have swallowed 147 spans an author meant literally,
  * braces swallow none — and that measurement is the load-bearing evidence for the
  * grammar's spelling.
@@ -62,7 +62,67 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/hub-spoke-icons.md', 'the demo deck for icons on hub-spoke (HARD RULE #9). Its `{icon=…}` records are counted here but render as disc icons, not pills — the census reads spans without their slide, and hub-spoke owns the rows it reads (lib/core/resolve-inline-code.js `ownedRowDepth`); the table slide escapes its examples'],
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
+  ['examples/pills-plugin.md', 'the demo deck for the embedded pills plugin: one pill, placed and tinted by seven components (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
+]);
+
+/**
+ * Decks that use a COMPONENT's pill — a title-row status, a metric, a tier — written in the pills
+ * plugin's own notation (`` `{status}` ``) because that component draws its pills with the plugin
+ * and nothing else (engineering/decisions/2026-10-17-pills-plugin.md §4.3). The span dispatches
+ * on purpose: it is the author asking for the pill. A deck earns a line by carrying one.
+ */
+const USES_A_COMPONENT_PILL = new Map([
+  ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'cards-stack: a `{status}` pill on each card title'],
+  ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill'],
+  ['examples/prose-density.md', 'cards-grid: the word and line budgets, each a pill on its card title'],
+  ['lib/components/inventory/logo-wall/logo-wall.gallery.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['lib/components/inventory/inventory.gallery.md', 'the inventory family gallery: its logo-wall slides carry a `{tier}` pill under each mark'],
+  ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['examples/logo-wall-equal-weight.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
+  ['lib/components/legal/policy-recommendation/policy-recommendation.gallery.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
+  ['examples/policy-recommendation.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
+  ['lib/components/inventory/list-tabular/list-tabular.gallery.md', 'list-tabular register: a `{tag}` pill ends each row'],
+  ['examples/autosplit-coverage.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
+  ['examples/list-tabular-responsive.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
+  ['examples/sketch-ledger.md', 'a list-tabular register slide: a `{tag}` pill ends each row'],
+  ['lib/components/legal/regulatory-update/regulatory-update.gallery.md', 'regulatory-update: an `{Effective Feb 2026}` pill closes each row'],
+  ['lib/components/legal/legal.gallery.md', 'the legal family gallery: its regulatory-update slides close each row with a `{date}` pill'],
+  ['examples/adaptive-sweep.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['examples/cover-paginate.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['examples/reflow-legal.md', 'a regulatory-update slide: a `{date}` pill closes each row'],
+  ['lib/components/legal/statute-stack/statute-stack.gallery.md', 'statute-stack: a `{citation}` and a `{status}` pill on each jurisdiction card'],
+  ['examples/cards-register-catalog.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
+  ['examples/typography-categories.md', 'a statute-stack slide: a `{citation}` and a `{status}` pill on each jurisdiction card'],
+  ['lib/components/chart/roadmap/roadmap.gallery.md', 'roadmap: a `{Q2 2026}` pill on each phase header'],
+  ['lib/components/chart/chart.gallery.md', 'the chart family gallery: its roadmap slide carries a `{date}` pill on each phase header'],
+  ['examples/chart-family-coverage.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/data-viz-gallery.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/read-article-chart-paints.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/venue-marker-boxes.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['lib/components/inventory/actors/actors.gallery.md', 'actors: a `{name}` pill ends each responsibility row'],
+  ['examples/gallery-jargon.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
+  ['examples/portrait-prose-deboost.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
+  ['examples/sketch.md', 'an actors slide: a `{name}` pill ends each responsibility row'],
+  ['examples/palette-cascade-flip.md', 'a checklist slide: a `{status}` pill ends a row'],
+  ['examples/system-design-foundations.md', 'checklist slides: a `{status}` pill ends each threat row'],
+  ['lib/components/evidence/kpi/kpi.gallery.md', 'kpi: a `{status}` pill ends each tile row'],
+  ['lib/components/evidence/evidence.gallery.md', 'the evidence family gallery: its kpi slides end each tile row with a `{status}` pill'],
+  ['examples/adaptive-sizing.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/cards-stats-actors-kpi.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/fluid-box.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/kpi-allowance.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/kpi-row-rules.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/kpi-stats-lift.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/mobile-landscape.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/social-grid.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/stage-console-split.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/struck-elevation.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/studio-present.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['kit/Sample-Deck.md', 'the kit sample deck: a kpi slide ends each tile row with a `{status}` pill'],
+  ['examples/actors-dense-roster.md', 'actors: a `{name}` pill ends each responsibility row'],
+  ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 
 /** The decks the `inline-code: literal` register turns the grammar off for. */
@@ -85,7 +145,7 @@ test('the only shipped deck whose inline code dispatches is the one demonstratin
   );
 
   const hits = spans.filter((s) => dispatches(s.text));
-  const stray = hits.filter((s) => !DEMONSTRATES_THE_GRAMMAR.has(s.file));
+  const stray = hits.filter((s) => !DEMONSTRATES_THE_GRAMMAR.has(s.file) && !USES_A_COMPONENT_PILL.has(s.file));
   assert.deepEqual(
     stray,
     [],
@@ -95,7 +155,7 @@ test('the only shipped deck whose inline code dispatches is the one demonstratin
       stray.map((s) => `  ${s.file}:${s.line}  \`${s.text}\``).join('\n') +
       '\nEscape it (`\\{LABEL}`, `\\[x]`) to keep the literal, set `inline-code: literal` ' +
       'in the deck front matter to turn the grammar off for the whole deck, or — if the ' +
-      'deck is teaching the grammar — add it to DEMONSTRATES_THE_GRAMMAR with its reason.',
+      'deck is teaching the grammar — add it to DEMONSTRATES_THE_GRAMMAR with its reason, or to USES_A_COMPONENT_PILL if the pill is the point of a component.',
   );
 
   // A STALE ALLOWLIST is the failure mode this kind of list always reaches: the deck is

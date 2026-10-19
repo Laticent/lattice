@@ -102,7 +102,7 @@ const STATUS_MARKS = [
   // a flowchart's status shapes keep their paint under a finish and so must its key.
   { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
-  { sel: '.chart-status[data-s]', hue: 'var(--pill-hue)', ink: 'var(--pill-ink)', paint: 'bg', bears: true },
+  { sel: '.chart-status[data-s]', hue: 'var(--chart-status-hue)', ink: 'var(--chart-status-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
   { sel: '.waterfall-bar[data-s="down"]', hue: 'var(--state-fail-hue)', ink: 'var(--state-fail-ink)', paint: 'fill', bears: false },
   // hub-spoke paints a status on the one spoke that carries it — its node, or a tiered leaf —
@@ -292,13 +292,13 @@ function build() {
       // one hue: on it the a11y themes' dark faces read 1.54:1 and burgundy dark 4.44:1. So the
       // pill picks black or white from its own ground, as every other text-bearing mark does,
       // and the whole re-point waits on the engine that can pick it (TEXT WAITS, below).
-      const pill = ':is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)';
+      const pill = ':is(.roadmap .horizon-head > .lat-pill, .roadmap thead th:not(:first-child) > .lat-pill)';
       w(supports([
         rule(name, ':is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)', [
           `--phase-accent: ${ONE}`,
           `--phase-ink: ${ONE_INK}`,
         ]),
-        rule(name, pill, [`color: ${inkOn(ONE)}`]),
+        rule(name, pill, [`--lat-pill-ink: ${inkOn(ONE)}`]),
       ].join('\n')));
     }
 

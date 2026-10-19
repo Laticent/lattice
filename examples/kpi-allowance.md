@@ -35,13 +35,13 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 1. 218
    - Adults enrolled
-   - target 200 · +9% `On plan` `Funder`
+   - target 200 · +9% `{On plan}` `{Funder}`
 2. 81%
    - Placement rate
-   - target 75% · +6pp `On plan` `Verified`
+   - target 75% · +6pp `{On plan}` `{Verified}`
 3. 92%
    - Credential pass rate
-   - target 85% `On plan` `Audited`
+   - target 85% `{On plan}` `{Audited}`
 
 ---
 
@@ -53,13 +53,13 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 1. 71%
    - Women enrolled
-   - of 218 total `On plan` `Verified`
+   - of 218 total `{On plan}` `{Verified}`
 2. 58%
    - Parents of minors
-   - supporting a household `On plan` `Funder`
+   - supporting a household `{On plan}` `{Funder}`
 3. 86%
    - Completion rate
-   - of those enrolled `On plan` `Audited`
+   - of those enrolled `{On plan}` `{Audited}`
 
 ---
 
@@ -69,16 +69,16 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 1. 4
    - Tiles per row
-   - the ceiling `On plan`
+   - the ceiling `{On plan}`
 2. 8
    - Words per tile
-   - soft budget `Board`
+   - soft budget `{Board}`
 3. 5s
    - Scan time
-   - the target `On plan`
+   - the target `{On plan}`
 4. 0
    - Prose sentences
-   - allowed here `Audit`
+   - allowed here `{Audit}`
 
 ---
 

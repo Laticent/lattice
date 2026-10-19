@@ -19,7 +19,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 | `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
 | `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
 | `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. To try the layout before you have the marks, use Lattice's sample logos: `![Acme](sample:logo-acme.svg)` (the full set is in `lib/samples/README.md`). |
-| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
+| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark. |
 
 ### Variant decision rule
 
@@ -29,7 +29,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 ### Common mistakes
 
-- **Writing a caption's pill as plain nested text instead of backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
+- **Writing a caption's pill as plain nested text instead of `{…}` in backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a `{…}` token in backticks (e.g. `` `{Series B}` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
 - **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
 - **An SVG mark whose viewBox carries empty margin around the logo.** Equal weight is measured on the mark's box, not its ink, so the margin counts as mark and the logo draws smaller than its neighbors. Crop each SVG's `viewBox` to its ink.
 - **Packing more marks than the slide can hold at a readable size.** A wall that would fit only with marks too small to read keeps the equal-cell grid, and the export flags its overflow. Split the roster across two slides, or drop the captions.
@@ -58,7 +58,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 - ![First brand](sample:logo-acme.svg)
   - First brand
-  - `Series B`
+  - `{Series B}`
 - ![Second brand](sample:logo-globex.svg)
   - Second brand
 - ![Third brand](sample:logo-vantage.svg)

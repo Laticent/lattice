@@ -121,6 +121,23 @@ test('a cloned chart suffixes EVERY id it defines, whatever the id looks like', 
 	assert.equal((articleHtml.match(/url\(#pie-wedge-80-2-a\)/g) || []).length, 2, 'both url(#…) forms follow the id');
 });
 
+test('a figure NESTED in a blockquote or list is re-id\'d too: no id appears in both the slide and the article', () => {
+	// followups.d/2739-p8: only the top-level figure shapes went through `reidClone`; a diagram inside a blockquote
+	// reached the article as its parent's raw `outerHTML`, so `id="lattice-mmd-1"` and every marker, shadow and
+	// gradient inside it existed twice in one document.
+	for (const wrap of ['blockquote', 'ul']) {
+		const inner = `<svg role="img" aria-labelledby="lattice-mmd-1-t" id="lattice-mmd-1"><title id="lattice-mmd-1-t">Flow</title><defs><marker id="lattice-mmd-1_pointEnd"/><filter id="lattice-mmd-1-shadow"/></defs><path marker-end="url(#lattice-mmd-1_pointEnd)" filter="url(#lattice-mmd-1-shadow)"/></svg>`;
+		const block = wrap === 'ul' ? `<ul><li>Step one ${inner}</li></ul>` : `<blockquote><p>A quoted flow</p>${inner}</blockquote>`;
+		const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Quoted</h2></div>${block}</div></section>`);
+		const { articleHtml } = project(secs);
+		for (const id of ['lattice-mmd-1', 'lattice-mmd-1-t', 'lattice-mmd-1_pointEnd', 'lattice-mmd-1-shadow']) {
+			assert.doesNotMatch(articleHtml, new RegExp(`id="${id}"`), `${wrap}: ${id} is duplicated by the article copy`);
+			assert.match(articleHtml, new RegExp(`id="${id}-a"`), `${wrap}: ${id} was not suffixed`);
+		}
+		assert.match(articleHtml, /url\(#lattice-mmd-1_pointEnd-a\)/, `${wrap}: a reference did not follow its id`);
+	}
+});
+
 test('a cloned chart moves EVERY reference form, not just the two the first cut knew', () => {
   // The first "shape-agnostic" cut claimed "a new reference form cannot be missed" and missed seven.
   // Each row below had its DEFINITION renamed and its REFERENCE left behind — which is worse than

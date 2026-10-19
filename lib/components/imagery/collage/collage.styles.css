@@ -133,10 +133,13 @@ section.collage.collage > .lat-pagination {
 		z-index: 1;
 	}
 }
-section.collage .collage-list:has(> li.is-hot) > li:not(.is-hot) {
+/* `[data-host-hover]` is `:hover` bridged from a host whose preview takes no pointer events (the
+ * Studio's preview box): the host hit-tests the pointer and marks the tile under it
+ * (docs/src/playground/collage-host.js `hoverCollageAt`). It reads exactly like `.is-hot`. */
+section.collage .collage-list:has(> li:is(.is-hot, [data-host-hover])) > li:not(.is-hot, [data-host-hover]) {
 	opacity: var(--collage-recede);
 }
-section.collage .collage-list > li.is-hot {
+section.collage .collage-list > li:is(.is-hot, [data-host-hover]) {
 	transform: scale(var(--collage-pop));
 	transform-origin: var(--collage-origin, 50% 50%);
 	z-index: 1;

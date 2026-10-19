@@ -49,6 +49,29 @@ describe('contributes.inline', () => {
     expectError([plugin('a', { inline: { k: { sigil: '^' } } }), plugin('b', { inline: { j: { sigil: '^' } } })], /claims the sigil "\^", which plugin "a" \(k\) already claims/);
     expectError([plugin('a', { inline: { pill: { sigil: '^' } } })], /inline kind "pill", which the host already owns/);
   });
+  test('the bare record `{…}` is an UNTAGGED kind, and only an embedded plugin may claim it, once', () => {
+    const embedded = (name, kind = 'pill', extra = {}) => {
+      const p = plugin(name, { inline: { [kind]: { untagged: true, ...extra } } });
+      p.manifest.embedded = true;
+      return p;
+    };
+    assert.deepEqual(errorsOf([embedded('pills')]), []);
+    expectError([plugin('a', { inline: { k: { untagged: true } } })], /is untagged, and only an embedded plugin may claim the bare record/);
+    expectError([embedded('a', 'k'), embedded('b', 'j')], /is untagged, and plugin "a" already claims the bare record/);
+    expectError([embedded('a', 'k', { sigil: '^' })], /is untagged and also declares the sigil "\^"/);
+    // The kind NAME `pill` is the host's: a plugin that is not embedded can never draw `@pill{…}`.
+    expectError([plugin('a', { inline: { pill: { sigil: '^' } } })], /inline kind "pill", which the host already owns/);
+  });
+  test('an embedded plugin may require only embedded plugins, so no switch can take it down', () => {
+    const base = plugin('pills', { inline: { pill: { untagged: true } } });
+    base.manifest.embedded = true;
+    base.manifest.requires = ['icons'];
+    const icons = plugin('icons', { inline: { icon: { sigil: '^' } } });
+    expectError([icons, base], /is embedded but requires "icons", which is not/);
+    base.manifest.requires = [];
+    base.manifest.optional = ['icons'];
+    assert.deepEqual(errorsOf([icons, base]), []);
+  });
   test('the module must export every kind, with all four functions, and nothing undeclared', () => {
     expectError([plugin('a', { inline: { k: { sigil: '^' } } }, { inline: [] })], /declares inline kind "k" but its a\.inline\.js exports none/);
     expectError([plugin('a', { inline: { k: { sigil: '^' } } }, { inlineFns: { k: ['resolve', 'html'] } })], /inline kind "k" exports no element\(\)/);

@@ -118,6 +118,37 @@ export function tapCollageAt(frame, clientX, clientY) {
 }
 
 /**
+ * HOVER, BRIDGED THE SAME WAY (`hoverCodeCopyAt` does it for a code block's copy buttons). The
+ * Studio's preview box takes no pointer events, so `:hover` never reaches a tile inside the frame:
+ * the hovered photo never grew and its neighbors never receded. The host hit-tests the pointer as
+ * it moves and marks the tile under it with `data-host-hover`, which collage.styles.css reads
+ * beside `:hover`. One marked tile per frame; a move elsewhere, or `null` coordinates (the pointer
+ * left the preview), clears it. A host whose frame takes the pointer itself needs none of this.
+ * @param {HTMLIFrameElement|null|undefined} frame
+ * @param {number|null} clientX
+ * @param {number|null} clientY
+ * @returns {boolean} true when the pointer is over a collage tile
+ */
+export function hoverCollageAt(frame, clientX, clientY) {
+	try {
+		const doc = frame?.contentDocument;
+		if (!doc) return false;
+		let tile = null;
+		if (clientX !== null && clientY !== null && frame.style.opacity !== '0') {
+			const g = frameGeom(frame);
+			if (g?.S) tile = doc.elementFromPoint((clientX - g.fr.left) / g.S, (clientY - g.fr.top) / g.S)?.closest?.('.collage-tile') ?? null;
+		}
+		// Read the marker back before writing it: a write to the frame's DOM that changes nothing still
+		// wakes its mutation observers, and this runs on every pointer move.
+		for (const was of doc.querySelectorAll('.collage-tile[data-host-hover]')) if (was !== tile) was.removeAttribute('data-host-hover');
+		if (tile && !tile.hasAttribute('data-host-hover')) tile.setAttribute('data-host-hover', '');
+		return Boolean(tile);
+	} catch (_e) {
+		return false; // a torn-down or cross-origin frame: nothing to mark
+	}
+}
+
+/**
  * Install the open bridge on a preview iframe's window: the frame's guard calls
  * `window.__collageOpen(tile)`. Safe to call after every srcdoc rewrite.
  * @param {Window|null|undefined} win

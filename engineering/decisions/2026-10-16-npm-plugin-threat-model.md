@@ -218,6 +218,35 @@ UNVERIFIED in those engines): the `--player` export leaves `navigate`, `windowop
   plugin can carry text from an earlier slide into later output. It stays inside one deck and
   reaches the page only as sanitized markup.
 
+### 5.4 The exits a policy cannot close, and the owner's decision (2026-10-18)
+
+The export check (§5.2 part 3) found ten exits open in the plain `.html` export and five in `--player`. A
+content-security policy closes some and cannot close the rest. Measured on real exports in Chromium 131,
+WebKit 26.0 and Firefox 142.0.1, each cell beside a control that reached the listener:
+
+| Exit a running script tries | Plain export, before | Plain export, after the lock | `--player` |
+|---|---|---|---|
+| `<script src>`, `<iframe>`, CSS `@import`, `<link rel=stylesheet>`, `<link rel=prefetch>` | open | **closed** (`default-src`, `script-src`, `style-src`, `frame-src`) | closed already (`default-src 'none'`) |
+| `location.href`, `window.open`, WebRTC, a `<meta http-equiv=refresh>`, a `target=_blank` link | open | **open** | **open** |
+
+No content-security directive governs the second row: `navigate-to` was removed from the spec, and WebRTC and
+popups have no directive at all. `--player` already has the strictest policy a page can carry and still
+leaves all five open, which is the proof. The only things that would close them are running the deck in a
+sandboxed frame (no popups, no top navigation; WebRTC still open) or never letting a hostile script run.
+
+**Decision (owner, 2026-10-18): close the five a policy can, accept the five it cannot.** The plain export adds
+the four directives from `lib/core/export-load-lock.js` (the CLI's `lattice.js` only; the Playground preview keeps the
+narrow default because it loads KaTeX's stylesheet from a remote origin, and the shared `subresource-csp.mjs` stays
+untouched so the Studio bundle gains no bytes). A deck that deliberately loads its own remote script, frame or stylesheet in the plain `.html` keeps them by exporting with `--allow-remote`, the flag that already means "this export may reach the network"; the lock is on by default. (A deck author's raw HTML stays live in the plain export by design, `design/skill.md` §Raw HTML, so this is a visible change for such decks and the changelog fragment leads with **Breaking:**.) The accepted five are named in the
+nightly export check, which fails if a sixth opens and fails if an accepted one closes, so the list cannot
+rot. The exit criterion for phase G therefore rests on **no hostile script ever reaches an export**:
+v1 sends no plugin code to an export (§6 decision 10), and `--player` pins its one script by SHA-256. A later
+version that delivers plugin script to an export must first reopen this decision (sandboxed frame, or refuse).
+
+Checked that the lock costs no rendering: 5 decks (KaTeX, Mermaid, function-plot, charts, the export
+coverage deck) exported with and without the four directives, opened in all three engines, produce
+0 policy violations and byte-identical screenshots; the check was re-run on Chromium 141.0.7390.37 (a second Chrome) and on exports served over http instead of `file://`, with the same five open exits and every control firing.
+
 ## 6. Decisions
 
 The owner answered on 2026-10-17. Rows 1 to 5 keep the original question numbers; row 6 is a new

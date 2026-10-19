@@ -95,10 +95,10 @@ Columns size to what is in them, and the deck says which column should absorb th
 
 ## Every variant inherits the same tracks.
 
-1. api `stable`
-2. cli `stable`
-3. sdk `beta`
-4. web `preview`
+1. api `{stable}`
+2. cli `{stable}`
+3. sdk `{beta}`
+4. web `{preview}`
 
 <!-- _footer: "`register` — the pills sit at the right edge instead of a fixed 0.9fr column." -->
 

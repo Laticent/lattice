@@ -859,8 +859,12 @@ defects where they met:
   panel. The seed is now `deckClassTokensFromFrontMatter` of a closed block, the tokens the engine
   itself admits.
 
-Still open: a setext underline (`Title\n---`) reads as a slide break to the lift but as a heading
-to the engine (followups.d/2739-p10-bg-lift-setext-underline.md).
+Still open: the lift's `---` line walk disagrees with the engine on a setext underline (`Title\n---`),
+other rule forms, a `---` in `$$` math and a directive indented as code (673 of 5,289 fuzzed markers
+on `main`). #2776 tried a better walk and then a read through `slideClassSpans`; the second matched
+the engine on every fuzzed marker but cost a second parse and ~1.6 KB gz on an engine already at its
+ceiling, so both came out. The design left is a token rule inside the engine's own parse
+(followups.d/2739-p10-bg-lift-setext-underline.md).
 
 ### 11.8 The Studio's player shipped the authoring overflow marker to its reader
 

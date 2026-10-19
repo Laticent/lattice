@@ -188,7 +188,7 @@ describe('chart-finish.generated.css', () => {
     const open = css.lastIndexOf('@supports', at);
     assert.ok(open >= 0 && !css.slice(open, at).includes('\n}\n}'), 'the re-point sits inside @supports');
     const block = css.slice(open, css.indexOf('\n}\n}', at));
-    assert.match(block, /:where\(:is\(\.roadmap \.horizon-meta[^{]*\{\s*color: oklch\(from var\(--chart-cat-1-hue\)/);
+    assert.match(block, /:where\(:is\(\.roadmap \.horizon-head > \.lat-pill[^{]*\{\s*--lat-pill-ink: oklch\(from var\(--chart-cat-1-hue\)/);
   });
 
   // The body a finish gives the status mark selected by `sel` (its first paint declaration).

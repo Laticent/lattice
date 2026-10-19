@@ -466,6 +466,30 @@ const PROBES = {
       ),
   },
 
+  // The actors shape: a trailing `{…}` pill stays a SIBLING of the <strong> label, so the
+  // component's `li > .lat-pill` placement rule matches. The runtime builds the pill before
+  // its label lift runs, so the lift has to know a pill span is a chip as well as a `<code>`;
+  // when it did not, the pill landed INSIDE the <strong> and rendered inline and unhued in a
+  // real marp-cli export (found by driving that export, never by a test).
+  'slotLabelLift@actors-pill': {
+    row: 'slotLabelLift',
+    min: 2,
+    minMatch: /pill:\S/,
+    section: 'actors',
+    body: [
+      '## Owners', '',
+      '- Owns the scoring model `{Head of Product}`', '  - The one person who can change a weight.',
+      '- Runs the weekly review `{Chief of Staff}`', '  - Convenes it and chairs it.',
+    ].join('\n'),
+    probe: (doc) =>
+      [...doc.querySelectorAll('section > * > ul > li, section ul > li')]
+        .filter((li) => li.querySelector(':scope > strong'))
+        .map((li) => {
+          const pill = [...li.children].find((c) => c.classList?.contains('lat-pill'));
+          return `${li.querySelector(':scope > strong').textContent.replace(/\s+/g, ' ').trim()}|pill:${pill ? pill.textContent.trim() : ''}`;
+        }),
+  },
+
   glossaryListToTable: {
     min: 4,
     section: 'glossary',
@@ -498,7 +522,7 @@ const PROBES = {
       '- Cadence', '  - How much new information per slide.',
       '- Zone', '  - The region a deck is scoped to.',
     ].join('\n'),
-    probe: (doc) => [...doc.querySelectorAll('.range-pill')].map((p) => p.textContent.trim()),
+    probe: (doc) => [...doc.querySelectorAll('[data-glossary-range]')].map((p) => p.textContent.trim()),
   },
 
   deckClassPropagate: {

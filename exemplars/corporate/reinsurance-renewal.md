@@ -148,13 +148,13 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 1. $410M
    - 1-in-200 hurricane loss
-   - limit $450M `On plan` `Board`
+   - limit $450M `{On plan}` `{Board}`
 2. 4.1%
    - Retention share of surplus
-   - limit 5.0% `On plan` `Board`
+   - limit 5.0% `{On plan}` `{Board}`
 3. A+
    - Weakest panel rating
-   - floor A- `On plan` `Audit`
+   - floor A- `{On plan}` `{Audit}`
 
 ---
 
@@ -167,10 +167,10 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 - ![Acme Re](sample:logo-acme.svg)
   - Acme Re
-  - `Lead · 30%`
+  - `{Lead · 30%}`
 - ![Globex Re](sample:logo-globex.svg)
   - Globex Re
-  - `20%`
+  - `{20%}`
 - ![Vantage Re](sample:logo-vantage.svg)
 - ![Umbra Re](sample:logo-umbra.svg)
 - ![Meridian Re](sample:logo-meridian.svg)

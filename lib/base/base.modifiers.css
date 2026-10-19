@@ -660,77 +660,13 @@ section footer {
 
 
 
-/* ── UNIVERSAL PILL ─────────────────────────────────────────────────────────
- * Trailing inline `code` on any list row, in any layout, is metadata.
- * One rule, one authoring contract: `- row text \`metadata\``.
- *
- * The :where() wrapper keeps specificity at (0,0,4) so per-layout
- * overrides — cards-grid grid placement, actors categorical hue —
- * win the cascade without needing !important.
- *
- * Two shapes are pills: a trailing `code` that is the literal :last-child
- * of the row, and a trailing `code` on the row's TITLE line immediately
- * before a nested description list \u2014 authoring shape:
- * `- Label \`pill\`\n  - description`. The second can't be matched in CSS
- * (`code:has(+ :is(ul,ol))` would also catch a MID-sentence `code` on a row
- * that happens to have a nested list, because `+` skips the intervening text
- * node), so the `pill-tag` transformer adds `.lat-pill` to the genuine case
- * across all three render paths and the arm matches that class. Mid-sentence
- * `code` references stay normal inline code.
- * See lib/transformers/pill-tag.js + 2026-06-08-inline-code-contrast.md.
- *
- * Per-layout custom-property hooks (defaults in parens):
- *   --pill-border  (var(--muted-mark))   border color
- *   --pill-bg      (var(--bg))           fill color
- *   --pill-fg      (var(--text-body))    text color
- *
- * Deny list = layouts where a metadata pill does not earn its place,
- * OR where the row container is grid/scaffold and the pill needs a
- * per-layout placement override before it can join the allow list:
- *   bookends/openers     title, divider, closing, split-panel
- *   single-message       big-number, kpi, stats, quote
- *   own metadata channel glossary (range-pill), agenda (page pointer),
- *                        list-steps (counter), list (own line),
- *                        verdict-grid/decision/matrix-2x2 (chrome),
- *                        compare-prose (connector), table/roadmap (table)
- *   non-list             content, code, compare-code, image, diagram
- *   needs placement      list, list-tabular
- *                        (grid/scaffold rows where margin-left:auto cannot
- *                        right-anchor; opt in by adding a per-layout rule
- *                        modeled on the actors override)
- *
- * Allow list (renders correctly today): cards-grid, cards-stack,
- * actors, checklist. cards-grid/cards-stack carry their own
- * full-chrome pill rule (the emulator `.card` path is not inside a ul/ol,
- * so the universal selector can't reach it); the rest rely on this rule.
- * Plus any future layout whose `> li` is `display:flex`. */
-section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-tabular):not(.math):not(.pricing))
-  > :where(ul, ol) > li > code:where(:last-child, .lat-pill),
-section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-tabular):not(.math):not(.pricing))
-  > .cell-stage > :where(ul, ol) > li > code:where(:last-child, .lat-pill) {
-  /* IRREDUCIBLE flex auto-margin (HARD RULE #20 sanctioned floor): pushes the trailing
-   * pill to the row's right edge. The preceding label is an ANONYMOUS text run, so it
-   * can't take `flex:1` and `justify-content:space-between` would scatter multi-item
-   * labels — `margin-left:auto` is the only clean push. Horizontal + flex-resolved, so
-   * it never touches the vertical height math the rule guards. Counted in MARGIN_BUDGET. */
-  margin-left:auto;
-  align-self:center;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  line-height:1;
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  border:1px solid var(--pill-border, var(--muted-mark));
-  background:var(--pill-bg, var(--bg));
-  color:var(--pill-fg, var(--text-body));
-  border-radius:var(--pill-radius);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  white-space:nowrap;
-}
+/* ── A TRAILING `code` IS PLAIN INLINE CODE ──────────────────────────────────
+ * There is no universal pill rule. A row that wants a pill writes one in the pills plugin's
+ * notation, `` `{metadata}` ``, and the plugin draws it (lib/plugins/pills/); a component places it
+ * and tints it through `--lat-pill-*`. Until 2026-10 a trailing `code` on any list row was promoted
+ * to a metadata pill by position; that rule, its `pill-tag` transformer and the per-component copies
+ * of its chrome are gone, because a pill that looks like a pill by where it sits is a pill with no
+ * name. engineering/decisions/2026-10-17-pills-plugin.md. */
 
 
 
@@ -3840,13 +3776,12 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    first pass; a full computed-style diff with them removed changed three properties and NO
    geometry at all, so they were a dead half of a contradiction a reader had to resolve.
 
-   It reuses the universal `--pill-*` register (#15) rather than inventing a fourth pill: same
-   radius, padding, weight and tracking as every other pill in the engine, and `--pill-fs`, which
-   the typography generator emits per SECTION so it tracks the slide's orientation instead of
-   baking in the landscape meta size. Following the register's own convention, the ONE axis this
-   deliberately overrides is named here: the FILL is `--bg-alt` rather than the register's `--bg`,
-   because a signal on the page's own canvas needs to separate from it — `--bg` would be an
-   outline with no body.
+   It is the engine's own pointer, not a pill, so it states its own type and shape: the base meta
+   size (`--fs-meta`, which the typography generator emits per SECTION so it tracks the slide's
+   orientation instead of baking in the landscape meta size), a capsule end from the base radius
+   scale, weight 600 and 0.04em tracking — the values the pointer always had. The FILL is
+   `--bg-alt`, because a signal on the page's own canvas needs to separate from it — `--bg` would
+   be an outline with no body.
 
    THE INK IS `--text-body`, AND IT GOT THERE BY MEASUREMENT AFTER A WRONG ANSWER. It was
    `--text-secondary`, on the reasoning that this is "wayfinding beside content, not content".
@@ -3920,16 +3855,16 @@ section.form.lat-split-native > .lat-split-rel {
   align-items: center;
   gap: 0.45em;
   max-width: 100%;
-  font-family: var(--pill-font);
-  font-size: var(--pill-fs);
-  font-weight: var(--pill-weight);
-  letter-spacing: var(--pill-tracking);
+  font-family: var(--font-body);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
   line-height: 1;
-  border: 1px solid var(--pill-border, var(--muted-mark));
-  background: var(--pill-bg, var(--bg-alt));
-  color: var(--pill-fg, var(--text-body));
-  border-radius: var(--pill-radius);
-  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border: 1px solid var(--muted-mark);
+  background: var(--bg-alt);
+  color: var(--text-body);
+  border-radius: var(--radius-full);
+  padding: 0.3em 0.75em;
 }
 /* The label carries the clip, not the pill: `text-overflow` never applies to a flex CONTAINER,
    so on the container it would have clipped mid-word with no ellipsis. */
@@ -4227,293 +4162,6 @@ section > .slide-edge[data-lattice-berth] {
 @media print {
   section { --slide-edge-k: 0 !important; }
 }
-
-/* ── Inline pills — `{LABEL}:shape:c4:lg` ──────────────────────────────────────
- * A `{LABEL}` inside SINGLE-backtick inline code is decoded by
- * `lib/core/inline-pills.js` into `<span class="lat-pill" data-shape=…>`. See that
- * file for the grammar and for why `{}` rather than the ADR's bracket geometry.
- *
- * THESE REUSE THE `--pill-*` TOKENS ABOVE (HARD RULE #15). The trailing-`code`
- * metadata pill and this one are the same visual family reached two ways —
- * positionally (last child of a row) and explicitly (the author asked). Sharing the
- * token family is what keeps them from drifting into two different-looking pills.
- * The two never collide in the cascade: that rule selects `code`, this one selects
- * `[data-shape]`, which only the decoder emits.
- *
- * Shape is GEOMETRY ONLY — every color goes through a token (HARD RULE #3), and no
- * shape is drawn with a typed glyph (#29): a chevron is a clip-path on our own box,
- * not a `❯` borrowed from whatever font the machine has. */
-.lat-pill[data-shape] {
-  /* `inline-block`, not `inline-flex`, because of `text-box` below: it trims a BLOCK
-   * container's first and last line, and in an inline-flex pill the label sits in an
-   * anonymous flex item that never receives the property. Centering needs no flex
-   * here: `text-align` does the horizontal, the padding does the vertical. */
-  display:inline-block;
-  text-align:center;
-  /* `letter-spacing` adds its space AFTER every letter, the last one included, so a
-   * tracked label carries half a letter-space of dead room on its right and reads left
-   * of center. Measured, 0.3–0.5px left in all three engines at 15px. Indenting the line
-   * by the same tracking puts the matching space on the left. */
-  text-indent:var(--pill-tracking);
-  /* `middle`, not `baseline`. When this was an inline-flex box its baseline was its
-   * BOTTOM MARGIN EDGE, so a baseline-aligned pill hung below the text it sits in — and by a distance that
-   * scales with the type: measured, 2.9px low in 21px body prose and 11px low in a 37px
-   * heading, where it reads as a mistake. `middle` puts the box's centre on the text's
-   * optical centre instead, which is what a reader expects of a chip in a line of words. */
-  vertical-align:middle;
-  line-height:1;
-  font-family:var(--pill-font);
-  /* THE SIZE FOLLOWS THE TEXT THE PILL SITS IN, so an author never types a size for the
-   * common cases. `em` here is the surrounding text's size:
-   *   - in a heading, half of it: 24pt in a 48pt title, 14pt in a 28pt slide title;
-   *   - in body text, table cells and cards, `--pill-fs` exactly as before, because
-   *     half of 13.5–16pt is under the meta size and the `max()` floor holds;
-   *   - in small print (a footer, a meta-sized caption), 0.85 of that text, the old
-   *     `:sm`, so a pill never towers over the words around it.
-   * The below-note and captions are small by ROLE, not by size (a plain below-note is
-   * set at body size), so they set `--lat-pill-base` to the `:sm` step outright; see
-   * the rule after this one. `:sm` / `:lg` still multiply whatever the context gave, so
-   * `:lg` in a footer is a larger footer pill, not a heading pill. */
-  --lat-pill-base:max(var(--pill-fs), 0.5em);
-  font-size:calc(min(0.85em, var(--lat-pill-base)) * var(--lat-pill-scale, 1));
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  /* Vertical padding goes through two variables so the centering branches below can
-   * set them, and a shape with a heavier stroke (`tag-bordered`) can take its extra
-   * stroke width back out via `--lat-pill-inset` without undoing either branch. */
-  --lat-pill-pt:var(--pill-pad-y);
-  --lat-pill-pb:var(--pill-pad-y);
-  padding:calc(var(--lat-pill-pt) - var(--lat-pill-inset, 0px)) calc(var(--pill-pad-x) - var(--lat-pill-inset, 0px)) calc(var(--lat-pill-pb) - var(--lat-pill-inset, 0px));
-  border:1px solid var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
-  background:var(--lat-pill-bg, var(--pill-bg, var(--bg)));
-  color:var(--lat-pill-ink, var(--pill-fg, var(--text-body)));
-  border-radius:var(--pill-radius);
-  white-space:nowrap;
-  /* A capsule's outer height: one line of pill type (line-height 1), both paddings,
-   * both 1px borders. The circle and diamond size their square box from it, so every
-   * shape on a line shares one height. */
-  --lat-pill-h:calc(1em + 2 * var(--pill-pad-y) + 2px);
-  /* OUTER breathing room, and `margin` is provably the only mechanism (HARD RULE #20
-   * sanctioned floor). Measured on the same pill: `padding-inline:1.2em` grew the
-   * CHROME from 58.9px to 73.3px and produced 0px of outside space — padding makes the
-   * pill bigger, it does not separate it from the words either side. `margin-inline`
-   * left the chrome at 58.9px and opened 5.59px. A wrapper element would also work and
-   * is what this avoids: a span around every pill, in both render paths, for spacing.
-   * HORIZONTAL ONLY, which is what keeps it off the rule's actual target — horizontal
-   * margins never collapse, and the measurement confirms the block height is 27.6px
-   * with and without. Counted in MARGIN_BUDGET. */
-  margin-inline:0.22em;
-}
-
-/* ── Optical centering: the label sits on the box's center in every engine ────────
- * The pill's own padding is symmetric, but that centers the LINE BOX, not the letters.
- * Where the glyphs land inside a `line-height:1` line is up to each engine's reading of
- * the font's metrics and its pixel rounding, and the engines disagree. Measured on
- * Outfit 600 at 15px, cap-height center against the box center (negative = high):
- * Chromium −0.5 to −1.1px, Firefox +0.1, WebKit −0.1 to −0.4, a 1.3px spread inside a
- * 26px box, which is plainly visible as a label that sits high in Chrome.
- *
- * `text-box: trim-both cap alphabetic` removes the question. It trims the line to the
- * cap height above the baseline, so the content box IS the capitals, and symmetric
- * padding then centers the capitals by construction, whatever the metrics or the
- * rounding. The padding grows by the trimmed amount, `(1em − 1cap) / 2` a side, so the
- * box keeps its capsule height (`--lat-pill-h`) and nothing around it moves. Measured
- * with it, the worst single pill is 0.58px off in Chrome 141, 0.21px in Firefox 156 and
- * 0.42px in WebKit 2.52; the mean is 0.24px, 0.09px and 0.15px. What is left is each
- * engine snapping glyphs to a whole pixel, plus `!` and `?`, which Outfit draws taller
- * than its capitals, so a diamond holding one reads about 0.3px high.
- * Lowercase descenders hang into the bottom padding, which is what a reader expects of
- * a label set on its capitals.
- *
- * THE FALLBACK IS FOR THE PDF. Our export renderer is the Chrome 131 that puppeteer
- * pins, and `text-box` shipped in Chrome 133 — so every exported PDF takes this branch,
- * as do Firefox and Safari releases from before it. Measured in the exported PDF,
- * Chrome 131 sets the label 0.97px high at the default size, 0.94px at `:lg` and 0.38px
- * at `:sm`. That is whole-pixel rounding, so no single offset is exact at every size.
- * Extra top padding, taken back from the bottom so the height holds, was swept from
- * 0.02em to 0.08em against the PDF. 0.05em gives the smallest worst case: 1.47px → 0.68px,
- * mean 0.92px → 0.30px. At 0.06em and above, `:lg` flips a whole pixel low.
- *
- * NOT ON A LARGE PILL. Measured again in the exported PDF (2026-10-06, Outfit), the shift pushes a
- * large pill LOW: an `h1` pill up to 2.25px, an `h2` pill 1.38px. Unshifted, every pill measured
- * at 18.67px and up sits within 0.63px (h1 at 27–38px, h2 at 18.7–22.4px). Below that the sizes
- * split both ways (an `h3` pill at 15.3px and a body `:sm` center better unshifted, others do
- * not), so the shift is left exactly as it was there. `clamp()` turns `(18.5px − 1em)` into the
- * full 0.05em below 18.5px and into 0 above it. The cut sits in the gap between the sizes that
- * exist today (18.4px, an `h3 :lg`, and 18.67px, an `h2`); a change to the heading scale or the
- * pill sizes can move a size across it, and it is in CSS px on the 1280×720 slide. No Outfit pill
- * measured got worse. Each pill's place in its line still moves it by about ±0.4px.
- *
- * NOT ON A SKETCH SLIDE. The sketch face sits differently: under the size rule its `h2` pill moved
- * from 0.13px to 0.88px off, so sketch keeps the old shift at every size. */
-@supports (text-box: trim-both cap alphabetic) {
-  .lat-pill[data-shape] {
-    text-box:trim-both cap alphabetic;
-    --lat-pill-pt:calc(var(--pill-pad-y) + (1em - 1cap) / 2);
-    --lat-pill-pb:calc(var(--pill-pad-y) + (1em - 1cap) / 2);
-  }
-}
-@supports not (text-box: trim-both cap alphabetic) {
-  .lat-pill[data-shape] {
-    --lat-pill-shift:clamp(0px, (18.5px - 1em) * 1000, 0.05em);
-    --lat-pill-pt:calc(var(--pill-pad-y) + var(--lat-pill-shift));
-    --lat-pill-pb:calc(var(--pill-pad-y) - var(--lat-pill-shift));
-  }
-  section.sketch .lat-pill[data-shape] { --lat-pill-shift:0.05em; }
-}
-
-/* Geometry per shape. `pill` is the default and needs no rule — it inherits the
- * capsule `--pill-radius`. */
-.lat-pill[data-shape='chip'] { border-radius:var(--radius-sm); }
-.lat-pill[data-shape='tag'] { border-radius:0; }
-/* Double stroke: a 3px `double` border, which draws line, gap, line inside the border
- * area. It used to be an outer ring (`0 0 0 2px var(--bg), 0 0 0 3px edge`), which
- * painted 3px past the border on every side: measured, it ate more than half of the
- * 0.22em outer gap and crowded the word or pill next to it. An inset shadow fixed that
- * but put the inner line 2–3px into the PADDING, where a lowercase descender hangs:
- * the `g` of `{Qg, tag-bordered}` ran through it at every size. The border keeps both
- * lines out of the padding, and `--lat-pill-inset` takes the 2px of extra border back
- * out of the padding, so the box is still exactly a capsule's size. */
-.lat-pill[data-shape='tag-bordered'] {
-  border-radius:0;
-  border-style:double;
-  border-width:3px;
-  --lat-pill-inset:2px;
-}
-
-/* THE ROUND AND POINTED SHAPES ARE AS TALL AS A CAPSULE, NOT TALLER. `--lat-pill-h` is a capsule's
- * outer height (one line of pill type, both paddings, both 1px borders), and the
- * circle and diamond boxes take exactly that height. They used to take `2em` and `2.4em` of
- * CONTENT box, plus the border: measured, 31.9px and 37.9px beside a 25.9px capsule, in
- * a list-tabular row whose line is 26.9px. Taller than the line, so every row or line of
- * prose holding one grew and the slide's rhythm broke wherever a circle or diamond
- * appeared. At the capsule's height the three sit on one center line and change nothing
- * around them. */
-.lat-pill[data-shape='circle'] {
-  box-sizing:border-box;
-  padding-inline:0.25em;
-  min-width:var(--lat-pill-h);
-  border-radius:var(--pill-radius);
-}
-/* The HEIGHT is the shared vertical padding plus one trimmed line, the same sum that
- * makes a capsule, so the circle needs no height of its own and its label is centered
- * by the same rule as every other shape. Only the WIDTH is the circle's: a minimum
- * equal to the height, so a digit or two sits in a round box (`12` is 17px wide, plus
- * 0.25em a side, inside a 26px circle). A wider label widens the box and the capsule
- * radius turns it into a capsule, and the 0.25em side padding keeps the text off the
- * curve: with none, `{WM, circle}` and `{1234, circle}` ran over the outline. */
-
-/* CLIPPED SHAPES DRAW THEIR STROKE AS A RING. Chevrons and the diamond are cut with
- * `clip-path`, which slices a border off on every cut edge — so they used to drop the
- * stroke entirely and render as flat tint, the only shapes in the family with no edge.
- * Now the element keeps its fill and its cut, and `::after` lays a 1px ring of the edge
- * color over the rim: an `evenodd` polygon, the outer outline followed by the same
- * outline inset by the stroke, so everything inside is a hole. A hole is what lets it
- * sit ABOVE the fill without covering the label, with no `z-index` at all — a layered
- * fill-under-text version needs a negative one, which the depth-axis gate rightly bars.
- *
- * The inset outline is not a uniform inset of the box. A stroke on a slanted edge is
- * measured perpendicular to it, so each vertex moves by the stroke divided by the sine
- * of its edge's angle; the constants below are those factors for a capsule-height box
- * (chevron: a 0.5em point on a ~1.6em box; diamond: about 1.7:1, its usual width for one or
- * two characters). `-1px` on the ring's inset
- * puts it on the border edge, over the real border on a chevron and in place of it on the diamond. */
-.lat-pill[data-shape='chevron-right'],
-.lat-pill[data-shape='chevron-left'],
-.lat-pill[data-shape='diamond'] {
-  position:relative;
-  border-radius:0;
-}
-/* A chevron keeps its REAL border for the flat edges. The ring alone left the flat end of
- * a left chevron half-width in the PDF (measured at 1200dpi: 7 device px against 13 for
- * the top edge). Chrome snaps the overlay's box to whole pixels but clips at the pill's
- * fractional edge, so that edge fell between the two. A border paints on the same box
- * as the fill, so it cannot drift from it; the ring, drawn in the same color, still
- * supplies the slanted edges the clip cuts the border off. The diamond has no flat
- * edge, so its border stays transparent and the ring draws all four sides. */
-.lat-pill[data-shape='diamond'] { border-color:transparent; }
-.lat-pill:is([data-shape='chevron-right'], [data-shape='chevron-left'], [data-shape='diamond'])::after {
-  content:'';
-  position:absolute;
-  inset:-1px;
-  background:var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
-  pointer-events:none;
-}
-/* The extra inline padding is the room the point needs. */
-.lat-pill[data-shape='chevron-right'] {
-  padding-right:calc(var(--pill-pad-x) + 0.5em);
-  clip-path:polygon(0 0, calc(100% - 0.5em) 0, 100% 50%, calc(100% - 0.5em) 100%, 0 100%);
-}
-.lat-pill[data-shape='chevron-right']::after {
-  clip-path:polygon(evenodd,
-    0 0, calc(100% - 0.5em) 0, 100% 50%, calc(100% - 0.5em) 100%, 0 100%, 0 0,
-    1px 1px, calc(100% - 0.5em - 0.6px) 1px, calc(100% - 1.2px) 50%,
-    calc(100% - 0.5em - 0.6px) calc(100% - 1px), 1px calc(100% - 1px), 1px 1px);
-}
-.lat-pill[data-shape='chevron-left'] {
-  padding-left:calc(var(--pill-pad-x) + 0.5em);
-  /* The flat right edge is drawn 1px PAST the box. WebKit rounds a clip-path's reference
-   * box down to a whole pixel, so on a pill 88.625px wide a clip at `100%` fell at 88px
-   * and cut the 1px stroke away entirely (seen at 1x, 2x and 3x; Chrome and Firefox
-   * clip at the true edge). Nothing paints outside the box, so the overshoot costs
-   * nothing where the rounding does not happen. The left point is at `0`, which no
-   * rounding moves, and chevron-right's flat side is its left, so it needs none. */
-  clip-path:polygon(0.5em 0, calc(100% + 1px) 0, calc(100% + 1px) 100%, 0.5em 100%, 0 50%);
-}
-.lat-pill[data-shape='chevron-left']::after {
-  clip-path:polygon(evenodd,
-    0.5em 0, calc(100% + 1px) 0, calc(100% + 1px) 100%, 0.5em 100%, 0 50%, 0.5em 0,
-    calc(0.5em + 0.6px) 1px, calc(100% - 1px) 1px, calc(100% - 1px) calc(100% - 1px),
-    calc(0.5em + 0.6px) calc(100% - 1px), 1.2px 50%, calc(0.5em + 0.6px) 1px);
-}
-.lat-pill[data-shape='diamond'] {
-  /* A FLAT RHOMBUS at capsule height. It used to be a 2.4em square, 37.9px tall beside a
-   * 25.9px capsule. A rhombus is full-width only along its midline: at the height of the
-   * capitals it has narrowed by roughly half, so a label needs a box about twice its
-   * own width. The box widens instead of heightening, so the line never grows:
-   *   - `min-width` 1.6× the height holds one character or two digits;
-   *   - side padding of 1.1em grows the box WITH the label, so two wide letters
-   *     (`{WM, diamond}`) still clear the outline. A fixed 1.4:1 box let `12` touch
-   *     the ring and `WM` overflow it.
-   * A word wants `tag` or `chip`, and `lint:deck` says so. */
-  box-sizing:border-box;
-  padding-inline:1.1em;
-  min-width:calc(var(--lat-pill-h) * 1.6);
-  clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-}
-.lat-pill[data-shape='diamond']::after {
-  clip-path:polygon(evenodd,
-    50% 0, 100% 50%, 50% 100%, 0 50%, 50% 0,
-    50% 1.15px, calc(100% - 2px) 50%, 50% calc(100% - 1.15px), 2px 50%, 50% 1.15px);
-}
-
-/* Quiet roles. A below-note is a caveat and a caption is a label, so their pills take
- * the small step whatever size the note is set at. `:where()` keeps this at the base
- * rule's specificity, so an explicit `:sm` / `:lg` still multiplies it. */
-:where(.below-note, .chart-caption, figcaption) .lat-pill[data-shape] {
-  --lat-pill-base:calc(var(--pill-fs) * 0.85);
-}
-
-/* Size axis. Scales the type, and the padding follows because it is set in `em`. */
-.lat-pill[data-size='sm'] { --lat-pill-scale:0.85; }
-.lat-pill[data-size='lg'] { --lat-pill-scale:1.2; }
-
-/* Color axis — ORDINAL slots onto the role-based categorical tokens (HARD RULE #11).
- * `--cat-N-fill` is the tint, `--cat-N-mark` the saturated edge, and `--cat-on-fill`
- * is the ink the existing categorical contrast policy already derives to clear AA on
- * that tint — so a slot needs no per-pill contrast math and no theme knows about it. */
-.lat-pill[data-c='c1']  { --lat-pill-bg:var(--cat-1-fill);  --lat-pill-edge:var(--cat-1-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c2']  { --lat-pill-bg:var(--cat-2-fill);  --lat-pill-edge:var(--cat-2-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c3']  { --lat-pill-bg:var(--cat-3-fill);  --lat-pill-edge:var(--cat-3-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c4']  { --lat-pill-bg:var(--cat-4-fill);  --lat-pill-edge:var(--cat-4-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c5']  { --lat-pill-bg:var(--cat-5-fill);  --lat-pill-edge:var(--cat-5-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c6']  { --lat-pill-bg:var(--cat-6-fill);  --lat-pill-edge:var(--cat-6-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c7']  { --lat-pill-bg:var(--cat-7-fill);  --lat-pill-edge:var(--cat-7-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c8']  { --lat-pill-bg:var(--cat-8-fill);  --lat-pill-edge:var(--cat-8-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c9']  { --lat-pill-bg:var(--cat-9-fill);  --lat-pill-edge:var(--cat-9-mark);  --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c10'] { --lat-pill-bg:var(--cat-10-fill); --lat-pill-edge:var(--cat-10-mark); --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c11'] { --lat-pill-bg:var(--cat-11-fill); --lat-pill-edge:var(--cat-11-mark); --lat-pill-ink:var(--cat-on-fill); }
-.lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }
 
 /* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
  * The six state markers inside SINGLE-backtick inline code decode to the same disc

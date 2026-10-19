@@ -107,27 +107,29 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'math', 'mermaid', 'meta', 'sparks']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'math', 'mermaid', 'meta', 'pills', 'sparks']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
     assert.deepEqual(a.active.map((g) => g.name).sort(), [...DEFAULT_PLUGINS].sort());
   });
 
-  it('with an empty default set, a plugin loads only when listed or required by a class', () => {
-    assert.deepEqual(names(admitPlugins('# Hi $x$\n', { defaults: [] })), []);
-    assert.deepEqual(names(admitPlugins('---\nplugins: [math]\n---\n# Hi\n', { defaults: [] })), ['math']);
-    assert.deepEqual(names(admitPlugins('<!-- _class: diagram -->\n# Flow\n', { defaults: [] })), ['mermaid']);
-    assert.deepEqual(names(admitPlugins('---\nclass: scene\n---\n# Flow\n', { defaults: [] })), ['anima']);
+  it('with an empty default set, a plugin loads only when listed or required by a class (and the embedded pills always loads)', () => {
+    // `pills` is embedded: admitted before every route, so even an empty default set loads it.
+    const noPills = (a) => names(a).filter((n) => n !== 'pills');
+    assert.deepEqual(names(admitPlugins('# Hi $x$\n', { defaults: [] })), ['pills']);
+    assert.deepEqual(noPills(admitPlugins('---\nplugins: [math]\n---\n# Hi\n', { defaults: [] })), ['math']);
+    assert.deepEqual(noPills(admitPlugins('<!-- _class: diagram -->\n# Flow\n', { defaults: [] })), ['mermaid']);
+    assert.deepEqual(noPills(admitPlugins('---\nclass: scene\n---\n# Flow\n', { defaults: [] })), ['anima']);
     // A pane renders as its component's class, so a pane marker is the component route too.
-    assert.deepEqual(names(admitPlugins('<!-- _pane: math -->\n$$x^2$$\n', { defaults: [] })), ['math']);
+    assert.deepEqual(noPills(admitPlugins('<!-- _pane: math -->\n$$x^2$$\n', { defaults: [] })), ['math']);
     // A chart FILLS the chart family's `kernel` slot, and filling it is requiring it (phase F): no
     // chart manifest carries a `plugins` block, and the class still loads the family.
-    assert.deepEqual(names(admitPlugins('<!-- _class: bar -->\n## Revenue\n', { defaults: [] })), ['chart-family']);
-    assert.deepEqual(names(admitPlugins('<!-- _pane: gantt -->\n- A `Q1`\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(noPills(admitPlugins('<!-- _class: bar -->\n## Revenue\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(noPills(admitPlugins('<!-- _pane: gantt -->\n- A `Q1`\n', { defaults: [] })), ['chart-family']);
     // A stray `<!--` quoted earlier (a code span, a fence) must not swallow a later directive: it
     // used to pair with the directive's `-->`, so the chart class was never read (red team).
-    assert.deepEqual(names(admitPlugins('# Intro\n\nWrite `<!--` to open one.\n\n---\n\n<!-- _class: bar -->\n\n## G\n', { defaults: [] })), ['chart-family']);
-    assert.deepEqual(names(admitPlugins('```html\n<!--\n```\n\n---\n\n<!-- _class: math -->\n', { defaults: [] })), ['math']);
+    assert.deepEqual(noPills(admitPlugins('# Intro\n\nWrite `<!--` to open one.\n\n---\n\n<!-- _class: bar -->\n\n## G\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(noPills(admitPlugins('```html\n<!--\n```\n\n---\n\n<!-- _class: math -->\n', { defaults: [] })), ['math']);
   });
 
   it('the usage probe admits nothing: a deck that USES a plugin it never loads keeps it off', () => {
@@ -177,9 +179,22 @@ describe('admitPlugins — the three routes', () => {
     assert.deepEqual(admitPlugins(deck).unloaded, [], 'the default set loads everything; the probe has nothing to say');
     const a = admitPlugins(deck, { defaults: [] });
     assert.deepEqual(a.unloaded.sort(), ['math', 'mermaid']);
-    assert.deepEqual(names(a), []);
+    assert.deepEqual(names(a), ['pills'], 'only the embedded plugin loads');
     assert.deepEqual(admitPlugins(deck, { disabled: ['math'] }).unloaded, [], "the host's own switch is not reported");
     assert.deepEqual(admitPlugins(deck, { defaults: [], disabled: ['math'] }).unloaded, ['mermaid'], 'listing cannot beat the switch, so it is not advised');
+  });
+
+  it('an EMBEDDED plugin is admitted first and nothing switches it off', () => {
+    const grammar = [
+      { name: 'core-ish', embedded: true, requires: [], optional: [], syntax: {}, fences: {}, detect: null },
+      { name: 'extra', embedded: false, requires: [], optional: [], syntax: {}, fences: {}, detect: null },
+    ];
+    const at = (opts) => admitPlugins('# Hi\n', { grammar, componentPlugins: {}, ...opts });
+    assert.deepEqual(names(at({ defaults: [] })), ['core-ish'], 'an empty default set still loads it');
+    assert.deepEqual(names(at({ disabled: ['core-ish', 'extra'] })), ['core-ish'], "the host's switch cannot turn it off");
+    assert.deepEqual(at({ disabled: ['core-ish'] }).off, [], 'and it is not reported off');
+    assert.deepEqual(at({ defaults: [], explain: true }).reasons['core-ish'], [{ kind: 'embedded' }]);
+    assert.deepEqual(at({ defaults: [], disabled: ['core-ish'] }).unloaded, []);
   });
 
   it('explains every route that admitted a plugin', () => {
@@ -271,4 +286,16 @@ describe('admission on the render paths', () => {
     bakeDeck(deck, {}, { bakers });
     assert.deepEqual(ran, ['mermaid', 'mermaid'], 'the default set');
   });
+});
+
+describe('the embedded set', () => { it('is pinned: adding a second embedded plugin is a decision, not a side effect', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', '..', '..', 'lib', 'plugins');
+  const embedded = fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, `${e.name}.manifest.json`)))
+    .filter((e) => JSON.parse(fs.readFileSync(path.join(dir, e.name, `${e.name}.manifest.json`), 'utf8')).embedded === true)
+    .map((e) => e.name);
+  assert.deepEqual(embedded, ['pills']);
+});
 });

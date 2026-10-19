@@ -1,0 +1,1 @@
+- The Studio preview now follows a host that narrows its plugin defaults while a deck is open: a diagram whose plugin goes off returns to its source, and draws again when the plugin comes back, with no edit and no reload.

@@ -1,0 +1,1 @@
+- Share → Webpage now says when a deck's fences will ship as source because their plugin is off ("1 mermaid fence will ship as source: the Mermaid diagrams plugin is off for this deck"), in the options panel before the export and in the completion message after it. Nothing shows when the plugin is on or the deck has no such fence.
