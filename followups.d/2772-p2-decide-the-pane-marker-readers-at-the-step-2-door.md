@@ -13,7 +13,7 @@ source: https://github.com/Laticent/lattice/pull/2772
 The reader decision is made (design §5.4.1): all six pane marker readers move at the door, and the census marks them `door`.
 Building it is step 2 work, not done here. When the door lands, the census must show no `door` row.
 
-Eight more files carry their own pane regex. They are traced in design §5.4.2: all read authored text, so all move to `parsePaneMarker`.
+The other pane readers are traced in design §5.4.2: six carry their own regex and move to `parsePaneMarker`, and the rest follow `pane-spec`.
 
 Three smaller gaps from step 1 stay open:
 
@@ -22,7 +22,7 @@ Three smaller gaps from step 1 stay open:
 - `tools/lint-deck.js` has no `--meta-cut` flag for `legacy-directive-comment`.
 
 ```text
-  P2 · [no ticket] Build `parsePaneMarker` and the door, move the six `door` readers and the eight in §5.4.2, close the three gaps.
+  P2 · [no ticket] Build `parsePaneMarker` and the door, move the six `door` readers and the six regex readers in §5.4.2, close the three gaps.
        why now   — each is a place the typed record would be invisible to.
        where     — design §5.4.1; test/unit/core/meta-readers-census.test.js
        done when — the census prints `0 wait for the door`.

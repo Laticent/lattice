@@ -129,10 +129,10 @@ describe('the reader census (design note §14)', () => {
     assert.deepEqual(named, door);
   });
 
-  test('§5.4.2 traces the eight other pane readers, and each file exists', () => {
+  test('§5.4.2 traces the other pane readers, and each file exists', () => {
     const sub = note.slice(note.indexOf('### 5.4.2'), note.indexOf('### 5.5'));
     const named = [...sub.matchAll(/^\| `([^`]+)` \|/gm)].map((m) => m[1]).sort();
-    assert.equal(named.length, 8);
+    assert.equal(named.length, 8, 'six regex readers and two that follow pane-spec');
     for (const f of named) assert.ok(fs.existsSync(path.join(ROOT, f)), `${f} does not exist`);
   });
 
