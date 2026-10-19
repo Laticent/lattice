@@ -4,21 +4,22 @@ swimlane: card formats
 # agents is the pre-approved count; the standing orders print it
 agents: 8
 context:
-  shipped: "#2778 (7f272de): ❓ card, one layout, YAML generator"
+  shipped: "#2778: ❓ card, one layout, YAML generator"
   read_first: workflow.md §One layout for all four cards, then CLAUDE.md
-  state: clean tree; D1 answered (generator, no hook yet)
-  decisions: "none"
+  state: clean tree; the generator is the way to build every card
+  decisions: "posting hook (P2): owner's call; pick: wait for P1"
 priorities:
   - title: Review three live ❓ cards for misreads
+    ref: "followups.d/2778-p1-review-three-live-decision-cards.md"
     why: decides whether a posting hook is worth it
     where: PR comments headed "❓ Decisions"
     done_when: a misread list is in the PR body
     evidence: the three comments, quoted
     verify: tier 0 gates, because it is docs only
-  - title: Score the cards again with two fresh readers
-    ref: "followups.d/2778-p2-rescore-the-cards.md"
-    why: checks the generator kept the layout
-    where: engineering/card-examples/
-    done_when: both readers score every card 8 or higher
-    evidence: the two reader reports, pasted
-    verify: tier 0 gates, because it is docs only
+  - title: Decide the card posting hook
+    ref: "followups.d/2778-p2-decide-the-card-posting-hook.md"
+    why: hand-typed cards in PR comments go unchecked
+    where: .claude/settings.json hooks
+    done_when: the owner has answered; if yes, a test proves the hook
+    evidence: the hook blocking a malformed card
+    verify: tier 1 checker, because it edits shared settings
