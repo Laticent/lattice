@@ -4,10 +4,12 @@ card: pre-merge
 pr: 2778
 title: decision card
 pick:
-  verdict: hold # merge | hold
+  # verdict is merge or hold
+  verdict: hold
   why: "wait for D1; the linter will ride this PR"
 confidence:
-  level: high # low | medium | high | very high
+  # level is low, medium, high or very high
+  level: high
   limited_by: unknowns
 raise_it: a second live use, and a look on GitHub mobile
 change:

@@ -40,14 +40,17 @@ try {
 }
 
 /**
- * A plain value like `question: Merge #2778 first` parses as "Merge" plus a
- * comment, so the card would print with the rest of the sentence gone. Any
- * trailing comment that starts with a digit is a swallowed `#N` reference.
+ * A trailing `#` comment on a value cuts the value there: `state: merged # PR 12`
+ * keeps "merged" and drops the rest, and a bare `#2778` does the same. Refuse
+ * any trailing comment so the card never prints a sentence with its tail gone.
+ * Comments on their own line above a key are fine.
  */
 function swallowedReferences(node, path = [], found = []) {
   if (YAML.isScalar(node)) {
-    if (node.comment && /^\d/.test(node.comment.trim())) {
-      found.push(`${path.join('.') || '(root)'}: "${node.value} #${node.comment.trim().slice(0, 24)}" was cut at the #; put the value in quotes`);
+    if (node.comment) {
+      const where = path.join('.') || '(root)';
+      const cutAt = `${node.value} #${node.comment.trim()}`.slice(0, 40);
+      found.push(`${where}: "${cutAt}" has a trailing # comment that cuts the value; put the whole value in quotes, or move the comment to its own line`);
     }
   } else if (YAML.isMap(node)) {
     for (const pair of node.items) swallowedReferences(pair.value, [...path, String(pair.key)], found);

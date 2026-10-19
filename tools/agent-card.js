@@ -21,7 +21,8 @@ const WIDTH = 38;
 const MAX_FIELD_LINES = 2;
 const MAX_NESTED_LINES = 3;
 
-const str = { type: 'string', minLength: 1 };
+// One non-empty line: a block scalar or a blank value would print mangled.
+const str = { type: 'string', pattern: '^[^\\r\\n]*\\S[^\\r\\n]*$' };
 
 const SCHEMAS = {
   'pre-merge': {
@@ -189,12 +190,16 @@ const validators = Object.fromEntries(
   Object.entries(SCHEMAS).map(([name, schema]) => [name, ajv.compile(schema)]),
 );
 
+/** East Asian wide and full-width characters take two columns, like emoji. */
+const WIDE =
+  /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6]/u;
+
 /** Display columns of a string: emoji take two, a variation selector none. */
 function displayWidth(text) {
   let n = 0;
   for (const ch of text) {
     if (ch === '️') continue;
-    n += /\p{Extended_Pictographic}/u.test(ch) ? 2 : 1;
+    n += WIDE.test(ch) || /\p{Extended_Pictographic}/u.test(ch) ? 2 : 1;
   }
   return n;
 }
@@ -264,7 +269,10 @@ function capFirstWord(text) {
   return String(text).replace(/^[A-Za-z]+/, (w) => w.toUpperCase());
 }
 
-const PLACEHOLDER = /<[A-Za-z][^<>]*>|\bTODO\b|\bTBD\b/;
+// Template text left in: a bare <angle> token, "omit if none", a literal #N, or a value that is only TODO/TBD.
+// `claude/<slug>` and `Map<String>` are real text, so an angle token must stand alone.
+const PLACEHOLDER =
+  /(^|\s)<[^<>\s][^<>]*>(?=[\s;,.)]|$)|\b(omit|leave out) if none\b|#N\b|^\s*(TODO|TBD)\s*$/i;
 
 function collectStrings(value, out = []) {
   if (typeof value === 'string') out.push(value);
@@ -273,14 +281,28 @@ function collectStrings(value, out = []) {
   return out;
 }
 
-/** Schema errors, one readable line each. */
+/** Schema errors, one readable line each, naming the field at fault. */
 function schemaErrors(card) {
-  const validate = validators[card.card];
-  if (!validate) {
+  if (!Object.hasOwn(SCHEMAS, card.card)) {
     return [`card: must be one of ${Object.keys(SCHEMAS).join(', ')}`];
   }
+  const validate = validators[card.card];
   if (validate(card)) return [];
-  return validate.errors.map((e) => `${e.instancePath || '(root)'} ${e.message}`);
+  return validate.errors.map((e) => {
+    const at = e.instancePath || '(root)';
+    if (e.keyword === 'additionalProperties') {
+      return `${at} has an unknown field "${e.params.additionalProperty}"; check the spelling`;
+    }
+    if (e.keyword === 'enum') return `${at} must be one of: ${e.params.allowedValues.join(', ')}`;
+    if (e.keyword === 'type' && e.params.type === 'string') {
+      return `${at} must be text; put it in quotes so YAML keeps it as text`;
+    }
+    if (e.keyword === 'pattern' && e.params.pattern === str.pattern) {
+      return `${at} must be one non-empty line (no line breaks, not blank)`;
+    }
+    if (e.keyword === 'pattern') return `${at} ${e.message}; put it in quotes`;
+    return `${at} ${e.message}`;
+  });
 }
 
 /** Accumulates lines and the problems found while laying them out. */
@@ -322,13 +344,18 @@ class Page {
   }
 }
 
-function header(page, text, reply) {
-  page.raw(text, 'header');
-  if (reply) page.raw(reply, 'header');
+function header(page, text, reply, field) {
+  if (displayWidth(text) > WIDTH) {
+    page.errors.push(
+      `${field}: the header line is ${displayWidth(text)} columns (max ${WIDTH}); shorten ${field}`,
+    );
+  }
+  page.lines.push(text);
+  if (reply) page.lines.push(reply);
 }
 
 function renderPreMerge(d, page) {
-  header(page, `🚦 Pre-merge — #${d.pr}${d.title ? ` ${d.title}` : ''}`, 'reply: merge | hold');
+  header(page, `🚦 Pre-merge — #${d.pr}${d.title ? ` ${d.title}` : ''}`, 'reply: merge | hold', 'title');
   page.blank();
   page.section('BOTTOM LINE');
   page.field('ask', d.ask || `squash-merge #${d.pr}?`, 'ask');
@@ -339,8 +366,8 @@ function renderPreMerge(d, page) {
     'confidence',
   );
   page.field('raise it', d.raise_it, 'raise_it');
-  if (/nothing outstanding/i.test(d.raise_it) && d.proof.not_run) {
-    page.errors.push('raise_it: says "nothing outstanding" but proof.not_run is not empty');
+  if (/^\s*(nothing|none|n\/a)\b/i.test(d.raise_it) && d.proof.not_run) {
+    page.errors.push('raise_it: says nothing is left to raise but proof.not_run is not empty');
   }
   page.section('CHANGE');
   page.field('what', d.change.what, 'change.what');
@@ -357,7 +384,7 @@ function renderPreMerge(d, page) {
 }
 
 function renderStandup(d, page) {
-  header(page, `📋 Standup — merged #${d.pr} (${d.sha})`);
+  header(page, `📋 Standup — merged #${d.pr} (${d.sha})`, null, 'pr/sha');
   page.blank();
   page.section('BOTTOM LINE');
   page.field('state', capFirstWord(d.state), 'state');
@@ -384,7 +411,7 @@ function standingOrders(agents) {
 }
 
 function renderContinuation(d, page) {
-  header(page, `🎯 Continuation — ${d.swimlane}`, 'paste into a new session');
+  header(page, `🎯 Continuation — ${d.swimlane}`, 'paste into a new session', 'swimlane');
   page.blank();
   const first = d.priorities[0];
   page.section('BOTTOM LINE');
@@ -452,7 +479,7 @@ function renderDecision(d, page) {
     page.errors.push('decision card has no items: post nothing instead of an empty card');
     return;
   }
-  header(page, `❓ Decisions — ${d.subject}`, replyHint(d));
+  header(page, `❓ Decisions — ${d.subject}`, replyHint(d), 'subject');
   page.blank();
   page.section('BOTTOM LINE');
   const counts = [

@@ -55,7 +55,7 @@ test('raise_it may say "nothing outstanding" only when nothing was left unrun', 
   card.raise_it = 'nothing outstanding';
   const r = renderCard(card);
   assert.equal(r.ok, false);
-  assert.match(r.errors.join('\n'), /nothing outstanding.*not_run/);
+  assert.match(r.errors.join('\n'), /nothing is left to raise.*not_run/);
   delete card.proof.not_run;
   assert.equal(renderCard(card).ok, true);
 });
@@ -119,7 +119,7 @@ test('CLI: an unquoted #N reference is refused, not printed with the sentence cu
     .replace('"Merge #2778 before the generator exists?"', 'Merge #2778 before the generator exists?');
   const r = runCli(card);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /cut at the #/);
+  assert.match(r.stderr, /trailing # comment/);
 });
 
 test('CLI: valid YAML exits 0 and prints the fenced card; broken YAML exits 2', () => {
@@ -128,4 +128,81 @@ test('CLI: valid YAML exits 0 and prints the fenced card; broken YAML exits 2', 
   assert.ok(ok.stdout.startsWith('```\n📋 Standup'));
   const bad = runCli('card: standup\nthread: [\n');
   assert.equal(bad.status, 2);
+});
+
+// Regressions from the independent bug-hunt of the generator.
+
+function standup(overrides = {}) {
+  return { ...load('standup'), ...overrides };
+}
+
+test('wide (CJK) characters count two columns each and wrap inside the limit', () => {
+  const r = renderCard(standup({ state: '合并完成'.repeat(6) }));
+  assert.equal(r.ok, true);
+  for (const line of r.lines) assert.ok(displayWidth(line) <= WIDTH, `"${line}" overflows`);
+});
+
+test('a block scalar or a blank value is refused, not flattened', () => {
+  assert.equal(renderCard(standup({ state: 'one\ntwo' })).ok, false);
+  assert.equal(renderCard(standup({ state: '   ' })).ok, false);
+});
+
+test('an unknown field is named in the error', () => {
+  const card = load('pre-merge');
+  card.change.whyy = 'typo';
+  const r = renderCard(card);
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join('\n'), /unknown field "whyy"/);
+});
+
+test('a long title names the field at fault', () => {
+  const card = load('pre-merge');
+  card.title = 'a very long title that cannot fit on the header line at all';
+  const r = renderCard(card);
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join('\n'), /title: the header line is \d+ columns \(max 38\)/);
+});
+
+test('real text with angle brackets passes; the contract\'s own template text does not', () => {
+  const ok = (text) => renderCard(standup({ state: text })).ok;
+  assert.equal(ok('merged on claude/<slug> branch'), true);
+  assert.equal(ok('fixed Map<String> handling'), true);
+  assert.equal(ok('the TODO list gate is green'), true);
+  assert.equal(ok('<N notes>'), false);
+  assert.equal(ok('omit if none'), false);
+  assert.equal(ok('merged #N'), false);
+  assert.equal(ok('TODO'), false);
+});
+
+test('raise_it cannot claim nothing is left while something was not run', () => {
+  for (const text of ['none, all done', 'nothing left to raise', 'n/a']) {
+    const card = load('pre-merge');
+    card.raise_it = text;
+    assert.equal(renderCard(card).ok, false, text);
+  }
+});
+
+test('inherited object keys are not card types', () => {
+  assert.equal(renderCard({ card: 'constructor' }).ok, false);
+  assert.equal(renderCard({ card: 'toString' }).ok, false);
+});
+
+test('a numeric sha says to quote it', () => {
+  const r = renderCard(standup({ sha: 1234567 }));
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join('\n'), /quotes/);
+});
+
+test('CLI: any trailing # comment on a value is refused, not only #<digit>', () => {
+  const card = fs
+    .readFileSync(path.join(EXAMPLES, 'standup.yml'), 'utf8')
+    .replace('state: merged,', 'state: merged # because CI;');
+  const r = runCli(card);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /trailing # comment/);
+});
+
+test('CLI: a comment on its own line is fine', () => {
+  const r = runCli(`# a note to the next author\n${fs.readFileSync(path.join(EXAMPLES, 'standup.yml'), 'utf8')}`);
+  assert.equal(r.status, 0);
 });

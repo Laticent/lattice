@@ -1,7 +1,8 @@
 # 🎯 Continuation card. Render: npm run card -- engineering/card-examples/continuation.yml
 card: continuation
 swimlane: card formats
-agents: 8 # pre-approved agents; the standing orders print this number
+# agents is the pre-approved count; the standing orders print it
+agents: 8
 context:
   shipped: "#2778 (7f272de): ❓ card, one layout, YAML generator"
   read_first: workflow.md §One layout for all four cards, then CLAUDE.md
