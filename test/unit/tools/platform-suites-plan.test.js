@@ -41,3 +41,9 @@ test('globs: * stays inside a segment, ** crosses them, dots are literal', () =>
   assert.ok(!globToRegExp('a/**/b').test('a/xb'), '**/ is whole directories');
   assert.ok(globToRegExp('a/?.js').test('a/x.js') && !globToRegExp('a/?.js').test('a/xy.js') && !globToRegExp('a/?.js').test('a//.js'), '? is one non-slash character');
 });
+
+test("a suite's build command is the default unless the suite names its own", () => {
+  const r = { suites: [{ name: 'a-default', os: ['macos-latest'], paths: ['x'], run: 'a', why: 'w' }, { name: 'b-narrow', os: ['windows-latest'], paths: ['x'], run: 'b', build: 'node tools/build.js --only-uncommitted', why: 'w' }] };
+  const builds = Object.fromEntries(plan(r, { event: 'schedule' }).include.map((i) => [i.suite, i.build]));
+  assert.deepEqual(builds, { 'a-default': 'npm run build', 'b-narrow': 'node tools/build.js --only-uncommitted' });
+});

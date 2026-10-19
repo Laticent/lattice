@@ -44,10 +44,10 @@ what is needed, so new work can leverage the CI to test against these OS". Settl
 
 ## First entry, and what it leaves out
 
-`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows is still not listed**, for a different reason than first
-thought. The CLI now builds its file URLs with `pathToFileURL` (2026-10-19), but a `windows-latest` runner cannot reach the suite:
-`npm ci` passes there and `npm run build` aborts at `tools/check-ownership.js`, whose gates compare backslash paths with forward-slash
-allowlists (run 39197530212; `followups.d/2786-p2-check-ownership-on-windows.md`). The Windows file-URL change is UNVERIFIED on a Windows run.
+`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows runs as `export-confine-windows`** (2026-10-19). The CLI now builds its file URLs with `pathToFileURL`, but `npm run build` aborts on
+a `windows-latest` runner at `tools/check-ownership.js`, whose gates compare backslash paths with forward-slash allowlists (run 39197530212;
+`followups.d/2786-p2-check-ownership-on-windows.md`). So that suite sets an optional `build` field to `node tools/build.js --only-uncommitted`,
+which `npm ci` already ran there. This is a stopgap that hides the build break; the follow-up removes it.
 The first PR runs showed 28 of 63 `wait-for` tests failing on a macOS runner (stock: perl only, no timeout, gtimeout or flock). The cause was
 the test's own lock probe calling `flock(1)`, so it now falls back to perl (and `isLive` to `ps`, since macOS has no /proc); the entry installs coreutils first, the state the notes call supported.
 

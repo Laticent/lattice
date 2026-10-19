@@ -497,8 +497,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `engineering/decisions/2026-10-18-platform-suites.md`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
-- **Windows is blocked, for now:** `npm run build` aborts at `tools/check-ownership.js` on Windows, so no CLI-render suite can run there
-  (`followups.d/2786-p2-check-ownership-on-windows.md`). `wait-for.sh` is a macOS suite that installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
+- **Windows builds narrower, for now:** `npm run build` aborts at `tools/check-ownership.js` on Windows
+  (`followups.d/2786-p2-check-ownership-on-windows.md`), so `export-confine-windows` sets `build` to
+  `node tools/build.js --only-uncommitted` (what `npm ci` already ran). A suite's optional `build` replaces the default
+  `npm run build`. `wait-for.sh` is a macOS suite that installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 
 ## Integration test cache
 

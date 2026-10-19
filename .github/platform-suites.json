@@ -1,5 +1,5 @@
 {
-  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `build`: optional, replaces the default `npm run build` that runs after `npm ci`. `run`: the command, from the repo root after the build. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
   "suites": [
     {
       "name": "export-confine",
@@ -21,7 +21,30 @@
         "test/integration/export/mermaid-worker-confine.test.js"
       ],
       "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
-      "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. The Mermaid worker's own page applies the same check. Windows is not listed: the CLI now builds its file URLs with pathToFileURL, but a Windows runner cannot reach the suite, because `npm run build` aborts at tools/check-ownership.js (its gates compare backslash paths against forward-slash allowlists; run 39197530212, job 117883739719), so the CLI's dist/ bundles are not built there. Re-add windows-latest once that gate is Windows-clean (followups.d/2786-p2-check-ownership-on-windows.md); until then the Windows file-URL change is UNVERIFIED on a Windows run."
+      "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. The Mermaid worker's own page applies the same check. Windows runs as export-confine-windows."
+    },
+    {
+      "name": "export-confine-windows",
+      "os": [
+        "windows-latest"
+      ],
+      "paths": [
+        "lib/export/file-confine.js",
+        "lib/export/html-player.js",
+        "lib/export/player-core.mjs",
+        "test/integration/export/confine-cli.test.js",
+        "test/unit/export/file-confine.test.js",
+        "test/unit/export/html-player-inline-file-urls.test.js",
+        "test/unit/export/bake-helper.js",
+        "lattice.js",
+        "lib/export/video.mjs",
+        "test/unit/export/cli-file-urls.test.js",
+        "lib/plugins/mermaid/shared/render-worker.js",
+        "test/integration/export/mermaid-worker-confine.test.js"
+      ],
+      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+      "why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It builds with `node tools/build.js --only-uncommitted` (what `npm ci` already runs) instead of `npm run build`, because tools/check-ownership.js aborts the full build on Windows (backslash paths against forward-slash allowlists; run 39197530212; followups.d/2786-p2-check-ownership-on-windows.md). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it.",
+      "build": "node tools/build.js --only-uncommitted"
     },
     {
       "name": "wait-for-macos",

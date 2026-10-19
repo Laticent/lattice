@@ -98,7 +98,10 @@ jobs:
       - run: npm ci
       # dist/ and the docs-site bundles are BUILT, not committed, and the CLI loads them.
       - name: Build the generated bundles
-        run: npm run build
+        shell: bash
+        env:
+          SUITE_BUILD: ${{ matrix.build }}
+        run: bash -c "$SUITE_BUILD"
       - name: Suite
         shell: bash
         env:
