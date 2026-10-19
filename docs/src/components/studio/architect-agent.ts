@@ -17,6 +17,7 @@
 // import from here lists their chunks — and every chunk THEY need, i.e. the whole Studio —
 // in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
+import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
@@ -48,13 +49,14 @@ export type AgentComponent = { name: string; bucket?: string; summary?: string; 
 /** A finding from the deterministic review — same shape the Coach shows. */
 export type AgentFinding = { slide?: number; rule?: string; severity?: string; message: string };
 
+/** A bare (no leading underscore) local directive in an HTML comment: `<!-- class: x -->`. It holds for
+ *  every slide after it, where the underscore form (`_class`) holds for its own slide only; a deck-wide
+ *  key (`theme`, `size`) in a slide comment reaches every slide too. The keys are the registry's (lib/core/meta-keys.mjs), never a list kept here. */
+const CARRY_FORWARD_DIRECTIVE = new RegExp(`<!--\\s*(?:${[...LOCAL_KEYS, ...GLOBAL_ONLY_KEYS].join('|')})\\s*:`, 'i');
+
 /** What `check_deck` gets back from the host: the lint + review findings for a source,
  *  Mermaid's own parse errors, and each slide's fit from a real render of the source
  *  (undefined = not checked, never a guess). */
-/** A bare (no leading underscore) Marp local directive in an HTML comment. It holds for every slide
- *  after it, where the underscore form (`_class`) holds for its own slide only. */
-const CARRY_FORWARD_DIRECTIVE = /<!--\s*(?:class|header|footer|paginate|backgroundColor|backgroundImage|backgroundPosition|backgroundRepeat|backgroundSize|color|transition|theme|style|size)\s*:/i;
-
 export type DeckCheck = { findings: AgentFinding[]; diagrams?: { slide: number; message: string }[]; fit?: { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean; skipped?: boolean }[] };
 
 /** The doc loaders the read tools sit on. Each resolves to raw Markdown or null. */

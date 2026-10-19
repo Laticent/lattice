@@ -452,6 +452,9 @@ describe('the loop', () => {
 		const own = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
 		await toolbox({ check: own }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: dense -->\n## Next\n\n- Hire' }], summary: 's' }));
 		expect(own.mock.calls[0][1]).toEqual({ only: [3], slideCount: 3 });
+		const globalKey = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check: globalKey }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- theme: cuoio -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(globalKey.mock.calls[0][1]).toBeUndefined();
 		const withHeader = DECK.replace('## Revenue grew', '<!-- header: Big -->\n## Revenue grew');
 		const del = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
 		await toolbox({ source: withHeader, check: del }).run('edit_slides', JSON.stringify({ edits: [{ action: 'delete', slide: 2 }], summary: 's' }));
