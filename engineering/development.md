@@ -498,7 +498,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
 - **Windows is blocked, for now:** `npm run build` aborts at `tools/check-ownership.js` on Windows, so no CLI-render suite can run there
-  (`followups.d/2786-p2-check-ownership-on-windows.md`). `wait-for.sh` is a macOS suite that installs coreutils first.
+  (`followups.d/2786-p2-check-ownership-on-windows.md`). `wait-for.sh` is a macOS suite that installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 
 ## Integration test cache
 
