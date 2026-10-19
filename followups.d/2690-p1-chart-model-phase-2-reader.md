@@ -199,3 +199,8 @@ verify    — tier 2 adversarial trio, because it changes what the shared kernel
                `&#x110000;` makes `decodeNumericRefs` (`render-ids.js`) throw on main too, and narration is quadratic on rows with `>` descriptions (1,000
                rows: 5.3 s on main). The inversion's design point for the owner before phase 4: a record that is also a valid pill makes ownership
                positional for good (five readers must agree on it forever); a spelling the pill grammar refuses would make it lexical.
+           25. Twenty-first round (2026-10-19, an independent checker on the round 24 fixes): fixed here with a test that fails without the fix: a wrapped
+               record whose continuation is indented past the row's text (markdown-it keeps that indent inside the span) still left the narrator silent;
+               the `.trim()` of the delimiter fix and the BOM strip in `findChartUnescapedPipes` had no test (round 24's "a test each" was wrong for
+               those two). Left, pre-existing: a `- - -` thematic break between two dash lists counts as the same list in lint (hub-spoke first-list
+               ownership) while the engine starts a new one.

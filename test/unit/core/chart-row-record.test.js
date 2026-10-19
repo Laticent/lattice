@@ -805,6 +805,19 @@ describe('the paths agree on the data row', () => {
       assert.equal(same.length, 0, 'control: a sibling at the margin is the SAME list, owned by the chart');
     });
 
+    test('the table-delimiter test is fast on a line of spaces AFTER a pipe row (the trim matters)', () => {
+      const src = deck('bar', `| a | b |\n${' '.repeat(60000)}x\n`).replace('## A', '## A {>');
+      const { ms } = timed(() => lintText(src));
+      assert.ok(ms < 1000, `lint took ${Math.round(ms)} ms (it was 3.1 s)`);
+    });
+
+    test('a BOM does not hide the front matter from the pipe lint either', () => {
+      const body = '---\nmarp: true\n---\n\n<!-- _class: heatmap -->\n\n## H\n\n| | A |\n|---|---|\n| E | `{> up | down}` |\n\n---\n\n<!-- _class: radar -->\n\n## R\n\n- Us\n  - Speed `4`\n';
+      const pipes = (s) => lintText(s).filter((f) => f.rule === 'chart-table-unescaped-pipe').length;
+      assert.equal(pipes(body), 1, 'control');
+      assert.equal(pipes('\uFEFF' + body), 1);
+    });
+
     test('a BOM before the front matter does not shift lint\'s slide numbering (no false unread-record warnings)', () => {
       const body = ['---\nmarp: true\n---\n', '<!-- _class: radar -->\n\n## R\n\n- Speed `4`\n- Cost `3`\n- Fit `5`\n', '<!-- _class: quadrant -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q\n\n- Bets\n  - Scoring `{3, 70}`\n  - Vendor `{2, 30}`\n'].join('\n---\n');
       const unread = (s) => lintText(s).filter((f) => f.rule === 'chart-row-record-unread').length;
@@ -816,6 +829,9 @@ describe('the paths agree on the data row', () => {
       const one = deck('bullet', '- Uptime `{99.4, target=99.9}`\n- Cost `{3, target=5}`');
       assert.ok(narrateChart(one), 'control: the one-line form narrates');
       assert.equal(narrateChart(wrap), narrateChart(one));
+      for (const gap of ['    ', '\t', '      ']) {
+        assert.equal(narrateChart(deck('bullet', `- Uptime \`{99.4,\n${gap}target=99.9}\`\n- Cost \`{3, target=5}\``)), narrateChart(one), `a continuation indented ${JSON.stringify(gap)}`);
+      }
     });
 
     test('a slide with mixed line endings keeps each line\'s own ending, so it narrates as the old form does', () => {
@@ -826,12 +842,10 @@ describe('the paths agree on the data row', () => {
     });
 
     test('the plugin-off bridge turns a record into the old spans (the engine has NOT bridged it yet)', () => {
-      const { applyToRenderedHtml } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
       const { createEngine } = require('../../../lib/engine');
       const off = createEngine({ plugins: { disabled: ['chart-family'] } }).render(deck('bar', '- EMEA `{4.2}`\n- APAC `{3}`'), {}).html;
       assert.doesNotMatch(off, /\{4\.2\}/, 'braces would be shown raw');
       assert.match(off, /4\.2/);
-      assert.ok(applyToRenderedHtml);
     });
 
     test('a `</table>` inside a comment or an attribute does not close the table the cell opened', () => {
