@@ -3,7 +3,7 @@ status: in-progress
 summary: >
   E2 result: the HTML scan of a rendered deck needs a median 21% of the minified bytes (195 of 933 KB), misses
   no module on 281 decks, and renders identically in a computed-style gate; Markdown hints alone miss modules
-  in every deck. The E0 baseline and the E1 split for the on-demand style loader of 2026-10-17-on-demand-styles-brief.md,
+  in every deck. The E0 baseline and the E1 split for the on-demand style loader of the 2026-10-17 on-demand-styles brief,
   plus the owner's rulings on the §5 forks and a measured test of the scanner theory. Baseline: a deck
   carries 2.1 to 2.5 MB of style whatever it uses, 40 to 48% of it fonts, while one slide matches about
   40 KB of rules and a 14-slide deck about 57 KB. E1 cuts dist/lattice.css into 183 ordered modules that
@@ -15,7 +15,7 @@ summary: >
 
 # On-demand styles: baseline, split and rulings (2026-10-18)
 
-Follows `2026-10-17-on-demand-styles-brief.md`. Read that first for the ask. This note records what was
+Follows the brief `2026-10-17-on-demand-styles-brief.md`. Read that first for the ask. The brief is not part of this PR; it reached `main` with #2782. This note records what was
 measured, what the owner ruled, and what E1 changed. It does not repeat the brief.
 
 ## 1. The owner's rulings (2026-10-18)
@@ -182,8 +182,10 @@ Known limits, recorded rather than fixed (each belongs to a later step):
 ## 7. E2: the dependency inventory (2026-10-18)
 
 `tools/style-needs.js` builds, from the module CSS alone, what each module needs; `tools/style-needs-audit.mjs`
-checks it against the real renderer. Decks: the 280 in `examples/` plus the 120-slide gallery, Chromium
-131 (all 281) and Playwright's Linux WebKit (every 10th, 29 decks). Not iOS.
+checks it against the real renderer. Decks: the 292 in `examples/` plus the 120-slide gallery (293), run in
+full on Chromium 131 and on Playwright's Linux WebKit. Not iOS. The first table below was measured on the
+281 decks that existed when the harness was first run; the final full runs on current `main` are the next
+table.
 
 **How a module's needs are written down.** Per module, a list of alternatives, each a set of tokens (classes,
 attribute names, tag names, ids) that one selector requires; the module is needed if any alternative is fully
@@ -207,6 +209,25 @@ today (for example `component:flowchart` needs `tail:chart-family.styles`). 13 m
 | Bytes loaded per deck, unminified, of 2,600 KB | token scan median 824 KB, verified scan median 659 KB; selector truth median 608 KB |
 | Rules that actually match, per deck | median 42 KB |
 | WebKit sample (29 decks, final code) | 0 false negatives; computed-style gate 29 of 29 identical; verified scan median 642 KB unminified, 9 ms in the page; Markdown hints miss modules in all 29 |
+
+**Final audit on current `main`, all 293 decks, both engines (2026-10-19).**
+
+| | Chromium 131 | WebKit (Playwright, Linux) |
+|---|---|---|
+| Decks audited / skipped | 293 / 0 | 293 / 0 |
+| HTML-scan false negatives (verified and token scan) | **0** | **0** |
+| Computed-style gate, screen, print and dark, every element and `::before` / `::after` | **0 decks differ** (186 decks recorded in full; the other 107 decks' lines read `html-FN 0 gate-diff 0`, their JSON was lost when the sandbox restarted) | **293 of 293 identical** |
+| Verified scan median, unminified, of 2,642 KB | 640 KB (186 decks) | 647 KB |
+| Selector truth median | 605 KB (186 decks) | 612 KB |
+| Verified scan cost in the page, median | 3.8 ms | 9 ms |
+
+The Chromium run was interrupted twice by sandbox restarts and finished in chunks (`107 + 186` decks); the
+WebKit run in eight chunks. A harness bug found on the way: the baseline render went through the default
+pipeline while the subset went through `-c <file>`, which skips the pagination content mask and the
+minifier. `claim.md`, `adaptive-image.md` and `chart-hue-collapse*.md` differed with no module missing. The
+baseline now renders through `-c` with a copy of `dist/lattice.css`, and all three are identical. This is a
+product fact too, not only a harness one: a style subset must reach the engine through the default render
+path (followup P8). iOS Safari is still UNVERIFIED.
 
 - **Two scanners were compared, as the brief asked.** The HTML scan above, and a Markdown-only scan (the
   `_class` / `class` directives, granted every attribute, tag and id for free, which is its best case). The
@@ -259,7 +280,7 @@ that registers the highlight. The gate never enters hover or focus, so those rul
 rules and the unit tests, not on a render. Custom properties declared in unscanned modules differ on 260
 of 281 decks (registered `@property` initial values and unused tokens); no rendered property differs, and
 script that reads tokens at run time must request their modules. Verified in Chromium and WebKit on Linux
-only; iOS Safari is UNVERIFIED.
+(all 293 decks each); iOS Safari is UNVERIFIED.
 
 **The regrouping question, answered with data.** Loaded bytes whose rules match nothing, summed over the 281
 decks, concentrate in a few modules (unminified sizes): `head:base.tokens#head` 107 KB (15% of all waste;
@@ -287,7 +308,7 @@ unconditional). Three moves would remove most of it, each a source change with i
   token-only index (29 KB gzipped). The harness measures both on any deck.
 - **Unify the state-pseudo lists.** `tools/style-needs.js` and `lib/export/player-prune.js` each keep one;
   the core must not import the export pipeline, so the shared piece belongs in a generic kernel (E4).
-- **WebKit** was sampled (29 of 281 decks), not run in full.
+- **WebKit** now runs in full (293 decks, 0 misses); only iOS Safari on a real device is open (followup P7).
 - **Not built:** E3 (the loader), E4 (the generic core and a second domain), E5 (integrations and export
   bytes, which need the owner's dark and light sign-off).
 
@@ -297,3 +318,30 @@ E3 (the Playground loader prototype: first-slide bytes and time against the §2 
 Chromium and WebKit, no flash of unstyled content, and a late-appearing unit loading its modules before it
 shows) and the three regrouping moves in §7, in that order of value. Both wait for the owner's review of E1
 and E2. E3 is a style sink (HARD RULE #22) and gets the adversarial trio on its final shape.
+
+## 10. Package size, measured once (2026-10-18)
+
+The followup `2780-p3-slim-the-package-tarball.md` rests on these figures. They are one-off measurements,
+not a committed benchmark; re-derive them with the method below before acting on them.
+
+- **What an install is.** `npm pack --dry-run --json --ignore-scripts` (read the JSON after the `prepare`
+  build output): 24,134,209 bytes gzipped, 80,084,014 unpacked, 1,670 files, on the base before the module
+  folders landed. On the base with `dist/styles/` and `dist/styles-min/` (187 modules), an independent
+  re-run read 24.80 MB gzipped and 82.45 MB unpacked, with 376 files under `dist/styles*`. The folders add
+  about 0.94 MB gzipped. `dist/` is 76 MB on disk, but `marp-kit/`, `agent-kit/` and `engineering/` are
+  excluded by `package.json` `files`, so that figure is not what an install downloads.
+- **Minify everything minifiable.** For each file in the pack list: JS and CSS through `esbuild` `minify`
+  (legal comments dropped, which a real build must not do; the AGPL headers stay), JSON compacted, then
+  gzip level 9, summed per file. Today's files sum to 25.5 MB gzipped on this method (the real tarball
+  gzips as one stream and is 24.1 MB); minified they sum to 12.9 MB. The gain sits in `dist/lattice.js`
+  (21.3 MB to 3.2 MB raw, 6.3 MB to 1.1 MB gzipped) and `dist/lattice-runtime.js` (9.6 MB to 1.2 MB raw,
+  2.8 MB to 0.4 MB gzipped). The minified CLI was not run, so its correctness is untested.
+- **Exact duplicates.** Files over 20 KB with identical bytes: the KaTeX woff2 set stored in `dist/fonts`,
+  `lib/plugins/math/vendor/katex/fonts` and `lib/plugins/mermaid/vendor/mermaid-cli/assets`; and
+  `jetbrains-400/500/600`, `outfit-300/500/600`, `playfair-400/700` and `playfair-italic-400/700` under
+  different weight names. Mermaid ships three bundles (`mermaid.min.js`, `mermaid-zenuml.min.js`, and the
+  CLI asset bundle) and Font Awesome in both TTF and woff2. Estimated 3 to 4 MB gzipped together; whether
+  each is used is not checked.
+- **Audit time.** `node tools/style-needs-audit.mjs --all --jobs 3` took about 95 minutes for 281 decks in
+  Chromium on a 4-core sandbox, with the computed-style gate on. The WebKit run of 293 decks took about 90
+  minutes in chunks of 40 decks.

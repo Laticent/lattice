@@ -401,7 +401,7 @@ function standingOrders(agents) {
   return [
     'I am away. Decide and proceed; a safe default beats a question.',
     'Gates are the floor. Look at visual work before handing it back.',
-    'One branch claude/<slug>, one PR, one commit per priority (#13). Docs and changelog ride in the same commit (#10, #6).',
+    "One branch claude/<slug>, one PR, one commit per priority (#13). Push only to your own branch; read another session's, never push to it (#31). Docs and changelog ride in the same commit (#10, #6).",
     "Attach each item's evidence in the PR body. If a surface cannot be reached, write UNVERIFIED (#23).",
     `Up to ${agents} agents are pre-approved. More needs the owner's OK.`,
     'Run the gates before each push. Rebase only on a real conflict (#16).',

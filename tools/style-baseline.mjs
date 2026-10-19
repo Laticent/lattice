@@ -2,7 +2,7 @@
  * Print the style-bytes baseline for a rendered deck, on Chromium and WebKit.
  *
  * The question it answers: how much CSS does a deck carry, and how much of it does the deck use?
- * It is the E0 baseline of engineering/decisions/2026-10-17-on-demand-styles-brief.md — the table
+ * It is the E0 baseline of the on-demand-styles brief (engineering/decisions/2026-10-17-on-demand-styles-brief.md) — the table
  * every later number (the module split, the scanner, the loader) is measured against, so a claim
  * like "the page carries 2.5 MB of style" can be re-derived instead of believed.
  *

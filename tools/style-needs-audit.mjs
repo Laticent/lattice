@@ -207,7 +207,11 @@ async function auditDeck(browser, deck, tmp) {
   const html = path.join(tmp, `${name}.html`);
   const r = { deck, ok: false };
   try {
-    await run('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, deck), html, '-q'], { timeout: 240000, maxBuffer: 1 << 26 });
+    // The baseline goes through `-c <copy of lattice.css>`, the same custom-CSS path the subset takes.
+    // `lattice deck.md out.html` with no -c uses the default pipeline, which masks a slide-own
+    // `::after { content }` and minifies; `-c <any other file>` does neither. Comparing the default
+    // render with a `-c` subset shows that difference, not the dropped modules (found on claim.md).
+    await run('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, deck), html, '-c', fullCss, '-q'], { timeout: 240000, maxBuffer: 1 << 26 });
   } catch (e) {
     r.error = `render: ${String(e.message).split('\n')[0].slice(0, 120)}`;
     return r;
@@ -302,6 +306,8 @@ async function auditDeck(browser, deck, tmp) {
 
 // ---- main ------------------------------------------------------------------------------------------
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'style-needs-'));
+const fullCss = path.join(tmp, 'full-lattice.css');
+fs.copyFileSync(path.join(ROOT, 'dist/lattice.css'), fullCss);
 const browser = await (engine === 'webkit' ? webkit : chromium).launch();
 const results = [];
 let next = 0;
