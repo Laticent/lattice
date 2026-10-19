@@ -138,9 +138,11 @@ describe('a sixth hand-kept key list fails', () => {
 });
 
 describe('meta cannot be switched off', () => {
-  test('it is a plugin of the grammar, flagged always-on, and no other plugin is', () => {
-    const on = PLUGIN_GRAMMAR.filter((g) => g.alwaysOn).map((g) => g.name);
-    assert.deepEqual(on, ['meta']);
+  test('it is a plugin of the grammar and embedded, and the grammar carries no separate always-on flag', () => {
+    const meta = PLUGIN_GRAMMAR.find((g) => g.name === 'meta');
+    assert.ok(meta, 'meta is in the grammar');
+    assert.equal(meta.embedded, true, 'meta is embedded');
+    assert.ok(PLUGIN_GRAMMAR.every((g) => !('alwaysOn' in g)), 'the always-on flag is gone: embedded is the one flag');
   });
 
   test('an external (zip) plugin cannot contribute meta', () => {

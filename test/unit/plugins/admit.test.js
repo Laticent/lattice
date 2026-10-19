@@ -6,13 +6,13 @@
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { admitPlugins, activePlugins, withoutAlwaysOn, DEFAULT_PLUGINS } = require('../../../lib/plugins/host-grammar.mjs');
+const { admitPlugins, activePlugins, withoutEmbedded, DEFAULT_PLUGINS } = require('../../../lib/plugins/host-grammar.mjs');
 const { deckPluginList, writeDeckPlugins, deckClassTokens } = require('../../../lib/plugins/deck-plugins.mjs');
 const { createEngine } = require('../../../lib/engine');
 const { bakeDeck } = require('../../../lib/plugins/host-bake.js');
 
-// The plugins a deck loads BY A ROUTE: less `meta`, which is always on (its own tests are below).
-const names = (admission) => admission.active.filter((g) => !g.alwaysOn).map((g) => g.name);
+// The plugins a deck loads BY A ROUTE: less `meta`, which is embedded like `pills` (its own tests are below).
+const names = (admission) => admission.active.filter((g) => g.name !== 'meta').map((g) => g.name);
 
 describe('the plugins: import list — reader', () => {
   for (const [label, fm] of [
@@ -146,7 +146,7 @@ describe('admitPlugins — the three routes', () => {
     assert.deepEqual(a.off, ['d']);
   });
 
-  it('`meta` is always on: no default set, switch or cascade turns it off, and it is never an error', () => {
+  it('`meta` is embedded: no default set, switch or cascade turns it off, and it is never an error', () => {
     const active = (opts) => admitPlugins('# Hi\n', { explain: true, ...opts }).active.map((g) => g.name);
     assert.ok(active({ defaults: [] }).includes('meta'), 'an empty default set');
     assert.ok(active({ defaults: ['math'] }).includes('meta'), 'a narrowed default set');
@@ -156,8 +156,8 @@ describe('admitPlugins — the three routes', () => {
     const a = admitPlugins('---\nplugins: [meta]\n---\n', { defaults: [], disabled: ['meta'] });
     assert.deepEqual(a.off.includes('meta'), false);
     assert.deepEqual(a.unknown, []);
-    assert.deepEqual(withoutAlwaysOn(['meta', 'math']), ['math']);
-    assert.deepEqual(admitPlugins('# Hi\n', { defaults: [], explain: true }).reasons.meta, [{ kind: 'always' }]);
+    assert.deepEqual(withoutEmbedded(['meta', 'math']), ['math']);
+    assert.deepEqual(admitPlugins('# Hi\n', { defaults: [], explain: true }).reasons.meta, [{ kind: 'embedded' }]);
   });
 
   it("the host's switch wins over every route", () => {
@@ -295,7 +295,8 @@ describe('the embedded set', () => { it('is pinned: adding a second embedded plu
   const embedded = fs.readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, `${e.name}.manifest.json`)))
     .filter((e) => JSON.parse(fs.readFileSync(path.join(dir, e.name, `${e.name}.manifest.json`), 'utf8')).embedded === true)
-    .map((e) => e.name);
-  assert.deepEqual(embedded, ['pills']);
+    .map((e) => e.name)
+    .sort();
+  assert.deepEqual(embedded, ['meta', 'pills']);
 });
 });
