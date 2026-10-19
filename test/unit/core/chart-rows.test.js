@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const rows = require('../../../lib/core/chart-rows.js');
+const { readChartRows } = require('../../../lib/core/chart-row-source.js');
 const lintCore = require('../../../lib/authoring/lint-core.js');
 const { buildVocab } = require('../../../lib/authoring/lint');
 const { loadAll } = require('../../../lib/components');
@@ -125,7 +126,7 @@ describe('a row record', () => {
 describe('readChartRows', () => {
   test('lifts each description out of the slide and hands it back by row', () => {
     const src = '## A\n\n- A `1`\n\n  > hi **bold**\n  > - li\n- B `2`\n  - Sub `3`\n    > sub desc\n';
-    const r = rows.readChartRows(src, 'bar');
+    const r = readChartRows(src, 'bar');
     assert.equal(r.markdown, '## A\n\n- A `1`\n- B `2`\n  - Sub `3`\n');
     assert.deepEqual(r.rows.map((x) => [x.line, x.depth]), [[2, 1], [3, 1], [4, 2]]);
     assert.deepEqual(r.descriptions.map((d) => [d.anchor, d.at, d.blocks]), [
@@ -136,12 +137,12 @@ describe('readChartRows', () => {
 
   test('a quote at the margin is not a description, and stays where it is', () => {
     const src = '- A `1`\n> margin\n- B `2`';
-    assert.equal(rows.readChartRows(src, 'bar').markdown, src);
-    assert.deepEqual(rows.readChartRows(src, 'bar').descriptions, []);
+    assert.equal(readChartRows(src, 'bar').markdown, src);
+    assert.deepEqual(readChartRows(src, 'bar').descriptions, []);
   });
 
   test('a description under a markless row says so', () => {
-    const r = rows.readChartRows('- Meridian\n  > series\n  - X `9`\n    > axis', 'radar', ['radar']);
+    const r = readChartRows('- Meridian\n  > series\n  - X `9`\n    > axis', 'radar', ['radar']);
     assert.deepEqual(r.descriptions.map((d) => [d.depth, d.markless]), [[1, true], [2, false]]);
   });
 });

@@ -198,7 +198,7 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
 
 - **Ownership on every path.** Chart rows and table cells claim their spans before the pill pass, in the engine's
   markdown-it plugin (`lib/integrations/markdown-it/plugins.js`, which today owns only list rows, and only for
-  flowchart, hub-spoke and state-chart), the runtime mirror (`lib/core/resolve-inline-code.js`, `isOwnedElement`),
+  flowchart, hub-spoke and state-chart), the runtime mirror (`lib/core/record-dom.js`, `isOwnedElement`),
   Compose's `normalizeObjects`, the narrators (`lib/core/chart-narration.js`), lint, the read-along core and
   export-to-Marp, pinned by the engine-vs-runtime fidelity probe. Nothing shipped puts a pill in a chart row today.
 - **The `{> …}` production.** `>` is excluded from the first character of a record's first bare item, so `{>5}` and

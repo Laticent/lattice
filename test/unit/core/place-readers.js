@@ -20,7 +20,7 @@ rows.ownsRecordSpan = function wrapped(classTokens, text, place) {
 const { bridgeRecordsSource } = require('../../../lib/core/chart-source-bridge.js');
 const engine = require('../../../lib/engine');
 const { renderedInlineSpans } = require('../../../lib/authoring/lint-core.js');
-const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
 const { deckOf } = require('./place-corpus.js');
 
 const md = new MarkdownIt({ html: true });

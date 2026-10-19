@@ -170,7 +170,7 @@ describe('runtime mirror: isOwnedRecordElement measures the span\'s place in the
   // On the runtime the chart family usually bridges the record before the pill pass looks at it, so the
   // fidelity probe cannot tell this mirror from its absence. This pins the mirror itself: it asks
   // `ownsRecordSpan` the same question the engine does, with the place read off the DOM.
-  const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+  const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
   const code = (cls, inner) => {
     const doc = new JSDOM(`<section class="${cls}">${inner}</section>`).window.document;
     return doc.querySelector('code[data-t]');
@@ -471,7 +471,7 @@ describe('the paths agree on the data row', () => {
 
   // Eighth round (2026-10-17): the third independent checker's confirmed defects.
   test('the runtime ownership check is linear in the spans of one row', () => {
-    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
     const n = 3000;
     const dom = new JSDOM(`<section class="bar"><ul><li>A ${'<code>{1}</code> '.repeat(n)}</li></ul></section>`);
     const codes = [...dom.window.document.querySelectorAll('code')];
@@ -481,7 +481,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a lead ends at a raw block in the DOM mirror, and a comment after the record is content, as in the pill pass', () => {
-    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
     const owned = (inner) => isOwnedRecordElement(new JSDOM(`<section class="bar"><ul>${inner}</ul></section>`).window.document.querySelector('code'));
     assert.equal(owned('<li>EMEA <code>{4}</code><div>x</div></li><li>APAC <code>3</code></li>'), true);
     assert.equal(owned('<li>EMEA <code>{4}</code><!-- x --></li><li>APAC <code>3</code></li>'), false, 'the engine counts the comment as a kid after the record');
@@ -630,7 +630,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('the DOM mirror reads a record in a heading item, as the engine does', () => {
-    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
     const el = new JSDOM('<section class="slope"><ul><li>EMEA<ul><li><h3>2024 <code data-t>{55%}</code></h3></li></ul></li></ul></section>').window.document.querySelector('code[data-t]');
     assert.equal(isOwnedRecordElement(el), true);
   });
@@ -691,7 +691,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('the browser does not claim a record in a list a raw <ol> wraps: the engine counts the wrapper as a list ahead', () => {
-    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
     const doc = new JSDOM('<section class="bar"><h2>A</h2><ol class="steps"><ul><li>A <code data-t>{1}</code></li><li>B <code>{2}</code></li></ul></ol></section>').window.document;
     assert.equal(isOwnedRecordElement(doc.querySelector('code[data-t]')), false);
     const plain = new JSDOM('<section class="bar"><h2>A</h2><ul><li>A <code data-t>{1}</code></li><li>B <code>{2}</code></li></ul></section>').window.document;
@@ -753,7 +753,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a raw table a cell leaves OPEN is ahead of the records after it; one it closes is not', () => {
-    const { ownedRecordSites } = require('../../../lib/core/chart-places.js');
+    const { ownedRecordSites } = require('../../../lib/core/chart-sites.js');
     const { boundaryParser } = require('../../../lib/core/boundary-parser');
     const sites = (body) => ownedRecordSites(boundaryParser.parse(body, {}), ['heatmap']).map((x) => x.text);
     const open = '| | A | B |\n|---|---|---|\n| E <table><tr><td>y | `{1.5}` | `{2.5}` |\n| F | `{3.5}` | `{4.5}` |';
@@ -766,7 +766,7 @@ describe('the paths agree on the data row', () => {
 
   test('applyToDom takes the matrix-grid section it iterates, so a raw section inside the slide does not hide the chart', () => {
     const matrixGridCells = require('../../../lib/core/matrix-grid-cells.js');
-    const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+    const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
     const dom = new JSDOM('<section class="matrix-grid"><section><table><thead><tr><th></th><th>A</th></tr></thead><tbody><tr><td>r</td><td><code>{done}</code></td></tr><tr><td>s</td><td><code>{todo}</code></td></tr></tbody></table></section></section>');
     matrixGridCells.applyToDom(dom.window.document, { isRecord: isOwnedRecordElement });
     assert.equal(dom.window.document.querySelectorAll('.cell').length, 2, 'both record cells became state cells');
@@ -853,7 +853,7 @@ describe('the paths agree on the data row', () => {
     });
 
     test('a `</table>` inside a comment or an attribute does not close the table the cell opened', () => {
-      const { ownedRecordSites } = require('../../../lib/core/chart-places.js');
+      const { ownedRecordSites } = require('../../../lib/core/chart-sites.js');
       const { boundaryParser } = require('../../../lib/core/boundary-parser');
       const sites = (cell) => ownedRecordSites(boundaryParser.parse(`| | A | B |\n|---|---|---|\n| E ${cell} | \`{1.5}\` | \`{2.5}\` |`, {}), ['heatmap']).length;
       assert.equal(sites('<!-- </table> --><table><tr><td>y'), 0);

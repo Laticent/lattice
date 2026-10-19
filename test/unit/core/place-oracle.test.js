@@ -55,7 +55,7 @@ describe('place oracle: matrix-grid cells become state cells in the engine and i
   const { JSDOM } = require('jsdom');
   const MarkdownIt = require('markdown-it');
   const matrixGridCells = require('../../../lib/core/matrix-grid-cells.js');
-  const { isOwnedRecordElement } = require('../../../lib/core/resolve-inline-code.js');
+  const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
   const engine = require('../../../lib/engine');
   const md = new MarkdownIt({ html: true });
   const STATES = /class="cell cell-(?:filled|outlined|empty)"/g; // the cell element, not the stylesheet that names the classes
