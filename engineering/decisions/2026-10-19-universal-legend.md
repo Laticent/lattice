@@ -173,15 +173,21 @@ A plain label on a chart is a one-entry legend in `anchored`. There is no second
 
 ## 5. Authoring through Segno
 
-**Entry.** An entry is a Segno record that extends the pill record. In a legend context the
-binding is:
+**Entry.** Two Segno record slots, tried in order (the retry is the same device `bindPill` already
+uses for an icon-only pill, `inline-pills.js:134-170`):
 
-- one bare non-vocabulary word: `text`
-- two bare non-vocabulary words: `key`, then `text`. This keeps every shipped
-  `[{1, Cold}, {3, Warm}]` working unchanged (the heatmap docs teach exactly this at
-  `heatmap.docs.md:39`).
-- `c1`-`c12`, a shape word or a size word: bound by type, as the pill does
-- `detail="…"`, `mark=`, `for=`: named-only, so they never collide with a bare word
+1. `legend-entry`: ONE positional `text`, then bare words bound by type (`c1`-`c12`, a shape word,
+   a size word) and named-only `detail="…"`, `mark=`, `for=`. This is the pill record with the
+   extra named parameters, so `{Poor, c1}` and `{LIVE, tag, c4}` read as they do for a pill.
+2. `legend-keyed`: on a refusal from slot 1 only, `key` and `text` as two positionals plus
+   `detail` and `color`. This keeps every shipped `[{1, Cold}, {3, Warm}]` and the flowchart
+   `[{"=>", Happy path}, {dashed, Sent back}]` working unchanged (spike 2 below).
+
+Rejected design: ONE slot with two positionals. Segno fills positionals before it binds by
+type, so `{Cold, c1}` read as text "Cold" plus text "c1" and silently lost the color (spike 2).
+
+A label whose second word is a vocabulary word reads as an entry, so `{1, tag}` is text "1"
+with a tag shape. Quote it, as the pill does, to keep it a keyed pair: `{1, "tag"}`.
 
 Examples (proposed spelling):
 
@@ -189,7 +195,7 @@ Examples (proposed spelling):
 [{1, Cold}, {3, Warm}, {5, Hot}]                       renames ramp steps (works today)
 [{1, Cold, detail="Under 20 percent"}, {5, Hot}]       adds a detail line (new)
 @legend{[{Poor, c1}, {Fair, c2}, {Good, c3}], key}     a free-standing key on any slide
-@legend{{Month 2 drop-off, tag, c4, for=mark 14}}      one anchored callout, with a plate
+@legend{{Month 2 drop-off, tag, c4, for=14}}           one anchored callout, with a plate
 ```
 
 **Where the grammar lives.** Three facts shape this:
@@ -248,10 +254,11 @@ A legend becomes a first-class narration unit instead of a consumed line.
 3. **`detail` is spoken only when asked** (`act:'note'`, the way `speakItemDetail` treats a
    mark's detail), and always folded into the speaker note, so the PDF carries it. This closes
    the gap where `detail` reaches nothing but a tooltip.
-4. **Screen readers get a list.** The HTML emitter renders a real list; the SVG emitter keeps
-   `<desc>` for the figure and adds the entries as `role="list"` children where the group is
-   not `aria-hidden`. UNVERIFIED: whether the legend body sits inside the `aria-hidden` mark
-   group depends on each caller in `cartesian.js` and the hand-rolled roots.
+4. **Screen readers get a list from the HTML emitter only.** The SVG key sits inside the
+   chart's `aria-hidden` group (`bar.transform.js:649-656` puts `legend.body` in `body`, and
+   `ariaHiddenMarks` wraps it, `cartesian.js:1314`), so a `role="list"` on SVG rows would be
+   inert. For SVG the `<desc>` stays the one reader route, and it now includes each entry's
+   `detail`. Only the HTML emitter renders a real list.
 
 ## 8. Gestures
 
@@ -281,9 +288,10 @@ Constraints that bind every tier:
   justification (HARD RULE #22).
 - Any change to the exported player changes export bytes and needs the owner's sign-off with a
   dark and a light render.
-- UNVERIFIED: whether legend swatches stay static during motion. They carry neither `data-mark`
-  nor `data-anima-role`, but `chartToScene` treats every `<text>` as role `label`
-  (`chart-anima.ts:256`), so legend text already animates in.
+- Motion (read from code, not driven): `chartToScene` animates only nodes with `data-mark` or
+  `data-anima-role`, plus every `<text>` as role `label` (`chart-anima.ts:236, 256`). Legend
+  swatches carry neither attribute, so they stay static, and legend text already animates in
+  as a label. Driving it on the real Playground stays on the build's verification list.
 
 ## 9. What retires, what stays
 
@@ -349,16 +357,52 @@ HARD RULE #20 (no margin), #21 (US English), #22 (escaping) and #29 (no typed gl
 CI green and unit tests do not verify any row above. iOS touch is UNVERIFIED until driven in
 the installed WebKit project.
 
-## 13. Risks and unknowns
+## 13. Spikes, and what is still unknown
 
-- **Segno list slot.** A top-level list is not expressible in JSON specs. The design wraps
-  the list in a record parameter; this needs a spike before Wave 0 commits to it.
-- **Two-bare-word binding** (`{1, Cold}` as key + text) must be proven not to collide with a
-  pill (`{LIVE}`) in the same span family. The spike reads every shipped label set.
-- **Census caveats.** Risk-matrix and slope line counts are estimates; only one of eight
-  manifests with a `gesture` block was sampled; `chart-detail-layer.tsx` sanitizing was not read.
-- **Scope.** The plugin touches 21 components and the player. The waves keep each step
-  reversible by one commit.
+Both spikes ran against the real Segno compiler and reader (`compileSlot` from
+`lib/core/segno-spec.js`, `read` / `tryRead`), with the shipped label-set spans as input. The
+scripts are throwaway (`.scratch/`-style) and the results are the table below.
+
+**Spike 1: a list of entry records inside a record parameter. PASS.**
+`{[{1, Cold}, {3, Warm}, {5, Hot}]}`, `{[{Poor, c1}, {Fair, c2}], key}`,
+`{[{1, Cold, detail="Under 20 percent"}], layout=key}` and `{[]}` all compile and read, with
+`detail` and `layout` bound. So `@legend{…}` can carry its entries in a record slot and needs no
+top-level list slot. Decision 1 stands.
+
+**Spike 2: key + text beside the pill record. One design FAILED, the replacement PASSES.**
+
+| Input | One slot, two positionals (rejected) | `legend-entry`, then `legend-keyed` retry (adopted) |
+|---|---|---|
+| `{Cold, c1}` | text "Cold", text "c1": color lost | entry: text "Cold", color 1 |
+| `{LIVE, tag, c4}` | text "LIVE", text "tag": shape lost | entry: text, shape tag, color 4 |
+| `{1, Cold}` | key "1", text "Cold" | keyed: key "1", text "Cold" |
+| `{"=>", Happy path}` | not tried | keyed pair |
+| `{dashed, Sent back}` | not tried | keyed pair |
+| `{dotted, Waits for business hours}` | not tried | keyed pair |
+| `{1, Cold, detail="Under 20, maybe"}` | key, text, detail | keyed pair with detail |
+| `{1, Cold, c2}` | key, text, color | keyed pair with color |
+| `{1, "tag"}` | not tried | keyed pair (quoting keeps it a pair) |
+| `{1, tag}` | not tried | entry: text "1", shape tag (documented, quote it) |
+
+A number-first key (`{1, Cold}` only when the first word is a number) was also tried and
+rejected: it refuses `{Cold}` and `{done, Done}`, and flowchart keys are words and operators.
+Every shipped label-set span in `lib/`, `design/` and the heatmap note reads under the adopted
+design.
+
+**Settled by reading the code:** SVG keys sit inside the `aria-hidden` group (section 7); legend
+swatches carry no motion attribute (section 8).
+
+**Still unknown, and none of it bears on the grammar or the model:**
+
+- "Byte-identical port" rests on reading call shapes, not on a diff. Wave 1's first port is
+  its test.
+- iOS touch and the real-Playground gestures are driven in the build, not here.
+- `chart-detail-layer.tsx` sanitizing was not read; a legend that injects popover markup must
+  be listed under `SANCTIONED_RUNTIME_MARKUP_SINKS` with its justification (HARD RULE #22).
+- Census caveats: risk-matrix and slope line counts are estimates; one of eight manifests with a
+  `gesture` block was sampled.
+- The adversarial trio (HARD RULE #25) has not run. This note is a design, so the trio runs on
+  the build that ships, not on the note.
 
 ## 14. Decisions (confirmed by the owner, 2026-10-19)
 
@@ -369,5 +413,5 @@ the installed WebKit project.
 | 3 | Size ramps, risk-matrix index and slope | Out of Waves 0-4; decided per proof in Wave 5 |
 | 4 | Where a free-standing `@legend{}` lands when the slide has no key slot | Below the figure in the body, using the lift logic `liftLabelSet` already has |
 
-Two spikes come first and can reopen decision 1 if they fail: a list of entries inside a record
-parameter (section 13), and `{1, Cold}` read as key + text without colliding with a pill.
+Both spikes ran (section 13). Spike 1 passed. Spike 2 rejected the one-slot, two-positional
+binding and adopted the entry-then-keyed retry. Decision 1 stands.
