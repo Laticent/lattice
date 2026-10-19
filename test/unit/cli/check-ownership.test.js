@@ -91,6 +91,7 @@ const {
   checkCadenzaBoundary,
   checkCalcoBoundary,
   checkFuocoBoundary,
+  checkVedutaBoundary,
   checkMosaicoBoundary,
   checkTavolaBoundary,
   checkLttBoundary,
@@ -2108,6 +2109,48 @@ describe('check-ownership', () => {
     test('a triple-slash reference is an ambient dependency, and is caught', () => {
       assert.equal(run({ 'hub.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
       assert.deepEqual(run({ 'hub.ts': '// a plain comment about <reference types="node" />\nexport const x = 1;' }), []);
+    });
+  });
+
+  // Veduta: the core takes its focus and its mounting from the host, so it imports nothing from
+  // outside its folder, not even `react` (2026-10-16-preview-as-library-audit.md).
+  describe('Veduta import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veduta-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkVedutaBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkVedutaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('only relative imports inside the folder; nothing from Lattice, a framework or node', () => {
+      assert.deepEqual(run({ 'index.ts': "export { windowFor } from './core.js';", 'core.ts': 'export const windowFor = () => 1;' }), []);
+      for (const src of [
+        "import * as React from 'react';",
+        "import { createFocusHub } from '../fuoco';",
+        "import { visibleRange } from '../../playground/virtual-window.js';",
+        "import { frontMatterBlock } from '@/components/studio/front-matter';",
+        "import fs from 'node:fs';",
+        "const m = await import('markdown-it');",
+      ]) {
+        assert.equal(run({ 'core.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'core.test.ts': "import { it } from 'vitest';\nimport { x } from '../../playground/virtual-window.js';" }), [], 'tests may import the host');
+    });
+    test('a triple-slash reference is an ambient dependency, and is caught', () => {
+      assert.equal(run({ 'core.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
+      assert.deepEqual(run({ 'core.ts': '// a plain comment about <reference types="node" />\nexport const x = 1;' }), []);
     });
   });
 

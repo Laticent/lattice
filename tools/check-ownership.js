@@ -9031,6 +9031,37 @@ function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
   }
 }
 
+// ── Veduta (docs/src/lib/veduta) — the windowed preview ────────────────────
+// Veduta decides which units of a list a view should mount, at what fidelity and in what order,
+// and knows nothing about what a unit is, what focus source drives it, or what mounts it
+// (2026-10-16-preview-as-library-audit.md). A host plugs in its own focus (Lattice uses Fuoco) and
+// its own connectors (the Studio's frame pool, the Playground's filmstrip), and those live OUTSIDE
+// the folder. So the core imports nothing outside it, not even `node:`, and not `react`: it has no
+// framework adapter yet.
+const VEDUTA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'veduta');
+function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Veduta folder. Veduta takes its focus and its mounting ` +
+      `from the host, so every import must resolve inside docs/src/lib/veduta/; Lattice's connectors live ` +
+      `outside it (engineering/decisions/2026-10-16-preview-as-library-audit.md).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${path.relative(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Veduta core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/veduta/.`,
+      );
+    }
+  }
+}
+
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -13627,6 +13658,7 @@ function run() {
   checkCalcoBoundary(errors);
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
+  checkVedutaBoundary(errors);
   checkMosaicoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -13695,6 +13727,7 @@ module.exports = {
   specPartProblems,
   checkTavolaBoundary,
   checkFuocoBoundary,
+  checkVedutaBoundary,
   checkMosaicoBoundary,
   checkReadingRole,
   readingRoleCountsIn,

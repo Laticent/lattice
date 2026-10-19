@@ -15,7 +15,7 @@ summary: >
 
 # On-demand styles: baseline, split and rulings (2026-10-18)
 
-Follows the brief `2026-10-17-on-demand-styles-brief.md`. Read that first for the ask. The brief is not in this PR: it lives on the branch `claude/preview-adaptive-library-db7rfe` (its author's) and reaches `main` with that branch. This note records what was
+Follows the brief `2026-10-17-on-demand-styles-brief.md`. Read that first for the ask. The brief is not part of this PR; it reached `main` with #2782. This note records what was
 measured, what the owner ruled, and what E1 changed. It does not repeat the brief.
 
 ## 1. The owner's rulings (2026-10-18)

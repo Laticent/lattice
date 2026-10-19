@@ -224,6 +224,7 @@ const STEPS = [
   // Fuoco is a browser library (the Studio's focus hub); nothing at the root requires it, but it
   // publishes ./dist like its siblings, so it builds like them.
   { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
+  { label: 'Veduta library dist (ESM + CJS + .d.ts)', script: 'build-veduta-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@laticent/lente')` / publish break.
