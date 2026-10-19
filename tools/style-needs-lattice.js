@@ -80,6 +80,24 @@ function derivedRuntimeTokens(index, root = ROOT) {
       for (const m of fs.readFileSync(path.join(coreDir, f), 'utf8').matchAll(/data-lattice-[a-z0-9]+(?:-[a-z0-9]+)*/g)) a.add(m[0]);
     }
   }
+  // The DOM adapters the runtime applies (`applyToDom`) build markup from HTML strings, not from classList calls:
+  // the progress rail (`<div class="tile-progress">`), the masthead bay, the code-copy button, the overflow tab.
+  // The structural split can rebuild a slide without the rails the engine put in it, and the runtime puts them
+  // back, so a scan of the HTML never sees them (found on dark-canvas-ownership.md in WebKit: the progress rail
+  // lost its rules). Read the `class="..."` literals of the lib/core and lib/forms files the runtime requires.
+  const rtFile = path.join(root, 'lib/runtime/index.js');
+  if (fs.existsSync(rtFile)) {
+    const rtDir = path.dirname(rtFile);
+    for (const m of fs.readFileSync(rtFile, 'utf8').matchAll(/require\(\s*['"](\.\.?\/[^'"]+)['"]\s*\)/g)) {
+      const base = path.resolve(rtDir, m[1]);
+      const file = [base, `${base}.js`, `${base}.mjs`].find((f) => fs.existsSync(f) && fs.statSync(f).isFile());
+      const rel = file ? path.relative(root, file) : '';
+      if (!file || !/^lib\/(core|forms)\//.test(rel) || /\.test\./.test(rel)) continue;
+      const text = fs.readFileSync(file, 'utf8');
+      for (const q of text.matchAll(/class=\\?["']([^"'<>$]*?)\\?["']/g)) for (const w of q[1].split(/\s+/)) if (w) c.add(w.toLowerCase());
+      for (const q of text.matchAll(/className\s*=\s*['"]([^'"]+)['"]/g)) for (const w of q[1].split(/\s+/)) if (w) c.add(w.toLowerCase());
+    }
+  }
   return { c: [...c].filter((x) => vocab.c.has(x)).sort(), a: [...a].filter((x) => vocab.a.has(x)).sort() };
 }
 

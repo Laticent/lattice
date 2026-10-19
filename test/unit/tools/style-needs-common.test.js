@@ -46,4 +46,12 @@ describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, (
     assert.ok(idx.runtime.c.includes('overflow'), 'overflow');
     assert.ok(idx.runtime.c.includes('fit-marked') || idx.runtime.c.includes('clip-marked'));
   });
+
+  test('classes the runtime builds from HTML strings are on the list: the progress rail', () => {
+    // The structural split can rebuild a slide without the rail the engine put in it and the runtime puts it
+    // back (`<div class="tile-progress">` in progress.transform.js), so a scan of the HTML never sees it.
+    // Found on dark-canvas-ownership.md in WebKit: the rail lost its rules under the loader.
+    const idx = buildLatticeIndex({ verified: false });
+    for (const name of ['tile-progress', 'tile-meta', 'tile-watermark']) assert.ok(idx.runtime.c.includes(name), name);
+  });
 });
