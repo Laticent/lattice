@@ -99,6 +99,24 @@ export { previewCspMeta, splitSections };
 // pies). Inert under color themes: nothing references the patterns there.
 export const A11Y_DEFS = texturePatternDefs();
 
+/**
+ * What the frame document holds that the engine's slide HTML does not, for the on-demand style
+ * loader's scan (docs/src/lib/style-loader.ts): the `<html>` the builder writes, the texture
+ * <defs> it puts before the slides, and the classes and attributes this file's own agents add after
+ * load (the click agent's `data-idx`, `db-active`). A rule in lattice.css keyed on any of them must
+ * keep loading, so a change to `buildSrcdoc`'s shell or to an agent's DOM writes is a change here.
+ * `deck-preview.scan-shell.test.ts` pins the `<html>` attributes against `buildSrcdoc`.
+ */
+export const SCAN_SHELL = {
+	open: '<!doctype html><html lang="en" data-lattice-preview="" data-lattice-diagrams=""><body>',
+	prefix: A11Y_DEFS,
+	// `role` and `data-mark` are written into the frame by the host's overlays (collage-host.js makes a
+	// lightbox image a button; chart-interact.js marks the chart marks it makes interactive), and both
+	// names appear in lattice.css selectors. Found by listing what host code writes into the frame and
+	// intersecting it with the names the modules key on; extend the list when an overlay learns a new one.
+	runtime: { c: ['db-active'], a: ['data-idx', 'role', 'data-mark'] },
+};
+
 const DARK_BG = '#0c0c0c';
 const LIGHT_BG = '#e7e7ea';
 

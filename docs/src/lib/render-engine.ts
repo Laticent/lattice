@@ -78,7 +78,16 @@ let optsHook: RenderOptsHook | null = null;
 export function setRenderOptsHook(hook: RenderOptsHook | null): void {
 	optsHook = hook;
 }
-export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
+export type RenderMarkdownResult = {
+	html: string;
+	css: string;
+	flatCss?: string;
+	width?: number;
+	height?: number;
+	stats?: import('@/playground/render-metrics').RenderStats;
+	/** The sheet for THIS deck against the themes registered now (a non-enumerable property of the engine's result, so a spread or a clone drops it). */
+	restyle?: () => string;
+};
 
 /**
  * Render `source` through the engine. `PG` is passed explicitly (never read

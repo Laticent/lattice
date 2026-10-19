@@ -505,7 +505,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Built once. `useRef(createEngineBridge(...))` evaluated its argument on every render and
 	// threw the result away, so each commit of this surface built a bridge nobody used.
 	const engineRef = React.useRef<EngineBridge>(null as unknown as EngineBridge);
-	if (engineRef.current === null) engineRef.current = createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { dagreUrl, katexUrl });
+	if (engineRef.current === null) engineRef.current = createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { dagreUrl, katexUrl }, { stylesBase: themeBase.replace(/themes\/$/, 'styles/') });
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2662,7 +2662,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// (not behind it) — the render loop's ready() poll otherwise means
 		// renderInto's theme fetch never starts until the engine already has.
 		const start = () => {
-			engine.prefetchTheme?.();
+			let first = starter;
+			try {
+				first = localStorage.getItem(SOURCE_KEY) || starter;
+			} catch {
+				/* a blocked store: the starter deck is the best guess */
+			}
+			engine.prefetchTheme?.(first);
 			engine.ensure();
 		};
 		const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
@@ -2672,7 +2678,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const t = setTimeout(start, 0);
 			return () => clearTimeout(t);
 		}
-	}, []);
+	}, [starter]);
 
 	// Cleanup any pending timer on unmount.
 	React.useEffect(() => {

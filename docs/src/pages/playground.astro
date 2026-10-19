@@ -606,8 +606,8 @@ const pgData = {
 		     Drawing Board and both Workbench studios). Deferred like the engine
 		     bundle; the controller guards on window.LatticeDeckPreview's presence. -->
 		<script>
-			import { attachVirtual, mountAround, renderDeck, syncVirtual } from '../playground/deck-render.js';
-			window.LatticeDeckPreview = { renderDeck, attachVirtual, mountAround, syncVirtual };
+			import { attachVirtual, mountAround, renderDeck, SCAN_SHELL, syncVirtual } from '../playground/deck-render.js';
+			window.LatticeDeckPreview = { renderDeck, attachVirtual, mountAround, syncVirtual, scanShell: SCAN_SHELL };
 		</script>
 
 		<!-- The Lattice render engine (window.LatticePlayground) is loaded ON DEMAND by

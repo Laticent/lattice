@@ -22,7 +22,7 @@ export interface LatticePlaygroundEngine {
 		 *  so a single-slide render numbers itself truthfully without a whole-deck parse.
 		 *  Omitted on every full-deck and export path, where numbering is already right. */
 		opts?: { baseUrl?: string; samplesUrl?: string; assetUrls?: Record<string, string>; assetAlts?: Record<string, string>; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat'; pluginDefaults?: string[] },
-	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
+	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats; restyle?: () => string };
 	/** Narrow the default plugin set every later render loads from; `null` restores every shipped
 	 *  plugin (lib/playground/index.js). The Studio ships on the default set. */
 	setPluginDefaults?: (names: string[] | null) => void;
@@ -78,6 +78,8 @@ export interface LatticePlaygroundEngine {
  *  the virtual list has none, and the host then runs fully mounted. */
 type VirtualState = { lastSections: unknown } | null | undefined;
 export interface LatticeDeckPreviewController {
+	/** The frame's host markup and runtime tokens, for the on-demand style loader's scan (deck-preview.js). */
+	scanShell?: import('./style-loader').ScanShell;
 	attachVirtual?: (frame: HTMLIFrameElement, getState: () => VirtualState, onChange?: () => void) => void;
 	mountAround?: (frame: HTMLIFrameElement, state: VirtualState, index: number) => boolean;
 	syncVirtual?: (frame: HTMLIFrameElement, state: VirtualState) => boolean;

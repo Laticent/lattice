@@ -29,6 +29,7 @@
 // handled). See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 import { themeChain } from '../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
+import type { StyleLoader } from './style-loader';
 
 
 // Module-level shared cache keyed by themeBase — so EVERY preview host that renders against
@@ -37,12 +38,17 @@ import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 // cost, audit 2026-07-20-studio-degradation-audit). The CSS for a given (themeBase, name) is
 // identical across hosts, so sharing is safe; the engine-side registry (PG.addThemes/hasTheme)
 // was already globally deduped — this closes the docs-side duplication the audit measured.
-type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null; katexWanted: boolean; katexActive: boolean; katexReady: Promise<void> | null };
+// `baseMode` says WHICH `lattice` the engine holds, because the engine has exactly one slot for it and
+// every consumer on the page renders against whatever is there. 'full' is the whole sheet; 'subset' is
+// the on-demand modules a style loader gathered (style-loader.ts), which is correct only for the
+// documents that loader scanned. A consumer with no loader (an export, a chat figure) demands 'full',
+// and 'full' is never replaced by a subset again, so a subset can never be what a stranger renders with.
+type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null; baseMode: 'none' | 'subset' | 'full'; subsetReady: Promise<void> | null; katexWanted: boolean; katexActive: boolean; katexReady: Promise<void> | null };
 const sharedState = new Map<string, FetcherState>();
 function stateFor(themeBase: string): FetcherState {
 	let s = sharedState.get(themeBase);
 	if (!s) {
-		s = { fetched: {}, registering: {}, latticeReady: null, katexWanted: false, katexActive: false, katexReady: null };
+		s = { fetched: {}, registering: {}, latticeReady: null, baseMode: 'none', subsetReady: null, katexWanted: false, katexActive: false, katexReady: null };
 		sharedState.set(themeBase, s);
 	}
 	return s;
@@ -53,8 +59,9 @@ export function __resetThemeFetcherCache(): void {
 	sharedState.clear();
 }
 
-export function createThemeFetcher(themeBase: string) {
+export function createThemeFetcher(themeBase: string, opts: { styles?: StyleLoader } = {}) {
 	const state = stateFor(themeBase);
+	const styles = opts.styles;
 	const fetched = state.fetched; // theme name → Promise<cssText>, SHARED across hosts of this themeBase
 
 	/** Fetch `<themeBase><name>.css` once; cache the Promise per name. */
@@ -144,8 +151,10 @@ export function createThemeFetcher(themeBase: string) {
 		state.katexWanted = true;
 		state.katexReady = fetchTheme('lattice')
 			.then((css) => {
-				// addThemes overwrites by name, so this replaces the stripped registration.
+				// addThemes overwrites by name, so this replaces the stripped registration. It is the
+				// whole sheet, so the engine now holds 'full' whatever it held before.
 				PG.addThemes([{ name: 'lattice', css }]);
+				state.baseMode = 'full';
 				state.katexActive = true;
 			})
 			.catch((e) => {
@@ -173,13 +182,16 @@ export function createThemeFetcher(themeBase: string) {
 		return Boolean(window.LatticePlayground?.hasTheme(name));
 	}
 
-	/** Register the base `lattice.css` contract exactly once. */
-	function ensureBase(): Promise<void> {
+	/** Register the WHOLE base `lattice.css` contract exactly once. */
+	function ensureFullBase(): Promise<void> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.reject(new Error('engine not ready'));
 		if (!state.latticeReady) {
 			state.latticeReady = fetchTheme('lattice')
-				.then((css) => PG.addThemes([{ name: 'lattice', css: latticeCssFor(css) }]))
+				.then((css) => {
+					PG.addThemes([{ name: 'lattice', css: latticeCssFor(css) }]);
+					state.baseMode = 'full';
+				})
 				.catch((e) => { if (e?.status !== 404) state.latticeReady = null; throw e; }); // self-heal transient only (keep a 404 negatively cached)
 		}
 		// Eviction-safe: the memo is now page-lifetime-shared, so it must not outlive the engine's
@@ -188,8 +200,70 @@ export function createThemeFetcher(themeBase: string) {
 		// when present — negligible on the hot path). Without this, the shared memo would say
 		// "registered" forever and strip the render (Munger inversion on Fix A).
 		return state.latticeReady.then(() => {
-			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([{ name: 'lattice', css: latticeCssFor(css) }]); });
+			// A subset registered AFTER the full sheet's memo resolved (the loader ran first) would
+			// leave the memo saying 'full' while the engine holds a subset: re-assert the whole sheet.
+			if (!PG.hasTheme('lattice') || state.baseMode !== 'full') return fetchTheme('lattice').then((css) => { PG.addThemes([{ name: 'lattice', css: latticeCssFor(css) }]); state.baseMode = 'full'; });
 		});
+	}
+
+	/** The loader's floor (index + always-needed modules), registered as the base. Never over a full base. */
+	function ensureSubsetBase(): Promise<void> {
+		const PG = window.LatticePlayground;
+		if (!PG) return Promise.reject(new Error('engine not ready'));
+		if (!styles) return ensureFullBase();
+		if (!state.subsetReady) {
+			state.subsetReady = styles.ready().catch((e) => { state.subsetReady = null; throw e; });
+		}
+		return state.subsetReady.then(() => {
+			// Decided synchronously with the write: a full base that landed while the floor was
+			// fetching must win, and a base the engine dropped is registered again.
+			if (state.baseMode === 'full' && PG.hasTheme('lattice')) return;
+			if (state.baseMode === 'subset' && PG.hasTheme('lattice')) return;
+			PG.addThemes([{ name: 'lattice', css: latticeCssFor(rewriteRelativeFontUrls(styles.css())) }]);
+			state.baseMode = 'subset';
+		});
+	}
+
+	/** Register the base contract: the loader's subset when this fetcher has one, else the whole sheet. */
+	function ensureBase(): Promise<void> {
+		if (!styles) return ensureFullBase();
+		// The loader failing (index 404, a module fetch error) must cost bytes, never the render.
+		return ensureSubsetBase().catch(() => ensureFullBase());
+	}
+
+	/**
+	 * Scan the slides the engine rendered and bring in the style modules they need. Resolves true when
+	 * the registered base changed, so the caller must render again to get a sheet that has them. False
+	 * when the base is the whole sheet already (another consumer demanded it), or nothing new is needed.
+	 */
+	async function growBase(html: string): Promise<boolean> {
+		const PG = window.LatticePlayground;
+		if (!styles || !PG) return false;
+		if (state.baseMode === 'full' && PG.hasTheme('lattice')) return false;
+		let verdict: 'same' | 'grew' | 'whole';
+		try {
+			verdict = await styles.ensureFor(html);
+		} catch {
+			// Cannot say what the slides need: the whole sheet is the only safe answer.
+			await ensureFullBase();
+			return true;
+		}
+		if (verdict === 'same') return false;
+		if (verdict === 'whole') {
+			// The slides use most of the sheet: one file beats a hundred modules.
+			await ensureFullBase();
+			return true;
+		}
+		if (state.baseMode === 'full') return false; // a full base landed while the modules were fetching
+		PG.addThemes([{ name: 'lattice', css: latticeCssFor(rewriteRelativeFontUrls(styles.css())) }]);
+		state.baseMode = 'subset';
+		return true;
+	}
+
+	/** Changes whenever the registered base does: fold it into a host's render signature. */
+	function baseSignature(): string {
+		if (!styles) return ''; // a fetcher with no loader changes nothing about its host's signature
+		return state.baseMode === 'subset' ? 's' + styles.signature() : state.baseMode === 'full' ? 'f' : '';
 	}
 
 	/**
@@ -235,12 +309,15 @@ export function createThemeFetcher(themeBase: string) {
 	function ensure(palette: string, mode: 'light' | 'dark'): Promise<void> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.reject(new Error('engine not ready'));
-		const jobs: Promise<void>[] = [register(palette)];
+		// The base is asked for on EVERY call, not only inside the palette's first registration: a
+		// palette another fetcher registered earlier resolves from the memo, and without this a
+		// consumer with no loader would render against the subset that fetcher left in the engine.
+		const jobs: Promise<void>[] = [register(palette), ensureBase()];
 		if (mode === 'dark') jobs.push(register(palette + '-dark').catch(() => {}));
 		return Promise.all(jobs).then(() => undefined);
 	}
 
-	return { fetch: fetchTheme, ensure, ensureBase, ensureKatexFaces, katexFacesActive, has };
+	return { fetch: fetchTheme, ensure, ensureBase, prefetchFloor: styles ? () => styles.ready() : undefined, growBase, baseSignature, ensureKatexFaces, katexFacesActive, has };
 }
 
 export type ThemeFetcher = ReturnType<typeof createThemeFetcher>;

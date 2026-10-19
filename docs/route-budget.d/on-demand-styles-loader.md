@@ -1,0 +1,2 @@
+playground: +2200
+The Playground's on-demand style loader (docs/src/lib/style-loader.ts, the scan kernel lib/core/style-needs-scan.mjs, and the base-registration changes in theme-fetch.ts) ships in the route's eager JS. Measured on this branch against the same tree with docs/src stashed: eagerJsGz 640,463 to 642,524 bytes, so +2,061 (declared with a little margin for toolchain drift). The route was already over its soft target on main. In exchange the page stops fetching the whole 116 KB gz engine sheet: a median deck fetches about 62 KB gz of styles instead.

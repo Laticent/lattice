@@ -223,11 +223,19 @@ today (for example `component:flowchart` needs `tail:chart-family.styles`). 13 m
 
 The Chromium run was interrupted twice by sandbox restarts and finished in chunks (`107 + 186` decks); the
 WebKit run in eight chunks. A harness bug found on the way: the baseline render went through the default
-pipeline while the subset went through `-c <file>`, which skips the pagination content mask and the
-minifier. `claim.md`, `adaptive-image.md` and `chart-hue-collapse*.md` differed with no module missing. The
-baseline now renders through `-c` with a copy of `dist/lattice.css`, and all three are identical. This is a
-product fact too, not only a harness one: a style subset must reach the engine through the default render
-path (followup P8). iOS Safari is still UNVERIFIED.
+pipeline while the subset went through `-c <file>`, and `claim.md`, `adaptive-image.md` and
+`chart-hue-collapse*.md` differed with no module missing. The first fix rendered the baseline through a `-c` copy
+of `dist/lattice.css` too. **That hid the cause instead of removing it, and the second fix does** (2026-10-19,
+followup P8): the engine masks a slide-own `::after { content }` (`isPaginationTarget`, `lib/engine/css.js`)
+by reading the selector's SPELLING. On the minified text the default render ships, `:is(.chart-frame,.big-number)`
+has no space and the mask fires. On the source spelling, `:is(.chart-frame, .big-number)` has one, the regex
+for "a slide's own pseudo" reads it as a descendant, and `content: none` stays live. So `-c <any unminified
+file>` was never the default path, and `-c <copy of dist/lattice-min.css>` is: its render is byte-identical to the
+default one (pinned by `test/unit/tools/style-subset-default-path.test.js`). The audit now renders the baseline
+with no `-c` at all and feeds each subset as the **minified** modules (`dist/styles-min/`), which the harness
+checks join back into `dist/lattice-min.css` before it starts. All three decks are identical, in Chromium, on the
+real default path. The spelling-sensitive mask is a defect of its own, off this path, logged as a followup.
+iOS Safari is still UNVERIFIED.
 
 - **Two scanners were compared, as the brief asked.** The HTML scan above, and a Markdown-only scan (the
   `_class` / `class` directives, granted every attribute, tag and id for free, which is its best case). The

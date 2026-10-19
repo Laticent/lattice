@@ -34,7 +34,8 @@ const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const { buildIndex, scanDocument, neededModules } = require('./style-needs.js');
-const { PLAYER_PRUNE_SAFELIST, GUIDE_PRUNE_SAFELIST } = require('../lib/export/player-prune.js');
+const { RUNTIME_TOKENS } = require('./style-needs-lattice.js');
+const { fingerprints, open } = await import('./style-gate-lib.mjs');
 const { chromium, webkit } = await import(path.join(ROOT, 'docs/node_modules/@playwright/test/index.mjs'));
 
 const argv = process.argv.slice(2);
@@ -56,16 +57,8 @@ if (!['chromium', 'webkit'].includes(engine)) {
   process.exit(2);
 }
 
-// The Lattice adapter's RUNTIME TOKENS: classes and attributes that script adds after the scan.
-// From the player prune's own keep-lists (the same problem, solved once: HARD RULE #15), plus the two
-// the checker found that no list named: the code-copy `data-copied` flag and the fluid view switch.
-const runtime = { c: [], a: ['data-copied', 'data-lattice-view'] };
-for (const sel of [...PLAYER_PRUNE_SAFELIST, ...GUIDE_PRUNE_SAFELIST]) {
-  const m = sel.match(/^\.([\w-]+)$/) || sel.match(/^\[([\w-]+)\]$/);
-  if (!m) throw new Error(`style-needs-audit: cannot read runtime token ${sel}`);
-  (sel.startsWith('.') ? runtime.c : runtime.a).push(m[1]);
-}
-runtime.c.push('lat-guide-dim');
+// The Lattice adapter's RUNTIME TOKENS live in tools/style-needs-lattice.js (shared with the docs sync).
+const runtime = RUNTIME_TOKENS;
 
 const manifestPath = path.join(ROOT, 'dist/styles/manifest.json');
 if (!fs.existsSync(manifestPath)) {
@@ -74,6 +67,17 @@ if (!fs.existsSync(manifestPath)) {
 }
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const modules = manifest.modules.map((m) => ({ ...m, text: fs.readFileSync(path.join(ROOT, 'dist/styles', m.file), 'utf8') }));
+// The minified twin: same ids, same order, joined with nothing between them to make lattice-min.css.
+const manifestMin = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist/styles-min/manifest.json'), 'utf8'));
+const modulesMin = manifestMin.modules.map((m) => ({ ...m, text: fs.readFileSync(path.join(ROOT, 'dist/styles-min', m.file), 'utf8') }));
+if (modulesMin.length !== modules.length || modulesMin.some((m, i) => m.id !== modules[i].id)) {
+  console.error('dist/styles and dist/styles-min list different modules; run `npm run css:build`');
+  process.exit(2);
+}
+if (modulesMin.map((m) => m.text).join('') !== fs.readFileSync(path.join(ROOT, 'dist/lattice-min.css'), 'utf8')) {
+  console.error('dist/styles-min does not join back into dist/lattice-min.css; run `npm run css:build`');
+  process.exit(2);
+}
 const index = buildIndex(modules);
 const indexSel = buildIndex(modules, { selectors: true });
 const bytes = modules.map((m) => m.bytes);
@@ -143,63 +147,6 @@ function pageTruth(mods) {
   });
 }
 
-function pageFingerprint() {
-  const els = [...document.querySelectorAll('section, section *')];
-  // Custom properties are left out of the hash on purpose: a token declared in a module the document
-  // never uses is inert unless a rule reads it, and a rule that reads it shows up in the ordinary
-  // properties. Reported separately (`tokens`) because script that reads tokens at run time (charts,
-  // diagrams) does depend on them.
-  const props = (cs) => {
-    let s = '';
-    for (let i = 0; i < cs.length; i++) if (!cs[i].startsWith('--')) s += `${cs[i]}:${cs.getPropertyValue(cs[i])};`;
-    return s;
-  };
-  const h = (s) => {
-    let x = 2166136261;
-    for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619);
-    return x >>> 0;
-  };
-  return els.map((el) => h(props(getComputedStyle(el)) + props(getComputedStyle(el, '::before')) + props(getComputedStyle(el, '::after'))));
-}
-
-// Custom properties on the section only (they inherit down), as one hash per slide.
-function pageTokenFingerprint() {
-  const h = (s) => {
-    let x = 2166136261;
-    for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619);
-    return x >>> 0;
-  };
-  return [...document.querySelectorAll('section')].map((el) => {
-    const cs = getComputedStyle(el);
-    let s = '';
-    for (let i = 0; i < cs.length; i++) if (cs[i].startsWith('--')) s += `${cs[i]}:${cs.getPropertyValue(cs[i])};`;
-    return h(s);
-  });
-}
-
-async function open(browser, file) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  await page.goto(`file://${file}`);
-  await page.waitForTimeout(400);
-  await page.evaluate(() => document.fonts.ready);
-  return page;
-}
-
-async function fingerprints(page) {
-  const out = {};
-  for (const [name, setup] of [
-    ['screen', { media: 'screen', colorScheme: 'light' }],
-    ['print', { media: 'print', colorScheme: 'light' }],
-    ['dark', { media: 'screen', colorScheme: 'dark' }],
-  ]) {
-    await page.emulateMedia(setup);
-    await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' }).catch(() => {});
-    out[name] = await page.evaluate(pageFingerprint);
-    if (name === 'screen') out.tokens = await page.evaluate(pageTokenFingerprint);
-  }
-  return out;
-}
-
 // ---- one deck ------------------------------------------------------------------------------------
 async function auditDeck(browser, deck, tmp) {
   const name = path.basename(deck, '.md');
@@ -207,11 +154,13 @@ async function auditDeck(browser, deck, tmp) {
   const html = path.join(tmp, `${name}.html`);
   const r = { deck, ok: false };
   try {
-    // The baseline goes through `-c <copy of lattice.css>`, the same custom-CSS path the subset takes.
-    // `lattice deck.md out.html` with no -c uses the default pipeline, which masks a slide-own
-    // `::after { content }` and minifies; `-c <any other file>` does neither. Comparing the default
-    // render with a `-c` subset shows that difference, not the dropped modules (found on claim.md).
-    await run('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, deck), html, '-c', fullCss, '-q'], { timeout: 240000, maxBuffer: 1 << 26 });
+    // The baseline is the DEFAULT render (no -c). A subset rides `-c <file>` made of the MINIFIED modules
+    // (dist/styles-min), because the engine's content mask (lib/engine/css.js `isPaginationTarget`) reads
+    // the selector's spelling: on the minified spelling the default render ships, `-c` is byte-identical
+    // to it (checked below on every run); on the source spelling it is not, which is what made claim.md
+    // differ when this harness fed unminified modules (followups.d/2780-p8, found here). The subset
+    // therefore takes the same mask and the same minified text as the default path.
+    await run('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, deck), html, '-q'], { timeout: 240000, maxBuffer: 1 << 26 });
   } catch (e) {
     r.error = `render: ${String(e.message).split('\n')[0].slice(0, 120)}`;
     return r;
@@ -281,7 +230,7 @@ async function auditDeck(browser, deck, tmp) {
     await again.close();
     const subsetCss = path.join(tmp, `${name}.subset.css`);
     const subsetHtml = path.join(tmp, `${name}.subset.html`);
-    fs.writeFileSync(subsetCss, modules.filter((_, i) => need[i]).map((m) => m.text).join('\n'));
+    fs.writeFileSync(subsetCss, modulesMin.filter((_, i) => need[i]).map((m) => m.text).join(''));
     await run('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, deck), subsetHtml, '-c', subsetCss, '-q'], { timeout: 240000, maxBuffer: 1 << 26 });
     const sub = await open(browser, subsetHtml);
     const subFp = await fingerprints(sub);
@@ -306,8 +255,6 @@ async function auditDeck(browser, deck, tmp) {
 
 // ---- main ------------------------------------------------------------------------------------------
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'style-needs-'));
-const fullCss = path.join(tmp, 'full-lattice.css');
-fs.copyFileSync(path.join(ROOT, 'dist/lattice.css'), fullCss);
 const browser = await (engine === 'webkit' ? webkit : chromium).launch();
 const results = [];
 let next = 0;

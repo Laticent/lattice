@@ -20,7 +20,7 @@ import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { windowFor } from '../lib/veduta/core.js';
-import { buildSrcdoc, docStyleText } from './deck-preview.js';
+import { buildSrcdoc, docStyleText, SCAN_SHELL } from './deck-preview.js';
 import { paneComponentsSig } from './pane-sheet-sig.js';
 import { splitSections } from './preview-virtual.js';
 import { LV_ATTR, placeholderOf, SLIDE_SELECTOR, virtualHtml, visibleRange, windowRange, withIndex } from './virtual-window.js';
@@ -558,4 +558,5 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	return { state: st, count: sections.length, patched, restyled, anchor };
 }
 
+export { SCAN_SHELL };
 export default { renderDeck, patchSections, restyleDocument, syncVirtual, mountAround, attachVirtual };

@@ -13,6 +13,10 @@
 //        engine to render in the chosen palette. We stage the MINIFIED build —
 //        the same one the Export-to-Marp bundle ships — under the unversioned
 //        <name>.css dest, so the themeBase fetch sites are unchanged.)
+//   - dist/styles-min/<module>.css + a generated styles/needs.json → public/playground/v/<hash>/styles/
+//       (the on-demand style loader's input: lattice-min.css cut into 187 ordered modules, and the
+//        index of which document tokens each one needs. docs/src/lib/style-loader.ts fetches the
+//        index and only the modules a deck uses; engineering/decisions/2026-10-18-on-demand-styles.md.)
 //   - public/playground/esm/ (the ESM engine, its chart kernels and chunks; built, not committed)
 //                               → public/playground/v/<hash>/esm/
 //   - public/playground/lattice-katex.js (committed on-demand KaTeX bundle,
@@ -252,6 +256,15 @@ for (const bucket of readdirSync(exemplarsDir)) {
   }
 }
 
+// The on-demand style modules (tools/css-modules.js cuts them, `npm run css:build` writes them) and
+// the index that says which modules a document needs. Module files keep lattice-min.css's
+// stylesheet-relative `url(fonts/<file>.woff2)`; the loader absolutizes them like theme-fetch.ts does
+// for the whole sheet. The index is generated here from the same function the audit runs.
+const stylesMinDir = join(repoRoot, 'dist', 'styles-min');
+for (const file of readdirSync(stylesMinDir)) {
+  if (file.endsWith('.css')) assets.push([`styles/${file}`, join(stylesMinDir, file)]);
+}
+
 for (const [, src] of assets) {
   if (!existsSync(src)) {
     console.error(`sync-playground-assets: missing ${src} — run \`npm run build\` in the repo root.`);
@@ -268,10 +281,17 @@ for (const [, src] of assets) {
 const componentRequire = createRequire(import.meta.url);
 const { loadAll } = componentRequire(join(repoRoot, 'lib', 'components', 'index.js'));
 const { galleryPlan } = componentRequire(join(repoRoot, 'tools', 'build-component-docs.js'));
+const { buildLatticeIndex } = componentRequire(join(repoRoot, 'tools', 'style-needs-lattice.js'));
 const generated = loadAll().map((m) => [
   `plans/${m.name}.json`,
   JSON.stringify({ name: m.name, slides: galleryPlan(m) }),
 ]);
+
+// The TOKEN index, not the verified one: verifying a met alternative against the document needs the
+// selector text of every alternative, which makes the index 77 KB gzipped against 14 KB and loads 20% fewer
+// bytes. Measured on the Playground, the extra index costs more than the bytes it saves
+// (engineering/decisions/2026-10-18-on-demand-styles.md §11).
+generated.push(['styles/needs.json', JSON.stringify(buildLatticeIndex({ verified: false }))]);
 
 // The Galleries sheet's "All examples" list: one static deck per examples/*.md plus a
 // small index of slug, title and slide count. Fetched on demand (the index when the sheet

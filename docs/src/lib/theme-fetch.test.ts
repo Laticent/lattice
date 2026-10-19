@@ -219,3 +219,120 @@ describe('createThemeFetcher — relative font url() rewriting', () => {
 		expect(registeredCss[registeredCss.length - 1]).toBe('@font-face{src:url(/playground/v/abc123/other/KaTeX_Main-Regular.woff2)}');
 	});
 });
+
+// The engine has ONE `lattice` slot and every consumer on the page renders against whatever is in it.
+// With a style loader the slot can hold a SUBSET (only right for the slides the loader scanned), so a
+// consumer with no loader must always end up rendering against the whole sheet, and the whole sheet
+// must never be replaced by a subset again.
+describe('createThemeFetcher — on-demand base (style loader)', () => {
+	let registered: Map<string, string>;
+	const FULL = '/* full */section{}.funnel{}';
+	const fakeLoader = () => {
+		let css = '/* floor */';
+		let sig = 0;
+		return {
+			ready: vi.fn(() => Promise.resolve()),
+			css: () => css,
+			signature: () => String(sig),
+			ensureFor: vi.fn((html: string): Promise<'same' | 'grew' | 'whole'> => {
+				if (html.includes('everything')) return Promise.resolve('whole');
+				if (!html.includes('funnel') || css.includes('.funnel')) return Promise.resolve('same');
+				css += '.funnel{}';
+				sig++;
+				return Promise.resolve('grew');
+			}),
+			warm: vi.fn(),
+			stats: vi.fn(),
+		};
+	};
+
+	beforeEach(() => {
+		__resetThemeFetcherCache();
+		registered = new Map();
+		(globalThis as unknown as { window: unknown }).window = {
+			LatticePlayground: {
+				addThemes: (list: Array<{ name: string; css: string }>) => {
+					for (const t of list) registered.set(t.name, t.css);
+				},
+				hasTheme: (name: string) => registered.has(name),
+			},
+		};
+		vi.stubGlobal('fetch', (url: string) => {
+			const file = url.split('/').pop() as string;
+			const body = file === 'lattice.css' ? FULL : file === 'indaco.css' ? "@import'lattice';:root{--a:1}" : null;
+			return Promise.resolve({ ok: body != null, status: body != null ? 200 : 404, text: () => Promise.resolve(body ?? '') } as Response);
+		});
+	});
+
+	it('registers the loader floor instead of fetching the whole sheet', async () => {
+		const styles = fakeLoader();
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		expect(registered.get('lattice')).toBe('/* floor */');
+		expect(f.baseSignature()).toBe('s0');
+	});
+
+	it('reports no base signature when the fetcher has no loader, so its host signs exactly as before', async () => {
+		const f = createThemeFetcher('/themes/');
+		await f.ensure('indaco', 'light');
+		expect(f.baseSignature()).toBe('');
+	});
+
+	it('growBase re-registers the base with the modules the slides need and reports the change once', async () => {
+		const styles = fakeLoader();
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		expect(await f.growBase('<section class="funnel"></section>')).toBe(true);
+		expect(registered.get('lattice')).toContain('.funnel{}');
+		expect(f.baseSignature()).toBe('s1');
+		expect(await f.growBase('<section class="funnel"></section>')).toBe(false);
+	});
+
+	it('a consumer with NO loader gets the whole sheet even when a loader fetcher registered a subset first', async () => {
+		const loaderFetcher = createThemeFetcher('/themes/', { styles: fakeLoader() as never });
+		await loaderFetcher.ensure('indaco', 'light');
+		expect(registered.get('lattice')).toBe('/* floor */');
+		const stranger = createThemeFetcher('/themes/');
+		await stranger.ensure('indaco', 'light');
+		expect(registered.get('lattice')).toBe(FULL);
+	});
+
+	it('once the whole sheet is registered a subset never replaces it, and growBase stands down', async () => {
+		const styles = fakeLoader();
+		const loaderFetcher = createThemeFetcher('/themes/', { styles: styles as never });
+		await createThemeFetcher('/themes/').ensure('indaco', 'light');
+		await loaderFetcher.ensure('indaco', 'light');
+		expect(registered.get('lattice')).toBe(FULL);
+		expect(await loaderFetcher.growBase('<section class="funnel"></section>')).toBe(false);
+		expect(styles.ensureFor).not.toHaveBeenCalled();
+		expect(registered.get('lattice')).toBe(FULL);
+		expect(loaderFetcher.baseSignature()).toBe('f');
+	});
+
+	it('loads the whole sheet when the loader says the slides need most of it, then stands down', async () => {
+		const styles = fakeLoader();
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		expect(await f.growBase('<section class="everything"></section>')).toBe(true);
+		expect(registered.get('lattice')).toBe(FULL);
+		expect(f.baseSignature()).toBe('f');
+		expect(await f.growBase('<section class="funnel"></section>')).toBe(false);
+	});
+
+	it('falls back to the whole sheet when the loader cannot start (index 404)', async () => {
+		const styles = fakeLoader();
+		styles.ready.mockRejectedValue(new Error('style index (404)'));
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		expect(registered.get('lattice')).toBe(FULL);
+	});
+
+	it('falls back to the whole sheet when a scan cannot complete', async () => {
+		const styles = fakeLoader();
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		styles.ensureFor.mockRejectedValue(new Error('style module card (503)'));
+		expect(await f.growBase('<section></section>')).toBe(true);
+		expect(registered.get('lattice')).toBe(FULL);
+	});
+});
