@@ -24,7 +24,7 @@ const FETCHES = {
   'markdown image, <target>': '![x](<https://evil.test/a.png>)',
   'markdown image, entity-encoded scheme': '![x](&#104;ttps://evil.test/a)',
   'markdown image, backslash-escaped colon': '![x](https\\://evil.test/a)',
-  'Marp background image': '![bg right](//evil.test/a.jpg)',
+  'Marp background image': '![bg right](https://evil.test/a.jpg)',
   'alt text nested three deep': '![a [b [c]]](https://evil.test/a.png)',
   'reference image': '![x][r]\n\n[r]: https://evil.test/a',
   'reference target on the next line': '![x][foo]\n\n[foo]:\n  https://evil.test/a.png\n',
@@ -135,6 +135,8 @@ const BENIGN = {
   'the vendored dagre build beside the deck': '<script src="lattice-dagre-min.js"></script>',
   'a gallery written against the pre-rename name (.min.js, before 2026-09-29)': '<script src="../mermaid-v11.min.js"></script>',
   'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
+  // Dropped at render by the scheme allowlist (lib/core/url-scheme.js), so nothing is fetched and nothing is reported.
+  'a protocol-relative Marp background image': '![bg right](//evil.test/a.jpg)',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n',
 };

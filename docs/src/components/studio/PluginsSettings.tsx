@@ -29,8 +29,9 @@ import { admitPlugins } from '../../../../lib/plugins/host-grammar.mjs';
  * Every name, title and syntax hint comes from the registry; this file names no plugin.
  */
 
-type Reason = { kind: 'embedded' | 'default' | 'listed' | 'component' | 'required'; component?: string; by?: string };
+type Reason = { kind: 'embedded' | 'default' | 'always' | 'listed' | 'component' | 'required'; component?: string; by?: string };
 type GrammarEntry = (typeof PLUGIN_GRAMMAR)[number];
+const SWITCHABLE = PLUGIN_GRAMMAR.filter((g) => !g.alwaysOn && !g.embedded);
 
 /** The syntax a plugin reads, as an author types it: its fences, then its syntax triggers. */
 export function pluginSyntaxHint(g: GrammarEntry): string[] {
@@ -45,6 +46,7 @@ export function pluginSyntaxHint(g: GrammarEntry): string[] {
 export function reasonLabel(r: Reason, titleOf: (name: string) => string): string {
 	if (r.kind === 'embedded') return 'Always on';
 	if (r.kind === 'default') return 'On by default';
+	if (r.kind === 'always') return 'Always on';
 	if (r.kind === 'listed') return 'Listed in this deck';
 	if (r.kind === 'component') return `Needed by ${r.component} slides`;
 	return `Needed by ${titleOf(r.by ?? '')}`;
@@ -69,7 +71,8 @@ export function PluginsSettings({ source, onWrite, installed = [], stamp = '', o
 	const embedded = React.useMemo(() => PLUGIN_GRAMMAR.filter((g) => g.embedded), []);
 	return (
 		<div className="space-y-0" data-plugins-settings="">
-			{rows.map((g, i) => (
+			{/* An always-on or embedded plugin has no switch and no list entry, so it has no row (embedded ones get one line below). */}
+			{SWITCHABLE.map((g, i) => (
 				<PluginRow
 					key={g.name}
 					grammar={g}
@@ -78,7 +81,7 @@ export function PluginsSettings({ source, onWrite, installed = [], stamp = '', o
 					reasons={(admission as { reasons?: Record<string, Reason[]> }).reasons?.[g.name] ?? []}
 					titleOf={titleOf}
 					onListed={(on) => setListed(g.name, on)}
-					last={i === rows.length - 1 && !unknown.length && !installed.length}
+					last={i === SWITCHABLE.length - 1 && !unknown.length && !installed.length}
 				/>
 			))}
 			{installed.map((p, i) => (

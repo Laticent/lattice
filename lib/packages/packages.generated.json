@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 10
+    "plugin": 11
   },
   "packages": [
     {
@@ -1484,6 +1484,16 @@
         "styles.css"
       ],
       "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "meta",
+      "path": "lib/plugins/meta",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "manifest.json"
+      ]
     },
     {
       "type": "plugin",

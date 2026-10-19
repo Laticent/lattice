@@ -43,7 +43,7 @@ mine, and the weights were not changed afterwards to hide it. What the bake-off 
 - **Among C1 to C5 the totals are within four points** (89.0 to 93.0), and criteria 6 and 7 (my rubric judgments, audited
   but not measured) decide most of that spread. Treat it as a tie, not a ranking.
 - **Writers do not separate the syntaxes.** Every writer wrote every syntax exactly right (C0 to C5: three writers, 36 of
-  36 each; C6: one writer, 12 of 12). A cold-start test with no rule sheet was not run.
+  36 each; C6: one writer, 12 of 12). A cold-start test with no rule sheet was run later and is below.
 - **The control was given typed fields.** C0 splits `_class` words into layout, variant and registers through the
   catalog. That is the consolidation the parent note proposes, not today's reader.
 
@@ -82,3 +82,39 @@ The measured criteria do not settle the spelling. These requirements do, and the
 
 The record's contents, the source door, the internal form, the Marp compile-back and the reader-consolidation-first
 order do not depend on the spelling and hold under any choice.
+
+## Cold-start writers (2026-10-18)
+
+The writer test above gave every writer a one-page rule sheet. This arm gives none. Three models are asked to
+"make a Lattice deck" from twelve slide bodies and a plain-English list of each slide's settings (the bake-off's own
+twelve slides), with no tools, no files and no project instructions. The prompt is `cold-start/writers/prompt.txt`; the
+harness is `cold-start/` (`briefs.mjs`, `run-writers.mjs`, `grade.mjs`); the raw replies and the calls' own accounts are
+in `cold-start/writers/`; the grader's per-slide output is `cold-start/grade.json`. Reproduce the grading with
+`node cold-start/grade.mjs cold-start/writers` (the replies are kept, so no model is re-run).
+
+| writer | slides | old form (`<!-- _class: … -->`, `_footer`, …) | typed record | other comment or structure | none | fields today's reader recovers, on old-form slides |
+|---|---|---|---|---|---|---|
+| Opus | 12 | **12** | 0 | 0 | 0 | 18 of 20 |
+| Sonnet | 12 | 4 | 0 | 8 | 0 | 6 of 11 |
+| Haiku | 12 | 4 | 0 | 8 | 0 | 6 of 11 |
+| **All** | 36 | **20 (56%)** | **0** | 16 | 0 | 30 of 42 |
+
+"Other" is almost always a comment with an invented key (`<!-- layout: list -->`, `<!-- finish: ledger -->`): the shape
+of the old form, with names the engine does not read.
+
+- **No writer reached for the record form.** Every one of the 36 slides carried its settings in an HTML comment. Nothing
+  here tests a model that was shown the new form; it shows what is written when the model is not told.
+- **What it means for D3 (hard cut, settled by the owner, 2026-10-17; the project is not GA).** A model told only to
+  "make a Lattice deck" does not know the record form, so it writes what it knows: the Marp comment (Opus, every slide)
+  or comment keys the engine does not read today (Sonnet and Haiku, 16 of 24 slides). That is the case the lint warning
+  and its autofix exist for (`legacy-directive-comment`, `lint:deck --fix`, the Studio quick fix), and it is why the
+  authoring skill (`design/skill.md`) must emit records before step 6. For the two weaker writers the cut changes nothing,
+  because their keys were never read. This result changes no decision.
+
+Limits, stated: one run per model (three decks, 36 slides); the settings were named in the record's words ("Layout:",
+"Footer:"), which probably pushed the two weaker writers toward invented keys, so their "other" count is a ceiling on that
+failure; Haiku's first call returned a malformed tool call instead of a deck (kept as `haiku-attempt1.txt`) and the table
+uses its second, identical-prompt call; Sonnet spent 130,572 output tokens (about $1.55) on a 5.6 KB reply. The call's
+"served by" list includes a Haiku helper the CLI runs beside every model. These three models ran as test subjects, not as
+workers, so CLAUDE.md's Opus-only agent policy (HARD RULE #27) does not apply to them.
+

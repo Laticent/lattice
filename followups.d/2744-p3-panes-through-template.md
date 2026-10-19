@@ -26,3 +26,9 @@ status    — reviewed 2026-10-18 and left open on purpose. No pane in `lib/comp
             `rows` (docs, manifests, galleries) declares a floor, cap or shape range, so a migration moves
             no pixel while touching every pane slide (tier 2 trio). Do it with the first pane that needs
             one, and decide the authoring syntax for that limit then: it is a new author-facing surface.
+
+update    — 2026-10-19: the premise needs one correction. 67 of 79 component manifests already declare a
+            minimum pane share (`pane.side` / `pane.stack`) and the engine stacks or splits a slide
+            whose pane falls below it (`lib/core/pane-spec.js`). So a floor exists, as a share of the
+            slide. What is missing is sizing by a figure's SHAPE: see `2779-p1` and §8.8 of the mosaico
+            note. Do that first; `template` is needed only if a share-and-shape rule cannot express a pane.
