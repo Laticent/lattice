@@ -25,7 +25,7 @@ section.collage {
 	--collage-snap: 0;
 	--collage-radius: var(--radius-sm);
 	--collage-text-w: 30%;
-	--collage-pop: 1.02;
+	--collage-pop: 1.03;
 	--collage-recede: 0.45;
 }
 section.collage.fill {
@@ -101,6 +101,20 @@ section.collage .collage-list > li > img:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: -4px;
 }
+/* The pointer gets the ring the keyboard gets, so a photo you can open reads the same either way.
+ * Vector only (an outline, no blurred shadow), so print and PDF stay clean (base.tokens.css, state
+ * disc note). `[data-host-hover]` is `:hover` bridged from a host whose preview takes no pointer
+ * events (below). */
+@media (hover: hover) {
+	section.collage .collage-list > li:hover > img[role="button"] {
+		outline: 2px solid var(--accent);
+		outline-offset: -4px;
+	}
+}
+section.collage .collage-list > li[data-host-hover] > img[role="button"] {
+	outline: 2px solid var(--accent);
+	outline-offset: -4px;
+}
 /* a hint span that did not parse stays a pill; keep it out of the photo */
 section.collage .collage-list > li > code {
 	display: none;
@@ -124,6 +138,14 @@ section.collage.collage > .lat-pagination {
  * (Playground, Studio, player) owns what a click does. `.is-hot` is how a host marks the
  * tile its focus proxy holds. */
 @media (hover: hover) {
+	/* A photo opens on click, so the pointer says so: the zoom cursor is the whole of the cue before
+	 * the click. Only a photo a host has made a button (`role="button"`, stamped by collage-host.js and
+	 * the exported player) gets it, so a surface with no opener (a Marp or VS Code render) promises
+	 * nothing. The Studio's preview takes no pointer events, so it sets the same cursor on its own
+	 * holder (StudioShell `onHover`). */
+	section.collage .collage-list > li:has(> img[role="button"]) {
+		cursor: zoom-in;
+	}
 	section.collage .collage-list:has(> li:hover) > li:not(:hover) {
 		opacity: var(--collage-recede);
 	}
