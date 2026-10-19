@@ -506,7 +506,9 @@ function collectCoverage(root, biome) {
 	// too — Biome processes its own config unasked — which is correct: it is not in
 	// `lintable`, so it was never a coverage question.) Found by the red team.
 	const asked = new Set(lintable);
-	const processed = outputs.flatMap((o) => parseFilesProcessed(o)).filter((p) => asked.has(p));
+	// Biome prints a Windows path with backslashes; the paths asked about are git's, with `/`. (Only there: on POSIX a backslash is a legal filename character.)
+	const posix = (p) => (process.platform === 'win32' ? p.replace(/\\/g, '/') : p);
+	const processed = outputs.flatMap((o) => parseFilesProcessed(o)).map(posix).filter((p) => asked.has(p));
 	// A config error makes Biome print no list at all — which would otherwise read as
 	// "every file lost coverage" and bury the real message. An EMPTY list is different:
 	// that is Biome answering, and `files.maxSize` is how it happens.
