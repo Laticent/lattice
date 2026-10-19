@@ -6,7 +6,7 @@ import { appendAutoGlossary, autoGlossarySections } from '../../../lib/core/glos
 import structural from '../../../lib/core/structural-split.js';
 import { createEngine } from '../../../lib/engine';
 import { buildDeckIndex } from './deck-outline';
-import { blanksOf, buildRenderedIndex, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
+import { blanksOf, buildRenderedIndex, deckChromeOf, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
 
 type Split = {
 	splitCapacityFrom: (m: unknown) => unknown;
@@ -26,6 +26,12 @@ function pagesOf(md: string): { stamps: string[]; html: string } {
 
 /** Force the deck's slide box: `size:` in the front matter replaces any the deck declares. */
 /** How many slides the engine makes of `md` before the preview split cuts any in two. */
+/** `blanksOf` the way the Playground calls it: told the chrome the deck's front matter gives every slide. */
+function blanksFor(md: string, html: string): boolean[] {
+	const front = /^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(md)?.[0] ?? '';
+	return blanksOf(html, /^(paginate|header|footer):/m.test(front) ? deckChromeOf(pagesOf(`${front}\n\nx\n`).html) : undefined);
+}
+
 function countSlides(md: string): number {
 	return (structural as unknown as { splitTopLevelSections: (h: string) => string[] }).splitTopLevelSections(engine.render(appendAutoGlossary(md), 'indaco', { preview: true }).html).length;
 }
@@ -166,7 +172,7 @@ describe('known defect: the outliner drops an empty slide the engine renders', (
 	it('reads a real deck with a blank slide, through the engine, with no wrong placement', async () => {
 		for (const md of ['# A\n\n---\n\n---\n\n# C\n', '# A\n\n---\n\n# B\n\n---\n\n---\n\n---\n\n# D\n', '# A\n\n---\n\n---\n\n# C\n\n---\n\n# D\n']) {
 			const { stamps, html } = pagesOf(md);
-			const blanks = blanksOf(html);
+			const blanks = blanksFor(md, html);
 			expect(blanks.some(Boolean), md).toBe(true);
 			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanks);
 			expect(ix.unexplainedPages, md).toEqual([]);
@@ -180,7 +186,7 @@ describe('known defect: the outliner drops an empty slide the engine renders', (
 	});
 
 	it('blanksOf calls only the engine\u2019s empty slide blank, never one that holds a background, a directive, a note or a spacer', () => {
-		const slide = (md: string) => blanksOf(pagesOf(`# A\n\n---\n\n${md}\n\n---\n\n# C\n`).html)[1];
+		const slide = (md: string) => (() => { const deck = `# A\n\n---\n\n${md}\n\n---\n\n# C\n`; return blanksFor(deck, pagesOf(deck).html)[1]; })();
 		expect(slide('')).toBe(true);
 		expect(slide('![bg](x.png)')).toBe(false);
 		expect(slide('<!-- _class: divider -->')).toBe(false);
@@ -194,19 +200,28 @@ describe('known defect: the outliner drops an empty slide the engine renders', (
 		for (const fm of ['paginate: true', 'paginate: true\nheader: Hdr\nfooter: Ftr', 'backgroundColor: red']) {
 			const md = `---\n${fm}\n---\n\n${body}`;
 			const { stamps, html } = pagesOf(md);
-			expect(blanksOf(html), fm).toEqual([false, true, false, false]);
-			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksOf(html));
+			expect(blanksFor(md, html), fm).toEqual([false, true, false, false]);
+			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksFor(md, html));
 			expect(ix.unexplainedPages, fm).toEqual([]);
 			expect(ix.pages.map((pg) => pg.flat), fm).toEqual([0, -1, 1, 2]);
 		}
-		const local = pagesOf('---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _header: X -->\n\n---\n\n# C\n');
-		expect(blanksOf(local.html)).toEqual([false, false, false]);
+		const localMd = '---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _header: X -->\n\n---\n\n# C\n';
+		const local = pagesOf(localMd);
+		expect(blanksFor(localMd, local.html)).toEqual([false, false, false]);
+		// Most slides set their own header, one holds only that directive, and a true blank follows: the
+		// directive-only slide is a slide, the blank is the blank.
+		const hdr = '<!-- _header: X -->\n';
+		const mostLocal = `${hdr}# A\n\n---\n\n${hdr}# B\n\n---\n\n${hdr}\n---\n\n---\n\n${hdr}# E\n`;
+		expect(blanksFor(mostLocal, pagesOf(mostLocal).html)).toEqual([false, false, false, true, false]);
+		const pag = '<!-- _paginate: true -->\n';
+		const mostPag = `${pag}# A\n\n---\n\n${pag}# B\n\n---\n\n${pag}\n---\n\n---\n\n${pag}# E\n`;
+		expect(blanksFor(mostPag, pagesOf(mostPag).html)).toEqual([false, false, false, true, false]);
 	});
 
 	it('a deck with a background-only slide and a later real blank drops the blank, not the background slide', async () => {
 		const md = '# A\n\n---\n\n![bg](x.png)\n\n---\n\n# C\n\n---\n\n---\n\n# E\n';
 		const { stamps, html } = pagesOf(md);
-		const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksOf(html));
+		const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksFor(md, html));
 		expect(ix.pages.map((p) => p.flat)).toEqual([0, 1, 2, -1, 3]);
 		expect(ix.unexplainedPages).toEqual([]);
 	});

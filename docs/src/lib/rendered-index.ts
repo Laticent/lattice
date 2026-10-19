@@ -73,10 +73,23 @@ export function stampsOf(html: string): string[] {
 	return out;
 }
 
-/** The deck-wide chrome a section carries: its pagination, header and footer attributes, read from the open tag. */
+/** The pagination, header and footer a section carries, read from its open tag: `paginate|header|footer`. */
 function chromeOf(open: string): string {
 	const attr = (name: string) => new RegExp(`\\sdata-${name}="([^"]*)"`, 'i').exec(open)?.[1] ?? '';
 	return `${attr('paginate')}|${attr('header')}|${attr('footer')}`;
+}
+
+/** What chrome a slide shows when nothing sets it: no page number, no header, no footer. */
+export const NO_CHROME = '||';
+
+/**
+ * The chrome the DECK's front matter gives every slide, read off the first section of a render of that front
+ * matter alone (a front matter plus one content slide). Pass it to `blanksOf` so a slide that shows exactly this
+ * is understood to have inherited it rather than set it.
+ */
+export function deckChromeOf(html: string): string {
+	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string }>) if (p.type === 'section') return chromeOf(p.openTag ?? '');
+	return NO_CHROME;
 }
 
 /**
@@ -84,31 +97,27 @@ function chromeOf(open: string): string {
  * author left empty (`---` twice in a row) and the outliner drops it, so the index needs to know which engine
  * slides own no part. Read from the markup, in the same order as `stampsOf`.
  *
- * A blank slide is a standard-frame section with an EMPTY stage and no component (`data-class=`) or background
- * picture (`url(`). Deck-wide chrome does not count against it: `paginate:`, `header:`, `footer:` and
- * `backgroundColor:` put a style, a header, a footer and a page number on every slide, blank or not. Chrome
- * counts as deck-wide when it matches the most common chrome in the document, so a `_header` or `_paginate`
- * directive on one slide still makes it a slide. A section the scan cannot recognize is not blank, so a doubtful
- * slide never loses its tile.
+ * A blank slide is a standard-frame section with an EMPTY stage, no component (`data-class=`) and no background
+ * picture (`url(`). Its chrome (pagination, header, footer) must be exactly what the front matter gives every
+ * slide, passed as `deckChrome`: `paginate:`, `header:` and `footer:` in the front matter put a header, a footer and
+ * a page number on every slide, blank or not, but a slide that sets its own (`_header`) is a slide an author wrote
+ * something on. A section the scan cannot recognize is not blank, so a doubtful slide never loses its tile.
  */
-export function blanksOf(html: string): boolean[] {
-	const sections = (splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string; inner?: string }>).filter((p) => p.type === 'section');
-	const tally = new Map<string, number>();
-	for (const p of sections) tally.set(chromeOf(p.openTag ?? ''), (tally.get(chromeOf(p.openTag ?? '')) ?? 0) + 1);
-	let deckChrome = '';
-	let most = 0;
-	for (const [chrome, n] of tally) if (n > most) [deckChrome, most] = [chrome, n];
-	return sections.map((p) => {
+export function blanksOf(html: string, deckChrome: string = NO_CHROME): boolean[] {
+	const out: boolean[] = [];
+	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string; inner?: string }>) {
+		if (p.type !== 'section') continue;
 		const open = p.openTag ?? '';
 		const inner = p.inner ?? '';
-		return (
+		out.push(
 			!/\sdata-class=|url\(/i.test(open) &&
-			/\sdata-frame="standard"/i.test(open) &&
-			chromeOf(open) === deckChrome &&
-			/<div class="cell-stage"><\/div>/.test(inner) &&
-			!/<(img|svg|picture|video|canvas)[\s>]/i.test(inner)
+				/\sdata-frame="standard"/i.test(open) &&
+				chromeOf(open) === deckChrome &&
+				/<div class="cell-stage"><\/div>/.test(inner) &&
+				!/<(img|svg|picture|video|canvas)[\s>]/i.test(inner),
 		);
-	});
+	}
+	return out;
 }
 
 /** `'3'` is slide 3 run 0, `'3.2'` is slide 3 run 1. Anything else is not a stamp. */
