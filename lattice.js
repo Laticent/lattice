@@ -281,7 +281,7 @@ OPTIONS
                           stays one, listed as a plain link. The site must allow
                           cross-origin reads (CORS); if it does not, the banner
                           says so and lists the links. Off by default.
-      --allow-remote      Let the render fetch remote images, media and fonts.
+      --allow-remote      Let the render fetch remote images, media and fonts, and let the .html keep remote scripts, frames and stylesheets.
                           By default every browser this command starts is kept
                           off the network, so a web image in the deck shows
                           as a drawn placeholder in every output, and the run
@@ -1195,6 +1195,7 @@ const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough
 const { sanitizeStyleText } = require('./lib/core/sanitize-style-text.mjs');
 // The remote-subresource policy for the LIVE html this run writes — shared with the docs-site
 // preview frames so an author's preview and their reader's file cannot disagree (HARD RULE #1).
+const { subresourceCspMeta } = require('./lib/core/subresource-csp.mjs');
 const { lockedCspMeta } = require('./lib/core/export-load-lock.js');
 // Pin /CreationDate + /ModDate on the way out, so re-rendering an unchanged deck
 // writes byte-identical bytes and git stores nothing new (HARD RULE #1: both PDF
@@ -5104,10 +5105,12 @@ async function renderBody(browser, g, closeBrowser) {
       const shown = rel && !rel.startsWith('..') ? rel : outHtml;
       for (const line of formatLiveAuthorHtmlWarning(countLiveAuthorHtml(live), shown, { sidecar: OUT_FORMAT !== 'html' })) console.warn(line);
     }
+    // The load lock (script, frame, stylesheet) applies unless the author passed --allow-remote, the flag that
+    // already means "this export may reach the network" (lib/core/export-load-lock.js).
     // Immediately after `<head>`, because a CSP meta governs only what the parser has not
     // already reached — a stylesheet link above it is already in flight. Measured on a real
     // export: the meta lands at byte 56, the charset at 253, the (since inlined) KaTeX <link> at ~865k.
-    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${lockedCspMeta()}`);
+    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${flags['allow-remote'] ? subresourceCspMeta() : lockedCspMeta()}`);
     if (withCsp !== live) fs.writeFileSync(outHtml, withCsp);
     else if (!QUIET) console.warn(`  warning: ${outHtml} has no <head>, so it carries no remote-subresource policy.`);
   }
