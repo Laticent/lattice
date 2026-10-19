@@ -44,10 +44,9 @@ what is needed, so new work can leverage the CI to test against these OS". Settl
 
 ## First entry, and what it leaves out
 
-`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows is not listed
-yet:** `lattice.js` builds its output page URL as `'file://' + path`, which is not a valid Windows file URL, so a Windows leg would
-fail on code the suite does not own. That, the other macOS-unverified surfaces, and measuring a runner's wall-clock are in
-`followups.d/2771-p3-cli-windows-file-urls.md` and `followups.d/2771-p3-platform-suites-candidates.md`.
+`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows was not listed
+at first:** (2026-10-19: the CLI now builds its file URLs with `pathToFileURL`, and `export-confine` has a `windows-latest` leg.) The other
+macOS-unverified surfaces and measuring a runner's wall-clock are in `followups.d/2771-p3-platform-suites-candidates.md`.
 
 ## How to add a suite
 

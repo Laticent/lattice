@@ -983,4 +983,4 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   went into `inliner-browser-oracle.test.js` (a markup channel beside the CSS channels), and both oracles fail on the previous reader
   and pass now. Out of scope on purpose: `<iframe>`, `<object>`, `<embed>`, `<input type=image>` and media `src`, which are not
   picture positions and which the slide sanitizer governs. `followups.d/2748-p3-player-inliner-other-picture-positions.md` is
-  deleted; the Windows item remains in `followups.d/2771-p3-cli-windows-file-urls.md`.
+  deleted; the Windows item was fixed in the follow-through PR that added the `windows-latest` leg (CLI file URLs now use `pathToFileURL`).

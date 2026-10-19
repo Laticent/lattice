@@ -3421,7 +3421,7 @@ async function renderBody(browser, g, closeBrowser) {
   // how many auto-split passes it drives.
   // Font correctness does NOT rest on this wait; it rests on the explicit unbounded
   // force-load immediately below, which is unchanged.
-  await g(() => page.goto('file://' + path.resolve(outHtml), {
+  await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, {
     waitUntil: 'load',
     timeout: 60000
   }), 'navigate');
@@ -3642,7 +3642,7 @@ async function renderBody(browser, g, closeBrowser) {
       cleanDocHtml = r.html;
       fs.writeFileSync(outHtml, cleanDocHtml);
       // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
+      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
         for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
@@ -3669,7 +3669,7 @@ async function renderBody(browser, g, closeBrowser) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);
       // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
+      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
         for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }

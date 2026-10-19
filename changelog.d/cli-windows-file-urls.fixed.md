@@ -1,0 +1,1 @@
+- The CLI names its output page and the MP4 encoder pages with `pathToFileURL`, so a render on Windows loads `file:///C:/…` instead of a malformed `file://C:\…`. The `export-confine` platform suite gains a `windows-latest` leg.
