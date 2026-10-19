@@ -218,9 +218,11 @@ function PresentRailImpl({
 										    of the current slide and says "here"; under playback it rides the progress
 										    front. One mechanism for both. */}
 										{here && (
-											<span className="latt-rail-headrun" style={{ transform: `translateX(${proPct - 100}%)` }}>
-												<span data-tier="playhead" className="latt-rail-head" style={{ background: progressTier, boxShadow: '0 0 0 1px var(--bg)' }} />
-											</span>
+											<span
+												data-tier="playhead"
+												className="latt-rail-head"
+												style={{ left: `${proPct}%`, marginLeft: -1, background: progressTier, boxShadow: '0 0 0 1px var(--bg)' }}
+											/>
 										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}
 										<span className="latt-rail-hit" aria-hidden="true" />
@@ -236,8 +238,8 @@ function PresentRailImpl({
 }
 
 // Memoized because this is the ONE component on the present bar that re-renders in step with the
-// read-aloud clock. It draws three absolutely-positioned spans per slide, two of them animating
-// `width`, so a 50-slide deck is 150 nodes with fresh inline styles. Without this, every unrelated
+// read-aloud clock. It draws three absolutely-positioned spans per slide, one of them (the played range) animating by transform,
+// so a 50-slide deck is 150 nodes with fresh inline styles. Without this, every unrelated
 // overlay state change (the readiness poll, a hint dismissal, caption text) redraws all of it
 // mid-sentence — and a busy main thread makes the AUDIO stutter, not just the bar. Props are
 // primitives plus a memoized `sections` and the stable `setIdx`, so the shallow compare is cheap
