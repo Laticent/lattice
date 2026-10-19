@@ -18,6 +18,9 @@ name: Platform suites (macOS / Windows)
 # COST. The repository is public, so GitHub-hosted macOS and Windows minutes are free. First run on #2771 (2026-10-18): the
 # `export-confine` macOS job took 2 m 23 s (install, build and the three test files), and the `plan` job took 2 m 16 s
 # because it checked out the full history; it now does a shallow checkout and one API call (re-measure on the next run).
+# Second run (#2786, 2026-10-19, per job, from the job step timestamps): `plan` 16 s (shallow checkout). macOS `export-confine`
+# 3 m 00 s (npm ci 57 s, build 66 s, suite 24 s). Windows: `npm ci` 84 s, then `npm run build` stops after 24 s at the ownership
+# guard (followups.d/2786-p2-check-ownership-on-windows.md). No nightly has run yet: re-measure from the first one.
 
 on:
   schedule:

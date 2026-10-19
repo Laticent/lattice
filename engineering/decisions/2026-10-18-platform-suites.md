@@ -44,9 +44,12 @@ what is needed, so new work can leverage the CI to test against these OS". Settl
 
 ## First entry, and what it leaves out
 
-`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows was not listed
-at first:** (2026-10-19: the CLI now builds its file URLs with `pathToFileURL`, and `export-confine` has a `windows-latest` leg.) The other
-macOS-unverified surfaces and measuring a runner's wall-clock are in `followups.d/2771-p3-platform-suites-candidates.md`.
+`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows is still not listed**, for a different reason than first
+thought. The CLI now builds its file URLs with `pathToFileURL` (2026-10-19), but a `windows-latest` runner cannot reach the suite:
+`npm ci` passes there and `npm run build` aborts at `tools/check-ownership.js`, whose gates compare backslash paths with forward-slash
+allowlists (run 39197530212; `followups.d/2786-p2-check-ownership-on-windows.md`). The Windows file-URL change is UNVERIFIED on a Windows run.
+The first PR run also showed `wait-for.sh` failing 28 of 63 tests on a stock macOS runner; its entry now installs coreutils first, the
+state the notes call supported.
 
 ## How to add a suite
 

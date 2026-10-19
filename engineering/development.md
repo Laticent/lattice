@@ -495,6 +495,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   show, then `npm run build:check` (`checkPlatformSuites` rejects a malformed entry or a `run` naming a deleted file).
 - **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
   `engineering/decisions/2026-10-18-platform-suites.md`.
+- **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
+  `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
+- **Windows is blocked, for now:** `npm run build` aborts at `tools/check-ownership.js` on Windows, so no CLI-render suite can run there
+  (`followups.d/2786-p2-check-ownership-on-windows.md`). `wait-for.sh` is a macOS suite that installs coreutils first.
 
 ## Integration test cache
 
