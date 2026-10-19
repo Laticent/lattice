@@ -720,15 +720,22 @@ export async function measureDeckFit(render, scope) {
 }
 
 /** The render with every slide outside `only` emptied, or null when its sections cannot be told
- *  apart by number (the count differs from the deck's slides). Depth-aware, like `slideChannelRecord`. */
+ *  apart by number (the count differs from the deck's slides). */
 async function emptyOtherSlides(render, only, slideCount) {
+	// Depth-aware, like `slideChannelRecord`.
 	const { splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
-	const parts = splitSectionsCore(String(render.html || ''));
+	const html = emptySlidesOf(String(render.html || ''), only, slideCount, splitSectionsCore);
+	return html === null ? null : { ...render, html };
+}
+
+/** Pure half of `emptyOtherSlides`: `html` with every section outside `only` (1-based) emptied, each
+ *  keeping its open tag, close tag, number and place; null when the section count is not `slideCount`. */
+export function emptySlidesOf(html, only, slideCount, splitSections) {
+	const parts = splitSections(html);
 	if (parts.filter((p) => p.type === 'section').length !== slideCount) return null;
 	const keep = new Set(only);
 	let n = 0;
-	const html = parts.map((p) => (p.type !== 'section' ? p.text : keep.has(++n) ? `${p.openTag}${p.inner}${p.close}` : `${p.openTag}${p.close}`)).join('');
-	return { ...render, html };
+	return parts.map((p) => (p.type !== 'section' ? p.text : keep.has(++n) ? `${p.openTag}${p.inner}${p.close}` : `${p.openTag}${p.close}`)).join('');
 }
 
 /**

@@ -442,6 +442,22 @@ describe('the loop', () => {
 		expect(fm.mock.calls[0][1]).toBeUndefined();
 	});
 
+	// `<!-- class: dense -->` holds for every slide after it, so a slide that writes or removes one can
+	// change slides whose text it never touched; the underscore form holds for its own slide only.
+	it('measures every slide when a changed or removed slide holds a carry-forward directive', async () => {
+		const scoped = (scope?: unknown) => scope;
+		const check = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- class: dense -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(scoped(check.mock.calls[0][1])).toBeUndefined();
+		const own = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check: own }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: dense -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(own.mock.calls[0][1]).toEqual({ only: [3], slideCount: 3 });
+		const withHeader = DECK.replace('## Revenue grew', '<!-- header: Big -->\n## Revenue grew');
+		const del = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ source: withHeader, check: del }).run('edit_slides', JSON.stringify({ edits: [{ action: 'delete', slide: 2 }], summary: 's' }));
+		expect(del.mock.calls[0][1]).toBeUndefined();
+	});
+
 	it('a turn that changed no slide text asks for no fit measure', async () => {
 		const check = vi.fn(async (_src: string, _scope?: { only: number[]; slideCount: number }) => ({ findings: [], fit: [] }));
 		await toolbox({ check }).run('edit_slides', JSON.stringify({ edits: [{ action: 'delete', slide: 3 }], summary: 's' }));
@@ -452,7 +468,7 @@ describe('the loop', () => {
 		const rows = [1, 2, 3].map((slide) => ({ slide, overflows: false, clipped: false, illegible: false, skipped: slide !== 3 }));
 		const out = await toolbox({ check: async () => ({ findings: [], fit: rows }) }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
 		expect(out).toContain('the 1 slide this turn changed fit');
-		expect(out).toContain('The other 2 were not re-measured, so do not say the whole deck fits.');
+		expect(out).toContain('The other 2 slides were not re-measured, so do not say the whole deck fits.');
 		expect(out).not.toMatch(/all \d+ slides? fit/);
 		// A misfit on the measured slide is still an error, and the unmeasured ones are not charged.
 		const bad = await toolbox({ check: async () => ({ findings: [], fit: rows.map((r) => (r.slide === 3 ? { ...r, overflows: true } : r)) }) }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
