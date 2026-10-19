@@ -497,7 +497,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `engineering/decisions/2026-10-18-platform-suites.md`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
-- **Alert:** a scheduled or manual run that fails opens, or comments on, one GitHub issue titled "Nightly platform suites failed" (the
+- **Alert:** a scheduled or manual run that fails or is cancelled (a timeout reads as cancelled) opens, or comments on, a GitHub issue titled "Nightly platform suites failed" (the
   `alert` job in the workflow: failed jobs and the run link; a person closes it). Pull requests do not alert, since their check shows red.
 - **Windows:** `build-windows` runs the full `npm run build` on `windows-latest` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
