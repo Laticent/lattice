@@ -120,7 +120,9 @@ test.describe('Present — the between-slide beat', () => {
 					const progress = at('progress');
 					return {
 						track: track ? getComputedStyle(track).backgroundColor : '',
-						progress: progress ? parseFloat(getComputedStyle(progress).width) : 0,
+						// The played range moves by transform (a full-width pill slid left), so its visible
+						// width is the box width plus the x translation, never the computed width alone.
+						progress: progress ? Math.max(0, parseFloat(getComputedStyle(progress).width) + new DOMMatrix(getComputedStyle(progress).transform).m41) : 0,
 						playhead: !!at('playhead'),
 					};
 				}),
