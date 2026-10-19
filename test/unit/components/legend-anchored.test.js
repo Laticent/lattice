@@ -11,7 +11,7 @@ const { JSDOM } = require('jsdom');
 const { laneSvg, plateSvg, PLATE_CLASS } = require('../../../lib/components/chart/_chart-family/legend-svg');
 const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
 const { transformSection } = require('../../../lib/components/chart/heatmap/heatmap.transform');
-const { narrateDataSeries } = require('../../../lib/core/chart-narration');
+const { narrateDataSeries, narrateChart } = require('../../../lib/core/chart-narration');
 const { PLATE_SHAPES } = require('../../../lib/core/segno-slots');
 
 const md = new MarkdownIt({ html: true });
@@ -186,6 +186,16 @@ describe('the author\'s switch: legend off', () => {
     assert.doesNotMatch(String(narrateDataSeries(slide('heatmap legend-off'))), /Callout|legend/);
     assert.doesNotMatch(String(narrateDataSeries(slide('heatmap', '---\nlegend: off\n---\n\n'))), /Callout/);
     assert.match(String(narrateDataSeries(slide('heatmap legend-on', '---\nlegend: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
+  });
+  test('narration of one split slide reads the deck it came from: front matter and the host\'s off-list', () => {
+    // How every caller hands a slide over: split from the deck, so the front matter is not on it.
+    const slide = `<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n${callout}`;
+    assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true\nlegend: OFF' })), /Callout/);
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['legend'] })), /Callout/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap legend-on'), { frontMatter: 'legend: off' })), /Callout at Jan 2026, M1/);
+    // The deck is set for one call only: the next slide without one hears the callout again.
+    assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
   });
 });
 

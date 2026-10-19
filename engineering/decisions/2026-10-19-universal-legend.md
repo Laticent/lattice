@@ -517,6 +517,14 @@ the cell's card and speaker note, and `lint:deck` notes it (`legend-off`, info).
 switch and the hidden-when-off behavior in one round; the words `legend-off` / `legend-on` follow the
 register factory's `<key>-<word>` pattern.
 
+Every reader asks one question, `legendOff` in lib/core/legend.js, which reads the deck's value
+through the register factory the render uses, so `legend: OFF` or `legend: [off]` means the same to
+the render, the narrator and the linter. The narrator sees one split slide at a time, so its callers
+(the CLI read-along, the Studio's Present and bake, the share export) hand it the deck's front matter
+and the host's off-list. An exported runtime stamps `legend-off` on each slide when its host left the
+plugin off. `lint:deck` gives the info note only on a slide whose component reads a legend; anywhere
+else the span shows as code whatever the switch says, so the `legend-span` warning stands.
+
 **The route budget (owner, 2026-10-19, D1).** The preview runtime carries the heatmap transform and
 the Wave 1 keys, so the legend's reader and emitters ride into it. After the trims (the diagnostic
 words moved to `lib/authoring/legend-messages.js`, the key emitter split into `legend-key.js`) the

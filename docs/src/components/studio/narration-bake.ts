@@ -29,6 +29,7 @@
 // in the same voice starts from what the first one paid for.
 
 import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
+import { deckPluginsOff } from '@/lib/plugin-admission';
 import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
@@ -39,7 +40,7 @@ import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
-import { applyChartNarration, resolveNarration } from './narration-resolve';
+import { applyChartNarration, narrationDeck, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getSayLine } from './slide-say';
 import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
@@ -407,7 +408,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	// length mismatch still stands the projection down, exactly as Present's guard does.
 	const projected = withoutAutoGlossary(rawProjected, slides.length, source);
 	const projectedEmphasis = withoutAutoGlossary(rawEmphasis, slides.length, source);
-	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected) : null;
+	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected, undefined, narrationDeck(source, deckPluginsOff(source))) : null;
 	const texts = slides.map((md, i) =>
 		resolveNarration({
 			say: getInlineSay(md),

@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
+import { deckPluginsOff } from '@/lib/plugin-admission';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
@@ -36,7 +37,7 @@ import { SLIDE_SEP } from './deck-ops';
 import { createGuideConductor, guideStageTheme } from './guide-conductor';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
-import { resolveNarration } from './narration-resolve';
+import { narrationDeck, resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
@@ -356,11 +357,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// rather than fall through to the flatten. Until the projection lands (or after a lens
 	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
 	// stale lens's narration.
+	const chartDeck = React.useMemo(() => narrationDeck(frontMatter, deckPluginsOff(frontMatter)), [frontMatter]);
 	const narrationAt = React.useCallback(
 		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
-			const script = narrateChartScript(md);
+			// The deck's switches (`legend: off`, the host's plugin switch) live in its front matter, which
+			// `set[i]` does not carry; the narrator reads them from here (narration-resolve.ts `narrationDeck`).
+			const script = narrateChartScript(md, chartDeck);
 			const text = resolveNarration({
 				say: getSayLine(md),
 				fmSay: fmSayMap.get((setIndices[i] ?? i) + 1), // front-matter say[author slide number]
@@ -382,7 +386,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			const refs = script?.refs.length && text === script.text ? script.refs : isProjected && projected.refs[i]?.length ? projected.refs[i] : undefined;
 			return { text, emphasis, refs };
 		},
-		[set, setIndices, fmSayMap, projected],
+		[set, setIndices, fmSayMap, projected, chartDeck],
 	);
 	const narrationAtRef = React.useRef(narrationAt);
 	narrationAtRef.current = narrationAt;
