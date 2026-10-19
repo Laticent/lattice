@@ -56,3 +56,13 @@ fixture diagrams are byte-identical, and so are the PDFs of `examples/mermaid-di
 `dark-diagram-fills.md` and `mermaid-init-merge.md` and the fixtures' HTML and PDF. No export bytes changed, so there
 is nothing to sign off. Still open: Mermaid's `hydrate` in the previews and in the plain `.html` export's click
 links (owner decision 15, previews), function-plot, and math.
+
+function-plot in the CLI captures, moved 2026-10-19: every export that captures a page (PDF, PNG, PPTX, `--player`,
+`--read`) loads a copy of the page without the library. The plugin's hydrator is marked `drawnByHost`
+(`hydrateScript`'s `hostDrawn`), so its placeholders wait. `lattice.js` then draws them in the locked page
+(`lib/export/locked-figures.js`) by running the plugin's own `hydrate` there, sanitizes each
+drawing with the slide sanitizer in a separate page, and writes it back. The plain `.html` keeps the library and its
+zoom (decision 16). Evidence: the PDF and `--player` files of `examples/plugin-system-phase-b.md`,
+`math-form-frame.md` and `marp-export-fidelity.md` are byte-identical before and after, and a debug run showed the
+capture page with `window.functionPlot` undefined while the kept `.html` still holds the library. No export bytes
+changed. Still open: function-plot in the previews (decision 15), and math.

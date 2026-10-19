@@ -2790,6 +2790,23 @@ const pluginHydrateScript = hasHydratedPlugins
       `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins)}\n</script>`,
     ].join('\n')
   : '';
+// THE CAPTURE PAGE DRAWS NO PLUGIN LIBRARY THE LOCKED PAGE CAN DRAW FOR IT (owner decisions 14 and 16; threat-model
+// note 2026-10-16 §6 rows 3 and 4). The `.html` file keeps function-plot's library and its zoom (decision 16). The page
+// every capture reads (PDF, PNG, PPTX, `--player`, `--read`) is served a copy without it: its placeholders wait, and
+// `awaitPluginFigures` draws them in the locked page (lib/export/locked-figures.js).
+const HOST_DRAWN = pagePlugins.filter((h) => h.name === 'function-plot').map((h) => h.name);
+const capturePageHydrateScript = HOST_DRAWN.length
+  ? [
+      ...pagePlugins.filter((h) => !HOST_DRAWN.includes(h.name)).map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
+      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN })}\n</script>`,
+    ].join('\n')
+  : '';
+/** The capture page's copy of a document written to `outHtml`: the same, with the host-drawn plugins' libraries out. */
+function capturePageOf(html) {
+  const at = HOST_DRAWN.length ? html.indexOf(pluginHydrateScript) : -1;
+  // By index, not String.replace: a library's source holds `$&` and `$'`, which replace would expand.
+  return at < 0 ? html : html.slice(0, at) + capturePageHydrateScript + html.slice(at + pluginHydrateScript.length);
+}
 
 // ── state-chart browser-measured layout bootstrap ─────────────────────────
 // The state chart takes the flowchart's delivery (state-chart.layout.js, a Trama
@@ -3313,6 +3330,11 @@ async function renderBody(browser, g, closeBrowser) {
     page.on('request', (req) => {
       if (req.isInterceptResolutionHandled()) return;
       const url = req.url();
+      // The output page itself, as the capture page sees it (`capturePageOf`): the file on disk is the deliverable.
+      if (HOST_DRAWN.length && req.isNavigationRequest() && /^file:/i.test(url) && isOutputPage(url)) {
+        req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: capturePageOf(fs.readFileSync(outHtml, 'utf8')) });
+        return;
+      }
       if (!/^file:/i.test(url) || confine.allows(url) || (req.isNavigationRequest() && isOutputPage(url))) { req.continue(); return; }
       if (!refused.has(url)) {
         refused.add(url);
@@ -3436,8 +3458,32 @@ async function renderBody(browser, g, closeBrowser) {
   // TIMING: function-plot's inflater was synchronous and ran before `load`, so the navigation wait
   // covered it — true of that one library, and of nothing the plugin contract promises. A plugin
   // that stays pending past the budget is closed with its source shown, and said so.
+  // The figures the HOST draws (HOST_DRAWN): read from this page, drawn in the locked page, sanitized, written back and
+  // settled, before the barrier below waits on what is left. Remembered by the page's whole list of plots, so a
+  // re-navigation that shows the same ones (auto-split, rails) starts no second browser.
+  const hostDrawnMemo = new Map();
+  const drawHostFigures = async (label) => {
+    if (!HOST_DRAWN.includes('function-plot')) return;
+    const fpLocked = require('./lib/export/locked-figures.js');
+    const plots = await g(() => page.evaluate(fpLocked.READ), `read function plots${label}`);
+    if (!plots.some((p) => p.pending)) return;
+    const key = JSON.stringify(plots.map(({ config, w, h }) => [config, w, h]));
+    let drawn = hostDrawnMemo.get(key);
+    if (!drawn) {
+      try {
+        drawn = await fpLocked.drawLocked(puppeteer, plots, { executablePath: CHROME_EXEC });
+        hostDrawnMemo.set(key, drawn);
+      } catch (e) {
+        // The barrier then closes them with their source showing, and says how many.
+        if (!QUIET) console.warn(`  ⚠ function-plot: the locked page could not draw the plots (${String(e?.message ?? e).split('\n')[0]}).`);
+        return;
+      }
+    }
+    await g(() => page.evaluate(fpLocked.WRITE, drawn), `write function plots${label}`);
+  };
   const awaitPluginFigures = async (label) => {
     if (!hasHydratedPlugins) return;
+    await drawHostFigures(label);
     const closed = await g(() => page.evaluate(settleBarrierScript(settleBudget(pagePlugins))), `settle plugin figures${label}`);
     if (closed && !QUIET) {
       console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${settleBudget(pagePlugins)}ms — exported showing their source.`);

@@ -1,0 +1,1 @@
+- The CLI now draws function-plot figures for its PDF, PNG, PPTX, `--player` and `--read` exports in a locked browser page, and sanitizes each drawing before it reaches the page being captured. That page no longer loads the function-plot library. The plain `.html` export still carries the library, so its plots keep zoom and drag. Exports are byte-identical.

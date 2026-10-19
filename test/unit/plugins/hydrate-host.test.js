@@ -163,6 +163,19 @@ describe('the CLI page gets only what a deck uses', () => {
     assert.deepEqual(usedHydrators(createEngine().render('# no plot\n\n```json\n{}\n```\n').html), []);
     assert.equal(hydrateScript([]), '');
   });
+  test('a host-drawn plugin (the CLI capture page, lib/export/locked-figures.js) keeps its placeholders pending and runs nothing', () => {
+    const win = page(PLOT);
+    const calls = fakeLibrary(win);
+    const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
+    const src = hydrateScript(fp, { hostDrawn: ['function-plot'] });
+    // Its hydrate (the seeded-id draw) and its library's address are absent; only its name and `drawnByHost` remain.
+    assert.doesNotMatch(src, /Math\.imul\(seed|vendor\/function-plot\.js/, 'the capture page carries its hydrate or its library');
+    assert.match(src, /name: "function-plot", budgetMs: \d+, payload: null, drawnByHost: true/);
+    win.eval(src.replace('var host = ', 'var host = window.__host = '));
+    win.__host.run();
+    assert.equal(calls.length, 0, 'the library ran in the capture page');
+    assert.equal(state(placeholder(win)), 'pending', 'known, so not released with its source; left for the host to draw');
+  });
   test('every hydrate the runtime bundles is self-contained, so its serialized copy is the same function', () => {
     for (const h of HYDRATORS) {
       const src = h.hydrate.toString();
