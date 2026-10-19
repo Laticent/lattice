@@ -5,24 +5,25 @@ recorded: 2026-10-19
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-10-16-preview-as-library-audit.md
-source: engineering/decisions/2026-10-16-preview-as-library-audit.md#11j
+source: engineering/decisions/2026-10-16-preview-as-library-audit.md#11l
 ---
 
-# Make the pool report its capacity to Veduta and let Veduta drive the Studio stage, before anything is published.
+# Decide the Studio's pill rail against the map, and give the stage a window Veduta ranks, before anything is published.
 
-Both map adopters use Veduta's band and map window; neither uses the half that makes it a library rather than a
-helper: the pool's real capacity reported through `settle`, the page-global live budget priced per connector, and a
-stage window ranked together with the map.
+The pool now reports its capacity and the rail passes it to `settle` (audit §11l), and the Studio rail prices the
+focused preview as the stage under one live budget. Two pieces of the original item are left.
 
 ```text
-  why now   — the npm tripwire (section 11f.2) reads as met when it is only half tested. Publishing is the
-              irreversible step.
-  where     — docs/src/components/studio/preview-pool.tsx (an onSettle report: slots, retained high-water mark),
-              docs/src/components/map-rail/MapRail.tsx (send `cap.live` from it, drop the fixed ceiling of 24),
-              docs/src/components/studio/FocusedPreview.tsx (a stage window), docs/src/lib/veduta/core.ts.
-  done when — the pool reports a capacity and `settle` receives it; the Studio asks Veduta for its stage and its map
-              under one budget; the pill rail is either a map tier or retired at widths where the map fits.
-  evidence  — a test where the pool reports a smaller capacity than asked and the rail is not asked for more; a
-              WebKit measurement of the retained frames across toggles.
-  verify    — tier 2 trio (HARD RULE #25): shared preview path.
+  why now   — the npm tripwire (section 11f.2) still has no production caller for a stage window that changes
+              what is mounted: the Studio's stage is one fixed frame, so Veduta's stage answer is always "the focus,
+              live". Publishing is the irreversible step.
+  where     — docs/src/components/studio/StudioShell.tsx (SlideRail, the pill navigator) and
+              docs/src/components/studio/FocusedPreview.tsx.
+  done when — the pill rail is either a map tier (pills are a tile kind the map can fall to) or hidden at widths
+              where the map fits beside the preview, with screenshots at 1440, 820 and 390; and either the stage
+              mounts a neighbor ahead (a `multi` stage under the same budget) or the README says why `pip` with one
+              stage frame is the whole stage story.
+  evidence  — screenshots at three widths; a test that a stage over budget falls down the ladder before the pool
+              sees it, through the real rail.
+  verify    — tier 2 trio (HARD RULE #25): shared preview path, and a visible Studio change.
 ```

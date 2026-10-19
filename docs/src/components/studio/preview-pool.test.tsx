@@ -33,7 +33,7 @@ vi.mock('@/components/DeckPreview', async () => {
 	};
 });
 
-import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PooledThumbFace, PreviewPool, RELEASE_GRACE } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -209,14 +209,14 @@ function ScrollGrid({ n }: { n: number }) {
 	);
 }
 
-function Grid({ n, specimen = false, pooled = true, baseSlots }: { n: number; specimen?: boolean; pooled?: boolean; baseSlots?: number }) {
+function Grid({ n, specimen = false, pooled = true, baseSlots, maxSlots, onSettle }: { n: number; specimen?: boolean; pooled?: boolean; baseSlots?: number; maxSlots?: number; onSettle?: (r: PoolReport) => void }) {
 	const tiles = Array.from({ length: n }, (_, i) => (
 		// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
 		<div key={i} data-testid={`tile-${i}`}>
 			<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} specimen={specimen} className="aspect-video w-full" />
 		</div>
 	));
-	return pooled ? <PreviewPool baseSlots={baseSlots}>{tiles}</PreviewPool> : tiles;
+	return pooled ? <PreviewPool baseSlots={baseSlots} maxSlots={maxSlots} onSettle={onSettle}>{tiles}</PreviewPool> : tiles;
 }
 
 /** The `sample` each mounted frame is currently showing — the pool's output, in one read. */
@@ -334,6 +334,46 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		}
 		settle();
 		expect(showing(container).length).toBe(HARD_MAX_SLOTS);
+		unmount();
+	});
+
+	it('honors a host ceiling below the hard one, even for tiles on screen', () => {
+		const n = BASE_SLOTS + 5;
+		const { container, unmount } = render(<Grid n={n} maxSlots={6} />);
+		for (let i = 0; i < n; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		expect(showing(container).length).toBe(6);
+		unmount();
+	});
+
+	it('reports its capacity before any pass, and what it retains after each', () => {
+		const reports: PoolReport[] = [];
+		const { container, unmount } = render(<Grid n={8} maxSlots={5} onSettle={(r) => reports.push(r)} />);
+		expect(reports[0], 'the capacity must be known before the first pass, so a host can honor it from its first ask').toEqual({ capacity: 5, slots: 0, held: 0 });
+		for (let i = 0; i < 8; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		const last = reports[reports.length - 1];
+		expect(last.capacity).toBe(5);
+		expect(last.slots).toBe(showing(container).length);
+		expect(last.held).toBe(5);
+		// A pool never releases a frame, so `slots` is the high-water mark: tiles leaving keep it.
+		for (let i = 0; i < 8; i++) intersect(face(container, i), false);
+		vi.advanceTimersByTime(RELEASE_GRACE + APPLY_MS * 2);
+		settle();
+		expect(reports[reports.length - 1].slots).toBe(5);
+		unmount();
+	});
+
+	it('never reports a capacity above the hard ceiling', () => {
+		const reports: PoolReport[] = [];
+		const { unmount } = render(<Grid n={1} maxSlots={HARD_MAX_SLOTS * 4} onSettle={(r) => reports.push(r)} />);
+		expect(reports[0].capacity).toBe(HARD_MAX_SLOTS);
 		unmount();
 	});
 

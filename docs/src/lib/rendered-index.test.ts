@@ -3,10 +3,11 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadAll } from '../../../lib/components';
 import { appendAutoGlossary, autoGlossarySections } from '../../../lib/core/glossary-auto.mjs';
+import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';
 import structural from '../../../lib/core/structural-split.js';
 import { createEngine } from '../../../lib/engine';
 import { buildDeckIndex } from './deck-outline';
-import { blanksOf, buildRenderedIndex, chromeProbeOf, deckChromeOf, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
+import { buildRenderedIndex, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
 
 type Split = {
 	splitCapacityFrom: (m: unknown) => unknown;
@@ -24,18 +25,12 @@ function pagesOf(md: string): { stamps: string[]; html: string } {
 	return { stamps: stampsOf(html), html };
 }
 
-/** Force the deck's slide box: `size:` in the front matter replaces any the deck declares. */
 /** How many slides the engine makes of `md` before the preview split cuts any in two. */
-/** `blanksOf` the way the Playground calls it: told the chrome the deck's front matter gives every slide. */
-function blanksFor(md: string, html: string): boolean[] {
-	const probe = chromeProbeOf(md);
-	return blanksOf(html, probe ? deckChromeOf(pagesOf(probe).html) : undefined);
-}
-
 function countSlides(md: string): number {
 	return (structural as unknown as { splitTopLevelSections: (h: string) => string[] }).splitTopLevelSections(engine.render(appendAutoGlossary(md), 'indaco', { preview: true }).html).length;
 }
 
+/** Force the deck's slide box: `size:` in the front matter replaces any the deck declares. */
 function withSize(md: string, size: string): string {
 	if (!size) return md;
 	const fm = /^---\n([\s\S]*?)\n---\n/.exec(md);
@@ -110,11 +105,12 @@ describe('buildRenderedIndex', () => {
 });
 
 describe('what the engine adds or the outline drops', () => {
-	it('flags the empty slide the outliner dropped instead of shifting every later page', () => {
-		const deck = buildDeckIndex('# A\n\n---\n\n---\n\n# C\n');
-		// The engine renders the blank middle slide: three slides, two parts.
+	it('flags a slide the outline does not count instead of shifting every later page', () => {
+		const deck = buildDeckIndex('# A\n\n---\n\n# C\n');
+		// Three engine slides against two parts: the third is reported, the first two keep their parts.
 		const ix = buildRenderedIndex(['1', '2', '3'], deck, [1, 1]);
-		expect(ix.unexplainedPages.length).toBeGreaterThan(0);
+		expect(ix.unexplainedPages).toEqual([2]);
+		expect(ix.byFlat).toEqual([[0], [1]]);
 	});
 
 	it('marks the appended glossary page synthetic and nothing else', () => {
@@ -143,97 +139,51 @@ describe('what the engine adds or the outline drops', () => {
 	});
 });
 
-describe('known defect: the outliner drops an empty slide the engine renders', () => {
-	// `it.fails` passes while the defect stands and turns red the day the outline counts the blank slide,
-	// which is the cue to delete this block and the followup that names it
-	// (followups.d/2789-p3-outliner-drops-empty-slides.md).
-	it.fails('counts a blank middle slide as a unit, as the engine renders it', () => {
-		const md = '# A\n\n---\n\n---\n\n# C\n';
-		expect(buildDeckIndex(md).units.length).toBe(countSlides(md));
+describe('a blank slide is a unit, as the engine renders it', () => {
+	// The outline used to drop an empty chunk, so a blank slide the PDF counts had no unit and the index had to find
+	// its page from the markup (followups.d/2789-p3, closed). Only a body's empty FIRST chunk is dropped, as the engine
+	// drops it.
+	const SHAPES = ['# A\n\n---\n\n---\n\n# C\n', '# A\n\n---\n\n# B\n\n---\n\n---\n\n---\n\n# D\n', '# A\n\n---\n\n---\n\n# C\n\n---\n\n# D\n', '# A\n\n---\n', '# A\n\n---\n   \n---\n\n# C\n', '\n---\n\n# A\n', '---\ntheme: indaco\n---\n\n---\n\n# A\n\n---\n', '# A\n---\n---\n---\n'];
+
+	it('counts as many units as the engine renders slides, for blank slides anywhere', () => {
+		for (const md of SHAPES) expect(buildDeckIndex(md).units.length, JSON.stringify(md)).toBe(countSlides(md));
 	});
 
-	it('without a blank mark the index reports the surplus page instead of placing later pages on the wrong part', () => {
-		const md = '# A\n\n---\n\n---\n\n# C\n';
-		expect(countSlides(md)).toBe(3);
-		expect(buildDeckIndex(md).units.length).toBe(2);
-		const ix = buildRenderedIndex(['1', '2', '3'], buildDeckIndex(md), [1, 1]);
-		expect(ix.unexplainedPages).toEqual([2]);
+	it('keeps a first chunk that holds only a link reference definition: it renders nothing, but an edit must not delete it', () => {
+		const md = '[a]: https://example.com\n\n---\n\n# One [link][a]\n\n---\n\n# Two\n';
+		// One unit more than the engine renders, as before this change: the known cost of keeping the bytes.
+		expect(buildDeckIndex(md).units.length).toBe(countSlides(md) + 1);
 	});
 
-	it('with the blank mark the blank slide owns no part and the slides after it keep theirs', () => {
-		const deck = buildDeckIndex('# A\n\n---\n\n---\n\n# C\n');
-		const ix = buildRenderedIndex(['1', '2', '3'], deck, [1, 1], 0, [false, true, false]);
-		expect(ix.pages.map((p) => p.flat)).toEqual([0, -1, 1]);
-		expect(ix.byFlat).toEqual([[0], [2]]);
-		expect(ix.unexplainedPages).toEqual([]);
-		expect(ix.unexplainedParts).toEqual([]);
-	});
-
-	it('reads a real deck with a blank slide, through the engine, with no wrong placement', async () => {
-		for (const md of ['# A\n\n---\n\n---\n\n# C\n', '# A\n\n---\n\n# B\n\n---\n\n---\n\n---\n\n# D\n', '# A\n\n---\n\n---\n\n# C\n\n---\n\n# D\n']) {
-			const { stamps, html } = pagesOf(md);
-			const blanks = blanksFor(md, html);
-			expect(blanks.some(Boolean), md).toBe(true);
-			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanks);
+	it('reads a real deck with blank slides through the engine and places every page, the blank ones on their own unit', async () => {
+		for (const md of SHAPES) {
+			const deck = buildDeckIndex(md);
+			const { stamps } = pagesOf(md);
+			const ix = await renderedIndexOf(stamps, deck, countSlides, new Map());
 			expect(ix.unexplainedPages, md).toEqual([]);
 			expect(ix.unexplainedParts, md).toEqual([]);
-			// Each non-blank page lands on the part whose title it shows.
-			const titles = [...md.matchAll(/^# (\w)$/gm)].map((m) => m[1]);
-			const shown = ix.pages.filter((p) => p.flat >= 0).map((p) => p.flat);
-			expect(shown.length, md).toBe(titles.length);
-			expect(shown, md).toEqual(titles.map((_, i) => i));
+			// One page per unit, in order: the blank pages sit on their own units, so no later page shifts.
+			expect(ix.pages.map((p) => p.flat), md).toEqual(deck.units.map((_, i) => i));
 		}
 	});
 
-	it('blanksOf calls only the engine\u2019s empty slide blank, never one that holds a background, a directive, a note or a spacer', () => {
-		const slide = (md: string) => (() => { const deck = `# A\n\n---\n\n${md}\n\n---\n\n# C\n`; return blanksFor(deck, pagesOf(deck).html)[1]; })();
-		expect(slide('')).toBe(true);
-		expect(slide('![bg](x.png)')).toBe(false);
-		expect(slide('<!-- _class: divider -->')).toBe(false);
-		expect(slide('<!-- a speaker note -->')).toBe(false);
-		expect(slide('<div class="spacer"></div>')).toBe(false);
-		expect(slide('# Real')).toBe(false);
-	});
-
-	it('finds the blank slide when the deck sets paginate, header, footer or a background color, and still keeps a local _header slide', async () => {
-		const body = '# A\n\n---\n\n---\n\n# C\n\n---\n\n# D\n';
-		for (const fm of ['paginate: true', 'paginate: true\nheader: Hdr\nfooter: Ftr', 'backgroundColor: red']) {
-			const md = `---\n${fm}\n---\n\n${body}`;
-			const { stamps, html } = pagesOf(md);
-			expect(blanksFor(md, html), fm).toEqual([false, true, false, false]);
-			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksFor(md, html));
-			expect(ix.unexplainedPages, fm).toEqual([]);
-			expect(ix.pages.map((pg) => pg.flat), fm).toEqual([0, -1, 1, 2]);
-		}
-		const localMd = '---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _header: X -->\n\n---\n\n# C\n';
-		const local = pagesOf(localMd);
-		expect(blanksFor(localMd, local.html)).toEqual([false, false, false]);
-		// Most slides set their own header, one holds only that directive, and a true blank follows: the
-		// directive-only slide is a slide, the blank is the blank.
-		const hdr = '<!-- _header: X -->\n';
-		const mostLocal = `${hdr}# A\n\n---\n\n${hdr}# B\n\n---\n\n${hdr}\n---\n\n---\n\n${hdr}# E\n`;
-		expect(blanksFor(mostLocal, pagesOf(mostLocal).html)).toEqual([false, false, false, true, false]);
-		const pag = '<!-- _paginate: true -->\n';
-		const mostPag = `${pag}# A\n\n---\n\n${pag}# B\n\n---\n\n${pag}\n---\n\n---\n\n${pag}# E\n`;
-		expect(blanksFor(mostPag, pagesOf(mostPag).html)).toEqual([false, false, false, true, false]);
-	});
-
-	it('reads the front matter keys the way the engine does: quoted, indented, or a space before the colon', () => {
-		for (const key of ['"header": H', '  header: H', 'header : H']) {
-			const md = `---\n${key}\n---\n\n# A\n\n---\n\n---\n\n# C\n`;
-			expect(chromeProbeOf(md), key).not.toBeNull();
-			expect(blanksFor(md, pagesOf(md).html), key).toEqual([false, true, false]);
-		}
-		expect(chromeProbeOf('---\nheaderless: 1\n---\n\n# A\n')).toBeNull();
-		expect(chromeProbeOf('# A\n\n---\n\nheader: H\n')).toBeNull();
-	});
-
-	it('a deck with a background-only slide and a later real blank drops the blank, not the background slide', async () => {
-		const md = '# A\n\n---\n\n![bg](x.png)\n\n---\n\n# C\n\n---\n\n---\n\n# E\n';
-		const { stamps, html } = pagesOf(md);
-		const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksFor(md, html));
-		expect(ix.pages.map((p) => p.flat)).toEqual([0, 1, 2, -1, 3]);
-		expect(ix.unexplainedPages).toEqual([]);
+	it('THE ARM: the old rule, dropping every blank chunk, disagrees with the engine on every shape but the leading one', () => {
+		// The old splitSlides: every chunk between separators, trimmed, the blank ones dropped.
+		const old = (md: string) => {
+			const deck = buildDeckIndex(md);
+			const body = md.slice(deck.bodyStart);
+			const cuts = separatorRanges(body).ranges as Array<{ index: number; length: number }>;
+			const chunks: string[] = [];
+			let pos = 0;
+			for (const c of cuts) {
+				chunks.push(body.slice(pos, c.index));
+				pos = c.index + c.length;
+			}
+			chunks.push(body.slice(pos));
+			return chunks.filter((c) => c.trim()).length;
+		};
+		const disagree = SHAPES.filter((md) => old(md) !== countSlides(md));
+		expect(disagree.length).toBe(SHAPES.length - 1);
 	});
 });
 

@@ -73,63 +73,6 @@ export function stampsOf(html: string): string[] {
 	return out;
 }
 
-/** The pagination, header and footer a section carries, read from its open tag: `paginate|header|footer`. */
-function chromeOf(open: string): string {
-	const attr = (name: string) => new RegExp(`\\sdata-${name}="([^"]*)"`, 'i').exec(open)?.[1] ?? '';
-	return `${attr('paginate')}|${attr('header')}|${attr('footer')}`;
-}
-
-/** What chrome a slide shows when nothing sets it: no page number, no header, no footer. */
-export const NO_CHROME = '||';
-
-/**
- * The chrome the DECK's front matter gives every slide, read off the first section of a render of that front
- * matter alone (a front matter plus one content slide). Pass it to `blanksOf` so a slide that shows exactly this
- * is understood to have inherited it rather than set it.
- */
-export function deckChromeOf(html: string): string {
-	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string }>) if (p.type === 'section') return chromeOf(p.openTag ?? '');
-	return NO_CHROME;
-}
-
-/**
- * The deck to render once to learn the chrome its front matter gives every slide: the front matter plus one content
- * slide, or null when the front matter sets none (every slide then shows `NO_CHROME`). Read the keys loosely (quoted,
- * indented, a space before the colon) because the engine does: a key this misses leaves the blank slide untold.
- */
-export function chromeProbeOf(source: string): string | null {
-	const front = /^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(String(source ?? ''))?.[0] ?? '';
-	return /^[ \t]*["']?(paginate|header|footer)["']?[ \t]*:/m.test(front) ? `${front}\n\nx\n` : null;
-}
-
-/**
- * Whether each top-level section is BLANK: no text, no picture, no drawing. The engine renders a slide the
- * author left empty (`---` twice in a row) and the outliner drops it, so the index needs to know which engine
- * slides own no part. Read from the markup, in the same order as `stampsOf`.
- *
- * A blank slide is a standard-frame section with an EMPTY stage, no component (`data-class=`) and no background
- * picture (`url(`). Its chrome (pagination, header, footer) must be exactly what the front matter gives every
- * slide, passed as `deckChrome`: `paginate:`, `header:` and `footer:` in the front matter put a header, a footer and
- * a page number on every slide, blank or not, but a slide that sets its own (`_header`) is a slide an author wrote
- * something on. A section the scan cannot recognize is not blank, so a doubtful slide never loses its tile.
- */
-export function blanksOf(html: string, deckChrome: string = NO_CHROME): boolean[] {
-	const out: boolean[] = [];
-	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string; inner?: string }>) {
-		if (p.type !== 'section') continue;
-		const open = p.openTag ?? '';
-		const inner = p.inner ?? '';
-		out.push(
-			!/\sdata-class=|url\(/i.test(open) &&
-				/\sdata-frame="standard"/i.test(open) &&
-				chromeOf(open) === deckChrome &&
-				/<div class="cell-stage"><\/div>/.test(inner) &&
-				!/<(img|svg|picture|video|canvas)[\s>]/i.test(inner),
-		);
-	}
-	return out;
-}
-
 /** `'3'` is slide 3 run 0, `'3.2'` is slide 3 run 1. Anything else is not a stamp. */
 function parseStamp(stamp: string): { slide: number; run: number } | null {
 	const m = /^(\d+)(?:\.(\d+))?$/.exec(stamp);
@@ -154,41 +97,19 @@ export function slideCountOf(stamps: readonly string[]): number {
  * the step count for `_focusSteps`, the pane count for a split pane slide). Leave it out when the
  * engine rendered exactly one slide per part. `synthetic` is how many slides the engine APPENDS
  * after the last part (the auto-glossary's pages); they are marked, and any slide past those is a
- * disagreement, so an empty slide the outliner dropped is reported rather than absorbed.
+ * disagreement, so a slide the outline does not count is reported rather than absorbed.
  * A section with no stamp (an engine bundle with no `splitForPreview`) is a slide of its own.
  *
- * `blank[i]` says page `i` is an empty section. When the engine rendered more slides than the parts and the
- * appended pages account for, that many blank slides (the first ones, in order) are slides the outliner dropped:
- * they own no part, and the slides after them keep their own. Without `blank` the surplus is only reported.
+ * A blank slide (`---` twice in a row) is a unit of the outline, as the engine renders it, so it owns a part
+ * like any other slide and needs nothing here.
  */
-export function buildRenderedIndex(stamps: readonly string[], deck: DeckIndex, perPart?: readonly number[], synthetic = 0, blank?: readonly boolean[]): RenderedIndex {
+export function buildRenderedIndex(stamps: readonly string[], deck: DeckIndex, perPart?: readonly number[], synthetic = 0): RenderedIndex {
 	const parts = partCount(deck);
 	// Which part owns engine slide j (0-based), and which clone of it that slide is.
 	const owner: Array<{ flat: number; copy: number }> = [];
 	for (let flat = 0; flat < parts; flat++) {
 		const n = Math.max(0, perPart ? (perPart[flat] ?? 1) : 1);
 		for (let copy = 0; copy < n; copy++) owner.push({ flat, copy });
-	}
-	// Engine slides the outliner dropped: blank ones, as many as the engine rendered beyond what the parts and the
-	// appended pages explain.
-	const dropped = new Set<number>();
-	if (perPart && blank) {
-		let surplus = slideCountOf(stamps) - owner.length - synthetic;
-		let slide = 0;
-		for (let i = 0; i < stamps.length && surplus > 0; i++) {
-			const s0 = parseStamp(stamps[i]);
-			slide = s0 ? s0.slide : slide + 1;
-			if (blank[i] && !dropped.has(slide - 1) && (!s0 || s0.run === 0)) {
-				dropped.add(slide - 1);
-				surplus--;
-			}
-		}
-	}
-	// `engineSlideOwner[j]` is the owner of engine slide j once the dropped ones are skipped.
-	const engineSlideOwner: Array<{ flat: number; copy: number } | undefined> = [];
-	{
-		let next = 0;
-		for (let j = 0; j < slideCountOf(stamps); j++) engineSlideOwner[j] = dropped.has(j) ? undefined : owner[next++];
 	}
 	const pages: RenderedPage[] = [];
 	const byFlat: number[][] = Array.from({ length: parts }, () => []);
@@ -197,15 +118,11 @@ export function buildRenderedIndex(stamps: readonly string[], deck: DeckIndex, p
 	for (let i = 0; i < stamps.length; i++) {
 		const s = parseStamp(stamps[i]);
 		slide = s ? s.slide : slide + 1;
-		if (dropped.has(slide - 1)) {
-			pages.push({ page: i, slide, run: s ? s.run : 0, unit: -1, part: -1, flat: -1, copy: 0, synthetic: true });
-			continue;
-		}
-		const own = engineSlideOwner[slide - 1];
+		const own = owner[slide - 1];
 		const at = own ? partOfFlat(deck, own.flat) : null;
 		// Slides just past the last part are the engine's own additions, when the caller says it
 		// appends some; any further slide is a disagreement worth reporting.
-		const appended = !own && slide - dropped.size - owner.length <= synthetic;
+		const appended = !own && slide - owner.length <= synthetic;
 		if (own && at) byFlat[own.flat].push(i);
 		else if (!appended) unexplainedPages.push(i);
 		pages.push({ page: i, slide, run: s ? s.run : 0, unit: at ? at.unit : -1, part: at ? at.part : -1, flat: own && at ? own.flat : -1, copy: own ? own.copy : 0, synthetic: appended });
@@ -254,10 +171,10 @@ export async function sectionsPerPart(deck: DeckIndex, count: CountSlides, memo:
  * The whole job for a caller that holds the stamps, the deck and a way to render: take the cheap
  * join first, and count each part only when the deck's slide count differs from its part count.
  */
-export async function renderedIndexOf(stamps: readonly string[], deck: DeckIndex, count: CountSlides, memo?: Map<string, number>, synthetic = 0, blank?: readonly boolean[]): Promise<RenderedIndex> {
+export async function renderedIndexOf(stamps: readonly string[], deck: DeckIndex, count: CountSlides, memo?: Map<string, number>, synthetic = 0): Promise<RenderedIndex> {
 	const plain = buildRenderedIndex(stamps, deck, undefined, synthetic);
 	if (plain.slides === partCount(deck) + synthetic) return plain;
-	return buildRenderedIndex(stamps, deck, await sectionsPerPart(deck, count, memo), synthetic, blank);
+	return buildRenderedIndex(stamps, deck, await sectionsPerPart(deck, count, memo), synthetic);
 }
 
 /** The first page that shows part `flat` (or the nearest earlier one that is shown), or -1 for an empty preview. */

@@ -1,5 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import * as React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { PreviewPool } from '../studio/preview-pool';
 import { geometryFor, MapRail, type MapRailProps } from './MapRail';
 import type { Wire } from './wireframe';
 
@@ -43,13 +45,66 @@ describe('MapRail', () => {
 		expect(screen.getByRole('button', { name: 'Slide 251' }).getAttribute('aria-current')).toBe('true');
 	});
 
-	it('makes the tiles in view live, never past the pool ceiling, and the overscan tiles sketches', () => {
+	it('makes the tiles in view live and the overscan tiles sketches', () => {
 		render(<MapRail {...props({ count: 40, live: (i) => <i data-live={i} />, liveBudget: 3 })} />);
 		const t = tiers();
 		const liveCount = t.filter(([, tier]) => tier === 'live').length;
 		expect(liveCount).toBeGreaterThanOrEqual(3);
-		expect(liveCount).toBeLessThanOrEqual(24);
 		expect(t.some(([, tier]) => tier === 'wireframe')).toBe(true);
+	});
+
+	// A pool that reports its capacity, the way PreviewPool's `onSettle` does, from a layout effect.
+	function Pool({ capacity, report, children }: { capacity: number; report: (p: { capacity: number }) => void; children: React.ReactNode }) {
+		React.useLayoutEffect(() => report({ capacity }), [capacity, report]);
+		return <>{children}</>;
+	}
+	const liveTiles = () => tiers().filter(([, tier]) => tier === 'live').length;
+
+	it('never asks a pool for more live tiles than the capacity it reported', () => {
+		// 600 px of rail shows 8 tiles, so the rail wants 9 live; a pool that holds 3 must get 3, not 9.
+		const { rerender } = render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, wrap: (tiles, report) => <Pool capacity={3} report={report}>{tiles}</Pool> })} />);
+		expect(liveTiles(), 'the rail asked past the capacity the pool reported').toBe(3);
+		// The capacity is what settle holds, not a ceiling fixed in the rail: a pool that grows is used.
+		rerender(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, wrap: (tiles, report) => <Pool capacity={12} report={report}>{tiles}</Pool> })} />);
+		expect(liveTiles()).toBeGreaterThan(3);
+		expect(liveTiles()).toBeLessThanOrEqual(12);
+		// And one that shrinks is re-asked at once, not left over-asked until the next scroll.
+		rerender(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, wrap: (tiles, report) => <Pool capacity={2} report={report}>{tiles}</Pool> })} />);
+		expect(liveTiles()).toBe(2);
+	});
+
+	it('charges a priced stage to the same live budget and still gives the pool its full capacity', () => {
+		// The stage costs 2; the page's cap is the pool's 3 plus the stage's 2, so the tiles keep all 3.
+		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, stage: { cost: 2 }, wrap: (tiles, report) => <Pool capacity={3} report={report}>{tiles}</Pool> })} />);
+		expect(liveTiles()).toBe(3);
+	});
+
+	it('a real PreviewPool with a lowered ceiling caps the rail through settle', () => {
+		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, wrap: (tiles, report) => <PreviewPool maxSlots={4} onSettle={report}>{tiles}</PreviewPool> })} />);
+		expect(liveTiles()).toBe(4);
+	});
+
+	it('asks for no poster unless the host gives a poster budget, and then fills the tiles past the live cap with them', () => {
+		const live = (i: number) => <i data-live={i} />;
+		const poster = (i: number) => <b data-poster={i} />;
+		const wrap: MapRailProps['wrap'] = (tiles, report) => (
+			<Pool capacity={3} report={report}>
+				{tiles}
+			</Pool>
+		);
+		const { rerender } = render(<MapRail {...props({ count: 100, live, poster, wrap })} />);
+		expect(tiers().filter(([, t]) => t === 'poster').length).toBe(0);
+		rerender(<MapRail {...props({ count: 100, live, poster, posterBudget: 4, wrap })} />);
+		expect(liveTiles()).toBe(3);
+		expect(tiers().filter(([, t]) => t === 'poster').length).toBe(4);
+		expect(document.querySelectorAll('[data-poster]').length).toBe(4);
+		// The posters go to the tiles nearest the rail's view after the live ones, never past the budget.
+		expect(tiers().filter(([, t]) => t === 'wireframe').length).toBeGreaterThan(0);
+	});
+
+	it('a host with no pictures gets no live tiles whatever its pool reports', () => {
+		render(<MapRail {...props({ count: 100, wrap: (tiles, report) => <Pool capacity={20} report={report}>{tiles}</Pool> })} />);
+		expect(liveTiles()).toBe(0);
 	});
 
 	it('draws every tile as a sketch when the host has no pictures', () => {

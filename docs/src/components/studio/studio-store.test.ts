@@ -143,7 +143,8 @@ describe('studio-store — per-deck source', () => {
 		// Tight + trailing separators count the same as the live rail (splitSlides),
 		// not the old per-variant regex (which over/under-counted these).
 		expect(metaFor('# A\n---\n# B')).toBe('2 slides');
-		expect(metaFor('# A\n\n---\n\n# B\n\n---\n')).toBe('2 slides');
+		// A trailing separator is a blank last slide: the engine renders it and the PDF counts it.
+		expect(metaFor('# A\n\n---\n\n# B\n\n---\n')).toBe('3 slides');
 	});
 });
 

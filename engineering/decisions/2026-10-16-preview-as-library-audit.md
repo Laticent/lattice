@@ -962,6 +962,130 @@ on decks with one and three blank slides). The outline still drops the slide, wh
 unit model is read by every editor path, so it is `followups.d/2789-p3-outliner-drops-empty-slides.md`, with an `it.fails` arm in
 `rendered-index.test.ts` that turns red the day the outline counts it. No shipped deck has a blank slide (0 of 292).
 
+## 11l. Built on 2026-10-19: the pool reports its capacity (continuation P1)
+
+Section 11j said the rail kept its live budget under a fixed ceiling of 24 instead of learning the pool's. It learns it now,
+and the honest size of that change is smaller than the mechanism: **the channel is wired and tested, and in production it
+carries a constant.**
+
+- **The pool reports.** `PreviewPool` takes `onSettle` and calls it with a `PoolReport`: `capacity` (the most frames it will
+  hold: its new `maxSlots` prop, never above `HARD_MAX_SLOTS`), `slots` (the frames it retains, which is the high-water mark,
+  since a pool never releases one) and `held` (how many show a tile). It reports from a layout effect at mount, before any
+  pass, so the rail has the capacity at its first settle, and again after every pass.
+- **The rail passes it to `settle`.** `MapRail`'s `wrap` hands the pool a `report` callback, and the rail sends the capacity
+  to Veduta as `cap.live`. The rail no longer clamps the budget itself (`MAX_LIVE` is gone); the core's
+  `min(budget.live, caps.live)` does. The first ask of a mount runs before any settle and is uncapped; the settle after it
+  carries the cap and re-asks at once, and the pool clamps the extra meanwhile, so nothing shows.
+- **In production the capacity is 28.** No shipped setting lowers `maxSlots` (the Studio map's diagnostic key is opt-in), so both map rails learn `HARD_MAX_SLOTS`. Against
+  the old fixed 24 the visible effect is four more live tiles before the 29th tile on screen falls to a sketch. A host that
+  budgets its frames below that (a memory budget, WebKit, where a destroyed frame is never given back) now has a way to say so
+  that reaches the core; none does yet.
+- **The stage is priced, and the price is not load-bearing yet.** The Studio rail passes `stage: { cost: 1 }`, so Veduta asks
+  for the focused preview at `live`, ranks it first and charges it to the same budget, and the rail adds the same cost to the
+  cap it reports, since the cap is page-wide. The two cancel, so the stage never takes a tile from the map, and nothing reads
+  `stageUnits`: the Studio's stage is one fixed frame. It is the accounting a stage window that mounts more than the focus
+  would need; it is not that window.
+- **Evidence.** `MapRail.test.tsx`: a pool that reports 3 gets exactly 3 live tiles where the rail wants 9; one that grows to 12
+  is used; one that shrinks to 2 is re-asked at once; a stage of cost 2 leaves the pool its full 3; and a real `PreviewPool`
+  with `maxSlots={4}` inside the rail gets 4. With the report taken out of `settle` (the old code), the first two of those
+  `it` blocks go red (run, not reasoned). `preview-pool.test.tsx`: `maxSlots` caps even on-screen tiles, the report arrives
+  before the first pass, and `slots` stays at the high-water mark after every tile leaves. On real WebKit 26 (`webkit-tablet`)
+  and on desktop Chromium, three close and open cycles of the Studio map create no new documents (7 frames before and after).
+  That e2e shows frame reuse and no harm; at 7 live tiles against a capacity of 28 it cannot show the cap binding. A
+  diagnostic key, `localStorage['lattice-studio-map-slots']`, lowers the Studio map pool's ceiling (unset, nothing changes),
+  and with it the binding is shown on the real Studio: a ten-slide deck gets 3 live tiles and 3 frames with the ceiling at
+  3, and 10 and 10 without it (`studio-map.spec.ts`, desktop Chromium).
+- **Not done here.** The pill rail as a map tier, and a stage window that changes what is mounted, are still open
+  (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`, narrowed). The npm tripwire should not count as met until a
+  production value can bind.
+
+## 11m. Fixed on 2026-10-19: a blank slide is a unit (continuation P2)
+
+Section 11k filed the outline half of the empty-slide defect. It is fixed at the source: the outline now counts what the
+engine renders.
+
+- **The rule, measured on the engine.** `splitOnHr` (`lib/engine/slides.js`) keeps every group except a FIRST group that
+  holds no tokens. So `# A`, `---`, `---`, `# C` is three slides, a trailing `---` is a blank last slide, and a body that
+  opens with a separator loses only that leading chunk. Both splitters drop a BLANK first chunk and keep every other one.
+  They do not use the kernel's `leadingEmpty` flag, which is also true for a first chunk holding only a link reference
+  definition: the engine renders nothing for it, but it is source, and every caller that rejoins the list (`deck-ops.ts`,
+  Compose) would delete it and break every link that uses it. A checker caught that in an earlier draft of this change; on
+  that one shape the outline still counts one unit more than the engine, as it did before.
+- **Where.** `splitSlides` (`studio/lint.ts`) keeps an empty chunk as `''`; the outliner (`deck-outline.ts`, `rawChunks`)
+  keeps it as a unit whose start is its end. An empty body is still no slides. The incremental update now sorts old units
+  by where they START: an empty unit starts where it ends, so at the end of the text or right after the region's opening
+  separator it sat on both edges, and the incremental-equals-full property (3,000 runs) found that within one run.
+- **What it fixes beyond the map.** Every slide-indexed caller of `splitSlides` (27 call sites) now indexes the list the
+  engine renders rather than one with the blank slides taken out. Tested here: the Studio's pills and counters (e2e), and
+  `deck-ops.ts`, which rejoins the list after every move, duplicate, add or delete and so used to delete a blank slide from
+  the source. Two more were then driven on a blank-slide deck: **narration**, whose measure used to stand the projection
+  down for the whole deck (2 source slides against 3 rendered sections) and quote every slide from the markdown flatten,
+  now uses it (`narration-bake.test.ts`, red against `main`'s splitter); and **Compose** on the real Studio, which shows
+  the blank slide as a card of its own and keeps it in the source through an edit to the slide after it
+  (`e2e/blank-slide-editors.spec.ts`, desktop; looked at in screenshots at 1440 and 820). Then the **share export**: the
+  Studio's Captions (.vtt) download, from the real Share sheet, captions a funnel after a blank slide with its computed
+  stage-over-stage facts; with `main`'s splitter the lists were one apart, the chart narration stood down for the whole
+  deck, and the same run fails (`e2e/share-blank-slide.spec.ts`, desktop, run both ways). The Coach ran through its own
+  suite only.
+- **What it removes.** The rendered index no longer needs to find a blank page from its markup: `blanksOf`, `chromeProbeOf`,
+  `deckChromeOf` and the `blank` argument are gone, and so is the Playground bridge's extra render of the front matter to
+  learn its chrome. A page the outline does not count is still reported as unexplained, never absorbed.
+- **Evidence.** `rendered-index.test.ts` renders eight blank-slide shapes (middle, several, trailing, whitespace-only,
+  leading, after front matter) and requires the outline's unit count to equal the engine's slide
+  count, and every page to land on its own unit; its arm rebuilds the old splitter and must disagree with the engine on
+  every shape but the leading one. `deck-ops.test.ts` keeps the blank slide through move, duplicate and add, and keeps a
+  leading link reference definition through a move and an add.
+  `studio-map.spec.ts` (desktop) shows the blank slide as a pill and a tile and picks the slide after it as itself;
+  `playground-map.spec.ts` shows it as a tile in a deck with a front-matter header and page numbers, with every later tile
+  on its own engine slide. None of the 309 example and baseline decks (`git ls-files 'examples/*.md'
+  'test/integration/baseline-decks/*.md'`) holds a blank slide, so no shipped deck changes.
+
+## 11n. Pinned on 2026-10-19: how far a slide's header reaches (continuation P3)
+
+The 2789 follow-up asked the owner to rule whether a plain `<!-- header: H -->` on a slide carries onto later slides (Marp's
+rule, and the engine's) or scopes to its slide. The owner was away, so the session took the reversible default and pinned
+it; reversing it is an owner call, kept open in `followups.d/2789-p4-header-carries-forward-past-its-slide.md` and on the
+PR's decision card.
+
+- **The default: keep the carry for the comment form.** Front matter sets every slide; `_header`, `_footer` and
+  `_paginate` apply to their own slide; a plain `header:` carries until another replaces it. The @meta record decision
+  (`2026-10-17-meta-record.md` §4.3) already puts scoping where it belongs: a record applies to its own slide, and the
+  codemod turns a plain directive into an explicit `carry` record, so precedence stays what it is today. Changing the comment
+  form instead changes what an author's deck renders and exports. No shipped deck is affected: the 309 example and baseline
+  decks hold no plain `header:`, `footer:` or `paginate:` comment (§4.3's "5 of about 5,900" counts the plain `class:` form,
+  not these).
+- **The pin.** `test/unit/engine/directive-scope.test.js` renders a five-slide deck through the engine: a plain header on
+  slide 2 reads `-, H, H, L, H` with a `_header: L` on slide 4; an underscore header alone reaches no other slide; a later
+  plain header replaces the carried one; footers follow the same rule; front matter sets every slide and a slide overrides it
+  both ways. Making the plain form scope to its slide turns four of the five red (checked by rewriting the inputs).
+- **Its reason to exist went away in P2.** The follow-up's "why now" was the rendered index telling a blank slide by its
+  chrome matching the front matter's, so a carried header made a blank after it look like a slide. Since §11m a blank slide is
+  a unit and that chrome test is gone, so the carry no longer affects the map at all.
+
+## 11o. Built on 2026-10-19: the poster tier's cache and tile, not its capture (continuation P4)
+
+Section 11f put posters last, to pay only once decks over the pool cap hurt. Measured first, as the follow-up asked: of the
+295 example and baseline decks, the median has 8 slides and the 90th percentile 10; 12 have more than 12 and 4 more than the
+pool's 28. A rail's live budget already covers the tiles on screen, so a poster would only ever show on the overscan tiles of
+one of those few long decks while the reader scrolls.
+
+- **Built: the cache** (`map-rail/poster-cache.ts`). Content-addressed (`posterKey` of the slide text and its look, so a moved
+  slide keeps its poster and an edited one never shows the old picture), LRU under a byte budget, and pinned windows that are
+  never evicted, whatever the budget. Evicted values go to the host's `release`. A poster larger than the whole budget is
+  refused unless pinned (a checker found the first draft emptied the cache to make room for it, then dropped it too).
+  `posterKey`'s `look` must carry everything outside the slide's text that changes its picture, front matter and carried
+  directives included. `poster-cache.test.ts` pins each rule.
+- **Built: the tile kind.** `MapRail` takes `poster` and `posterBudget` (default 0) and passes the budget to Veduta's poster
+  rung, so a tile that misses the live cap falls to a poster before the sketch, and a host that has none yet returns null and
+  the sketch shows. `MapRail.test.tsx`: no poster without a budget; with a pool that reports 3 and a poster budget of 4, 3
+  live tiles and 4 posters.
+- **Not built: capture. BLOCKED, for two reasons.** A poster is a picture of a live tile, and the pool's frames are not
+  reachable from a tile today: capturing one needs a pool API (`capture(tileId)`) on the shared preview path. And the cost the
+  follow-up names, the capture hitch on WebKit (`html-to-image` clones and inlines a slide on the main thread, the route the
+  export already takes), has to be measured on a real Safari device, which this sandbox cannot reach. So no shipped host
+  passes `poster`, the poster rung stays at 0, and Safari is **UNVERIFIED**
+  (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to capture).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

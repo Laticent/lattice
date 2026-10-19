@@ -319,6 +319,19 @@ describe('measureNarration — the pre-flight', () => {
 		expect(seen.total).toBe(2);
 	});
 
+	it('lines a blank slide up with its rendered section, so the projection is used and nothing shifts', async () => {
+		// The engine renders a blank slide for `---` twice in a row. When splitSlides dropped it, the source had one
+		// slide fewer than the render, so the projection stood down for the WHOLE deck and every slide was quoted
+		// from the markdown flatten instead of what it says on screen.
+		const blank = ['---', 'theme: indaco', '---', '', '# One', '', 'The first slide says this.', '', '---', '', '---', '', '# Two', '', 'And the second says this.', ''].join('\n');
+		const m = await measureNarration(blank, [S1, '', S2], VOICE);
+		expect(m.total).toBe(2);
+		expect(m.missingChars, 'the projected words, not the flattened markdown').toBe(S1.length + S2.length);
+		// The arm: the same projection without the blank section is one short, and stands down.
+		const short = await measureNarration(blank, [S1, S2], VOICE);
+		expect(short.missingChars).not.toBe(S1.length + S2.length);
+	});
+
 	it('falls back to the markdown flatten when the projection does not line up — as Present does', async () => {
 		// A length mismatch stands the projection down; Present then narrates the markdown
 		// flatten, and every clip on the device is keyed on THAT text. A bake that resolved to

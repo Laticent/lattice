@@ -62,9 +62,9 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	await page.keyboard.press('Home');
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toHaveAttribute('data-unit', '0');
 	expect(await current(page)).toBe('0');
-	// A live picture is a pooled frame, and never more than the pool's ceiling.
+	// A live picture is a pooled frame, and never more than the pool's ceiling (HARD_MAX_SLOTS).
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
-	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(24);
+	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(28);
 	await page.getByRole('button', { name: 'Slide map' }).click();
 	await expect(page.locator(RAIL)).toBeHidden();
 });
@@ -104,6 +104,18 @@ test('the rail follows the deck as it is edited', async ({ page }) => {
 	await setEditorContent(page, '# One\n\n---\n\n# Two\n\n---\n\n# Three\n\n---\n\n# Four\n');
 	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(4, { timeout: 15_000 });
 	await expect(page.locator(`${RAIL} button[aria-label="Slide 4, Four"]`)).toBeVisible();
+});
+
+test('a blank slide is a pill and a tile, and the slide after it is picked as itself', async ({ page }) => {
+	await gotoStudio(page);
+	await mapOn(page);
+	// The engine renders the empty chunk between the two separators as slide 2, and the PDF counts it.
+	await setEditorContent(page, '# One\n\n---\n\n---\n\n# Three\n');
+	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(3, { timeout: 15_000 });
+	await expect(railButtons(page)).toHaveCount(3);
+	await page.locator(`${RAIL} button[aria-label="Slide 3, Three"]`).click();
+	await label(page, 'Slide 3 / 3');
+	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '2');
 });
 
 test('a slide the structural split cuts into pages is still one tile', async ({ page }) => {
@@ -151,7 +163,8 @@ test('the arrow keys walk the rail slide by slide and keyboard focus stays on it
 	await label(page, `Slide ${total} / ${total}`);
 });
 
-test('closing and reopening the map re-uses its preview frames instead of creating new documents', async ({ page }) => {
+// On WebKit a destroyed frame is never given back, so the same check runs there too (desktop drops a webkit-only title).
+async function reusesFrames(page: Page) {
 	await gotoStudio(page);
 	await page.evaluate(() => {
 		(window as unknown as { __frames: number }).__frames = 0;
@@ -169,8 +182,16 @@ test('closing and reopening the map re-uses its preview frames instead of creati
 		await page.getByRole('button', { name: 'Slide map' }).click();
 		await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible();
 	}
-	expect(await page.evaluate(() => (window as unknown as { __frames: number }).__frames)).toBe(first);
-});
+	const after = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
+	expect(after).toBe(first);
+	// The pool reports its capacity to Veduta, so the rail never asks for more live tiles than there are frames to show them.
+	const live = await page.locator(`${RAIL} button[data-tier="live"]`).count();
+	const frames = await page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
+	expect(live).toBeLessThanOrEqual(frames);
+	test.info().annotations.push({ type: 'retained', description: `frames created ${first}, after 3 toggles ${after}; live tiles ${live}, rail frames ${frames}` });
+}
+test('closing and reopening the map re-uses its preview frames instead of creating new documents', async ({ page }) => reusesFrames(page));
+test('@webkit-tablet on WebKit, closing and reopening the map creates no new documents', async ({ page }) => reusesFrames(page));
 
 test('the rail restacks when the window crosses the narrow breakpoint and back', async ({ page }) => {
 	await gotoStudio(page);
@@ -180,4 +201,32 @@ test('the rail restacks when the window crosses the narrow breakpoint and back',
 	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
+});
+
+// THE CAPACITY REPORT BINDING ON THE REAL STUDIO. The pool reports its ceiling to the rail, and the rail passes it to
+// Veduta's `settle`, which caps the live tiles it asks for. No shipped setting lowers the ceiling below 28, so the
+// diagnostic key does (StudioMap.tsx `diagnosticSlots`); the arm without it shows the same deck asks for more.
+const TEN = Array.from({ length: 10 }, (_, i) => `# Slide ${i + 1}`).join('\n\n---\n\n');
+async function openTen(page: Page, slots: string | null) {
+	if (slots) await page.addInitScript((n) => window.localStorage.setItem('lattice-studio-map-slots', n), slots);
+	await gotoStudio(page);
+	await setEditorContent(page, TEN);
+	await mapOn(page);
+	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(10, { timeout: 15_000 });
+}
+const liveTiles = (page: Page) => page.locator(`${RAIL} button[data-tier="live"]`).count();
+const railFrames = (page: Page) => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
+
+test('a pool ceiling lowered to 3 caps the live tiles at 3 through settle, and the frames with them', async ({ page }) => {
+	await openTen(page, '3');
+	await expect.poll(() => railFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
+	await expect.poll(() => liveTiles(page), { message: 'the rail asked for more live tiles than the pool reported it holds' }).toBe(3);
+	test.info().annotations.push({ type: 'capped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+});
+
+test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles', async ({ page }) => {
+	await openTen(page, null);
+	await expect.poll(() => liveTiles(page)).toBeGreaterThan(3);
+	await expect.poll(() => railFrames(page)).toBeGreaterThan(3);
+	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
 });

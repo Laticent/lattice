@@ -18,6 +18,23 @@ describe('deck-ops — structural slide editing', () => {
 		expect(splitSlides(stripFrontMatter(r.source))[1]).toBe(NEW_SLIDE);
 	});
 
+	it('keeps a blank slide through every structural edit, as the engine renders it', () => {
+		// splitSlides used to drop an empty chunk, so any edit rejoined the deck without it and deleted the blank
+		// slide from the source (followups.d/2789-p3, closed).
+		const blank = '# A\n\n---\n\n---\n\n# C\n';
+		expect(splitSlides(blank)).toEqual(['# A', '', '# C']);
+		expect(splitSlides(moveSlide(blank, 2, 0).source)).toEqual(['# C', '# A', '']);
+		expect(splitSlides(duplicateSlide(blank, 0).source)).toEqual(['# A', '# A', '', '# C']);
+		expect(splitSlides(addSlideAfter(blank, 1).source)).toEqual(['# A', '', NEW_SLIDE, '# C']);
+		expect(splitSlides(deleteSlide(blank, 1).source)).toEqual(['# A', '# C']);
+	});
+
+	it('never deletes a leading link reference definition when it rejoins the deck', () => {
+		const src = '[a]: https://example.com\n\n---\n\n# One [link][a]\n\n---\n\n# Two\n';
+		expect(moveSlide(src, 1, 2).source).toContain('[a]: https://example.com');
+		expect(addSlideAfter(src, 2).source).toContain('[a]: https://example.com');
+	});
+
 	it('addSlideAfter seeds an empty-deck entry: -1 and non-finite both land at 0', () => {
 		// The empty-deck "add your first slide" entry point may pass -1 (no current
 		// slide) or, if a cursor was never set, a non-finite index. Both must insert

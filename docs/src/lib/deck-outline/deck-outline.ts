@@ -22,9 +22,9 @@
 //     parser configured from the engine's own options;
 //   · heading sections come from `headingSplitPoints`, the function the engine's ruler
 //     injects its breaks at;
-//   · the unit model is `splitSlides`'s (docs/src/components/studio/lint.ts): an empty
-//     slide is dropped, so unit `i` here is `splitSlides(body)[i]` and every existing
-//     slide-indexed caller keeps its meaning.
+//   · the unit model is `splitSlides`'s (docs/src/components/studio/lint.ts), so unit `i`
+//     here is `splitSlides(body)[i]`. Both follow the engine: an empty slide is a unit
+//     (the engine renders it), except an empty FIRST chunk, which the engine drops.
 //
 // INCREMENTAL. `updateDeckIndex(prev, next)` diffs the two sources to one changed span,
 // re-parses only the separators-bounded region around it, and shifts everything else. A
@@ -161,13 +161,16 @@ interface Raw {
 	end: number;
 }
 
-// Chunks between consecutive separators, dropping the empty ones (splitSlides' rule).
+// Chunks between consecutive separators (splitSlides' rule): an empty chunk is a unit, as the
+// engine renders it, except a blank FIRST chunk, which the engine drops. (A first chunk holding
+// only a link reference definition renders nothing either, but it is source an edit must keep,
+// so it stays a unit, as splitSlides keeps it.) An empty unit starts where it ends.
 function rawChunks(source: string, bodyStart: number, seps: readonly { index: number; length: number }[], lo = 0, hi = seps.length, from = bodyStart, to = source.length): Raw[] {
 	const out: Raw[] = [];
 	const push = (a: number, b: number) => {
 		const s = source.slice(a, b);
 		const lead = s.length - s.trimStart().length;
-		if (lead === s.length) return;
+		if (lead === s.length && a === bodyStart) return;
 		out.push({ from: a, start: a + lead, end: b });
 	};
 	let pos = from;
@@ -319,9 +322,13 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 	const before: Unit[] = [];
 	const inside: Unit[] = [];
 	const after: Unit[] = [];
+	// By where a unit STARTS, not where it ends: an empty unit starts where it ends, so one right after the
+	// region's opening separator, or at the very end of the text, would sit on both edges at once. A unit
+	// before the region starts before its opening separator ends; one after it starts past the closing
+	// separator's first character; with no closing separator the region runs to the end and nothing is after.
 	for (const c of prev.units) {
-		if (c.end <= regionStart) before.push(c);
-		else if (c.from >= regionEndOld) after.push(c);
+		if (c.from < regionStart) before.push(c);
+		else if (closing && c.from > regionEndOld) after.push(c);
 		else inside.push(c);
 	}
 	const regionEndNewBody = closing ? closing.index + delta : text.length;
