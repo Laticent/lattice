@@ -368,6 +368,39 @@
 	   time, and the slides fade in over the SAME color — nothing to flicker. */
 	background: var(--bg-alt);
 }
+/* The slide map (PlaygroundMap.tsx). The row wraps the preview and the map. With the map off it
+   generates no box at all (`display: contents`), so the preview's layout is exactly what it was
+   before the map existed; with it on, the row is the flex item and holds the two side by side, or
+   one over the other where the panes stack. */
+.pg-preview-row {
+	display: contents;
+}
+.pg-preview-row[data-map] {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+}
+.pg-preview-row[data-map='side'] {
+	flex-direction: row;
+}
+.pg-preview-row[data-map='stacked'] {
+	flex-direction: column;
+}
+.pg-preview-row[data-map] > .pg-preview-wrap {
+	min-width: 0;
+}
+.pg-map {
+	flex: none;
+	min-width: 0;
+	min-height: 0;
+}
+.pg-preview-row[data-map='side'] > .pg-map {
+	width: 148px;
+}
+.pg-preview-row[data-map='stacked'] > .pg-map {
+	height: 112px;
+}
 /* Kill the shared animated skeleton for the Playground preview (see .pg-preview-wrap
    above): the pane's own brand fill is the placeholder. `!important` overrides the
    landing.css `::after` (which lists this wrap among its hosts) regardless of its

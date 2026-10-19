@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, GalleryVerticalEnd, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
@@ -32,6 +32,7 @@ import {
 	INSERTED_HASH_KEY,
 	isPristine,
 	LENS_KEY,
+	MAP_KEY,
 	type Plan,
 	parsePlaygroundUrl,
 	playgroundQuery,
@@ -50,6 +51,7 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
+import type { RenderedIndex } from '@/lib/rendered-index';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { createCollageOverlay } from '@/playground/collage-host.js';
@@ -65,6 +67,10 @@ import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { WalkBar } from './WalkBar';
+
+// The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
+// rail are a separate chunk the Playground never fetches otherwise.
+const PlaygroundMap = React.lazy(() => import('./PlaygroundMap'));
 
 export type PlaygroundData = {
 	catalog: Catalog;
@@ -519,6 +525,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Last resolved `@size` geometry, so a capture stamps the shell with THIS deck's
 	// aspect (a `size: 4K` / portrait deck shouldn't replay at 16:9). Updated each render.
 	const lastGeomRef = React.useRef<{ w: number; h: number }>({ w: 1280, h: 720 });
+	// The slide map (a rail of every slide beside the preview, PlaygroundMap.tsx). Off until the reader
+	// turns it on, and then loaded on demand. `mapRendered` is the source the preview last rendered and
+	// a counter, which is what the map re-reads; `lastIndexRef` is that render's lazy rendered index.
+	const [mapOn, setMapOn] = React.useState(false);
+	const mapOnRef = React.useRef(false);
+	mapOnRef.current = mapOn;
+	const [mapRendered, setMapRendered] = React.useState<{ source: string; key: number } | null>(null);
+	const mapKeyRef = React.useRef(0);
+	const lastIndexRef = React.useRef<(() => Promise<RenderedIndex>) | null>(null);
+	const lastRenderedSourceRef = React.useRef<string | null>(null);
+	const getMapIndex = React.useCallback(() => lastIndexRef.current?.() ?? null, []);
+	const [mapStacked, setMapStacked] = React.useState(false);
 	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
 	const lastPgCaptureRef = React.useRef(0);
 	const firstCaptureDoneRef = React.useRef(false);
@@ -868,6 +886,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
+				lastIndexRef.current = r.index;
+				lastRenderedSourceRef.current = src;
+				if (mapOnRef.current) setMapRendered({ source: src, key: ++mapKeyRef.current });
 				// A document of the app's own replaced the bake: from here the frame shows only
 				// once `is-live` says it has fitted.
 				if (!r.patched) root.removeAttribute('data-pg-bake');
@@ -2147,6 +2168,33 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	React.useEffect(() => () => document.documentElement.removeAttribute('data-pg-focus'), []);
 	const toggleFocus = React.useCallback(() => setFocusMode((v) => !v), []);
 
+	// The slide map: remembered per browser, read after hydration so the server and client agree.
+	React.useEffect(() => {
+		try {
+			if (localStorage.getItem(MAP_KEY) === '1') setMapOn(true);
+		} catch {}
+	}, []);
+	const toggleMap = React.useCallback(() => {
+		const next = !mapOnRef.current;
+		setMapOn(next);
+		try {
+			localStorage.setItem(MAP_KEY, next ? '1' : '0');
+		} catch {}
+	}, []);
+	// Turning the map on seeds it from the render already on screen.
+	React.useEffect(() => {
+		if (mapOn && lastRenderedSourceRef.current != null) setMapRendered({ source: lastRenderedSourceRef.current, key: ++mapKeyRef.current });
+		if (!mapOn) setMapRendered(null);
+	}, [mapOn]);
+	// Beside the preview on a wide window, under it where the panes stack (the same 820px as the split).
+	React.useEffect(() => {
+		const mq = window.matchMedia('(max-width: 820px)');
+		const read = () => setMapStacked(mq.matches);
+		read();
+		mq.addEventListener('change', read);
+		return () => mq.removeEventListener('change', read);
+	}, []);
+
 	// Walking writes the address bar (replaceState — shareable position, no
 	// history spam); leaving Explore strips our params.
 	// TRAILING-EDGE, and that is load-bearing now that the walk index follows the reader's
@@ -2676,6 +2724,44 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		scrollWalkRef.current(true);
 	}, []);
 
+	// The map's two ties to the preview. Explore reports the walk's page; a pick goes through the walk
+	// (so its scroll guards hold) or, in Edit, straight to a scroll.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new render (mapRendered) can add or split slides, which moves the page.
+	const mapWalkPage = React.useMemo(() => {
+		if (!mapOn || view !== 'read' || !walk) return null;
+		if (walk.kind === 'deck') return walk.index;
+		const frame = frameRef.current;
+		const first = frame ? walkUnits(frame, true)[walk.index]?.[0] : null;
+		if (!frame || !first) return null;
+		const page = walkUnits(frame, false).findIndex((u) => u[0] === first);
+		return page >= 0 ? page : null;
+	}, [mapOn, view, walk, mapRendered]);
+	const onPickMapPage = React.useCallback(
+		(page: number) => {
+			const frame = frameRef.current;
+			if (!frame) return;
+			const w = walkRef.current;
+			if (viewRef.current === 'read' && w) {
+				if (w.kind === 'deck') return gotoIndex(page);
+				const el = walkUnits(frame, false)[page]?.[0];
+				const group = walkUnits(frame, true).findIndex((u) => el && u.includes(el));
+				if (group >= 0) gotoIndex(group);
+				return;
+			}
+			// Edit: bring the page's slides in, then scroll to it the way the caret follow does.
+			const win = frame.contentWindow;
+			const band = frameBands(frame)[page];
+			mountAroundIndex(page);
+			if (!win || !band) return;
+			const inset = Math.max(0, (win.innerHeight - band.height) / 2);
+			const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+			win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: reduce ? 'auto' : 'smooth' });
+		},
+		[gotoIndex, mountAroundIndex],
+	);
+	const getPreviewFrame = React.useCallback(() => frameRef.current, []);
+	const mapOptions = React.useMemo(() => ({ themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl }), [themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl]);
+
 	// <main>, not <div>: this island IS the page body under the site header, so without
 	// it the Playground shipped with no main landmark at all and the toolbar rows sat in
 	// no landmark either (axe: landmark-one-main + region x2). `contents` stays — the
@@ -2793,6 +2879,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					{/* Focus — hide the toolbar so the deck (Explore) or editor (Edit) owns
 					    the full height. The walk bar stays, so stepping is never lost; a
 					    floating pill (below) brings the toolbar back. */}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						aria-label="Slide map"
+						aria-pressed={mapOn}
+						title="Slide map — a rail of every slide beside the preview"
+						onClick={toggleMap}
+					>
+						<GalleryVerticalEnd aria-hidden="true" />
+						<span className="hidden sm:inline">Map</span>
+					</Button>
 					<Button
 						type="button"
 						variant="outline"
@@ -2973,6 +3071,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								</button>
 							)}
 						</div>
+						<div className="pg-preview-row" data-map={mapOn ? (mapStacked ? 'stacked' : 'side') : undefined}>
 						<div className="pg-preview-wrap">
 							{/* Instant-shell box — SSR'd empty; the pre-paint replay (playground.astro)
 							    injects a returning visitor's cached first slide into it before hydration,
@@ -2987,6 +3086,24 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
+						</div>
+						{mapOn && mapRendered && (
+							<div className="pg-map">
+								<React.Suspense fallback={null}>
+									<PlaygroundMap
+										rendered={mapRendered}
+										getIndex={getMapIndex}
+										geom={lastGeomRef.current}
+										getFrame={getPreviewFrame}
+										walkPage={mapWalkPage}
+										onPickPage={onPickMapPage}
+										palettes={palettes}
+										options={mapOptions}
+										orientation={mapStacked ? 'horizontal' : 'vertical'}
+									/>
+								</React.Suspense>
+							</div>
+						)}
 						</div>
 					</section>
 					<button

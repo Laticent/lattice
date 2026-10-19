@@ -103,4 +103,4 @@ does not grow with the list; and the functions rebuild from `toString()`. Raise 
 
 The core imports nothing outside this folder (`checkVedutaBoundary` in `tools/check-ownership.js`).
 `npm run veduta-lib:build` builds the package; `npm run check:veduta` (in `docs/`) typechecks it on its
-own. Lattice's connectors (the Studio's frame pool, the Playground's filmstrip) live outside this folder.
+own. Lattice's connectors live outside this folder: the Playground's filmstrip (`docs/src/playground/deck-render.js`, the `multi` policy), the slide map rail (`docs/src/components/map-rail/MapRail.tsx`, the map window over live, wireframe and spacer tiles), and, next, the Studio's frame pool.

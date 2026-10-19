@@ -874,6 +874,29 @@ nothing reaches an export. Three findings changed the design:
 split paths exercised. Its failing arm reads the same decks without the clone counts and must flag `focus.md` and
 `panes.md`. `playground-engine.index.test.ts` pins the laziness and the single split.
 
+## 11h. Built on 2026-10-19: the Playground map rail (P1)
+
+The first connector for Veduta's second window. Turn it on with **Map** in the Playground toolbar (remembered per
+browser, off by default). Beside the preview on a wide window and under it where the panes stack (the 820 px split
+breakpoint), it shows one tile per **part** (the rendered slides the PDF numbers) with first, previous, next and last.
+
+- **Veduta.** `MapRail` asks `windowFor({ policy: 'pip', viewports: { map } })` each time the rail scrolls, resizes or
+  the focus moves, and mounts exactly the intent: the tiles in and just around its own view, the nearest `liveBudget`
+  (8) at `live` and the rest at `wireframe`. Every other tile is an offset in a spacer. It reports what it mounted with
+  `settle`, and a host with no pictures reports a live capacity of zero.
+- **Tiles.** Wireframe tiles are sketched from the slide's source (`wireframe.ts`, microseconds, no render). Live tiles
+  are the Studio's pooled preview frames (`studio/preview-pool.tsx`), so the Playground grows no second thumbnail
+  renderer and a WebKit frame is re-pointed, never destroyed.
+- **Fuoco.** `PlaygroundMap` owns one hub (`deckOutliner`). The preview *reports*: the walk's page in Explore, and in
+  Edit the page with most of the view (the walk's own rule, with its hysteresis). The rail *asks*: `hub.go` and
+  `hub.step`. Each names its origin, so a pick scrolls the preview and the preview's report never echoes back. Edit also
+  holds the preview's reports until the pick's scroll has been still for 160 ms, so the scroll's slides on the way do
+  not overrule it. The rendered index (section 11g) turns a page into its part and a part into its first page, so a
+  portrait slide cut into pages, or a focus-step slide cloned into several, is still one tile.
+- **Cost when off: none.** The map is a lazy chunk (`React.lazy`); `.pg-preview-row` is `display: contents` until the
+  map is on, so the preview's layout is byte-for-byte what it was.
+- **Left for the Studio.** The rail takes a count, a focus and callbacks only; the Studio will feed it from its own hub.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
