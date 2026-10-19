@@ -556,6 +556,11 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   and playground embed it and the other three routes do not, which matches where CI reads a
   delta, but no local build produced a different hash. So the delta appears only on CI's runners
   and its source there is unknown.
+- **Read the named files first (since 2026-10-19).** The gate now names the files whose gzip bytes
+  moved, with content hashes fixed, on every `per-PR allowance` line with a nonzero delta and in the
+  failure text ("Grew most …"). The base is measured by the same script, so the names compare like
+  with like. The next markdown-only PR that reads a delta on CI names the chunk; write the cause
+  here when one does.
 - **Fix:** the gate's own remedy. Add `docs/route-budget.d/<slug>.md` with a `route: +N` line
   and a sentence, as `docs/route-budget.d/README.md` says. Read N from the failing log's
   `per-PR allowance` block, never from a local build. Say in the sentence that no growth is

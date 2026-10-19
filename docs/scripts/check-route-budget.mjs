@@ -168,6 +168,9 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 	const seen = new Set(entries);
 	const queue = [...entries];
 	let gz = 0;
+	// Each file's share, under its name with the content hash fixed, so a base build and a PR build
+	// name the same chunk alike and a byte overage can say which file grew (followup 2749-p3 route-budget delta).
+	const files = {};
 	while (queue.length) {
 		const rel = queue.pop();
 		const file = path.join(dist, rel);
@@ -175,7 +178,12 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 			throw new Error(`check-route-budget: ${owner} needs /${rel}, which is not in dist/ — the build is broken, not smaller.`);
 		}
 		const src = fs.readFileSync(file);
-		if (!exclude.has(rel)) gz += zlib.gzipSync(withFixedHashes(src), { level: 6 }).length;
+		if (!exclude.has(rel)) {
+			const n = zlib.gzipSync(withFixedHashes(src), { level: 6 }).length;
+			gz += n;
+			const key = withFixedHashes(Buffer.from(rel, 'latin1')).toString('latin1');
+			files[key] = (files[key] || 0) + n;
+		}
 		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
 			const next = path.posix.join(path.posix.dirname(rel), m[1]);
 			if (!seen.has(next)) {
@@ -184,7 +192,24 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 			}
 		}
 	}
-	return { gz, seen };
+	return { gz, seen, files };
+}
+
+/**
+ * The files whose gzip bytes changed most between two `eagerFiles` maps, largest change first, as
+ * `name +N` / `name -N` (a file only one side has counts in full). PURE. The answer to "this PR adds
+ * 13 bytes and changes no code: where are they?" — a shared chunk that a dependency or a generated
+ * file grew, named instead of guessed (#2785 went 69 bytes over through one).
+ */
+export function grewFiles(actualFiles, baseFiles, n = 5) {
+	if (!actualFiles || !baseFiles) return [];
+	const names = new Set([...Object.keys(actualFiles), ...Object.keys(baseFiles)]);
+	return [...names]
+		.map((f) => [f, (actualFiles[f] || 0) - (baseFiles[f] || 0)])
+		.filter(([, d]) => d !== 0)
+		.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]) || (a[0] < b[0] ? -1 : 1))
+		.slice(0, n)
+		.map(([f, d]) => `${f} ${d > 0 ? '+' : '-'}${Math.abs(d)}`);
 }
 
 /**
@@ -198,7 +223,7 @@ export function measure(route, routeHtml, dist = DIST) {
 	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || []).map((r) => r.slice(1)))];
 	const eager = closure(direct, dist, new Set(), routeHtml);
 	const engine = measureEngine(html, dist);
-	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size };
+	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size, eagerFiles: eager.files };
 	if (route === LAZY_BUDGET_ROUTE) {
 		Object.assign(out, measureCharts(engine, dist), measureLintCore(engine, dist));
 	}
@@ -333,13 +358,16 @@ export function evaluateAllowance(route, actual, base, soft, declared = 0, allow
 	}
 	const delta = actual.eagerJsGz - base.eagerJsGz;
 	const owed = delta - freeBytes(base.eagerJsGz, soft, allowance);
-	const line = `${route} eagerJsGz ${delta >= 0 ? '+' : '-'}${Math.abs(delta)} bytes vs main${owed > 0 ? `, ${owed} to declare (declared ${declared})` : ''}`;
+	// Which files moved: a base measured before this field existed has no map, and then nothing is named.
+	const grew = delta !== 0 ? grewFiles(actual.eagerFiles, base.eagerFiles) : [];
+	const line = `${route} eagerJsGz ${delta >= 0 ? '+' : '-'}${Math.abs(delta)} bytes vs main${owed > 0 ? `, ${owed} to declare (declared ${declared})` : ''}${grew.length ? ` (${grew.join(', ')})` : ''}`;
 	if (owed > 0 && declared < owed) {
 		return {
 			line,
 			problems: [
 				`${route} eagerJsGz: this PR adds ${delta} bytes of eager JS vs main, and ${owed} of them are not free\n` +
 					`    (a PR gets up to ${allowance} bytes, and only while the route stays at or under soft ${soft}).\n` +
+					(grew.length ? `    Grew most (gzip bytes, hashes fixed): ${grew.join(', ')}.\n` : '') +
 					`    Give bytes back, or add docs/route-budget.d/<slug>.md to this PR with the line \`${route}: +${owed}\`\n` +
 					`    and a sentence on what grew and why. One file per PR; the next reset folds it into the history.`,
 			],
