@@ -237,7 +237,7 @@ export function createThemeFetcher(themeBase: string, opts: { styles?: StyleLoad
 
 	/**
 	 * Scan the slides the engine rendered and bring in the style modules they need. Resolves true when
-	 * the registered base changed, so the caller must take a fresh sheet (the engine's `restyle()`). False
+	 * the registered base changed, so the caller must render again for a fresh sheet. False
 	 * when the base is the whole sheet already (another consumer demanded it), or nothing new is needed.
 	 */
 	async function growBase(html: string, renderedUnder: number = state.baseVersion, sheetText = ''): Promise<boolean> {

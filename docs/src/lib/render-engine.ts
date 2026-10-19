@@ -85,8 +85,6 @@ export type RenderMarkdownResult = {
 	width?: number;
 	height?: number;
 	stats?: import('@/playground/render-metrics').RenderStats;
-	/** The sheet for THIS deck against the themes registered now (a non-enumerable property of the engine's result, so a spread or a clone drops it). */
-	restyle?: () => string;
 };
 
 /**

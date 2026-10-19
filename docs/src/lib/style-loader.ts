@@ -10,7 +10,7 @@
 //
 // THE UNION ONLY GROWS. Each scan adds modules; none is dropped within a session. Deleting a component
 // from the source then re-adding it never reloads anything, and the host recomposes the sheet only when a scan
-// brings in a module the base does not have yet (`ensureFor` answers `grew`), which is one recompose (`restyle()`)
+// brings in a module the base does not have yet (`ensureFor` answers `grew`), which is one more render
 // in the cold case and almost never after that.
 //
 // HINTS ONLY WARM. `warm(markdown)` reads `_class:` / `class=` words and starts fetching the modules

@@ -192,12 +192,13 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
 			if (await themes.growBase(html, startedUnder, out.css)) {
 				mark('modules');
-				// The sheet for this deck against the base as it is now: the engine recomputes it without
-				// rendering the slides again (a result that lost the hook, through a spread or a clone,
-				// renders again, which is the same answer at the price of the whole render).
-				const sheet = out.restyle?.();
-				out = sheet !== undefined ? { ...out, css: sheet } : await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
-				mark('restyled');
+				// Render again: the engine composes the sheet from the base it holds NOW, and the slides are cheap
+				// next to the fetch (the second render costs 200 to 500 ms on a heavy deck). A `restyle()` hook on the
+				// engine's result would recompose the sheet alone (30 to 70 ms) for about 70 bytes of engine JS, but
+				// `getting-started` sits within 20 bytes of its engine ceiling (docs/route-budget.json), so the hook
+				// waits for an owner's decision on that ceiling (followup 2794-p5).
+				out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
+				mark('render2');
 			}
 			// The net under the loader: once the page has been quiet for a few seconds, fetch the whole sheet and
 			// make it the base. A module no scan could know to ask for heals; a tab that outlives a deploy keeps a

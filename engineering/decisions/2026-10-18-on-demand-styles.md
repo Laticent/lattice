@@ -365,8 +365,10 @@ whole on the evidence below; flipping it is one line (`loaderOn` in `docs/src/li
 `tools/style-needs-common.json`), starting in parallel with the engine bundle. The bridge
 (`playground-engine.ts renderInto`) renders, scans the rendered HTML (`lib/core/style-needs-scan.mjs`, one
 copy shared with the audit), fetches the modules still missing, re-registers the `lattice` base, and takes the
-new sheet from `render().restyle()`: a non-enumerable method the engine adds (`lib/engine/index.js`), so the
-slides are not rendered twice (the second render cost 200 to 500 ms on a heavy deck, the recompose 30 to 70).
+new sheet by rendering again (the second render costs 200 to 500 ms on a heavy deck). An engine hook that
+recomposed the sheet alone (`render().restyle()`, 30 to 70 ms, about 70 bytes of engine JS) was built and
+measured, then removed: `getting-started` sits within 20 bytes of its `engineJsGz` ceiling, and raising a ceiling is
+the owner's call (followup 2794-p5).
 Past 55% of the sheet's bytes the loader answers "whole" and the host loads the whole file. Every module passes
 `sanitizeStyleText` on arrival (HARD RULE #22), and the composed sheet reaches the frame only through
 `docStyleText`, which sanitizes it again. Four **fallbacks never raise an error**: a failed index, a failed
