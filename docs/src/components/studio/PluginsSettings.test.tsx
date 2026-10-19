@@ -26,12 +26,13 @@ describe('PluginsSettings', () => {
 		for (const sw of screen.getAllByRole('checkbox')) expect(sw.getAttribute('aria-checked')).toBe('false');
 	});
 
-	it('gives an embedded plugin no row and no checkbox: one quiet line says it is always on', () => {
+	it('gives an embedded plugin no row and no checkbox: one quiet line says they are always on', () => {
 		harness('# A deck\n');
 		expect(document.querySelector('[data-plugin-row="pills"]')).toBeNull();
 		expect(screen.queryByRole('checkbox', { name: /Pills/ })).toBeNull();
 		const note = document.querySelector('[data-plugins-embedded]');
-		expect(note?.textContent).toContain('Always on: Pills');
+		expect(note?.textContent).toContain('Always on: Slide metadata, Pills');
+		expect(document.querySelector('[data-plugin-row="meta"]')).toBeNull();
 	});
 
 	it('says why: listed in the deck, and needed by a slide class', () => {

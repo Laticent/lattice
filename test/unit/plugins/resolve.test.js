@@ -314,7 +314,7 @@ describe('resolvePlugins — the meta data provider', () => {
   const provider = (fields, extra = {}) => ({
     folder: 'meta',
     manifest: {
-      type: 'plugin', format: 1, name: 'meta', api: 1, title: 'meta', description: 'meta',
+      type: 'plugin', format: 1, name: 'meta', api: 1, title: 'meta', description: 'meta', embedded: true,
       contributes: { meta: { fields, ...extra } },
     },
     exports: {},
@@ -328,6 +328,11 @@ describe('resolvePlugins — the meta data provider', () => {
     const { errors, order } = resolvePlugins([provider({ footer: { type: 'text' } })]);
     assert.deepEqual(errors, []);
     assert.deepEqual(order, ['meta']);
+  });
+  test('a provider that is not embedded fails by name: without it a deck cannot be read', () => {
+    const p = provider({ footer: { type: 'text' } });
+    delete p.manifest.embedded;
+    expectError([p], /plugin "meta" contributes meta, so it must be embedded/);
   });
   test('two providers fail by name', () => {
     const other = { ...provider({ footer: { type: 'text' } }), folder: 'meta2' };

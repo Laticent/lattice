@@ -21,6 +21,7 @@
       }
     ]
   },
+  "embedded": true,
   "contributes": {
     "diagnostics": {
       "meta/url-scheme": "A URL-typed field (a background image, the deck logo) named a scheme outside the allowlist and was dropped."

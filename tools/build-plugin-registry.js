@@ -372,7 +372,6 @@ function renderGrammar(ordered, exportsByName, components, fills) {
       `    diagnostics: Object.freeze(${JSON.stringify(m.contributes.diagnostics || {})}),`,
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
       `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
-      `    alwaysOn: ${Boolean(m.contributes.meta)},`,
       `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
       `    pass: ${m.render?.exec?.hydrate === 'pass'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
