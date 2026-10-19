@@ -1016,8 +1016,12 @@ engine renders.
 - **What it fixes beyond the map.** Every slide-indexed caller of `splitSlides` (27 call sites) now indexes the list the
   engine renders rather than one with the blank slides taken out. Tested here: the Studio's pills and counters (e2e), and
   `deck-ops.ts`, which rejoins the list after every move, duplicate, add or delete and so used to delete a blank slide from
-  the source. The other callers (the Coach, narration, the share export, Compose) were run through their own suites, all
-  green, and not tested on a blank slide specifically.
+  the source. Two more were then driven on a blank-slide deck: **narration**, whose measure used to stand the projection
+  down for the whole deck (2 source slides against 3 rendered sections) and quote every slide from the markdown flatten,
+  now uses it (`narration-bake.test.ts`, red against `main`'s splitter); and **Compose** on the real Studio, which shows
+  the blank slide as a card of its own and keeps it in the source through an edit to the slide after it
+  (`e2e/blank-slide-editors.spec.ts`, desktop; looked at in screenshots at 1440 and 820). The Coach and the share export
+  ran through their own suites only.
 - **What it removes.** The rendered index no longer needs to find a blank page from its markup: `blanksOf`, `chromeProbeOf`,
   `deckChromeOf` and the `blank` argument are gone, and so is the Playground bridge's extra render of the front matter to
   learn its chrome. A page the outline does not count is still reported as unexplained, never absorbed.
