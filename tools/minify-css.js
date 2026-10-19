@@ -44,4 +44,31 @@ function minifyCss(css, banner) {
   return head.join('\n') + (head.length ? '\n' : '') + code;
 }
 
-module.exports = { minifyCss };
+/**
+ * Minify an ordered list of CSS pieces so that concatenating the results ("" between them) is exactly
+ * `minifyCss(pieces.join('\n'), banner) + '\n'` (what dist/lattice-min.css holds). The head (banner, then
+ * every directive comment, in order) rides on the first piece and the closing newline on the last, so
+ * the pieces stay plain files with no join rule beyond concatenation. esbuild minifies each piece alone
+ * to the same bytes it gives the whole (checked for the whole Lattice bundle by
+ * test/unit/cli/css-modules.test.js); a piece that minifies to nothing stays in the list as ''.
+ *
+ * @param {string[]} pieces
+ * @param {string} [banner]
+ * @returns {string[]}
+ */
+function minifyCssPieces(pieces, banner) {
+  const head = banner ? [banner] : [];
+  const bodies = pieces.map((css) => {
+    eachCssRun(css, (type, text) => { if (type === 'comment' && DIRECTIVE_RE.test(text)) head.push(text); });
+    return esbuild.transformSync(css, { loader: 'css', minify: true }).code.replace(/\n$/, '');
+  });
+  const out = [...bodies];
+  if (out.length) {
+    out[0] = head.join('\n') + (head.length ? '\n' : '') + out[0];
+    // esbuild ends its output with one newline, and build-css.js appends a second after `minifyCss`.
+    out[out.length - 1] += '\n\n';
+  }
+  return out;
+}
+
+module.exports = { minifyCss, minifyCssPieces };

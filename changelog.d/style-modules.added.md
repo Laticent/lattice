@@ -1,0 +1,4 @@
+- `dist/styles/` — `lattice.css` cut into 183 ordered style modules plus a `manifest.json` (id, file, bytes, SHA-256, source). Joined in manifest order (the manifest's `note` gives the separator rule) they are `lattice.css` byte for byte; nothing existing changes. First step toward loading only the CSS a deck uses (`engineering/decisions/2026-10-18-on-demand-styles.md`).
+- `dist/styles-min/` — the minified twin of `dist/styles/`: same ids, file names and order; concatenating the files is `lattice-min.css` byte for byte (about 0.98 MB raw, 0.14 MB gzipped).
+- `tools/style-baseline.mjs` — prints how much CSS a rendered deck carries and how much it uses, on Chromium and WebKit.
+- `tools/style-needs.js` and `tools/style-needs-audit.mjs` — say which style modules a rendered document needs (median 21% of the minified bytes across the 281 example decks), with an audit that proves no needed module is skipped, in Chromium and WebKit.
