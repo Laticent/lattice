@@ -22,7 +22,7 @@ import { admitPlugins } from '../../../../lib/plugins/host-grammar.mjs';
  * next to "On" said two things at once (HARD RULE #25 inversion lens, E0). A name in the list that no plugin has gets a row of its own with a Remove action, the
  * same finding `lint:deck` reports as `unknown-plugin`.
  *
- * An EMBEDDED plugin (the pills plugin, 2026-10-17-pills-plugin.md § 4.5) has no row: it is always on and nothing here
+ * An EMBEDDED plugin (`meta` and `pills`, 2026-10-17-pills-plugin.md § 4.5) has no row: it is always on and nothing here
  * can list or unlist it, and a row that offered the list checkbox would promise a control that does nothing. One quiet
  * line under the rows names them instead.
  *

@@ -292,7 +292,7 @@ function main(argv) {
   {
     const { PLUGIN_GRAMMAR } = require('../lib/plugins/grammar.generated.mjs');
     const embedded = new Set(PLUGIN_GRAMMAR.filter((g) => g.embedded).map((g) => g.name));
-    for (const n of disabledPlugins) if (embedded.has(n)) die(`--disable-plugin: "${n}" is an embedded plugin, part of how Lattice draws a slide, and cannot be switched off`);
+    for (const n of disabledPlugins) if (embedded.has(n)) die(`--disable-plugin: "${n}" is an embedded plugin, part of how Lattice reads and draws a slide, and cannot be switched off`);
   }
   for (const n of defaultPlugins || []) {
     if (!PLUGIN_NAMES.includes(n)) die(`--default-plugins: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')}; or none)`);

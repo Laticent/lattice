@@ -1,4 +1,4 @@
 - The plugin manifest has one "always on" flag, `embedded: true`. The `meta` plugin, which used to be always on through a separate flag the registry derived from `contributes.meta`, is now embedded like `pills`, and a plugin that contributes `meta` must be embedded.
 - The Studio's Plugins tab lists every embedded plugin on its one quiet line: "Always on: Slide metadata, Pills". The line used to name only Pills, and `meta` had no mention at all.
-- `--disable-plugin=meta` on `lattice export-marp` is refused, as `--disable-plugin=pills` already was; it used to be accepted and ignored.
+- `--disable-plugin=meta` is refused on `lattice export-marp` and on the render CLI (`lattice <deck> -o …`), as `--disable-plugin=pills` already was. It used to be accepted and ignored, so a script that passed it now exits 1. The refusal and the render CLI's help text now name both embedded plugins.
 - `lattice` shell completion no longer offers `pills` as a plugin to disable, matching `meta`, which it already left out.

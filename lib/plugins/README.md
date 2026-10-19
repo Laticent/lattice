@@ -18,7 +18,7 @@ Plugins tab, the website and the manifest):
 
 An embedded plugin may require only embedded plugins (an essential one could be switched off under
 it), and may claim the untagged record `` `{…}` `` (`contributes.inline.<kind>.untagged`): only an
-embedded plugin, and only one. The pills plugin is the first and today the only embedded plugin;
+embedded plugin, and only one. `meta` and `pills` are today's embedded plugins;
 the design is `engineering/decisions/2026-10-17-pills-plugin.md`. The website introduces the eight an
 author writes at /plugins/, from `docs/src/content/catalog/plugins/`.
 
