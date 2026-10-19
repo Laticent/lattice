@@ -336,7 +336,7 @@ describe('the door entries a render gets', () => {
     fs.writeFileSync(path.join(dir, `${sha(GOOD)}.js`), GOOD);
     const list = { plugins: [entry(), entry({ name: 'unfetched', sha256: sha('other') }), entry({ name: 'mermaid', sha256: sha(GOOD) }), entry({ name: 'unlisted' })] };
     fs.writeFileSync(path.join(proj, loader.LIST_FILE), JSON.stringify(list));
-    const r = loader.npmPluginEntries(proj, ['gantt', 'unfetched', 'mermaid'], { dir, taken: new Set(['mermaid']), approvals: { 'plugin/gantt': { layer: 'on' } } });
+    const r = loader.npmPluginEntries(proj, ['gantt', 'unfetched', 'mermaid'], { dir, taken: new Set(['mermaid']), approvals: { 'plugin/gantt': { sha256: require('../../../lib/packages/trust.js').codeDigest(loader.npmPluginPkg(entry(), Buffer.from(GOOD))), layer: 'on' } } });
     assert.deepEqual(
       r.entries.map((e) => ({ ...e, code: Buffer.from(e.code).toString() })),
       [{ name: 'gantt', fence: 'gantt', kinds: [], returns: [], code: GOOD, source: 'npm', pin: sha(GOOD), layer: 'on' }],
@@ -387,6 +387,29 @@ describe('lattice packages fetch', () => {
     assert.match(out, new RegExp(`using {4}${path.join(proj, loader.LIST_FILE).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`));
     assert.match(out, /It is an npm plugin: lattice-gantt-cli-text@1\.4\.2, file lattice-plugin\.js in its tarball, sha256 [0-9a-f]{64} \(the pin in the list\)/);
     assert.match(out, /which is not npm's/);
+  });
+
+  test('two projects pinning two versions of one plugin keep both approvals: neither fetch asks again for the other', async () => {
+    const OTHER = GOOD.replace('drawn ', 'drawn v2 ');
+    const v1 = entry({ name: 'gantt-two-pins', package: 'lattice-gantt-two-pins', version: '1.0.0' });
+    const v2 = entry({ name: 'gantt-two-pins', package: 'lattice-gantt-two-pins', version: '2.0.0', sha256: sha(OTHER) });
+    const p1 = project(v1);
+    const p2 = fs.mkdtempSync(path.join(home, 'cli-'));
+    served.set(new URL(loader.tarballUrl(REG, v2.package, v2.version)).pathname, tgz([{ name: 'package/lattice-plugin.js', body: OTHER }]));
+    fs.writeFileSync(path.join(p2, loader.LIST_FILE), JSON.stringify({ registry: REG, plugins: [v2] }));
+    const on = async () => ({ summary: 'on', layer: { os: 'on' } });
+    const never = async () => assert.fail('asked again for a pin already approved');
+    assert.equal(await main(['fetch', p1, '--trust'], { ...lines(), probe: on }), 0);
+    assert.equal(await main(['fetch', p2, '--trust'], { ...lines(), probe: on }), 0);
+    // Back and forth: each project's pin is still approved, so a fetch without --trust asks nothing and exits 0.
+    for (const p of [p1, p2, p1]) {
+      const l = lines();
+      assert.equal(await main(['fetch', p], { ...l, probe: on, ask: never }), 0, l.out.join('\n'));
+      assert.doesNotMatch(l.out.join('\n'), /approved plugin/);
+    }
+    // And a render of either project reads the layer its own pin was approved at.
+    const { readTrust } = require('../../../lib/packages/trust.js');
+    for (const p of [p1, p2]) assert.equal(loader.npmPluginEntries(p, ['gantt-two-pins'], { approvals: readTrust() }).entries[0]?.layer, 'on');
   });
 
   test('exits 1 when a plugin is fetched and not approved', async () => {

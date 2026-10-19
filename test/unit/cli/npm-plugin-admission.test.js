@@ -15,6 +15,9 @@ const GOOD = 'function render(f){ return "<p>" + f.body.length + "</p>"; }\nexpo
 describe('admitNpmBundle', () => {
   test('a self-contained bundle at its pinned hash is admitted', () => {
     assert.deepEqual(admitNpmBundle({ name: 'x', code: GOOD, sha256: sha(GOOD) }), { ok: true, sha256: sha(GOOD) });
+    // Bytes that are not UTF-8 decode to other bytes, so a grant digest (text) and a render digest (bytes) would never meet.
+    const bad = Uint8Array.from([0x78, 0xff]);
+    assert.match(admitNpmBundle({ name: 'x', code: bad, sha256: sha(bad) }).reason, /not UTF-8 text/);
     assert.equal(admitNpmBundle({ name: 'x', code: new TextEncoder().encode(GOOD), sha256: sha(GOOD) }).ok, true, 'bytes are accepted as downloaded');
   });
 

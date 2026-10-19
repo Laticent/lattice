@@ -304,10 +304,12 @@ runners: the `os-sandbox-measure` platform suite (`.github/platform-suites.json`
 Windows, its control reads a `--no-sandbox` browser as `false`, and the npm admission test runs the real
 door on both.
 
-**One approval per plugin name.** An approval is stored under `plugin/<name>` with one digest, so two
-projects that pin different versions of one plugin replace each other's approval at each `fetch`. It
-fails safe (the render refuses and names the command), and per-pin approvals are a change to the trust
-file the code-package door also reads (`followups.d/2749-p3-npm-plugin-approval-per-pin.md`). `fetch`
+**One approval per pin** (2026-10-19, was one per name). `lattice packages fetch` and `trust plugin/<name> <dir>`
+grant an npm plugin's approval with `keep` (`lib/packages/trust.js`): the earlier approvals of that name stay under its
+entry's `pins`, most recent first, up to eight, each with the OS layer it was approved at. Two projects that pin
+different versions no longer replace each other's approval at every `fetch`, and a render reads the layer of ITS pin
+(`trustOf`). A zip plugin's or a component's approval still replaces the last, and `untrust plugin/<name>` withdraws
+every pin. An older Lattice reads only the current approval and ignores `pins`, so it fails safe. `fetch`
 refuses a name a shipped or installed plugin already uses, so the npm door never replaces their approval.
 
 The adversarial trio reviewed the loader on 2026-10-19. The red team found no way to run code without

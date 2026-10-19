@@ -1,0 +1,1 @@
+- An npm plugin's approval is now kept per pinned version. Two projects that pin different versions of one plugin no longer replace each other's approval at every `lattice packages fetch`; each render reads the OS layer its own pin was approved at. `lattice packages untrust plugin/<name>` withdraws every pin. Zip plugins and components keep one approval, as before.

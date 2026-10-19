@@ -1787,7 +1787,7 @@ function refuseUnapprovedCode(pkgs) {
 function withInstalledPlugins(source) {
   const { refusePackage } = require('./lib/packages/gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
-  const { readTrust } = require('./lib/packages/trust.js');
+  const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
@@ -1814,7 +1814,7 @@ function withInstalledPlugins(source) {
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
   const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
-  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null })), ...npm];
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
 }
 
 /**
@@ -1882,7 +1882,7 @@ function withInstalledComponents(source) {
   // could reach. A code package under a name Lattice reserves (a slide class such as `invert`)
   // would claim every slide carrying that class, so it is not used (the inversion lens: a folder
   // placed in the store by hand never went through `add`, which refuses one).
-  const { codeDigest, readTrust } = require('./lib/packages/trust.js');
+  const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const reservedNames = require('./lib/packages/index.js').createRegistry(require('./lib/packages/packages.generated.json'));
   const approvals = readTrust();
   const { codeNameRefusal } = require('./lib/packages/code-door-core.mjs');
@@ -1892,7 +1892,7 @@ function withInstalledComponents(source) {
     console.error(`warning: the installed code package ${p.name} has a name Lattice reserves, so it is not used`);
     return false;
   });
-  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
+  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: trustOf(approvals, 'component', p.name, codeDigest(p.pkg))?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
   refuseUnapprovedCode(DECK_CODE_PACKAGES.filter((p) => named.has(p.name)));
   DECK_PLUGINS = withInstalledPlugins(source);
   // `--reopenable` carries what this render used: the components the CSS pass embedded, and the
