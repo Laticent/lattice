@@ -431,6 +431,24 @@ function resolveBiome(root) {
 	return path.join(root, 'node_modules', '.bin', 'biome');
 }
 
+/** Paths split into batches whose joined length fits a Windows command line; one batch everywhere else. */
+function batchPaths(paths, limit = process.platform === 'win32' ? 24000 : Infinity) {
+	const batches = [];
+	let cur = [];
+	let len = 0;
+	for (const p of paths) {
+		if (cur.length && len + p.length + 1 > limit) {
+			batches.push(cur);
+			cur = [];
+			len = 0;
+		}
+		cur.push(p);
+		len += p.length + 1;
+	}
+	if (cur.length || !batches.length) batches.push(cur);
+	return batches;
+}
+
 /** `spawnSync` for the Biome binary `resolveBiome` returned: through node on Windows, directly elsewhere. */
 function spawnBiome(biome, args, options) {
 	return process.platform === 'win32' ? spawnSync(process.execPath, [biome, ...args], options) : spawnSync(biome, args, options);
@@ -468,13 +486,20 @@ function collectCoverage(root, biome) {
 	const lintable = trackedLintable(listTracked(root)).filter((p) =>
 		fs.existsSync(path.join(root, p)),
 	);
-	const res = spawnBiome(biome, ['check', '--verbose', '--max-diagnostics=1', ...lintable], {
-		cwd: root,
-		encoding: 'utf8',
-		maxBuffer: 1 << 28,
-	});
-	if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
-	const output = `${res.stdout}\n${res.stderr}`;
+	// One Biome run per batch of paths. Windows caps a command line near 32,000 characters, and the tracked list is several
+	// hundred thousand; elsewhere one run takes every path, exactly as before. Each batch's file list and `Checked N` tally
+	// are merged, so the answer is the same as one run over all of them.
+	const outputs = [];
+	for (const batch of batchPaths(lintable)) {
+		const res = spawnBiome(biome, ['check', '--verbose', '--max-diagnostics=1', ...batch], {
+			cwd: root,
+			encoding: 'utf8',
+			maxBuffer: 1 << 28,
+		});
+		if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
+		outputs.push(`${res.stdout}\n${res.stderr}`);
+	}
+	const output = outputs.join('\n');
 	// Only rows we ASKED about count. The list is parsed out of human-readable stdout, so a
 	// tracked filename containing a newline made Biome emit an extra `  - <path>` row and
 	// injected a file into the covered set. Intersecting with what we passed in makes a
@@ -482,16 +507,16 @@ function collectCoverage(root, biome) {
 	// too — Biome processes its own config unasked — which is correct: it is not in
 	// `lintable`, so it was never a coverage question.) Found by the red team.
 	const asked = new Set(lintable);
-	const processed = parseFilesProcessed(output).filter((p) => asked.has(p));
+	const processed = outputs.flatMap((o) => parseFilesProcessed(o)).filter((p) => asked.has(p));
 	// A config error makes Biome print no list at all — which would otherwise read as
 	// "every file lost coverage" and bury the real message. An EMPTY list is different:
 	// that is Biome answering, and `files.maxSize` is how it happens.
-	if (!sawFilesProcessedBlock(output)) {
-		throw new Error(
-			`biome printed no file list for ${lintable.length} path(s) — it likely failed to start:\n${res.stdout}${res.stderr}`,
-		);
+	const missing = outputs.findIndex((o) => !sawFilesProcessedBlock(o));
+	if (missing !== -1) {
+		throw new Error(`biome printed no file list for ${lintable.length} path(s) — it likely failed to start:\n${outputs[missing]}`);
 	}
-	return { lintable, processed, checkedCount: parseCheckedCount(output) };
+	const counts = outputs.map(parseCheckedCount);
+	return { lintable, processed, checkedCount: counts.some((c) => c === null) ? null : counts.reduce((a, b) => a + b, 0) };
 }
 
 /** `[{dir, ext}]` → `[{path, dir, ext}]`, with a run-unique name. */
@@ -846,6 +871,7 @@ module.exports = {
 	diffProbes,
 	unwatchedIncludeExtensions,
 	resolveBiome,
+	batchPaths,
 	listTracked,
 	collectCoverage,
 	probePaths,
