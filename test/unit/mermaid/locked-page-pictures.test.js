@@ -16,8 +16,16 @@ test('every file: address leaves the definition and comes back in the SVG unchan
   assert.doesNotMatch(out, /file:/);
   assert.equal(back.size, 2, 'one origin address per distinct picture');
   for (const there of back.keys()) assert.ok(there.startsWith(`${LOCKED_ORIGIN}/__file__/`) && /^[\w:/.-]+$/.test(there), there);
-  const drawn = out.replace(/img: "([^"]+)"/g, '<image href="$1"/>');
-  assert.equal(restorePictures(drawn, back), def.replace(/img: "([^"]+)"/g, '<image href="$1"/>'));
+  // An `<image href>` loses the address (the old page's Mermaid dropped a `file:` href); any other mention comes back.
+  const drawn = out.replace(/img: "([^"]+)"/g, '<image href="$1" width="8"/><text>$1</text>');
+  assert.equal(restorePictures(drawn, back), def.replace(/img: "([^"]+)"/g, '<image width="8"/><text>$1</text>'));
+});
+
+test('a folder with parentheses or an apostrophe is part of the address, not where it stops', () => {
+  const a = "file:///home/me/Board%20(final)/it's.svg";
+  const back = new Map();
+  readdressPictures(`flowchart LR\n A@{ img: "${a}" }`, back);
+  assert.deepEqual([...back.values()], [a]);
 });
 
 test('a definition with no file: address is untouched', () => {

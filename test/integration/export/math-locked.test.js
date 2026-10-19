@@ -44,6 +44,22 @@ test('PARITY and OUT: the CLI typesets in the locked page, byte for byte as Node
   }
 });
 
+test('OUT: a deck whose only math is a ~~~math fence is typeset in the locked page too', { timeout: TIMEOUT }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'math-tilde-'));
+  try {
+    const deck = path.join(dir, 'deck.md');
+    fs.writeFileSync(deck, '---\ntheme: indaco\n---\n\n## Tilde\n\n~~~math\n\\frac{1}{3}\n~~~\n');
+    const probe = path.join(dir, 'probe.cjs');
+    fs.writeFileSync(probe, "process.on('exit', () => process.stderr.write('KATEX_IN_PROCESS=' + Object.keys(require.cache).some((p) => p.endsWith('katex.min.js')) + '\\n'));\n");
+    const r = spawnSync(process.execPath, ['-r', probe, path.join(ROOT, 'lattice.js'), deck, path.join(dir, 'deck.html')], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: dir } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stderr, /KATEX_IN_PROCESS=false/);
+    assert.ok(fs.readFileSync(path.join(dir, 'deck.html'), 'utf8').includes(typesetInProcess('\\frac{1}{3}', true, 'htmlAndMathml')));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('SANITIZE: a typeset with nothing to remove keeps its bytes; one with a handler or a script comes back clean', { timeout: TIMEOUT }, async () => {
   const browser = await launchSandboxBrowser(puppeteer, { headless: true, executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox'] });
   try {

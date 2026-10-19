@@ -44,6 +44,32 @@ test('a flowchart image node naming a file outside the deck is refused; one insi
   }
 });
 
+// A folder named `Board (final)` holding `it's.svg`: `pathToFileURL` leaves `(`, `)` and `'` as they are, and the
+// locked page's re-addressing must take the whole address (the checker: the first cut stopped at `(` and drew the
+// stand-in). The drawn SVG carries no `file:` address, as the old page's never did.
+test('a picture in a folder with parentheses and an apostrophe loads, and its local path never reaches the SVG', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-paren-'));
+  try {
+    const deck = path.join(base, 'Board (final)');
+    fs.mkdirSync(deck);
+    const tall = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="120" viewBox="0 0 40 120"><rect width="40" height="120" fill="#b00"/></svg>';
+    fs.writeFileSync(path.join(deck, "it's.svg"), tall);
+    const definition = `flowchart LR\n A@{ img: "${pathToFileURL(path.join(deck, "it's.svg")).href}", label: "A", pos: "b", w: 80, h: 60, constraint: "on" }\n A --> B`;
+    const outFile = path.join(base, 'out.json');
+    const jobFile = path.join(base, 'job.json');
+    fs.writeFileSync(jobFile, JSON.stringify({ pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
+    const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(r.status, 0, r.stderr);
+    const { svg } = JSON.parse(fs.readFileSync(outFile, 'utf8')).results[0];
+    const width = Number(/<image[^>]*?\bwidth="([\d.]+)"/.exec(svg)?.[1]);
+    assert.ok(width < 40, `the real 1:3 picture drew (width ${width}), not the 16:9 stand-in`);
+    assert.doesNotMatch(svg, /file:|lattice\.invalid/, 'an address reached the SVG');
+    assert.doesNotMatch(r.stderr, /refused/);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
 // The worker's page is the LOCKED page (threat-model note 2026-10-16 §6 row 14): its own origin, a strict CSP, the code
 // sandbox's browser. A diagram that names a web picture reaches nothing; the control fetches the same address from an
 // ordinary page and is heard, so the zero is the page's wall and not a listener that never answers.

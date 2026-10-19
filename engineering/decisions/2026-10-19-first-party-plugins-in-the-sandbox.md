@@ -38,7 +38,7 @@ Both are in §5.
 **Mermaid.** The render worker launches through `launchCodeSandbox`, serves its page from
 `https://mermaid.lattice.invalid`, and sends a CSP that admits only that origin. A flowchart image node names a `file:`
 picture, which a web origin cannot load. The worker therefore re-addresses each picture onto the origin as base64url,
-answers it through the same file confiner the old page used, and restores the address in the SVG.
+answers it through the same file confiner the old page used. The old page's Mermaid dropped a `file:` `href` from the drawn `<image>`, so the worker removes the re-addressed one as well: an export never carries the author's local path, and an image node's SVG is byte-identical to the old one (a deck in a folder named `Board (final)` was checked against the pre-move worker).
 
 **function-plot.** `lattice.js` serves the capture page a copy of the export without the library (`capturePageOf`), and
 the plugin's hydrator is marked `drawnByHost`, so its placeholders wait. `awaitPluginFigures` then:
@@ -68,7 +68,7 @@ sanitized markup is used.
 | function-plot | PDF and `--player` files of `examples/plugin-system-phase-b.md`, `math-form-frame.md`, `marp-export-fidelity.md` identical; a debug run read `window.functionPlot` as undefined in the capture page |
 | math | every shipped formula identical (`math-sandbox-parity.test.js`); `.html` of `math.fixtures.md`, the gallery and `math-form-frame.md` identical; their PDFs identical except the gallery's, which differs run to run on `main` as well |
 | KaTeX out of the CLI process | `math-locked.test.js` loads a `require.cache` probe: `KATEX_IN_PROCESS=false` |
-| Cost | Mermaid: no measurable change. Math: +1.3 s on `math-form-frame.md` (3.1 s to 4.4 s), the locked page's launch. function-plot: about 0.8 s per export that captures a page |
+| Cost | Mermaid: no measurable change. Math: +1.3 s on `math-form-frame.md` (3.1 s to 4.4 s), the locked page's launch, plus one extra engine render per `engineSlides` call for any deck holding a `$` or a math fence (the collect render; a `$` in prose is enough to trigger it, and it starts no second worker once the formulas are known). function-plot: about 0.8 s per export that captures a page |
 
 ## 5. Open for the owner
 

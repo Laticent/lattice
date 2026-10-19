@@ -2261,8 +2261,8 @@ function engineSlides(deckSource = rawMd) {
   // MATH IN THE LOCKED PAGE (owner decision 14; lib/export/math-typeset.js): the deck's formulas are typeset by KaTeX in
   // the code sandbox's page before the real render, which reads them; KaTeX never runs in this process. A cheap test
   // first: a deck with no `$` and no math fence has nothing to typeset.
-  if (/\$|```\s*math/.test(deckMd)) {
-    MATH_TYPESETTER ??= require('./lib/export/math-typeset.js').createMathTypesetter({ chromePath: CHROME_EXEC });
+  if (/\$|(?:```|~~~)\s*math/.test(deckMd)) {
+    MATH_TYPESETTER ??= require('./lib/export/math-typeset.js').createMathTypesetter({ chromePath: CHROME_EXEC, warn: (l) => { if (!QUIET) console.error(l); } });
     MATH_TYPESETTER.prepare(() => engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl }));
   }
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
@@ -3483,8 +3483,13 @@ async function renderBody(browser, g, closeBrowser) {
         drawn = await fpLocked.drawLocked(puppeteer, plots, { executablePath: CHROME_EXEC });
         hostDrawnMemo.set(key, drawn);
       } catch (e) {
-        // The barrier then closes them with their source showing, and says how many.
-        if (!QUIET) console.warn(`  ⚠ function-plot: the locked page could not draw the plots (${String(e?.message ?? e).split('\n')[0]}).`);
+        // Released at once with their source showing, as the in-page host releases a plot whose library is missing,
+        // rather than left for the barrier to close at the end of its budget (the checker).
+        if (!QUIET) console.warn(`  ⚠ function-plot: the locked page could not draw the plots (${String(e?.message ?? e).split('\n')[0]}) — they export showing their source.`);
+        const { releaseFigure } = require('./lib/plugins/host-browser.mjs');
+        const { fromBase64 } = require('./lib/core/base64-utf8');
+        await g(() => page.evaluate(`(() => { const releaseFigure = ${releaseFigure.toString()}; const fromBase64 = ${fromBase64.toString()};
+          for (const el of document.querySelectorAll('[data-lattice-hydrate="function-plot"][data-lattice-settle="pending"]:not([data-lattice-final])')) releaseFigure(el, fromBase64, true); })()`), `release function plots${label}`);
         return;
       }
     }
