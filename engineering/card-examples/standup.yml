@@ -1,0 +1,11 @@
+# 📋 Standup card. Render: npm run card -- engineering/card-examples/standup.yml
+card: standup
+pr: 2778
+sha: 7f272de
+state: merged, nothing needed from you; 2 items left in the 🎯 brief
+thread:
+  swimlane: card formats
+  card: decision card, plus one layout for all four cards
+  branch: claude/open-items-card-design-5r0wqc
+  completed: "#2778 added the ❓ card and unified 🚦 📋 🎯 ❓"
+  on_deck: review three live ❓ cards; build the card generator
