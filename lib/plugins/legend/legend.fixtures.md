@@ -25,10 +25,11 @@ bullet is an assertion about that render:
 - renders `class="legend legend--anchored"`
 - renders `data-mark-for="5"`
 - renders `legend-plate legend-plate--tag`
+- renders `legend-number`
 - renders `>Drop-off</tspan>`
 - omits `<code>@legend`
 
-## a bare label is the default
+## with no style words, the marker is a circle and the words are bare
 
 ```markdown
 <!-- _class: heatmap -->
@@ -43,7 +44,9 @@ bullet is an assertion about that render:
 ```
 
 - renders `legend-text legend-text--bare`
-- omits `legend-plate`
+- renders `legend-plate legend-plate--circle`
+- renders `legend-knockout`
+- omits `chart-leader`
 
 ## a label's detail reaches the speaker note
 

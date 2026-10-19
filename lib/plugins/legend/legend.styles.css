@@ -37,15 +37,27 @@ text.legend-text--bare[data-c='c11'] { fill: var(--cat-11-mark); }
 text.legend-text--bare[data-c='c12'] { fill: var(--cat-12-mark); }
 
 /* A label ON A PLATE takes the pill's ink rule: on a color slot the plate is that slot's fill and the
- * words are the on-fill ink; with no slot the plate is the canvas with a muted edge. */
+ * words are the on-fill ink; with no slot the plate is the canvas with an ink edge. */
 text.legend-text--plated[data-c] {
   fill: var(--cat-on-fill);
 }
 
+/* A callout's numbered marker (legend-svg.js `markerSvg`): the numeral is bold so a single digit
+ * reads at marker size, and it sits on a KNOCKOUT, its plate's shape a little larger in the canvas
+ * color, which parts it from whatever cell fill lies under it in either mode. */
+text.legend-number {
+  font-weight: 700;
+}
+
+.legend-knockout {
+  fill: var(--bg);
+  stroke: none;
+}
+
 .legend-plate {
   fill: var(--bg);
-  stroke: var(--muted-mark);
-  stroke-width: 0.6;
+  stroke: var(--text-body);
+  stroke-width: 1;
 }
 
 .legend-plate--tag-bordered {

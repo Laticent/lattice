@@ -484,13 +484,24 @@ hold contrast against. The halo that would fix contrast (`paint-order: stroke`) 
 but the CLI's vector PDF writer draws SVG text as plain fill and drops the stroke
 (`lib/core/pdf-compose/read-slide.mjs` `textRefusal` does not refuse a stroked SVG `<text>`).
 Measured on the demo deck: the bare label read cleanly in `--chrome-pdf` and lost its halo in the
-default PDF. So `laneSvg` sets labels in a lane beside the figure, on the canvas, and the caller
-routes each leader; the heatmap's runs along the canvas-colored gap between two rows, so it never
-crosses a cell. A chart with open space adopts `placeLabels` when it joins the legend. The halo
+default PDF. So `laneSvg` sets labels in a lane beside the figure, on the canvas. A chart with open
+space adopts `placeLabels` when it joins the legend. The halo
 gap is pre-existing. Read from the code and not rendered: the same writer path draws the
 stacked-bar, waterfall, scatter, radar and pie labels that carry a halo, so theirs is lost too. It
 is logged as a followup rather than fixed here, because the fix moves export bytes on every one of
 those charts and needs the owner's dark and light sign-off.
+
+**Departure 1b: a number ties a lane label to its mark, not a leader (owner, #2798).** The first
+build joined each label to its cell with a leader routed along the canvas-colored gap between two
+rows, so it never crossed a cell. The owner found the line hard to see, and a prototype of four
+forms in both modes showed why: a line in the gutter vanishes against the canvas, a line across the
+grid covers values, and two callouts on one row put two lines in one gap, where they merge. The
+owner chose numbers: the cell is ringed and carries a numbered marker in its top-left corner, and
+the same marker leads the label in the lane. The marker IS the label's plate, so the pill words
+(`circle` by default, `tag`, `c4`, …) style it and nothing new is added to the vocabulary; it sits
+on a knockout of the canvas color, a filled shape the PDF writer keeps, so it reads on any cell.
+It sits inside the corner when the cell has room beside its value, and on the corner when it does
+not. Numbers run row by row, then left to right.
 
 **Departure 2: the `@legend{…}` paragraph is read by the component, not by an inline row.** The
 plugin adds no row to the dispatcher (`inline-code-directives.js`). A row would have to draw a

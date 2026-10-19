@@ -24,16 +24,46 @@ const TABLE = `|  | M0 | M1 | M2 |
 const render = (extra = '') => transformSection(md.render(`## Retention\n\n${TABLE}\n\n${extra}`), {});
 
 describe('laneSvg', () => {
-  const entry = (text, cy, mark, more = {}) => ({ text, ...more, target: { cx: 10, cy, w: 10, h: 10, mark, route: [[15, cy]] } });
+  const entry = (text, cy, mark, more = {}) => ({ text, ...more, target: { cx: 10, cy, w: 10, h: 10, mark } });
   const opts = { x: 100, width: 60, top: 0, bottom: 100, fontSize: 7 };
 
   test('each label carries data-mark-for its mark, and never data-mark', () => {
     const { svg } = laneSvg([entry('A', 20, 3)], opts);
     const d = doc(`<svg>${svg}</svg>`);
-    assert.equal(d.querySelector('text.legend-text').getAttribute('data-mark-for'), '3');
+    assert.equal(d.querySelector('text.legend-text--bare').getAttribute('data-mark-for'), '3');
     assert.equal(d.querySelectorAll('[data-mark]').length, 0);
     assert.ok(d.querySelector('rect.legend-target[data-mark-for="3"]'));
-    assert.ok(d.querySelector('polyline.chart-leader.legend-leader'));
+  });
+
+  test('a number ties a label to its mark: one marker on the mark, the same one in the lane, no line', () => {
+    const { svg } = laneSvg([entry('A', 20, 3)], opts);
+    const d = doc(`<svg>${svg}</svg>`);
+    const numbers = [...d.querySelectorAll('text.legend-number')];
+    assert.deepEqual(numbers.map((t) => t.textContent), ['1', '1']);
+    assert.ok(numbers.every((t) => t.getAttribute('data-mark-for') === '3'));
+    // One on the mark (left of the lane), one in the lane.
+    const xs = numbers.map((t) => Number(t.querySelector('tspan').getAttribute('x')));
+    assert.ok(Math.min(...xs) < opts.x && Math.max(...xs) >= opts.x);
+    // Each sits on a knockout, a circle by default.
+    assert.equal(d.querySelectorAll('rect.legend-knockout').length, 2);
+    assert.equal(d.querySelectorAll('rect.legend-plate--circle').length, 2);
+    assert.equal(d.querySelectorAll('polyline').length, 0);
+  });
+
+  test('numbers run in reading order: row by row, then left to right', () => {
+    const at = (text, cx, cy, mark) => ({ text, target: { cx, cy, w: 10, h: 10, mark } });
+    const { placed } = laneSvg([at('Right', 40, 30, 2), at('Lower', 10, 50, 3), at('Left', 10, 30, 1)], opts);
+    assert.deepEqual(placed.map((p) => p.n), [2, 3, 1]);
+  });
+
+  test('the marker keeps clear of a value printed at the mark\'s center', () => {
+    const at = (clear) => {
+      const { svg } = laneSvg([{ text: 'A', target: { cx: 30, cy: 30, w: 40, h: 40, mark: 0, clear } }], opts);
+      return Number(doc(`<svg>${svg}</svg>`).querySelector('text.legend-number tspan').getAttribute('x'));
+    };
+    // Room in the corner: inside the mark. A value that fills the mark: centered on its corner.
+    assert.ok(at({ w: 8, h: 7 }) > 10);
+    assert.equal(at({ w: 40, h: 40 }), 10);
   });
 
   test('labels stack in the order their marks sit, never overlapping', () => {
@@ -56,9 +86,10 @@ describe('laneSvg', () => {
     assert.equal((value.svg.match(/legend-target/g) || []).length, 3);
   });
 
-  test('a plate is drawn behind the text, in the label\'s color slot', () => {
+  test('the label\'s pill words shape and color its marker; the words stay bare', () => {
     const { svg } = laneSvg([entry('LIVE', 20, 0, { plate: 'tag', color: 4 })], opts);
-    assert.match(svg, /<rect class="legend-plate legend-plate--tag" data-c="c4"[^>]*\/><text class="legend-text legend-text--plated"/);
+    assert.equal((svg.match(/<rect class="legend-plate legend-plate--tag" data-c="c4"[^>]*\/><text class="legend-text legend-text--plated legend-number"/g) || []).length, 2);
+    assert.match(svg, /<text class="legend-text legend-text--bare"[^>]*><tspan[^>]*>LIVE</);
   });
 
   test('every pill shape has a plate class and draws', () => {
@@ -80,7 +111,7 @@ describe('heatmap: authored callouts', () => {
   test('a callout names its cell by row and column, and the paragraph is lifted', () => {
     const out = render('`@legend{{Drop-off, tag, c4, for="Feb 2026 · M2"}}`');
     const d = doc(out);
-    const label = d.querySelector('text.legend-text');
+    const label = d.querySelector('text.legend-text--bare');
     assert.equal(label.textContent, 'Drop-off');
     // Row 1, column 2 of a three-column grid: data-mark 5, the cell's own index.
     assert.equal(label.getAttribute('data-mark-for'), '5');
@@ -95,7 +126,7 @@ describe('heatmap: authored callouts', () => {
   test('the callout sits in the lane, right of every cell', () => {
     const d = doc(render('`@legend{{Drop-off, for="Feb 2026 · M2"}}`'));
     const cellRight = Math.max(...[...d.querySelectorAll('rect.heatmap-cell')].map((r) => Number(r.getAttribute('x')) + Number(r.getAttribute('width'))));
-    const x = Number(d.querySelector('text.legend-text tspan').getAttribute('x'));
+    const x = Number(d.querySelector('text.legend-text--bare tspan').getAttribute('x'));
     assert.ok(x > cellRight, `${x} > ${cellRight}`);
   });
 
@@ -110,7 +141,7 @@ describe('heatmap: authored callouts', () => {
     const desc = doc(out).querySelector('desc').textContent;
     assert.match(desc, /Callouts: Dip \(Jan 2026 · M1\)\./);
     assert.match(desc, /Not drawn: "Lost" \(for=Mar · M9, which names no cell\)\./);
-    assert.equal(doc(out).querySelectorAll('text.legend-text').length, 1);
+    assert.equal(doc(out).querySelectorAll('text.legend-text--bare').length, 1);
   });
 
   test('a key legend is reported as not drawn, in its own words', () => {
@@ -134,10 +165,11 @@ describe('heatmap: authored callouts', () => {
     assert.ok(!/no room/.test(shown));
   });
 
-  test('a wrapped chevron or diamond plate stays inside the figure and off the grid', () => {
+  test('a chevron or diamond marker in the lane stays inside the figure and off the grid', () => {
     for (const shape of ['chevron-left', 'diamond', 'chevron-right']) {
       const d = doc(render(`\`@legend{{Onboarding change after the pricing move, ${shape}, for=4}}\``));
-      const xs = d.querySelector('polygon.legend-plate').getAttribute('points').split(' ').map((p) => Number(p.split(',')[0]));
+      // The lane's marker is the second: the first is pinned to the cell.
+      const xs = d.querySelectorAll('polygon.legend-knockout')[1].getAttribute('points').split(' ').map((p) => Number(p.split(',')[0]));
       const cellRight = Math.max(...[...d.querySelectorAll('rect.heatmap-cell')].map((r) => Number(r.getAttribute('x')) + Number(r.getAttribute('width'))));
       assert.ok(Math.min(...xs) > cellRight, `${shape}: ${Math.min(...xs)} > ${cellRight}`);
       assert.ok(Math.max(...xs) <= 320, `${shape}: ${Math.max(...xs)} <= 320`);
@@ -151,7 +183,7 @@ describe('heatmap: authored callouts', () => {
   test('callouts and the band key share the figure: the key starts past the lane', () => {
     const out = transformSection(md.render(`## R\n\n${TABLE}\n\n\`@legend{{Drop-off, for=5}}\``), { classTokens: ['scale'] });
     const d = doc(out);
-    const label = d.querySelector('text.legend-text tspan');
+    const label = d.querySelector('text.legend-text--bare tspan');
     // The label's right edge, estimated as generously as the kernel does (0.6em a character).
     const labelRight = Number(label.getAttribute('x')) + label.textContent.length * 7.5 * 0.6;
     const keyLeft = Math.min(...[...d.querySelectorAll('rect.chart-key-swatch')].map((r) => Number(r.getAttribute('x'))));

@@ -32,11 +32,11 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "A bare label (the default): no plate, no border, no icon. It sits on the canvas beside the grid, the named cell is ringed, and a leader runs along the gap between rows." -->
+<!-- _footer: "The default: a numbered circle on the cell, the same number before the words." -->
 
 `Retention · 2026 cohorts`
 
-## A bare label names the cell that matters.
+## A numbered callout names the cell that matters.
 
 |  | M0 | M1 | M2 | M3 |
 | --- | --: | --: | --: | --: |
@@ -50,11 +50,11 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "A plate is the pill: {…, tag, c4} draws the label on a tag in categorical slot 4, the same words a pill takes." -->
+<!-- _footer: "The marker is the pill: {…, tag, c4} puts the number on a tag in color slot 4." -->
 
 `Retention · 2026 cohorts`
 
-## On a plate, the callout carries the pill's shape and color.
+## The marker carries the pill's shape and color.
 
 |  | M0 | M1 | M2 | M3 |
 | --- | --: | --: | --: | --: |
@@ -68,11 +68,11 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "Several labels in one legend: a list of records. Each takes its place in the lane level with its own cell." -->
+<!-- _footer: "A list of records. Two on one row stay apart: a number crosses nothing." -->
 
 `Retention · 2026 cohorts`
 
-## Two callouts, two stories, one line of source.
+## Two callouts on one row, and neither is ambiguous.
 
 |  | M0 | M1 | M2 | M3 |
 | --- | --: | --: | --: | --: |
@@ -81,7 +81,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{[{Onboarding change, chip, c4, for="Feb 2026 · M2"}, {Best cohort, chip, c2, for="Mar 2026 · M3"}]}`
+`@legend{[{Onboarding change, c4, for="Feb 2026 · M2"}, {Setup call cut, c2, for="Feb 2026 · M1"}]}`
 
 ---
 
@@ -105,7 +105,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 <!-- _class: heatmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress · seven by twelve, three callouts. The lane stacks labels in the order their cells sit, so no two leaders cross; a label the lane cannot hold is dropped and reported, never drawn over another." -->
+<!-- _footer: "Stress · seven by twelve. On a small cell the marker moves onto the corner, clear of the value." -->
 
 `Usage · hour by weekday`
 

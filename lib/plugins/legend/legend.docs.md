@@ -41,9 +41,9 @@ in braces; several go in a list.
 
 | You write | You get |
 |---|---|
-| `` `@legend{{Peak, for="Jan 2026 · M0"}}` `` | A bare label anchored to that cell |
-| `` `@legend{{Drop-off, tag, c4, for=14}}` `` | The label on a tag plate in color 4, anchored to mark 14 |
-| `` `@legend{{Drop-off, c4, for=14}}` `` | A bare label in color 4's ink |
+| `` `@legend{{Peak, for="Jan 2026 · M0"}}` `` | A label anchored to that cell, tied to it by a numbered circle |
+| `` `@legend{{Drop-off, tag, c4, for=14}}` `` | Its number on a tag in color 4, anchored to mark 14 |
+| `` `@legend{{Drop-off, c4, for=14}}` `` | Its number on a circle in color 4 |
 | `` `@legend{{Drop-off, for=14, detail="Shipped mid-month"}}` `` | The detail joins that mark's card and the speaker note |
 | `` `@legend{[{Poor, c1, mark=swatch}, {Good, c3, mark=swatch}], key}` `` | A key: a swatch and a name per label |
 
@@ -75,10 +75,15 @@ label "1" in size lg. `lint:deck` warns on it; quote the word to keep the pair, 
 |---|---|---|
 | `heatmap` | `anchored` | A cell: its row and column as the chart prints them, `for="Feb 2026 · M2"` (or `for=Feb 2026/M2`), or its index counted row by row from 0, `for=14` |
 
-On a heatmap an anchored label sits in a lane to the right of the grid, level with its cell, and the
-cell is ringed. A leader always joins the two, running along the gap between rows so it never crosses
-a cell. Labels stack in the order their cells sit; one the lane cannot hold is dropped rather than
-drawn over another, and the chart's description lists it as not drawn. A heatmap draws only
+On a heatmap an anchored label sits in a lane to the right of the grid, level with its cell, and a
+**number** ties the two: the cell is ringed and carries a numbered marker in its top-left corner, and
+the same marker leads the label's words in the lane. No line crosses the grid, so no value is
+covered and two labels on one row stay apart. The label's pill words shape and color its marker
+(`circle` when it has none) while the words stay in plain ink, and every marker sits on a ring of the
+canvas color so it reads on any cell. A marker sits inside the corner when the cell has room beside
+its value, and on the corner itself when it does not. Numbers run row by row, then left to right,
+and the lane lists the labels in that order; one the lane cannot hold is dropped rather than drawn
+over another, with its marker, and the chart's description lists it as not drawn. A heatmap draws only
 `anchored` legends today: a `key` legend on one is not drawn, and is reported the same way.
 
 A row or column whose name holds `/` or `·` cannot be named by `for="Row · Column"`, because those

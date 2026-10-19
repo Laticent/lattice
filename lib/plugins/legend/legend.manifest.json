@@ -77,7 +77,6 @@
     "--cat-on-fill",
     "--font-body",
     "--legend-mark-ink",
-    "--muted-mark",
     "--text-body"
   ]
 }
