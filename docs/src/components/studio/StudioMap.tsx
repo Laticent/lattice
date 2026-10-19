@@ -16,6 +16,7 @@
 
 import * as React from 'react';
 import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
+import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
@@ -89,12 +90,16 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		(a: RailStep) => go(a === 'first' ? 0 : a === 'last' ? items.length - 1 : a === 'next' ? focus + 1 : focus - 1),
 		[go, items.length, focus],
 	);
+	// The pictures follow the deck once typing pauses (use-settled.ts); the sketches follow it at once.
+	const input = React.useMemo(() => ({ sample, front, index, items, options, paletteOverride, extraTheme, modeOverride, extraCss }), [sample, front, index, items, options, paletteOverride, extraTheme, modeOverride, extraCss]);
+	const look = useSettled(input);
 	const live = React.useCallback(
 		(i: number) => {
-			const text = textOf(i);
-			return <PooledThumbFace options={options} sample={sample} slideIndex={i} slideCount={items.length} slideMarkdown={front + text} drawn={hasDrawnFence(text)} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="size-full" />;
+			const it = look.items[i];
+			const text = it ? partText(look.index, it.unit, it.section) : '';
+			return <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" />;
 		},
-		[options, sample, items.length, front, textOf, paletteOverride, extraTheme, modeOverride, extraCss],
+		[look],
 	);
 
 	return <MapRail count={items.length} focus={focus} onPick={go} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles) => <PreviewPool>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} />;

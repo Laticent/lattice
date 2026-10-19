@@ -20,6 +20,7 @@
 
 import * as React from 'react';
 import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
+import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
 import { PooledThumbFace, PreviewPool } from '@/components/studio/preview-pool';
 import { hasDrawnFence } from '@/components/studio/slide-thumb';
@@ -217,12 +218,16 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 		});
 	}, [rendered, palettes]);
 	const front = outline ? outline.source.slice(0, outline.bodyStart) : '';
+	// The pictures follow the deck once typing pauses (use-settled.ts); the sketches follow it at once.
+	const input = React.useMemo(() => ({ source: rendered.source, count, front, outline, look, options }), [rendered.source, count, front, outline, look, options]);
+	const snap = useSettled(input);
 	const live = React.useCallback(
 		(i: number) => {
-			const text = textOf(i);
-			return <PooledThumbFace options={options} sample={rendered.source} slideIndex={i} slideCount={count} slideMarkdown={front + text} drawn={hasDrawnFence(text)} paletteOverride={look.palette} modeOverride={look.mode} className="size-full" />;
+			const at = snap.outline ? partOfFlat(snap.outline, i) : null;
+			const text = snap.outline && at ? partText(snap.outline, at.unit, at.part) : '';
+			return <PooledThumbFace options={snap.options} sample={snap.source} slideIndex={i} slideCount={snap.count} slideMarkdown={snap.front + text} drawn={hasDrawnFence(text)} paletteOverride={snap.look.palette} modeOverride={snap.look.mode} className="size-full" />;
 		},
-		[options, rendered.source, count, front, textOf, look],
+		[snap],
 	);
 
 	const onStep = React.useCallback((action: RailStep) => void hub.step('rail', action, { pages: false }), [hub]);
