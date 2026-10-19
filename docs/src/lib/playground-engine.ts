@@ -9,13 +9,12 @@
 // Everything here touches window/fetch, so it lives outside the React tree and
 // the pure controller (playground-controller.ts). PlaygroundApp drives it.
 
-import { autoGlossarySections } from '../../../lib/core/glossary-auto.mjs';
-import { type DeckIndex, updateDeckIndex } from './deck-outline';
+import type { DeckIndex } from './deck-outline';
 import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
-import { blanksOf, type RenderedIndex, renderedIndexOf, stampsOf } from './rendered-index';
+import type { RenderedIndex } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
 import { createThemeFetcher } from './theme-fetch';
 
@@ -152,6 +151,9 @@ export function createEngineBridge(
 			let indexed: Promise<RenderedIndex> | null = null;
 			const index = () =>
 				(indexed ??= (async () => {
+					// Loaded when a map asks, not with the Playground: the outline, the index and the glossary
+					// kernel are only needed to place pages on slides.
+					const [{ updateDeckIndex }, { blanksOf, renderedIndexOf, stampsOf }, { autoGlossarySections }] = await Promise.all([import('./deck-outline'), import('./rendered-index'), import('../../../lib/core/glossary-auto.mjs')]);
 					const deck = (deckIndex = updateDeckIndex(deckIndex, source));
 					return renderedIndexOf(
 						stampsOf(html),
