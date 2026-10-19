@@ -98,6 +98,8 @@ function markupVectors(H) {
     'css-imageset-space': `<div style="--q:'${H}/m-space/b c';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
     // CSS source with four leading backslashes and two inside: the parser reads `\\host\path`, which a URL parser reads as an address.
     'css-imageset-backslash': `<div style="--q:'${'\\'.repeat(4)}${new URL(H).host}${'\\'.repeat(2)}m-bslash';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
+    // A <style> ELEMENT carrying the same variable trick (the checker did not trace it; DOMPurify forbids the tag).
+    'style-element-var': `<style>:root{--q:'${H}/m-styleel'}.cv{background-image:image-set(var(--q) 1x);width:9px;height:9px}</style><div class="cv"></div>`,
     'css-background': `<div style="background:url(${H}/m-cssbg);width:9px;height:9px"></div>`,
     'style-import': `<style>@import url(${H}/m-import);</style>`,
     'style-breakout': `<style></style><img src="${H}/m-breakout"></style>`,
