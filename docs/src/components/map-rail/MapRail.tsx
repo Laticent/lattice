@@ -47,6 +47,8 @@ export interface MapRailProps {
 	orientation: 'vertical' | 'horizontal';
 	/** The least number of tiles that may be live at once (default 8). The rail raises it to cover the tiles on screen, since the budget caps what a pool RETAINS, never what the reader sees. */
 	liveBudget?: number;
+	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
+	controls?: boolean;
 	className?: string;
 }
 
@@ -129,7 +131,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap, aspect, orientation, liveBudget = 8, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap, aspect, orientation, liveBudget = 8, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -308,6 +310,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 
 	return (
 		<nav aria-label="Slide map" data-map-rail={orientation} className={cn('flex min-h-0 min-w-0 bg-[var(--bg-alt)]', vertical ? 'h-full flex-col border-l border-border' : 'h-full w-full flex-row border-t border-border', className)}>
+			{controls && (
 			<div className={cn('shrink-0 gap-1 p-1', vertical ? 'grid grid-cols-4 [@media(pointer:coarse)]:grid-cols-2' : 'grid grid-cols-2 content-center')}>
 				<button type="button" className={btn} aria-label="Map, first slide" disabled={atFirst} onClick={() => onStep('first')}>
 					<First className="size-4" aria-hidden />
@@ -327,6 +330,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 					</span>
 				)}
 			</div>
+			)}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are the roving-tabindex pattern over the tile buttons inside it; the buttons are the interactive elements */}
 			<div ref={scrollerRef} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
 				{wrap ? wrap(tiles) : tiles}

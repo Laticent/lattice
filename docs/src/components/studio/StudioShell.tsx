@@ -5653,7 +5653,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</div>
 			</div>
 			{mapEver && (
-				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[112px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
+				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[96px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
 						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} />

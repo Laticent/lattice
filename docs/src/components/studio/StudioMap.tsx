@@ -114,5 +114,5 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		[look, liveCache, textOf],
 	);
 
-	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles) => <PreviewPool>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} />;
+	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles) => <PreviewPool>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} controls={orientation === 'vertical'} />;
 }

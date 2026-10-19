@@ -55,10 +55,11 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	const pills = await railButtons(page).count();
 	expect(pills).toBeGreaterThan(2);
 	// One tile per pill: the rail's last tile is the pills' last slide, and there is none after it.
-	await page.locator(RAIL).getByRole('button', { name: 'Map, last slide' }).click();
+	await page.locator(`${RAIL} button[aria-current="true"]`).focus();
+	await page.keyboard.press('End');
 	await expect(page.locator(`${RAIL} button[data-unit="${pills - 1}"]`)).toHaveAttribute('aria-current', 'true');
 	await expect(page.locator(`${RAIL} button[data-unit="${pills}"]`)).toHaveCount(0);
-	await page.locator(RAIL).getByRole('button', { name: 'Map, first slide' }).click();
+	await page.keyboard.press('Home');
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toHaveAttribute('data-unit', '0');
 	expect(await current(page)).toBe('0');
 	// A live picture is a pooled frame, and never more than the pool's ceiling.

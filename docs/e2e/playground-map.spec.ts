@@ -89,17 +89,30 @@ test('@crosswidth first, last, previous and next move the one focus both ways', 
 	await mapOn(page);
 	const total = Number((await walkPos(page)).split('/')[1]);
 	const rail = page.locator(RAIL);
-	await rail.getByRole('button', { name: 'Map, last slide' }).click();
+	const stacked = (await rail.getAttribute('data-map-rail')) === 'horizontal';
+	if (stacked) {
+		// Narrow: the strip shares the walk bar with Prev and Next, and has no buttons of its own.
+		await expect(page.locator(`#pg-walk ${RAIL}`)).toBeVisible();
+		expect(await rail.locator('button:not([data-unit])').count()).toBe(0);
+		await rail.locator('button[aria-current="true"]').focus();
+		await page.keyboard.press('End');
+	} else await rail.getByRole('button', { name: 'Map, last slide' }).click();
 	await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
 	await expect.poll(() => current(page)).toBe(String(total - 1));
-	await rail.getByRole('button', { name: 'Map, previous slide' }).click();
+	const walk = page.locator('#pg-walk');
+	if (stacked) await walk.getByRole('button', { name: 'Previous slide' }).click();
+	else await rail.getByRole('button', { name: 'Map, previous slide' }).click();
 	await expect.poll(() => walkPos(page)).toBe(`${total - 1} / ${total}`);
-	await rail.getByRole('button', { name: 'Map, first slide' }).click();
+	if (stacked) {
+		await rail.locator('button[aria-current="true"]').focus();
+		await page.keyboard.press('Home');
+	} else await rail.getByRole('button', { name: 'Map, first slide' }).click();
 	await expect.poll(() => walkPos(page)).toBe(`1 / ${total}`);
-	await rail.getByRole('button', { name: 'Map, next slide' }).click();
+	if (stacked) await walk.getByRole('button', { name: 'Next slide' }).click();
+	else await rail.getByRole('button', { name: 'Map, next slide' }).click();
 	await expect.poll(() => walkPos(page)).toBe(`2 / ${total}`);
 	// The walk bar's own Next moves the rail too.
-	await page.locator('#pg-walk').getByRole('button', { name: 'Next slide' }).click();
+	await walk.getByRole('button', { name: 'Next slide' }).click();
 	await expect.poll(() => current(page)).toBe('2');
 });
 
@@ -215,7 +228,8 @@ test.describe('at tablet width @crosswidth', () => {
 		const total = Number((await walkPos(page)).split('/')[1]);
 		await page.locator(`${RAIL} button[data-unit="2"]`).click();
 		await expect.poll(() => walkPos(page)).toBe(`3 / ${total}`);
-		await page.locator(RAIL).getByRole('button', { name: 'Map, last slide' }).click();
+		await page.locator(`${RAIL} button[aria-current="true"]`).focus();
+		await page.keyboard.press('End');
 		await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
 	});
 });

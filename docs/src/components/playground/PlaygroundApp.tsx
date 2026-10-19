@@ -541,6 +541,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
 	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
 	const mapEver = useEverTrue(mapOn);
+	// Stacked, the map's strip is drawn into the walk bar (WalkBar `mapSlot`), which shares it with Prev, the position and Next.
+	const [walkMapEl, setWalkMapEl] = React.useState<HTMLElement | null>(null);
 	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
 	const lastPgCaptureRef = React.useRef(0);
 	const firstCaptureDoneRef = React.useRef(false);
@@ -2958,6 +2960,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				prevDisabled={!walk || (walk.index === 0 && !walkPrevComp)}
 				nextDisabled={!walk || (walkAtEnd && !walkNextComp)}
 				notice={walkNotice}
+				mapSlot={mapStacked && mapEver ? { ref: setWalkMapEl, on: mapOn } : undefined}
 			/>
 
 			{/* Parked handoff: an external "Open in Playground" arrived over a dirty
@@ -3090,7 +3093,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
 						</div>
-						{mapEver && mapRendered && (
+						{mapEver && mapRendered && (!mapStacked || walkMapEl) && (
 							<div className="pg-map" hidden={!mapOn}>
 								<Frozen active={mapOn}>
 								<React.Suspense fallback={null}>
@@ -3104,6 +3107,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 										palettes={palettes}
 										options={mapOptions}
 										orientation={mapStacked ? 'horizontal' : 'vertical'}
+										portal={mapStacked ? walkMapEl : null}
 									/>
 								</React.Suspense>
 								</Frozen>
