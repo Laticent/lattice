@@ -977,3 +977,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   in headless Chromium and requires that every `file://` picture Chromium requests is one the inliner reads. It passes on
   `b5bacb8` and fails on the `d376aff` reader, and the over-read direction is bounded to the one shape that is invalid CSS. A new
   class of disagreement now fails a test instead of waiting for the next reviewer.
+- 2026-10-18: the inliner now bakes every picture position the checker found a browser loading and the old reader skipped: `srcset` on
+  `<img>` and `<picture>`'s `<source>` (one forward-pass parser, candidates and descriptors kept), `<video poster>`, SVG `<image href>`
+  and `xlink:href`, and CSS `image-set()` (a bare string inside it is an address; `url()` inside it was already read). Each position
+  went into `inliner-browser-oracle.test.js` (a markup channel beside the CSS channels), and both oracles fail on the previous reader
+  and pass now. Out of scope on purpose: `<iframe>`, `<object>`, `<embed>`, `<input type=image>` and media `src`, which are not
+  picture positions and which the slide sanitizer governs. `followups.d/2748-p3-player-inliner-other-picture-positions.md` is
+  deleted; the Windows item remains in `followups.d/2771-p3-cli-windows-file-urls.md`.

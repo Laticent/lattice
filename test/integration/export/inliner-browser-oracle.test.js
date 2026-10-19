@@ -59,7 +59,7 @@ function corpus(next, dir, count, ids) {
   };
   const piece = (prop) => {
     const a = spell(file());
-    switch (pick(['bare', 'dq', 'sq', 'ws', 'nl', 'wsq', 'URL', 'comment', 'str-dq', 'str-sq', 'nest', 'escparen', 'empty-then', 'unterminated-str', 'crlf-esc', 'prefix-ident'])) {
+    switch (pick(['bare', 'dq', 'sq', 'ws', 'nl', 'wsq', 'URL', 'comment', 'str-dq', 'str-sq', 'nest', 'escparen', 'empty-then', 'unterminated-str', 'crlf-esc', 'prefix-ident', 'imageset-str', 'imageset-url', 'webkit-imageset', 'imageset-both'])) {
       case 'bare': return `${prop}:url(${a});`;
       case 'dq': return `${prop}:url("${a}");`;
       case 'sq': return `${prop}:url('${a}');`;
@@ -75,6 +75,10 @@ function corpus(next, dir, count, ids) {
       case 'empty-then': return `${prop}:url(''),url(${a});`; // invalid on a single-image property: the browser drops it
       case 'unterminated-str': return `content:"oops\n;${prop}:url(${a});`;
       case 'crlf-esc': return `content:'a\\\r\nb';${prop}:url(${a});`;
+      case 'imageset-str': return `${prop}:image-set("${a}" 1x);`;
+      case 'imageset-url': return `${prop}:image-set(url(${a}) 1x);`;
+      case 'webkit-imageset': return `${prop}:-webkit-image-set(url("${a}") 1x);`;
+      case 'imageset-both': return `${prop}:image-set(url(${a}) 1x, "${a}" 2x);`;
       default: return `${prop}:myurl(${a});`;
     }
   };
@@ -87,7 +91,75 @@ function corpus(next, dir, count, ids) {
   return out;
 }
 
-test('every file:// picture a real Chromium loads from CSS is one the inliner reads', async (t) => {
+// The markup positions: an `<img srcset>`, a `<picture>`'s `<source srcset>`, a `<video poster>` and an SVG `<image href>`.
+function markup(next, dir, count, ids) {
+  const pick = (a) => a[Math.floor(next() * a.length)];
+  const addr = () => {
+    const n = `u${ids.n++}`;
+    fs.writeFileSync(path.join(dir, `${n}.png`), PNG);
+    return pathToFileURL(path.join(dir, `${n}.png`)).href;
+  };
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const a = addr();
+    const b = addr();
+    out.push(pick([
+      `<img srcset="${a} 1x, ${b} 2x" alt="">`,
+      `<img srcset="${a}, ${b} 2x">`,
+      `<img srcset="  ${a}   1x ,${b} 2x ">`,
+      `<picture><source srcset="${a} 1x, ${b} 2x"><img src="data:," alt=""></picture>`,
+      `<picture><source media="(min-width:1px)" srcset="${a}"><img src="data:," alt=""></picture>`,
+      `<video poster="${a}" width="8" height="8"></video>`,
+      `<svg width="8" height="8"><image href="${a}" width="8" height="8"/></svg>`,
+      `<svg width="8" height="8"><image xlink:href="${a}" width="8" height="8"/></svg>`,
+    ]));
+  }
+  return out;
+}
+
+test('every file:// picture a real Chromium loads from markup is one the inliner reads', async () => {
+  let browser;
+  try {
+    browser = await require('puppeteer').launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--allow-file-access-from-files'] });
+  } catch (e) {
+    assert.fail(`no browser to act as the oracle: ${e.message}`);
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inliner-oracle-html-'));
+  try {
+    const page = await browser.newPage();
+    const loaded = new Set();
+    page.on('request', (r) => {
+      const m = /\/(u\d+)\.png(?:[?#]|$)/.exec(r.url());
+      if (m) loaded.add(m[1]);
+    });
+    const file = path.join(dir, 'page.html');
+    fs.writeFileSync(file, '<!doctype html><body></body>');
+    await page.goto(pathToFileURL(file).href);
+    const cases = markup(rng(20261019), dir, 160, { n: 0 });
+    await page.evaluate((cs) => {
+      document.body.innerHTML = cs.join('');
+    }, cases);
+    for (let last = -1, stable = 0; stable < 6; ) {
+      await new Promise((r) => setTimeout(r, 250));
+      if (loaded.size === last) stable++;
+      else {
+        stable = 0;
+        last = loaded.size;
+      }
+    }
+    const doc = new JSDOM(`<!doctype html><html><head></head><body>${cases.join('')}</body></html>`).window.document;
+    const read = new Set();
+    inlineDocAssets(doc, { confine: { allows(abs) { const m = /(u\d+)\.png$/.exec(abs); if (m) read.add(m[1]); return true; } } });
+    const leaks = [...loaded].filter((n) => !read.has(n));
+    assert.deepEqual(leaks, [], 'pictures the browser loads from markup and the inliner does not read');
+    assert.ok(loaded.size > 100, `only ${loaded.size} browser loads were compared`);
+  } finally {
+    await browser.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('every file:// picture a real Chromium loads from CSS is one the inliner reads', async () => {
   let puppeteer;
   let browser;
   try {

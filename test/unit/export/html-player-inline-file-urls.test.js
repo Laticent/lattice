@@ -239,6 +239,46 @@ test('an unclosed quoted url( does not rescan leading whitespace (it was quadrat
   assert.ok(Date.now() - t0 < 3000, `took ${Date.now() - t0} ms`);
 });
 
+test('srcset candidates, a <picture> source, a video poster and an SVG image are baked', () => {
+  const two = `${photo} 1x, ${photo}?b 2x`;
+  const img = bake(`<img srcset="${two}" alt="">`);
+  assert.equal(dataHits(img.html), 2);
+  assert.equal(fileHits(img.html), 0);
+  assert.match(img.doc.querySelector('img').getAttribute('srcset'), /data:image\/jpeg[^ ]* 1x, data:image\/jpeg[^ ]* 2x$/);
+  const pic = bake(`<picture><source srcset="${photo} 480w, ${photo}?b 800w" media="(min-width:1px)"><img src="data:,"></picture>`);
+  assert.equal(dataHits(pic.html), 2);
+  assert.equal(dataHits(bake(`<video poster="${photo}"></video>`).html), 1);
+  assert.equal(dataHits(bake(`<svg><image href="${photo}"/><image xlink:href="${photo}?x"/></svg>`).html), 2);
+  assert.equal(fileHits(bake(`<svg><image href="${photo}"/></svg>`).html), 0);
+});
+
+test('srcset keeps what it does not bake: data URIs, descriptors with commas in parentheses, empty candidates', () => {
+  const r = bake(`<img srcset="data:image/png;base64,AAAA 1x,, ${photo} 2x, https://x.example/p.png 3x">`);
+  const v = r.doc.querySelector('img').getAttribute('srcset');
+  assert.match(v, /^data:image\/png;base64,AAAA 1x,, data:image\/jpeg/);
+  assert.match(v, / 2x, https:\/\/x\.example\/p\.png 3x$/);
+  assert.equal(dataHits(bake(`<img srcset="${photo} calc(1 + 1)x, ${photo}?b 3x">`).html), 2);
+});
+
+test('image-set(): a bare string is an address; url() inside it and the -webkit- form are read too', () => {
+  const css = (v) => `<div style="${v.replaceAll('"', '&quot;')}"></div>`;
+  for (const v of [`background-image:image-set("${photo}" 1x)`, `background-image:image-set('${photo}' 1x, '${photo}?b' 2x)`, `background-image:-webkit-image-set(url(${photo}) 1x)`, `background-image:image-set(url("${photo}") 1x, "${photo}?b" 2x)`, `background-image:IMAGE-SET("${photo}" 1x)`]) {
+    const r = bake(css(v));
+    assert.ok(dataHits(r.html) >= 1, v);
+    assert.equal(fileHits(r.html), 0, v);
+  }
+  assert.equal(dataHits(bake(css(`content:"${photo}"`)).html), 0, 'a bare string outside image-set is text');
+  assert.equal(dataHits(bake(css(`background-image:myimage-set("${photo}" 1x)`)).html), 0, 'not the image-set function');
+});
+
+test('relative srcset, poster and image-set strings resolve against the deck folder and bake', () => {
+  const dir = photo.slice(0, photo.lastIndexOf('/') + 1);
+  const opts = { baseUrl: dir };
+  assert.equal(dataHits(bake('<img srcset="photo-wide.jpg 1x, photo-wide.jpg?b 2x">', opts).html), 2);
+  assert.equal(dataHits(bake('<video poster="photo-wide.jpg"></video>', opts).html), 1);
+  assert.equal(dataHits(bake('<div style="background-image:image-set(&quot;photo-wide.jpg&quot; 1x)"></div>', opts).html), 1);
+});
+
 test('an SVG <style> with element children keeps them (each text node is baked on its own)', () => {
   const r = bake(`<svg><style>a{background:url("${photo}")}<g id="k">c</g>b{color:red}</style></svg>`);
   assert.equal(dataHits(r.html), 1);
@@ -263,6 +303,8 @@ const HOSTILE = {
   'repeated script escapes': '<script><!--<script>'.repeat(60000),
   'repeated unclosed quoted url( after whitespace': `<style>${' '.repeat(500000)}${'url("\n'.repeat(40000)}</style>`,
   'repeated escapes': `<div style="${'url(a\\\\'.repeat(120000)}"></div>`,
+  'repeated image-set( openers': `<div style="${'image-set("a'.repeat(120000)}"></div>`,
+  'a long srcset of commas and candidates': `<img srcset="${'a.png 1x,'.repeat(120000)}">`,
   'repeated --background-image strings': `<div style='${'--background-image:"url(\\"file://'.repeat(30000)}'></div>`,
 };
 for (const [name, html] of Object.entries(HOSTILE)) {
