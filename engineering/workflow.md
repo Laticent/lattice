@@ -1582,6 +1582,16 @@ fence never re-wraps, so wider lines scroll sideways or break mid-word. Plain
 labels only: write `limited by`, not "floor", and name what a pointer points to
 ("the 🎯 brief", not "see 🎯").
 
+**Build every card with `npm run card`; never wrap or retype one by hand.** Write
+the facts as a small YAML file (copy one from `engineering/card-examples/`), run
+`npm run card -- card.yml`, and paste the printed card verbatim into the PR comment
+and into chat. The tool validates the file against a schema, wraps every line,
+puts the layout and the CAPS in place, and fences the result, so the layout is
+correct by construction. Quote any value that contains `#` or `: ` (a `#2778`
+left bare is read as a YAML comment); the tool refuses a card whose value was cut
+at a `#` instead of printing it truncated. `npm run card -- --check card.yml`
+only validates.
+
 1. **Header lines**: emoji, card name and subject on the first line; how to
    respond on the second.
 2. **BOTTOM LINE first.** The ask, your pick and the state come before the detail.
@@ -1589,22 +1599,35 @@ labels only: write `limited by`, not "floor", and name what a pointer points to
 3. **CAPS sections.** Each field is a label on its own line, indented 2, with its
    value below it, indented 4. Items get an ID (`P1`, `D1`, `W1`) so a reply can
    name one; their fields indent one more step.
-4. **38 columns or fewer, hard-wrapped by you.** Count the card before you post it.
-   Each value takes at most 2 wrapped lines, so the card stays short as well as
-   narrow. If a value needs more, it is two fields.
-5. **CAPS carry the emphasis, because a fence cannot show bold.** Put the word
-   that drives the decision in CAPS: the confidence level, the pick, the state
-   (`MERGED`), the one word to answer first. One CAPS word or short phrase per
+4. **38 columns or fewer, wrapped by the tool.** A word wider than a line, such as
+   a branch name or a path, breaks at the last `/` or `-` that fits. Each field's
+   value takes at most 2 wrapped lines (the lines under an option take 3), so the
+   card stays short as well as narrow. If a value needs more, it is two fields,
+   and the tool refuses the card until you split it.
+5. **CAPS carry the emphasis, because a fence cannot show bold.** The tool puts
+   the word that drives the decision in CAPS: the confidence level, the pick, the
+   first word of a standup `state` (`MERGED`), and `ANSWER D1` on a decision card.
+   Any CAPS you add yourself follows the same rule: one word or short phrase per
    field, never a whole sentence, or nothing stands out.
 6. **Fenced, always** (§Both cards are always fenced).
 7. **No unfilled template text.** Fill every field or leave the field out. A card
    with `<sha>` or "omit if none" still in it reads as unfinished.
-8. **The card agrees with itself.** The reply words in the header must be words
-   each item accepts, and `raise it` may say "nothing outstanding" only when
-   `not run` is "none". `ran` lists only what has finished: a check still
-   running goes under `not run`. Cards posted together tell one story, so the
-   facts they share (counts, what is live, what is next) match word for word.
-   A reader who finds one line that does not add up re-reads the rest.
+8. **The card agrees with itself.** The tool builds the reply words in a decision
+   card's header from its items, so they cannot disagree, and it refuses
+   `raise it: nothing outstanding` while `not run` has anything in it.
+
+**What the tool checks, and what stays on you.** The tool enforces the shape:
+required fields, the allowed confidence levels and verdicts, a decision pick that
+names a real option, no template text left in, the 38-column width, the line
+limits and the cut-off `#`. It cannot judge the writing. You still make sure that
+`ran` lists only what has finished (a check still running goes under `not run`),
+that cards posted together tell one story (counts, what is live, what is next
+match word for word), and that the words are plain. A reader who finds one line
+that does not add up re-reads the rest. The chat copy is also yours: paste the
+tool's output verbatim, because nothing sits between you and the chat to check it.
+
+The templates below show the printed shape of each card. Render them with the
+tool; do not copy them by hand.
 
 The 🎯 brief keeps its STANDING ORDERS block inline on purpose: it hands a cold
 session its working rules without a lookup. Tighten the wording, never move it out.

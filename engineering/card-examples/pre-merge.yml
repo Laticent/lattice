@@ -1,0 +1,24 @@
+# 🚦 Pre-merge card. Render: npm run card -- engineering/card-examples/pre-merge.yml
+# Quote any value that has "#" or ": " in it, or YAML will cut or reject it.
+card: pre-merge
+pr: 2778
+title: decision card
+pick:
+  verdict: hold # merge | hold
+  why: "wait for D1; the linter will ride this PR"
+confidence:
+  level: high # low | medium | high | very high
+  limited_by: unknowns
+raise_it: a second live use, and a look on GitHub mobile
+change:
+  what: "❓ decision card; all four cards share one 38-column layout"
+  why: open items were buried; cards scrolled sideways on phones
+  how: BOTTOM LINE first, stacked fields, CAPS for key values
+proof:
+  ran: "lint, build:check, unit tests; CI green on 7f272de; merges cleanly"
+  read_by: '2 blind readers: 6.6 to 8.5 of 10'
+  not_run: GitHub mobile; a second live use
+  gaps: 9.5 target NOT met; no format gate yet
+risk:
+  if_wrong: all four cards change shape for every future session
+  revert: one squash commit restores the old cards

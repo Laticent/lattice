@@ -1,0 +1,23 @@
+# 🎯 Continuation card. Render: npm run card -- engineering/card-examples/continuation.yml
+card: continuation
+swimlane: card formats
+agents: 8 # pre-approved agents; the standing orders print this number
+context:
+  shipped: "#2778 (7f272de): ❓ card, one layout, YAML generator"
+  read_first: workflow.md §One layout for all four cards, then CLAUDE.md
+  state: clean tree; D1 answered (generator, no hook yet)
+  decisions: "none"
+priorities:
+  - title: Review three live ❓ cards for misreads
+    why: decides whether a posting hook is worth it
+    where: PR comments headed "❓ Decisions"
+    done_when: a misread list is in the PR body
+    evidence: the three comments, quoted
+    verify: tier 0 gates, because it is docs only
+  - title: Score the cards again with two fresh readers
+    ref: "followups.d/2778-p2-rescore-the-cards.md"
+    why: checks the generator kept the layout
+    where: engineering/card-examples/
+    done_when: both readers score every card 8 or higher
+    evidence: the two reader reports, pasted
+    verify: tier 0 gates, because it is docs only
