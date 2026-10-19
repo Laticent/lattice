@@ -19,7 +19,7 @@ bullet is an assertion about that render:
 | Jan    | 100 | 62 | 48 |
 | Feb    | 100 | 58 | 31 |
 
-`@legend{{Drop-off, tag, c4, for="Feb · M2"}}`
+`@legend{{Drop-off, tag, c4, row=Feb, col=M2}}`
 ```
 
 - renders `class="legend legend--anchored"`
@@ -59,7 +59,7 @@ bullet is an assertion about that render:
 | ------ | --: | -: |
 | Jan    | 100 | 62 |
 
-`@legend{{Dip, for="Jan · M1", detail="Pricing change"}}`
+`@legend{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
 ```
 
 - renders `Dip: Pricing change`
@@ -75,7 +75,7 @@ bullet is an assertion about that render:
 | ------ | --: | -: |
 | Jan    | 100 | 62 |
 
-`@legend{{Lost, for="Mar · M9"}}`
+`@legend{{Lost, row=Mar, col=M9}}`
 ```
 
 - renders `which names no cell`
@@ -110,7 +110,7 @@ legend: off
 | ------ | --: | -: |
 | Jan    | 100 | 62 |
 
-`@legend{{Dip, for="Jan · M1", detail="Pricing change"}}`
+`@legend{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
 ```
 
 - renders `legend-off`

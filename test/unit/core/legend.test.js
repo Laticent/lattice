@@ -11,7 +11,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { readLegend, readEntry, gridTarget, LEGEND_READERS } = require('../../../lib/core/legend');
+const { readLegend, readEntry, gridTarget, targetText, LEGEND_READERS } = require('../../../lib/core/legend');
 const { legendHtml } = require('../../../lib/core/legend-html');
 const { colorAttr } = require('../../../lib/core/legend-key');
 const { MARKS, markHtml, markSvg } = require('../../../lib/core/legend-mark');
@@ -22,6 +22,7 @@ describe('readEntry: entry first, keyed pair on refusal (§ 13 spike 2)', () => 
   const cases = [
     ['{Cold, c1}', { text: 'Cold', color: 1 }],
     ['{LIVE, tag, c4}', { text: 'LIVE', plate: 'tag', color: 4 }],
+    ['{Dip, row="Feb 2026", col=M2}', { text: 'Dip', for: { row: 'Feb 2026', col: 'M2' } }],
     ['{1, Cold}', { key: '1', text: 'Cold' }],
     ['{"=>", Happy path}', { key: '=>', text: 'Happy path' }],
     ['{dashed, Sent back}', { key: 'dashed', text: 'Sent back' }],
@@ -85,9 +86,27 @@ describe('readLegend', () => {
   });
 });
 
-describe('gridTarget: for= on a grid', () => {
+describe('gridTarget: a label\'s target on a grid', () => {
   const rows = ['Jan 2026', 'Feb 2026'];
   const cols = ['M0', 'M1', 'M2'];
+  test('row= and col= name a cell by its labels, case- and space-insensitive', () => {
+    assert.equal(gridTarget({ row: 'Feb 2026', col: 'M2' }, rows, cols), 5);
+    assert.equal(gridTarget({ row: 'jan  2026', col: 'm1' }, rows, cols), 1);
+  });
+  test('a pair missing a half, or naming a label that is not there, is -1', () => {
+    assert.equal(gridTarget({ row: 'Feb 2026' }, rows, cols), -1);
+    assert.equal(gridTarget({ col: 'M2' }, rows, cols), -1);
+    assert.equal(gridTarget({ row: 'Mar 2026', col: 'M2' }, rows, cols), -1);
+  });
+  test('a row or column whose label holds / or · is named whole by row= and col=', () => {
+    assert.equal(gridTarget({ row: 'A/B', col: 'x · y' }, ['A/B'], ['x · y']), 0);
+  });
+  test('targetText writes the target back as the author did', () => {
+    assert.equal(targetText({ row: 'Feb 2026', col: 'M2' }), 'row=Feb 2026, col=M2');
+    assert.equal(targetText({ row: 'Feb 2026' }), 'row=Feb 2026');
+    assert.equal(targetText('14'), 'for=14');
+    assert.equal(targetText(undefined), 'for=nothing');
+  });
   test('an index, row-major, as data-mark counts it', () => {
     assert.equal(gridTarget('5', rows, cols), 5);
     assert.equal(gridTarget('6', rows, cols), -1);
@@ -170,7 +189,10 @@ describe('legend-messages: every code the reader emits has words', () => {
     ['@legend{', 'legend/syntax', /is not a legend: write/],
     ['@legend{{A}, layout=sideways}', 'legend/layout', /`sideways` is not a legend layout/],
     ['@legend{x}', 'legend/item', /`x` is not a legend entry/],
-    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is an anchored label with nothing to anchor to/],
+    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is an anchored label with nothing to anchor to: add `row=` and `col=`/],
+    ['@legend{{Peak, row=Jan}}', 'legend/half-target', /"Peak" names only its row: add `col=` too/],
+    ['@legend{{Peak, col=M2}}', 'legend/half-target', /"Peak" names only its column: add `row=` too/],
+    ['@legend{{Peak, row=Jan, col=M2, for=3}}', 'legend/two-targets', /"Peak" names its cell twice/],
   ];
   for (const [src, code, words] of cases) {
     test(code, () => {

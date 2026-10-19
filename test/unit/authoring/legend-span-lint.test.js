@@ -72,3 +72,13 @@ test('the deck switch reads as the render reads it, and the off note only where 
   assert.equal(findLegendSpans(withFm('legend: off', 'lead'))[0].rule, 'legend-span');
   assert.equal(findLegendSpans(withFm('', 'lead legend-off'))[0].rule, 'legend-span');
 });
+
+test('row= and col= are the taught form: a clean pair says nothing, a half or a double target is told', () => {
+  assert.deepEqual(findLegendSpans(heatmap('@legend{{Peak, row=r, col=A}}')), []);
+  const half = findLegendSpans(heatmap('@legend{{Peak, row=r}}'));
+  assert.equal(half.length, 1);
+  assert.match(half[0].message, /names only its row: add `col=` too/);
+  assert.match(findLegendSpans(heatmap('@legend{{Peak, row=r, col=A, for=0}}'))[0].message, /names its cell twice/);
+  const miss = findLegendSpans(heatmap('@legend{{Peak, row=q, col=A}}'));
+  assert.match(miss[0].message, /`row=q, col=A` names no cell\. The rows are r; the columns are A\./);
+});

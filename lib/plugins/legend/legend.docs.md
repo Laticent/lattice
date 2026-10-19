@@ -14,7 +14,7 @@ One model for every key, value label and callout a chart draws. A **legend** is 
 | Jan 2026 | 100 | 62 | 48 | 44 |
 | Feb 2026 | 100 | 58 | 31 | 29 |
 
-`@legend{{Onboarding change, tag, c4, for="Feb 2026 · M2", detail="Shipped mid-month"}}`
+`@legend{{Onboarding change, tag, c4, row="Feb 2026", col=M2, detail="Shipped mid-month"}}`
 ```
 
 Design and migration plan: `engineering/decisions/2026-10-19-universal-legend.md`. The notation is
@@ -41,27 +41,28 @@ in braces; several go in a list.
 
 | You write | You get |
 |---|---|
-| `` `@legend{{Peak, for="Jan 2026 · M0"}}` `` | A label anchored to that cell, tied to it by a numbered circle in its number's color |
-| `` `@legend{{Drop-off, tag, c4, for=14}}` `` | Its number on a tag in color 4, anchored to mark 14 |
-| `` `@legend{{Drop-off, c4, for=14}}` `` | Its number on a circle in color 4 |
-| `` `@legend{{Drop-off, for=14, detail="Shipped mid-month"}}` `` | The detail joins that mark's card and the speaker note |
+| `` `@legend{{Peak, row="Jan 2026", col=M0}}` `` | A label anchored to that cell, tied to it by a numbered circle in its number's color |
+| `` `@legend{{Drop-off, tag, c4, row=Feb, col=M2}}` `` | Its number on a tag in color 4 |
+| `` `@legend{{Drop-off, c4, for=14}}` `` | Its number on a circle in color 4, anchored to mark 14 (the short form) |
+| `` `@legend{{Drop-off, row=Feb, col=M2, detail="Shipped mid-month"}}` `` | The detail joins that cell's card and the speaker note |
 | `` `@legend{[{Poor, c1, mark=swatch}, {Good, c3, mark=swatch}], key}` `` | A key: a swatch and a name per label |
 
-**A label** is the pill's record plus three named words:
+**A label** is the pill's record plus its named words:
 
 - the **text** comes first, and is the only part you must write;
 - **plate** shape: `pill`, `chip`, `tag`, `tag-bordered`, `circle`, `chevron-right`,
   `chevron-left`, `diamond` (the pill's words; no shape word means no plate);
 - **color**: `c1` to `c12`; **size**: `sm`, `md`, `lg`;
-- `for=` names the mark the label is anchored to;
+- `row=` and `col=` name the cell the label is anchored to, by the labels the chart prints; `for=`
+  is the short form, the mark's index (`for=14`) or `Row/Column` (`for=Feb/M2`);
 - `detail="…"` is the longer line a reader gets on hover, in the speaker note and in the PDF;
 - `mark=` draws a mark beside the text: `swatch`, `outline`, `line`, `heavy`, `dashed`, `dotted`.
 
-Quote any text holding a comma, `=`, `|`, a bracket or a brace: `{"Peak, then flat", for=3}`.
+Quote any text holding a comma, `=`, `|`, a bracket or a brace: `{"Peak, then flat", row="Jan 2026", col=M0}`.
 
 **The layout** is `anchored` (labels at the marks they name), `key` (labels apart from the figure)
 or `along-path` (a label riding a line; not drawn yet). Name it as a bare word after the labels
-(`@legend{[…], key}`) or leave it out: a legend whose labels name a mark with `for=` is anchored,
+(`@legend{[…], key}`) or leave it out: a legend whose labels name a mark (`row=`/`col=` or `for=`) is anchored,
 any other is a key.
 
 **A keyed pair** — `{1, Cold}`, a key followed by its name — is the label-set form the charts already
@@ -71,9 +72,9 @@ label "1" in size lg. `lint:deck` warns on it; quote the word to keep the pair, 
 
 ## Where it draws today (Wave 0)
 
-| Component | Reads | What `for=` names |
+| Component | Reads | How a label names its mark |
 |---|---|---|
-| `heatmap` | `anchored` | A cell: its row and column as the chart prints them, `for="Feb 2026 · M2"` (or `for=Feb 2026/M2`), or its index counted row by row from 0, `for=14` |
+| `heatmap` | `anchored` | A cell, by its row and column labels as the chart prints them, `row="Feb 2026", col=M2` (case and extra spaces do not matter); or the short form `for=`, its index counted row by row from 0 (`for=14`) or `Row/Column` (`for=Feb 2026/M2`) |
 
 On a heatmap an anchored label sits in a lane to the right of the grid, level with its cell, and a
 **number** ties the two: the cell is ringed and carries a numbered marker in its top-left corner, and
@@ -89,9 +90,9 @@ and the lane lists the labels in that order; one the lane cannot hold is dropped
 over another, with its marker, and the chart's description lists it as not drawn. A heatmap draws only
 `anchored` legends today: a `key` legend on one is not drawn, and is reported the same way.
 
-A row or column whose name holds `/` or `·` cannot be named by `for="Row · Column"`, because those
-characters separate the two; name its cell by index instead. Two rows with the same name resolve to
-the first.
+A row or column whose name holds `/` cannot be named by the `for=Row/Column` short form, because the
+slash separates the two; `row=` and `col=` name it whatever it holds. Two rows with the same name
+resolve to the first.
 
 On every other slide a `@legend{…}` span still renders as code, and `lint:deck` says that no component
 on the slide reads it. The other charts' keys move onto this plugin one at a time (the design note's
@@ -113,15 +114,16 @@ on the slide reads it. The other charts' keys move onto this plugin one at a tim
 `lint:deck` rule `legend-span` reports, as warnings:
 
 - a span that opens `@legend{` and does not read (it stays code on the slide);
-- a label with no `for=` in an anchored legend;
-- on a heatmap, a `for=` that names no cell of the slide's table, and a `key` legend, which it does
-  not draw yet;
+- a label with no target in an anchored legend, a label with only one of `row=` and `col=`, and a
+  label that names its cell twice (`row=`/`col=` and `for=`);
+- on a heatmap, a target that names no cell of the slide's table (the message lists the rows and
+  columns it can use), and a `key` legend, which it does not draw yet;
 - the `{1, lg}` shape above;
 - a legend on a slide where no component reads one yet.
 
 It also notes, as info, a callout the author switched off (rule `legend-off`).
 
-Whatever a heatmap does not draw — a `for=` that names no cell, a `key` legend, a label the lane
+Whatever a heatmap does not draw — a target that names no cell, a `key` legend, a label the lane
 cannot hold — its description lists under "Not drawn".
 
 ## For components
@@ -131,5 +133,5 @@ component's own classes) and `lib/core/legend-html.js` (the legend's own); the m
 `lib/core/legend-mark.js`; the SVG emitter is `lib/components/chart/_chart-family/legend-svg.js`
 (beside the placement pass it uses, since `lib/core` may not import a component). A component lifts
 the slide's legend paragraphs with `liftLegends` (`lib/core/lift-label-set.js`), resolves each
-`for=` to its own mark index, and hands the entries to an emitter. The emitters write classes and a
+target (`gridTarget` for a grid) to its own mark index, and hands the entries to an emitter. The emitters write classes and a
 `data-c` color slot and never a color; this plugin's stylesheet paints them.

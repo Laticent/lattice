@@ -132,6 +132,12 @@ describe('heatmap: authored callouts', () => {
     assert.doesNotMatch(out, /<code>@legend/);
   });
 
+  test('row= and col= name the cell by its labels, the documented form', () => {
+    const out = render('`@legend{{Drop-off, row="Feb 2026", col=M2}}`');
+    assert.match(out, /class="legend-text legend-text--bare"[^>]*data-mark-for="5"/);
+    assert.doesNotMatch(out, /<code>@legend/);
+  });
+
   test('for= by index works the same', () => {
     assert.match(render('`@legend{{Peak, for=0}}`'), /data-mark-for="0" data-anima-role="label"/);
   });
@@ -215,6 +221,11 @@ describe('heatmap: authored callouts', () => {
 test('narration does not speak a legend line markdown merged into a paragraph (the chart shows it as code)', () => {
   const slide = `<!-- _class: heatmap -->\n\n## Retention\n\n${TABLE}\n\nSee:\n\`@legend{{Dip, for=0}}\``;
   assert.doesNotMatch(String(narrateDataSeries(slide)), /Callout/);
+});
+
+test('narration reads a row= / col= callout, markdown in a row name included', () => {
+  const slide = `<!-- _class: heatmap -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, row=Jan_2026, col=M1}}\``;
+  assert.match(String(narrateDataSeries(slide)), /Callout at Jan2026, M1: Dip\./);
 });
 
 test('narration matches for= the way the chart does, markdown in a row name included', () => {

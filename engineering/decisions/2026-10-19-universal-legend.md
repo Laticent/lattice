@@ -508,6 +508,18 @@ label size), while the lane's copy is sized from its label, as a pill is from it
 HTML pill itself size from its container is a pills-plugin change logged as
 `followups.d/2798-p3-pills-size-from-their-container.md`.
 
+**Departure 1c: a cell is named by `row=` and `col=`, not by `for="Row · Column"` (owner, #2798).**
+The first build named a heatmap cell by the string the chart prints in `data-label`, `Row · Column`.
+The owner pointed out nobody types a middle dot. The survey: a spreadsheet counts (`C2`, which also
+collides with labels like `M2`), pandas' `.loc` and a reader name the row and the column by their
+labels, and a chart grammar filters on fields. The owner chose the labels as two named words,
+`{Dip, row="Feb 2026", col=M2}`: nothing to type between them, a label holding `/` or `·` is named
+whole, and `row=` or `col=` alone leaves room for a whole-row or whole-column callout later. `for=`
+stays as the short form, the mark's index (`for=14`) or `Row/Column`; `·` is still read and no
+longer taught. The reader turns the pair into the entry's target, so every surface (render,
+narration, lint) resolves it through the one `gridTarget`. A pair missing a half, and a label that
+names its cell both ways, are diagnostics of their own.
+
 **Departure 2: the `@legend{…}` paragraph is read by the component, not by an inline row.** The
 plugin adds no row to the dispatcher (`inline-code-directives.js`). A row would have to draw a
 legend in place, and an anchored label has no place of its own: it belongs to the chart. So the

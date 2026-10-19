@@ -45,7 +45,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{{Onboarding change, for="Feb 2026 · M2"}}`
+`@legend{{Onboarding change, row="Feb 2026", col=M2}}`
 
 ---
 
@@ -63,7 +63,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{{Onboarding change, tag, c4, for="Feb 2026 · M2", detail="The new flow shipped on Feb 9 and skipped the setup call."}}`
+`@legend{{Onboarding change, tag, c4, row="Feb 2026", col=M2, detail="The new flow shipped on Feb 9 and skipped the setup call."}}`
 
 ---
 
@@ -81,7 +81,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{[{Onboarding change, c4, for="Feb 2026 · M2"}, {Setup call cut, c2, for="Feb 2026 · M1"}]}`
+`@legend{[{Onboarding change, c4, row="Feb 2026", col=M2}, {Setup call cut, c2, row="Feb 2026", col=M1}]}`
 
 ---
 
@@ -99,7 +99,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{{Onboarding change, tag, c4, for="Feb 2026 · M2"}}`
+`@legend{{Onboarding change, tag, c4, row="Feb 2026", col=M2}}`
 
 ---
 
@@ -121,7 +121,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Sat | 4 | 6 | 9 | 14 | 18 | 21 | 22 | 20 | 17 | 13 | 9 | 6 |
 | Sun | 3 | 5 | 8 | 12 | 15 | 18 | 19 | 18 | 15 | 11 | 8 | 5 |
 
-`@legend{[{All-hands, tag, c4, for="Wed · 10a"}, {Friday fade, for="Fri · 3p"}, {Weekend floor, for="Sun · 7a"}]}`
+`@legend{[{All-hands, tag, c4, row=Wed, col=10a}, {Friday fade, row=Fri, col=3p}, {Weekend floor, row=Sun, col=7a}]}`
 
 ---
 
