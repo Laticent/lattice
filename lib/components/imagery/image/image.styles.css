@@ -386,8 +386,10 @@ section.image[data-img-composition="spotlight"] .image-text {
   position: absolute;
   left: 5cqi; bottom: 6cqh;
   width: min(46cqi, 50%);
-  padding: 4.4cqi 4.6cqi;
-  background: var(--bg);
+  padding: var(--_card-pad-y, 4.4cqi) 4.6cqi;
+  /* The card's surface and its opacity are the CARD CONTROLS' two levers (below):
+   * `ink-*` swaps the surface, `card-*` thins it. Unset, this is the solid `--bg` card. */
+  background: color-mix(in oklab, var(--_card-fill, var(--bg)) var(--_card-mix, 100%), transparent);
   border-radius: 1cqi;
   box-shadow: var(--img-lift), var(--img-hairline);
   align-items: flex-start;
@@ -395,12 +397,20 @@ section.image[data-img-composition="spotlight"] .image-text {
 section.image[data-img-composition="spotlight"] .image-text::before {
   content: "";
   position: absolute;
-  left: 0; top: 4.4cqi; bottom: 4.4cqi;
+  left: 0; top: var(--_card-pad-y, 4.4cqi); bottom: var(--_card-pad-y, 4.4cqi);
   width: 0.4cqi;
   background: var(--accent);
 }
-section.image[data-img-composition="spotlight"] .image-text h2 { font-size: var(--fs-h3); }
-section.image[data-img-composition="spotlight"] .image-text p { max-width: 38ch; }
+section.image[data-img-composition="spotlight"] .image-text h2 {
+  font-size: var(--fs-h3);
+  color: var(--_card-heading-ink, var(--text-heading));
+  text-shadow: var(--_card-shadow, none);
+}
+section.image[data-img-composition="spotlight"] .image-text p {
+  max-width: 38ch;
+  color: var(--_card-body-ink, var(--text-muted));
+  text-shadow: var(--_card-shadow, none);
+}
 section.image[data-img-composition="spotlight"].mirror .image-text,
 section.image[data-img-composition="spotlight"]:has(> .lattice-bg-left) .image-text { left: auto; right: 5cqi; }
 
@@ -489,9 +499,17 @@ section.image[data-img-composition="statement"] .image-scrim {
    * above the photo and below them. Same plane as the watermark ghost. */
   z-index: var(--z-atmosphere);
   pointer-events: none;
-  background:
-    linear-gradient(108deg, rgba(8, 14, 24, 0.86) 0%, rgba(8, 14, 24, 0.5) 34%, rgba(8, 14, 24, 0) 64%),
-    linear-gradient(to top, rgba(8, 14, 24, 0.72) 0%, rgba(8, 14, 24, 0) 42%);
+  /* `--_scrim-rgb` is the scrim's color (dark under light ink, light under `ink-dark`) and
+   * `--_card-alpha` scales its strength (`card-*`); both are the CARD CONTROLS' (below).
+   * Unset, this is the original dark scrim, byte for byte in effect. */
+  background-image:
+    linear-gradient(var(--_scrim-angle, 108deg),
+      rgb(var(--_scrim-rgb, 8 14 24) / calc(0.86 * var(--_card-alpha, 1))) 0%,
+      rgb(var(--_scrim-rgb, 8 14 24) / calc(0.5 * var(--_card-alpha, 1))) 34%,
+      rgb(var(--_scrim-rgb, 8 14 24) / 0) 64%),
+    linear-gradient(var(--_scrim-edge, to top),
+      rgb(var(--_scrim-rgb, 8 14 24) / calc(0.72 * var(--_card-alpha, 1))) 0%,
+      rgb(var(--_scrim-rgb, 8 14 24) / 0) 42%);
 }
 section.image[data-img-composition="statement"] .image-text {
   position: absolute;
@@ -503,15 +521,15 @@ section.image[data-img-composition="statement"] .image-text h2 {
   font-family: var(--font-display);
   font-size: var(--fs-h1);
   line-height: var(--lh-tight);
-  color: rgba(255, 255, 255, 0.98);
-  text-shadow: 0 0.12cqi 0 rgba(0, 0, 0, 0.5);
+  color: var(--_card-heading-ink, rgba(255, 255, 255, 0.98));
+  text-shadow: var(--_card-shadow, 0 0.12cqi 0 rgba(0, 0, 0, 0.5));
   max-width: 16ch;
 }
 section.image[data-img-composition="statement"] .image-text p {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--_card-body-ink, rgba(255, 255, 255, 0.9));
   font-size: var(--fs-message);
   max-width: 40ch;
-  text-shadow: 0 0.12cqi 0 rgba(0, 0, 0, 0.5);
+  text-shadow: var(--_card-shadow, 0 0.12cqi 0 rgba(0, 0, 0, 0.5));
 }
 section.image[data-img-composition="statement"] .image-text h2 + p { padding-top: var(--sp-sm); }
 
@@ -520,3 +538,147 @@ section.image[data-img-composition="statement"][data-orientation="portrait"] .im
 section.image[data-img-composition="statement"][data-orientation="square"] .image-text {
   width: auto; right: 6cqi; bottom: 6cqh;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+ * CARD CONTROLS — the text card on the two full-bleed compositions,
+ * `spotlight` and `statement`, where the photo fills the slide and the words
+ * float over it. Four axes, one class each; leave an axis unset and the card
+ * keeps the look above. The other compositions place their text beside the
+ * photo, not on it, so these classes do nothing there.
+ *
+ *   placement  at-tl · at-top · at-tr · at-center · at-bl · at-bottom · at-br
+ *              (default bottom-left; `mirror` still means bottom-right)
+ *   backing    card-solid · card-soft · card-sheer · card-clear
+ *              how much of what sits behind the words survives: spotlight's
+ *              panel, statement's scrim. 100% · 80% · 55% · none.
+ *   ink        ink-light · ink-dark — white or near-black words, and the
+ *              backing flips to match (dark under light ink, light under dark)
+ *   size       card-sm · card-md · card-lg — the card's width, padding and
+ *              type step together; `card-sm` is the discreet one that lets
+ *              the photo carry the slide
+ *
+ * `at-*` is the universal placement vocabulary the corner and edge tints
+ * already use (lib/base/treatments.js), with `at-center` added for the card.
+ *
+ * The ink and backing colors are fixed, not tokens, for the reason the
+ * statement scrim has always been: they sit on an unknown photo, not on a
+ * palette surface, so a theme's `--bg` cannot promise contrast there.
+ *
+ * Portrait and square decks keep the card full width (it already spans the
+ * narrow canvas), so placement moves it only up or down there. */
+
+section.image[data-img-composition="spotlight"] { --_card-ix: 5cqi; --_card-iy: 6cqh; }
+section.image[data-img-composition="statement"] { --_card-ix: 6cqi; --_card-iy: 8cqh; }
+section.image[data-img-composition="spotlight"]:is([data-orientation="portrait"], [data-orientation="square"]) { --_card-iy: 5cqh; }
+section.image[data-img-composition="statement"]:is([data-orientation="portrait"], [data-orientation="square"]) { --_card-iy: 6cqh; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text {
+  translate: var(--_card-tx, 0) var(--_card-ty, 0);
+}
+
+/* ── Placement · vertical (every orientation) ── */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):is(.at-tl, .at-top, .at-tr) .image-text {
+  top: var(--_card-iy); bottom: auto; --_card-ty: 0;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):is(.at-bl, .at-bottom, .at-br) .image-text {
+  top: auto; bottom: var(--_card-iy); --_card-ty: 0;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).at-center .image-text {
+  top: 50%; bottom: auto; --_card-ty: -50%;
+}
+
+/* ── Placement · horizontal (landscape). The two `:not()`s lift this above the
+ * `:has(> .lattice-bg-left)` mirror rule, so an explicit corner beats `![bg left]`. ── */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-tl, .at-bl) .image-text {
+  inset-inline-start: var(--_card-ix); inset-inline-end: auto; --_card-tx: 0;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-tr, .at-br) .image-text {
+  inset-inline-start: auto; inset-inline-end: var(--_card-ix); --_card-tx: 0;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-center, .at-bottom) .image-text {
+  inset-inline-start: 50%; inset-inline-end: auto; --_card-tx: -50%;
+}
+/* A statement title on the center line reads as a centered title. */
+section.image[data-img-composition="statement"]:is(.at-top, .at-center, .at-bottom) .image-text {
+  align-items: center;
+  text-align: center;
+}
+
+/* …and a title anchored right reads from the right edge, or a short one floats
+ * in the middle of its box, nowhere near the corner it was sent to. */
+section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-tr, .at-br) .image-text {
+  align-items: flex-end;
+  text-align: end;
+}
+
+/* The statement scrim follows the words: it darkens the side the card sits on
+ * and fades toward the open photo. */
+section.image[data-img-composition="statement"].at-tl { --_scrim-angle: 72deg;  --_scrim-edge: to bottom; }
+section.image[data-img-composition="statement"].at-tr { --_scrim-angle: 288deg; --_scrim-edge: to bottom; }
+section.image[data-img-composition="statement"].at-br { --_scrim-angle: 252deg; }
+section.image[data-img-composition="statement"].at-top { --_scrim-angle: 180deg; --_scrim-edge: to bottom; }
+section.image[data-img-composition="statement"].at-bottom { --_scrim-angle: 0deg; }
+section.image[data-img-composition="statement"].at-center .image-scrim {
+  background-image: radial-gradient(ellipse 64% 58% at 50% 50%,
+    rgb(var(--_scrim-rgb, 8 14 24) / calc(0.78 * var(--_card-alpha, 1))) 0%,
+    rgb(var(--_scrim-rgb, 8 14 24) / calc(0.42 * var(--_card-alpha, 1))) 55%,
+    rgb(var(--_scrim-rgb, 8 14 24) / 0) 100%);
+}
+
+/* ── Backing ── `card-solid` restates the default so a slide can return to it. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-solid { --_card-mix: 100%; --_card-alpha: 1; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-soft  { --_card-mix: 80%;  --_card-alpha: 0.8; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-sheer { --_card-mix: 55%;  --_card-alpha: 0.55; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-clear { --_card-mix: 0%;   --_card-alpha: 0; }
+/* The hard lift is a shadow UNDER an opaque card; under a see-through one it
+ * shows through as a gray slab. Only the solid card keeps it, and a clear card
+ * drops the hairline too, since it has no edge left to draw. */
+section.image[data-img-composition="spotlight"]:is(.card-soft, .card-sheer) .image-text { box-shadow: var(--img-hairline); }
+section.image[data-img-composition="spotlight"].card-clear .image-text { box-shadow: none; }
+
+/* ── Ink ── */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).ink-light {
+  --_card-fill: rgb(12 18 28);
+  --_scrim-rgb: 8 14 24;
+  --_card-heading-ink: rgb(255 255 255 / 0.98);
+  --_card-body-ink: rgb(255 255 255 / 0.88);
+  --_card-shadow: 0 0.12cqi 0 rgb(0 0 0 / 0.5);
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).ink-dark {
+  --_card-fill: rgb(250 249 246);
+  --_scrim-rgb: 250 249 246;
+  --_card-heading-ink: rgb(14 18 26);
+  --_card-body-ink: rgb(14 18 26 / 0.8);
+  --_card-shadow: 0 0.12cqi 0 rgb(255 255 255 / 0.55);
+}
+/* An inline `code` chip takes the deck's accent on the deck's surface, which
+ * vanishes on a dark scrim or a fixed-ink card. Inside these cards the chip
+ * follows the ink instead (base.elements.css reads these three tokens). */
+section.image[data-img-composition="statement"] .image-text,
+section.image[data-img-composition="spotlight"]:is(.ink-light, .ink-dark) .image-text {
+  --code-inline-fg: var(--_card-heading-ink, rgba(255, 255, 255, 0.98));
+  --code-inline-bg: color-mix(in srgb, var(--code-inline-fg) 14%, transparent);
+  --code-inline-border: color-mix(in srgb, var(--code-inline-fg) 30%, transparent);
+}
+/* On spotlight's solid card the words sit on an opaque panel, so they need no
+ * shadow; the shadow is for a backing the photo shows through. */
+section.image[data-img-composition="spotlight"]:not(.card-soft):not(.card-sheer):not(.card-clear) { --_card-shadow: none; }
+
+/* ── Size ── `card-md` restates the default. Width steps in landscape only (a
+ * portrait card is already full width); padding and type step everywhere. */
+section.image[data-img-composition="spotlight"].card-sm { --_card-pad-y: 2.8cqi; }
+section.image[data-img-composition="spotlight"].card-sm .image-text { padding-inline: 3.2cqi; }
+section.image[data-img-composition="spotlight"].card-sm .image-text h2 { font-size: var(--fs-h4); padding-bottom: var(--sp-xs); }
+section.image[data-img-composition="spotlight"].card-sm .image-text p { max-width: 30ch; }
+section.image[data-img-composition="spotlight"].card-lg { --_card-pad-y: 5.4cqi; }
+section.image[data-img-composition="spotlight"].card-lg .image-text { padding-inline: 5.6cqi; }
+section.image[data-img-composition="spotlight"].card-lg .image-text h2 { font-size: var(--fs-h2); }
+section.image[data-img-composition="spotlight"].card-lg .image-text p { max-width: 44ch; }
+section.image[data-img-composition="spotlight"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-sm .image-text { width: min(32cqi, 40%); }
+section.image[data-img-composition="spotlight"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-lg .image-text { width: min(60cqi, 64%); }
+
+section.image[data-img-composition="statement"].card-sm .image-text h2 { font-size: var(--fs-h2); max-width: 18ch; }
+section.image[data-img-composition="statement"].card-sm .image-text p { font-size: var(--fs-body); max-width: 36ch; }
+section.image[data-img-composition="statement"].card-lg .image-text h2 { font-size: calc(var(--fs-h1) * 1.25); max-width: 15ch; }
+section.image[data-img-composition="statement"].card-lg .image-text p { max-width: 44ch; }
+section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-sm .image-text { width: min(44cqi, 50%); }
+section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-lg .image-text { width: min(80cqi, 86%); }
