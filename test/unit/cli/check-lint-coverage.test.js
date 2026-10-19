@@ -830,3 +830,11 @@ test('batchPaths keeps every path, in order, in batches that fit the limit (one 
   for (const b of batches) assert.ok(b.join(' ').length <= 100, 'a batch stays under the limit');
   assert.deepStrictEqual(gate.batchPaths([], 100), [[]], 'no paths still runs once, so Biome can report');
 });
+
+test("parseBiomeJson reads Biome's Windows report, whose path values carry raw backslashes", () => {
+  const winReport = '{"diagnostics":[{"location":{"path":".github\\scripts\\_lint-teeth-probe-ab.js"}},{"location":{"path":".claude\\_x.json"}}]}';
+  assert.throws(() => JSON.parse(winReport), 'the raw report is not JSON');
+  const parsed = gate.parseBiomeJson(winReport, 'win32');
+  assert.deepStrictEqual(parsed.diagnostics.map((d) => d.location.path), ['.github/scripts/_lint-teeth-probe-ab.js', '.claude/_x.json']);
+  assert.deepStrictEqual(gate.parseBiomeJson('{"a":"b\\\\c"}', 'linux'), { a: 'b\\c' }, 'elsewhere the text is parsed untouched');
+});

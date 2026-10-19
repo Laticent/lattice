@@ -449,6 +449,15 @@ function batchPaths(paths, limit = process.platform === 'win32' ? 24000 : Infini
 	return batches;
 }
 
+/**
+ * Biome's `--reporter=json` on Windows writes a path with raw backslashes inside its string values (`".github\\scripts\\_x.js"`,
+ * which is not valid JSON), so read each `"path"` value with forward slashes there. Elsewhere the text is parsed as it came.
+ */
+function parseBiomeJson(text, platform = process.platform) {
+	const fixed = platform === 'win32' ? String(text).replace(/("path":")([^"]*)(")/g, (_m, a, b, c) => a + b.replace(/\\/g, '/') + c) : text;
+	return JSON.parse(fixed);
+}
+
 /** `spawnSync` for the Biome binary `resolveBiome` returned: through node on Windows, directly elsewhere. */
 function spawnBiome(biome, args, options) {
 	return process.platform === 'win32' ? spawnSync(process.execPath, [biome, ...args], options) : spawnSync(biome, args, options);
@@ -567,7 +576,7 @@ function runProbe(root, biome, targets, token = crypto.randomBytes(6).toString('
 		if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
 		let report;
 		try {
-			report = JSON.parse(res.stdout);
+			report = parseBiomeJson(res.stdout);
 		} catch {
 			throw new Error(`biome did not return JSON for the teeth probe:\n${res.stdout}${res.stderr}`);
 		}
@@ -666,7 +675,7 @@ function confirmSuppressed(root, biome, candidates, read) {
 		);
 		let report;
 		try {
-			report = JSON.parse(res.stdout);
+			report = parseBiomeJson(res.stdout);
 		} catch {
 			// Could not confirm — treat every candidate as suppressed. Failing CLOSED here
 			// costs a bless; failing open costs the protection this whole fold-in provides.
@@ -873,6 +882,7 @@ module.exports = {
 	unwatchedIncludeExtensions,
 	resolveBiome,
 	batchPaths,
+	parseBiomeJson,
 	listTracked,
 	collectCoverage,
 	probePaths,
