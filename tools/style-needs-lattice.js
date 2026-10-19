@@ -98,8 +98,11 @@ function derivedRuntimeTokens(index, root = ROOT) {
       const file = [base, `${base}.js`, `${base}.mjs`].find((f) => fs.existsSync(f) && fs.statSync(f).isFile());
       const rel = file ? path.relative(root, file) : '';
       if (!file || !/^lib\/(core|forms)\//.test(rel) || /\.test\./.test(rel)) continue;
-      const text = fs.readFileSync(file, 'utf8');
+      // Comments are not markup: a comment quoting `<section class="image">` once put the whole image module on every deck's floor.
+      const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\/|(^|[^:'"`\\])\/\/[^\n]*/gm, '$1');
       for (const q of text.matchAll(/class=\\?["']([^"'<>$]*?)\\?["']/g)) for (const w of q[1].split(/\s+/)) if (w) c.add(w.toLowerCase());
+      // A marker class kept in a constant (`const MARKER = 'tile-watermark'`) and written with it.
+      for (const q of text.matchAll(/\b(?:MARKER|[A-Z][A-Z_]*_CLASS)\s*=\s*['"]([\w-]+)['"]/g)) c.add(q[1].toLowerCase());
       for (const q of text.matchAll(/className\s*=\s*['"]([^'"]+)['"]/g)) for (const w of q[1].split(/\s+/)) if (w) c.add(w.toLowerCase());
     }
   }
@@ -127,7 +130,7 @@ function readModules(root = ROOT) {
  * `lattice.css` order; `file` is a name under `dist/styles-min/`. `verified` adds the selector text
  * behind each alternative so the loader can ask the document (about 2.4x the bytes, fewer modules).
  */
-function buildLatticeIndex({ verified = true, root = ROOT } = {}) {
+function buildLatticeIndex({ verified = true, root = ROOT, commonList } = {}) {
   const modules = readModules(root);
   const index = buildIndex(modules, { selectors: verified });
   const min = JSON.parse(fs.readFileSync(path.join(root, 'dist/styles-min/manifest.json'), 'utf8'));
@@ -138,7 +141,7 @@ function buildLatticeIndex({ verified = true, root = ROOT } = {}) {
   // An optimization only: an id this build does not have is skipped, and a missing file means no floor.
   let common = [];
   try {
-    const list = JSON.parse(fs.readFileSync(path.join(__dirname, 'style-needs-common.json'), 'utf8'));
+    const list = commonList || JSON.parse(fs.readFileSync(path.join(__dirname, 'style-needs-common.json'), 'utf8'));
     // An id counts only when this build's module has the CSS that was measured (see unknownIds in style-needs-common.js).
     common = list.ids.filter((id) => {
       const have = modules.find((m) => m.id === id);

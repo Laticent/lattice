@@ -64,4 +64,17 @@ describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, (
     // A positional id can be renumbered onto a different module; the hash is what notices (unknownIds).
     for (const id of list.ids) assert.match(list.sha?.[id] || '', /^[0-9a-f]{64}$/, id);
   });
+
+  test('the floor drops an id whose recorded hash is not the module\'s CSS (a renumbered chunk)', () => {
+    const idx0 = buildLatticeIndex({ verified: false, commonList: { ids: [list.ids[0]], sha: { [list.ids[0]]: list.sha[list.ids[0]] } } });
+    assert.equal(idx0.floor.length, 1, 'a matching hash keeps the id');
+    const idx1 = buildLatticeIndex({ verified: false, commonList: { ids: [list.ids[0]], sha: { [list.ids[0]]: '0'.repeat(64) } } });
+    assert.equal(idx1.floor.length, 0, 'a wrong hash leaves the id out');
+  });
+
+  test('no comment words reach the runtime tokens: the image module is not on every deck\'s floor', () => {
+    const idx = buildLatticeIndex({ verified: false });
+    assert.ok(!idx.runtime.c.includes('image'), 'image');
+    assert.ok(!list.ids.includes('component:image'), 'component:image is needed by 3% of decks');
+  });
 });

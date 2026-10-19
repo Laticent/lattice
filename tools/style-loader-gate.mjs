@@ -96,6 +96,10 @@ async function session(browser, md, mode) {
       // so an animated control read at two phases in two sessions does not look like a missing rule.
       await frame.evaluate(() => document.getAnimations().forEach((a) => { try { a.pause(); a.currentTime = 0; } catch { /* a finished or detached animation */ } })).catch(() => {});
       live = await frame.evaluate(pageFingerprint).catch(() => []);
+      // Pausing at the start can hide a missing @keyframes (the first frame equals the base style), so also compare WHICH
+      // animations exist: a loader session that lacks a keyframes module has none of them.
+      const names = await frame.evaluate(() => document.getAnimations().map((a) => a.animationName || a.transitionProperty || '').sort().join('|')).catch(() => '');
+      live = [...live, names];
       if (prev && prev.length === live.length && prev.every((h, k) => h === live[k])) break;
       prev = live;
       await page.waitForTimeout(500);
