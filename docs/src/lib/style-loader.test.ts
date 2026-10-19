@@ -162,6 +162,14 @@ describe('createStyleLoader', () => {
 		expect(s.css()).not.toContain('.card');
 	});
 
+	it('warm() stops reading class words at a comment end, `-->` or `--!>`', async () => {
+		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
+		await s.ready();
+		s.warm('<!-- _class: --!> card -->\n# hi');
+		await new Promise((r) => setTimeout(r, 20));
+		expect(fetched, 'a word after --!> is not a class').not.toContain('1-card.css');
+	});
+
 	it('retries the index after a transient failure instead of caching it', async () => {
 		let calls = 0;
 		vi.stubGlobal('fetch', (url: string) => {

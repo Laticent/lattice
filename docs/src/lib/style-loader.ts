@@ -205,7 +205,13 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 					if (line.length > 2000) continue;
 					const at = line.indexOf('class:');
 					if (at < 0) continue;
-					for (const w of line.slice(at + 6).replace(/-->.*$/, '').split(/\s+/)) if (w) words.add(w.replace(/['"]/g, '').toLowerCase());
+					// A comment ends at `-->` or `--!>`; the words after either are not class names. Cut with indexOf, not a regex.
+					let rest = line.slice(at + 6);
+					for (const end of ['-->', '--!>']) {
+						const k = rest.indexOf(end);
+						if (k >= 0) rest = rest.slice(0, k);
+					}
+					for (const w of rest.split(/\s+/)) if (w) words.add(w.replace(/['"]/g, '').toLowerCase());
 				}
 				const named = n.index.flatMap((m, i) => (!m.always && !included[i] && m.alts.some((alt) => alt[0].length > 0 && alt[0].every((c) => words.has(c))) ? [i] : []));
 				// A deck whose words name most of the sheet will be loaded whole (`ensureFor` says so):
