@@ -122,3 +122,47 @@ describe('media-sources — a web base is not confined (the Studio and playgroun
   });
 });
 
+
+// §4.1: each row carries `scheme` and `resolve`, and the code that resolves or scans reads the table.
+test('every row has a scheme (or null for relative) and a resolve, and classify finds each by its scheme', () => {
+  const ms = require('../../../lib/core/media-sources.js');
+  for (const row of ms.SOURCES) {
+    assert.equal(typeof row.resolve, 'function', row.id);
+    assert.ok(row.scheme === null || typeof row.scheme === 'string' || Array.isArray(row.scheme), row.id);
+  }
+  assert.equal(ms.classify('https://x/y.png').id, 'web');
+  assert.equal(ms.classify('HTTP://x/y.png').id, 'web');
+  assert.equal(ms.classify('sample:photo-wide.jpg').id, 'sample');
+  assert.equal(ms.classify('blob:x'), null);
+  assert.equal(ms.NAMED_SCHEMES, '(?:sample|asset)');
+});
+
+test('resolve: pass-through, resolve against the host, or null for the stand-in', () => {
+  const ms = require('../../../lib/core/media-sources.js');
+  const by = Object.fromEntries(ms.SOURCES.map((r) => [r.id, r]));
+  assert.equal(by.web.resolve('https://x/y.png', {}), 'https://x/y.png');
+  assert.equal(by.relative.resolve('a.png', {}), 'a.png');
+  assert.equal(by.relative.resolve('a.png', { baseUrl: 'file:///deck/' }), 'file:///deck/a.png');
+  assert.equal(by.relative.resolve('../a.png', { baseUrl: 'file:///deck/' }), null);
+  assert.equal(by.sample.resolve('sample:photo-wide.jpg', { samplesUrl: 'file:///s/' }), 'file:///s/photo-wide.jpg');
+  assert.equal(by.sample.resolve('sample:photo-wide.jpg', {}), 'sample:photo-wide.jpg');
+  assert.equal(by.asset.resolve('asset:hero', {}), 'asset:hero');
+  assert.equal(by.asset.resolve('asset:hero', { assetUrls: { hero: 'blob:h' } }), 'blob:h');
+  assert.equal(by.asset.resolve('asset:nope', { assetUrls: {} }), null);
+});
+
+test('no regex literal in lib/ spells the sample/asset scheme pair outside the table', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const hits = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== 'vendor' && e.name !== 'node_modules') walk(p); continue; }
+      if (!/\.(js|mjs)$/.test(e.name) || /generated|\.min\./.test(e.name)) continue;
+      if (/\(\?:sample\|asset\)|sample\|asset|asset\|sample/.test(fs.readFileSync(p, 'utf8')) && !p.endsWith(path.join('core', 'media-sources.js'))) hits.push(p);
+    }
+  };
+  walk(path.join(__dirname, '../../../lib'));
+  assert.deepEqual(hits, []);
+});

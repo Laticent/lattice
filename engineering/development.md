@@ -482,6 +482,20 @@ are dropped, cancelled jobs are counted at their truncated duration (which flatt
 percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
 say what the new measured duration is — don't delete the line.
 
+## Platform suites (macOS and Windows)
+
+The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
+**platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
+The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
+`tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
+
+- **When it runs:** nightly, every suite; a manual dispatch (`gh workflow run platform-suites.yml -f suites=export-confine`, or
+  empty for all); a pull request, the suites whose `paths` match its diff (and all of them if the registry, planner or workflow changed).
+- **Add one:** an entry in the registry with `name`, `os`, `paths`, `run` and a `why` that names the OS-dependent behavior Linux cannot
+  show, then `npm run build:check` (`checkPlatformSuites` rejects a malformed entry or a `run` naming a deleted file).
+- **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
+  `engineering/decisions/2026-10-18-platform-suites.md`.
+
 ## Integration test cache
 
 `test/helpers/render.js` hashes all renderer inputs and reuses

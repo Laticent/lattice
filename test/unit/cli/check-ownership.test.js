@@ -65,6 +65,9 @@ const {
   SINGLETON_TAGS,
   checkPreviewHtmlSinks,
   checkSnapshotHtmlSinks,
+  checkMediaSourceCensus,
+  SANCTIONED_MEDIA_SOURCES,
+  checkPlatformSuites,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
@@ -1484,6 +1487,93 @@ describe('check-ownership', () => {
       assert.ok(!hit('synth.speak(new SpeechSynthesisUtterance(t));'), 'browser synth utterance speak is allowed');
       assert.ok(!hit('seq = stage.sequence({ produce });'), 'a Suono sequence is not raw audio');
       assert.ok(!hit('voice.synthOne({ text: s });'), 'the Suono byte producer is allowed');
+    });
+  });
+
+  describe('platform suites registry (.github/platform-suites.json)', () => {
+    const os = require('node:os');
+    const probe = (registry) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plat-suites-'));
+      const file = path.join(dir, 'platform-suites.json');
+      fs.writeFileSync(file, typeof registry === 'string' ? registry : JSON.stringify(registry));
+      const errors = [];
+      checkPlatformSuites(errors, file);
+      fs.rmSync(dir, { recursive: true, force: true });
+      return errors;
+    };
+    const good = { name: 'ok-suite', os: ['macos-latest'], paths: ['lib/**'], run: 'node --test test/unit/cli/check-ownership.test.js', why: 'Proves a thing Linux cannot show.' };
+
+    test('the live registry is well formed', () => {
+      const errors = [];
+      checkPlatformSuites(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('a well-formed entry passes', () => {
+      assert.deepEqual(probe({ suites: [good] }), []);
+    });
+
+    test('failing arms: bad JSON, no suites, bad name, duplicate, bad os, no paths, no why, no run', () => {
+      assert.match(probe('{nope').join(), /not valid JSON/);
+      assert.match(probe({ suites: [] }).join(), /non-empty `suites`/);
+      assert.match(probe({ suites: [{ ...good, name: 'Bad Name' }] }).join(), /kebab-case/);
+      assert.match(probe({ suites: [good, good] }).join(), /used twice/);
+      assert.match(probe({ suites: [{ ...good, os: ['ubuntu-latest'] }] }).join(), /`os` must be/);
+      assert.match(probe({ suites: [{ ...good, paths: [] }] }).join(), /`paths` must be/);
+      assert.match(probe({ suites: [{ ...good, why: 'short' }] }).join(), /`why` must say/);
+      assert.match(probe({ suites: [{ ...good, run: '' }] }).join(), /`run` must be a command/);
+    });
+
+    test('failing arm: a path that names a deleted file is stale (a glob is not checked)', () => {
+      const e = probe({ suites: [{ ...good, paths: ['lib/export/no-such-file.js'] }] });
+      assert.match(e.join(), /stale platform suite 'ok-suite'.*no-such-file/);
+      assert.deepEqual(probe({ suites: [{ ...good, paths: ['lib/**/*.js', 'lib/export/file-confine.js'] }] }), []);
+    });
+
+    test('failing arm: a run that names a deleted test file is stale', () => {
+      const e = probe({ suites: [{ ...good, run: 'node --test test/unit/cli/no-such-file.test.js' }] });
+      assert.match(e.join(), /stale platform suite 'ok-suite'.*no-such-file/);
+    });
+  });
+
+  describe('media source census (media note §4.11)', () => {
+    const rows = require('../../../lib/core/media-sources').SOURCES;
+    const probe = (rs, census) => {
+      const errors = [];
+      checkMediaSourceCensus(errors, rs, census);
+      return errors;
+    };
+
+    test('the live table matches its census', () => {
+      assert.deepEqual(probe(rows, SANCTIONED_MEDIA_SOURCES), []);
+    });
+
+    test('failing arm: a seventh row without a census entry fails', () => {
+      const e = probe([...rows, { id: 'drive', scheme: 'gdrive', locality: 'remote' }], SANCTIONED_MEDIA_SOURCES);
+      assert.equal(e.length, 1);
+      assert.match(e[0], /'drive'.*no entry/);
+    });
+
+    test('failing arm: a removed row leaves a stale entry', () => {
+      const e = probe(rows.filter((r) => r.id !== 'asset'), SANCTIONED_MEDIA_SOURCES);
+      assert.match(e.join('\n'), /stale media-source census entry.*'asset'/);
+    });
+
+    test('failing arm: a row loosened from remote to local fails', () => {
+      const e = probe(rows.map((r) => (r.id === 'web' ? { ...r, locality: 'local' } : r)), SANCTIONED_MEDIA_SOURCES);
+      assert.match(e.join('\n'), /'web' declares locality 'local'/);
+    });
+
+    test('failing arm: a contributed row may not declare local', () => {
+      const census = [...SANCTIONED_MEDIA_SOURCES, { id: 'plug', locality: 'local', why: 'x' }];
+      const e = probe([...rows, { id: 'plug', scheme: 'plug', locality: 'local', contributed: true }], census);
+      assert.match(e.join('\n'), /contributed by a plugin and declares locality 'local'/);
+    });
+
+    test('failing arm: two rows may not claim one scheme', () => {
+      const census = [...SANCTIONED_MEDIA_SOURCES, { id: 'evil', locality: 'remote', why: 'x' }];
+      const e = probe([...rows, { id: 'evil', scheme: 'https', locality: 'remote' }], census);
+      assert.match(e.join('\n'), /both claim the scheme 'https'/);
     });
   });
 

@@ -15,7 +15,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { buildPlayerHtml, inlineFileUrls, resolveStyleUrls } = require('../../../lib/export/html-player.js');
+const { buildPlayerHtml } = require('../../../lib/export/html-player.js');
+const { bake } = require('./bake-helper.js');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lp-style-urls-'));
 // A 1x1 PNG.
@@ -25,7 +26,7 @@ const fileUrl = pathToFileURL(path.join(dir, 'a.png')).href;
 
 test('the inliner reads the attribute-escaped quote, and drops the copy that names a local file', () => {
 	const html = `<section style="--background-image:&quot;url(\\&quot;${fileUrl}\\&quot;)&quot;;background-image:url(&quot;${fileUrl}&quot;);background-size:cover"></section>`;
-	const { html: out, missing, count } = inlineFileUrls(html);
+	const { html: out, missing, count } = bake(html);
 	assert.equal(count, 1);
 	assert.deepEqual(missing, []);
 	assert.match(out, /background-image:url\(&quot;data:image\/png;base64,/);
@@ -35,25 +36,26 @@ test('the inliner reads the attribute-escaped quote, and drops the copy that nam
 
 test('relative style URLs resolve against the deck folder; absolute, data: and fragments do not move', () => {
 	const html = '<section style="background-image:url(&quot;a.png&quot;)"></section><div style="background:url(https://x.example/p.png),url(data:image/png;base64,AA),url(#g)"></div>';
-	const out = resolveStyleUrls(html, base);
-	assert.ok(out.includes(`url(&quot;${base}a.png&quot;)`));
-	assert.ok(out.includes('url(https://x.example/p.png),url(data:image/png;base64,AA),url(#g)'));
+	// Resolution only: the file is there, so it is baked next. Read what the resolver left by turning the baking off.
+	const r = bake(html, { baseUrl: base });
+	assert.equal(r.count, 1, 'the relative one resolved and was baked');
+	assert.match(r.html, /url\(&quot;data:image\/png;base64,/);
+	assert.ok(r.html.includes('url(https://x.example/p.png),url(data:image/png;base64,AA),url(#g)'), 'absolute, data: and fragments do not move');
 });
 
 test('a style attribute written as TEXT is never rewritten: no folder path in a code sample', () => {
 	// Chromium writes `"` raw in text, so this inline code reads like a tag to a whole-document pattern.
 	const html = '<p><code>&lt;div style="background:url(a.png)"&gt;</code></p><section style="background:url(a.png)"></section>';
-	const out = resolveStyleUrls(html, base);
-	assert.ok(out.includes('<code>&lt;div style="background:url(a.png)"&gt;</code>'), 'the sample reads as written');
-	assert.ok(out.includes(`<section style="background:url(${base}a.png)">`), 'the real attribute still resolves');
+	const r = bake(html, { baseUrl: base });
+	assert.ok(r.html.includes('<code>&lt;div style="background:url(a.png)"&gt;</code>'), 'the sample reads as written');
+	assert.match(r.html, /<section style="background:url\(data:image\/png;base64,/, 'the real attribute resolves and bakes');
 });
 
 test('a picture name that is a folder stays as written and is reported, so no path leaks', () => {
 	fs.mkdirSync(path.join(dir, 'folder.png'), { recursive: true });
-	const gone = [];
-	const out = resolveStyleUrls('<section style="background:url(&quot;folder.png&quot;)"></section>', base, gone);
-	assert.ok(out.includes('url(&quot;folder.png&quot;)'));
-	assert.deepEqual(gone, ['folder.png']);
+	const r = bake('<section style="background:url(&quot;folder.png&quot;)"></section>', { baseUrl: base });
+	assert.ok(r.html.includes('url(&quot;folder.png&quot;)'));
+	assert.deepEqual(r.missing, ['folder.png']);
 });
 
 const deck = (inner) => `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bg</title>

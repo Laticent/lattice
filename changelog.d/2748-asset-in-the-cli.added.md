@@ -1,0 +1,1 @@
+- **`asset:<name>` now renders in the CLI.** `![](asset:team-shot)` reads `assets/team-shot.jpg` from a folder beside the deck, the same name rule the Studio Library uses. A name the folder lacks draws the missing-picture stand-in instead of a dead reference, and `lint:deck` warns (`asset-missing`) with the slide. Decks that never write `asset:` are unchanged.

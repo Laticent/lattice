@@ -247,6 +247,23 @@ async function main(argv) {
       .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))))
       // A deck whose warning is its subject (tools/lint-subject-decks.js) is exempt from that one rule.
       .filter((f) => !isSubjectFinding(relFromRoot(file), f.rule));
+    // `asset:<name>` is the Library's name in the Studio and a file in `assets/` beside the deck in the CLI
+    // (lib/export/deck-assets.js). The linter is fs-free, so the folder check lives here, with the file system.
+    {
+      const { buildAssetUrls, assetRefs, ASSET_FOLDER } = require('../lib/export/deck-assets');
+      const deckDir = path.dirname(path.resolve(file));
+      const have = buildAssetUrls(deckDir, require('../lib/export/file-confine').createFileConfiner([deckDir])).urls;
+      const seen = new Set();
+      for (const ref of assetRefs(source)) {
+        if (Object.hasOwn(have, ref.name) || seen.has(ref.name)) continue;
+        seen.add(ref.name);
+        findings.push({
+          slide: ref.slide, rule: 'asset-missing', severity: 'warning', line: `asset:${ref.name}`,
+          message: `\`asset:${ref.name}\` names no file in ${ASSET_FOLDER}/ beside this deck (a symlink out of the deck folder does not count), so the CLI draws the missing-picture stand-in.`,
+          fix: `Put a picture named ${ref.name}.jpg (or .png, .webp, .svg …) in ${ASSET_FOLDER}/ beside the deck, or fix the name (lowercase letters, digits, - and _).`,
+        });
+      }
+    }
     for (const f of findings) {
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a
       // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),
