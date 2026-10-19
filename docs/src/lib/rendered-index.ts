@@ -73,41 +73,42 @@ export function stampsOf(html: string): string[] {
 	return out;
 }
 
-/**
- * Whether markup holds any text outside its tags. A scan, not a replace: this decides a heuristic (is a slide
- * empty?) and never produces markup, and a scan has no pattern a sanitization scanner could mistake for one.
- * Anything it cannot read (an unclosed tag) counts as text, so a doubtful slide is never called blank.
- */
-function hasText(markup: string): boolean {
-	let inTag = false;
-	for (let i = 0; i < markup.length; i++) {
-		const c = markup[i];
-		if (inTag) inTag = c !== '>';
-		else if (c === '<') inTag = true;
-		else if (!/\s/.test(c) && !(c === '&' && markup.startsWith('&nbsp;', i))) return true;
-		else if (c === '&') i += 5;
-	}
-	return inTag;
+/** The deck-wide chrome a section carries: its pagination, header and footer attributes, read from the open tag. */
+function chromeOf(open: string): string {
+	const attr = (name: string) => new RegExp(`\\sdata-${name}="([^"]*)"`, 'i').exec(open)?.[1] ?? '';
+	return `${attr('paginate')}|${attr('header')}|${attr('footer')}`;
 }
 
 /**
  * Whether each top-level section is BLANK: no text, no picture, no drawing. The engine renders a slide the
  * author left empty (`---` twice in a row) and the outliner drops it, so the index needs to know which engine
  * slides own no part. Read from the markup, in the same order as `stampsOf`.
+ *
+ * A blank slide is a standard-frame section with an EMPTY stage and no component (`data-class=`) or background
+ * picture (`url(`). Deck-wide chrome does not count against it: `paginate:`, `header:`, `footer:` and
+ * `backgroundColor:` put a style, a header, a footer and a page number on every slide, blank or not. Chrome
+ * counts as deck-wide when it matches the most common chrome in the document, so a `_header` or `_paginate`
+ * directive on one slide still makes it a slide. A section the scan cannot recognize is not blank, so a doubtful
+ * slide never loses its tile.
  */
 export function blanksOf(html: string): boolean[] {
-	const out: boolean[] = [];
-	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string; inner?: string }>) {
-		if (p.type !== 'section') continue;
-		// What the engine draws for a slide with nothing on it: a standard-frame section with no background
-		// (`style=`) or component (`data-class=`) and an EMPTY stage. A slide that holds only a background
-		// image, a `_class` directive, a speaker-note comment or a spacer is not blank, and a section the
-		// scan cannot recognize is not blank either, so a doubtful slide never loses its tile.
+	const sections = (splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string; inner?: string }>).filter((p) => p.type === 'section');
+	const tally = new Map<string, number>();
+	for (const p of sections) tally.set(chromeOf(p.openTag ?? ''), (tally.get(chromeOf(p.openTag ?? '')) ?? 0) + 1);
+	let deckChrome = '';
+	let most = 0;
+	for (const [chrome, n] of tally) if (n > most) [deckChrome, most] = [chrome, n];
+	return sections.map((p) => {
 		const open = p.openTag ?? '';
 		const inner = p.inner ?? '';
-		out.push(!/\sstyle=|\sdata-class=/i.test(open) && /\sdata-frame="standard"/i.test(open) && /<div class="cell-stage"><\/div>/.test(inner) && !hasText(inner));
-	}
-	return out;
+		return (
+			!/\sdata-class=|url\(/i.test(open) &&
+			/\sdata-frame="standard"/i.test(open) &&
+			chromeOf(open) === deckChrome &&
+			/<div class="cell-stage"><\/div>/.test(inner) &&
+			!/<(img|svg|picture|video|canvas)[\s>]/i.test(inner)
+		);
+	});
 }
 
 /** `'3'` is slide 3 run 0, `'3.2'` is slide 3 run 1. Anything else is not a stamp. */

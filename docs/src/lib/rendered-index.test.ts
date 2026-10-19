@@ -189,6 +189,20 @@ describe('known defect: the outliner drops an empty slide the engine renders', (
 		expect(slide('# Real')).toBe(false);
 	});
 
+	it('finds the blank slide when the deck sets paginate, header, footer or a background color, and still keeps a local _header slide', async () => {
+		const body = '# A\n\n---\n\n---\n\n# C\n\n---\n\n# D\n';
+		for (const fm of ['paginate: true', 'paginate: true\nheader: Hdr\nfooter: Ftr', 'backgroundColor: red']) {
+			const md = `---\n${fm}\n---\n\n${body}`;
+			const { stamps, html } = pagesOf(md);
+			expect(blanksOf(html), fm).toEqual([false, true, false, false]);
+			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksOf(html));
+			expect(ix.unexplainedPages, fm).toEqual([]);
+			expect(ix.pages.map((pg) => pg.flat), fm).toEqual([0, -1, 1, 2]);
+		}
+		const local = pagesOf('---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _header: X -->\n\n---\n\n# C\n');
+		expect(blanksOf(local.html)).toEqual([false, false, false]);
+	});
+
 	it('a deck with a background-only slide and a later real blank drops the blank, not the background slide', async () => {
 		const md = '# A\n\n---\n\n![bg](x.png)\n\n---\n\n# C\n\n---\n\n---\n\n# E\n';
 		const { stamps, html } = pagesOf(md);

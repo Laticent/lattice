@@ -19,6 +19,7 @@
 // re-pointed, never destroyed.
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
 import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
@@ -49,6 +50,8 @@ export interface PlaygroundMapProps {
 	palettes: string[];
 	options: SingleSlideOptions;
 	orientation: 'vertical' | 'horizontal';
+	/** Draw the rail into this element (the walk bar, on a narrow screen) instead of where it is rendered. */
+	portal?: HTMLElement | null;
 }
 
 /**
@@ -88,7 +91,7 @@ function readingPage(frame: HTMLIFrameElement | null, count: number, current = -
 	return Math.min(count - 1, best);
 }
 
-export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walkPage, onPickPage, palettes, options, orientation }: PlaygroundMapProps) {
+export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walkPage, onPickPage, palettes, options, orientation, portal }: PlaygroundMapProps) {
 	const hub = React.useMemo(() => createFocusHub({ outliner: deckOutliner }), []);
 	const [ix, setIx] = React.useState<RenderedIndex | null>(null);
 	const ixRef = React.useRef<RenderedIndex | null>(null);
@@ -106,9 +109,12 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 	React.useEffect(() => {
 		hub.update(rendered.source, { by: 'preview' });
 		let live = true;
-		void getIndex()?.then((next) => {
-			if (live) setIx(next);
-		});
+		// A chunk that fails to load leaves the previous index in place; the next render asks again.
+		getIndex()
+			?.then((next) => {
+				if (live) setIx(next);
+			})
+			.catch(() => {});
 		return () => {
 			live = false;
 		};
@@ -243,7 +249,7 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 	const onStep = React.useCallback((action: RailStep) => void hub.step('rail', action, { pages: false }), [hub]);
 	const onPick = React.useCallback((unit: number) => hub.go('rail', { flat: unit }), [hub]);
 
-	return (
+	const rail = (
 		<MapRail
 			count={count}
 			focus={Math.min(flat, Math.max(0, count - 1))}
@@ -255,6 +261,10 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 			wrap={(tiles) => <PreviewPool>{tiles}</PreviewPool>}
 			aspect={geom.w / geom.h}
 			orientation={orientation}
+			// The walk bar beside a strip already steps, and draws its own edge.
+			controls={orientation === 'vertical'}
+			className={portal ? 'border-0' : undefined}
 		/>
 	);
+	return portal ? createPortal(rail, portal) : rail;
 }
