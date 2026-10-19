@@ -8,21 +8,19 @@ severity: medium
 swimlane: engineering/decisions/2026-10-16-npm-plugin-threat-model.md §6
 ---
 
-# Build the admission rules the owner chose for npm plugins (decisions 7, 8, 9).
+# Finish the npm door's admission: the download, the explicit list, and two open calls.
 
-why now   — the owner decided on 2026-10-17: npm plugins are refused when the OS layer reads OFF
-            (or cannot be determined); a plugin is a self-contained bundle that Lattice downloads
-            as it is, and Lattice never runs `npm install` for it; and Lattice never loads a plugin
-            in Node. These are the rules phase G (the npm door) opens under.
-where     — lib/core/os-sandbox.js (the layer reading), lib/packages/trust.js and cli.js (consent
-            and pinning), lib/packages/code-bundle.js (refuses a bundle with anything left
-            external, contract note §8), lib/plugins/resolve.js (reads manifests as data); a new G5
-            test beside test/integration/export/plugin-fence-door.test.js.
-done when — (a) an npm plugin does not run at layer OFF, or when the probe fails (the owner confirmed on 2026-10-17 that a failed probe counts as OFF), with a test for
-            each; (b) admission downloads one bundle, verifies its hash, and refuses a bundle with
-            anything left external, with no `npm install` anywhere on the path; (c) a test plugin
-            whose `index.js` writes a file when loaded leaves no file after admission and render.
-            Test (c) is an exit criterion for phase G, like the attack test (owner, 2026-10-17).
-evidence  — the three tests, each shown red when its rule is deliberately broken and green when
-            restored.
-verify    — tier 2 adversarial trio, because it decides what code runs on a user's machine.
+Triaged 2026-10-18: the three rules are enforced in the door and tested (`test/unit/cli/npm-plugin-admission.test.js`,
+`test/integration/export/npm-plugin-admission.test.js`): refuse at OFF and on a failed probe, admit bytes against a pinned hash with
+nothing left external, and never load a plugin in Node. What remains is the part that produces those entries.
+
+why now   — phase G cannot open without something that builds the `source: 'npm'` entries the door now checks.
+where     — a new loader beside lib/packages/ (download one bundle, compute its hash, read the project's explicit plugin list);
+            lib/packages/cli.js (`lattice packages trust` could refuse an npm plugin at OFF at approval time, not only at run time).
+done when — (1) the loader downloads one self-contained bundle per listed plugin, runs no `npm install`, and hands its bytes and
+            the list's pinned hash to the door; a test shows the loader never executes the bytes. (2) The owner decides whether
+            `unmeasured` should be admitted on macOS and Windows (today it is: there is no /proc to probe and Chromium's sandbox is on by
+            default; decision 7 says a failed probe counts as OFF and does not say which). (3) `lattice packages trust` refuses an npm
+            plugin at OFF, if the owner wants the refusal at approval as well.
+evidence  — the loader test; the owner's answer to (2).
+verify    — tier 2 adversarial trio, because the loader decides what code reaches a user's machine.

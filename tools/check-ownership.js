@@ -8172,6 +8172,126 @@ function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = R
   }
 }
 
+// ── G1: plugin and component code never reaches the network, storage or our key ─────────────
+// The principle (npm-plugin threat model, engineering/decisions/2026-10-16-npm-plugin-threat-model.md
+// §4): a plugin takes data in and returns markup out. It never calls AI, never reads storage, and
+// loads nothing but its own deck's files and author-supplied URLs. Checked by hand on 2026-10-16
+// and enforced by nothing until this gate (owner decision 1, 2026-10-18, after the cost was
+// measured: 33 ms as a regex, about 0.4 s parsed, against a 35 s build:check).
+//
+// It walks every source file under `lib/plugins`, `lib/components` and `lib/runtime`, parses it
+// with acorn, and fires on an identifier (a call, a read, or a property such as `window.fetch`) or an
+// exact string from PURITY_NAMES. A TRIPWIRE for an in-tree contributor adding `fetch` by accident,
+// not a defense: `globalThis['fe' + 'tch']` passes, and the note says so. A hit stays only with a
+// SANCTIONED_PURITY_HITS entry carrying its justification and the exact count, so a second use
+// beside a sanctioned one fires; an entry whose hit is gone fails as stale.
+const PURITY_ROOTS = ['lib/plugins', 'lib/components', 'lib/runtime'];
+const PURITY_NAMES = Object.freeze(['fetch', 'XMLHttpRequest', 'WebSocket', 'WebSocketStream', 'EventSource', 'WebTransport', 'RTCPeerConnection', 'importScripts', 'sendBeacon', 'localStorage', 'sessionStorage', 'indexedDB', 'OPEN_ROUTER_KEY', 'lattice-db-or-key']);
+/** The names above that a STRING is checked for (a key name is data, the others are code). */
+const PURITY_STRINGS = new Set(['OPEN_ROUTER_KEY', 'lattice-db-or-key']);
+/** @type {Array<{ file: string, name: string, count: number, justification: string }>} */
+const SANCTIONED_PURITY_HITS = [
+  {
+    file: 'lib/runtime/index.js',
+    name: 'fetch',
+    count: 2,
+    justification:
+      'the runtime fetches the deck\u2019s OWN markdown (`mdUrl`, same document) to read front matter, in the viewer\u2019s page; the `typeof fetch` guard and the call are the two uses. No stored data or key reaches it (note \u00a74, checked 2026-10-16).',
+  },
+];
+
+function purityHits(src) {
+  let ast;
+  try {
+    ast = acorn.parse(src, { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true });
+  } catch {
+    try {
+      ast = acorn.parse(src, { ecmaVersion: 'latest', sourceType: 'script', allowHashBang: true });
+    } catch {
+      return null;
+    }
+  }
+  const names = new Set(PURITY_NAMES);
+  const hits = new Map();
+  const stack = [ast];
+  while (stack.length) {
+    const n = stack.pop();
+    if (!n || typeof n !== 'object') continue;
+    if (Array.isArray(n)) {
+      stack.push(...n);
+      continue;
+    }
+    // A shorthand property (`{ fetch }`) holds the same node as key and value: count it once.
+    if (n.type === 'Property' && n.shorthand) {
+      stack.push(n.value);
+      continue;
+    }
+    // An object key or a method name DEFINES a name (`{ fetch: 1 }`, `fetch() {}`); it uses nothing.
+    if ((n.type === 'Property' || n.type === 'MethodDefinition' || n.type === 'PropertyDefinition') && !n.computed && n.key?.type === 'Identifier') {
+      if (n.value) stack.push(n.value);
+      continue;
+    }
+    let name = null;
+    if (n.type === 'Identifier') name = n.name;
+    // A string is a use when it names one of our keys (data), or when it is a computed member key:
+    // `window['fetch']`, ``globalThis[`fetch`]``. Any other string is prose.
+    else if (n.type === 'Literal' && typeof n.value === 'string' && PURITY_STRINGS.has(n.value)) name = n.value;
+    else if (n.type === 'MemberExpression' && n.computed) {
+      const k = n.property;
+      const text = k.type === 'Literal' && typeof k.value === 'string' ? k.value : k.type === 'TemplateLiteral' && !k.expressions.length ? k.quasis[0].value.cooked : null;
+      if (text !== null && names.has(text) && !PURITY_STRINGS.has(text)) hits.set(text, (hits.get(text) ?? 0) + 1);
+    }
+    if (name && names.has(name)) hits.set(name, (hits.get(name) ?? 0) + 1);
+    for (const k of Object.keys(n)) if (k !== 'type' && n[k] && typeof n[k] === 'object') stack.push(n[k]);
+  }
+  return hits;
+}
+
+/**
+ * @param {string[]} errors
+ * @param {typeof SANCTIONED_PURITY_HITS} [sanctions]  injectable so a probe needs no committed entry
+ * @param {string} [root]  injectable so probes live in a temp tree
+ */
+function checkPluginPurity(errors, sanctions = SANCTIONED_PURITY_HITS, root = ROOT) {
+  const sanctioned = new Map(sanctions.map((s) => [`${s.file}\0${s.name}`, s]));
+  const seen = new Set();
+  for (const s of sanctions) {
+    if (!String(s.justification ?? '').trim()) errors.push(`purity sanction ${s.file} ${s.name} in tools/check-ownership.js has no justification (G1): say why this use is safe, or remove it.`);
+  }
+  for (const base of PURITY_ROOTS) {
+    for (const file of listSourceFiles(path.join(root, base))) {
+      if (!/\.(?:m?js|cjs)$/.test(file) || /\.test\./.test(path.basename(file))) continue;
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      const hits = purityHits(fs.readFileSync(file, 'utf8'));
+      if (!hits) {
+        errors.push(`${rel} does not parse, so the purity gate (G1) cannot read it: fix the syntax error.`);
+        continue;
+      }
+      for (const [name, count] of hits) {
+        const key = `${rel}\0${name}`;
+        const s = sanctioned.get(key);
+        if (!s) {
+          errors.push(
+            `${rel} uses \`${name}\` (${count}x), which plugin and component code must not (G1, threat model \u00a74): ` +
+              `a plugin takes data in and returns markup out, with no network, storage or key. Remove it, or add a ` +
+              `SANCTIONED_PURITY_HITS entry in tools/check-ownership.js with the justification and count.`,
+          );
+          continue;
+        }
+        seen.add(key);
+        if (s.count !== count) {
+          errors.push(`${rel} uses \`${name}\` ${count}x but its purity sanction allows ${s.count} (G1): a use moved. Review the new one, then update the count with its justification.`);
+        }
+      }
+    }
+  }
+  for (const s of sanctions) {
+    if (!seen.has(`${s.file}\0${s.name}`)) {
+      errors.push(`stale purity sanction in tools/check-ownership.js \u2014 ${s.file} no longer uses \`${s.name}\` (G1). Remove the SANCTIONED_PURITY_HITS entry so the allowlist stays honest.`);
+    }
+  }
+}
+
 /**
  * HARD RULE #22, FOURTH shape — POST-SANITIZE INJECTION inside the preview frame (#1246).
  *
@@ -13753,6 +13873,7 @@ function run() {
   checkLineEndingBoundaries(errors);
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
+  checkPluginPurity(errors);
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
   checkMediaSourceCensus(errors);
@@ -13986,6 +14107,9 @@ module.exports = {
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
+  checkPluginPurity,
+  SANCTIONED_PURITY_HITS,
+  PURITY_NAMES,
   checkPluginMigration,
   pluginMigrationCounts,
   PLUGIN_MIGRATION_BUDGET,

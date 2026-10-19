@@ -170,6 +170,33 @@ neither (§6 rows 3 and 4 and decision 10: plugins never send code) and part 3 c
    list. Any exit a reviewer names is added before the door opens, and the canary runs in
    Chromium, WebKit and Firefox as §3.1 did.
 
+**Owner decisions, 2026-10-18.** Add G1 (`checkPluginPurity`, built). Run the export check nightly, not per PR
+(`test/integration/export-nightly/`), with WebKit and Firefox driven through Playwright in `integration-nightly.yml`. The owner
+asked when the export gaps should be closed and about the `unmeasured` layer; this PR answers neither on its own authority (see
+`followups.d/2749-p2-export-csp-gaps.md` for the recommended timing).
+
+**Built 2026-10-18 (parts 1, 2 and 5 in the locked page; part 3 as a measuring check; part 4 not yet).**
+`test/integration/export/npm-plugin-canary.test.js` runs a hostile fence renderer
+(`test/fixtures/npm-plugin-canary.js`, 29 attempts: network, storage, code from strings, the runner) through the
+real plugin door and reads a local HTTP, WebSocket and UDP listener. Beside every zero sits a control that reaches
+the listener: the same code in an ordinary online page reads the planted `localStorage`, `sessionStorage` and
+cookie and reaches the listener on seven network vectors plus WebRTC; the canary's markup half (24 tags, 23 addresses) fires in
+an online page raw and reads zero after the host's sanitizer. A committed WEAKENED arm runs the same renderer in a worker with no wall and reaches the listener on eleven vectors, so the door arm's zero is not an API that was never there. With the browser flags, the page policy and the worker
+wall all removed (a manual run, not committed), the door arm goes red and names `fetch`, `importscripts`, `websocket` and `xhr`; with the first
+three removed and the worker wall left, it stays green, because the worker wall holds alone. `export-nightly/npm-plugin-export-check.test.js` (nightly) opens the real
+`--player` and plain exports with normal browser arguments in Chromium, WebKit and Firefox and is `todo` because it
+reads open exits (below); it must lose the `todo` only by closing them. The red team found a bypass the first canary missed: an address held in a custom property and read through `image-set(var(--q))` survived the door's sanitizer (`cssRefTargets`). The first fix was bypassable and over-broad (the checker found an inherited variable, a space, backslashes and a comment slipped past, and a plain `--sep:"/"` label was stripped); the second lists an address-shaped string (a network scheme, `//` or a backslash pair) from any custom property, and the canary now carries the inherited, spaced and backslash forms in real Chromium; the same hole in the package stylesheet gate is `followups.d/2749-p2-stylesheet-gate-custom-property-address.md`. Part 4 waits on the data-return surface
+(`followups.d/2749-p4-plugin-data-return-surface.md`). What stays open is in
+`followups.d/2743-p1-npm-plugin-canary-harness.md`.
+
+**Measured 2026-10-18 on real exports, normal browser arguments, each cell with a control that reached the
+listener** (Chromium 131, WebKit 26.0, Firefox 142.0.1; the control is the same export with its policy removed;
+WebKit's control cannot fire `prefetch` and Firefox's cannot fire `prefetch` or `<a ping>`, so those are
+UNVERIFIED in those engines): the `--player` export leaves `navigate`, `windowopen`, `webrtc`, `metarefresh` and a
+`target=_blank` link open in all three engines; the plain export additionally leaves `scriptsrc`, `iframe`,
+`cssimport`, `linkstyle` and (Chromium) `prefetch` open. `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
+`sendBeacon`, `Image`, CSS `url()`, `@font-face` and form posts read zero in both exports.
+
 ### 5.3 What neither covers
 
 - A Chromium renderer exploit on a machine where the OS layer reads OFF. The code sandbox's two
@@ -236,7 +263,7 @@ Node-side, resolved at build time") no longer describes the plan. Superseding it
 
 - The §4 grep covers the named identifiers in the named directories. It did not read the vendored
   Mermaid or KaTeX bundles, and it cannot see obfuscated access.
-- The gate's run-time cost is unmeasured.
+- The gate's run-time cost was measured on 2026-10-18: 33 ms (regex) or 436 ms (parsed prototype) against a 34.8 s `build:check`; the built gate takes about 0.3 s and finds one hit. G1 is now an exit criterion alongside the harness, G2, G3 and G5 (decision 1).
 - The `postinstall` measurement used one tarball with no transitive dependencies. It shows the mechanism, not how a real plugin's dependency tree behaves.
 - Whether the desktop app will keep the OpenRouter key in the OS keychain is undecided (§3.2).
 - Gap 6 (the `@qr` Wi-Fi case) comes from another session's report, not from a reproduction here.

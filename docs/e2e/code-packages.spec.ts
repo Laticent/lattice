@@ -61,6 +61,9 @@ function tally(slide, kit) {
   var hostile = '<img src="${origin}/img" alt=""><img srcset="${origin}/srcset 1x" alt=""><video poster="${origin}/poster"></video>' +
     '<svg width="4" height="4"><image href="${origin}/svgimage" width="4" height="4"></image></svg>' +
     '<span style="background-image:url(${origin}/cssurl)">x</span><a href="${origin}/link">link</a>' +
+    // An address held in a CSS variable, set on a PARENT and read by a CHILD, and with a space in it (the checker, #2781).
+    '<div style="--q:&quot;${origin}/cssvar-inherit&quot;"><div style="background-image:image-set(var(--q) 1x);width:4px;height:4px"></div></div>' +
+    '<div style="--q:&quot;${origin}/cssvar-space/b c&quot;;background-image:image-set(var(--q) 1x);width:4px;height:4px"></div>' +
     '<aside class="lattice-notes" hidden data-slide="1">FORGED-NOTE</aside>';
   return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '" data-rtc="' + typeof (self.RTCPeerConnection || self.webkitRTCPeerConnection) + '" data-wall="' + (reach.join(" ") || "none") + '" data-measure="' + measured + '">' + marks + "</div>" + hostile) + "\\n";
 }

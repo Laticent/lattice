@@ -200,6 +200,21 @@ describe('the gate: the one shape a door runs', () => {
 describe('the attribute rule: a package keeps only what it was handed', () => {
   test('every address in a CSS value, decoded; text outside a function is not an address', () => {
     assert.deepEqual(cssRefTargets(`--logo-mask:url('/etc/x'); content:"Q3"; background:image-set("a.png" 1x), \\75 rl(b.png) /* url(c) */`), ['/etc/x', 'a.png', 'b.png']);
+    // A string in a custom property is text until something carries it into an address (image-set, src), possibly on another element.
+    assert.deepEqual(cssRefTargets(`--q:'https://x.example/y';background-image:image-set(var(--q) 1x)`), ['https://x.example/y']);
+    assert.deepEqual(cssRefTargets(`--q:"//x.example/y";background:image-set(var(--q) 1x)`), ['//x.example/y']);
+    // The checker's bypasses: no var() in the same value (inheritance), a space in the address, backslashes, a comment before the colon, leading spaces.
+    assert.deepEqual(cssRefTargets(`--q:"https://x.example/y"`), ['https://x.example/y']);
+    assert.deepEqual(cssRefTargets(`--q:"https://x.example/b c"`), ['https://x.example/b c']);
+    assert.deepEqual(cssRefTargets(String.raw`--q:"\\\\x.example\\y"`), ['\\\\x.example\\y']); // CSS source has four leading backslashes; the parser reads two
+    assert.deepEqual(cssRefTargets(`--q/**/:"https://x.example/y"`), ['https://x.example/y']);
+    assert.deepEqual(cssRefTargets(`--q:"  https://x.example/y"`), ['https://x.example/y']);
+    // And the labels the first cut stripped: text that merely holds / or :.
+    for (const css of ['--sep:"/";content:var(--sep)', '--font:"Foo/Bar"', '--t:"10:30"', '--label:"a/b"', '--n:"Note: x"', '--w:"width/height"']) {
+      assert.deepEqual(cssRefTargets(css), [], css);
+    }
+    const keep = doorFilterAttr(handedOf([]));
+    assert.notEqual(keep('div', 'style', '--sep:"/";content:var(--sep)'), false, 'a breadcrumb separator survives the door');
   });
 
   test('handed addresses pass byte for byte; invented ones do not; data: and #fragment always pass', () => {
