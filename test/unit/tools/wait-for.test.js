@@ -129,7 +129,9 @@ const isLive = (pid) => {
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
     return stat.slice(stat.lastIndexOf(')') + 1).trim().split(/\s+/)[0] !== 'Z';
   } catch {
-    return false;
+    // No /proc (macOS): `ps` prints the state letter, and nothing at all for a pid that is gone.
+    const state = spawnSync('ps', ['-o', 'state=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim();
+    return state !== '' && !state.startsWith('Z');
   }
 };
 

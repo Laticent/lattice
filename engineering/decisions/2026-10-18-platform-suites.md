@@ -49,7 +49,7 @@ thought. The CLI now builds its file URLs with `pathToFileURL` (2026-10-19), but
 `npm ci` passes there and `npm run build` aborts at `tools/check-ownership.js`, whose gates compare backslash paths with forward-slash
 allowlists (run 39197530212; `followups.d/2786-p2-check-ownership-on-windows.md`). The Windows file-URL change is UNVERIFIED on a Windows run.
 The first PR runs showed 28 of 63 `wait-for` tests failing on a macOS runner (stock: perl only, no timeout, gtimeout or flock). The cause was
-the test's own lock probe calling `flock(1)`, so it now falls back to perl; the entry installs coreutils first, the state the notes call supported.
+the test's own lock probe calling `flock(1)`, so it now falls back to perl (and `isLive` to `ps`, since macOS has no /proc); the entry installs coreutils first, the state the notes call supported.
 
 ## How to add a suite
 
