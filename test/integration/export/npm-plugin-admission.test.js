@@ -107,7 +107,10 @@ describe('npm plugin admission through the real door', () => {
     const pkgDir = fs.mkdtempSync(path.join(home, 'pack-'));
     fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify({ name: '@acme/lattice-gantt', version: '1.4.2', files: ['lattice-plugin.js'] }));
     fs.writeFileSync(path.join(pkgDir, 'lattice-plugin.js'), GOOD);
-    const tgzName = execFileSync('npm', ['pack', '--silent', '--pack-destination', pkgDir], { cwd: pkgDir, encoding: 'utf8' }).trim().split('\n').pop();
+    // Windows ships npm as `npm.cmd`, which only a shell starts; every argument here is a fixed word (the folder is the
+    // cwd), so the shell has nothing to split or expand.
+    const win = process.platform === 'win32';
+    const tgzName = execFileSync(win ? 'npm.cmd' : 'npm', ['pack', '--silent', '--pack-destination', '.'], { cwd: pkgDir, encoding: 'utf8', shell: win }).trim().split('\n').pop().trim();
     const tgz = fs.readFileSync(path.join(pkgDir, tgzName));
     const hits = [];
     const server = http.createServer((req, res) => {
