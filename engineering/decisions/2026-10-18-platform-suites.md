@@ -64,3 +64,14 @@ The workflow stays report-only (owner ruling 2026-10-18), but a red nightly used
 GitHub's default failure email to whoever last edited the cron line. The `alert` job now files the failure: on a scheduled or manual
 run, when `plan` or any suite fails, it opens an issue titled "Nightly platform suites failed" (or comments on the open one; the lookup matches the exact title and the bot author, like the nightly family, so overlapping failing runs could still open two) with the
 failed jobs and the run link. No labels, so it touches no shared board state. A person closes the issue; nothing closes it automatically.
+
+## The first scheduled run (2026-10-19)
+
+The cron trigger works. Run 39235883310 was the first `schedule` run: due at 04:41 UTC, it started at 10:13 UTC, 5 h 32 m late,
+and went green. GitHub delays scheduled runs when its queue is busy and can drop one under heavy load, so a late nightly is normal,
+and a day with no run at all is possible without any failure to alert on. The run checked out 2e2755d, which predates the Windows and wait-for
+suites (#2786), so it ran one suite: `plan` 19 s and `export-confine` on macOS 2 m 20 s (`npm ci` 46 s, build 51 s, the suite 10 s).
+What it proves is the trigger, the plan job's full-registry selection on a schedule, and the run job on that path. What it does not
+prove is the four-suite matrix on a schedule: the dispatch run 39297285443 is the only evidence for that so far, and the next cron run
+is the first scheduled one to carry it.
+

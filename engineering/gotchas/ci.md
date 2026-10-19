@@ -655,3 +655,24 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** cutting a branch from `origin/main` after a PR that adds a workspace
   package has landed.
 - **Removable when:** the SessionStart hook installs on a changed lockfile or workspace list.
+
+## A jsdom test fails as `'test failed'` against the file, with no test named and no diff
+
+- **Symptom:** a unit file that loads the runtime in jsdom fails in CI with only
+  `✖ <file> … 'test failed'`, and passes locally every time. Seen once in the merge queue for
+  #2786 (`test/unit/runtime/code-copy-surfaces.test.js`, run 39284743444).
+- **Cause:** the dot reporter prints that for an uncaught exception or an unhandled rejection
+  outside any test, never for a failed assertion, which prints its diff. Here, `w.close()` empties
+  the document, the runtime's MutationObserver sees the change and asks for animation frames on
+  the closed window, and `pretendToBeVisual` runs frames from a plain Node `setInterval` that the
+  close does not clear (jsdom 29). The frame runs on the torn-down window, and jsdom's own error
+  report throws `TypeError: Cannot read properties of null (reading '_location')` in Node. The
+  runtime starts observing from a later timer, so the test only crashes when it closes the window
+  after that timer, which happens on a slow runner.
+- **Mitigation:** `closeQuietly` in `test/unit/runtime/code-copy-surfaces.test.js` refuses new
+  frames and cancels the outstanding ones before `w.close()`. The file's last test collects every
+  escaped error and prints its stack. Its `a window closed after the runtime starts observing` case reproduces the crash
+  without the fix.
+- **Triggered by:** a jsdom window with `pretendToBeVisual` that runs the runtime and is closed
+  after the runtime's observer is live.
+- **Removable when:** jsdom clears its animation-frame interval on `close()`.
