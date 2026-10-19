@@ -1031,6 +1031,28 @@ engine renders.
   on its own engine slide. None of the 309 example and baseline decks (`git ls-files 'examples/*.md'
   'test/integration/baseline-decks/*.md'`) holds a blank slide, so no shipped deck changes.
 
+## 11n. Pinned on 2026-10-19: how far a slide's header reaches (continuation P3)
+
+The 2789 follow-up asked the owner to rule whether a plain `<!-- header: H -->` on a slide carries onto later slides (Marp's
+rule, and the engine's) or scopes to its slide. The owner was away, so the session took the reversible default and pinned
+it; reversing it is an owner call, kept open in `followups.d/2789-p4-header-carries-forward-past-its-slide.md` and on the
+PR's decision card.
+
+- **The default: keep the carry for the comment form.** Front matter sets every slide; `_header`, `_footer` and
+  `_paginate` apply to their own slide; a plain `header:` carries until another replaces it. The @meta record decision
+  (`2026-10-17-meta-record.md` §4.3) already puts scoping where it belongs: a record applies to its own slide, and the
+  codemod turns a plain directive into an explicit `carry` record, so precedence stays what it is today. Changing the comment
+  form instead changes what an author's deck renders and exports. No shipped deck is affected: the 309 example and baseline
+  decks hold no plain `header:`, `footer:` or `paginate:` comment (§4.3's "5 of about 5,900" counts the plain `class:` form,
+  not these).
+- **The pin.** `test/unit/engine/directive-scope.test.js` renders a five-slide deck through the engine: a plain header on
+  slide 2 reads `-, H, H, L, H` with a `_header: L` on slide 4; an underscore header alone reaches no other slide; a later
+  plain header replaces the carried one; footers follow the same rule; front matter sets every slide and a slide overrides it
+  both ways. Making the plain form scope to its slide turns four of the five red (checked by rewriting the inputs).
+- **Its reason to exist went away in P2.** The follow-up's "why now" was the rendered index telling a blank slide by its
+  chrome matching the front matter's, so a carried header made a blank after it look like a slide. Since §11m a blank slide is
+  a unit and that chrome test is gone, so the carry no longer affects the map at all.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
