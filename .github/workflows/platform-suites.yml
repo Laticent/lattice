@@ -11,6 +11,10 @@ name: Platform suites (macOS / Windows)
 #                      most PRs select none, so the matrix is skipped
 # tools/platform-suites-plan.js holds the rule.
 #
+# ALERT. A scheduled or manual run that fails (or is cancelled, which is how a timeout reads) opens a GitHub issue titled "Nightly
+# platform suites failed", or comments on the open one, with the failed jobs and the run link; a person closes it. The lookup matches the exact title and the bot author (the nightly family's form), so an issue someone else files under that title is never the thread; two failing runs that overlap could still each open one. Without it a red nightly is only a red row in the Actions tab and
+# GitHub's default failure email to whoever last edited the cron line. Pull requests do not alert: their check already shows red.
+#
 # NOT A MERGE GATE. This workflow is separate from the `ci` gate and a suite's check is not in the required set. A red
 # suite is shown honestly (no continue-on-error); promoting one to required is a separate decision, made once it has run
 # clean for a while (owner ruling 2026-10-18).
@@ -18,9 +22,10 @@ name: Platform suites (macOS / Windows)
 # COST. The repository is public, so GitHub-hosted macOS and Windows minutes are free. First run on #2771 (2026-10-18): the
 # `export-confine` macOS job took 2 m 23 s (install, build and the three test files), and the `plan` job took 2 m 16 s
 # because it checked out the full history; it now does a shallow checkout and one API call (re-measure on the next run).
-# Green run (#2786, 2026-10-19, run 39266738239 at 53629b2, whole-job times from the check runs): `plan` 18 s (shallow checkout); macOS
-# `export-confine` 3 m 35 s and `wait-for-macos` 2 m 02 s; Windows `build-windows` 3 m 27 s and `export-confine-windows` 3 m 27 s
-# (`npm ci` is about 70 s of each Windows job, the full build 30 s). No nightly has run yet: re-measure from the first one.
+# Nightly-equivalent run on main (2026-10-19, run 39297285443 at c27bbb1, whole-job times from the job list): `plan` 10 s;
+# macOS `export-confine` 2 m 06 s and `wait-for-macos` 2 m 34 s; Windows `build-windows` 3 m 24 s and `export-confine-windows`
+# 3 m 29 s (`npm ci` is about 75 s of each Windows job, the full build about 75 s). All four suites green. The scheduled nightly has
+# not run yet: re-measure from the first one.
 
 on:
   schedule:
@@ -113,3 +118,42 @@ jobs:
             printf '%s\n' "$SUITE_WHY"
           } >> "$GITHUB_STEP_SUMMARY"
           bash -c "$SUITE_RUN"
+
+  alert:
+    # Runs when `plan` or any suite failed on a scheduled or manual run, and files the failure where a person will see it.
+    needs: [plan, run]
+    # `cancelled` counts: a job killed by its timeout reads that way. These runs have no supersession (the concurrency group is per run on a
+    # schedule or dispatch), so a cancel here is a timeout or a person.
+    if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      actions: read
+      contents: read
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          title='Nightly platform suites failed'
+          # A failed lookup must not stop the alert: file the issue with the run link and no job list.
+          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | "- \(.name) (\(.conclusion)): \(.html_url)"') || failed=''
+          body=$(printf '%s run on `%s` failed: %s\n\nFailed jobs:\n%s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
+            "$EVENT" "$REF" "$RUN_URL" "${failed:-"(none listed; open the run)"}")
+          # The family lookup: exact title AND the bot author, so an issue anyone else files under this title is never the thread.
+          existing=$(gh issue list --repo "$REPO" --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$title\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$body"
+            echo "commented on #$existing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh issue create --repo "$REPO" --title "$title" --body "$body")
+            echo "opened $url" >> "$GITHUB_STEP_SUMMARY"
+          fi
