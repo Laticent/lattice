@@ -26,6 +26,11 @@ function runtimeTokens() {
     (sel.startsWith('.') ? runtime.c : runtime.a).push(m[1]);
   }
   runtime.c.push('lat-guide-dim');
+  // Classes a third-party library builds in the browser, after any scan of the HTML could see them: function-plot's
+  // SVG (found on plugin-system-phase-b.md in WebKit: `.functionplot .function-plot` rules were dropped).
+  // Mermaid's internals are deliberately NOT listed: generic names (`node`, `edge`) pulled the whole sheet in, and the
+  // gate is clean on every Mermaid deck without them.
+  runtime.c.push('function-plot', 'domain', 'tick', 'line-0', 'line-1', 'line-2', 'line-3', 'line-4', 'line-5');
   return runtime;
 }
 const RUNTIME_TOKENS = runtimeTokens();

@@ -52,6 +52,6 @@ describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, (
     // back (`<div class="tile-progress">` in progress.transform.js), so a scan of the HTML never sees it.
     // Found on dark-canvas-ownership.md in WebKit: the rail lost its rules under the loader.
     const idx = buildLatticeIndex({ verified: false });
-    for (const name of ['tile-progress', 'tile-meta', 'tile-watermark']) assert.ok(idx.runtime.c.includes(name), name);
+    for (const name of ['tile-progress', 'tile-meta', 'tile-watermark', 'function-plot']) assert.ok(idx.runtime.c.includes(name), name);
   });
 });
