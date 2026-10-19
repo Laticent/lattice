@@ -98,6 +98,8 @@ function markupVectors(H) {
     'css-imageset-space': `<div style="--q:'${H}/m-space/b c';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
     // CSS source with four leading backslashes and two inside: the parser reads `\\host\path`, which a URL parser reads as an address.
     'css-imageset-backslash': `<div style="--q:'${'\\'.repeat(4)}${new URL(H).host}${'\\'.repeat(2)}m-bslash';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
+    // A tab escaped into the scheme: a URL parser deletes it anywhere (the checker, 2026-10-19).
+    'css-imageset-tab': `<div style="--q:'${H.replace('http', 'ht\\9 tp')}/m-tab';background-image:image-set(var(--q) 1x);width:9px;height:9px"></div>`,
     // A <style> ELEMENT carrying the same variable trick (the checker did not trace it; DOMPurify forbids the tag).
     'style-element-var': `<style>:root{--q:'${H}/m-styleel'}.cv{background-image:image-set(var(--q) 1x);width:9px;height:9px}</style><div class="cv"></div>`,
     'css-background': `<div style="background:url(${H}/m-cssbg);width:9px;height:9px"></div>`,
@@ -119,6 +121,35 @@ function markupVectors(H) {
     script: `<script src="${H}/m-script"></script>`,
     handler: `<img src="x" onerror="fetch('${H}/m-handler')">`,
     javascript: `<a href="javascript:fetch('${H}/m-javascript')" id="m-js">j</a>`,
+  };
+}
+
+/**
+ * The STYLESHEET half: what a stranger's package stylesheet carries to reach the network from the
+ * page that shows it (HARD RULE #22's second channel; the gate is `gateCss`, lib/layout/gate.js).
+ * Each sheet is scoped to `section.<name>` as the gate's scoping rule demands, so a refusal can only
+ * come from the address. One package per vector, so each must be refused on its own merits.
+ * The component-package render is where a stranger's stylesheet reaches a page today; a plugin's
+ * `styles.css` is stored but never applied, and gated anyway (engineering/decisions/2026-10-16-npm-plugin-threat-model.md §5.2).
+ * @param {string} H  the listener's origin
+ * @returns {Record<string, (name: string) => string>}  vector name → sheet for a component `name`
+ */
+function stylesheetVectors(H) {
+  const box = 'width:9px;height:9px';
+  return {
+    // The followup's example: an address in a custom property, read by image-set.
+    's-var': (n) => `section.${n}{--q:"${H}/s-var";background-image:image-set(var(--q) 1x)}`,
+    // Set on the slide, read by a child.
+    's-inherit': (n) => `section.${n}{--q:"${H}/s-inherit"}section.${n} h2{background-image:image-set(var(--q) 1x);${box}}`,
+    // An escaped custom-property name: the tokenizer reads `\2d-q` as `--q`.
+    's-escname': (n) => `section.${n}{\\2d-q:"${H}/s-escname";background-image:image-set(var(--q) 1x)}`,
+    // A whole image-set option list held in the property.
+    's-list': (n) => `section.${n}{--q:"${H}/s-list" 1x;background-image:image-set(var(--q))}`,
+    // A tab escaped into the scheme (the checker, 2026-10-19), and a bare CR that ends the string before it.
+    's-tab': (n) => `section.${n}{--q:"${H.replace('http', 'ht\\9 tp')}/s-tab";background-image:image-set(var(--q) 1x)}`,
+    's-cr': (n) => `section.${n}{--a:"x\r;--q:"${H}/s-cr";background-image:image-set(var(--q) 1x)}`,
+    // An image-set target after an earlier url(data:) option and a type(): the old scan stopped at the first `)`.
+    's-typefirst': (n) => `section.${n}{background-image:image-set(url(data:image/gif;base64,R0lGODlhAQABAAAAACw=) type("image/x-none") 1x, "${H}/s-typefirst" 2x)}`,
   };
 }
 
@@ -156,4 +187,4 @@ export { render as default };
 `;
 }
 
-module.exports = { PLANTED, attempts, markupVectors, canarySource };
+module.exports = { PLANTED, attempts, markupVectors, stylesheetVectors, canarySource };

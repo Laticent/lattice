@@ -15,6 +15,8 @@
  *   MARKUP      the canary's output half in an ordinary online page, raw                → fires
  *               the same output after the host's sanitizer                              → 0
  *   PAGE WALLS  the same worker in an ONLINE browser, with only the locked page         → 0
+ *   STYLESHEET  each hostile package sheet in an online page, ungated                    → fires
+ *               the same sheet as an installed component, rendered by the real CLI      → refused, 0
  *
  * KEEPING IT OPEN-ENDED: a reviewer who names an exit adds a pair to `attempts()` or a tag to
  * `markupVectors()` in test/fixtures/npm-plugin-canary.js and every arm here picks it up.
@@ -43,7 +45,8 @@ const puppeteer = require('puppeteer');
 const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
 const { pluginDigest, grantTrust } = require('../../../lib/packages/trust.js');
 const { launchSandboxBrowser, openPackageSandbox, runPackage } = require('../../../lib/core/code-sandbox.js');
-const { PLANTED, attempts, markupVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
+const { spawnSync } = require('node:child_process');
+const { PLANTED, attempts, markupVectors, stylesheetVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
 
 const DECK = '---\ntheme: indaco\n---\n\n## Canary\n\n```canary\nrender me\n```\n';
 const CHROME = process.env.CHROME_PATH || undefined;
@@ -300,6 +303,49 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     } finally {
       await browser.close();
     }
+  });
+
+  test('STYLESHEET: each hostile package sheet fires in an online page ungated, and the real CLI refuses it as an installed component', { timeout: TIMEOUT }, async () => {
+    const sheets = stylesheetVectors(H);
+    const name = 'canary-css';
+    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const open = async (doc) => {
+      hits = [];
+      const page = await browser.newPage();
+      await page.goto(`${H}/blank`, { waitUntil: 'load' });
+      await page.setContent(doc, { waitUntil: 'load' });
+      await settle();
+      await page.close();
+      return vectorsHit();
+    };
+    const problems = [];
+    try {
+      for (const [v, sheet] of Object.entries(sheets)) {
+        // CONTROL: the sheet itself, on a slide that carries the class, with no gate in the way.
+        const fired = await open(`<!doctype html><html><head><style>${sheet(name)}</style></head><body><section class="${name}" style="width:99px;height:99px"><h2>x</h2></section></body></html>`);
+        if (!fired.includes(v)) problems.push(`the control sheet ${v} did not fire (it fired ${fired.join(' ') || 'nothing'})`);
+        // DOOR: the same sheet placed in the package store by hand (no \`add\`), rendered by the real CLI.
+        const store = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canary-css-'));
+        const dir = path.join(store, 'packages', 'component', name);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify({ name, type: 'component', format: 1 }));
+        fs.writeFileSync(path.join(dir, `${name}.styles.css`), sheet(name));
+        fs.writeFileSync(path.join(dir, `${name}.gallery.md`), `<!-- _class: ${name} -->\n\n## ${name}\n`);
+        fs.writeFileSync(path.join(store, 'deck.md'), `---\ntheme: indaco\n---\n\n<!-- _class: ${name} -->\n\n## Sheet\n`);
+        const out = path.join(store, 'deck.html');
+        const r = spawnSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), path.join(store, 'deck.md'), out], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: store } });
+        const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+        fs.rmSync(store, { recursive: true, force: true });
+        if (r.status !== 0) problems.push(`${v}: the render failed: ${r.stderr}`);
+        if (!/the installed component canary-css is refused/.test(r.stderr)) problems.push(`${v}: the CLI did not refuse the sheet`);
+        if (html.includes(`/${v}`)) problems.push(`${v}: the address reached the export`);
+        const leaked = await open(html);
+        if (leaked.length) problems.push(`${v}: the export reached the listener with ${leaked.join(' ')}`);
+      }
+    } finally {
+      await browser.close();
+    }
+    assert.deepEqual(problems, []);
   });
 
   // The two parts of §5.2 that cannot run yet. They are `todo`, not skipped and not passing: a

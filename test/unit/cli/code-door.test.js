@@ -573,6 +573,11 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
     assert.match(refusePackage(plugin({}, { contributes: { fences: { mermaid: {} } } })), /fence `mermaid` is one a shipped plugin owns/);
     assert.match(refusePackage(plugin({}, { contributes: { fences: { python: {} } } })), /code language Lattice highlights/);
     assert.match(refusePackage(plugin({}, {}, 'chart')), /class Lattice uses/);
+    // Its stylesheet: an address a custom property holds, which image-set(var(…)) fetches.
+    const styled = (css) => plugin({ roles: { 'render.js': 'gantt-plugin.render.js', 'styles.css': 'gantt-plugin.styles.css' }, files: { 'gantt-plugin.render.js': code, 'gantt-plugin.styles.css': css } });
+    assert.equal(refusePackage(styled('.lp-gantt-plugin{--sep:"/";color:var(--text)}')), null);
+    assert.match(refusePackage(styled('.lp-gantt-plugin{--q:"https://evil.example/y";background-image:image-set(var(--q) 1x)}')), /its styles\.css: .*custom property/);
+    assert.match(refusePackage(styled('.lp-gantt-plugin{background:url(https://evil.example/y)}')), /its styles\.css: /);
     assert.match(refusePackage(plugin({ files: { 'gantt-plugin.render.js': `import("x");\n${code}` } })), /dynamic `import\(\)`/);
     assert.match(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), /no fence and no inline kind/);
   });
