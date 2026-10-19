@@ -499,7 +499,6 @@ function collectCoverage(root, biome) {
 		if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
 		outputs.push(`${res.stdout}\n${res.stderr}`);
 	}
-	const output = outputs.join('\n');
 	// Only rows we ASKED about count. The list is parsed out of human-readable stdout, so a
 	// tracked filename containing a newline made Biome emit an extra `  - <path>` row and
 	// injected a file into the covered set. Intersecting with what we passed in makes a
