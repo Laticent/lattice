@@ -18,16 +18,21 @@ const built = fs.existsSync(path.join(__dirname, '../../../dist/styles/manifest.
 describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, () => {
   const list = common.read();
 
-  test('every id is a module this build has, once', () => {
-    assert.deepEqual(common.unknownIds(list), []);
+  test('the ids are real modules, once each; a few stale ones are tolerated, a stale list is not', () => {
+    // Chunk ids are numbered by position, so a change to main's CSS can renumber one: that costs a round trip, and
+    // failing every PR for it would tax them all. Past STALE_TOLERANCE the list is out of date: run --write.
+    const stale = common.unknownIds(list);
+    assert.ok(!common.tooStale(list), `${stale.length} of ${list.ids.length} ids are not modules this build has: ${stale.join(', ')}`);
     assert.equal(new Set(list.ids).size, list.ids.length);
   });
 
   test('the shipped index turns the ids into module indexes, and none is unconditional already', () => {
     const idx = buildLatticeIndex({ verified: false });
+    // Ids this build lacks, or has with different CSS, are skipped: the floor is the list's intersection with the modules.
+    const stale = new Set(common.unknownIds(list));
     assert.deepEqual(
       idx.floor.map((i) => idx.modules[i].id),
-      idx.modules.map((m) => m.id).filter((id) => list.ids.includes(id)),
+      idx.modules.map((m) => m.id).filter((id) => list.ids.includes(id) && !stale.has(id)),
     );
     for (const i of idx.floor) assert.equal(idx.index[i].always, false, `${idx.modules[i].id} is unconditional, so it does not belong in the list`);
   });
@@ -53,5 +58,10 @@ describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, (
     // Found on dark-canvas-ownership.md in WebKit: the rail lost its rules under the loader.
     const idx = buildLatticeIndex({ verified: false });
     for (const name of ['tile-progress', 'tile-meta', 'tile-watermark', 'function-plot']) assert.ok(idx.runtime.c.includes(name), name);
+  });
+
+  test('every id is recorded with the hash of the module that was measured', () => {
+    // A positional id can be renumbered onto a different module; the hash is what notices (unknownIds).
+    for (const id of list.ids) assert.match(list.sha?.[id] || '', /^[0-9a-f]{64}$/, id);
   });
 });

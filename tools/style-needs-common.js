@@ -65,14 +65,32 @@ function read() {
   return JSON.parse(fs.readFileSync(FILE, 'utf8'));
 }
 
-/** Ids in the committed list that `dist/styles/manifest.json` does not have. */
-function unknownIds(list = read()) {
+/** `id -> sha256` of every module in `dist/styles/manifest.json`. */
+function currentHashes() {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist/styles/manifest.json'), 'utf8'));
-  const have = new Set(manifest.modules.map((m) => m.id));
-  return list.ids.filter((id) => !have.has(id));
+  return new Map(manifest.modules.map((m) => [m.id, m.sha256]));
 }
 
-module.exports = { FILE, THRESHOLD, measure, read, unknownIds };
+/**
+ * Ids in the committed list that this build does not have, or has with different CSS. Chunk ids (`base:finish#finish~5`)
+ * are numbered by position in their group, so a change to `main`'s CSS can renumber one onto a DIFFERENT module; the
+ * content hash recorded beside each id (`sha`) is what tells a renumbered module from the one that was measured.
+ * A list without hashes (an older file) trusts the ids.
+ */
+function unknownIds(list = read()) {
+  const have = currentHashes();
+  return list.ids.filter((id) => !have.has(id) || (list.sha?.[id] && list.sha[id] !== have.get(id)));
+}
+
+/**
+ * How many ids may be stale before the list counts as broken. Chunk ids (`base:finish#finish~5`) are numbered by position
+ * in their group, so any CSS change on `main` can renumber one; a stale id only costs the loader a round trip (it is
+ * skipped), so one or two are noise. Past 10% the list is out of date enough to re-measure (`--write`).
+ */
+const STALE_TOLERANCE = 0.1;
+const tooStale = (list = read()) => unknownIds(list).length > Math.ceil(list.ids.length * STALE_TOLERANCE);
+
+module.exports = { FILE, THRESHOLD, STALE_TOLERANCE, measure, read, tooStale, unknownIds };
 
 if (require.main === module) {
   const arg = process.argv[2];
@@ -80,7 +98,9 @@ if (require.main === module) {
     const m = measure();
     const ids = m.modules.filter((_x, i) => !m.always[i] && m.share[i] >= THRESHOLD).map((x) => x.id);
     if (arg === '--write') {
-      fs.writeFileSync(FILE, `${JSON.stringify({ threshold: THRESHOLD, decks: m.decks, ids }, null, 1)}\n`);
+      const hashes = currentHashes();
+      const sha = Object.fromEntries(ids.map((id) => [id, hashes.get(id)]));
+      fs.writeFileSync(FILE, `${JSON.stringify({ threshold: THRESHOLD, decks: m.decks, ids, sha }, null, 1)}\n`);
       console.log(`wrote ${path.relative(ROOT, FILE)}: ${ids.length} modules needed by at least ${THRESHOLD * 100}% of ${m.decks} decks`);
     } else {
       const have = new Set(read().ids);
@@ -91,10 +111,10 @@ if (require.main === module) {
     }
   } else {
     const bad = unknownIds();
-    if (bad.length) {
+    if (tooStale()) {
       console.error(`style-needs-common: ${bad.length} id(s) are not modules any more: ${bad.join(', ')}. Run node tools/style-needs-common.js --write`);
       process.exit(1);
     }
-    console.log(`style-needs-common: ${read().ids.length} ids, all real modules`);
+    console.log(`style-needs-common: ${read().ids.length} ids, ${bad.length ? `${bad.length} stale (tolerated): ${bad.join(', ')}` : 'all real modules'}`);
   }
 }

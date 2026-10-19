@@ -138,7 +138,12 @@ function buildLatticeIndex({ verified = true, root = ROOT } = {}) {
   // An optimization only: an id this build does not have is skipped, and a missing file means no floor.
   let common = [];
   try {
-    common = JSON.parse(fs.readFileSync(path.join(__dirname, 'style-needs-common.json'), 'utf8')).ids;
+    const list = JSON.parse(fs.readFileSync(path.join(__dirname, 'style-needs-common.json'), 'utf8'));
+    // An id counts only when this build's module has the CSS that was measured (see unknownIds in style-needs-common.js).
+    common = list.ids.filter((id) => {
+      const have = modules.find((m) => m.id === id);
+      return have && (!list.sha?.[id] || list.sha[id] === have.sha256);
+    });
   } catch {
     /* no committed list: the floor is the always-needed modules alone */
   }
