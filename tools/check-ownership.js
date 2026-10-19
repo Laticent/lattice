@@ -2897,8 +2897,8 @@ function checkReadingRole(errors) {
 // The gate fails both ways, like the reading-role gate: a count above its entry (a new hand-rolled
 // read) and an entry above its count (stale).
 const SANCTIONED_PILL_READS = [
-  { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the checks note (engineering/decisions/2026-10-18-checks.md)" },
-  { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the checks note (engineering/decisions/2026-10-18-checks.md)' },
+  { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the separate checks design (PR #2769)" },
+  { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the separate checks design (PR #2769)' },
 ];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */

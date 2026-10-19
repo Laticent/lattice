@@ -3,14 +3,14 @@ status: in-progress
 summary: >
   Pills become an embedded plugin. The plugin owns the `{LABEL, shape, c4}` notation, the reader,
   the drawing and every `.lat-pill` rule. No component paints its own pill: a component either has the author
-  write a pill or translates its content into one through the plugin, and passes color, size and case in through
+  write a pill or builds one through the plugin's kernel (the glossary's derived range), and passes color, size and case in through
   the pill's custom properties. Fifteen components now hand-roll a pill look; they move one at a time, and a
   `build:check` gate holds the count at zero. The plugin is embedded: it cannot be switched off.
 ---
 
 # Pills as a plugin (2026-10-17)
 
-Status: in progress. The owner's decisions are in §3. Nothing is built yet; §9 is the commit plan. Parents:
+Status: built on branch `feat/pills-plugin` (PR #2755), awaiting merge. The owner's decisions are in §3 and the later rulings below; §11 is the progress log, with what was measured. Where §1 and §6 below speak of a component "translating" a trailing code span into a pill, or of "nothing changing by default", the later ruling wins: **clean break** (2026-10-19), a bare trailing code span is plain inline code and a pill is `{…}`; `lint:deck` warns `bare-row-pill`. Parents:
 `2026-09-27-plugin-system.md` (the plugin contract), `2026-10-14-plugin-inline-door.md` (the inline kinds;
 §4.3 lists `pill` as a host kind, which this note reverses), `2026-09-28-segno-unified-inline-notation.md`
 (the notation a pill is spelled in), `2026-05-11-inline-code-directives.md` (where pills began).
@@ -287,3 +287,10 @@ baselines and a visual review (QUALITY BAR), not an export-pipeline sign-off: no
 - **The clean break:** the universal trailing-code rule and the `pill-tag` transformer are deleted. A bare trailing `code` is plain inline code; a pill is `{…}`, and a label with a comma needs quotes. `lint:deck` warns `bare-row-pill` where a component used to draw a pill from a bare span and names the spelling; it fires 503 times over the pre-migration corpus and zero over the migrated one, which is also the evidence that the migration of the first-party decks (galleries, 40+ examples, 46 exemplars, the kit sample, the manifest samples the galleries are generated from) is complete.
 - **Found on the way, fixed in place:** a code-only bullet in a `cards-grid` or a paragraph above a `kpi` heading is an eyebrow kicker, not a pill (my first migration pass wrapped them and the renders caught it); the Present Guide's horizons narrator read `{Now}` aloud until `speakableSpans` was applied to header pills; `composed-contrast`'s kpi pins now pin kpi's `--lat-pill-*` writes and the plugin's own border rule.
 - **Visible changes for the owner to judge** (each in its own commit, so each can be reverted alone): the pill now carries the plugin's 0.22em outer margin everywhere (a 2–4px inset); a `cards-grid` card whose title is only a pill keeps the pill at the left (the old rule pushed it right); the roadmap's filled phase pill is 1px larger per side because the canvas ring moved outside it; `list-tabular register` tags are slightly narrower than the old stamp.
+
+**Owner rulings recorded here so the note carries them (they were given in conversation).**
+- *Embedded, never disableable* for the pill; classes are embedded / essential / external (labels: Always on, Comes with Lattice, From *author*).
+- *No private translation.* A component does not turn a trailing backtick span into a pill under the hood; it builds on the plugin's own notation, `` `{…}` `` or `` `@pill{…}` ``.
+- *The pill is not stuffed with attributes* (Unix philosophy: small tools composed by containment). A pill that must carry a check, an icon or a status composes those pieces; the checks design is its own PR (#2769) and is out of this change.
+- *Non-pill elements own their tokens* and reference only the base `--radius-*` scale. `--radius-full` is the one addition to that scale (a capsule end; sketch re-points it to the hand-drawn chip, as it does `--pill-radius`).
+- *Clean break for existing decks* (2026-10-19): no deprecation window.

@@ -1,5 +1,5 @@
 /**
- * Unit: `findBareRowPills` in lib/authoring/lint-core.js — the warning that tells an author a bare
+ * Unit: `findBareRowPills` in lib/authoring/bare-row-pill.js — the warning that tells an author a bare
  * code span now draws nothing where a component used to paint a pill (2026-10). Pinned in both
  * directions: it fires exactly where the old rule drew a pill, and it never fires on prose code,
  * on an eyebrow, on a span already in the notation, or on a component that never drew one.
@@ -7,7 +7,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { findBareRowPills } = require('../../../lib/authoring/lint-core.js');
+const { findBareRowPills } = require('../../../lib/authoring/bare-row-pill.js');
 
 const deck = (klass, body) => `---\nmarp: true\n---\n\n<!-- _class: ${klass} -->\n\n${body}\n`;
 const spans = (klass, body) => findBareRowPills(deck(klass, body)).map((f) => f.span);
@@ -60,4 +60,19 @@ test('a component that never drew a row pill is silent', () => {
 
 test('the inline-code literal register switches it off', () => {
   assert.deepEqual(spans('cards-stack inline-code-literal', '## T\n\n- Row one `shipped`\n'), []);
+});
+
+test('the components the old universal rule reached are covered, not only the ones with their own pill', () => {
+  for (const c of ['inventory', 'topic', 'cycle', 'citation-card', 'scene', 'obligation-matrix']) {
+    assert.deepEqual(spans(c, '## T\n\n- Alpha item `TAG`\n'), ['`TAG`'], c);
+  }
+});
+
+test('a deck whose register is `inline-code: literal` is not advised to write braces', () => {
+  const md = '---\ninline-code: literal\n---\n\n<!-- _class: cards-stack -->\n\n## T\n\n- Row `shipped`\n';
+  assert.deepEqual(findBareRowPills(md), []);
+});
+
+test('a row indented up to three spaces is still a top-level row', () => {
+  assert.deepEqual(spans('cards-stack', '## T\n\n   - Alpha `shipped`\n'), ['`shipped`']);
 });

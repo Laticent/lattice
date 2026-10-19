@@ -144,7 +144,7 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :
   grid-column:5; grid-row:1;
   justify-self:end;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
   --lat-pill-edge:var(--accent);
   --lat-pill-ink:var(--accent);
   --lat-pill-bg:var(--accent-soft);

@@ -144,10 +144,10 @@ section.kpi {
 /* Pills — an author writes a pill with the pills plugin's notation (`` `{On plan}` ``) and the
  * plugin draws it (lib/plugins/pills/). First pill on each row carries the status color (set per
  * row by the modifier's nth-child hooks, through `--lat-pill-edge` / `-bg` / `-ink`); subsequent
- * pills stay neutral. kpi asks for three things of its own: UPPERCASE labels, the wider
- * tracking that pairs with them, and the meta type step at every tile size (a pill beside a hero
- * figure must not grow with it). */
-section.kpi {
+ * pills stay neutral. kpi asks for three things of its own, for the pills in its tile rows only (a heading's pill keeps
+ * the plugin's defaults): UPPERCASE labels, the wider tracking that pairs with them, and the meta
+ * type step at every tile size (a pill beside a hero figure must not grow with it). */
+section.kpi > .cell-stage > :where(ol, ul) {
   --lat-pill-case: uppercase;
   --lat-pill-tracking: 0.12em;
   --lat-pill-size: var(--fs-meta);
@@ -179,8 +179,8 @@ section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol
   column-gap: 0.46875cqi;
   row-gap: 0;
 }
-section.kpi > .cell-stage > :where(ol, ul) > li :where(ul, ol) > li .lat-pill ~ .lat-pill,
-section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill {
+section.kpi > .cell-stage > :where(ol, ul) > li :where(ul, ol) > li .lat-pill ~ .lat-pill:not([data-c]),
+section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([data-c]) {
   --lat-pill-edge: var(--muted-mark);
   --lat-pill-bg: var(--bg);
   --lat-pill-ink: var(--text-muted);

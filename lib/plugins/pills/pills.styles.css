@@ -48,8 +48,8 @@
   /* `--lat-pill-cap` is how much of the surrounding text a pill may fill, 0.85 by default. A
    * component whose pill sits beside a caption it should match, not undercut, sets it to 1. */
   /* A component whose type does not follow the surrounding text (a chart label sized from its
-   * grid cell) says the size outright with `--lat-pill-size`. */
-  font-size:var(--lat-pill-size, calc(min(var(--lat-pill-cap, 0.85) * 1em, var(--lat-pill-base)) * var(--lat-pill-scale, 1)));
+   * grid cell) says the size outright with `--lat-pill-size`; the author's `sm` / `lg` still scale it. */
+  font-size:calc(var(--lat-pill-size, min(var(--lat-pill-cap, 0.85) * 1em, var(--lat-pill-base))) * var(--lat-pill-scale, 1));
   font-weight:var(--pill-weight);
   letter-spacing:var(--lat-pill-tracking, var(--pill-tracking));
   /* A component that wants capitals asks through `--lat-pill-case`; the default keeps the text's own. */

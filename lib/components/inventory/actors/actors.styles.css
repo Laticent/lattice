@@ -74,6 +74,10 @@ section.actors > .cell-stage > ol > li > strong {
 section.actors > .cell-stage > ul > li > .lat-pill,
 section.actors > .cell-stage > ol > li > .lat-pill {
   flex:0 0 auto;
+}
+/* The hue is a default: a pill whose author named a color keeps it. */
+section.actors > .cell-stage > ul > li > .lat-pill:not([data-c]),
+section.actors > .cell-stage > ol > li > .lat-pill:not([data-c]) {
   --lat-pill-edge:var(--actor-hue, var(--muted-mark));
 }
 /* Categorical rotation across items (cycle of 8). Sets --actor-hue on the <li>; the pill's edge

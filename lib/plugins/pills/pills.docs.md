@@ -14,7 +14,7 @@ be written by name, `{BETA, shape=tag, color=c4}`. Design: `engineering/decision
 the notation is Segno's (`engineering/decisions/2026-09-28-segno-unified-inline-notation.md`).
 
 This is an **embedded plugin**: part of how Lattice draws a slide, so it loads on every render and has no off
-switch. No `plugins:` entry, host narrowing or `disabled` setting turns it off. The other classes of plugin
+switch. No `plugins:` entry, host narrowing or `disabled` setting turns it off. The one switch is the author's, and it is for the grammar, not the plugin: `inline-code: literal` in a deck's front matter (or `inline-code-literal` on a slide) makes every backtick span literal, so a `{…}` shows as code and a component that takes a pill shows plain code. The other classes of plugin
 (essential, external) and what each can do are in `lib/plugins/README.md`.
 
 ## The author's contract

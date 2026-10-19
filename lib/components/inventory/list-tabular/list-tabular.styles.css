@@ -407,10 +407,12 @@ section.list-tabular.register ol > li {
 /* The tag is a pill — the author writes it `{META}` and the pills plugin draws it; register asks
  * for its stamp look through the plugin's color, case and tracking properties and places it at
  * the row's end. */
-section.list-tabular.register ol > li > .lat-pill[data-shape] {
+section.list-tabular.register ol > li > .lat-pill:not([data-c])[data-shape] {
   --lat-pill-bg: var(--accent-soft);
   --lat-pill-edge: var(--accent-soft);
   --lat-pill-ink: var(--accent);
+}
+section.list-tabular.register ol > li > .lat-pill[data-shape] {
   --lat-pill-case: uppercase;
   --lat-pill-tracking: 0.1em;
   justify-self:end;
@@ -418,7 +420,7 @@ section.list-tabular.register ol > li > .lat-pill[data-shape] {
 }
 
 /* register.outline — hairline-bordered tag */
-section.list-tabular.register.outline ol > li > .lat-pill[data-shape] {
+section.list-tabular.register.outline ol > li > .lat-pill:not([data-c])[data-shape] {
   --lat-pill-bg: transparent;
   --lat-pill-edge: var(--border);
   --lat-pill-ink: var(--text-label);

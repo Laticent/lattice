@@ -151,6 +151,8 @@ section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul
    * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
    * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
    * exists to retire. (#1263) */
+}
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not([data-c]):last-child:not(:first-child) {
   --lat-pill-edge:var(--jur-accent, var(--accent));
   --lat-pill-ink:var(--jur-ink, var(--accent));
 }
@@ -200,10 +202,13 @@ section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > 
 }
 section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill,
 section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill {
-  --lat-pill-edge:var(--jur-accent, var(--accent));
-  --lat-pill-ink:var(--jur-ink, var(--accent));
   --lat-pill-case:none;
   align-self:flex-start;
+}
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]),
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
+  --lat-pill-edge:var(--jur-accent, var(--accent));
+  --lat-pill-ink:var(--jur-ink, var(--accent));
 }
 
 /* .hierarchy — the shared jurisdiction card, stacked full-width with WEIGHTED heights

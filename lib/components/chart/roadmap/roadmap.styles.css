@@ -159,9 +159,9 @@
 }
 /* The phase's meta pill (date, status tag, owner) — written `{Q2 2026}` after the phase name and
    drawn by the pills plugin. The roadmap seats it ON the spectrum line at the bottom-right of the
-   header cell, tints it with the column's accent, ringed in the canvas color so the line does not
-   run through it, and sizes it from the grid cell (the plugin's own size follows the text around
-   it, and a chart label follows the cell). */
+   header cell, tints it with the column's accent (unless the author named a color), rings it in the
+   canvas color so the line does not run through it, and sizes it from the grid cell (the plugin's
+   own size follows the text around it, and a chart label follows the cell). */
 :is(section.roadmap, figure.roadmap) thead th:not(:first-child) > .lat-pill {
   position:absolute;
   right:var(--sp-md);
@@ -170,11 +170,13 @@
    * at landscape and 8.35px at square with no bottom at all. See #1213.
    * Times --roadmap-pill-scale so a `venue:` lifts it with the meta role. */
   --lat-pill-size:max(var(--chart-text-min), calc(0.859375cqi * var(--roadmap-pill-scale)));
+  box-shadow:0 0 0 2px var(--bg);
+  z-index:1;
+}
+:is(section.roadmap, figure.roadmap) thead th:not(:first-child) > .lat-pill:not([data-c]) {
   --lat-pill-ink:var(--cat-on-mark);     /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
   --lat-pill-bg:var(--phase-accent, var(--accent));
   --lat-pill-edge:var(--phase-accent, var(--accent));
-  box-shadow:0 0 0 2px var(--bg);
-  z-index:1;
 }
 /* Categorical rotation across phase columns and workstream rows.
    The workstream column reads `--phase-accent` for its lane stripe
@@ -587,11 +589,13 @@
   right:0;
   bottom:calc(-0.546875cqi * var(--roadmap-pill-scale));
   --lat-pill-size:max(var(--chart-text-min), calc(0.859375cqi * var(--roadmap-pill-scale)));
+  box-shadow:0 0 0 2px var(--bg-alt);
+  z-index:1;
+}
+:is(section.roadmap, figure.roadmap).horizons .horizon-head > .lat-pill:not([data-c]) {
   --lat-pill-ink:var(--cat-on-mark);
   --lat-pill-bg:var(--phase-accent, var(--accent));
   --lat-pill-edge:var(--phase-accent, var(--accent));
-  box-shadow:0 0 0 2px var(--bg-alt);
-  z-index:1;
 }
 :is(section.roadmap, figure.roadmap).horizons .horizon-eyebrow {
   font-family:var(--font-label);

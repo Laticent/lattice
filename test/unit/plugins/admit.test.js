@@ -272,3 +272,15 @@ describe('admission on the render paths', () => {
     assert.deepEqual(ran, ['mermaid', 'mermaid'], 'the default set');
   });
 });
+
+describe('the embedded set', () => { it('is pinned: adding a second embedded plugin is a decision, not a side effect', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', '..', '..', 'lib', 'plugins');
+  const embedded = fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, `${e.name}.manifest.json`)))
+    .filter((e) => JSON.parse(fs.readFileSync(path.join(dir, e.name, `${e.name}.manifest.json`), 'utf8')).embedded === true)
+    .map((e) => e.name);
+  assert.deepEqual(embedded, ['pills']);
+});
+});

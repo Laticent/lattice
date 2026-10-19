@@ -141,9 +141,11 @@ section.logo-wall > .cell-stage > ul > li > ul > li {
 /* The pill — a metadata chip below the name, drawn by the pills plugin. The wall reads as one
  * quiet texture, so the chip takes the caption's muted ink and no fill. */
 section.logo-wall > .cell-stage > ul > li > ul > li > .lat-pill {
+  --lat-pill-cap: 1;   /* as large as the name above it, not 0.85 of it */
+}
+section.logo-wall > .cell-stage > ul > li > ul > li > .lat-pill:not([data-c]) {
   --lat-pill-ink: var(--text-muted);
   --lat-pill-bg: transparent;
-  --lat-pill-cap: 1;   /* as large as the name above it, not 0.85 of it */
 }
 
 /* Dense — more marks, smaller cells, tighter gaps. */
