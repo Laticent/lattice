@@ -30,6 +30,15 @@ async function leftEdge(page: import('@playwright/test').Page, png: Buffer): Pro
 	}, png.toString('base64'));
 }
 
+/** Write the deck at any width: at phone width the editor sits behind the Source cell, so open it and come back to Preview. */
+async function writeDeck(page: import('@playwright/test').Page, md: string): Promise<void> {
+	// The editor is on screen at desktop width; at phone width it is behind the Source cell.
+	const phone = !(await page.getByLabel('Deck source').isVisible());
+	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
+	await setEditorContent(page, md);
+	if (phone) await page.getByRole('button', { name: 'Preview', exact: true }).click();
+}
+
 const isAuthorRed = ([r, g, b]: [number, number, number]) => r > 180 && g < 100 && b < 80;
 
 /** The bottom-center pixel: the reader pill ("Content clipped") is painted there, so a clipped slide is not white. A positive control: without it a deck that fits would pass the checks below for any reason. */
@@ -46,7 +55,7 @@ const isPill = ([r, g, b]: [number, number, number]) => !(r > 240 && g > 240 && 
 
 async function exportOverflowDeck(page: import('@playwright/test').Page, format: 'pdf' | 'images' | 'pptx' | 'print') {
 	await gotoStudio(page);
-	await setEditorContent(page, DECK);
+	await writeDeck(page, DECK);
 	await expect.poll(() => persistedSource(page)).toContain('# Overflows');
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const download = page.waitForEvent('download', { timeout: 240_000 });
@@ -54,7 +63,7 @@ async function exportOverflowDeck(page: import('@playwright/test').Page, format:
 	return (await download).path();
 }
 
-test('the Studio images export shows no authoring ring on a clipped slide', async ({ page }) => {
+test('the Studio images export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(300_000);
 	const zip = await JSZip.loadAsync(fs.readFileSync(await exportOverflowDeck(page, 'images')));
 	const slide = Object.keys(zip.files).filter((n) => /slides\/.*-02\.png$/.test(n))[0];
@@ -64,7 +73,7 @@ test('the Studio images export shows no authoring ring on a clipped slide', asyn
 	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[slide].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
 });
 
-test('the Studio PowerPoint export shows no authoring ring on a clipped slide', async ({ page }) => {
+test('the Studio PowerPoint export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(300_000);
 	const zip = await JSZip.loadAsync(fs.readFileSync(await exportOverflowDeck(page, 'pptx')));
 	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/image-2-.*\.png$/.test(n))[0];
@@ -74,7 +83,7 @@ test('the Studio PowerPoint export shows no authoring ring on a clipped slide', 
 	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[media].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
 });
 
-test('the Studio PDF export shows no authoring ring on a clipped slide', async ({ page }) => {
+test('the Studio PDF export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(300_000);
 	try {
 		execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
@@ -92,7 +101,7 @@ test('the Studio PDF export shows no authoring ring on a clipped slide', async (
 });
 
 // The Print panel builds its own sheet PDF from the same capture frame (PrintOptionsPanel.tsx), so it owes the same level.
-test('the Studio Print deck PDF shows no authoring ring on a clipped slide', async ({ page }) => {
+test('the Studio Print deck PDF shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(300_000);
 	try {
 		execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });

@@ -301,14 +301,23 @@ test('the Playground page PREVIEW follows the host\'s admission too: a defaults 
 	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-on.png') });
 });
 
+/** Write the deck at any width: at phone width the editor sits behind the Source cell, so open it and come back to Preview. */
+async function writeDeck(page: import('@playwright/test').Page, md: string): Promise<void> {
+	// The editor is on screen at desktop width; at phone width it is behind the Source cell.
+	const phone = !(await page.getByLabel('Deck source').isVisible());
+	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
+	await setEditorContent(page, md);
+	if (phone) await page.getByRole('button', { name: 'Preview', exact: true }).click();
+}
+
 // THE TOGGLE, ON THE SAME DECK, WITH NO EDIT (#2759). The case above sets the defaults before it loads
 // the deck, so it never sees a deck that is already drawn when the host narrows the set. The Studio
 // preview must follow: off puts each fence back to its source, on draws it again, no reload and no edit.
-test('the Studio preview follows a defaults change on an open deck: on, off, on', async ({ page }) => {
+test('the Studio preview follows a defaults change on an open deck: on, off, on @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(420_000);
 	await gotoStudio(page);
 	await setDefaults(page, null);
-	await setEditorContent(page, DECK('Mermaid toggled'));
+	await writeDeck(page, DECK('Mermaid toggled'));
 	await expect.poll(() => persistedSource(page)).toContain('# Mermaid toggled');
 	const frame = livePreview(page);
 	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
@@ -344,11 +353,11 @@ for (const [label, defaults, shows] of [
 	['Mermaid off', [] as string[], true],
 	['Mermaid on', null, false],
 ] as const) {
-	test(`the Webpage export panel ${shows ? 'warns' : 'is silent'} when ${label}`, async ({ page }) => {
+	test(`the Webpage export panel ${shows ? 'warns' : 'is silent'} when ${label} @crosswidth @webkit-tablet @webkit-phone @gecko`, async ({ page }) => {
 		test.setTimeout(120_000);
 		await gotoStudio(page);
 		await setDefaults(page, defaults === null ? null : [...defaults]);
-		await setEditorContent(page, DECK(`Notice ${label}`));
+		await writeDeck(page, DECK(`Notice ${label}`));
 		await expect.poll(() => persistedSource(page)).toContain(`# Notice ${label}`);
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
 		await page.getByRole('dialog').getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();

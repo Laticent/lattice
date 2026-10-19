@@ -2,6 +2,15 @@ import http from 'node:http';
 import path from 'node:path';
 import { expect, gotoStudio, persistedSource, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
 
+/** Write the deck at any width: at phone width the editor sits behind the Source cell, so open it and come back to Preview. */
+async function writeDeck(page: import('@playwright/test').Page, md: string): Promise<void> {
+	// The editor is on screen at desktop width; at phone width it is behind the Source cell.
+	const phone = !(await page.getByLabel('Deck source').isVisible());
+	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
+	await setEditorContent(page, md);
+	if (phone) await page.getByRole('button', { name: 'Preview', exact: true }).click();
+}
+
 // ── THE STUDIO'S WEBPAGE EXPORT CAN ASK THE READER BEFORE LOADING A SITE'S PICTURES (followups.d/2739-p3) ──
 //
 // The CLI's `--player-consent` lists the origins whose pictures the player may load, but only after the
@@ -12,13 +21,13 @@ import { expect, gotoStudio, persistedSource, SHARE_EXPORTS, setEditorContent, t
 //   2. the file, opened, loads nothing before the reader consents, and shows the banner;
 //   3. "Load pictures" fetches the picture (the control that makes the empty log a refusal);
 //   4. with scripting off the file loads nothing and lists the picture as a link.
-// All three engines, per playwright.config.ts: `@gecko` runs on desktop and Firefox, `@webkit-tablet` on WebKit.
+// All three engines, per playwright.config.ts: `@gecko` runs on desktop and Firefox, the WebKit twin on WebKit at tablet and iPhone size.
 
 test.describe.configure({ timeout: 300_000 });
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
-for (const tag of [' @gecko', ' @webkit-tablet']) {
+for (const tag of [' @gecko', ' @webkit-tablet @webkit-phone']) {
 	test(`a declared origin shows the banner and loads only after Load pictures${tag}`, async ({ page, browser }, testInfo) => {
 		const hits: string[] = [];
 		const server = http.createServer((req, res) => {
@@ -31,7 +40,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		const host = `127.0.0.1:${port}`;
 		try {
 			await gotoStudio(page);
-			await setEditorContent(page, `---\ntheme: indaco\n---\n\n# Consent\n\n![a picture from elsewhere](http://${host}/p.png)\n`);
+			await writeDeck(page, `---\ntheme: indaco\n---\n\n# Consent\n\n![a picture from elsewhere](http://${host}/p.png)\n`);
 			await expect.poll(() => persistedSource(page)).toContain('# Consent');
 			await page.getByRole('button', { name: 'Share', exact: true }).click();
 			const dialog = page.getByRole('dialog');
