@@ -1072,3 +1072,258 @@
 		height: 44px;
 	}
 }
+
+/* ── The map rail (MapRail.tsx): a second window over the filmstrip's slides ──────────────────
+   `.pg-preview-body` holds the filmstrip's wrap and the rail. With no rail (`data-map="off"`, a
+   one-slide deck) it is a flex box with one child, so the wrap keeps exactly the size it had. Side
+   by side on a wide pane, a strip under the filmstrip on a narrow one. Tiles are wireframes (a few
+   boxes read from the slide's markup) with a live render on the ones nearest the reader. */
+.pg-preview-body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+}
+.pg-preview-body > .pg-preview-wrap {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+.pg-preview-body[data-map='strip'] {
+	flex-direction: column;
+}
+.pg-map {
+	display: flex;
+	flex: none;
+	min-height: 0;
+	min-width: 0;
+	background: var(--bg-alt);
+	color: var(--text-muted);
+}
+.pg-map[data-orientation='vertical'] {
+	flex-direction: column;
+	width: 124px;
+	border-inline-start: 1px solid var(--border);
+}
+.pg-map[data-orientation='horizontal'] {
+	flex-direction: column;
+	height: 112px;
+	width: 100%;
+	border-block-start: 1px solid var(--border);
+}
+.pg-map-cmds {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	padding: 4px;
+	border-block-end: 1px solid var(--border);
+}
+.pg-map-cmd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.pg-map-cmd svg {
+	width: 14px;
+	height: 14px;
+}
+.pg-map-cmd:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+	color: var(--text-body);
+}
+.pg-map-cmd:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+.pg-map-pos {
+	min-width: 34px;
+	text-align: center;
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+.pg-map-scroll {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+}
+.pg-map[data-orientation='vertical'] .pg-map-scroll {
+	overflow-x: hidden;
+}
+.pg-map[data-orientation='horizontal'] .pg-map-scroll {
+	overflow-y: hidden;
+}
+.pg-map-track {
+	position: relative;
+}
+.pg-map-tile {
+	position: absolute;
+	display: block;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--bg);
+	overflow: hidden;
+	cursor: pointer;
+	color: inherit;
+}
+.pg-map-tile.is-focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.pg-map-tile:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.pg-map-num {
+	position: absolute;
+	inset-block-end: 2px;
+	inset-inline-start: 3px;
+	font-size: 9px;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted);
+	mix-blend-mode: normal;
+}
+/* A wireframe: boxes in percent of the tile, drawn in the text color at low strength. */
+.pg-wire {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6%;
+	padding: 9% 10%;
+	--wire: color-mix(in srgb, var(--text-muted) 38%, transparent);
+	--wire-soft: color-mix(in srgb, var(--text-muted) 22%, transparent);
+}
+.pg-wire-empty {
+	background: repeating-linear-gradient(135deg, transparent 0 6px, var(--wire-soft) 6px 7px);
+}
+.pg-wire-title {
+	height: 9%;
+	width: 62%;
+	border-radius: 2px;
+	background: var(--wire);
+}
+.pg-wire-text,
+.pg-wire-list,
+.pg-wire-code {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+.pg-wire-line,
+.pg-wire-bullet b,
+.pg-wire-code b {
+	display: block;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--wire-soft);
+}
+.pg-wire-bullet {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+.pg-wire-bullet i {
+	flex: none;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--wire);
+}
+.pg-wire-media {
+	flex: 1;
+	min-height: 18%;
+	border-radius: 3px;
+	background: repeating-linear-gradient(135deg, var(--wire-soft) 0 3px, transparent 3px 7px);
+	outline: 1px solid var(--wire-soft);
+}
+.pg-wire-chart {
+	flex: 1;
+	min-height: 22%;
+	display: flex;
+	align-items: flex-end;
+	gap: 5%;
+	border-block-end: 1px solid var(--wire);
+}
+.pg-wire-chart i {
+	flex: 1;
+	border-radius: 2px 2px 0 0;
+	background: var(--wire);
+}
+.pg-wire-code {
+	padding: 6%;
+	border-radius: 3px;
+	background: var(--wire-soft);
+}
+.pg-wire-code b {
+	background: var(--wire);
+}
+.pg-wire-table {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.pg-wire-table i {
+	display: block;
+	height: 5px;
+	border-radius: 1px;
+	background: linear-gradient(90deg, var(--wire) 0 30%, var(--wire-soft) 30% 100%);
+}
+.pg-wire-quote {
+	height: 14%;
+	border-inline-start: 3px solid var(--wire);
+	background: linear-gradient(90deg, var(--wire-soft), transparent 70%);
+}
+.pg-wire-math {
+	align-self: center;
+	width: 40%;
+	height: 7%;
+	border-radius: 3px;
+	background: var(--wire);
+}
+@media (prefers-reduced-motion: no-preference) {
+	.pg-map-tile {
+		transition: box-shadow 0.12s ease, border-color 0.12s ease;
+	}
+}
+
+.pg-wire-cards {
+	flex: 1;
+	min-height: 24%;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(22%, 1fr));
+	gap: 5%;
+}
+.pg-wire-cards i {
+	border-radius: 3px;
+	background: var(--wire-soft);
+	outline: 1px solid var(--wire);
+}
+.pg-map-num em {
+	margin-inline-start: 4px;
+	font-style: normal;
+	opacity: 0.8;
+}
+/* Live tier: the pooled frame layer covers the track, and a live tile's face fills its button. */
+.pg-map-pool {
+	position: relative;
+}
+.pg-map-live {
+	position: absolute;
+	inset: 0;
+	display: block;
+	pointer-events: none;
+}

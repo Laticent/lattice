@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
@@ -17,6 +17,8 @@ import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { byPattern, createFocusHub, createTextOutliner } from '@/lib/fuoco';
+import { useFocus } from '@/lib/fuoco/react';
 import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {
 	adjacentComponent,
@@ -64,6 +66,7 @@ import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
+import { MapRail } from './MapRail';
 import { WalkBar } from './WalkBar';
 
 export type PlaygroundData = {
@@ -519,6 +522,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Last resolved `@size` geometry, so a capture stamps the shell with THIS deck's
 	// aspect (a `size: 4K` / portrait deck shouldn't replay at 16:9). Updated each render.
 	const lastGeomRef = React.useRef<{ w: number; h: number }>({ w: 1280, h: 720 });
+	// THE MAP RAIL (MapRail.tsx): a second window over the filmstrip's slides, on one shared focus. The hub's
+	// "document" is the list of rendered slides (one `§` line each), so its flat index IS the slide index: the
+	// filmstrip's scroll reports into it, the rail reads from it and asks it to move, and the walk bar, which
+	// reconciles from the frame's scroll, follows without being wired to anything.
+	const mapHub = React.useMemo(() => createFocusHub({ outliner: createTextOutliner({ units: byPattern(/^§/), dropEmpty: false }) }), []);
+	const mapFocus = useFocus(mapHub, (f) => f.flat);
+	const [mapSections, setMapSections] = React.useState<readonly string[]>([]);
+	const [mapAspect, setMapAspect] = React.useState(16 / 9);
+	const [mapOn, setMapOn] = React.useState(true);
+	const [mapSource, setMapSource] = React.useState('');
+	const [mapTheme, setMapTheme] = React.useState<{ palette: string; mode: 'light' | 'dark' }>({ palette: 'cuoio', mode: 'light' });
+	const [mapLiveMod, setMapLiveMod] = React.useState<null | typeof import('./MapRailLive')>(null);
+	const [mapNarrow, setMapNarrow] = React.useState(false);
+	const reportMapFocusRef = React.useRef<() => void>(() => {});
 	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
 	const lastPgCaptureRef = React.useRef(0);
 	const firstCaptureDoneRef = React.useRef(false);
@@ -665,6 +682,92 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		},
 		[onVirtualChange],
 	);
+	/** Scroll the filmstrip to rendered slide `index`: the map rail's way of moving it. Mounts the slides around the
+	 *  target first (the virtual filmstrip), then places it where a walk step would, instantly: a smooth scroll
+	 *  would report every slide it crosses back into the shared focus. The walk bar needs nothing: it reads the
+	 *  frame's scroll and follows. */
+	const scrollToSlide = React.useCallback(
+		(index: number) => {
+			const frame = frameRef.current;
+			const win = frame?.contentWindow;
+			if (!frame || !win) return;
+			mountAroundIndex(index);
+			const band = frameBands(frame, false)[index];
+			if (!band) return;
+			const spare = Math.max(0, (win.innerHeight - band.height) / 2);
+			const inset = spare <= 40 ? spare : 16;
+			win.scrollTo({ top: index === 0 && spare > 40 ? 0 : Math.max(0, band.top - inset), behavior: 'auto' });
+		},
+		[mountAroundIndex],
+	);
+	/** The filmstrip's scroll tells the hub which slide the reader is on. Quiet when it is the hub's own move
+	 *  arriving (the hub does not echo a report to the origin that made it, and a slide already in focus is a no-op). */
+	const reportMapFocus = React.useCallback(() => {
+		const frame = frameRef.current;
+		const win = frame?.contentWindow;
+		if (!frame || !win) return;
+		const bands = frameBands(frame, false);
+		if (!bands.length) return;
+		// The walk's own scroll is in flight (its guard is armed): the slides it crosses are not the reader moving.
+		if (walkScrollRef.current) return;
+		const at = readingSlideIndex(bands, win.scrollY, win.innerHeight, mapHub.get().flat);
+		if (at !== mapHub.get().flat) mapHub.reportUnit('preview', { unitIndex: at });
+	}, [mapHub]);
+	reportMapFocusRef.current = reportMapFocus;
+	const onMapStep = React.useCallback((action: 'first' | 'prev' | 'next' | 'last') => void mapHub.step('rail', action), [mapHub]);
+	const onMapGo = React.useCallback((index: number) => mapHub.go('rail', { unitIndex: index }), [mapHub]);
+	// Narrow panes lay the rail out as a strip under the filmstrip; wide ones put it beside.
+	React.useEffect(() => {
+		const mq = window.matchMedia?.('(max-width: 820px)');
+		if (!mq) return;
+		const read = () => setMapNarrow(mq.matches);
+		read();
+		mq.addEventListener('change', read);
+		return () => mq.removeEventListener('change', read);
+	}, []);
+	// The remembered choice. A blocked store just leaves the rail on.
+	React.useEffect(() => {
+		try {
+			if (localStorage.getItem('lattice-docs-pg-map') === 'off') setMapOn(false);
+		} catch {
+			/* a blocked store */
+		}
+	}, []);
+	// The live tier arrives after the first render, in its own chunk (MapRailLive.tsx says why).
+	React.useEffect(() => {
+		if (!mapOn || mapSections.length < 2 || mapLiveMod) return;
+		let dead = false;
+		const t = setTimeout(() => {
+			import('./MapRailLive')
+				.then((m) => {
+					if (!dead) setMapLiveMod(m);
+				})
+				.catch(() => {
+					/* the rail stays on wireframes */
+				});
+		}, 1500);
+		return () => {
+			dead = true;
+			clearTimeout(t);
+		};
+	}, [mapOn, mapSections.length, mapLiveMod]);
+	const mapLive = React.useMemo(
+		() =>
+			mapLiveMod && mapSections.length > 1 && mapSource
+				? mapLiveMod.liveKit({ options: { themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl }, source: mapSource, count: mapSections.length, palette: mapTheme.palette, mode: mapTheme.mode })
+				: null,
+		[mapLiveMod, mapSections.length, mapSource, mapTheme.palette, mapTheme.mode, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl],
+	);
+	const toggleMap = React.useCallback(() => {
+		setMapOn((on) => {
+			try {
+				localStorage.setItem('lattice-docs-pg-map', on ? 'off' : 'on');
+			} catch {
+				/* a blocked store */
+			}
+			return !on;
+		});
+	}, []);
 	// BACK INTO THE PAGE FROM THE BACK-FORWARD CACHE. iOS Safari restores the page with its
 	// preview frame intact, and the frame then takes no touch scroll until it is laid out again
 	// (reported on an iPhone: leave the Playground, come back, and the preview will not scroll;
@@ -694,6 +797,25 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
 		// touch and scroll listeners to the new one.
 		bindDeckInputRef.current();
+		// …the map rail's shared focus follows the new document's scroll, once per document.
+		{
+			const w = frameRef.current?.contentWindow as (Window & { __pgMapFocus?: boolean }) | null | undefined;
+			if (w && !w.__pgMapFocus) {
+				w.__pgMapFocus = true;
+				let raf = 0;
+				w.addEventListener(
+					'scroll',
+					() => {
+						if (raf) return;
+						raf = w.requestAnimationFrame(() => {
+							raf = 0;
+							reportMapFocusRef.current();
+						});
+					},
+					{ passive: true },
+				);
+			}
+		}
 		// …and hand the new document's window to the virtual filmstrip, which follows its scroll.
 		if (frameRef.current) window.LatticeDeckPreview?.attachVirtual?.(frameRef.current, () => previewStateRef.current, onVirtualChange);
 		applyDebug(frameRef.current, { force: forceRef.current });
@@ -868,6 +990,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
+				// The slides the filmstrip now holds, for the map rail and its shared focus.
+				{
+					const list = Array.isArray(r.state.lastSections) ? (r.state.lastSections as string[]) : [];
+					setMapSections((prev) => (prev.length === list.length && prev.every((x, i) => x === list[i]) ? prev : list));
+					setMapAspect(r.geom.w / r.geom.h);
+					setMapSource(src);
+					setMapTheme({ palette: root.getAttribute('data-palette') || 'cuoio', mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light' });
+					mapHub.update('§\n'.repeat(list.length), { by: 'preview' });
+				}
 				// A document of the app's own replaced the bake: from here the frame shows only
 				// once `is-live` says it has fitted.
 				if (!r.patched) root.removeAttribute('data-pg-bake');
@@ -939,7 +1070,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				return { heavy: !r.patched };
 			}
 		},
-		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible, onVirtualChange],
+		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible, onVirtualChange, mapHub],
 	);
 
 	// Latest render closure — the frame scheduler reaches it via this ref so it always
@@ -1808,6 +1939,21 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			scrollWalk(true);
 		},
 		[scrollWalk],
+	);
+	// The rail asks, the walk moves: the walk owns the position (its index, its scroll guard, the bar), so the rail
+	// goes through `gotoIndex` and the two cannot disagree about where the last slide is. Only with no walk to ask
+	// (a frame with none yet) does the rail scroll the filmstrip itself. A move the filmstrip reported is not sent back.
+	React.useEffect(
+		() =>
+			mapHub.subscribe(
+				(f) => f.flat,
+				(flat) => {
+					if (walkRef.current && viewRef.current === 'read') gotoIndex(flat);
+					else scrollToSlide(flat);
+				},
+				{ ignoreOrigin: 'preview' },
+			),
+		[mapHub, gotoIndex, scrollToSlide],
 	);
 	/** Enter (or move) the component walk. `step` is a stable plan kind (or null →
 	 * title; 'LAST' → the closing slide, for walking backwards across components). */
@@ -2961,6 +3107,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						<div className="pg-pane-label">
 							Rendered slides
 							<span className="pg-pane-label-spacer" />
+							{mapSections.length > 1 && (
+								<button type="button" className="pg-pane-collapse pg-map-toggle" aria-label={mapOn ? 'Hide slide map' : 'Show slide map'} aria-pressed={mapOn} title={mapOn ? 'Hide slide map' : 'Show slide map'} onClick={toggleMap}>
+									<MapIcon aria-hidden="true" />
+								</button>
+							)}
 							{splitActive && (
 								<button
 									type="button"
@@ -2973,20 +3124,33 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								</button>
 							)}
 						</div>
-						<div className="pg-preview-wrap">
-							{/* Instant-shell box — SSR'd empty; the pre-paint replay (playground.astro)
-							    injects a returning visitor's cached first slide into it before hydration,
-							    and React adopts that HTML here (dangerouslySetInnerHTML) so nothing wipes
-							    it. Sits behind the transparent #preview iframe (like the skeleton) and is
-							    dismissed on first live render. Empty + display:none when there's no snapshot. */}
-							<div
-								id="pg-ssr-slidebox"
-								className="pg-ssr-shell"
-								aria-hidden="true"
-								suppressHydrationWarning
-								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
-							/>
-							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
+						<div className="pg-preview-body" data-map={mapOn && mapSections.length > 1 ? (mapNarrow ? 'strip' : 'side') : 'off'}>
+							<div className="pg-preview-wrap">
+								{/* Instant-shell box — SSR'd empty; the pre-paint replay (playground.astro)
+								    injects a returning visitor's cached first slide into it before hydration,
+								    and React adopts that HTML here (dangerouslySetInnerHTML) so nothing wipes
+								    it. Sits behind the transparent #preview iframe (like the skeleton) and is
+								    dismissed on first live render. Empty + display:none when there's no snapshot. */}
+								<div
+									id="pg-ssr-slidebox"
+									className="pg-ssr-shell"
+									aria-hidden="true"
+									suppressHydrationWarning
+									{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
+								/>
+								<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
+							</div>
+							{mapOn && mapSections.length > 1 && (
+								<MapRail
+									sections={mapSections}
+									focus={Math.min(mapFocus, mapSections.length - 1)}
+									orientation={mapNarrow ? 'horizontal' : 'vertical'}
+									aspect={mapAspect}
+									onGo={onMapGo}
+									onStep={onMapStep}
+									live={mapLive}
+								/>
+							)}
 						</div>
 					</section>
 					<button
