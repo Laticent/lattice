@@ -897,6 +897,19 @@ breakpoint), it shows one tile per **part** (the rendered slides the PDF numbers
   map is on, so the preview's layout is byte-for-byte what it was.
 - **Left for the Studio.** The rail takes a count, a focus and callbacks only; the Studio will feed it from its own hub.
 
+## 11i. Closed on 2026-10-19: the WebKit "placeholder under the middle" (P4)
+
+The 2782 follow-up said a jump to 25% of the 15-slide `kpi` deck on WebKit at the tablet box left a placeholder under the
+middle of the view 600 ms later. **The probe was wrong, and the filmstrip is right.** On real WebKit 26 (Playwright build
+2215) at 1180x703, the frame's vertical middle (y = 248) at 25% falls in the 29 px gap between slide 4 (bottom 242) and
+slide 5 (top 271), and `elementFromPoint` there answers with the `ARTICLE.lattice` container. Both slides in view are
+real sections; the same holds at 75% (slides 11 and 12). The old probe read "not a section" as "a placeholder".
+
+Re-measured with the right oracle (every slide touching the viewport, not the element at one point): 15 jumps (five
+fractions x three repeats) at the tablet box and 15 at the phone box on WebKit, with the map off and with it on, show
+**0 placeholders in view in all 60**. `playground-filmstrip-jump.spec.ts` pins that oracle on desktop, mobile and
+`webkit-tablet`, with a failing arm that plants a placeholder in view and must see it. `syncVirtual` is unchanged.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
