@@ -2484,12 +2484,12 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 ## Six questions find the holes before somebody else does.
 
-- [ ] Can someone pretend to be another identity? `spoofing`
-- [ ] Can data be changed in transit or at rest? `tampering`
-- [ ] Can an actor deny having done something? `repudiation`
-- [ ] Can private data reach the wrong reader? `disclosure`
-- [ ] Can one caller exhaust a shared resource? `denial`
-- [ ] Can a caller gain rights nobody granted? `elevation`
+- [ ] Can someone pretend to be another identity? `{spoofing}`
+- [ ] Can data be changed in transit or at rest? `{tampering}`
+- [ ] Can an actor deny having done something? `{repudiation}`
+- [ ] Can private data reach the wrong reader? `{disclosure}`
+- [ ] Can one caller exhaust a shared resource? `{denial}`
+- [ ] Can a caller gain rights nobody granted? `{elevation}`
 
 ---
 
@@ -3253,12 +3253,12 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ## Six sentences have to hold, or the design is not finished.
 
-- [-] A post is visible to every eligible follower who reaches it — except past the pull cap, where ten of your celebrities are dropped on every page. `order the cap, rotate it, or say it out loud`
-- [x] Media is never lost once an upload is acknowledged. `durable`
-- [x] A like counts exactly once per reader and post. `idempotent`
-- [x] A feed page never repeats or skips an item. `stable cursor + dedupe at merge`
-- [-] A blocked account is filtered at read — but a signed media URL outlives the check. `keep the TTL short`
-- [x] Every derived store rebuilds from posts and edges. `rebuildable`
+- [-] A post is visible to every eligible follower who reaches it — except past the pull cap, where ten of your celebrities are dropped on every page. `{"order the cap, rotate it, or say it out loud"}`
+- [x] Media is never lost once an upload is acknowledged. `{durable}`
+- [x] A like counts exactly once per reader and post. `{idempotent}`
+- [x] A feed page never repeats or skips an item. `{stable cursor + dedupe at merge}`
+- [-] A blocked account is filtered at read — but a signed media URL outlives the check. `{keep the TTL short}`
+- [x] Every derived store rebuilds from posts and edges. `{rebuildable}`
 
 ---
 
@@ -3677,12 +3677,12 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 ## Run these six on any design, starting with your own.
 
-- [ ] Who is the protagonist, and who are we not designing for? `casting`
-- [ ] What is the antagonist, and what number describes it? `evidence`
-- [ ] Which rung of the ladder is this, and does everyone agree? `frame`
-- [ ] What breaks first at ten times the load? `scale`
-- [ ] What happens when each dependency is slow rather than down? `failure`
-- [ ] What can one stolen credential reach? `security`
+- [ ] Who is the protagonist, and who are we not designing for? `{casting}`
+- [ ] What is the antagonist, and what number describes it? `{evidence}`
+- [ ] Which rung of the ladder is this, and does everyone agree? `{frame}`
+- [ ] What breaks first at ten times the load? `{scale}`
+- [ ] What happens when each dependency is slow rather than down? `{failure}`
+- [ ] What can one stolen credential reach? `{security}`
 
 ---
 

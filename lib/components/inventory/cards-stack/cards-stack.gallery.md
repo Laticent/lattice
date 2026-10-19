@@ -66,13 +66,13 @@ Parallel items stacked vertically, full-width cards.
 
 ## Four rows with pills is the stack's ceiling.
 
-- Row one `shipped`
+- Row one `{shipped}`
   - A body at the hard budget holds two sentences; the pill carries the status so the prose does not have to.
-- Row two `on track`
+- Row two `{on track}`
   - Four bodies this size still fit at body size; `compact` would only close the gaps between rows.
-- Row three `at risk`
+- Row three `{at risk}`
   - Keep the densest row third; the eye expects trouble near the bottom and reads it with full attention.
-- Row four `blocked`
+- Row four `{blocked}`
   - The hard stop. A fifth row overflows; split the stack or drop to list-tabular.
 
 

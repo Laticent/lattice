@@ -33,6 +33,7 @@ const SPEC = path.join(ROOT, 'spec', 'diagnostics.md');
 /** Every file that emits findings in the protocol's shape. */
 const EMITTERS = [
   'lib/authoring/lint-core.js',
+  'lib/authoring/bare-row-pill.js',
   'lib/authoring/review-core.js',
   'lib/core/flowchart-grammar.js',
   'lib/core/hub-spoke-model.js',

@@ -83,7 +83,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ## What ships in each phase, by workstream.
 
-| Workstream | Foundation `Jul` | Build `Sep` | Launch `Dec` |
+| Workstream | Foundation `{Jul}` | Build `{Sep}` | Launch `{Dec}` |
 | --- | --- | --- | --- |
 | Data model | [-] Unified schema | [ ] History migration | [ ] Cutover |
 | Quoting | [ ] Requirements | [ ] Native quote build | [ ] Pilot |
@@ -97,13 +97,13 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ## Who owns what on Northstar.
 
-- Sponsors the project and clears blockers `Dana Whitfield, VP Sales`
+- Sponsors the project and clears blockers `{"Dana Whitfield, VP Sales"}`
   - Final escalation point; owns the go / no-go at each gate.
-- Runs delivery day to day `Marco Ruiz, Project Lead`
+- Runs delivery day to day `{"Marco Ruiz, Project Lead"}`
   - Owns the plan, the standups, and the status you read each week.
-- Owns the data model and migration `Aisha Bello, Eng Lead`
+- Owns the data model and migration `{"Aisha Bello, Eng Lead"}`
   - Accountable for schema, migration tooling, and zero-loss cutover.
-- Owns adoption and training `Tom Lindqvist, Enablement`
+- Owns adoption and training `{"Tom Lindqvist, Enablement"}`
   - Designs the rollout, the training, and the adoption metric.
 
 ---

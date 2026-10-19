@@ -49,7 +49,7 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ## Each phase pill reads from the back row.
 
-| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
+| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |
 | ---------- | -------------------- | ------------------- | --------------- |
 | Framework  | [x] Taxonomy         | [-] Scoring v2      | [ ] Weights     |
 | Governance | [x] Decision log     | [x] Cadence         | [?] Reporting   |

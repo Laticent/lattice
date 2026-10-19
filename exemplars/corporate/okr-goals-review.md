@@ -36,13 +36,13 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 1. 0.9
    - Grow the buyer base
-   - target 0.7 `Exceeded` `Growth`
+   - target 0.7 `{Exceeded}` `{Growth}`
 2. 0.85
    - Deepen marketplace trust
-   - target 0.8 `Met` `Trust`
+   - target 0.8 `{Met}` `{Trust}`
 3. 0.6
    - Improve supplier liquidity
-   - target 0.8 `Missed` `Supply`
+   - target 0.8 `{Missed}` `{Supply}`
 
 ---
 
@@ -132,13 +132,13 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 1. 90%
    - Order fill rate
-   - up from 71% `Target`
+   - up from 71% `{Target}`
 2. 1,200
    - New suppliers (focus cats)
-   - 3 underserved categories `Target`
+   - 3 underserved categories `{Target}`
 3. 36h
    - Median time-to-fill
-   - down from 61h `Target`
+   - down from 61h `{Target}`
 
 ---
 
@@ -149,7 +149,7 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ## How we close the liquidity gap, by workstream.
 
-| Workstream | Now `Q2` | Build `Q3` | Scale `Q4` |
+| Workstream | Now `{Q2}` | Build `{Q3}` | Scale `{Q4}` |
 | --- | --- | --- | --- |
 | Supplier growth | [x] 4,200 verified | [-] Focus-category drive | [ ] Referral engine |
 | Matching | [x] Basic search | [-] Demand-aware routing | [ ] Predictive restock |

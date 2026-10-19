@@ -107,7 +107,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ## Roadmap does too: missed and uncertain join the plan.
 
-| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
+| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |
 | --- | --- | --- | --- |
 | Billing | [x] Plan tiers | [-] Seat limits | [!] Usage metering |
 | Compliance | [x] Breach notices | [?] Audit log | [/] On-prem vault |

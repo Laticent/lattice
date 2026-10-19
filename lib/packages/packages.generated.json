@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 10
+    "plugin": 11
   },
   "packages": [
     {
@@ -1494,6 +1494,21 @@
         "fixtures.md",
         "manifest.json"
       ]
+    },
+    {
+      "type": "plugin",
+      "name": "pills",
+      "path": "lib/plugins/pills",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
+        "services.js",
+        "styles.css",
+        "syntax.mjs"
+      ],
+      "code": true
     },
     {
       "type": "plugin",

@@ -21,6 +21,10 @@
     },
     "title": {"type": "string", "minLength": 1},
     "description": {"type": "string", "minLength": 1},
+    "embedded": {
+      "type": "boolean",
+      "description": "IN-TREE ONLY. An embedded plugin is part of the engine's body: the host admits it on every render, whatever the default set, a host's narrowing, the deck's `plugins:` list or `disabled` say, and no switch turns it off. A package that arrives as data (a zip) never holds it; the importer refuses one that does. Making a plugin embedded is an owner decision with its own note (engineering/decisions/2026-10-17-pills-plugin.md § 4.5)."
+    },
     "icon": {
       "type": "object",
       "description": "The plugin's mark, as DATA rather than markup: a viewBox and a list of paths, each tagged with the ink it takes. The host draws it (lib/plugins/plugin-icon.mjs) and colors each ink from the active theme — `line` takes the heading ink; `accent` and `fill` take the palette's accent (`accent` stroked, `fill` filled) — so a mark holds its contrast on every palette and can never carry a fixed color, a script or a style. A path is SVG path data and nothing else (the pattern admits only path commands and numbers). Optional; a plugin with none is shown by its name.",
@@ -124,7 +128,11 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 1,
-                "description": "In-tree only, and required there: the tag character before `{`, one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts), the kind's short alias. A zip plugin's kind declares none."
+                "description": "In-tree only, and required there unless the kind is `untagged`: the tag character before `{`, one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts), the kind's short alias. A zip plugin's kind declares none."
+              },
+              "untagged": {
+                "type": "boolean",
+                "description": "In-tree and EMBEDDED plugins only: the kind is the bare record `{…}` with no tag character (a pill). At most one kind in the whole registry is untagged. The row declares its own `lead` and `alias` in `<name>.inline.js`, and the dispatcher keeps it where the first-party pill row sat, between the state marks and the sparks."
               },
               "slot": {
                 "type": "object",

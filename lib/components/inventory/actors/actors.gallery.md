@@ -20,13 +20,13 @@ Roster of responsibilities owned by named actors.
 
 ## The actors ledger names who owns what.
 
-- Owns one row `Each actor`
+- Owns one row `{Each actor}`
   - A verb-first responsibility, twelve words at most.
-- Reads top to bottom `The ledger`
+- Reads top to bottom `{The ledger}`
   - Order carries seniority or sequence.
-- Answers by name `The role chip`
+- Answers by name `{The role chip}`
   - The inline code names the seat.
-- Stops at six rows `This layout`
+- Stops at six rows `{This layout}`
   - Past six, reach for list-tabular.
 
 
@@ -38,19 +38,19 @@ Roster of responsibilities owned by named actors.
 
 ## Seven rows is where the ledger maxes out.
 
-- Row one `First seat`
+- Row one `{First seat}`
   - Even at the ceiling, every row keeps a verb-first responsibility line.
-- Row two `Second seat`
+- Row two `{Second seat}`
   - Eighteen words is the hard budget; this row spends most of them deliberately.
-- Row three `Third seat`
+- Row three `{Third seat}`
   - Rows stay parallel or the column of chips stops lining up.
-- Row four `Fourth seat`
+- Row four `{Fourth seat}`
   - Middle rows read fastest; bury nothing important here.
-- Row five `Fifth seat`
+- Row five `{Fifth seat}`
   - The eye is tiring by now — keep these short.
-- Row six `Sixth seat`
+- Row six `{Sixth seat}`
   - The soft ceiling was one row ago.
-- Row seven `Last seat`
+- Row seven `{Last seat}`
   - The hard stop; an eighth row means a second slide.
 
 
@@ -61,13 +61,13 @@ Roster of responsibilities owned by named actors.
 
 ## The actors ledger names who owns what.
 
-- Owns one row `Each actor`
+- Owns one row `{Each actor}`
   - A verb-first responsibility, twelve words at most.
-- Reads top to bottom `The ledger`
+- Reads top to bottom `{The ledger}`
   - Order carries seniority or sequence.
-- Answers by name `The role chip`
+- Answers by name `{The role chip}`
   - The inline code names the seat.
-- Stops at six rows `This layout`
+- Stops at six rows `{This layout}`
   - Past six, reach for list-tabular.
 
 
@@ -78,13 +78,13 @@ Roster of responsibilities owned by named actors.
 
 ## The actors ledger names who owns what.
 
-- Owns one row `Each actor`
+- Owns one row `{Each actor}`
   - A verb-first responsibility, twelve words at most.
-- Reads top to bottom `The ledger`
+- Reads top to bottom `{The ledger}`
   - Order carries seniority or sequence.
-- Answers by name `The role chip`
+- Answers by name `{The role chip}`
   - The inline code names the seat.
-- Stops at six rows `This layout`
+- Stops at six rows `{This layout}`
   - Past six, reach for list-tabular.
 
 
@@ -95,13 +95,13 @@ Roster of responsibilities owned by named actors.
 
 ## The actors ledger names who owns what.
 
-- Owns one row `Each actor`
+- Owns one row `{Each actor}`
   - A verb-first responsibility, twelve words at most.
-- Reads top to bottom `The ledger`
+- Reads top to bottom `{The ledger}`
   - Order carries seniority or sequence.
-- Answers by name `The role chip`
+- Answers by name `{The role chip}`
   - The inline code names the seat.
-- Stops at six rows `This layout`
+- Stops at six rows `{This layout}`
   - Past six, reach for list-tabular.
 
 

@@ -116,13 +116,13 @@ flowchart LR
 
 ## The pipeline, by version number.
 
-- Signal Intake `v2.4`
+- Signal Intake `{v2.4}`
   - Handles 94% of structured signals without manual intervention. Average latency: `4 min` from ingestion to scored entry.
-- Scoring Model `configurable`
+- Scoring Model `{configurable}`
   - Three dimensions: confidence, recency, relevance. Default weights are `33 / 33 / 33` — the diplomatic opening position.
-- Decision Log `required`
+- Decision Log `{required}`
   - Every prioritization change above `P2` must carry a logged rationale. No log, no change.
-- Calibration Loop `monthly`
+- Calibration Loop `{monthly}`
   - Compares predicted outcomes to actuals. First meaningful weight update happens after `2 cycles`.
 
 ---
@@ -1059,13 +1059,13 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ## Who owns each part of the framework lifecycle.
 
-- Signal custody `Signal owner`
+- Signal custody `{Signal owner}`
   - Runs intake quality. Never tunes the weights — only picks which signals surface.
-- Policy `Framework operator`
+- Policy `{Framework operator}`
   - Owns scoring policy, calibration cadence, and the rollback playbook nobody has run. One person.
-- Consumption `Product team`
+- Consumption `{Product team}`
   - Holds scoring profiles; runs intake and decision-logging; finds the bugs first.
-- Oversight `Auditor`
+- Oversight `{Auditor}`
   - Reads the trail, edits nothing — the one role anyone fears, having read it once.
 
 ---
@@ -1652,18 +1652,18 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ## The signal store answers to three regimes on day one.
 
-- Federal `15 U.S.C. §45`
+- Federal `{15 U.S.C. §45}`
   - Reasonable security for stored customer conversations.
   - An FTC consent order follows the data, not the vendor.
-  - `In effect · FTC Act §5`
-- State `Cal. Civ. §1798.100`
+  - `{In effect · FTC Act §5}`
+- State `{Cal. Civ. §1798.100}`
   - Access, deletion, and correction rights over logged signals.
   - DSAR handling within 45 days; deletion verified.
-  - `Enforced 2023`
-- International `GDPR Art. 5`
+  - `{Enforced 2023}`
+- International `{GDPR Art. 5}`
   - Purpose limitation and storage limits on intake data.
   - Minimization applies to the transcript, not the summary.
-  - `In effect since 2018`
+  - `{In effect since 2018}`
 
 ---
 
@@ -1728,15 +1728,15 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 1. EU AI Act
    - `Title III`
    - Conformity assessment for high-risk systems — a scoring model that ranks people qualifies.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Deployer duties for consequential-decision systems; the decision log is the audit trail.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. Texas DPSA
    - `§541.151`
    - DSAR opt-out portal mandatory; intake transcripts are in scope.
-   - `Effective Mar 2026`
+   - `{Effective Mar 2026}`
 
 ---
 
@@ -1759,11 +1759,11 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 ## Adopt Colorado's deployer-duties framework as the federal floor.
 
 - The audit trail already exists
-  - Every score is logged, signed, DSAR-exportable `Colorado SB 24-205`.
+  - Every score is logged, signed, DSAR-exportable `{Colorado SB 24-205}`.
 - Compliance is a moat, not a cost
-  - Logged decisions saw 31% fewer disputes litigated `Stanford HAI 2025`.
+  - Logged decisions saw 31% fewer disputes litigated `{Stanford HAI 2025}`.
 - One federal floor beats fifty ceilings
-  - Retires conflicting state duties without lowering the bar `EU AI Act Title III`.
+  - Retires conflicting state duties without lowering the bar `{EU AI Act Title III}`.
 
 > Co-sponsor the deployer-duties title in § 4, or move it as a floor amendment.
 
@@ -1871,28 +1871,28 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 - ![Acme](sample:logo-acme.svg)
   - Acme
-  - `API`
+  - `{API}`
 - ![Globex](sample:logo-globex.svg)
   - Globex
-  - `CSV`
+  - `{CSV}`
 - ![Vantage](sample:logo-vantage.svg)
   - Vantage
-  - `API`
+  - `{API}`
 - ![Umbra](sample:logo-umbra.svg)
   - Umbra
-  - `Webhook`
+  - `{Webhook}`
 - ![Meridian](sample:logo-meridian.svg)
   - Meridian
-  - `CSV`
+  - `{CSV}`
 - ![Helios](sample:logo-helios.svg)
   - Helios
-  - `API`
+  - `{API}`
 - ![Northwind](sample:logo-northwind.svg)
   - Northwind
-  - `Manual`
+  - `{Manual}`
 - ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
-  - `API`
+  - `{API}`
 
 ---
 

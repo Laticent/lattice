@@ -28,8 +28,7 @@
  * paints the disc (::before) + mark (::after). The row background tint and
  * left rail pick up the same --state-color. The disc style follows the
  * default (Ringed Solid) or a .checks-* variant; see base.modifiers.css.
- * Trailing inline `code` on a row floats right as a status pill
- * (universal pill convention). */
+ * A trailing `{status}` pill (inline code) on a row floats right as a status tag. */
 section.checklist > .cell-stage { display:flex; flex-direction:column; }
 section.checklist h2 { font-size:var(--fs-emphasis); }
 section.checklist > .cell-stage > ul,
@@ -65,6 +64,13 @@ section.checklist > .cell-stage > ol > li {
   line-height:var(--lh-snug);
   color:var(--text-heading);
   break-inside:avoid;
+}
+/* A row's pill — a status tag written `{blocked}` in inline code, drawn by the pills plugin — rides
+ * the row's far end. The label before it is an anonymous text run, so the push is an auto margin
+ * (the one sanctioned flex push, tools/check-ownership.js SANCTIONED_MARGINS). */
+section.checklist > .cell-stage > :is(ul, ol) > li > .lat-pill {
+  margin-inline-start:auto;
+  align-self:center;
 }
 section.checklist > .cell-stage > ul > li::marker,
 section.checklist > .cell-stage > ol > li::marker { content:''; }

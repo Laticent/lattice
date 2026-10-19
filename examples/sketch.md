@@ -206,11 +206,11 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 
 ## Each row is a sketched card.
 
-- Owns the visual contract `Design Lead`
+- Owns the visual contract `{Design Lead}`
   - Holds `lattice.css` and signs off every token change before it ships.
-- Keeps both renderers honest `Engine Owner`
+- Keeps both renderers honest `{Engine Owner}`
   - Guards parity so the owned engine and the browser runtime never drift apart.
-- Carries the editorial voice `Narrative Lead`
+- Carries the editorial voice `{Narrative Lead}`
   - Edits every shipped deck so the prose reads aloud without a stumble.
 
 ---

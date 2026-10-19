@@ -455,8 +455,8 @@ section.inventory.lat-split-native > .cell-stage:not(:has(> .lat-split-rel))::af
   content: '';
   display: block;
   flex: none;
-  font-size: var(--pill-fs);
-  height: calc(1em + 2 * var(--pill-pad-y) + 2px);
+  font-size: var(--fs-meta);
+  height: calc(1em + 2 * 0.3em + 2px);
 }
 
 /* 2. A LONE TIMELINE ROW MUST NOT BE STRETCHED. The shared lone-member rule

@@ -23,7 +23,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 | `eyebrow` | `p:first-of-type > code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
 | `recommendation` | `h2` | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
 | `impact` | `p` | no | One-sentence framing of the problem or stakes the recommendation addresses. |
-| `rationale` | `ul > li` | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
+| `rationale` | `ul > li` | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in a citation chip, written `{FTC 2025}` in inline code. |
 | `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
 ### Variant decision rule
@@ -35,14 +35,14 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 ### Common mistakes
 
-- **Writing a reason's evidence line without a trailing inline-code citation chip.** Without the trailing citation chip, the evidence line reads as unsupported assertion rather than record-grade evidence — the nested evidence bullet should end in an inline-code citation, not just prose.
+- **Writing a reason's evidence line without a trailing citation chip (`{source}` in inline code).** Without the trailing citation chip, the evidence line reads as unsupported assertion rather than record-grade evidence — the nested evidence bullet should end in a `{source}` citation chip, not just prose.
 - **Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.** A code-only paragraph immediately before the heading is lifted into the masthead and picked up by the shared mono-caps eyebrow rule — it must be the section's first line, wrapped in backticks, or it either stays a plain paragraph (if unwrapped) or becomes an italic subtitle instead (if placed after the heading).
 
 ## When to use
 
 - **One recommendation, put to lawmakers.** When a brief must land a single policy ask — adopt, amend, oppose, or defer — with the evidence that earns it and the exact legislative move to make. The stance badge is the verdict; the ask is the call to action.
 - **The stance sets the color.** Pick the variant by the posture: `adopt` (support, green), `amend` (conditional, amber), `oppose` (against, red), `defer` (study first, neutral). The badge, rail, and ask bar all take the stance color, so the reader sees the position before reading a word.
-- **Reasons carry a citation.** Each reason leads with a bold claim and a nested evidence line ending in an inline-code citation chip. Without the chip the reason reads as opinion; with it, it earns its place in a legislative record.
+- **Reasons carry a citation.** Each reason leads with a bold claim and a nested evidence line ending in a citation chip, written `{FTC 2025}` in inline code. Without the chip the reason reads as opinion; with it, it earns its place in a legislative record.
 
 ## When NOT to use
 
@@ -61,11 +61,11 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 One line naming the problem or the stakes.
 
 - First reason
-  - The evidence for it, with a `Citation` chip.
+  - The evidence for it, with a `{Citation}` chip.
 - Second reason
-  - The evidence for it, with a `Citation` chip.
+  - The evidence for it, with a `{Citation}` chip.
 - Third reason
-  - The evidence for it, with a `Citation` chip.
+  - The evidence for it, with a `{Citation}` chip.
 
 > The specific legislative ask — sponsor, vote, or amend, with the section.
 ```
@@ -86,9 +86,9 @@ Support — green verdict badge and rail.
 Consumers now learn of a breach 78 days late on average.
 
 - Faster notice cuts identity-theft losses
-  - 22% lower per-victim costs where the rule exists `FTC 2025`.
+  - 22% lower per-victim costs where the rule exists `{FTC 2025}`.
 - Already industry practice
-  - 14 of the top 20 processors notify within 30 days `IAPP`.
+  - 14 of the top 20 processors notify within 30 days `{IAPP}`.
 
 > Vote YES on HB 214 § 3.
 ```
@@ -107,9 +107,9 @@ Conditional support — amber badge and rail.
 Post-hoc audits catch bias only after applicants are screened out.
 
 - Pre-deployment testing is preventive
-  - Later audits cannot un-reject candidates `EEOC 2025`.
+  - Later audits cannot un-reject candidates `{EEOC 2025}`.
 - The change is one clause
-  - Move the trigger from § 4(b) to § 3 `Leg. counsel`.
+  - Move the trigger from § 4(b) to § 3 `{Leg. counsel}`.
 
 > Adopt the § 4(b) to § 3 move in the committee substitute.
 ```
@@ -128,9 +128,9 @@ Against — red verdict badge and rail.
 A state-held decryption key is a single point of failure for every resident's data.
 
 - It weakens security for everyone
-  - A mandated backdoor is exploitable by any attacker who finds it `NIST`.
+  - A mandated backdoor is exploitable by any attacker who finds it `{NIST}`.
 - It won't stop determined actors
-  - Open-source encryption stays available outside the state's reach `EFF`.
+  - Open-source encryption stays available outside the state's reach `{EFF}`.
 
 > Vote NO on AB 402, or strike the § 5 escrow mandate.
 ```
@@ -149,9 +149,9 @@ Study first — neutral badge and rail.
 Error rates for the proposed system are unpublished for the populations it would scan.
 
 - The evidence base is missing
-  - No demographic accuracy audit exists for this vendor `GAO request`.
+  - No demographic accuracy audit exists for this vendor `{GAO request}`.
 - A study is already funded
-  - The oversight office can report within one session `fiscal note`.
+  - The oversight office can report within one session `{fiscal note}`.
 
 > Refer HR 19 to interim study; revisit with the audit in hand.
 ```

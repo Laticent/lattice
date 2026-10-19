@@ -41,7 +41,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 - **Period-bounded digest.** When a quarter or half of regulatory motion needs to land as a single scannable ledger. The audience sees what moved, when it took effect, and where to read it — without flipping through a multi-page memo.
 - **Citation is the proof.** Each row anchors on its inline-code citation chip. Without the citation the row reads as opinion; with it, the row earns its place in a compliance brief.
-- **Effective-date pill closes the row.** The trailing `Effective Mon YYYY` chip tells the audience whether the change is live, imminent, or final. The pill is the row's call-to-action signal.
+- **Effective-date pill closes the row.** The trailing `{Effective Mon YYYY}` chip tells the audience whether the change is live, imminent, or final. The pill is the row's call-to-action signal.
 
 ## When NOT to use
 
@@ -61,15 +61,15 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 1. Change name
    - `Citation reference`
    - Summary in one sentence.
-   - `Effective Mon YYYY`
+   - `{Effective Mon YYYY}`
 2. Change name
    - `Citation reference`
    - Summary in one sentence.
-   - `Effective Mon YYYY`
+   - `{Effective Mon YYYY}`
 3. Change name
    - `Citation reference`
    - Summary in one sentence.
-   - `Effective Mon YYYY`
+   - `{Effective Mon YYYY}`
 ```
 
 ## Anatomy
@@ -103,19 +103,19 @@ Ordered by effective date.
 1. EU AI Act
    - `Title III`
    - Conformity-assessment pre-market obligation took effect.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Developer and deployer duties for covered systems.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. FTC v. Avast
    - `§5 unfairness`
    - $16.5M consent order; clarifies the deception standard.
-   - `Final Mar 2026`
+   - `{Final Mar 2026}`
 4. Texas DPSA
    - `§541.151`
    - DSAR opt-out portal mandatory; safe-harbor narrowed.
-   - `Effective Mar 2026`
+   - `{Effective Mar 2026}`
 ```
 
 ### `priority` — priority
@@ -132,15 +132,15 @@ Ranked by exposure.
 1. EU AI Act
    - `Title III`
    - High-risk system inventory due before April.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Deployer disclosures required; copy in flight.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. Texas DPSA
    - `§541.151`
    - DSAR opt-out portal mandatory.
-   - `Effective Mar 2026`
+   - `{Effective Mar 2026}`
 ```
 
 ### `cards` — cards
@@ -157,19 +157,19 @@ One tile per change.
 1. EU AI Act
    - `Title III`
    - Conformity-assessment pre-market obligation took effect.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Developer and deployer duties for covered systems.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. FTC v. Avast
    - `§5 unfairness`
    - $16.5M consent order; clarifies the deception standard.
-   - `Final Mar 2026`
+   - `{Final Mar 2026}`
 4. Texas DPSA
    - `§541.151`
    - DSAR opt-out portal mandatory; safe-harbor narrowed.
-   - `Effective Mar 2026`
+   - `{Effective Mar 2026}`
 ```
 
 ### `diff-bands` — diff-bands

@@ -20,13 +20,13 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ## Four rows keep the two-line card.
 
-- Owns intake `Signal owner`
+- Owns intake `{Signal owner}`
   - Manages source quality and diversity. Never tunes the weights directly.
-- Owns scoring `Framework operator`
+- Owns scoring `{Framework operator}`
   - Sets calibration cadence and version floors.
-- Owns review `Panel chair`
+- Owns review `{Panel chair}`
   - Runs the monthly challenge of the top-ranked items.
-- Owns release `Release manager`
+- Owns release `{Release manager}`
   - Signs off the version that ships.
 
 ---
@@ -36,15 +36,15 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ## Five rows share a line each.
 
-- Owns intake `Signal owner`
+- Owns intake `{Signal owner}`
   - Manages source quality and diversity.
-- Owns scoring `Framework operator`
+- Owns scoring `{Framework operator}`
   - Sets calibration cadence and version floors.
-- Owns review `Panel chair`
+- Owns review `{Panel chair}`
   - Runs the monthly challenge of the top items.
-- Owns release `Release manager`
+- Owns release `{Release manager}`
   - Signs off the version that ships.
-- Owns audit `Auditor`
+- Owns audit `{Auditor}`
   - Samples one release a quarter against the policy.
 
 ---
@@ -54,17 +54,17 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ## Six rows are the soft ceiling.
 
-- Owns intake `Signal owner`
+- Owns intake `{Signal owner}`
   - Manages source quality and diversity.
-- Owns scoring `Framework operator`
+- Owns scoring `{Framework operator}`
   - Sets calibration cadence and version floors.
-- Owns review `Panel chair`
+- Owns review `{Panel chair}`
   - Runs the monthly challenge of the top items.
-- Owns release `Release manager`
+- Owns release `{Release manager}`
   - Signs off the version that ships.
-- Owns audit `Auditor`
+- Owns audit `{Auditor}`
   - Samples one release a quarter against the policy.
-- Owns training `Enablement lead`
+- Owns training `{Enablement lead}`
   - Keeps the onboarding course in step with the policy.
 
 ---
@@ -74,19 +74,19 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ## Seven rows fit without overprint.
 
-- Row one `First seat`
+- Row one `{First seat}`
   - Every row keeps a verb-first responsibility line.
-- Row two `Second seat`
+- Row two `{Second seat}`
   - Eighteen words is the hard budget; this row spends most of them.
-- Row three `Third seat`
+- Row three `{Third seat}`
   - Rows stay parallel or the chips stop lining up.
-- Row four `Fourth seat`
+- Row four `{Fourth seat}`
   - Middle rows read fastest; bury nothing important.
-- Row five `Fifth seat`
+- Row five `{Fifth seat}`
   - The eye is tiring by now, so keep these short.
-- Row six `Sixth seat`
+- Row six `{Sixth seat}`
   - The soft ceiling was one row ago.
-- Row seven `Last seat`
+- Row seven `{Last seat}`
   - The hard stop; an eighth row means a second slide.
 
 ---
@@ -96,17 +96,17 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ## The same seven rows in dark.
 
-- Row one `First seat`
+- Row one `{First seat}`
   - Every row keeps a verb-first responsibility line.
-- Row two `Second seat`
+- Row two `{Second seat}`
   - Eighteen words is the hard budget; this row spends most of them.
-- Row three `Third seat`
+- Row three `{Third seat}`
   - Rows stay parallel or the chips stop lining up.
-- Row four `Fourth seat`
+- Row four `{Fourth seat}`
   - Middle rows read fastest; bury nothing important.
-- Row five `Fifth seat`
+- Row five `{Fifth seat}`
   - The eye is tiring by now, so keep these short.
-- Row six `Sixth seat`
+- Row six `{Sixth seat}`
   - The soft ceiling was one row ago.
-- Row seven `Last seat`
+- Row seven `{Last seat}`
   - The hard stop; an eighth row means a second slide.

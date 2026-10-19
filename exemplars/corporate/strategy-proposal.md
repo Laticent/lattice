@@ -129,13 +129,13 @@ Each route trades capital and control differently. We can build our own plant, a
 
 1. €18M
    - EU revenue
-   - from $0 today `FY2028` `Board`
+   - from $0 today `{FY2028}` `{Board}`
 2. 26%
    - Blended gross margin
-   - vs −7% exporting `FY2028` `Finance`
+   - vs −7% exporting `{FY2028}` `{Finance}`
 3. 51%
    - Verdara JV stake
-   - controlling interest `Governance` `Legal`
+   - controlling interest `{Governance}` `{Legal}`
 
 ---
 
@@ -158,7 +158,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ## How we stand the JV up, workstream by workstream.
 
-| Workstream | Now `H2 2026` | Build `H1 2027` | Scale `H2 2027` |
+| Workstream | Now `{H2 2026}` | Build `{H1 2027}` | Scale `{H2 2027}` |
 | --- | --- | --- | --- |
 | Partner | [x] Shortlist of 3 | [-] Term sheet signed | [ ] JV operational |
 | Production | [ ] Line audit | [-] Tooling transfer | [ ] First shipment |

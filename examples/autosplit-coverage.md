@@ -76,10 +76,10 @@ const after = pages(deck).length;
 
 ## A register with no clause still paginates.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid `{stable}`
+2. split-panel `{stable}`
+3. radar `{beta}`
+4. word-cloud `{preview}`
 
 ---
 
@@ -104,7 +104,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ## The rollout, by horizon.
 
-| Workstream | Horizon 1 `Now` | Horizon 2 `Next` | Horizon 3 `Later` |
+| Workstream | Horizon 1 `{Now}` | Horizon 2 `{Next}` | Horizon 3 `{Later}` |
 | --- | --- | --- | --- |
 | Signal intake | Connector v1 | Two more sources | Streaming |
 | Scoring | Equal weights | Tuned weights | Learned weights |

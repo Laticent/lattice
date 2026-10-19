@@ -59,13 +59,13 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 1. +52%
    - Mean distance between failures
-   - target +40% by FY30 `On plan`
+   - target +40% by FY30 `{On plan}`
 2. −31%
    - Weekday delay minutes
-   - signal and track fixes `On plan`
+   - signal and track fixes `{On plan}`
 3. $96M
    - Avoided emergency repair
-   - over three years `On plan`
+   - over three years `{On plan}`
 
 ---
 
@@ -121,13 +121,13 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 1. −22%
    - Reliability
-   - continued degradation `At risk`
+   - continued degradation `{At risk}`
 2. $1.8B
    - Backlog
-   - +$400M vs today `At risk`
+   - +$400M vs today `{At risk}`
 3. $0
    - Federal match captured
-   - window closes FY28 `At risk`
+   - window closes FY28 `{At risk}`
 
 ---
 

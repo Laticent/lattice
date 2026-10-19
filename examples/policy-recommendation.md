@@ -21,11 +21,11 @@ Four measures reach the floor this week — here is where the caucus should stan
 ## Adopt a 30-day deadline for breach notification.
 
 - Faster notice cuts identity-theft losses
-  - A 30-day rule cut per-victim costs 22% `FTC 2025`.
+  - A 30-day rule cut per-victim costs 22% `{FTC 2025}`.
 - The window is already industry practice
-  - 14 of the top 20 data processors notify within 30 days `IAPP survey`.
+  - 14 of the top 20 data processors notify within 30 days `{IAPP survey}`.
 - Enforcement is self-funding
-  - Penalties fund the oversight office `LBB fiscal note`.
+  - Penalties fund the oversight office `{LBB fiscal note}`.
 
 > Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
@@ -36,11 +36,11 @@ Four measures reach the floor this week — here is where the caucus should stan
 ## Amend SB 88 to require bias audits before deployment, not after.
 
 - Pre-deployment testing is the only preventive control
-  - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.
+  - Audits after launch cannot un-reject filtered candidates `{EEOC 2025}`.
 - The change is narrow and drafted
-  - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.
+  - It moves one clause from § 4(b) to § 3; no new agency `{Leg. counsel memo}`.
 - Vendors can meet it today
-  - Three of five ATS vendors ship pre-deployment reports `vendor survey`.
+  - Three of five ATS vendors ship pre-deployment reports `{vendor survey}`.
 
 > Move the § 4(b) audit trigger to § 3 in the committee substitute before markup.
 
@@ -55,9 +55,9 @@ Four measures reach the floor this week — here is where the caucus should stan
 A state-held decryption key is a single point of failure for every resident's data.
 
 - It weakens security for everyone
-  - A mandated backdoor is exploitable by any attacker who finds it `NIST`.
+  - A mandated backdoor is exploitable by any attacker who finds it `{NIST}`.
 - It won't stop determined actors
-  - Open-source encryption stays available outside the state's reach `EFF`.
+  - Open-source encryption stays available outside the state's reach `{EFF}`.
 
 > Vote NO on AB 402, or strike the § 5 escrow mandate in committee.
 
@@ -72,9 +72,9 @@ A state-held decryption key is a single point of failure for every resident's da
 Error rates for the proposed system are unpublished for the populations it would scan.
 
 - The evidence base is missing
-  - No demographic accuracy audit exists for this vendor `GAO request`.
+  - No demographic accuracy audit exists for this vendor `{GAO request}`.
 - A study is already funded
-  - The oversight office can report within one session `fiscal note`.
+  - The oversight office can report within one session `{fiscal note}`.
 
 > Refer HR 19 to interim study; revisit with the audit in hand.
 

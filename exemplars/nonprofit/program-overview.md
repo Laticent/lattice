@@ -71,13 +71,13 @@ flowchart LR
 
 1. 240
    - Youth enrolled
-   - up from 180 `+33%` `2025`
+   - up from 180 `{+33%}` `{2025}`
 2. 78%
    - Placed or in school
-   - target 70% `On plan` `Verified`
+   - target 70% `{On plan}` `{Verified}`
 3. 91%
    - Credential earned
-   - of those who finished `On plan` `Audited`
+   - of those who finished `{On plan}` `{Audited}`
 
 ---
 
@@ -86,11 +86,11 @@ flowchart LR
 
 ## Who we serve, and who delivers the program.
 
-- Youth participants `Ages 16–24`
+- Youth participants `{Ages 16–24}`
   - 240 young people from the East River neighborhoods, paid $16/hr while they train.
-- Program staff `GreenRoots team`
+- Program staff `{GreenRoots team}`
   - Eight crew leaders and two case managers run daily restoration work and aftercare.
-- Employer partners `14 partners`
+- Employer partners `{14 partners}`
   - Parks departments, utilities, and landscaping firms that hire our graduates directly.
 
 ---
@@ -165,13 +165,13 @@ Crews spend their days on contracted restoration — removing invasive honeysuck
 
 1. 61%
    - From priority neighborhoods
-   - of 240 enrolled `On plan` `Verified`
+   - of 240 enrolled `{On plan}` `{Verified}`
 2. 44%
    - Prior justice contact
-   - re-engaged through work `On plan` `Tracked`
+   - re-engaged through work `{On plan}` `{Tracked}`
 3. 83%
    - Completion rate
-   - finished all 16 weeks `On plan` `Audited`
+   - finished all 16 weeks `{On plan}` `{Audited}`
 
 ---
 
@@ -214,7 +214,7 @@ A spring flood closed three worksites for five weeks, compressing the field cale
 
 ## Where the next three seasons take the Corps.
 
-| Workstream | Now `2025` | Build `2026` | Scale `2027` |
+| Workstream | Now `{2025}` | Build `{2026}` | Scale `{2027}` |
 | --- | --- | --- | --- |
 | Youth served | [x] 240 | [-] 320 | [ ] 450 |
 | Hiring partners | [x] 14 | [-] 22 | [ ] 30 |

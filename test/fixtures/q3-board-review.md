@@ -63,16 +63,16 @@ Prepared for the Northwind Analytics board of directors.
 
 1. $48.6M
    - ARR
-   - plan $47.4M · +31% YoY `Ahead` `Audited`
+   - plan $47.4M · +31% YoY `{Ahead}` `{Audited}`
 2. 118%
    - Net dollar retention
-   - flat QoQ `On plan`
+   - flat QoQ `{On plan}`
 3. 74%
    - Gross margin
-   - +2pp QoQ `Ahead`
+   - +2pp QoQ `{Ahead}`
 4. 19 mo
    - CAC payback
-   - target 14 mo · +4 mo QoQ `Behind`
+   - target 14 mo · +4 mo QoQ `{Behind}`
 
 <!--
 Speaker note, never narrated: if asked about the audit, the Q3 numbers were reviewed by

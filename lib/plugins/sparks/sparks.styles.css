@@ -36,7 +36,7 @@
  * span a line. Strokes opt out through `vector-effect`; dots can't (a stretched circle is an
  * ellipse), so the kernel places each dot as a round HTML span in percent of the box. */
 section .lat-spark {
-  --spark-frame-base:max(var(--pill-fs), 0.5em);
+  --spark-frame-base:max(var(--fs-meta), 0.5em);
   --spark-frame-scale:1;
   /* The frame's unit: a pill's type size, as a LENGTH. The host keeps the text's font-size
    * (one type size per deck, HARD RULE #4 — a spark has no text, so it never needs one). */
@@ -73,7 +73,7 @@ section .lat-spark {
   --spark-track:color-mix(in srgb, currentColor 16%, transparent);
 }
 /* The pill's quiet-role small step (see `.lat-pill` in a below-note or caption). */
-section :where(.below-note, .chart-caption, figcaption) .lat-spark { --spark-frame-base:calc(var(--pill-fs) * 0.85); }
+section :where(.below-note, .chart-caption, figcaption) .lat-spark { --spark-frame-base:calc(var(--fs-meta) * 0.85); }
 section .lat-spark[data-size='sm'] { --spark-frame-scale:0.85; --spark-bare-h:0.8em; --spark-bare-w:3em; --spark-stroke:max(1px, 0.06em); }
 section .lat-spark[data-size='lg'] { --spark-frame-scale:1.6; --spark-bare-h:1.7em; --spark-bare-w:7.5em; --spark-stroke:max(1.5px, 0.08em); }
 section .lat-spark[data-type='ring'] { width:var(--spark-h); --spark-bare-h:1.1em; }

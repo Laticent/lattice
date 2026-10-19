@@ -49,13 +49,13 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ## Who owns what under the proposed joint command.
 
-- Incident command & levee operations `Water District`
+- Incident command & levee operations `{Water District}`
   - Single incident commander; owns levee monitoring, breach response, and pump deployment.
-- Evacuation & public warning `Emergency Mgmt`
+- Evacuation & public warning `{Emergency Mgmt}`
   - Issues evacuation orders and runs the public alert system on the commander's call.
-- Funding & procurement `Finance Office`
+- Funding & procurement `{Finance Office}`
   - Holds the pooled readiness fund and pre-authorises emergency procurement.
-- Recovery & infrastructure `Public Works`
+- Recovery & infrastructure `{Public Works}`
   - Leads post-event debris, road, and levee repair under a standing contract.
 
 ---
@@ -65,11 +65,11 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ## The supporting roles the command draws on during an activation.
 
-- Forecasting & triggers `Met Service`
+- Forecasting & triggers `{Met Service}`
   - Provides the tidal and rainfall forecasts that trigger each readiness level.
-- Health & shelter `Public Health`
+- Health & shelter `{Public Health}`
   - Stands up shelters and medical points once an evacuation is ordered.
-- Legal authority `County Counsel`
+- Legal authority `{County Counsel}`
   - Confirms the statutory basis for orders issued under emergency activation.
 
 ---
@@ -79,7 +79,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ## What each workstream delivers before storm season.
 
-| Workstream | Charter `April` | Drill `June` | Ready `September` |
+| Workstream | Charter `{April}` | Drill `{June}` | Ready `{September}` |
 | --- | --- | --- | --- |
 | Command structure | [x] Roles agreed | [-] Tabletop | [ ] Activation drill |
 | Funding pool | [-] $46M committed | [ ] Pre-auth | [ ] Draw-down tested |
@@ -93,7 +93,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ## Where each agency stands on stand-up commitments.
 
-| Workstream | Charter `April` | Drill `June` | Ready `September` |
+| Workstream | Charter `{April}` | Drill `{June}` | Ready `{September}` |
 | --- | --- | --- | --- |
 | Water District | [x] Commander set | [-] Pump ready | [ ] Breach drill |
 | Emergency Mgmt | [x] Alert linkage | [-] Routes mapped | [ ] Evac exercise |

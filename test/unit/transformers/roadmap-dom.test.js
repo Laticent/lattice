@@ -119,11 +119,11 @@ describe('roadmap.applyToDom — Horizons (table → three-card grid)', () => {
     assert.equal(cards[0].querySelectorAll('li').length, 2);
   });
 
-  test('lifts a trailing <code> in a phase header into .horizon-meta', () => {
+  test('lifts a trailing pill in a phase header into the card head, still the plugin\'s own element', () => {
     const doc = makeDoc(`
       <section class="roadmap horizons"><h2>Plan</h2>
         <table>
-          <thead><tr><th>WS</th><th>Now <code>Q3</code></th></tr></thead>
+          <thead><tr><th>WS</th><th>Now <span class="lat-pill" data-shape="pill">Q3</span></th></tr></thead>
           <tbody><tr><td>API</td><td>cell</td></tr></tbody>
         </table>
       </section>
@@ -131,7 +131,7 @@ describe('roadmap.applyToDom — Horizons (table → three-card grid)', () => {
     chartFamily.applyToDom(doc);
     const card = doc.querySelector('.horizon-card');
     assert.equal(card.querySelector('.horizon-title').textContent.trim(), 'Now');
-    assert.equal(card.querySelector('.horizon-meta').textContent, 'Q3');
+    assert.equal(card.querySelector('.horizon-head > .lat-pill').textContent, 'Q3');
   });
 
   test('renders em-dash and "-" placeholder cells with .row-empty', () => {

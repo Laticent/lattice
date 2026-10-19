@@ -211,7 +211,7 @@ test('a component class written on a panes slide does not run that component on 
   // turned a list pane into a glossary table.
   const html = render('<!-- _class: glossary -->\n\n## Terms\n\n<!-- pane: list -->\n\n- Alpha\n  - one\n- Beta\n  - two\n\n<!-- pane: content -->\n\nx\n');
   const host = html.slice(html.indexOf('<section'), html.indexOf('<div class="lat-panes"'));
-  assert.doesNotMatch(host, /range-pill/);
+  assert.doesNotMatch(host, /data-glossary-range/);
   assert.doesNotMatch(host, /data-class="glossary"|--class:"glossary"/);
   assert.match(html, /<lat-pane class="list form"[^>]*>[\s\S]*?<ul>/);
 });

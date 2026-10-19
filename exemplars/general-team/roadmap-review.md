@@ -47,13 +47,13 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 1. 5 / 7
    - Roadmap items shipped
-   - target 7 · two slipped `At risk`
+   - target 7 · two slipped `{At risk}`
 2. 92%
    - Sprints hit commitment
-   - target 85% · ahead `On plan`
+   - target 85% · ahead `{On plan}`
 3. +6 wk
    - Total schedule slip
-   - concentrated in billing `At risk`
+   - concentrated in billing `{At risk}`
 
 ---
 
@@ -130,7 +130,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ## The H2 plan, with the slipped work front-loaded.
 
-| Workstream | Q3 `now` | Q4 `next` |
+| Workstream | Q3 `{now}` | Q4 `{next}` |
 | --- | --- | --- |
 | Billing | [-] Invoicing v2 | [ ] Dunning automation |
 | Reporting | [-] Scheduled exports | [ ] Report templates |

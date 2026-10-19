@@ -116,16 +116,13 @@ section.statute-stack > .cell-stage > ol > li > strong:first-child {
   text-transform:uppercase;
   color:var(--jur-ink, var(--accent));
 }
-/* Header pill chrome (shared). Neutral outline by default — the citation reads identical
- * across cards (an identifier, not a signal). */
-section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > code {
-  display:inline-flex; align-items:center; line-height:1;
-  font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking); text-transform:none;
-  border:1px solid var(--pill-border, var(--muted-mark));
-  background:var(--pill-bg, var(--bg)); color:var(--pill-fg, var(--text-body));
-  border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x);
-  white-space:nowrap;
+/* Header pills (shared) — written `{15 U.S.C. §6501}` in inline code and drawn by the pills
+ * plugin, neutral outline by default: the citation reads identical across cards (an identifier,
+ * not a signal). The label above is uppercase and meta-sized; a pill keeps its own case and fills
+ * the label's size rather than 0.85 of it. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill {
+  --lat-pill-case:none;
+  --lat-pill-cap:1;
 }
 /* COLUMN cards (default) — the lone citation pill anchors to the header's right corner.
  * Two-child header row (label + lone pill) → space-between pushes the pill to the right
@@ -146,16 +143,18 @@ section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > 
 section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child {
   position:relative;
 }
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > code:last-child:not(:first-child) {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
   position:absolute; right:0; top:50%; transform:translateY(-50%);
   /* Border keeps the mark (a 1px stroke, 3:1); the pill's TEXT takes the ink, like
-   * every other categorical label here. Missed in the first pass because --pill-fg
-   * is a SECOND alias hop (--pill-fg <- --jur-accent <- --cat-N-mark) and the sweep
+   * every other categorical label here. Missed in the first pass because the pill's ink
+   * is a SECOND alias hop (ink <- --jur-accent <- --cat-N-mark) and the sweep
    * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
    * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
    * exists to retire. (#1263) */
-  --pill-border:var(--jur-accent, var(--accent));
-  --pill-fg:var(--jur-ink, var(--accent));
+}
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not([data-c]):last-child:not(:first-child) {
+  --lat-pill-edge:var(--jur-accent, var(--accent));
+  --lat-pill-ink:var(--jur-ink, var(--accent));
 }
 /* Body list. */
 section.statute-stack > .cell-stage > ul > li > ul,
@@ -186,7 +185,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has
   background:none; border:none; padding:0;
   letter-spacing:0.02em;
 }
-/* COLUMN-card status pill — last body item, only-child <code> (the default's authoring puts
+/* COLUMN-card status pill — last body item, only-child pill (the default's authoring puts
  * status in the body so the narrow rail keeps it OFF the header line). Same chrome as the
  * header citation but JURISDICTION-HUED (the card's signal color); foot-anchored to the
  * BOTTOM-LEFT corner + align-self.
@@ -197,22 +196,19 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has
  * breaks the virtual-list height measurement): instead of margin-top:auto on the status li,
  * the body item immediately ABOVE the status (a chrome-free prose/citation line) grows to
  * fill the rail's free space, pushing the status to the foot — the flex:1-spacer idiom. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > code:only-child),
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > code:only-child) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > .lat-pill:only-child),
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > .lat-pill:only-child) {
   flex:1 1 auto;
 }
-section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) > code,
-section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) > code {
-  display:inline-flex; align-items:center; line-height:1;
-  font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking); text-transform:none;
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  border-radius:var(--pill-radius);
-  border:1px solid var(--jur-accent, var(--accent));
-  background:var(--pill-bg, var(--bg));
-  color:var(--jur-ink, var(--accent));
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill {
+  --lat-pill-case:none;
   align-self:flex-start;
-  white-space:nowrap;
+}
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]),
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
+  --lat-pill-edge:var(--jur-accent, var(--accent));
+  --lat-pill-ink:var(--jur-ink, var(--accent));
 }
 
 /* .hierarchy — the shared jurisdiction card, stacked full-width with WEIGHTED heights

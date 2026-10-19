@@ -141,7 +141,7 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 
 ## What a $1.5M commitment builds, year by year.
 
-| Workstream | Year 1 `2026–27` | Year 2 `2027–28` | Year 3 `2028–29` |
+| Workstream | Year 1 `{2026–27}` | Year 2 `{2027–28}` | Year 3 `{2028–29}` |
 | --- | --- | --- | --- |
 | Schools served | [x] 14 today | [-] 22 schools | [ ] 30 schools |
 | Children reached | [x] 1,180 | [-] 1,900 | [ ] 2,800 |
@@ -159,13 +159,13 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 
 1. 2,800
    - children tutored / yr
-   - up from 1,180 `2.4×` `Year 3`
+   - up from 1,180 `{2.4×}` `{Year 3}`
 2. 30
    - partner schools
-   - up from 14 `+16 schools` `Year 3`
+   - up from 14 `{+16 schools}` `{Year 3}`
 3. 86%
    - hold grade-level growth
-   - quality held at scale `Target` `Verified`
+   - quality held at scale `{Target}` `{Verified}`
 
 ---
 

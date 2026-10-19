@@ -114,7 +114,7 @@ The widest label no longer buys width from its neighbors.
 
 - The type floor is reached
   - `--fs-meta` is the floor of the twelve-token scale, so the step the narrow arm already takes is the last one available.
-- So only wide takes `fixed`
+- So only wide takes `{fixed}`
   - Square, tall and strip keep `auto` and render byte-identically. The shift stays live there, and `scale-2xl` leaves wide only `+19.7px`.
 ---
 

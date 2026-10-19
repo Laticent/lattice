@@ -25,7 +25,7 @@ section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > o
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
   /* badge right-anchors via space-between (the title strong/text takes the left end,
-     the trailing code pill the right) — replaces the pill's auto inline-start anchor, which
+     the pill the right) — replaces the pill's auto inline-start anchor, which
      sits outside the flex box and broke the virtual-list scrollHeight measure. */
   justify-content:space-between;
   font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
@@ -34,16 +34,10 @@ section.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
 section.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd) { width:100%; }
 /* — strong: backwards-compat shim (**Title** in existing slides renders identically) — */
 section.cards-grid > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
-/* — inline code badge pinned right on the title row.
- *   This rule must carry full chrome because the markdown emits
- *   `<li>Title <code>pill</code><ul>nested body</ul></li>` — the
- *   `<code>` is neither :last-child nor preceded by `<ul>`, so the
- *   universal pill rule's :last-child guard does not fire here. — */
-section.cards-grid > .cell-stage > ul > li > code,
-section.cards-grid > .cell-stage > ol > li > code { flex:0 0 auto;
-  display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1;
-  font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
+/* — a pill pinned right on the title row. The author writes it with the pills plugin's notation
+ *   (`` `{status}` ``) and the plugin draws it; the card only keeps it from stretching. — */
+section.cards-grid > .cell-stage > ul > li > .lat-pill,
+section.cards-grid > .cell-stage > ol > li > .lat-pill { flex:0 0 auto; }
 /* — card body (nested list) — full-width row below the title. */
 section.cards-grid > .cell-stage > ul > li > ul, section.cards-grid > .cell-stage > ul > li > ol,
 section.cards-grid > .cell-stage > ol > li > ul, section.cards-grid > .cell-stage > ol > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
@@ -66,10 +60,7 @@ section.cards-grid .card {
 }
 section.cards-grid .cards-grid-inner > .card:last-child:nth-child(odd) { width:100%; }
 section.cards-grid .card > strong { flex:1 1 auto; min-width:0; }
-section.cards-grid .card > code { flex:0 0 auto;
-  display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1;
-  font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
+section.cards-grid .card > .lat-pill { flex:0 0 auto; }
 section.cards-grid .card > ul, section.cards-grid .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
 section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 /* — numbered cards (ol): the counter feeds the flush corner tag (lib/base/base.card-tag.css) — */
@@ -112,11 +103,8 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li:last-child:nth-child(odd),
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li:last-child:nth-child(odd) { width:100%; }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > code,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > code { flex:0 0 auto;
-  display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1;
-  font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > .lat-pill,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > .lat-pill { flex:0 0 auto; }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ul,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ol,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ul,

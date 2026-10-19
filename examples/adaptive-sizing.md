@@ -35,16 +35,16 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 
 1. $48.2M
    - Annual recurring revenue
-   - target $46M · +12% `On plan` `Board`
+   - target $46M · +12% `{On plan}` `{Board}`
 2. 71%
    - Gross margin
-   - +3pp QoQ `On plan` `Finance`
+   - +3pp QoQ `{On plan}` `{Finance}`
 3. 119%
    - Net revenue retention
-   - +4pp YoY `Ahead` `Investor`
+   - +4pp YoY `{Ahead}` `{Investor}`
 4. $0.9M
    - Cash burn
-   - target $1.4M `On plan` `Board`
+   - target $1.4M `{On plan}` `{Board}`
 
 ---
 

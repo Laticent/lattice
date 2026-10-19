@@ -88,13 +88,13 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 
 ## The team accountable for delivery.
 
-- Engagement lead `Dana Whitfield`
+- Engagement lead `{Dana Whitfield}`
   - 14 years in public-sector permitting; led three county system replacements to completion.
-- Solution architect `Raj Patel`
+- Solution architect `{Raj Patel}`
   - Designed the standards-based core; owns the portability and integration commitments.
-- Delivery manager `Lena Osei`
+- Delivery manager `{Lena Osei}`
   - Runs the phased rollout and the parallel-run discipline; single point of accountability.
-- Change & training lead `Marco Reyes`
+- Change & training lead `{Marco Reyes}`
   - Owns staff enablement and the public-launch communications plan.
 
 ---
@@ -133,13 +133,13 @@ A big-bang cutover concentrates all risk on one date — the failure mode of the
 
 1. 6 days
    - Median permit turnaround
-   - down from 24 days `On plan` `SLA`
+   - down from 24 days `{On plan}` `{SLA}`
 2. 18 mo
    - To full replacement
-   - phased, fixed-price `On plan` `Delivery`
+   - phased, fixed-price `{On plan}` `{Delivery}`
 3. $0
    - Cost of a failed cutover
-   - parallel-run guarantee `On plan` `Risk`
+   - parallel-run guarantee `{On plan}` `{Risk}`
 
 ---
 
@@ -152,13 +152,13 @@ A big-bang cutover concentrates all risk on one date — the failure mode of the
 
 1. −58%
    - Permit cycle time
-   - residential permits, phase one `On plan` `Outcome`
+   - residential permits, phase one `{On plan}` `{Outcome}`
 2. 92%
    - Applications filed online
-   - up from 31% on legacy `On plan` `Outcome`
+   - up from 31% on legacy `{On plan}` `{Outcome}`
 3. −36%
    - Counter & call volume
-   - staff redeployed to review `On plan` `Outcome`
+   - staff redeployed to review `{On plan}` `{Outcome}`
 
 ---
 
