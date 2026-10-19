@@ -129,6 +129,19 @@ const COMMENTS_ONLY = {
 };
 
 /**
+ * AGGREGATE ALERTS. A job that reads other jobs' `needs.*.result` rather than a
+ * measuring step's outputs, so the stand-down arms (outputs paired with
+ * outcomes, a measurement floor) have nothing to bind to. It is not scanned by
+ * `alarmJobs()`; the arm "an aggregate alert" below pins what applies to it.
+ * Each entry carries why it never closes its thread.
+ */
+const AGGREGATE_ALERTS = {
+  'platform-suites.yml::alert':
+    'it reports that a suite on another OS failed; one green night on one OS is not proof the ' +
+    'platform gap is gone, so a person closes the issue',
+};
+
+/**
  * Shell comment lines, stripped. These workflows document the bugs they fixed
  * BY QUOTING THEM — `perf-nightly.yml` spells out the `--search "in:title …"`
  * form in prose precisely to say never to use it. A naive substring scan reads
@@ -155,6 +168,7 @@ function alarmJobs() {
       const steps = spec.steps || [];
       const filing = steps.find((s) => code(s.run).includes('gh issue create'));
       if (!filing) continue;
+      if (`${file}::${job}` in AGGREGATE_ALERTS) continue;
       const standDown = steps.find((s) => /Stand down|Report .* on the rolling issue/.test(s.name || ''));
       out.push({ file, job, id: `${file}::${job}`, filing, standDown, steps });
     }
@@ -250,6 +264,22 @@ test('nightly alarm contract', async (t) => {
       'modulepreload-coverage-nightly.yml', 'overflow-nightly.yml', 'studio-e2e-nightly.yml',
     ]) {
       assert.ok(files.has(f), `${f} no longer files a rolling issue — did it move or get renamed?`);
+    }
+  });
+
+  await t.test('an aggregate alert is always()-guarded, bot-scoped, and never closes', () => {
+    for (const id of Object.keys(AGGREGATE_ALERTS)) {
+      const [file, job] = id.split('::');
+      const doc = YAML.parse(fs.readFileSync(path.join(WF_DIR, file), 'utf8'));
+      const spec = doc.jobs?.[job];
+      assert.ok(spec, `${id} is listed in AGGREGATE_ALERTS but no longer exists — drop it`);
+      assert.match(norm(spec.if), /always\(\)/, `${id}: the alert job lacks always(), so a failed needs mutes it`);
+      assert.ok(spec.needs?.length >= 1, `${id}: reads no needs.* result`);
+      const run = (spec.steps || []).map((s) => code(s.run)).join('\n');
+      assert.ok(run.includes('gh issue create'), `${id}: files nothing`);
+      assert.ok(!run.includes('gh issue close'), `${id}: closes a thread, but ${AGGREGATE_ALERTS[id]}`);
+      assert.ok(!run.includes('--search "in:title'), `${id}: uses the tokenizing in:title search`);
+      assert.match(run, /\.author\.login == \\"app\/github-actions\\"/, `${id}: lookup is not scoped to the bot author`);
     }
   });
 

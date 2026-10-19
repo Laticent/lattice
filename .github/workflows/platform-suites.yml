@@ -148,8 +148,9 @@ jobs:
             --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | "- \(.name) (\(.conclusion)): \(.html_url)"') || failed=''
           body=$(printf '%s run on `%s` failed: %s\n\nFailed jobs:\n%s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
             "$EVENT" "$REF" "$RUN_URL" "${failed:-"(none listed; open the run)"}")
-          existing=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number,title \
-            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          # The family lookup: exact title AND the bot author, so an issue anyone else files under this title is never the thread.
+          existing=$(gh issue list --repo "$REPO" --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$title\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number // empty")
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$REPO" --body "$body"
             echo "commented on #$existing" >> "$GITHUB_STEP_SUMMARY"
