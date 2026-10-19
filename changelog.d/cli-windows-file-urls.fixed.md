@@ -1,0 +1,2 @@
+- The CLI names its output page and the MP4 encoder pages with `pathToFileURL` instead of string concatenation, so the address is a valid `file:///C:/…` on Windows (and percent-encoded correctly for a path with a space or `#` everywhere).
+- A host-qualified `file://host/share/x` address is refused before any file-system call, so on Windows it can no longer reach a network share.

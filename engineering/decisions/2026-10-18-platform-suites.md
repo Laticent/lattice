@@ -44,10 +44,14 @@ what is needed, so new work can leverage the CI to test against these OS". Settl
 
 ## First entry, and what it leaves out
 
-`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows is not listed
-yet:** `lattice.js` builds its output page URL as `'file://' + path`, which is not a valid Windows file URL, so a Windows leg would
-fail on code the suite does not own. That, the other macOS-unverified surfaces, and measuring a runner's wall-clock are in
-`followups.d/2771-p3-cli-windows-file-urls.md` and `followups.d/2771-p3-platform-suites-candidates.md`.
+`export-confine` on `macos-latest` runs the CLI confinement test and the confine and inliner unit tests. **Windows runs as `export-confine-windows`** (2026-10-19), after a `build-windows` suite that runs the full `npm run build`. The CLI now builds
+its file URLs with `pathToFileURL`. `npm run build` first failed on a `windows-latest` runner at `tools/check-ownership.js`
+(backslash paths against forward-slash allowlists; run 39197530212), then at the Biome launch (the `.bin` shim), the command length
+(8,948 paths in one call) and Biome's backslash paths and invalid JSON on Windows. Each was fixed in `tools/check-ownership.js` or
+`tools/check-lint-coverage.js` and the build now passes (run 39266738239). A per-suite `build` field was added to get a Windows run in the
+meantime and removed once the full build passed.
+The first PR runs showed 28 of 63 `wait-for` tests failing on a macOS runner (stock: perl only, no timeout, gtimeout or flock). The cause was
+the test's own lock probe calling `flock(1)`, so it now falls back to perl (and `isLive` to `ps`, since macOS has no /proc); the entry installs coreutils first, the state the notes call supported.
 
 ## How to add a suite
 

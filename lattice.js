@@ -1895,6 +1895,7 @@ const bakeServices = {
   readToken: readScopeToken,
   scopeKey: diagramScopeKey,
   paletteReader: paletteTokenReader,
+  fileConfine: DECK_CONFINE,
 };
 const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, ...PLUGIN_HOST });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
@@ -3265,12 +3266,12 @@ async function renderBody(browser, g, closeBrowser) {
     const { WEB_IMAGE_PLACEHOLDER } = require('./lib/core/remote-ref.js');
     // The command line names two more places the caller trusts by construction: the layout stylesheet and the
     // palette files (their `url()` assets sit beside them). They join the deck folder and the install.
-    const { createFileConfiner } = require('./lib/export/file-confine.js');
+    const { createFileConfiner, localPathOfFileUrl } = require('./lib/export/file-confine.js');
     const confine = createFileConfiner([...DECK_CONFINE.roots, path.dirname(path.resolve(cssFile)), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
     const outHtmlReal = fs.realpathSync(path.resolve(outHtml));
     // The output page itself, compared by REAL path (the output folder may be reached through a symlink, as
     // /tmp is on macOS), and never throwing: a `file://host/share` address has no local path.
-    const isOutputPage = (url) => { try { return fs.realpathSync(fileURLToPath(url.split(/[?#]/)[0])) === outHtmlReal; } catch { return false; } };
+    const isOutputPage = (url) => { try { const local = localPathOfFileUrl(url); return local !== null && fs.realpathSync(local) === outHtmlReal; } catch { return false; } };
     const standIn = decodeURIComponent(WEB_IMAGE_PLACEHOLDER.slice(WEB_IMAGE_PLACEHOLDER.indexOf(',') + 1));
     const refused = new Set();
     await g(() => page.setRequestInterception(true), 'confine local files');
@@ -3429,7 +3430,7 @@ async function renderBody(browser, g, closeBrowser) {
   // how many auto-split passes it drives.
   // Font correctness does NOT rest on this wait; it rests on the explicit unbounded
   // force-load immediately below, which is unchanged.
-  await g(() => page.goto('file://' + path.resolve(outHtml), {
+  await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, {
     waitUntil: 'load',
     timeout: 60000
   }), 'navigate');
@@ -3650,7 +3651,7 @@ async function renderBody(browser, g, closeBrowser) {
       cleanDocHtml = r.html;
       fs.writeFileSync(outHtml, cleanDocHtml);
       // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
+      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
         for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
@@ -3677,7 +3678,7 @@ async function renderBody(browser, g, closeBrowser) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);
       // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
+      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
         for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }

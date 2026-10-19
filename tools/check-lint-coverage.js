@@ -426,12 +426,46 @@ function unwatchedIncludeExtensions(configText, watched = WATCHED_EXTENSIONS) {
 // ── RUNNERS ───────────────────────────────────────────────────────────────────
 
 function resolveBiome(root) {
+	// Windows cannot spawn the extensionless `.bin/biome` shim, so name the package's JS entry there and run it with node (`spawnBiome`).
+	if (process.platform === 'win32') return path.join(root, 'node_modules', '@biomejs', 'biome', 'bin', 'biome');
 	return path.join(root, 'node_modules', '.bin', 'biome');
+}
+
+/** Paths split into batches whose joined length fits a Windows command line; one batch everywhere else. */
+function batchPaths(paths, limit = process.platform === 'win32' ? 24000 : Infinity) {
+	const batches = [];
+	let cur = [];
+	let len = 0;
+	for (const p of paths) {
+		if (cur.length && len + p.length + 1 > limit) {
+			batches.push(cur);
+			cur = [];
+			len = 0;
+		}
+		cur.push(p);
+		len += p.length + 1;
+	}
+	if (cur.length || !batches.length) batches.push(cur);
+	return batches;
+}
+
+/**
+ * Biome's `--reporter=json` on Windows writes a path with raw backslashes inside its string values (`".github\\scripts\\_x.js"`,
+ * which is not valid JSON), so read each `"path"` value with forward slashes there. Elsewhere the text is parsed as it came.
+ */
+function parseBiomeJson(text, platform = process.platform) {
+	const fixed = platform === 'win32' ? String(text).replace(/("path":")([^"]*)(")/g, (_m, a, b, c) => a + b.replace(/\\/g, '/') + c) : text;
+	return JSON.parse(fixed);
+}
+
+/** `spawnSync` for the Biome binary `resolveBiome` returned: through node on Windows, directly elsewhere. */
+function spawnBiome(biome, args, options) {
+	return process.platform === 'win32' ? spawnSync(process.execPath, [biome, ...args], options) : spawnSync(biome, args, options);
 }
 
 /** The version these parsers were written against — see VERIFIED_BIOME. */
 function biomeVersion(biome) {
-	const res = spawnSync(biome, ['--version'], { encoding: 'utf8' });
+	const res = spawnBiome(biome, ['--version'], { encoding: 'utf8' });
 	const m = /(\d+\.\d+\.\d+)/.exec(`${res.stdout ?? ''}${res.stderr ?? ''}`);
 	return m ? m[1] : null;
 }
@@ -461,13 +495,19 @@ function collectCoverage(root, biome) {
 	const lintable = trackedLintable(listTracked(root)).filter((p) =>
 		fs.existsSync(path.join(root, p)),
 	);
-	const res = spawnSync(biome, ['check', '--verbose', '--max-diagnostics=1', ...lintable], {
-		cwd: root,
-		encoding: 'utf8',
-		maxBuffer: 1 << 28,
-	});
-	if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
-	const output = `${res.stdout}\n${res.stderr}`;
+	// One Biome run per batch of paths. Windows caps a command line near 32,000 characters, and the tracked list is several
+	// hundred thousand; elsewhere one run takes every path, exactly as before. Each batch's file list and `Checked N` tally
+	// are merged, so the answer is the same as one run over all of them.
+	const outputs = [];
+	for (const batch of batchPaths(lintable)) {
+		const res = spawnBiome(biome, ['check', '--verbose', '--max-diagnostics=1', ...batch], {
+			cwd: root,
+			encoding: 'utf8',
+			maxBuffer: 1 << 28,
+		});
+		if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
+		outputs.push(`${res.stdout}\n${res.stderr}`);
+	}
 	// Only rows we ASKED about count. The list is parsed out of human-readable stdout, so a
 	// tracked filename containing a newline made Biome emit an extra `  - <path>` row and
 	// injected a file into the covered set. Intersecting with what we passed in makes a
@@ -475,16 +515,18 @@ function collectCoverage(root, biome) {
 	// too — Biome processes its own config unasked — which is correct: it is not in
 	// `lintable`, so it was never a coverage question.) Found by the red team.
 	const asked = new Set(lintable);
-	const processed = parseFilesProcessed(output).filter((p) => asked.has(p));
+	// Biome prints a Windows path with backslashes; the paths asked about are git's, with `/`. (Only there: on POSIX a backslash is a legal filename character.)
+	const posix = (p) => (process.platform === 'win32' ? p.replace(/\\/g, '/') : p);
+	const processed = outputs.flatMap((o) => parseFilesProcessed(o)).map(posix).filter((p) => asked.has(p));
 	// A config error makes Biome print no list at all — which would otherwise read as
 	// "every file lost coverage" and bury the real message. An EMPTY list is different:
 	// that is Biome answering, and `files.maxSize` is how it happens.
-	if (!sawFilesProcessedBlock(output)) {
-		throw new Error(
-			`biome printed no file list for ${lintable.length} path(s) — it likely failed to start:\n${res.stdout}${res.stderr}`,
-		);
+	const missing = outputs.findIndex((o) => !sawFilesProcessedBlock(o));
+	if (missing !== -1) {
+		throw new Error(`biome printed no file list for ${lintable.length} path(s) — it likely failed to start:\n${outputs[missing]}`);
 	}
-	return { lintable, processed, checkedCount: parseCheckedCount(output) };
+	const counts = outputs.map(parseCheckedCount);
+	return { lintable, processed, checkedCount: counts.some((c) => c === null) ? null : counts.reduce((a, b) => a + b, 0) };
 }
 
 /** `[{dir, ext}]` → `[{path, dir, ext}]`, with a run-unique name. */
@@ -525,25 +567,30 @@ function runProbe(root, biome, targets, token = crypto.randomBytes(6).toString('
 	try {
 		for (const [i, p] of abs.entries()) fs.writeFileSync(p, PROBE_LANGUAGES[probes[i].ext].source);
 		const maxRules = Math.max(...Object.values(PROBE_LANGUAGES).map((l) => l.rules.length));
-		const cap = Math.min(20000, probes.length * maxRules + 100);
-		const res = spawnSync(
-			biome,
-			['check', '--reporter=json', `--max-diagnostics=${cap}`, ...probes.map((p) => p.path)],
-			{ cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 },
-		);
-		if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
-		let report;
-		try {
-			report = JSON.parse(res.stdout);
-		} catch {
-			throw new Error(`biome did not return JSON for the teeth probe:\n${res.stdout}${res.stderr}`);
+		// One Biome run per batch of probe paths (the Windows command-line limit; one batch elsewhere), diagnostics merged.
+		const diagnostics = [];
+		for (const batch of batchPaths(probes.map((p) => p.path))) {
+			const cap = Math.min(20000, batch.length * maxRules + 100);
+			const res = spawnBiome(biome, ['check', '--reporter=json', `--max-diagnostics=${cap}`, ...batch], {
+				cwd: root,
+				encoding: 'utf8',
+				maxBuffer: 1 << 28,
+			});
+			if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
+			let report;
+			try {
+				report = parseBiomeJson(res.stdout);
+			} catch {
+				throw new Error(`biome did not return JSON for the teeth probe:\n${res.stdout}${res.stderr}`);
+			}
+			if (report.summary?.diagnosticsNotPrinted) {
+				throw new Error(
+					`biome truncated ${report.summary.diagnosticsNotPrinted} probe diagnostic(s); raise the --max-diagnostics cap`,
+				);
+			}
+			diagnostics.push(...(report.diagnostics ?? []));
 		}
-		if (report.summary?.diagnosticsNotPrinted) {
-			throw new Error(
-				`biome truncated ${report.summary.diagnosticsNotPrinted} probe diagnostic(s); raise the --max-diagnostics cap`,
-			);
-		}
-		return { probes, silent: diffProbes({ probes, diagnostics: report.diagnostics ?? [] }) };
+		return { probes, silent: diffProbes({ probes, diagnostics }) };
 	} finally {
 		for (const s of signals) process.removeListener(s, onSignal);
 		sweep();
@@ -626,14 +673,14 @@ function confirmSuppressed(root, biome, candidates, read) {
 			const head = String(read(c.origin) ?? '').split('\n').slice(0, 40).join('\n');
 			fs.writeFileSync(path.join(root, c.rel), `${head}\n${PROBE_JS}`);
 		}
-		const res = spawnSync(
+		const res = spawnBiome(
 			biome,
 			['check', '--reporter=json', `--max-diagnostics=${copies.length * 8 + 100}`, ...copies.map((c) => c.rel)],
 			{ cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 },
 		);
 		let report;
 		try {
-			report = JSON.parse(res.stdout);
+			report = parseBiomeJson(res.stdout);
 		} catch {
 			// Could not confirm — treat every candidate as suppressed. Failing CLOSED here
 			// costs a bless; failing open costs the protection this whole fold-in provides.
@@ -839,6 +886,8 @@ module.exports = {
 	diffProbes,
 	unwatchedIncludeExtensions,
 	resolveBiome,
+	batchPaths,
+	parseBiomeJson,
 	listTracked,
 	collectCoverage,
 	probePaths,

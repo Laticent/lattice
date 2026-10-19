@@ -1,0 +1,1 @@
+- The Mermaid render worker's own Chromium page now applies the deck-folder file confinement: a flowchart image node (`A@{ img: "file:///…" }`) naming a file whose real path is outside the deck folder gets the missing-picture stand-in, and the CLI names the refusal on stderr. `fileConfine` joins the generic bake services.

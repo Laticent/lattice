@@ -93,9 +93,14 @@ const lockPath = (job) => path.join(LOCK_ROOT, `${job}.lock`);
  * on an open descriptor and is released when that closes. Asking the filesystem
  * would report a released lock as still held forever. Ask the kernel instead.
  */
+const HAS_FLOCK = spawnSync('flock', ['--version'], { stdio: 'ignore' }).status === 0;
 const lockHeld = (job) => {
   const f = lockPath(job);
   if (!fs.existsSync(f)) return false;
+  // macOS ships no flock(1): ask the same kernel lock through perl's builtin (exit 1 = held, as `flock -n` fails).
+  if (!HAS_FLOCK) {
+    return spawnSync('perl', ['-e', 'use Fcntl ":flock"; open(my $fh, "<", $ARGV[0]) or exit 3; exit(flock($fh, LOCK_EX|LOCK_NB) ? 0 : 1)', f], { timeout: 10_000 }).status === 1;
+  }
   return spawnSync('flock', ['-n', f, 'true'], { timeout: 10_000 }).status !== 0;
 };
 
@@ -124,7 +129,9 @@ const isLive = (pid) => {
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
     return stat.slice(stat.lastIndexOf(')') + 1).trim().split(/\s+/)[0] !== 'Z';
   } catch {
-    return false;
+    // No /proc (macOS): `ps` prints the state letter, and nothing at all for a pid that is gone.
+    const state = spawnSync('ps', ['-o', 'state=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim();
+    return state !== '' && !state.startsWith('Z');
   }
 };
 
@@ -395,7 +402,7 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
 // This does NOT verify macOS. It verifies the mechanism the macOS path uses.
 // The platform itself stays UNVERIFIED from a Linux sandbox (HARD RULE #23).
 for (const impl of ['flock', 'perl']) {
-  describe(`wait-for — the lock via ${impl}`, () => {
+  describe(`wait-for — the lock via ${impl}`, { skip: impl === 'flock' && !HAS_FLOCK && 'no flock(1) on this box (stock macOS)' }, () => {
     test('refuses a second waiter while the job is held', () => {
       const job = jobName(`impl-${impl}`);
       const holder = spawnHolder(job, 20, impl);

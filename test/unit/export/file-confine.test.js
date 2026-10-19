@@ -89,3 +89,10 @@ test('buildPlayerHtml confines a deck-relative symlink and a typed file address 
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a host-qualified file address names no local file and is refused before any file-system call', () => {
+  const { localPathOfFileUrl } = require('../../../lib/export/file-confine.js');
+  assert.equal(localPathOfFileUrl('file://evilhost/share/x.png'), null);
+  assert.equal(createFileConfiner([os.tmpdir()]).allows('file://evilhost/share/x.png'), false);
+  assert.notEqual(localPathOfFileUrl('file://localhost' + pathToFileURL(os.tmpdir()).pathname), null, 'file://localhost is this machine');
+});
