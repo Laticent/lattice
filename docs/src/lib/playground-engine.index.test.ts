@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const render = vi.fn();
 vi.mock('./render-engine', () => ({ renderMarkdown: (...a: unknown[]) => render(...a) }));
 vi.mock('./load-engine', () => ({ ensureEngine: async () => {} }));
-vi.mock('./theme-fetch', () => ({ createThemeFetcher: () => ({ ensure: async () => {}, fetch: async () => {} }) }));
+vi.mock('./theme-fetch', () => ({ createThemeFetcher: () => ({ ensure: async () => {}, fetch: async () => {}, baseVersion: () => 0, baseSignature: () => '0', growBase: async () => false, backstop: async () => false }) }));
 
 import { createEngineBridge } from './playground-engine';
 
