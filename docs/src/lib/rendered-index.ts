@@ -93,6 +93,16 @@ export function deckChromeOf(html: string): string {
 }
 
 /**
+ * The deck to render once to learn the chrome its front matter gives every slide: the front matter plus one content
+ * slide, or null when the front matter sets none (every slide then shows `NO_CHROME`). Read the keys loosely (quoted,
+ * indented, a space before the colon) because the engine does: a key this misses leaves the blank slide untold.
+ */
+export function chromeProbeOf(source: string): string | null {
+	const front = /^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(String(source ?? ''))?.[0] ?? '';
+	return /^[ \t]*["']?(paginate|header|footer)["']?[ \t]*:/m.test(front) ? `${front}\n\nx\n` : null;
+}
+
+/**
  * Whether each top-level section is BLANK: no text, no picture, no drawing. The engine renders a slide the
  * author left empty (`---` twice in a row) and the outliner drops it, so the index needs to know which engine
  * slides own no part. Read from the markup, in the same order as `stampsOf`.

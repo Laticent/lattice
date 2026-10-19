@@ -267,3 +267,51 @@ test('@crosswidth Home and End on the rail keep keyboard focus on the rail', asy
 	await expect.poll(() => walkPos(page)).toBe(`1 / ${total}`);
 	await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-unit'))).toBe('0');
 });
+
+// Front matter that sets a header and page numbers puts them on every slide, a blank one too. The map has to
+// still know that slide is blank: if it does not, every tile after it lands one page early.
+const CHROME_BLANK = `---
+paginate: true
+header: Quarterly review
+---
+
+# Alpha
+
+---
+
+---
+
+# Gamma
+
+---
+
+# Delta
+
+---
+
+# Epsilon
+
+---
+
+# Zeta
+
+---
+
+# Eta
+`;
+
+test('a blank slide in a deck with a front matter header and page numbers owns no tile, and the tiles after it land on their own slides', async ({ page }) => {
+	await page.addInitScript(([k, md, m]) => {
+		localStorage.setItem(k, md);
+		localStorage.setItem(m, '1');
+	}, [SOURCE_KEY, CHROME_BLANK, MAP_KEY]);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible({ timeout: 40_000 });
+	// Seven engine slides, six authored ones: the blank slide is not a tile.
+	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(6);
+	// Gamma is the third engine slide, Delta the fourth (not the last, so the scroll does not clamp).
+	await page.locator(`${RAIL} button[data-unit="1"]`).click();
+	await expect.poll(() => slideInView(page)).toBe('3');
+	await page.locator(`${RAIL} button[data-unit="2"]`).click();
+	await expect.poll(() => slideInView(page)).toBe('4');
+});

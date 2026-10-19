@@ -6,7 +6,7 @@ import { appendAutoGlossary, autoGlossarySections } from '../../../lib/core/glos
 import structural from '../../../lib/core/structural-split.js';
 import { createEngine } from '../../../lib/engine';
 import { buildDeckIndex } from './deck-outline';
-import { blanksOf, buildRenderedIndex, deckChromeOf, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
+import { blanksOf, buildRenderedIndex, chromeProbeOf, deckChromeOf, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
 
 type Split = {
 	splitCapacityFrom: (m: unknown) => unknown;
@@ -28,8 +28,8 @@ function pagesOf(md: string): { stamps: string[]; html: string } {
 /** How many slides the engine makes of `md` before the preview split cuts any in two. */
 /** `blanksOf` the way the Playground calls it: told the chrome the deck's front matter gives every slide. */
 function blanksFor(md: string, html: string): boolean[] {
-	const front = /^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(md)?.[0] ?? '';
-	return blanksOf(html, /^(paginate|header|footer):/m.test(front) ? deckChromeOf(pagesOf(`${front}\n\nx\n`).html) : undefined);
+	const probe = chromeProbeOf(md);
+	return blanksOf(html, probe ? deckChromeOf(pagesOf(probe).html) : undefined);
 }
 
 function countSlides(md: string): number {
@@ -216,6 +216,16 @@ describe('known defect: the outliner drops an empty slide the engine renders', (
 		const pag = '<!-- _paginate: true -->\n';
 		const mostPag = `${pag}# A\n\n---\n\n${pag}# B\n\n---\n\n${pag}\n---\n\n---\n\n${pag}# E\n`;
 		expect(blanksFor(mostPag, pagesOf(mostPag).html)).toEqual([false, false, false, true, false]);
+	});
+
+	it('reads the front matter keys the way the engine does: quoted, indented, or a space before the colon', () => {
+		for (const key of ['"header": H', '  header: H', 'header : H']) {
+			const md = `---\n${key}\n---\n\n# A\n\n---\n\n---\n\n# C\n`;
+			expect(chromeProbeOf(md), key).not.toBeNull();
+			expect(blanksFor(md, pagesOf(md).html), key).toEqual([false, true, false]);
+		}
+		expect(chromeProbeOf('---\nheaderless: 1\n---\n\n# A\n')).toBeNull();
+		expect(chromeProbeOf('# A\n\n---\n\nheader: H\n')).toBeNull();
 	});
 
 	it('a deck with a background-only slide and a later real blank drops the blank, not the background slide', async () => {
