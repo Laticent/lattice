@@ -117,6 +117,14 @@ record of text, mark and plate. What changes is the word. "Legend" is the plugin
 name of the broad concept; "label" remains the word for one record, and `label-set` keeps its
 name as the data shape for a collection.
 
+**One door for every label.** A label that sits directly on a chart (a cell value, a heatmap
+callout, an edge name) is not a separate plugin. It is a legend entry drawn in a non-key
+layout. The collection layouts are `key` (swatch + text, apart from the marks), `anchored`
+(placed at a mark and handed to `placeLabels`) and `along-path` (rides a line). A plain label
+is a one-entry legend with no mark and no plate: the "no background, no border, no icon"
+default. "Legend" therefore names the plugin and the whole model, and "key" names the layout
+that decodes an encoding, which is the sense `svg-legend.js` used.
+
 Consequences to handle during the build, not after:
 
 - `lib/core/html-legend.js` and `svg-legend.js` already use the word for the key alone. The
