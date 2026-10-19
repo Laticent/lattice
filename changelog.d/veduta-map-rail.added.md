@@ -1,0 +1,1 @@
+- **The Playground knows which authored slide each preview page belongs to.** `rendered-index.ts` joins the page stamps of the preview split to the deck outline and names slide clones (focus steps, pane slides) and split runs, with a test over all 292 example decks at three sizes. No rendered output changes.

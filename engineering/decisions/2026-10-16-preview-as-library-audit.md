@@ -842,6 +842,38 @@ These replace the matching 2026-10-17 rulings in section 9 and the phase order i
 trappings (mark, catalog, docs, demo, guide, build, gate); then the Studio picture-in-picture on live, wireframe and
 pill tiles; posters last.
 
+## 11g. Built on 2026-10-19: the rendered index (P2)
+
+`docs/src/lib/rendered-index.ts` is the rendered index §11d.1 proved on paper. The engine is not changed and
+nothing reaches an export. Three findings changed the design:
+
+1. **The slide number is not the part.** `data-lattice-slide` numbers the engine's sections after it has cloned
+   slides, so a `_focusSteps` slide (`examples/focus.md`: 11 authored, 14 rendered) and a pane slide at a tall size
+   (`examples/panes.md`, 35 portrait and square decks in all) shift every later number. Reading `N - 1` as the part
+   was wrong for those decks, and a first version that did so left pages unexplained in 9 decks. The stamp is kept as
+   the engine slide (`slide`) and the structural split's run (`run`, the `.k`); the **clone** is a third coordinate,
+   `copy`, and the part comes from counting.
+2. **Counting is the lookup, and it is rare.** `buildRenderedIndex(stamps, deck, perPart?)` joins stamps to the outline.
+   When the engine's slide count equals the outline's part count (almost every deck) the stamps are the whole answer.
+   Only when they differ does `renderedIndexOf` ask the engine how many slides each part makes on its own
+   (`sectionsPerPart`: one render per part under the deck's front matter, memoized by part text, so an edit re-renders
+   one part). §11d.1 priced this at 115 ms on the gallery, once.
+3. **The bridge computes it lazily.** `RenderResult.index()` in `playground-engine.ts` returns one memoized promise
+   and does no work, not even the outline parse, until a map asks, so a Playground with no map pays nothing per keystroke. The stamps come from the
+   one `splitForPreview` call the frame shows.
+
+4. **Two things the engine does that the outline does not.** The auto-glossary appends pages after the last part
+   (`autoGlossarySections`), so they are marked `synthetic` and each part is counted with the glossary trigger removed
+   (a part rendered alone would grow its own glossary page). An empty slide is rendered by the engine and dropped by
+   the outliner; the index reports the surplus page as unexplained instead of shifting later pages onto the wrong
+   part. Fixing the dropped slide at the source is the empty-slide defect in the next handoff (P7). Both came from an
+   independent checker, not from the first test run.
+
+**Evidence.** `rendered-index.test.ts` renders all 292 example and baseline decks through the Playground's path
+(auto-glossary appended) at their own size, at portrait and at square (876 renders), and requires zero unexplained pages and zero unexplained parts at each, with the clone and
+split paths exercised. Its failing arm reads the same decks without the clone counts and must flag `focus.md` and
+`panes.md`. `playground-engine.index.test.ts` pins the laziness and the single split.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
