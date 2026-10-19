@@ -184,6 +184,16 @@ test('@smoke @gecko the photo under the mouse in the Studio preview pops, its ne
 		.poll(() => tiles.nth(1).locator('img').evaluate((el) => { const c = getComputedStyle(el); return `${c.outlineStyle} ${c.outlineWidth}`; }), { timeout: 5_000 })
 		.toMatch(/^solid [1-9]/);
 	await expect.poll(() => tiles.nth(0).locator('img').evaluate((el) => getComputedStyle(el).outlineStyle), { timeout: 5_000 }).toBe('none');
+	// Moving off the photo onto the slide's margin takes the cue away again; the next move puts it back.
+	const corner = await page.evaluate(() => {
+		const b = (document.querySelector('iframe.live') as HTMLIFrameElement).getBoundingClientRect();
+		return { x: b.left + 4, y: b.top + 4 };
+	});
+	await page.mouse.move(corner.x, corner.y, { steps: 4 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
+	await page.mouse.move(at.x, at.y, { steps: 4 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
 	// Moving to another photo moves the marker; there is never more than one.
 	const next = await photoAt(page, 2);
 	await page.mouse.move(next.x, next.y, { steps: 6 });
@@ -194,6 +204,26 @@ test('@smoke @gecko the photo under the mouse in the Studio preview pops, its ne
 	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
 	await expect.poll(() => tiles.nth(2).evaluate((el) => getComputedStyle(el).transform), { timeout: 5_000 }).toBe('none');
 	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');
+});
+
+// A slide change moves no pointer. The slide under a still mouse changes, so the cursor and the marker have to
+// follow the slide, not the last mouse move: wheel from a collage onto a text slide with the mouse where it is.
+test('@smoke the zoom cursor and the marker leave with the slide when the wheel changes it under a still mouse', async ({ page }) => {
+	const planDeck = ['---', 'marp: true', '---', '', '<!-- _class: collage -->', '', '## First slide', '', '- ![Tall portrait](sample:photo-tall.jpg)', '- ![Wide landscape](sample:photo-wide.jpg)', '- ![Square](sample:photo-square.jpg)', '- ![Panorama](sample:photo-pano.jpg)', '', '---', '', '## Second slide', '', 'Only words here.'].join('\n');
+	await openStudioDeck(page, planDeck);
+	const holderCursor = () =>
+		page.evaluate(() => {
+			for (let e = document.querySelector('iframe.live')?.parentElement ?? null; e; e = e.parentElement) if (e.style.cursor) return e.style.cursor;
+			return '';
+		});
+	const at = await photoAt(page, 1);
+	await page.mouse.move(at.x - 40, at.y - 40);
+	await page.mouse.move(at.x, at.y, { steps: 4 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
+	await page.mouse.wheel(0, 300);
+	await expect(slideTitle(page)).toHaveText('Second slide', { timeout: 15_000 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
 });
 
 test('@parity @webkit-phone a tap on a photo in the Studio preview opens it; a tap on the close button closes it', async ({ page }, info) => {

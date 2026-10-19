@@ -3795,6 +3795,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		el.setAttribute('aria-label', `Reset zoom to fit — currently ${pct}`);
 	}, []);
 	const previewTapOffRef = React.useRef<(() => void) | null>(null);
+	const rehoverRef = React.useRef<(() => void) | null>(null);
+	// The pointer has not moved but the slide under it has: hit-test it again (see `onHover`'s setup).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the slide index is the trigger; the effect reads no value from it
+	React.useEffect(() => {
+		rehoverRef.current?.();
+	}, [viewIndex]);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
 		previewHolderRoRef.current?.disconnect();
 		previewHolderRoRef.current = null;
@@ -3829,9 +3835,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let hoverAt: { x: number; y: number } | null = null;
 		let hoverRaf = 0;
 		const hoverFrame = () => previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-		const onHover = (e: PointerEvent) => {
-			if (e.pointerType !== 'mouse') return;
-			hoverAt = { x: e.clientX, y: e.clientY };
+		const scheduleHover = () => {
 			if (hoverRaf) return;
 			hoverRaf = requestAnimationFrame(() => {
 				hoverRaf = 0;
@@ -3844,6 +3848,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				}
 			});
 		};
+		const onHover = (e: PointerEvent) => {
+			if (e.pointerType !== 'mouse') return;
+			hoverAt = { x: e.clientX, y: e.clientY };
+			scheduleHover();
+		};
+		// A slide change under a still mouse moves no pointer, so the marker and the cursor would stay
+		// on what was under it. The slide-change effect below asks for one more hit-test.
+		rehoverRef.current = () => {
+			if (hoverAt) scheduleHover();
+		};
 		const onLeave = () => {
 			hoverAt = null;
 			hoverCodeCopyAt(hoverFrame(), null, null);
@@ -3855,6 +3869,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		holder.addEventListener('pointermove', onHover);
 		holder.addEventListener('pointerleave', onLeave);
 		previewTapOffRef.current = () => {
+			rehoverRef.current = null;
 			holder.removeEventListener('pointerdown', onPress, true);
 			holder.removeEventListener('click', onTap);
 			holder.removeEventListener('pointermove', onHover);
