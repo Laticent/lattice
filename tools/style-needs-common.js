@@ -3,11 +3,11 @@
  *
  * The Playground's style loader (docs/src/lib/style-loader.ts) fetches an index and the modules a
  * document needs. A module counts as "needed" when any selector's tokens are present, and a dozen
- * generic selectors (`section`, `h1`, `p`, `svg`) are present in every deck, so 49 of the 187 modules (13 unconditional, 36 common)
+ * generic selectors (`section`, `h1`, `p`, `svg`) are present in every deck, so 61 of the 187 modules (13 unconditional, 48 common)
  * are needed by 70% or more of the example decks. Fetching them after the first render costs a round
  * trip and a request each; putting them in the FLOOR (what loads at start, in parallel with the engine
- * bundle) costs nothing in bytes, because most decks load them anyway. Measured over the 292 example
- * decks (2026-10-19, token index): the floor goes from 13 modules and 57 KB to 49 modules and 219 KB
+ * bundle) costs nothing in bytes, because most decks load them anyway. Measured over the 295 example
+ * decks (2026-10-19, token index): the floor goes from 13 modules and 57 KB to 61 modules and 238 KB
  * minified, the median deck's post-render fetches fall from 43 modules to 5, and the median bytes
  * loaded stay at 243 KB (waste 2 KB) — engineering/decisions/2026-10-18-on-demand-styles.md §11.
  *

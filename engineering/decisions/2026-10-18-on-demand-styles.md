@@ -361,7 +361,7 @@ Without the parameter the Playground registers the whole `lattice.css`, as it al
 whole on the evidence below; flipping it is one line (`loaderOn` in `docs/src/lib/playground-engine.ts`).
 
 **How it works.** `docs/src/lib/style-loader.ts` fetches `styles/needs.json` (the index) and a **floor**
-(the 13 always-needed modules plus the 44 that at least 70% of the 292 example decks need,
+(the 13 always-needed modules plus the 48 that at least 70% of the 295 example decks need,
 `tools/style-needs-common.json`), starting in parallel with the engine bundle. The bridge
 (`playground-engine.ts renderInto`) renders, scans the rendered HTML (`lib/core/style-needs-scan.mjs`, one
 copy shared with the audit), fetches the modules still missing, re-registers the `lattice` base, and takes the
