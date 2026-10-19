@@ -13,7 +13,7 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: in progress. Wave 0 is built (§ 15); Waves 1 to 5 are not. Facts in
+**2026-10-19.** Status: in progress. Waves 0 and 1 are built (§§ 15, 16); Waves 2 to 5 are not. Facts in
 §§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
 marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
 how and why.
@@ -515,4 +515,20 @@ exists and is tested, with no caller yet), the front-matter register swap (§ 5)
 bracket-reader fallback arm (decision 5; it matters only once a label set is read through the
 slots), gestures beyond tier 1 (a callout carries `data-mark-for`, so hover and tap reach the
 cell's card through the existing proxy), and a website catalog page for the plugin.
+
+## 16. Wave 1, as built (2026-10-19)
+
+roadmap, matrix-grid and obligation-matrix draw their keys through `keyHtml` in `lib/core/legend.js`,
+and `lib/core/html-legend.js` is gone. `keyHtml` has two modes with one markup shape: the legend's
+own classes (the mark slot draws the mark, the text may carry a plate), and a component's own
+classes, where the swatch is an empty span painted by the component's stylesheet from the row's
+classes (`rowClass`) or the swatch's (`swatch`). The second mode is the old builder, moved.
+
+**The byte-identical claim is now a diff, not a reading of call shapes (§ 10, § 13).** Every
+tracked deck that uses one of the three classes (29 decks under `lib/`, `examples/`, the baseline
+decks, `design/` and the docs content) was rendered through `createEngine().render()` plus the
+`label-set-key` post-pass, at `main` (8933fad) and after the port. The 29 HTML files are identical
+byte for byte; they carry 19 roadmap keys, 20 matrix-grid keys and 22 obligation-matrix keys.
+`test/unit/core/legend-key-html.test.js` keeps every arm of the old builder's test, including the
+one transcribed from roadmap's original `buildStatusLegend`.
 

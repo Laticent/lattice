@@ -1,5 +1,6 @@
-// The HTML key — the sibling of svg-legend.js for components that draw in a
-// <table> rather than a viewBox.
+// The HTML key — `keyHtml` in lib/core/legend.js, in the component mode that replaced
+// lib/core/html-legend.js (legend note § 10, Wave 1). Every arm below is that file's, unchanged in
+// what it asserts; only the call shape moved onto the legend's entry fields.
 //
 // Two arms carry weight. The FIRST pins the markup against roadmap's own
 // hand-rolled builder: that byte-for-byte match is what makes porting roadmap
@@ -11,7 +12,14 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildHtmlLegend } = require('../../../lib/core/html-legend');
+const { keyHtml } = require('../../../lib/core/legend');
+
+// The old call shape, mapped onto the legend's: four class names become `classes`, a row's
+// `stateClass` its `rowClass`, `markState` its `swatch`, and `label` its `text`.
+const buildHtmlLegend = ({ listClass, itemClass, markClass, labelClass, rows, ariaLabel, tag }) => keyHtml(
+  Array.isArray(rows) ? rows.map((r) => ({ text: r.label, detail: r.detail, rowClass: r.stateClass, swatch: r.markState })) : rows,
+  { classes: { list: listClass, item: itemClass, mark: markClass, label: labelClass }, ariaLabel, tag },
+);
 const { STATE_LABEL } = require('../../../lib/components/chart/roadmap/roadmap.transform');
 
 const STATE_ORDER = ['state-shipped', 'state-wip', 'state-planned', 'state-skipped'];
