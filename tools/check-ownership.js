@@ -8522,9 +8522,6 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
     }
-    if (s.build !== undefined && (typeof s.build !== 'string' || !s.build.trim())) {
-      errors.push(`${at}: \`build\` is optional, and when present must be a command (the default is \`npm run build\`).`);
-    }
     if (typeof s.run !== 'string' || !s.run.trim()) {
       errors.push(`${at}: \`run\` must be a command.`);
       continue;

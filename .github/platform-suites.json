@@ -1,5 +1,5 @@
 {
-  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `build`: optional, replaces the default `npm run build` that runs after `npm ci`. `run`: the command, from the repo root after the build. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
   "suites": [
     {
       "name": "export-confine",
@@ -43,8 +43,7 @@
         "test/integration/export/mermaid-worker-confine.test.js"
       ],
       "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
-      "why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It builds with `node tools/build.js --only-uncommitted` (what `npm ci` already runs) instead of `npm run build`, because tools/check-ownership.js aborts the full build on Windows (backslash paths against forward-slash allowlists; run 39197530212; followups.d/2786-p2-check-ownership-on-windows.md). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it.",
-      "build": "node tools/build.js --only-uncommitted"
+      "why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It uses the full `npm run build` (build-windows proves that build passes there). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
     },
     {
       "name": "wait-for-macos",
@@ -73,7 +72,7 @@
         "tools/check-lint-coverage.js"
       ],
       "run": "node tools/check-ownership.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
-      "why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
+      "why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there; the path, Biome-launch, command-length and report-path fixes in tools/check-ownership.js and tools/check-lint-coverage.js removed that. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
     }
   ]
 }

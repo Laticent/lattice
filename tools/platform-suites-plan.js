@@ -18,8 +18,6 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const REGISTRY = path.join(ROOT, '.github', 'platform-suites.json');
 // Edits to these re-run every suite on a pull request: the plumbing has no `paths` of its own.
-// The command that builds dist/ and the docs bundles before a suite runs; a suite may name a narrower one in `build`.
-const DEFAULT_BUILD = 'npm run build';
 const PLUMBING = ['.github/platform-suites.json', '.github/workflows/platform-suites.yml', 'tools/platform-suites-plan.js'];
 
 /** A glob (`*` within a segment, `**` across segments) as an anchored regex. */
@@ -44,9 +42,9 @@ function globToRegExp(glob) {
 }
 
 /**
- * @param {{ suites: { name: string, os: string[], paths: string[], run: string, build?: string, why: string }[] }} registry
+ * @param {{ suites: { name: string, os: string[], paths: string[], run: string, why: string }[] }} registry
  * @param {{ event: string, changed?: string[], suites?: string[] }} input
- * @returns {{ include: { suite: string, os: string, run: string, build: string, why: string }[], count: number }}
+ * @returns {{ include: { suite: string, os: string, run: string, why: string }[], count: number }}
  */
 function plan(registry, { event, changed = [], suites = [] }) {
 	let selected = registry.suites;
@@ -56,7 +54,7 @@ function plan(registry, { event, changed = [], suites = [] }) {
 		const everything = changed.some((f) => PLUMBING.includes(f));
 		selected = everything ? selected : selected.filter((s) => s.paths.some((g) => changed.some((f) => globToRegExp(g).test(f))));
 	} // schedule, and anything else: every suite
-	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, build: s.build || DEFAULT_BUILD, why: s.why })));
+	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, why: s.why })));
 	return { include, count: include.length };
 }
 
