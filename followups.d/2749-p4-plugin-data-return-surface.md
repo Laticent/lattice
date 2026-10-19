@@ -28,3 +28,20 @@ evidence  — the owner's recorded decision, then the canary run red with a boun
             with it restored.
 verify    — tier 2 adversarial trio, because it adds a channel into the page that bypasses the
             fragment sanitizer.
+
+Status 2026-10-19 (the npm-plugin-safety PR): still blocked on the owner's limits. No host surface exists for a
+THIRD-PARTY plugin to return data: `meta` (2026-10-17-meta-record.md §5.7) is first-party, and its D11 defers which
+field types a zip or npm plugin may declare to this item. The channel is now pinned shut by a hard canary test
+(`DATA RETURN, SHUT TODAY`): the gate refuses a zip plugin that contributes `meta`, `registers`, `providers`,
+`services` or `data`, and the real door draws nothing for a renderer that returns an object. A mutation that admits
+`meta` turns it red. The `todo` test stays for the day the surface opens.
+
+Proposed limits, for the owner to accept or change (taken from meta-record §5.7's per-type guards):
+  - field types a third-party plugin may declare: enum or register word, flag or number, and text. Not CSS-valued and
+    not URL: those are the two types with a fetch or a style sink behind them.
+  - names: `[a-z][a-z0-9-]{0,31}`, never a core record field, emitted only as `data-<plugin>-<name>`.
+  - at most 16 fields per plugin, 256 characters per text value after control and bidi characters are removed.
+  - on the slide's own `<section>` only; never the deck context in v1.
+  - a value that fails its type, a name outside the declared set, or anything shaped like markup in a text value
+    disables the plugin for the render, with an alert naming it (decision 10's "detect and disable").
+

@@ -21,8 +21,8 @@
  * KEEPING IT OPEN-ENDED: a reviewer who names an exit adds a pair to `attempts()` or a tag to
  * `markupVectors()` in test/fixtures/npm-plugin-canary.js and every arm here picks it up.
  *
- * NOT YET RUNNABLE (and marked `todo`, never accepted): the data-return case (decision 10) and the
- * export check. See the two `todo` tests at the end for what each needs.
+ * NOT YET RUNNABLE (and marked `todo`, never accepted): the data-return case (decision 10). Until it
+ * can run, `DATA RETURN, SHUT TODAY` pins that no third-party plugin can return data at all.
  *
  * Needs Chromium. Slow tier: one real sandbox launch per case that runs code.
  */
@@ -346,6 +346,30 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
       await browser.close();
     }
     assert.deepEqual(problems, []);
+  });
+
+  test('DATA RETURN, SHUT TODAY: no third-party plugin can hand the host data — the gate refuses every data contribution, and the door draws nothing for a non-string return', { timeout: TIMEOUT }, () => {
+    // Until the owner fixes the limits (followups.d/2749-p4-plugin-data-return-surface.md), the channel must stay shut,
+    // and this pins it: opening it without the limits turns this red, not silently green.
+    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const zip = (contributes) => ({
+      type: 'plugin',
+      name: 'data-canary',
+      code: true,
+      manifest: { name: 'data-canary', type: 'plugin', contributes: { fences: { dcanary: {} }, ...contributes } },
+      roles: { 'render.js': 'data-canary.render.js' },
+      files: { 'data-canary.render.js': 'function render(){return "<p>x</p>"}\nexport { render as default };' },
+    });
+    assert.equal(refusePackage(zip({})), null, 'the control plugin is refused for another reason, so the arms below prove nothing');
+    for (const point of ['meta', 'registers', 'providers', 'services', 'data']) {
+      assert.match(refusePackage(zip({ [point]: {} })) ?? '', new RegExp(point), `a zip plugin may contribute ${point}`);
+    }
+    const code = 'function render(f){ return { html: "<p>x</p>", data: { onclick: "alert(1)", "lattice-plugin": "forged" }, attrs: { style: "background:url(//e)" } }; }\nexport { render as default };';
+    approve(code);
+    const r = runDoor(code);
+    assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
+    assert.doesNotMatch(r.rendered.html, /onclick|forged|alert\(1\)|url\(\/\/e\)/, 'returned data reached the page');
+    assert.ok(r.lines.warn.some((l) => /returned object, not a string/.test(l)), r.lines.warn.join(' | '));
   });
 
   // The two parts of §5.2 that cannot run yet. They are `todo`, not skipped and not passing: a
