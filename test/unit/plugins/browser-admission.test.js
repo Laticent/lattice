@@ -86,7 +86,7 @@ describe('the engine marks a fence whose plugin the deck did not load', () => {
       assert.ok(!api.render(deck).html.includes('data-lattice-off'), 'the whole deck draws both');
       assert.match(api.render(fm + slide2).html, /data-lattice-off="mermaid"/, 'the slice alone would not');
       const admitted = api.pluginAdmission(deck);
-      assert.deepEqual(admitted, ['mermaid']);
+      assert.deepEqual(admitted, ['mermaid', 'meta']);
       assert.ok(!api.render(fm + slide2, undefined, { pluginDefaults: admitted }).html.includes('data-lattice-off'));
       assert.notEqual(api.pluginDefaultsKey(), '*');
     } finally {

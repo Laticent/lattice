@@ -56,6 +56,7 @@
     "docs/src/lib/suono",
     "docs/src/lib/tavola",
     "docs/src/lib/trama",
+    "docs/src/lib/veduta",
     "docs/src/lib/vetrina"
   ],
   "files": [
@@ -176,6 +177,8 @@
     "vetrina-lib:check": "node tools/build-vetrina-lib.js --check",
     "fuoco-lib:build": "node tools/build-fuoco-lib.js",
     "fuoco-lib:check": "node tools/build-fuoco-lib.js --check",
+    "veduta-lib:build": "node tools/build-veduta-lib.js",
+    "veduta-lib:check": "node tools/build-veduta-lib.js --check",
     "lente-lib:build": "node tools/build-lente-lib.js",
     "lente-lib:check": "node tools/build-lente-lib.js --check",
     "segno-lib:build": "node tools/build-segno-grammar.js && node tools/build-segno-lib.js",
@@ -192,6 +195,7 @@
     "capabilities:build": "node tools/build-capabilities.js",
     "capabilities:check": "node tools/build-capabilities.js --check",
     "queue:precheck": "bash tools/queue-precheck.sh",
+    "branch:owner": "bash tools/branch-owner.sh",
     "release": "node tools/release.js",
     "release:dry": "node tools/release.js --dry-run",
     "release:prepare": "node tools/release.js --prepare",
@@ -199,6 +203,7 @@
     "release:zip": "node tools/build-release-zip.js",
     "changelog:bump": "node tools/changelog.js --bump",
     "backlog": "node tools/backlog.js",
+    "card": "node tools/card.js",
     "followups": "node tools/followups.js",
     "docs:components": "node tools/build-component-docs.js",
     "docs:components:check": "node tools/build-component-docs.js --check",

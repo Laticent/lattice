@@ -1,0 +1,28 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Veduta library. It compiles ONLY the framework-free core with DOM libs and `types: []` \u2014 no repo tsconfig, no @types/node, no React. If the core ever grows a dependency on the host (Lattice's connectors live OUTSIDE this folder, with the Studio and the Playground), this fails. Run: `npm run check:veduta`. The import-boundary gate (tools/check-ownership.js checkVedutaBoundary) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": [
+      "@laticent/source"
+    ],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/lib/veduta/**/*.ts"
+  ],
+  "exclude": [
+    "src/lib/veduta/**/*.test.ts"
+  ]
+}

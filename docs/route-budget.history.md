@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-18 — measured on the slide-metadata reader (#2772) built on top of main at adba03a
+
+Raises the lint core's ceiling by about 3KB (106000 → 109500 bytes), soft target unchanged; the owner chose this on 2026-10-18 (#2772). Main alone sits at the ceiling (105.7KB measured on this PR against 103.5KB). #2772 adds the one slide-metadata reader (`lib/core/meta-record.mjs`), the vocabulary it reads (`lib/plugins/meta.generated.mjs`, `lib/core/meta-keys.mjs`) and the five meta lint rules the design asks for (`meta-opener-bare`, `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container`, `legacy-directive-comment`) to the lint core. Before asking, it gave back what it could: the Studio-only structured edit moved to its own module (`lib/core/meta-edit.mjs`), the manifest's prose is left out of the generated vocabulary, and one scan serves about 20 rules that each scanned the deck. That took the growth over main from 3.4KB to 2.2KB gzipped on the minified lint bundle. 109500 is the measured 108237 bytes plus about 1.2KB so a later lint change does not trip it at once. The lint core loads after the Studio's first paint (engine-spine note §5).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 109500 |
+
 ### 2026-10-17 — measured on the histogram and EP curve charts built on top of main at f25ed16
 
 Raises the lint core's ceiling to 106000 bytes (102736 → 106000), soft target unchanged; the owner chose this on 2026-10-17 for the histogram and EP curve charts (the reinsurance beta, `engineering/decisions/2026-10-15-business-deck-gaps.md` §7.4). Main alone measured 102695 bytes, 41 bytes under the old ceiling, so any lint change past that would trip it. The charts add seven `lint:deck` warnings and the row and point readers they share with the charts and their narrators: the histogram's dash range, gap or overlap, log over zero and negative value, and the EP curve's unreadable point (a thousands separator, `{1,000, $900M}`, drops a point without a word otherwise), duplicate return period and fifth curve. Before asking, the work shared one slide loop between the two rule sets and shortened their messages (149 bytes back). Measured on top of main: 105932 bytes with both rule sets, 104439 with the histogram's only, 102950 with neither (the `log` axis word in the shared axis reader and the two chart names alone pass the old ceiling). The owner chose to keep all seven. The lint core loads after the Studio's first paint (engine-spine note §5).

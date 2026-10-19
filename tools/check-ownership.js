@@ -8434,6 +8434,112 @@ function checkSnapshotHtmlSinks(errors) {
   }
 }
 
+// ── Media source rows: a census (media note §4.11, "A contributed source or provider row cannot widen trust") ──
+// `lib/core/media-sources.js` SOURCES is the one table that says whether naming a picture reaches a stranger's
+// server (`locality`) — `isRemoteRef`, the security predicate, is DERIVED from it. So a row that quietly says
+// `local` is a hole in HARD RULE #22. Three checks, each failing the build:
+//   1. every row is in SANCTIONED_MEDIA_SOURCES with the same `locality`, and every census entry still has its row
+//      (a stale entry fails, like the other SANCTIONED_* lists). A new in-tree row is added here WITH its justification;
+//   2. a row flagged `contributed` (a plugin's, once slice 2 lets one in) must declare `remote`: only in-tree rows may say `local`;
+//   3. two rows may not claim one scheme (a plugin cannot take over `https:` or `sample:`).
+const SANCTIONED_MEDIA_SOURCES = Object.freeze([
+  { id: 'data', locality: 'local', why: 'The bytes are in the reference itself; nothing is requested.' },
+  { id: 'relative', locality: 'local', why: 'Resolves inside the deck folder, or the page\'s own origin on a web base (the Studio and playground ship their own samples folder).' },
+  { id: 'file', locality: 'remote', why: 'A typed file: address names the importer\'s disk or, on Windows, a network share (a credential leak). The CLI\'s own deck-folder references are built by resolveRelative and never typed as file:.' },
+  { id: 'web', locality: 'remote', why: 'http(s) and protocol-relative: the request is a beacon that says who opened the file and when.' },
+  { id: 'sample', locality: 'local', why: 'A file in Lattice\'s own flat sample-art folder, lib/samples/; the name grammar admits no path separator.' },
+  { id: 'asset', locality: 'local', why: 'A name in the host\'s own map (the Studio Library, or the CLI\'s assets/ folder); a name it lacks is the stand-in.' },
+]);
+
+function checkMediaSourceCensus(errors, rows = require('../lib/core/media-sources').SOURCES, census = SANCTIONED_MEDIA_SOURCES) {
+  const byId = new Map(census.map((c) => [c.id, c]));
+  const seenIds = new Set();
+  const claimed = new Map();
+  for (const row of rows) {
+    seenIds.add(row.id);
+    const entry = byId.get(row.id);
+    if (!entry) {
+      errors.push(
+        `media source row '${row.id}' (lib/core/media-sources.js) has no entry in SANCTIONED_MEDIA_SOURCES in tools/check-ownership.js (HARD RULE #22) — ` +
+        `a source decides whether naming a picture reaches a third party. Add the entry WITH its justification, and say why its locality is right.`,
+      );
+    } else if (entry.locality !== row.locality) {
+      errors.push(
+        `media source row '${row.id}' declares locality '${row.locality}' but the census says '${entry.locality}' (HARD RULE #22) — ` +
+        `loosening a row to 'local' lets a request leave without the remote gates; change the census only in a PR that justifies it.`,
+      );
+    }
+    if (row.contributed && row.locality !== 'remote') {
+      errors.push(`media source row '${row.id}' is contributed by a plugin and declares locality '${row.locality}' (media note §4.11) — only in-tree rows may declare 'local'; a plugin's row is always remote.`);
+    }
+    for (const sc of row.scheme === null || row.scheme === undefined ? [] : [].concat(row.scheme)) {
+      if (claimed.has(sc)) errors.push(`media source rows '${claimed.get(sc)}' and '${row.id}' both claim the scheme '${sc}' (media note §4.11) — a row cannot take over another's scheme.`);
+      else claimed.set(sc, row.id);
+    }
+  }
+  for (const c of census) {
+    if (!seenIds.has(c.id)) {
+      errors.push(`stale media-source census entry in tools/check-ownership.js — '${c.id}' is no longer a row in lib/core/media-sources.js. Remove it from SANCTIONED_MEDIA_SOURCES so the list stays honest.`);
+    }
+  }
+}
+
+// ── Platform suites: the registry the macOS / Windows workflow runs (engineering/development.md § Platform suites) ──
+// `.github/platform-suites.json` lists checks that need a real macOS or Windows runner. A malformed entry would make the
+// planner drop a suite silently, and a `run` that names a deleted file fails only on the runner, a day later, so the gate reads
+// the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
+// non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
+// SANCTIONED_* lists).
+const PLATFORM_SUITE_OS = ['macos-latest', 'windows-latest'];
+
+function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', 'platform-suites.json'), root = ROOT) {
+  let registry;
+  try {
+    registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  } catch (e) {
+    errors.push(`.github/platform-suites.json is missing or not valid JSON (${e.message}) — the platform-suites workflow plans from it.`);
+    return;
+  }
+  const suites = Array.isArray(registry.suites) ? registry.suites : null;
+  if (!suites || suites.length === 0) {
+    errors.push('.github/platform-suites.json needs a non-empty `suites` array.');
+    return;
+  }
+  const seen = new Set();
+  for (const s of suites) {
+    const at = `platform suite '${s?.name}'`;
+    if (typeof s?.name !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s.name)) {
+      errors.push(`${at}: \`name\` must be kebab-case.`);
+      continue;
+    }
+    if (seen.has(s.name)) errors.push(`${at}: the name is used twice.`);
+    seen.add(s.name);
+    if (!Array.isArray(s.os) || s.os.length === 0 || s.os.some((o) => !PLATFORM_SUITE_OS.includes(o))) {
+      errors.push(`${at}: \`os\` must be a non-empty list drawn from ${PLATFORM_SUITE_OS.join(', ')}.`);
+    }
+    if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
+      errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
+    }
+    for (const g of Array.isArray(s.paths) ? s.paths : []) {
+      if (typeof g === 'string' && !/[*?]/.test(g) && !fs.existsSync(path.join(root, g))) {
+        errors.push(`stale platform suite '${s.name}' — its \`paths\` names ${g}, which no longer exists, so a PR touching it would never select the suite. Update or remove it in .github/platform-suites.json.`);
+      }
+    }
+    if (typeof s.why !== 'string' || s.why.trim().length < 20) {
+      errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
+    }
+    if (typeof s.run !== 'string' || !s.run.trim()) {
+      errors.push(`${at}: \`run\` must be a command.`);
+      continue;
+    }
+    for (const token of s.run.split(/\s+/)) {
+      if (/^(?:test|tools)\/\S+\.(?:js|mjs|cjs)$/.test(token) && !fs.existsSync(path.join(root, token))) {
+        errors.push(`stale platform suite '${s.name}' — its \`run\` names ${token}, which no longer exists. Update or remove the entry in .github/platform-suites.json.`);
+      }
+    }
+  }
+}
+
 // ── HARD RULE #24: OpenRouter budget — our paid key stays off the site AND out of tests ──
 // Two separate invariants (engineering/workflow.md §OpenRouter budget):
 //   1. NO EXPOSURE — our server-side OPEN_ROUTER_KEY must never reach the deployed site.
@@ -9036,6 +9142,37 @@ function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
           `the Fuoco core is framework-free, and the React adapter is the one sanctioned exception.`,
         );
       }
+    }
+  }
+}
+
+// ── Veduta (docs/src/lib/veduta) — the windowed preview ────────────────────
+// Veduta decides which units of a list a view should mount, at what fidelity and in what order,
+// and knows nothing about what a unit is, what focus source drives it, or what mounts it
+// (2026-10-16-preview-as-library-audit.md). A host plugs in its own focus (Lattice uses Fuoco) and
+// its own connectors (the Studio's frame pool, the Playground's filmstrip), and those live OUTSIDE
+// the folder. So the core imports nothing outside it, not even `node:`, and not `react`: it has no
+// framework adapter yet.
+const VEDUTA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'veduta');
+function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Veduta folder. Veduta takes its focus and its mounting ` +
+      `from the host, so every import must resolve inside docs/src/lib/veduta/; Lattice's connectors live ` +
+      `outside it (engineering/decisions/2026-10-16-preview-as-library-audit.md).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${path.relative(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Veduta core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/veduta/.`,
+      );
     }
   }
 }
@@ -13627,6 +13764,8 @@ function run() {
   checkRuntimeMarkupSinks(errors);
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
+  checkMediaSourceCensus(errors);
+  checkPlatformSuites(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -13636,6 +13775,7 @@ function run() {
   checkCalcoBoundary(errors);
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
+  checkVedutaBoundary(errors);
   checkMosaicoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -13704,6 +13844,7 @@ module.exports = {
   specPartProblems,
   checkTavolaBoundary,
   checkFuocoBoundary,
+  checkVedutaBoundary,
   checkMosaicoBoundary,
   checkReadingRole,
   readingRoleCountsIn,
@@ -13861,6 +14002,9 @@ module.exports = {
   SANCTIONED_STYLE_SINK_EXEMPT,
   DOC_STYLE_SINK_ROOTS,
   checkSnapshotHtmlSinks,
+  checkMediaSourceCensus,
+  SANCTIONED_MEDIA_SOURCES,
+  checkPlatformSuites,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,

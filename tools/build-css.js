@@ -47,7 +47,7 @@
 const fs = require('node:fs');
 const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
-const { minifyCss } = require('./minify-css');
+const { minifyCss, minifyCssPieces } = require('./minify-css');
 const { sizeBlock } = require('../lib/engine/sizes');
 
 /**
@@ -106,6 +106,7 @@ function stampSizeDirectives(css) {
 const { distributeLeadingIs } = require('../lib/core/leading-is');
 const { typographyTokensCss } = require('../lib/typography/emit');
 const { TEXT_FACES } = require('../lib/fonts/text-faces');
+const cssModules = require('./css-modules');
 
 const ROOT = path.join(__dirname, '..');
 const OUTPUT = path.join(ROOT, 'dist', 'lattice.css');
@@ -120,6 +121,8 @@ const MIN_BANNER =
 const ASSET_FONTS = path.join(ROOT, 'assets', 'fonts');
 const DIST_FONTS = path.join(ROOT, 'dist', 'fonts');
 const EMOJI_CSS_OUTPUT = path.join(ROOT, 'dist', 'lattice-emoji.css');
+const MODULES_DIR = path.join(ROOT, 'dist', 'styles');
+const MODULES_MIN_DIR = path.join(ROOT, 'dist', 'styles-min');
 
 // Per-palette minified theme variants. The Export-to-Marp bundle (lib/core/
 // marp-bundle.js) ships these so a recipient's marp-cli / VS Code render carries
@@ -506,11 +509,17 @@ function componentStyles() {
     .map(([, v]) => v);
 }
 
-function bundle() {
+// The bundle as ordered pieces: `parts` are the strings it joins with "\n", and `marks` say where each
+// named module starts (tools/css-modules.js cuts the bundle at these). `bundle()` and `bundleModules()`
+// both read this, so the single file and the module files cannot disagree about the order.
+function assemble() {
   const parts = [BANNER];
+  const marks = [{ id: 'banner', source: null, at: 0 }];
+  const mark = (id, source) => marks.push({ id, source, at: parts.length });
   // Marp @theme must come before any @layer or other at-rule that
   // affects parsing, so HEAD sources come first.
   for (const rel of HEAD_SOURCES) {
+    mark(`head:${path.basename(rel, '.css')}`, rel);
     // The self-hosted @font-face block takes the cascade slot the Google
     // `@import` used to hold (top of base.tokens.css) — see lib/fonts/text-faces.js.
     if (rel === 'lib/base/base.tokens.css') {
@@ -536,12 +545,14 @@ function bundle() {
   // override the package defaults at source order.
   const katex = katexBaseCss();
   if (katex) {
+    mark('katex', null);
     parts.push('/* === KaTeX base stylesheet — vendored from the katex package, fonts self-hosted → dist/fonts/ === */');
     parts.push(katex);
   }
   // Declare the cascade once for the whole bundle (reserved for future
   // use — see file header for why @layer is inactive today). The inert-note
   // sentinel rides directly above it so the dist reader isn't misled (#26).
+  mark('layers', null);
   parts.push(LAYER_INERT_NOTE);
   parts.push(LAYER_DECLARATION);
   parts.push('');
@@ -550,6 +561,7 @@ function bundle() {
   // higher specificity. At equal specificity, modifiers win source-
   // order — that's why modifiers come after.
   for (const { rel, text } of componentStyles()) {
+    mark(`component:${path.basename(rel).replace(/\.styles\.css$|\.css$/, '')}`, rel);
     parts.push(`/* === ${rel} === */`);
     parts.push(text);
   }
@@ -559,41 +571,49 @@ function bundle() {
   // ::before) bump specificity in their own component file.
   const cardTag = readIfExists(CARD_TAG_SOURCE);
   if (cardTag) {
+    mark('base:card-tag', CARD_TAG_SOURCE);
     parts.push(`/* === ${CARD_TAG_SOURCE} === */`);
     parts.push(cardTag);
   }
   const modifiers = readIfExists(MODIFIERS_SOURCE);
   if (modifiers) {
+    mark('base:modifiers', MODIFIERS_SOURCE);
     parts.push(`/* === ${MODIFIERS_SOURCE} === */`);
     parts.push(modifiers);
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {
+    mark('base:qr-general', QR_GENERAL_SOURCE);
     parts.push(`/* === ${QR_GENERAL_SOURCE} === */`);
     parts.push(qrGeneral);
   }
   const treatments = readIfExists(TREATMENTS_SOURCE);
   if (treatments) {
+    mark('base:treatments', TREATMENTS_SOURCE);
     parts.push(`/* === ${TREATMENTS_SOURCE} === */`);
     parts.push(treatments);
   }
   const backdrops = readIfExists(BACKDROPS_SOURCE);
   if (backdrops) {
+    mark('base:finish', BACKDROPS_SOURCE);
     parts.push(`/* === ${BACKDROPS_SOURCE} === */`);
     parts.push(backdrops);
   }
   const focus = readIfExists(FOCUS_SOURCE);
   if (focus) {
+    mark('base:focus', FOCUS_SOURCE);
     parts.push(`/* === ${FOCUS_SOURCE} === */`);
     parts.push(focus);
   }
   const build = readIfExists(BUILD_SOURCE);
   if (build) {
+    mark('base:build', BUILD_SOURCE);
     parts.push(`/* === ${BUILD_SOURCE} === */`);
     parts.push(build);
   }
   const sketch = readIfExists(SKETCH_SOURCE);
   if (sketch) {
+    mark('base:sketch', SKETCH_SOURCE);
     parts.push(`/* === ${SKETCH_SOURCE} === */`);
     parts.push(sketch);
   }
@@ -602,6 +622,7 @@ function bundle() {
   for (const rel of TAIL_SOURCES) {
     const text = readIfExists(rel);
     if (text) {
+      mark(`tail:${path.basename(rel, '.css')}`, rel);
       parts.push(`/* === ${rel} === */`);
       parts.push(text);
     }
@@ -610,6 +631,7 @@ function bundle() {
   // Cell's own base rule (they also out-specify it via [data-family]).
   const slicing = formsSlicingCss();
   if (slicing) {
+    mark('generated:slicing', null);
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
   }
@@ -619,7 +641,73 @@ function bundle() {
   // Stamp the Marp `@size` directives LAST, so `bundle()` remains the single
   // definition of dist/lattice.css — including the directives the Marp-facing
   // artifact must carry (stampSizeDirectives).
-  return stampSizeDirectives(distributeLeadingIs(parts.join('\n')));
+  return { parts, marks };
+}
+
+// The post-processing every shipped bundle gets: leading-`:is()` distribution, then the `@size` stamp.
+const finish = (text) => stampSizeDirectives(distributeLeadingIs(text));
+
+function bundle() {
+  return finish(assemble().parts.join('\n'));
+}
+
+// Contiguous modules of the finished bundle (tools/css-modules.js). Joined, they ARE bundle(); the
+// freshness gate and test/unit/cli/css-modules.test.js both compare them to it.
+function bundleModules() {
+  const { parts, marks } = assemble();
+  const pieces = marks
+    .map((m, i) => ({ m, end: i + 1 < marks.length ? marks[i + 1].at : parts.length }))
+    .filter(({ m, end }) => end > m.at) // a source that emitted nothing is no module (it would add a stray "\n" to the join)
+    .map(({ m, end }) => ({ id: m.id, source: m.source, text: parts.slice(m.at, end).join('\n') }));
+  // Post-process each piece, then the `@size` stamp lands on the first piece that carries `@theme`.
+  const done = pieces.map((p) => ({ ...p, text: distributeLeadingIs(p.text) }));
+  const themeAt = done.findIndex((p) => /@theme[ \t]+\S+/.test(p.text));
+  if (themeAt >= 0) done[themeAt].text = stampSizeDirectives(done[themeAt].text);
+  return cssModules.toModules(done);
+}
+
+const MIN_NOTE =
+  'GENERATED by tools/build-css.js. The minified twin of dist/styles/: same ids and file names, same order. '
+  + 'Concatenate the files with nothing between them to get dist/lattice-min.css. bytes are UTF-8 bytes. '
+  + 'Module files keep lattice-min.css\'s stylesheet-relative font URLs (fonts/<file>.woff2), so a loader '
+  + 'must resolve them against dist/, not against dist/styles-min/. A module that minifies to nothing is an empty file.';
+
+// The module files plus manifest, as { 'manifest.json': text, '<file>': text }. `min` writes the
+// minified twin (dist/styles-min/): the same cut, each piece minified, concatenating to lattice-min.css.
+function moduleFiles(min = false) {
+  const modules = bundleModules();
+  const files = {};
+  const full = bundle();
+  if (cssModules.joinModules(modules) !== full) {
+    throw new Error('build-css: the style modules do not join to the bundle byte for byte; see tools/css-modules.js');
+  }
+  let manifest;
+  if (min) {
+    const texts = minifyCssPieces(modules.map((m) => m.text), MIN_BANNER);
+    const fullMin = minifyCss(full, MIN_BANNER) + '\n';
+    if (texts.join('') !== fullMin) {
+      throw new Error('build-css: the minified style modules do not concatenate to lattice-min.css byte for byte; see tools/css-modules.js');
+    }
+    const minMods = modules.map((m, i) => ({ ...m, text: texts[i] }));
+    manifest = cssModules.manifestOf(minMods, fullMin, MIN_NOTE);
+    minMods.forEach((m, i) => { files[manifest.modules[i].file] = m.text; });
+    files['manifest.json'] = JSON.stringify(manifest, null, 2) + '\n';
+    return files;
+  }
+  manifest = cssModules.manifestOf(modules, full);
+  modules.forEach((m, i) => { files[manifest.modules[i].file] = m.text; });
+  files['manifest.json'] = JSON.stringify(manifest, null, 2) + '\n';
+  return files;
+}
+
+// True when dist/styles/ differs from `files` (extra files count as stale).
+function distModulesStale(files, dir = MODULES_DIR) {
+  const have = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+  if (have.length !== Object.keys(files).length) return true;
+  return Object.entries(files).some(([name, text]) => {
+    const p = path.join(dir, name);
+    return !fs.existsSync(p) || fs.readFileSync(p, 'utf8') !== text;
+  });
 }
 
 function main(argv) {
@@ -627,6 +715,8 @@ function main(argv) {
   const freshMin = minifyCss(fresh, MIN_BANNER) + '\n';
   const themes = buildThemes();
   const freshEmoji = emojiFontFaceCss();
+  const modFiles = moduleFiles();
+  const modMinFiles = moduleFiles(true);
   if (argv.includes('--check')) {
     const current = fs.existsSync(OUTPUT) ? fs.readFileSync(OUTPUT, 'utf8') : '';
     const currentMin = fs.existsSync(MIN_OUTPUT) ? fs.readFileSync(MIN_OUTPUT, 'utf8') : '';
@@ -639,14 +729,15 @@ function main(argv) {
     const orphaned = fs.existsSync(DIST_THEMES)
       && fs.readdirSync(DIST_THEMES).some((f) => f.endsWith('-min.css') && !(f in themes));
     const fontsStale = distFontsStale();
+    const modulesStale = distModulesStale(modFiles) || distModulesStale(modMinFiles, MODULES_MIN_DIR);
     if (current === fresh && currentMin === freshMin && currentEmoji === freshEmoji
-        && !themesStale && !orphaned && !fontsStale) {
+        && !themesStale && !orphaned && !fontsStale && !modulesStale) {
       process.stdout.write(
-        `lattice.css + lattice-min.css + lattice-emoji.css + dist/fonts/ + ${Object.keys(themes).length} dist/themes/*-min.css are up to date.\n`,
+        `lattice.css + lattice-min.css + lattice-emoji.css + dist/fonts/ + ${Object.keys(themes).length} dist/themes/*-min.css + ${Object.keys(modFiles).length - 1} dist/styles/ + dist/styles-min/ modules are up to date.\n`,
       );
       return 0;
     }
-    process.stderr.write('error: lattice.css / lattice-min.css / lattice-emoji.css / dist/fonts/ / dist/themes/*-min.css is stale relative to sources.\n');
+    process.stderr.write('error: lattice.css / lattice-min.css / lattice-emoji.css / dist/fonts/ / dist/themes/*-min.css / dist/styles/ / dist/styles-min/ is stale relative to sources.\n');
     // `npm run build`, deliberately, NOT `css:build`. This message used to name
     // the narrow script, and it points into a trap: `css:build` refreshes
     // lattice.css and lattice-min.css and stops, while dist/marp-kit/ is built
@@ -662,6 +753,13 @@ function main(argv) {
   fs.writeFileSync(MIN_OUTPUT, freshMin);
   fs.writeFileSync(EMOJI_CSS_OUTPUT, freshEmoji);
   syncDistFonts();
+  // Rewrite dist/styles/ wholesale, like themes: a renamed module must not leave its old file behind.
+  fs.rmSync(MODULES_DIR, { recursive: true, force: true });
+  fs.mkdirSync(MODULES_DIR, { recursive: true });
+  for (const [file, content] of Object.entries(modFiles)) fs.writeFileSync(path.join(MODULES_DIR, file), content);
+  fs.rmSync(MODULES_MIN_DIR, { recursive: true, force: true });
+  fs.mkdirSync(MODULES_MIN_DIR, { recursive: true });
+  for (const [file, content] of Object.entries(modMinFiles)) fs.writeFileSync(path.join(MODULES_MIN_DIR, file), content);
   // Rewrite dist/themes/ wholesale so a removed source palette can't leave a stale file.
   fs.rmSync(DIST_THEMES, { recursive: true, force: true });
   fs.mkdirSync(DIST_THEMES, { recursive: true });
@@ -671,7 +769,7 @@ function main(argv) {
   process.stdout.write(
     `wrote dist/lattice.css (${fresh.length.toLocaleString()} bytes) + ` +
       `dist/lattice-min.css (${freshMin.length.toLocaleString()} bytes) + ` +
-      `dist/lattice-emoji.css + dist/fonts/ + ` +
+      `dist/lattice-emoji.css + dist/fonts/ + ${Object.keys(modFiles).length - 1} dist/styles/ + dist/styles-min/ modules + ` +
       `${Object.keys(themes).length} dist/themes/*-min.css\n`,
   );
   return 0;
@@ -680,6 +778,6 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
-  bundle, buildThemes, main, OUTPUT, MIN_OUTPUT, formsSlicingCss,
+  bundle, bundleModules, moduleFiles, buildThemes, main, OUTPUT, MIN_OUTPUT, MODULES_DIR, MODULES_MIN_DIR, formsSlicingCss,
   LAYER_DECLARATION, LAYER_INERT_NOTE,
 };

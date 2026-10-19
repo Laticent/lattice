@@ -80,7 +80,7 @@ section background. `collage` reads `- ![Alt](path) \`hero, top, 3:2\`` list ite
 |---|---|---|---|---|
 | Embedded | `data:image/png;base64,…` | passes through | renders | renders |
 | Relative path | `pic.jpg` | `resolveAssetUrl` (`bg-image.js:73`) against `baseUrl` | against the host's base | CLI lifts `![bg]` to `file://`; the player inlines `file://` as `data:` (`html-player.js:70-112`) |
-| Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineFileUrls` |
+| Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineDocAssets` |
 | Web | `https://…` | `blockWebImages` (`remote-ref.js:527`) | a drawn hatch until the reader allows it | CLI: blocked unless `--allow-remote`; Studio player: fetched on opt-in, capped (`inline-url-media.mjs:132`) |
 | Sample art | `sample:<name>` | `sampleName` (`remote-ref.js:67`) + `samplesUrl` | the site's staged copy | `file://` into `lib/samples/` |
 | Library | `asset:<name>` | `assetName` (`remote-ref.js:82`) + the host's `assetUrls` map | `blob:` URL | `data:` URI (`media-urls.ts:160`); **CLI: unsupported** |
@@ -923,3 +923,64 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   places: an `<img src>`, a `style` attribute value and a `<style>` body. Two behaviors the last checker judged off the path are
   in `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md`. The unclosed-quote scan of the tag pattern is
   quadratic on input no serializer produces, so it is not guarded.
+- 2026-10-18: §4.11 "Paths stay inside the deck" gets its file-system half (`lib/export/file-confine.js`). The CLI checks the REAL
+  path of every local file a render reads: Chromium's `file:` requests (answered with the drawn stand-in for an image, refused
+  for anything else), the player's inliner, the logo-wall mark reader and the SVG rasterizer. A symlink in the deck folder that
+  points out, and a typed `file:///abs/path` outside the folder, are refused and named on stderr. **Decision (the "authored
+  here" signal the follow-up asked for):** the CLI has no way to tell a deck its author wrote on this machine from a stranger's
+  zip, so it does not try. A typed `file:` address is allowed exactly when its real path is inside the deck's folder or
+  Lattice's install (the same two roots `pdf-asset-reader.js` uses), which is where a deck's own relative references land. The
+  `file` row stays `remote` for the markup gates. The Studio and the playground have no local file system and are unchanged.
+- 2026-10-18: slice 1's `asset:` in the CLI (`lib/export/deck-assets.js`). **Decision:** the folder is `assets/` beside the deck. The
+  Library's own name rule applies to the file stem (lowercase, digits, `-`, `_`); a symlink out of the folder is not listed;
+  the CLI always hands the render an `assetUrls` map, even an empty one, so a missing name draws the stand-in and never prints a
+  dead `asset:` address. `lint:deck` carries the `asset-missing` warning (the linter core is fs-free, so the folder check
+  lives in `tools/lint-deck.js`).
+- 2026-10-18: the rows take the §4.1 shape. Each has `scheme` and `resolve(ref, host)` (a URL, the reference itself to pass it
+  through, or `null` for the drawn stand-in); `classify` looks the scheme up in the table; `resolveAssetUrl` is one loop over it;
+  the two CSS-text matchers in `bg-image.js` read `NAMED_SCHEMES`. A test greps `lib/` for the scheme pair outside the table.
+  Evidence: the differential test is unchanged and green; HTML exports of seven decks (the baseline gallery, jargon and
+  data-viz galleries, collage, avatars, adaptive-image, deck-logo) are byte-identical old versus new; the engine bench
+  moves inside the base-versus-base spread.
+- 2026-10-18: the §4.11 census exists: `SANCTIONED_MEDIA_SOURCES` and `checkMediaSourceCensus` in `tools/check-ownership.js`. It fails on
+  a row without an entry, an entry without a row, a changed `locality`, a `contributed` row that says `local`, and two rows
+  claiming one scheme. It runs inside the existing `build:check` step, so it adds no CI job, step or hook (CLAUDE.md second
+  filter, row 2). A scratch `drive` row made it fail with the message recorded in the PR body.
+- 2026-10-18: the player inliner's tokenizer is replaced by a linear start-tag reader that follows the HTML tokenizer's tag states
+  (`readTag`, `mapPlayerContexts`) and a forward-pass `url(file://…)` reader (`rewriteFileUrls`); `resolveStyleUrls` got the same
+  treatment (`replacePlainUrls`), because a 1 MB `url(file://` style attribute took 277 s there. **Decision on the owner's DOM
+  question** (put to the owner in the PR body, not blocking): the owner was away, so the safe, reversible default was the
+  tokenizer fix the follow-up already described. **Decision:** `<template>` content IS a CSS context, so a style attribute in it is
+  baked (a script clones it into the page, and a browser then loads the picture). Players of six decks are byte-identical old
+  versus new.
+- 2026-10-18: the trio on the inliner (red team, inversion, checker) found three regressions in its first cut: `toLowerCase()` index
+  drift on `İ`, an SVG `<style>` skipped, and an unclosed `<svg>` switching off later `<style>`s. All three were fixed in the same
+  PR: lowercase is ASCII-only, a `<style>` body is CSS wherever it sits, and `<plaintext>` and a double-escaped `<script>` end
+  where a browser ends them. `player-inliner-oracle.test.js` diffs the reader against parse5 on a seeded corpus (it fails on the
+  first cut), which is the harness the inversion asked for.
+- 2026-10-18: **the linear tokenizer was replaced the same day by the DOM route.** The owner's standing rules (no tech debt, no
+  dismissed alerts, no settling) ruled out keeping a hand-written HTML tokenizer: a second CodeQL alert (`--!>`, then the
+  `<script>` escape scan) showed the model it has to keep in step with the HTML spec has no end. The inliner is now
+  `inlineDocAssets(doc, { baseUrl, confine })` in `html-player.js`: it walks the parsed document with a tree walker and bakes
+  an `<img src>`, each `style` attribute and each `<style>` body (and `<template>` content), reading plain, entity-decoded CSS.
+  `player-core.mjs` gains an optional `caps.inlineDocAssets(doc)` (called after the parse and the script removal) beside the
+  string `caps.inlineAssets` the browser host keeps. There is no second parse: the assembler parsed the document anyway. Measured
+  on the 3.1 MB baseline-gallery document: about 100–140 ms for the inliner pass (the string tokenizer took about 60 ms), so the
+  DOM route costs roughly 50–80 ms per export and deletes about 300 lines. The six decks' players are byte-identical to the
+  tokenizer's output. `rewriteFileUrls` and `replacePlainUrls` share one forward-pass CSS reader (`mapCssUrls`) that skips comments and strings and
+  treats a nested `url(` as one bad url, as a browser does (the regex forms were quadratic on hostile CSS, and read a `url(` inside
+  a comment). With it, `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md` has nothing left and is deleted. One thing the DOM route inherits and the tokenizer did not hide: jsdom overflows its stack on about 140,000
+  unclosed nested elements, in the assembler's own parse, with or without the inliner.
+- 2026-10-18: the inliner's last review round found one disagreement with a browser per pass, so the review was replaced by a
+  measurement: `test/integration/export/inliner-browser-oracle.test.js` loads a seeded corpus (500 CSS declarations over a `style`
+  attribute and a `<style>` body: comments, strings, escapes, whitespace, newlines, case, nests, one distinct file per address)
+  in headless Chromium and requires that every `file://` picture Chromium requests is one the inliner reads. It passes on
+  `b5bacb8` and fails on the `d376aff` reader, and the over-read direction is bounded to the one shape that is invalid CSS. A new
+  class of disagreement now fails a test instead of waiting for the next reviewer.
+- 2026-10-18: the inliner now bakes every picture position the checker found a browser loading and the old reader skipped: `srcset` on
+  `<img>` and `<picture>`'s `<source>` (one forward-pass parser, candidates and descriptors kept), `<video poster>`, SVG `<image href>`
+  and `xlink:href`, and CSS `image-set()` (a bare string inside it is an address; `url()` inside it was already read). Each position
+  went into `inliner-browser-oracle.test.js` (a markup channel beside the CSS channels), and both oracles fail on the previous reader
+  and pass now. Out of scope on purpose: `<iframe>`, `<object>`, `<embed>`, `<input type=image>` and media `src`, which are not
+  picture positions and which the slide sanitizer governs. `followups.d/2748-p3-player-inliner-other-picture-positions.md` is
+  deleted; the Windows item remains in `followups.d/2771-p3-cli-windows-file-urls.md`.

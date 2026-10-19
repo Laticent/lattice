@@ -124,6 +124,11 @@ export function whenPrintReady(
 const STAGE_PAD_X = 40;
 const STAGE_PAD_Y = 48;
 
+/** The frame's measuring-lists registry (lib/core/measure-kit.js), or undefined before its runtime ran. */
+type MeasureRegistry = { idle: (ms?: number) => Promise<boolean>; settle: () => number };
+const measuringOf = (frame: HTMLIFrameElement): MeasureRegistry | undefined =>
+	(frame.contentDocument as (Document & { __latticeMeasure?: MeasureRegistry }) | null)?.__latticeMeasure;
+
 /** The panel's one print frame and the document it holds (see `printHtmlDoc`). */
 type PrintFrame = { frame: HTMLIFrameElement; doc: string; loaded: boolean };
 
@@ -148,6 +153,9 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 			const go = () => {
 				signal();
 				if (!isLive()) return;
+				// Whatever is still measuring packs now with what it knows: a list left `measuring` is
+				// hidden by its component's CSS and would print as a gap.
+				try { measuringOf(frame)?.settle(); } catch { /* noop */ }
 				frame.inert = false;
 				try {
 					frame.contentWindow?.focus();
@@ -157,7 +165,10 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 				}
 			};
 			const w = frame.contentWindow as (Window & { __latticeFontsReady?: Promise<void> }) | null;
-			whenPrintReady(w?.__latticeFontsReady, go);
+			// Hold for the collage / logo-wall measure too (lib/core/measure-kit.js), inside the same 3 s bound.
+			const measured = measuringOf(frame)?.idle(2500);
+			const fonts = w?.__latticeFontsReady;
+			whenPrintReady(fonts && measured ? Promise.all([fonts, measured]).then(() => undefined) : fonts, go);
 		} catch { signal(); }
 	};
 	const kept = slot.current?.frame.isConnected ? slot.current : null;

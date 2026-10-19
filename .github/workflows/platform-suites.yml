@@ -1,0 +1,112 @@
+name: Platform suites (macOS / Windows)
+
+# REPORT-ONLY. Checks that need a real macOS or Windows runner, chosen from .github/platform-suites.json
+# (engineering/development.md § Platform suites). The per-PR CI is Linux only, so anything that depends on the OS
+# (symlinked temp folders, path separators, a native tool) has no evidence there; a suite here is that evidence.
+#
+# WHAT RUNS WHEN
+#   nightly            every suite
+#   workflow_dispatch  the suites named in the `suites` input (comma-separated), or every suite when it is empty
+#   pull_request       the suites whose `paths` match the diff, and all of them when the registry or this plumbing changed;
+#                      most PRs select none, so the matrix is skipped
+# tools/platform-suites-plan.js holds the rule.
+#
+# NOT A MERGE GATE. This workflow is separate from the `ci` gate and a suite's check is not in the required set. A red
+# suite is shown honestly (no continue-on-error); promoting one to required is a separate decision, made once it has run
+# clean for a while (owner ruling 2026-10-18).
+#
+# COST. The repository is public, so GitHub-hosted macOS and Windows minutes are free. First run on #2771 (2026-10-18): the
+# `export-confine` macOS job took 2 m 23 s (install, build and the three test files), and the `plan` job took 2 m 16 s
+# because it checked out the full history; it now does a shallow checkout and one API call (re-measure on the next run).
+
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: 'Suites to run, comma-separated (empty = every suite)'
+        required: false
+        default: ''
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  # Per pull request, so a new push replaces the old run; every other trigger gets its own group, so a manual dispatch
+  # never cancels the nightly.
+  group: platform-suites-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Changed files (pull requests)
+        if: github.event_name == 'pull_request'
+        # One API call, not a full-history checkout: the first version used `fetch-depth: 0` on a 4.5 GB repository and the
+        # `plan` job took 2 m 16 s, paid on every pull request.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
+      - name: Plan
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SUITES: ${{ github.event.inputs.suites }}
+        run: |
+          args=(--event "$EVENT" --github-output)
+          if [ "$EVENT" = "pull_request" ]; then args+=(--changed "$RUNNER_TEMP/changed.txt"); fi
+          if [ -n "$SUITES" ]; then args+=(--suites "$SUITES"); fi
+          node tools/platform-suites-plan.js "${args[@]}"
+
+  run:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    name: ${{ matrix.suite }} (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      # dist/ and the docs-site bundles are BUILT, not committed, and the CLI loads them.
+      - name: Build the generated bundles
+        run: npm run build
+      - name: Suite
+        shell: bash
+        env:
+          SUITE_NAME: ${{ matrix.suite }}
+          SUITE_OS: ${{ matrix.os }}
+          SUITE_WHY: ${{ matrix.why }}
+          SUITE_RUN: ${{ matrix.run }}
+        run: |
+          {
+            echo "### $SUITE_NAME on $SUITE_OS"
+            echo
+            printf '%s\n' "$SUITE_WHY"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bash -c "$SUITE_RUN"

@@ -237,3 +237,31 @@ the only library whose live accent is cool.
 The `/libraries/mosaico/` header draws the mark inline from the page's tokens, so it follows the
 page's theme toggle, as Calco's and Fuoco's do.
 
+## Veduta — the view (built 2026-10-18)
+
+Veduta (the windowed-preview core, `docs/src/lib/veduta`) joined the family with its package.
+*Veduta* is Italian for **a view**: a vista, or the view through a window. Its job is to decide
+which few units of a long list a reader's views should hold. The mark is a window onto a list:
+
+- **the frame**: a rounded rectangle, the window every view looks through;
+- **the rail**: a thin vertical line inside the frame's right edge with three small squares on
+  it, the map beside the stage (the middle square filled and warm, the one the reader is on);
+- **the ringed hub** sits in the stage half, the family tie;
+- **the two ticks** above and below the rail run past the frame, the list continuing out of view.
+
+Assets: `docs/public/veduta-mark.svg`, `veduta-mark-min.svg` (favicon), `veduta-lockup.svg`.
+The `/libraries/veduta/` demo loads the mark as an image; it does not follow that page's theme
+toggle, only the OS color scheme, because the SVG carries its own `prefers-color-scheme` swap.
+
+**Palette**, violet with a chartreuse live accent, chosen apart from every sibling (Suono's
+green, Lente's blue, Vetrina's rose, Cadenza's indigo, Trama's sienna and gold, Calco's ink blue
+and vermilion, Segno's charcoal and red, Fuoco's teal and ember):
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| frame and rail (`pri`) | `#6b3a8c` | `#c9a2e8` | the window (violet) |
+| current tile (`warm`) | `#8a9a00` | `#d9e75a` | the unit the reader is on (chartreuse) |
+| hub | `#6b3a8c` | `#c9a2e8` | the focal point |
+| ring | `#2e1740` | `#1d1226` | the hub's inner ring |
+| halo | `#f6f3ec` | `#121012` | paper (separation) |
+| ink (wordmark) | `#241a2b` | `#ece4f3` | Fraunces "Veduta" |

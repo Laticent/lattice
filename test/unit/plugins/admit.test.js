@@ -6,12 +6,13 @@
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { admitPlugins, DEFAULT_PLUGINS } = require('../../../lib/plugins/host-grammar.mjs');
+const { admitPlugins, activePlugins, withoutAlwaysOn, DEFAULT_PLUGINS } = require('../../../lib/plugins/host-grammar.mjs');
 const { deckPluginList, writeDeckPlugins, deckClassTokens } = require('../../../lib/plugins/deck-plugins.mjs');
 const { createEngine } = require('../../../lib/engine');
 const { bakeDeck } = require('../../../lib/plugins/host-bake.js');
 
-const names = (admission) => admission.active.map((g) => g.name);
+// The plugins a deck loads BY A ROUTE: less `meta`, which is always on (its own tests are below).
+const names = (admission) => admission.active.filter((g) => !g.alwaysOn).map((g) => g.name);
 
 describe('the plugins: import list — reader', () => {
   for (const [label, fm] of [
@@ -106,10 +107,10 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'math', 'mermaid', 'sparks']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'math', 'mermaid', 'meta', 'sparks']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
-    assert.deepEqual(names(a).sort(), [...DEFAULT_PLUGINS].sort());
+    assert.deepEqual(a.active.map((g) => g.name).sort(), [...DEFAULT_PLUGINS].sort());
   });
 
   it('with an empty default set, a plugin loads only when listed or required by a class', () => {
@@ -141,6 +142,20 @@ describe('admitPlugins — the three routes', () => {
     assert.deepEqual(names(a), ['a', 'b', 'c']);
     assert.deepEqual(a.reasons.a, [{ kind: 'required', by: 'b' }]);
     assert.deepEqual(a.off, ['d']);
+  });
+
+  it('`meta` is always on: no default set, switch or cascade turns it off, and it is never an error', () => {
+    const active = (opts) => admitPlugins('# Hi\n', { explain: true, ...opts }).active.map((g) => g.name);
+    assert.ok(active({ defaults: [] }).includes('meta'), 'an empty default set');
+    assert.ok(active({ defaults: ['math'] }).includes('meta'), 'a narrowed default set');
+    assert.ok(active({ disabled: ['meta'] }).includes('meta'), "the host's switch");
+    assert.ok(activePlugins(['meta', 'math']).some((g) => g.name === 'meta'), 'activePlugins');
+    assert.ok(!activePlugins(['meta', 'math']).some((g) => g.name === 'math'), 'the rest of the list still applies');
+    const a = admitPlugins('---\nplugins: [meta]\n---\n', { defaults: [], disabled: ['meta'] });
+    assert.deepEqual(a.off.includes('meta'), false);
+    assert.deepEqual(a.unknown, []);
+    assert.deepEqual(withoutAlwaysOn(['meta', 'math']), ['math']);
+    assert.deepEqual(admitPlugins('# Hi\n', { defaults: [], explain: true }).reasons.meta, [{ kind: 'always' }]);
   });
 
   it("the host's switch wins over every route", () => {

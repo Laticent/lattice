@@ -1,0 +1,3 @@
+- A logo wall is held back while its marks are measured on a first visit in the live preview, so it paints once, packed, instead of drawing the grid and jumping into rows. If a mark never arrives, the wall appears as the grid after 4 s.
+- Studio exports (PDF, PowerPoint, images, webpage) and the Studio's print wait up to 4 s for a collage or logo wall to finish measuring before they capture, and never bake or print one that is still hidden.
+- `collage` and `logo-wall` share one measuring kit, so a collage seen before also stamps at once on a revisit.
