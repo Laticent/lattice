@@ -124,12 +124,8 @@ section.actors > .cell-stage > ol > li > ol > li {
    invisible. */
 section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
 /* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
-   universal pill rule (base.modifiers) auto-starts the chip's inline edge to right-anchor
-   it; cancel that (zero reset) so the chip sits left on its own wrapped line. */
-section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li > code,
-section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > code {
-  margin-left: 0;
-}
+   chip rides the row's far end through the strong label's `flex:1`; here the label takes the full
+   line (above), so the chip wraps onto its own line and hangs at the left. */
 
 
 /* ── Dense roster (five rows or more) ─────────────────────────────────────
@@ -151,7 +147,7 @@ section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > 
 section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > :is(ul, ol) {
   order:2; flex:1 1 0; min-width:0;
 }
-section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > code {
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > .lat-pill {
   order:3;
 }
 
