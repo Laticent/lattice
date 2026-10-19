@@ -85,3 +85,61 @@ test('an overfull draft slide comes back flagged from a real render, and holds t
 	await expect(livePreview(page).getByText('Everything we did this quarter')).toBeVisible({ timeout: 30_000 });
 	await page.screenshot({ path: test.info().outputPath('chat-agent-fit-applied.png') });
 });
+
+
+// A SLIDE THAT RENDERS AS TWO SECTIONS. The default divider also splits on `##`, so a slide holding two `##`
+// headings renders as two sections while the agent still counts one slide. Section N is then not slide N, so the
+// scoped check cannot empty "the other slides" by number: it measures the whole deck and reports by section. A
+// real render is the only way to see that the fallback holds.
+const SPLIT_DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# Fit check', '', '---', '', '<!-- _class: content -->', '## First heading', '', '- One line', '', '## Second heading on the same slide', '', '- Another line'].join('\n');
+
+test('a deck that renders more sections than slides is measured whole, and reported by section', async ({ page }) => {
+	test.setTimeout(120_000);
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable — the spec fails loudly on the missing control */
+		}
+	});
+	const bodies: { messages: { role: string; content: unknown }[] }[] = [];
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (!url.includes('/chat/completions')) {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
+			return;
+		}
+		bodies.push(route.request().postDataJSON());
+		const usage = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0 };
+		const frames =
+			bodies.length === 1
+				? [
+						// An edit beside a read: a split deck's overflow is reported but never charged, so an edit alone
+						// would end the turn without a second round, and the model would never see the verdict.
+						{ id: 'gen-1', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call-1', type: 'function', function: { name: 'edit_slides', arguments: JSON.stringify({ edits: [{ action: 'replace', slide: 1, body: OVERFULL }], summary: 'Filled slide 1.' }) } }, { index: 1, id: 'call-2', type: 'function', function: { name: 'read_slides', arguments: JSON.stringify({ from: 1 }) } }] } }] },
+						{ id: 'gen-1', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage },
+					]
+				: [
+						{ id: 'gen-2', choices: [{ index: 0, delta: { content: 'The checker reported fit by section.' } }] },
+						{ id: 'gen-2', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage },
+					];
+		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
+	});
+
+	await gotoStudio(page);
+	await setEditorContent(page, SPLIT_DECK);
+	await openChat(page);
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('Fill slide 1.');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	await expect(page.getByText('The checker reported fit by section.')).toBeVisible({ timeout: 60_000 });
+
+	const text = bodies[1].messages
+		.filter((m) => m.role === 'tool')
+		.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))
+		.join('\n');
+	// Every section was measured (nothing was emptied by a number that does not line up), and the verdict says so.
+	expect(text).toMatch(/renders 3 sections for its 2 slides/);
+	expect(text).toMatch(/- section 1 overflows its frame/);
+	expect(text).not.toContain('not re-measured');
+});
