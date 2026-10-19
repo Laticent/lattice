@@ -68,7 +68,7 @@ instead.
 | `-q`, `--quiet` | Print errors only |
 | `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K` |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
-| `--allow-remote` | Let the render fetch web images, media and fonts. Off by default, so web images show as placeholders |
+| `--allow-remote` | Let the render fetch web images, media and fonts, and let the plain `.html` keep remote scripts, frames and stylesheets. Off by default, so web images show as placeholders and a remote `<script src>`, `<iframe>` or `<link rel=stylesheet>` in the `.html` is refused |
 | `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
 | `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page shows their source too. An unknown name fails the run |
