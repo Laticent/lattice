@@ -360,11 +360,14 @@ the installed WebKit project.
 - **Scope.** The plugin touches 21 components and the player. The waves keep each step
   reversible by one commit.
 
-## 14. Decisions
+## 14. Decisions (confirmed by the owner, 2026-10-19)
 
-| # | Decision | Recommendation |
+| # | Decision | Outcome |
 |---|---|---|
-| 1 | Where the grammar lives: core slots plus a plugin shell reached by `@legend{}`, or widen the Segno tag set to give the plugin a sigil | Core slots plus shell. Widening the tag set changes the grammar for everyone |
-| 2 | Series toggling | Leave out (section 8) |
-| 3 | Size ramps, risk-matrix index and slope in scope | Out of Wave 0-4; decide per proof in Wave 5 |
-| 4 | Where a free-standing `@legend{}` lands on a slide with no key slot | Below the figure in the body, using `liftLabelSet`'s existing slot logic |
+| 1 | Where the grammar lives | Core slots beside `pill`, plus a plugin shell reached by `@legend{}`. The Segno tag set is not widened |
+| 2 | Series toggling | Left out. Revisit with its own note |
+| 3 | Size ramps, risk-matrix index and slope | Out of Waves 0-4; decided per proof in Wave 5 |
+| 4 | Where a free-standing `@legend{}` lands when the slide has no key slot | Below the figure in the body, using the lift logic `liftLabelSet` already has |
+
+Two spikes come first and can reopen decision 1 if they fail: a list of entries inside a record
+parameter (section 13), and `{1, Cold}` read as key + text without colliding with a pill.
