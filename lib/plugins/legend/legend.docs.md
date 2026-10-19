@@ -41,7 +41,7 @@ in braces; several go in a list.
 
 | You write | You get |
 |---|---|
-| `` `@legend{{Peak, for="Jan 2026 · M0"}}` `` | A label anchored to that cell, tied to it by a numbered circle |
+| `` `@legend{{Peak, for="Jan 2026 · M0"}}` `` | A label anchored to that cell, tied to it by a numbered circle in its number's color |
 | `` `@legend{{Drop-off, tag, c4, for=14}}` `` | Its number on a tag in color 4, anchored to mark 14 |
 | `` `@legend{{Drop-off, c4, for=14}}` `` | Its number on a circle in color 4 |
 | `` `@legend{{Drop-off, for=14, detail="Shipped mid-month"}}` `` | The detail joins that mark's card and the speaker note |
@@ -79,8 +79,11 @@ On a heatmap an anchored label sits in a lane to the right of the grid, level wi
 **number** ties the two: the cell is ringed and carries a numbered marker in its top-left corner, and
 the same marker leads the label's words in the lane. No line crosses the grid, so no value is
 covered and two labels on one row stay apart. The label's pill words shape and color its marker
-(`circle` when it has none) while the words stay in plain ink, and every marker sits on a ring of the
-canvas color so it reads on any cell. A marker sits inside the corner when the cell has room beside
+while the words stay in plain ink. With none, the marker is a `circle` in the color slot of its
+number (1 is `c1`, 2 is `c2`), so the markers differ by color as well as by digit. Every marker sits
+on a ring of the canvas color so it reads on any cell. The marker on a cell is sized from the cell,
+so a dense grid gets small markers and a roomy one larger, within a legible floor; the one in the
+lane is sized from the words beside it, as a pill is from its text. A marker sits inside the corner when the cell has room beside
 its value, and on the corner itself when it does not. Numbers run row by row, then left to right,
 and the lane lists the labels in that order; one the lane cannot hold is dropped rather than drawn
 over another, with its marker, and the chart's description lists it as not drawn. A heatmap draws only

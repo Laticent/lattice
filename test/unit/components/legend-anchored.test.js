@@ -50,6 +50,19 @@ describe('laneSvg', () => {
     assert.equal(d.querySelectorAll('polyline').length, 0);
   });
 
+  test('with no color word, a marker takes the slot of its number; the author\'s word wins', () => {
+    const at = (text, cy, mark, more = {}) => ({ text, ...more, target: { cx: 10, cy, w: 10, h: 10, mark } });
+    const { svg } = laneSvg([at('A', 20, 0), at('B', 40, 1, { color: 7 }), at('C', 60, 2)], opts);
+    const slots = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number')].map((t) => `${t.textContent}:${t.getAttribute('data-c')}`);
+    assert.deepEqual(slots, ['1:c1', '1:c1', '2:c7', '2:c7', '3:c3', '3:c3']);
+  });
+
+  test('the marker on a mark takes the caller\'s size; the one in the lane is sized from its label', () => {
+    const { svg } = laneSvg([entry('A', 20, 0)], { ...opts, markerSize: 9 });
+    const sizes = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number')].map((t) => Number(t.getAttribute('font-size')));
+    assert.deepEqual(sizes, [9, Math.round(opts.fontSize * 0.82 * 100) / 100]);
+  });
+
   test('numbers run in reading order: row by row, then left to right', () => {
     const at = (text, cx, cy, mark) => ({ text, target: { cx, cy, w: 10, h: 10, mark } });
     const { placed } = laneSvg([at('Right', 40, 30, 2), at('Lower', 10, 50, 3), at('Left', 10, 30, 1)], opts);
@@ -178,6 +191,14 @@ describe('heatmap: authored callouts', () => {
 
   test('a span that does not read stays on the slide as the author wrote it', () => {
     assert.match(render('`@legend{x}`'), /<code>@legend\{x\}<\/code>/);
+  });
+
+  test('the marker on a cell grows with the cell, within a floor and a ceiling', () => {
+    const size = (table) => Number(doc(transformSection(md.render(`## R\n\n${table}\n\n\`@legend{{X, for=0}}\``), {})).querySelector('text.legend-number').getAttribute('font-size'));
+    const roomy = size('| | A |\n|---|--:|\n| r | 1 |');
+    const dense = size(`| | ${Array.from({ length: 12 }, (_, i) => `C${i}`).join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${Array.from({ length: 7 }, (_, r) => `| R${r} | ${Array.from({ length: 12 }, () => '5').join(' | ')} |`).join('\n')}`);
+    assert.ok(roomy > dense, `${roomy} > ${dense}`);
+    assert.ok(dense >= 7.5 * 0.75 - 0.01 && roomy <= 7.5 * 1.1 + 0.01);
   });
 
   test('callouts and the band key share the figure: the key starts past the lane', () => {

@@ -501,7 +501,12 @@ the same marker leads the label in the lane. The marker IS the label's plate, so
 (`circle` by default, `tag`, `c4`, …) style it and nothing new is added to the vocabulary; it sits
 on a knockout of the canvas color, a filled shape the PDF writer keeps, so it reads on any cell.
 It sits inside the corner when the cell has room beside its value, and on the corner when it does
-not. Numbers run row by row, then left to right.
+not. Numbers run row by row, then left to right. On the owner's second look, two more: with no
+color word a marker takes the slot of its number, so the numbers differ by color too; and the marker
+on a cell is sized from the cell (a quarter of its shorter side, held between 0.75 and 1.1 of the
+label size), while the lane's copy is sized from its label, as a pill is from its text. Making the
+HTML pill itself size from its container is a pills-plugin change logged as
+`followups.d/2798-p3-pills-size-from-their-container.md`.
 
 **Departure 2: the `@legend{…}` paragraph is read by the component, not by an inline row.** The
 plugin adds no row to the dispatcher (`inline-code-directives.js`). A row would have to draw a
