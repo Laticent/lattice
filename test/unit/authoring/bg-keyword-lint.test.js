@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { findBgKeywordIssues } = require('../../../lib/authoring/lint-core.js');
-const { liftImageBgImages } = require('../../../lib/core/bg-lift.js');
+const { liftImageBgImages } = require('../../../lib/core/bg-image.js');
 
 const deck = (...slides) => `---\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 const rules = (src) => findBgKeywordIssues(src).map((f) => `${f.slide}:${f.rule}`);

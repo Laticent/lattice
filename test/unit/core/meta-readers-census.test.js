@@ -4,12 +4,13 @@
  *
  *   migrated   it reads comments through the shared modules (lib/core/meta-record.mjs, meta-keys.mjs,
  *              comment-directive.mjs, the Studio's slide-directives.ts, which wraps them), or
+ *   door       it reads the pane marker grammar and moves at the step 2 door (design §5.4.1), or
  *   stays      it reads a different grammar, only strips or tokenizes comments, or cannot move without
  *              changing its output; the reason names what would have to change.
  *
  * The test pins three things: the census in the note and this table are the same set (a file added to
  * or removed from one fails), a `migrated` file really imports a shared module, and a `stays` file has
- * a reason. It does not stop a NEW hand-rolled reader in a file outside the census; the key-list guard in
+ * a reason, and the `door` rows are exactly the files design §5.4.1 names. It does not stop a NEW hand-rolled reader in a file outside the census; the key-list guard in
  * meta-keys.test.js stops the costlier half of that (a sixth copy of the vocabulary).
  */
 const { test, describe } = require('node:test');
@@ -20,18 +21,19 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const M = 'migrated';
 const S = 'stays';
+const D = 'door';
 
 // [path, status, one-line reason]
 const CENSUS = [
   // ── Studio and docs site ────────────────────────────────────────────────
   ['docs/src/components/studio/Editor.tsx', S, 'the unknown-component underline needs a document offset and matches inside fences; needs an offset-returning helper'],
-  ['docs/src/components/studio/PresentOverlay.tsx', S, 'pane marker grammar (step 2 door, design §5.4)'],
+  ['docs/src/components/studio/PresentOverlay.tsx', D, 'hasPaneMarker moves to the shared parser at the step 2 door (design §5.4.1)'],
   ['docs/src/components/studio/StudioShell.tsx', M, 'the pane skeleton class read goes through getClassTokens'],
   ['docs/src/components/studio/coach/coach-core.ts', S, 'deck-wide heuristic probes that deliberately match fenced and quoted examples'],
   ['docs/src/components/studio/editor-complete.ts', S, 'inCollageSlide walks its own boundary rule; the shared resolution would change its answer'],
   ['docs/src/components/studio/lint.ts', S, 'the class read is already the shared slideClassDirectives; the rest is pane grammar'],
-  ['docs/src/components/studio/pane-pages.ts', S, 'pane marker grammar'],
-  ['docs/src/components/studio/pane-probe.ts', S, 'a cheap over-matching reject, mirrors pane-spec mayHavePanes'],
+  ['docs/src/components/studio/pane-pages.ts', D, 'PANE_MARKER moves to parsePaneMarker at the step 2 door (design §5.4.1)'],
+  ['docs/src/components/studio/pane-probe.ts', D, 'the probe regex is built from the shared marker vocabulary at the step 2 door (design §5.4.1)'],
   ['docs/src/components/studio/present-sections.ts', S, 'reads a lone chunk with no deck context; the shared read would change section boundaries'],
   ['docs/src/components/studio/present/rehearsal.js', S, 'classOf takes the first spot class; the shared reader takes the last plus the running global'],
   ['docs/src/components/studio/slide-directives.ts', M, 'key list, fences, comment finder, class read and write all come from the shared modules'],
@@ -40,7 +42,7 @@ const CENSUS = [
   ['docs/src/lib/compose/comment-block.ts', S, 'a security guard that refuses ANY _name comment, vocabulary or not'],
   ['docs/src/lib/compose/deck-doc.ts', M, 'class read through deck-source classNameOf'],
   ['docs/src/lib/compose/deck-source.ts', M, 'class read through readDirectiveComment'],
-  ['docs/src/lib/compose/pane-model.ts', S, 'its class read is pane-spec classOf; the rest is pane marker grammar'],
+  ['docs/src/lib/compose/pane-model.ts', D, 'markerFor writes through writeMeta at the step 2 door (design §5.4.1)'],
   ['docs/src/lib/compose/registers.ts', M, 'class reads go through classPayloadOf and classNameOf'],
   ['docs/src/lib/lente/tags.ts', S, 'a published zero-dependency package; importing lib/core breaks its contract'],
   ['docs/src/lib/single-slide-render.ts', S, 'a gate that over-triggers on purpose (quoted and fenced matches included)'],
@@ -53,12 +55,12 @@ const CENSUS = [
   // ── Core, engine, render path ───────────────────────────────────────────
   ['lib/conformance/kinds/component.contract.js', M, 'galleryRealizes reads _class and _footer through readDirectiveComment'],
   ['lib/core/auto-split.js', M, 'deckChromeFrom already reads through readDirectiveComment'],
-  ['lib/core/bg-lift.js', M, 'reads each slide\'s class through slideClassSpans (the lift left bg-image.js, #2776)'],
+  ['lib/core/bg-image.js', M, 'parses each comment with readDirectiveComment'],
   ['lib/core/chart-narration.js', M, 'spot class read through commentBodies and readDirectiveComment'],
   ['lib/core/class-directive-scan.mjs', M, 'a view over scanMetaSource'],
   ['lib/core/marp-bundle-math.js', S, 'inserts escapes at byte offsets inside header and footer values; needs a positional reader'],
-  ['lib/core/pane-spec.js', S, 'pane marker grammar; moves behind the step 2 door (design §5.4)'],
-  ['lib/core/panes.js', S, 'pane marker grammar; copies unknown _word: comments onto every pane page'],
+  ['lib/core/pane-spec.js', D, 'authored marker regexes move to parsePaneMarker at the step 2 door; the internal-form regexes stay (design §5.4.1)'],
+  ['lib/core/panes.js', D, 'the rewrite and forgery guard move into the step 2 door; the carve reads the internal form and stays (design §5.4.1)'],
   ['lib/core/resolve-motion.mjs', S, 'matches motion words in ANY comment, notes included'],
   ['lib/core/slide-speech.js', S, 'only blanks comments and keeps the line count'],
   ['lib/diagnostics/slice-equivalence-core.mjs', M, 'synthesizePrelude and dividerTokens read through commentBodies and readDirectiveComment'],
@@ -110,7 +112,7 @@ describe('the reader census (design note §14)', () => {
   test('every file exists, and a stays row has a reason', () => {
     for (const [f, status, why] of CENSUS) {
       assert.ok(fs.existsSync(path.join(ROOT, f)), `${f} does not exist`);
-      assert.ok(status === M || status === S, `${f}: unknown status`);
+      assert.ok(status === M || status === S || status === D, `${f}: unknown status`);
       assert.ok(why && why.length > 12, `${f}: needs a reason`);
     }
   });
@@ -120,9 +122,23 @@ describe('the reader census (design note §14)', () => {
     assert.deepEqual(bad, []);
   });
 
+  test('a door row is named in design §5.4.1, and §5.4.1 names no other file', () => {
+    const sub = note.slice(note.indexOf('### 5.4.1'), note.indexOf('### 5.4.2'));
+    const named = [...sub.matchAll(/^\| `([^`]+)` \|/gm)].map((m) => m[1]).sort();
+    const door = CENSUS.filter(([, s]) => s === D).map(([f]) => f).sort();
+    assert.deepEqual(named, door);
+  });
+
+  test('§5.4.2 traces the other pane readers, and each file exists', () => {
+    const sub = note.slice(note.indexOf('### 5.4.2'), note.indexOf('### 5.5'));
+    const named = [...sub.matchAll(/^\| `([^`]+)` \|/gm)].map((m) => m[1]).sort();
+    assert.equal(named.length, 8, 'six regex readers and two that follow pane-spec');
+    for (const f of named) assert.ok(fs.existsSync(path.join(ROOT, f)), `${f} does not exist`);
+  });
+
   test('the tally the PR reports', () => {
     const n = (s) => CENSUS.filter(([, x]) => x === s).length;
-    console.log(`# reader census: ${CENSUS.length} files · ${n(M)} migrated · ${n(S)} stay`);
-    assert.equal(n(M) + n(S), CENSUS.length);
+    console.log(`# reader census: ${CENSUS.length} files · ${n(M)} migrated · ${n(D)} wait for the door · ${n(S)} stay`);
+    assert.equal(n(M) + n(D) + n(S), CENSUS.length);
   });
 });

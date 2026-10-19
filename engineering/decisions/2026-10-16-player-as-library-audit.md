@@ -859,20 +859,12 @@ defects where they met:
   panel. The seed is now `deckClassTokensFromFrontMatter` of a closed block, the tokens the engine
   itself admits.
 
-- The lift no longer walks lines at all (#2776). Three checker passes ran the line walk against the
-  engine's own render and each found more shapes it got wrong: a setext underline (`Title\n---`), a
-  list item's continuation paragraph, `***`, a `---` inside `$$` math. The worst came from fixing the
-  first one: under the default `split: headings`, a setext `h2` is itself a slide boundary, so the
-  picture moved onto a plain slide. The lift now takes each slide's span and class from
-  `slideClassSpans` (lib/core/slide-class-spans.js, the engine's markdown-it boundaries, heading
-  splits included) and lifts only a `![bg]` that sits in prose, an `inline` token. Measured on a
-  differential run (fuzzed decks, with every `![bg]` replaced by a marker the engine renders as plain
-  text): 0 of 15,843 markers differ from the engine across both split modes, against 673 on `main`.
-  The cost is one more markdown-it parse, only for a deck that has a `![bg]`: 4.6 ms against 2.0 ms
-  on the 60 KB gallery deck, out of a 120 ms render. The lift moved to its own file, `lib/core/bg-lift.js`:
-  `bg-image.js` also ships in the viewer runtime, and with the lift in it the runtime carried markdown-it
-  (+23.7 KB gz on `engineJsGz`, which the route budget caught). Split, the runtime is 1 KB gz smaller than
-  on `main`, because the old line walk no longer ships in it.
+Still open: the lift's `---` line walk disagrees with the engine on a setext underline (`Title\n---`),
+other rule forms, a `---` in `$$` math and a directive indented as code (673 of 5,289 fuzzed markers
+on `main`). #2776 tried a better walk and then a read through `slideClassSpans`; the second matched
+the engine on every fuzzed marker but cost a second parse and ~1.6 KB gz on an engine already at its
+ceiling, so both came out. The design left is a token rule inside the engine's own parse
+(followups.d/2739-p10-bg-lift-setext-underline.md).
 
 ### 11.8 The Studio's player shipped the authoring overflow marker to its reader
 
