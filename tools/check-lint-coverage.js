@@ -426,12 +426,19 @@ function unwatchedIncludeExtensions(configText, watched = WATCHED_EXTENSIONS) {
 // ── RUNNERS ───────────────────────────────────────────────────────────────────
 
 function resolveBiome(root) {
+	// Windows cannot spawn the extensionless `.bin/biome` shim, so name the package's JS entry there and run it with node (`spawnBiome`).
+	if (process.platform === 'win32') return path.join(root, 'node_modules', '@biomejs', 'biome', 'bin', 'biome');
 	return path.join(root, 'node_modules', '.bin', 'biome');
+}
+
+/** `spawnSync` for the Biome binary `resolveBiome` returned: through node on Windows, directly elsewhere. */
+function spawnBiome(biome, args, options) {
+	return process.platform === 'win32' ? spawnSync(process.execPath, [biome, ...args], options) : spawnSync(biome, args, options);
 }
 
 /** The version these parsers were written against — see VERIFIED_BIOME. */
 function biomeVersion(biome) {
-	const res = spawnSync(biome, ['--version'], { encoding: 'utf8' });
+	const res = spawnBiome(biome, ['--version'], { encoding: 'utf8' });
 	const m = /(\d+\.\d+\.\d+)/.exec(`${res.stdout ?? ''}${res.stderr ?? ''}`);
 	return m ? m[1] : null;
 }
@@ -461,7 +468,7 @@ function collectCoverage(root, biome) {
 	const lintable = trackedLintable(listTracked(root)).filter((p) =>
 		fs.existsSync(path.join(root, p)),
 	);
-	const res = spawnSync(biome, ['check', '--verbose', '--max-diagnostics=1', ...lintable], {
+	const res = spawnBiome(biome, ['check', '--verbose', '--max-diagnostics=1', ...lintable], {
 		cwd: root,
 		encoding: 'utf8',
 		maxBuffer: 1 << 28,
@@ -526,7 +533,7 @@ function runProbe(root, biome, targets, token = crypto.randomBytes(6).toString('
 		for (const [i, p] of abs.entries()) fs.writeFileSync(p, PROBE_LANGUAGES[probes[i].ext].source);
 		const maxRules = Math.max(...Object.values(PROBE_LANGUAGES).map((l) => l.rules.length));
 		const cap = Math.min(20000, probes.length * maxRules + 100);
-		const res = spawnSync(
+		const res = spawnBiome(
 			biome,
 			['check', '--reporter=json', `--max-diagnostics=${cap}`, ...probes.map((p) => p.path)],
 			{ cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 },
@@ -626,7 +633,7 @@ function confirmSuppressed(root, biome, candidates, read) {
 			const head = String(read(c.origin) ?? '').split('\n').slice(0, 40).join('\n');
 			fs.writeFileSync(path.join(root, c.rel), `${head}\n${PROBE_JS}`);
 		}
-		const res = spawnSync(
+		const res = spawnBiome(
 			biome,
 			['check', '--reporter=json', `--max-diagnostics=${copies.length * 8 + 100}`, ...copies.map((c) => c.rel)],
 			{ cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 },
