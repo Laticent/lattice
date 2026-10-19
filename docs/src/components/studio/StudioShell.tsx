@@ -54,7 +54,7 @@ import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
-import { tapCollageAt } from '../../playground/collage-host.js';
+import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -3835,12 +3835,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (hoverRaf) return;
 			hoverRaf = requestAnimationFrame(() => {
 				hoverRaf = 0;
-				if (hoverAt) hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
+				if (hoverAt) {
+					hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					hoverCollageAt(hoverFrame(), hoverAt.x, hoverAt.y);
+				}
 			});
 		};
 		const onLeave = () => {
 			hoverAt = null;
 			hoverCodeCopyAt(hoverFrame(), null, null);
+			hoverCollageAt(hoverFrame(), null, null);
 		};
 		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);

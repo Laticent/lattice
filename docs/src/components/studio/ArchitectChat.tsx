@@ -49,7 +49,21 @@ import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, lo
 const CHAT_SANITIZE = { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote', 'hr'], ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'start'], ALLOW_DATA_ATTR: false };
 const sanitizeChat = (html: string): string => DOMPurify.sanitize(html, CHAT_SANITIZE) as unknown as string;
 
-function AssistantBody({ text, streaming }: { text: string; streaming: boolean }) {
+// One prose segment, sanitized ONCE per distinct html string. `sanitizeChat` runs DOMPurify over the
+// whole fragment, and it used to run in the render body of every segment of every message in the
+// transcript on EVERY render of the panel: each streamed frame, each keystroke in the composer.
+// Measured on the real Studio (4x CPU throttle, a fifth turn of a thread), that was a long task on
+// nearly every frame. Memoizing on the html string means a settled segment costs nothing to repaint,
+// and React leaves its DOM alone because the `__html` string it compares is unchanged.
+const ProseHtml = React.memo(function ProseHtml({ html }: { html: string }) {
+	const safe = React.useMemo(() => sanitizeChat(html), [html]);
+	// biome-ignore lint/security/noDangerouslySetInnerHtml: prose is escape-first rendered by renderProse then DOMPurify-sanitized with the chat tag profile — the single sanitized sink; code never takes this path.
+	return <div dangerouslySetInnerHTML={{ __html: safe }} />;
+});
+
+// `memo` for the same reason: a past reply's text never changes, so a panel re-render (a keystroke, a
+// status line, the next frame of a LATER reply) must not re-segment or re-render it.
+const AssistantBody = React.memo(function AssistantBody({ text, streaming }: { text: string; streaming: boolean }) {
 	const segs: ChatSegment[] = React.useMemo(() => (streaming ? renderMessageSegmentsStreaming(text) : renderMessageSegments(text)), [text, streaming]);
 	return (
 		<div className="cm-chat-md space-y-1.5">
@@ -59,20 +73,119 @@ function AssistantBody({ text, streaming }: { text: string; streaming: boolean }
 					isFigureLang(s.lang) ? <ChatFigure key={i} code={s.code} lang={s.lang} /> : <ChatCodeBlock key={i} code={s.code} lang={s.lang} />
 				) : (
 					// biome-ignore lint/suspicious/noArrayIndexKey: append-only segment list for one render.
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: prose is escape-first rendered by renderProse then DOMPurify-sanitized with the chat tag profile — the single sanitized sink; code never takes this path.
-					<div key={i} dangerouslySetInnerHTML={{ __html: sanitizeChat(s.html) }} />
+					<ProseHtml key={i} html={s.html} />
 				),
 			)}
 		</div>
 	);
+});
+
+// THE IN-FLIGHT REPLY LIVES OUTSIDE THE PANEL'S STATE. It used to be `useState<{deck, text}>`, set on every
+// painted frame, so each frame re-rendered the whole panel: the composer, the header, and every past message
+// (re-sanitizing each one). Now the text sits in this tiny store and only `LiveReply` subscribes, so a frame
+// re-renders exactly the bubble that changed. `deck` still travels with the text (#1787, checker F1): the
+// panel filters on it at the render, never clears it on a deck switch.
+type LiveText = { deck: string; text: string };
+function createLiveStore() {
+	let value: LiveText | null = null;
+	const listeners = new Set<() => void>();
+	return {
+		get: () => value,
+		set(next: LiveText | null) {
+			value = next;
+			for (const fn of listeners) fn();
+		},
+		subscribe(fn: () => void) {
+			listeners.add(fn);
+			return () => {
+				listeners.delete(fn);
+			};
+		},
+	};
 }
 
-// Drop a queued paint frame and clear the guard, together. Zeroing the id matters as
-// much as the cancel: `onToken` reads a non-zero `rafRef` as "a frame is already
-// scheduled" and would never queue another one (#1787).
-function cancelPaint(ref: React.MutableRefObject<number>) {
-	if (ref.current) cancelAnimationFrame(ref.current);
-	ref.current = 0;
+// Paint at most once a frame, and back off when frames get expensive. A paint's cost is the whole frame it
+// caused, not only the JavaScript in it: React renders the store update in a microtask after `paint()`
+// returns, and style, layout and paint follow, so the gap from a paint to the NEXT frame callback is the true
+// cost (it includes the 16ms the frame would take anyway, which is taken out). The next paint then waits
+// `PAINT_WAIT` times that cost, so a slow machine or a long reply keeps most of the main thread for input and
+// the slide preview, and a fast one (cost near zero) still paints every frame. A paint that was queued before
+// the measurement landed checks the wait again when it runs. The buffer is never lost, only shown later; the
+// wait is capped so the text never looks stuck.
+const FRAME_MS = 17;
+const PAINT_WAIT = 3;
+const PAINT_WAIT_CAP_MS = 300;
+function createPaintScheduler(paint: () => void) {
+	let raf = 0;
+	let timer: ReturnType<typeof setTimeout> | 0 = 0;
+	let notBefore = 0;
+	// `-1` while the call is in flight, so a host that runs the callback synchronously (a test stub) is not
+	// overwritten by the id the call returns after `frame` already cleared it.
+	const queueFrame = () => {
+		raf = -1;
+		const id = requestAnimationFrame(frame);
+		if (raf === -1) raf = id;
+	};
+	const queueAfter = (wait: number) => {
+		timer = setTimeout(() => {
+			timer = 0;
+			queueFrame();
+		}, wait);
+	};
+	function frame() {
+		raf = 0;
+		const t0 = performance.now();
+		if (t0 < notBefore - 1) {
+			queueAfter(notBefore - t0);
+			return;
+		}
+		paint();
+		// Registered before any later paint's frame callback, so it runs first in the next frame.
+		requestAnimationFrame(() => {
+			const whole = performance.now() - t0 - FRAME_MS;
+			notBefore = t0 + Math.min(Math.max(whole, 0) * PAINT_WAIT, PAINT_WAIT_CAP_MS);
+		});
+	}
+	return {
+		request() {
+			if (raf || timer) return;
+			const wait = notBefore - performance.now();
+			// Under one frame there is nothing to wait for: the next frame callback is already that far off.
+			if (wait <= FRAME_MS) queueFrame();
+			else queueAfter(wait);
+		},
+		cancel() {
+			if (raf > 0) cancelAnimationFrame(raf);
+			if (timer) clearTimeout(timer);
+			raf = 0;
+			timer = 0;
+		},
+	};
+}
+
+// The reply still arriving: the only subscriber to the live store, so a painted frame re-renders this bubble and
+// nothing else. `deck` is the deck on screen; text for another deck's turn is not shown (#1787).
+function LiveReply({ store, deck, activity, onGrow }: { store: ReturnType<typeof createLiveStore>; deck: string; activity: string | null; onGrow: () => void }) {
+	const v = React.useSyncExternalStore(store.subscribe, store.get, store.get);
+	const text = v && v.deck === deck ? v.text : null;
+	React.useLayoutEffect(() => {
+		if (text !== null) onGrow();
+	}, [text, onGrow]);
+	if (text === null) return null;
+	return (
+		<div className="flex flex-col gap-1.5">
+			<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+				<Sparkles className="size-3 animate-pulse text-[var(--accent)]" /> Architect
+			</div>
+			{text !== '' && (
+				<div className="text-[12.5px] leading-relaxed text-foreground">
+					<AssistantBody text={text} streaming={true} />
+				</div>
+			)}
+			{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
+			<ChatLiveStatus label={activity ?? (text === '' ? THINKING : 'Writing…')} progress={`${activity ?? ''}|${text.length}`} />
+		</div>
+	);
 }
 
 type ChatNotice = { deck: string; kind: 'offline' | 'blocked' | 'error'; text: string };
@@ -174,7 +287,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// render — which is how the other deck's partial reply used to paint into this
 	// transcript. Filtered at the render (`live`), never cleared on the switch, so switching
 	// BACK shows the reply still arriving rather than a blank turn (#1787, checker F1).
-	const [streaming, setStreaming] = React.useState<{ deck: string; text: string } | null>(null);
+	// The text itself is in `liveStore` (see createLiveStore); this is only WHICH DECK a turn is in flight for, so
+	// the panel re-renders when a turn starts and ends, not on every frame between.
+	const [streamingDeck, setStreamingDeck] = React.useState<string | null>(null);
+	const liveStore = React.useRef<ReturnType<typeof createLiveStore>>(null as never);
+	if (!liveStore.current) liveStore.current = createLiveStore();
 	// What the agent is doing between replies ("Reading a component…"), for the live bubble.
 	// Panel state like `streaming`, cleared with it when the turn ends.
 	const [liveActivity, setLiveActivity] = React.useState<string | null>(null);
@@ -223,12 +340,32 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const mountedRef = React.useRef(true);
 	const abortRef = React.useRef<AbortController | null>(null);
 	const bufferRef = React.useRef('');
-	const rafRef = React.useRef(0);
+	const liveDeckRef = React.useRef('');
+	const paintRef = React.useRef<ReturnType<typeof createPaintScheduler>>(null as never);
+	if (!paintRef.current)
+		paintRef.current = createPaintScheduler(() => {
+			// No deck guard here — the RENDER decides what is on screen. Keeping the buffer
+			// current while the author is on another deck is the point: come back mid-turn
+			// and the reply is where they left it, still arriving.
+			liveStore.current.set({ deck: liveDeckRef.current, text: bufferRef.current });
+		});
+	// Pin the transcript to the newest text only while the author is already reading the newest text. Pinning
+	// unconditionally yanked the panel back to the bottom on every frame, so a reply could not be scrolled up
+	// to reread while it streamed.
+	const stickRef = React.useRef(true);
+	const onTranscriptScroll = () => {
+		const el = scrollRef.current;
+		if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+	};
+	const followLive = React.useCallback(() => {
+		const el = scrollRef.current;
+		if (el && stickRef.current) el.scrollTo?.({ top: el.scrollHeight });
+	}, []);
 	React.useEffect(() => {
 		mountedRef.current = true;
 		return () => {
 			mountedRef.current = false;
-			cancelPaint(rafRef);
+			paintRef.current.cancel();
 			// NOTE: we deliberately do NOT abort on unmount — the request keeps completing
 			// and commits to its originating deck (the survival contract). Only Stop aborts.
 		};
@@ -257,12 +394,14 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
+		stickRef.current = true;
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
 	}, [deckId, messages]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `streaming` is the intentional scroll trigger.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a turn starting or ending is the intentional scroll trigger.
 	React.useEffect(() => {
+		stickRef.current = true;
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
-	}, [streaming]);
+	}, [streamingDeck]);
 	React.useEffect(() => {
 		saveChatDraft(deckIdRef.current, input);
 	}, [input]);
@@ -298,21 +437,16 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		const controller = new AbortController();
 		abortRef.current = controller;
 		bufferRef.current = '';
-		setStreaming({ deck: sendDeckId, text: '' });
+		liveDeckRef.current = sendDeckId;
+		liveStore.current.set({ deck: sendDeckId, text: '' });
+		setStreamingDeck(sendDeckId);
 		const onToken = (tok: string) => {
 			bufferRef.current += tok;
 			// Prose arrived, so the last tool's label is finished news. Synchronous on purpose:
 			// the next round's label is set by a later call, and clearing from the rAF below
 			// would run AFTER it and wipe it.
 			if (tok) setLiveActivity(null);
-			if (!rafRef.current)
-				rafRef.current = requestAnimationFrame(() => {
-					rafRef.current = 0;
-					// No deck guard here — the RENDER decides what is on screen. Keeping the buffer
-					// current while the author is on another deck is the point: come back mid-turn
-					// and the reply is where they left it, still arriving.
-					if (mountedRef.current) setStreaming({ deck: sendDeckId, text: bufferRef.current });
-				});
+			if (mountedRef.current) paintRef.current.request();
 		};
 		try {
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
@@ -368,11 +502,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		} finally {
 			abortRef.current = null;
 			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
-			// still be queued when `chatComplete` resolves; it would fire after `setStreaming(null)`
+			// still be queued when `chatComplete` resolves; it would fire after the store is cleared
 			// and set the buffer BACK, so the committed reply renders twice — permanently, since
 			// nothing clears `streaming` again until the next send (#1787). Unconditional: the
 			// frame is this turn's regardless of which deck is on screen or whether we still are.
-			cancelPaint(rafRef);
+			paintRef.current.cancel();
 			// TEARDOWN IS PANEL STATE, NOT DECK STATE. `busy` and `streaming` describe this
 			// panel, and the panel has exactly one turn in flight — so they must clear when it
 			// ends, whichever deck is on screen. Gated on the deck (as this was), switching
@@ -381,7 +515,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			// carries its own guard inside `commit`.
 			if (mountedRef.current) {
 				setBusy(false);
-				setStreaming(null);
+				liveStore.current.set(null);
+				setStreamingDeck(null);
 				setLiveActivity(null);
 				setPulse((p) => p + 1);
 				// The gauge is rendered elsewhere now — announce, don't set.
@@ -605,14 +740,14 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
 	// the turn but the Stop button (which is panel-wide — the single-slot abort/buffer refs
 	// make a second concurrent turn impossible, so the guard has to be).
-	const live: string | null = streaming && streaming.deck === deckId ? streaming.text : null;
+	const live = streamingDeck === deckId;
 	// `!busy` is part of "empty": without it a deck with no history showed the *nothing has
 	// happened here* placeholder while the composer showed Stop — a contradiction on screen
 	// (checker F2). A turn in flight elsewhere leaves this transcript blank, not reassuring.
 	// Already this deck's — the store is keyed by deck, so there is nothing left to filter.
 	// Named apart from `notice` only because the render below reads it twice.
 	const shownNotice = notice;
-	const empty = messages.length === 0 && live === null && !shownNotice && !busy;
+	const empty = messages.length === 0 && !live && !shownNotice && !busy;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
@@ -636,7 +771,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			) : costSlot ? (
 				createPortal(costReadout, costSlot)
 			) : null}
-			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+			<div ref={scrollRef} onScroll={onTranscriptScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
 				{/* ONE POOL FOR THE TRANSCRIPT. Figures in replies are tiles in it, so a long conversation
 				    holds a handful of live frames however many figures it has (the bake-off decision). */}
 				<ChatFigureContext.Provider value={figureRender}>
@@ -671,20 +806,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						</div>
 					),
 				)}
-				{live !== null && (
-					<div className="flex flex-col gap-1.5">
-						<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-							<Sparkles className="size-3 animate-pulse text-[var(--accent)]" /> Architect
-						</div>
-						{live !== '' && (
-							<div className="text-[12.5px] leading-relaxed text-foreground">
-								<AssistantBody text={live} streaming={true} />
-							</div>
-						)}
-						{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
-						<ChatLiveStatus label={liveActivity ?? (live === '' ? THINKING : 'Writing…')} progress={`${liveActivity ?? ''}|${live.length}`} />
-					</div>
-				)}
+				{live && <LiveReply store={liveStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
 				{shownNotice && (
 					<div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed', shownNotice.kind === 'blocked' ? 'border-[var(--warn,#9a6a00)]/40 text-[var(--warn,#9a6a00)]' : 'border-border text-muted-foreground')}>
 						<TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

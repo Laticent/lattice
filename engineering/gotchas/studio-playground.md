@@ -1641,3 +1641,30 @@ never turn "passed in headless" into "works on iOS."
   (testing-library treats `[hidden]` as inaccessible). A closed kept surface also drops its
   `role="dialog"`, so `getByRole('dialog')` means "open". In Playwright, filter with
   `{ visible: true }` rather than counting elements.
+
+## The Architect chat hangs while a reply streams, and gets worse the longer the thread is
+
+- **Symptom** — typing, scrolling and slide changes stall while the Architect writes. A fresh thread is fine; the fifth turn of the same thread is not. On the built Studio at 4x CPU throttle, turn 1 produced 6 long tasks and turn 5 produced hundreds, nearly one per frame.
+- **Cause** — the streamed text was panel state, set on every painted frame, so each frame re-rendered the whole panel. The render body ran `DOMPurify.sanitize` over the HTML of every message in the transcript, settled or not, so a frame cost work proportional to the thread. The same pass ran on every keystroke in the composer. Pinning the transcript to the bottom on every frame also yanked a reader who had scrolled up.
+- **Mitigation** — the in-flight reply lives in `createLiveStore` (`ArchitectChat.tsx`) and only `LiveReply` subscribes to it, so a frame re-renders that one bubble. `AssistantBody` and `ProseHtml` are `React.memo`, and `ProseHtml` sanitizes once per distinct html string. `createPaintScheduler` paints at most once a frame and waits three times the measured cost of the last frame (capped at 300 ms), so a slow machine keeps most of the main thread for input. `studio.chat-stream-cost.test.tsx` counts sanitizer passes, which is the work that scaled, rather than timing anything.
+- **Triggered by** — any chat turn on a deck with an existing thread; any keystroke in the composer.
+- **Removable when** — never. A new surface that streams text into a React tree must keep the text out of the parent's state.
+- **Commits** — the PR that added `studio.chat-stream-cost.test.tsx`; decision note `engineering/decisions/2026-10-19-studio-main-thread-jank.md`.
+
+## `:hover` never fires on anything inside the Studio's live preview
+
+- **Symptom** — a collage photo does not pop under the mouse in the Studio, though it does in the Playground. Any other hover effect that lives in the slide's CSS is dead in the same way.
+- **Cause** — the preview box is `pointer-events-none` (`StudioShell.tsx`, `previewBoxRef`) so a swipe over the slide reaches the swipe container instead of being swallowed by the engine's iframe. A box that takes no pointer events never matches `:hover` for anything inside it.
+- **Mitigation** — the holder hit-tests the pointer itself on `pointermove` (`previewHolderRef`) and marks what is under it with `data-host-hover`; the slide's CSS reads the marker beside `:hover`. Code-block copy buttons were first (`hoverCodeCopyAt`, `code.styles.css`); collage tiles follow (`hoverCollageAt`, `collage.styles.css`). Each bridge clears only its own markers and writes an attribute only on a change, because a write to the frame's DOM that changes nothing still wakes its mutation observers.
+- **Triggered by** — a mouse over the Studio's live preview. A touch tap goes through the click bridges (`tapCollageAt`, `tapCodeCopyAt`).
+- **Removable when** — the preview box can take pointer events without swallowing swipes.
+- **Commits** — the PR that added `hoverCollageAt`; `docs/e2e/collage-lightbox.spec.ts` drives it with a real mouse.
+
+## The preview frame runs a frame loop for ten seconds after it loads, though the deck has no diagram
+
+- **Symptom** — a Studio left alone still wakes up 60 times a second. A trace of an idle Studio shows a frame callback from `lattice-runtime.js` on every frame and a compositor commit with it, and nothing painted.
+- **Cause** — the Mermaid pass's boot wait (`tick` in `mermaid.hydrate.js`) is a `requestAnimationFrame` loop with a cap of 600 frames. It ran in every document the runtime booted in, diagram or not, and the Studio rewrites its preview frame often.
+- **Mitigation** — `boot()` returns before `tick()` when the document has no Mermaid fence and no host-written Mermaid tag. A fence that arrives later takes the path `runPass` → `requestMermaidLibrary` documents, which needs no loop. `mermaid-unavailable.test.js` counts the runtime's own frame callbacks in a prose deck and draws a fence added after boot.
+- **Triggered by** — every srcdoc write of the live preview, the capture frames, the Playground.
+- **Removable when** — never; a wait that can have nothing to wait for should not start.
+- **Commits** — the PR that added the early return.

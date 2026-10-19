@@ -28,6 +28,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
+const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { exportSettingsBlock } = require('../../../lib/core/export-settings');
 
@@ -86,23 +87,23 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
   test('a document carrying an export-settings block is an export → reader', async () => {
     const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'reader' }) });
     assert.deepEqual(levelsOn(dom.window.document), ['reader']);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   test('a document with no export-settings block is an authoring surface → author', async () => {
     const dom = await boot();
     assert.deepEqual(levelsOn(dom.window.document), ['author']);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   test("the export's recorded level overrides the surface default, both ways", async () => {
     const asAuthor = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }) });
     assert.deepEqual(levelsOn(asAuthor.window.document), ['author'], 'a bundle can ask for the author signal');
-    asAuthor.window.close();
+    closeQuietly(asAuthor.window);
 
     const asOff = await boot({ block: exportSettingsBlock({ overflowMarker: 'off' }) });
     assert.deepEqual(levelsOn(asOff.window.document), ['off']);
-    asOff.window.close();
+    closeQuietly(asOff.window);
   });
 
   // A typo must never decide what a delivered artifact shows, and it must never
@@ -112,7 +113,7 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
   test('an unrecognized value falls back to a REAL level, never stamps itself', async () => {
     const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'quiet' }) });
     assert.deepEqual(levelsOn(dom.window.document), ['reader']);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // The altitude fix, pinned at the surface that matters: a deck key is not an
@@ -123,7 +124,7 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
     const dom = await boot({ block: frontMatterBlock('---\noverflow-marker: off\n---\n\n# A\n') });
     assert.deepEqual(levelsOn(dom.window.document), ['author'],
       'no export-settings block at all → an authoring surface, deck key ignored');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 });
 
@@ -153,7 +154,7 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
     assert.deepEqual(levelsOn(document), ['off'], 'stamped, so the CSS suppression can key on it');
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'the rings are gone');
     assert.deepEqual(speakingTabs(document), [], 'the tabs say nothing');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 });
 
@@ -167,7 +168,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const dom = await boot({ specimen: true });
     assert.deepEqual(levelsOn(dom.window.document), ['off'],
       'no export-settings block, so this document would otherwise be an authoring surface at `author`');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // THE POSITIVE CONTROL, and it has to come first: it proves the geometry harness really does
@@ -187,7 +188,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
       ['overflow-tab="Overflows"', 'fixme-tab="Fix Me"'], 'author level fills the tabs');
     assert.equal(document.querySelectorAll('.fit-culprit').length, 1,
       'and outlines the culprit cell in place — no overlay layer');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // The load-bearing half, now with something to be silent ABOUT. `off` is not "a quieter mark" —
@@ -198,7 +199,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     assert.deepEqual(levelsOn(document), ['off']);
     assert.equal(document.querySelectorAll('section.overflow, section.illegible').length, 0, 'a ring was drawn');
     assert.deepEqual(speakingTabs(document), [], 'a tab was drawn');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // …and stays silent when the DOM changes under it, which is what "installs nothing" means in
@@ -213,7 +214,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'no ring was drawn');
     assert.deepEqual(speakingTabs(document), [], 'no tab was drawn');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // Strictly better than the bypass this replaced: a document that arrives pre-marked
@@ -228,7 +229,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     assert.deepEqual(levelsOn(document), ['off']);
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0);
     assert.deepEqual(speakingTabs(document), []);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // The flag is OPT-IN and nothing else sets it: every other surface — the Studio's own
@@ -238,7 +239,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
   test('without the flag the surface default is untouched — still `author`', async () => {
     const dom = await boot();
     assert.deepEqual(levelsOn(dom.window.document), ['author']);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // A specimen is a RENDER TARGET, like an export — so if a document somehow carried
@@ -247,7 +248,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
   test('the specimen flag outranks an export-settings block', async () => {
     const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }), specimen: true });
     assert.deepEqual(levelsOn(dom.window.document), ['off']);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 });
 
@@ -281,7 +282,7 @@ describe('the CALLER-level guarantees, which no kernel test can reach', () => {
     assert.equal(plan.measure.length, 3,
       'all three must be re-planned without a new generation — recording them from the PLAN is what made them unrecoverable');
     assert.equal(document.querySelectorAll('section.overflow').length, 3, 'and marked');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // ── a characterData-only edit must be noticed ────────────────────────────
@@ -309,7 +310,7 @@ describe('the CALLER-level guarantees, which no kernel test can reach', () => {
     await new Promise((r) => setTimeout(r, 900));
     assert.equal(document.querySelectorAll('section.overflow').length, 1,
       'a characterData mutation is a DOM mutation and must schedule a sweep');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   // ── the watcher's own writes must not schedule the pass that made them ───
@@ -328,7 +329,7 @@ describe('the CALLER-level guarantees, which no kernel test can reach', () => {
       'the dirty fixture must actually mark, or this compares two clean decks');
     assert.equal(gen(dirty), gen(clean),
       'drawing a marker must not schedule another content pass');
-    clean.window.close();
-    dirty.window.close();
+    closeQuietly(clean.window);
+    closeQuietly(dirty.window);
   });
 });

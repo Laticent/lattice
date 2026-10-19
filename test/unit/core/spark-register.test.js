@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
+const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 
 const ROOT = path.join(__dirname, '../../..');
 const SPARK = require(path.join(ROOT, 'lib/core/axis-registers.js')).AXIS_REGISTERS.find((r) => r.key === 'spark');
@@ -83,7 +84,7 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
   const [a, b] = [...dom.window.document.querySelectorAll('section')].map((x) => x.className.split(/\s+/));
   assert.ok(a.includes('spark-bare') && a.includes('spark-rounded'), a.join(' '));
   assert.ok(b.includes('spark-framed') && !b.includes('spark-bare') && b.includes('spark-rounded'), b.join(' '));
-  dom.window.close();
+  closeQuietly(dom.window);
 });
 
 test('lint: an unknown word and a second word on an axis warn; the slide classes are known', () => {

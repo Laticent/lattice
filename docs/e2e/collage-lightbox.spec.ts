@@ -158,6 +158,31 @@ test('@smoke @crosswidth a click on a photo in the Studio preview opens it; Esca
 	await expect(slideTitle(page)).toHaveText('First slide');
 });
 
+// The Studio's preview box takes no pointer events, so `:hover` never reaches a tile in the frame. The holder
+// hit-tests the pointer instead and marks the tile (`hoverCollageAt`, collage-host.js), which collage.styles.css
+// reads beside `:hover`. Driven with a REAL mouse at the photo's screen position, as the click arms above are.
+test('@smoke @gecko the photo under the mouse in the Studio preview pops, its neighbors recede, and both reset when the mouse leaves', async ({ page }) => {
+	await openStudioDeck(page);
+	const tiles = livePreview(page).locator('.collage-tile');
+	const at = await photoAt(page, 1);
+	await page.mouse.move(at.x - 40, at.y - 40);
+	await page.mouse.move(at.x, at.y, { steps: 4 });
+	await expect(tiles.nth(1)).toHaveAttribute('data-host-hover', '');
+	await expect(tiles.nth(0)).not.toHaveAttribute('data-host-hover', '');
+	// The look follows the marker: the hovered tile scales up and the rest drop their opacity.
+	await expect.poll(() => tiles.nth(1).evaluate((el) => getComputedStyle(el).transform), { timeout: 5_000 }).not.toBe('none');
+	await expect.poll(() => tiles.nth(0).evaluate((el) => Number(getComputedStyle(el).opacity)), { timeout: 5_000 }).toBeLessThan(1);
+	// Moving to another photo moves the marker; there is never more than one.
+	const next = await photoAt(page, 2);
+	await page.mouse.move(next.x, next.y, { steps: 6 });
+	await expect(tiles.nth(2)).toHaveAttribute('data-host-hover', '');
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(1);
+	// Leaving the preview clears it.
+	await page.mouse.move(5, 5);
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
+	await expect.poll(() => tiles.nth(2).evaluate((el) => getComputedStyle(el).transform), { timeout: 5_000 }).toBe('none');
+});
+
 test('@parity @webkit-phone a tap on a photo in the Studio preview opens it; a tap on the close button closes it', async ({ page }, info) => {
 	test.skip(!info.project.use.hasTouch, 'this project models a device with no touchscreen');
 	await openStudioDeck(page);

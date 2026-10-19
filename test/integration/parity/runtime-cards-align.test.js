@@ -30,6 +30,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
+const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { resolveCardsAlign } = require('../../../lib/core/resolve-cards');
 const CATALOG = require('../../../lib/core/cards-catalog.generated.js');
@@ -78,7 +79,7 @@ describe('runtime card-row composition — stamped on every section, at every fa
       const expected = resolveCardsAlign({ classes: ['cards-grid'], family });
       assert.equal(cardsOf(dom.window.document), expected,
         `cards-grid must be stamped ${expected} at ${family} — the input carries no data-cards`);
-      dom.window.close();
+      closeQuietly(dom.window);
     });
   }
 
@@ -86,14 +87,14 @@ describe('runtime card-row composition — stamped on every section, at every fa
     const dom = await boot(section('cards-grid cards-spread'), 'wide');
     assert.equal(cardsOf(dom.window.document), 'spread',
       'an explicit author choice was silently ignored at wide before this fix');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   test('an ungoverned component is not stamped at all', async () => {
     const dom = await boot(section('quote'), 'wide');
     assert.equal(cardsOf(dom.window.document), null,
       'a component with no manifest `cards` entry must be left exactly as it was');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   test('the coda value rides along as data-cards-coda, for CSS to test the shape', async () => {
@@ -102,7 +103,7 @@ describe('runtime card-row composition — stamped on every section, at every fa
     assert.equal(s.getAttribute('data-cards'), 'center');
     assert.equal(s.getAttribute('data-cards-coda'), 'stretch',
       'the manifest withCoda value must be carried, since a token stream cannot see the cell');
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 
   test('every section in a multi-slide deck is stamped, not just the first', async () => {
@@ -111,7 +112,7 @@ describe('runtime card-row composition — stamped on every section, at every fa
     const got = [...dom.window.document.querySelectorAll('section')]
       .map((s) => s.getAttribute('data-cards'));
     assert.deepEqual(got, ['center', 'center', null]);
-    dom.window.close();
+    closeQuietly(dom.window);
   });
 });
 
@@ -157,7 +158,7 @@ describe('runtime card-row composition — the runtime re-stamps what the export
     }).join('');
     const dom = await boot(body, 'wide');
     const got = [...dom.window.document.querySelectorAll('section[data-lattice-slide]')].map(stamps);
-    dom.window.close();
+    closeQuietly(dom.window);
     assert.equal(got.length, want.length);
     const diffs = want
       .map((w, i) => ({ w, g: got[i] }))
@@ -184,7 +185,7 @@ describe('runtime card-row composition — the runtime re-stamps what the export
         [[name], ...Object.keys(entry.byClass || {}).map((v) => [name, v])]);
       const dom = await boot(cases.map((c) => section(c.join(' '))).join(''), family);
       const got = [...dom.window.document.querySelectorAll('section')].map((s) => s.getAttribute('data-cards'));
-      dom.window.close();
+      closeQuietly(dom.window);
       const diffs = cases
         .map((c, i) => ({ c, g: got[i], w: resolveCardsAlign({ classes: c, family }) }))
         .filter(({ g, w }) => g !== w)
