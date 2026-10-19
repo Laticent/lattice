@@ -73,17 +73,6 @@
       ],
       "run": "node tools/check-ownership.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
       "why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there; the path, Biome-launch, command-length and report-path fixes in tools/check-ownership.js and tools/check-lint-coverage.js removed that. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
-    },
-    {
-      "name": "alert-leg-probe",
-      "os": [
-        "macos-latest"
-      ],
-      "paths": [
-        "tools/platform-suites-plan.js"
-      ],
-      "run": "node -e \"process.exit(1)\"",
-      "why": "TEMPORARY: a suite leg that fails on purpose, to prove the alert job reports a failing leg (not just a failing plan). Removed in the next commit."
     }
   ]
 }
