@@ -20,9 +20,19 @@ One model for every key, value label and callout a chart draws. A **legend** is 
 Design and migration plan: `engineering/decisions/2026-10-19-universal-legend.md`. The notation is
 Segno's (`engineering/decisions/2026-09-28-segno-unified-inline-notation.md`).
 
-This is an **embedded plugin**, like `pills`: part of how Lattice draws a slide, so it loads on every
-render and has no off switch. The owner asked for it in those words ("an embedded plugin similar to
-pills"; design note § 5).
+The plugin is **on by default** and an author can turn it off:
+
+| Where | Write | Effect |
+|---|---|---|
+| The whole deck | `legend: off` in the front matter | Callouts are hidden on every slide |
+| One slide | `legend-off` in the slide's class | Callouts are hidden on that slide |
+| One slide, in a deck that is off | `legend-on` in the slide's class | That slide shows its callouts again |
+| A host | `--disable-plugin legend` | The same as `legend: off`, for every deck it renders |
+
+A hidden callout is not drawn, not described and not read aloud, so the slide reads as if the line
+were not there. Its `detail` still joins the cell's hover card and the speaker note, and `lint:deck`
+notes it (rule `legend-off`, info). The register is in
+[`base.registers.docs.md`](../../base/base.registers.docs.md) § `legend:`.
 
 ## The author's contract
 
@@ -100,6 +110,8 @@ on the slide reads it. The other charts' keys move onto this plugin one at a tim
   not draw yet;
 - the `{1, lg}` shape above;
 - a legend on a slide where no component reads one yet.
+
+It also notes, as info, a callout the author switched off (rule `legend-off`).
 
 Whatever a heatmap does not draw — a `for=` that names no cell, a `key` legend, a label the lane
 cannot hold — its description lists under "Not drawn".

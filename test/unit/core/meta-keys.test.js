@@ -67,7 +67,7 @@ describe('the vocabulary is derived from the meta manifest', () => {
 
   test('every plugin register is listed, and none shares a name with a field', () => {
     const owners = keys.REGISTERS.map((r) => r.key);
-    assert.deepEqual(owners.sort(), ['avatar', 'icon', 'spark']);
+    assert.deepEqual(owners.sort(), ['avatar', 'icon', 'legend', 'spark']);
     for (const r of keys.REGISTERS) assert.ok(!keys.KNOWN_KEYS.has(r.key), `register ${r.key} collides with a field`);
   });
 });

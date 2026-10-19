@@ -91,3 +91,26 @@ bullet is an assertion about that render:
 ```
 
 - omits `legend`
+
+## legend: off hides a callout and keeps its detail
+
+```markdown
+---
+legend: off
+---
+
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 |
+| ------ | --: | -: |
+| Jan    | 100 | 62 |
+
+`@legend{{Dip, for="Jan · M1", detail="Pricing change"}}`
+```
+
+- renders `legend-off`
+- renders `Dip: Pricing change`
+- omits `legend--anchored`
+- omits `<code>@legend`

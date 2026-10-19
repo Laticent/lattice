@@ -52,3 +52,12 @@ test('the component is any class word on the slide, not only the first', () => {
   const src = heatmap('@legend{{Peak, for=0}}').replace('_class: heatmap', '_class: compact heatmap');
   assert.deepEqual(findLegendSpans(src), []);
 });
+
+test('a callout the author switched off gets one info note, and legend-on on the slide wins', () => {
+  const off = heatmap('@legend{{Peak, for=0}}').replace('marp: true', 'marp: true\nlegend: off');
+  const [f] = findLegendSpans(off);
+  assert.equal(f.rule, 'legend-off');
+  assert.equal(f.severity, 'info');
+  assert.deepEqual(findLegendSpans(off.replace('_class: heatmap', '_class: heatmap legend-on')), []);
+  assert.equal(findLegendSpans(heatmap('@legend{{Peak, for=0}}').replace('_class: heatmap', '_class: heatmap legend-off'))[0].rule, 'legend-off');
+});

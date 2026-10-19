@@ -115,6 +115,7 @@ specify them, and `split:` and `preset:` have none.
 | `tag:` | up to one word per axis: color (`color` `plain` `none`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
 | `chart-finish:` | `off` · `pigment` · `etching` · `tone` | How every chart spends its color. | `unknown-chart-finish` |
+| `legend:` | `on` · `off` | Whether the legend plugin draws the callouts an author writes on a chart (`@legend{…}`); `off` hides them. | `unknown-legend` |
 | `spark:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline sparks (§3.6). | `unknown-spark` |
 | `icon:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline icons (§3.6). | `unknown-icon` |
 | `avatar:` | up to one word per axis: shape (`circle` `rounded` `square`), frame (`framed` `bare`) | The deck's default for avatars. | `unknown-avatar` |
@@ -150,7 +151,7 @@ accepts Marp's own keys (`marp:`, `headingDivider:`, `author:` …) so a Marp de
 
 The value lists above are the ones the reference implementation ships, each defined once
 in `lib/core/resolve-<key>.js` (`*_NAMES`), or for a plugin's register (`spark:`, `icon:`,
-`avatar:`) in the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
+`avatar:`, `legend:`) in the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
 marked `spec: '2.3'` must have a line in the tables above. The full behavior of every register is
 documented in `lib/base/base.registers.docs.md`. Where that page and this table disagree
 about a value list, this table is the contract and the disagreement is a defect.

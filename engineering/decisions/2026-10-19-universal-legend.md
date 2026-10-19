@@ -471,7 +471,7 @@ What shipped, and the four places it departs from the design above.
 | The two entry slots and the `legend` record | `lib/core/segno-slots.js` (`legend-entry`, `legend-keyed`, `legend`) |
 | SVG `anchored` emitter | `lib/components/chart/_chart-family/legend-svg.js` |
 | The lift of a `@legend{…}` paragraph | `lib/core/lift-label-set.js` `liftLegends` |
-| Plugin shell (embedded) | `lib/plugins/legend/` |
+| Plugin shell (on by default, `legend:` register) | `lib/plugins/legend/` |
 | First reader | `heatmap` (`resolveCallouts`, `calloutLane`) |
 | Narration | `lib/core/chart-narration.js` `gridCalloutSentences` |
 | Lint | `lib/authoring/lint-core.js` `findLegendSpans`, rule `legend-span` |
@@ -504,9 +504,25 @@ as code. When a second reader lands, that list moves to a manifest field the bui
 cell's own `data-label`; `/` works in place of the middle dot. `gridTarget` resolves both, and
 the heatmap and the narrator share it.
 
-**Departure 4: the plugin is embedded.** The manifest schema calls that an owner decision with
-its own note. § 5 records the owner's words, "an embedded plugin similar to pills", and this note
-is that note. `test/unit/plugins/admit.test.js` pins the embedded set, and the pin now names both.
+**Departure 4: on by default, and the author can turn it off (owner, 2026-10-19).** The first build
+made the plugin embedded, reading § 5's "an embedded plugin similar to pills". The owner then chose
+otherwise on #2798: legends are on by default, and an author can turn them off. It is an essential
+plugin with a front-matter register, `legend: off` for the deck and `legend-off` / `legend-on` per
+slide, built by the same factory as `spark:` and `icon:` (`contributes.registers`). That reuses the
+plugin system's existing switch rather than adding removal syntax to `plugins:`, which stays an
+import list that only adds. A host can still turn it off with `--disable-plugin legend`, and the
+heatmap lists it as optional, so either switch has the same effect. Off, a callout is not drawn,
+described or narrated, so the slide reads as if the line were not there; its `detail` still joins
+the cell's card and speaker note, and `lint:deck` notes it (`legend-off`, info). The owner chose the
+switch and the hidden-when-off behavior in one round; the words `legend-off` / `legend-on` follow the
+register factory's `<key>-<word>` pattern.
+
+**The route budget (owner, 2026-10-19, D1).** The preview runtime carries the heatmap transform and
+the Wave 1 keys, so the legend's reader and emitters ride into it. After the trims (the diagnostic
+words moved to `lib/authoring/legend-messages.js`, the key emitter split into `legend-key.js`) the
+getting-started route measured 311.4KB against a 309.7KB ceiling. The owner raised that ceiling by
+4KB rather than keep callouts out of the runtime, which would have shown `@legend` as code in the
+Marp export and the VS Code preview (`docs/route-budget.history.md`, 2026-10-19).
 
 **Detail (§ 7 rule 3).** A callout's `detail` joins its cell's card and speaker-note line
 (`cellMarks`), so the PDF carries it; narration speaks it as a `note` after the callout. A callout

@@ -169,6 +169,26 @@ test('narration matches for= the way the chart does, markdown in a row name incl
   assert.match(String(narrateDataSeries(slide)), /Callout at Jan2026, M1: Dip\./);
 });
 
+describe('the author\'s switch: legend off', () => {
+  const callout = '`@legend{{Dip, for="Jan 2026 · M1", detail="Pricing change"}}`';
+  test('legend-off on the slide hides the callout and its line, and keeps the detail in the speaker note', () => {
+    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { classTokens: ['legend-off'] });
+    assert.doesNotMatch(out, /legend--anchored|legend-target|<code>@legend/);
+    assert.doesNotMatch(doc(out).querySelector('desc').textContent, /Dip/);
+    assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
+  });
+  test('a host that switched the plugin off hides it the same way', () => {
+    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { pluginsOff: new Set(['legend']) });
+    assert.doesNotMatch(out, /legend--anchored/);
+  });
+  test('narration says nothing for a hidden callout: deck off, or slide off; legend-on wins', () => {
+    const slide = (cls, fm = '') => `${fm}<!-- _class: ${cls} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
+    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap legend-off'))), /Callout|legend/);
+    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap', '---\nlegend: off\n---\n\n'))), /Callout/);
+    assert.match(String(narrateDataSeries(slide('heatmap legend-on', '---\nlegend: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
+  });
+});
+
 test('narration reads a callout after the rows, then its detail', () => {
   const slide = `<!-- _class: heatmap -->\n\n## Retention\n\n${TABLE}\n\n\`@legend{{Dip, for="Feb 2026 · M2", detail="Pricing change"}}\``;
   const spoken = String(narrateDataSeries(slide));
