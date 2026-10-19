@@ -47,6 +47,9 @@ describe('admitNpmBundle', () => {
     'a require taken by reference': 'const r = require;\nfunction render(){return r("dep")}\nexport { render as default };',
     'importScripts': 'importScripts("https://x/y.js");\nfunction render(){return ""}\nexport { render as default };',
     'a require call nested in a function': 'function render(){ return (() => require("dep"))() }\nexport { render as default };',
+    // A classic script reads these as comments and a module does not, so the check and the worker saw different code (the red team).
+    'an HTML open comment hiding a line from the module parse': 'var a = 1 <!-- c /*\nvar r = importScripts;\n// */\nfunction render(){return ""}\nexport { render as default };',
+    'an HTML close comment at the start of a line': 'var n = 1;\n  --> hidden\nfunction render(){return ""}\nexport { render as default };',
   };
   for (const [what, code] of Object.entries(left)) {
     test(`a bundle with ${what} left external is refused`, () => {
@@ -55,6 +58,11 @@ describe('admitNpmBundle', () => {
       assert.match(r.reason, /not a self-contained bundle/);
     });
   }
+
+  test('`n-->0` mid-line, and `<!--` in a string, are not HTML comments', () => {
+    const code = 'function render(f){ var n = 2; while (n-->0); return "<!-- x -->"; }\nexport { render as default };';
+    assert.equal(admitNpmBundle({ name: 'x', code, sha256: sha(code) }).ok, true);
+  });
 
   test('the words import( and require( in a string or a comment are not a dependency', () => {
     const code = '// require("x") and import("y")\nfunction render(){ return "import(\\"a\\") require(\\"b\\")"; }\nexport { render as default };';

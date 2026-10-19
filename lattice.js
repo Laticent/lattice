@@ -411,6 +411,7 @@ PACKAGES
     lattice packages export <type>/<name> [-o file.zip]
     lattice packages remove <type>/<name>
     lattice packages trust  component/<name> [--yes]
+    lattice packages fetch  [dir] [--trust]   (the npm plugins lattice-plugins.json lists)
     lattice packages untrust component/<name>
   The store is $LATTICE_HOME/packages (default ~/.lattice/packages); --packages <dir>
   overrides it for one run, for renders too. A deck whose theme is neither shipped nor
@@ -1794,9 +1795,12 @@ function withInstalledPlugins(source) {
     if (why) console.error(`warning: the installed plugin ${p.name} is refused and not used: ${why}`);
     else installed.push(p);
   }
-  if (!installed.length) return [];
-  const active = activePluginNames(source, installed.map((p) => p.name));
   const approvals = readTrust();
+  // The npm plugins the project's `lattice-plugins.json` lists, read from the fetch cache only: a render
+  // never reaches a registry (lib/packages/npm-plugin-loader.js; `lattice packages fetch` downloads them).
+  const npm = withNpmPlugins(source, installed, approvals, PLUGIN_NAMES);
+  if (!installed.length) return npm;
+  const active = activePluginNames(source, installed.map((p) => p.name));
   const { inlineKindsOf } = require('./lib/packages/code-door-fence.mjs');
   const fenceOf = (p) => Object.keys(p.pkg.manifest.contributes.fences ?? {})[0] ?? '';
   for (const p of installed.filter((x) => !active.has(x.name))) {
@@ -1809,7 +1813,37 @@ function withInstalledPlugins(source) {
     const written = inlineKindsOf(p.pkg.manifest).filter((k) => source.includes(`\`@${k.name}{`));
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
-  return installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null }));
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null })), ...npm];
+}
+
+/**
+ * The deck's npm plugins (threat-model note 2026-10-16 §5.1 G2): each one the deck's front matter lists
+ * and `lattice-plugins.json` names, from the cache `lattice packages fetch` fills, gated as a zip plugin
+ * is. The door admits the bytes against the pin again and refuses them where the OS layer reads OFF.
+ */
+function withNpmPlugins(source, installed, approvals, shippedNames) {
+  const { deckPluginList } = require('./lib/plugins/deck-plugins.mjs');
+  const asked = deckPluginList(source);
+  // A deck that lists no plugin never reads a list: a file someone planted in a parent folder costs it nothing.
+  if (!asked.length) return [];
+  const { findPluginList, readPluginList, npmPluginEntries, npmPluginPkg } = require('./lib/packages/npm-plugin-loader.js');
+  const { refusePackage, printableLine } = require('./lib/packages/gate.js');
+  const deckDir = path.dirname(path.resolve(mdFile));
+  const file = findPluginList(deckDir);
+  if (!file) return [];
+  const list = readPluginList(file);
+  const known = new Set([...installed.map((p) => p.name), ...shippedNames]);
+  // A broken list is said out loud when the deck asks for a plugin it would have supplied, not dropped (the checker).
+  if (list.problems.length && asked.some((n) => !known.has(n))) for (const p of list.problems) console.error(printableLine(`warning: ${p}`));
+  const listed = new Set(list.entries.map((e) => e.name).filter((n) => asked.includes(n)));
+  if (!listed.size) return [];
+  const { entries, warnings } = npmPluginEntries(deckDir, listed, { approvals, taken: known });
+  for (const w of warnings) console.error(printableLine(w));
+  return entries.filter((e) => {
+    const why = refusePackage(npmPluginPkg({ name: e.name, fence: e.fence }, e.code), { forRender: true });
+    if (why) console.error(printableLine(`warning: the npm plugin ${e.name} is refused and not used: ${why}`));
+    return !why;
+  });
 }
 // The installed component packages this render USES — `--reopenable` carries them in the
 // `.lattice`, so the deck opens styled for a recipient who never installed them. Filled by

@@ -247,6 +247,81 @@ Checked that the lock costs no rendering: 5 decks (KaTeX, Mermaid, function-plot
 coverage deck) exported with and without the four directives, opened in all three engines, produce
 0 policy violations and byte-identical screenshots; the check was re-run on Chromium 141.0.7390.37 (a second Chrome) and on exports served over http instead of `file://`, with the same five open exits and every control firing.
 
+### 5.5 The loader (2026-10-19)
+
+`lib/packages/npm-plugin-loader.js` builds the `source: 'npm'` entries the door admits. It does two
+separate jobs, and only the first touches the network:
+
+- **`lattice packages fetch [dir] [--trust]`** finds the nearest `lattice-plugins.json` (the deck's
+  folder, then each folder above it, stopping at a folder that holds `.git` and at the home folder),
+  prints which file it uses, downloads each listed plugin's registry tarball, reads ONE
+  file out of it (`bundle`, default `lattice-plugin.js`, below the tarball's top folder), and caches
+  it at `$LATTICE_HOME/npm-plugins/<sha256>.js` only when `admitNpmBundle` accepts the bytes against
+  the pinned hash. It then gates the plugin as a zip plugin is gated (`refusePackage`: shape, syntax,
+  a reserved name, a shipped fence, a highlighted language) and asks for consent at its digest. The
+  consent text names the list file, the package, the version, the bundle's pinned hash, and a registry
+  that is not npm's, because the list is the root of trust: the pin protects an honest list from a
+  swapped download, and does nothing against a hostile list. A plugin left unapproved makes `fetch`
+  exit 1. Nothing is installed and nothing runs: no `npm`, no lifecycle script, no dependency (decision 8).
+- **A render** reads the cache only, and reads the list only when the deck's front matter lists a
+  plugin, so a list planted in a parent folder costs a deck without plugins nothing. A plugin the deck's front matter lists (`plugins: [name]`) and
+  the list names becomes `{ source: 'npm', pin, code: bytes }`; one that is not fetched is named with
+  the command that fetches it. An export never reaches a registry.
+
+The list entry is `{ name, package, version, fence, sha256, bundle? }`, with an optional top-level
+`registry` (`https:`, or `http:` on loopback). `version` must be exact; a range, a tag or `latest`
+is refused, because G2 pins versions and the hash pins the bytes. The list is read only if it is a
+regular file under 1 MB (a symlink to `/dev/zero` ran a render out of memory and one to a FIFO hung it),
+with at most 64 entries.
+
+The tar reader must read the file a reviewer reads with `tar`, or the review proves nothing. It takes
+regular files, folders and pax headers, and refuses the whole tarball on any other entry type (a GNU
+long name, a contiguous file, a link, a device). It parses pax records by their length and refuses two
+`path` records, requires a strictly octal size, refuses `..`, and refuses a bundle path that appears
+twice after `./` and `//` are normalized (tar keeps the last). It caps the download (8 MB), the unpacked
+size (32 MB) and the bundle (4 MB). Redirects are followed by hand, at most five, and each must keep the
+scheme and pass the registry rule; every download failure reads the same, so a list cannot use the
+loader to learn which local ports answer.
+
+Admission (`externalRefusal`) also refuses an HTML-like comment (`<!--`, or `-->` first on a line). The
+worker runs a bundle as a classic script, which reads those as comments, and the check parses it as a
+module, which does not, so a `<!--` line could hide an `importScripts` line from the check.
+
+**At approval, as well as at render, an npm plugin is refused where the OS layer reads OFF or cannot be
+determined** (decision 7). `--trust` does not override it. Refusing it at approval is the safe default
+for the followup's question (3): an approval at OFF would approve something the door will never run.
+
+**`unmeasured` on macOS and Windows stays admitted, for now.** `npmLayerRefusal` admits it because
+those platforms have no `/proc` to probe and Chromium's sandbox is on there by default; on Linux,
+`unmeasured` means the probe failed and it refuses. Decision 7 says a failed probe counts as OFF and
+does not say whether "no probe exists" is a failed probe. That call is the owner's
+(`followups.d/2749-p3-npm-plugin-unmeasured-layer.md`); the default keeps today's behavior, and
+reversing it is one line in `npmLayerRefusal`.
+
+**One approval per plugin name.** An approval is stored under `plugin/<name>` with one digest, so two
+projects that pin different versions of one plugin replace each other's approval at each `fetch`. It
+fails safe (the render refuses and names the command), and per-pin approvals are a change to the trust
+file the code-package door also reads (`followups.d/2749-p3-npm-plugin-approval-per-pin.md`). `fetch`
+refuses a name a shipped or installed plugin already uses, so the npm door never replaces their approval.
+
+The adversarial trio reviewed the loader on 2026-10-19. The red team found no way to run code without
+consent, past the pin, in Node or outside the cache folder. It did find the list crash, the forged
+output lines, the redirect SSRF, the four tar differences and the HTML-comment parse gap above, all
+fixed with tests. The inversion review added the consent text, the search boundary, the exit code
+and the name refusal. The checker added the render's warning for a broken list and three tests that
+mutation showed were missing.
+
+Verified: the unit tests (`test/unit/cli/npm-plugin-loader.test.js`) cover every refusal against a local
+registry, a real `npm pack` tarball is read byte-for-byte, and the G5 probe shows that fetching,
+caching, gating and building the door entry never load the bundle in Node (its control imports the
+same bytes and the marker appears). The integration arm (`npm-plugin-admission.test.js` LOADER) runs
+the real `lattice packages fetch` against a local registry, then renders a deck that lists the plugin
+through the real CLI, and checks that the render made no request. In this sandbox Chromium runs as
+root, so the layer reads OFF and that arm takes its refusal branch; the approving branch was driven by
+hand with a Chromium copy the `nobody` user can run (layer on): `fetch --trust` approved the plugin and
+the rendered PDF holds its output. Not verified: a fetch from the real
+`registry.npmjs.org` (the test registry is local), and the macOS and Windows layer readings.
+
 ## 6. Decisions
 
 The owner answered on 2026-10-17. Rows 1 to 5 keep the original question numbers; row 6 is a new
@@ -283,7 +358,7 @@ Three more decisions came out of the red team and inversion reviews. The owner a
 Decision 8 is a different model from the one this note started with, and it settles two of the
 gaps in §3. Gap 3 (install scripts and transitive dependencies) is closed by design, because
 nothing is installed. Gap 4 (version drift) shrinks to "which bundle and hash is pinned", which G2
-covers. Implementing 7 to 9 is `followups.d/2749-p3-npm-plugin-admission-rules.md`.
+covers. Implementing 7 to 9 is done: the door enforces them, and the loader that produces its entries is §5.5.
 
 This note does not edit `2026-09-13` Axis 2 beyond a pointer. Decisions 3 and 4 mean that row's npm line ("code,
 Node-side, resolved at build time") no longer describes the plan. Superseding it is `followups.d/2749-p1-supersede-plugin-architecture-axis2-npm-row.md`.
