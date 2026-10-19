@@ -23,6 +23,33 @@
       ],
       "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
       "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. Windows reaches the same code through drive letters and backslashes: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive. The Mermaid worker's own page applies the same check. Windows symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
+    },
+    {
+      "name": "wait-for-macos",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "tools/wait-for.sh",
+        ".claude/hooks/warn-unbounded-wait.sh",
+        "test/unit/tools/wait-for.test.js",
+        "test/unit/tools/warn-unbounded-wait.test.js"
+      ],
+      "run": "node --test test/unit/tools/wait-for.test.js test/unit/tools/warn-unbounded-wait.test.js",
+      "why": "tools/wait-for.sh takes its lock with flock(1) or, where that is missing, perl's flock builtin, and needs GNU timeout (gtimeout on macOS). macOS ships neither flock(1) nor timeout, so the perl path and the exit-69 'missing dependency' path are the ones a Mac takes; Linux tests drive them only by pinning WAIT_FOR_LOCK_IMPL and a controlled PATH (engineering/development.md § Waiting for a slow job: 'macOS itself remains UNVERIFIED')."
+    },
+    {
+      "name": "prepare-windows",
+      "os": [
+        "windows-latest"
+      ],
+      "paths": [
+        "tools/prepare.js",
+        "tools/build.js",
+        "lefthook.yml"
+      ],
+      "run": "node tools/prepare.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
+      "why": "npm runs the `prepare` script through cmd.exe on Windows, where `;` and `true` mean nothing, so the one-liner it replaced silently never built dist/ (#2459). tools/prepare.js is the Node version of it; this runs it on a real Windows runner and checks that the generated artifacts exist (engineering/development.md § Hooks (lefthook))."
     }
   ]
 }
