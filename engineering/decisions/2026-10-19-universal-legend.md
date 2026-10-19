@@ -35,8 +35,9 @@ gestures. The default render is a bare label: no background, no border, no icon.
 
 ### 3.1 Keys and labels
 
-23 components draw a key. They use 11 separate implementations (command: per-symbol
-`grep -rln` over `lib/components` and `lib/core`, per-chart `grep -c` of each builder).
+21 components draw a key. They use 11 separate implementations: 4 shared builders and 7 private
+ones (command: per-symbol `grep -rln` over `lib/components` and `lib/core`, per-chart `grep -c`
+of each builder). Bullet, funnel and waterfall mention a legend only in comments.
 
 | Implementation | Components | Medium |
 |---|---|---|
@@ -55,20 +56,20 @@ Size of the layer, measured with `wc -l`:
 - Shared emit layer: 2,857 lines (`svg-legend.js` 637, `svg-label.js` 1,195, `label-drops.js`
   187, `label-set.js` 264, `label-set-catalog.generated.js` 138, `label-set-key.js` 178,
   `html-legend.js` 111, `graph-key.js` 76, `lift-label-set.js` 71).
-- Private key code: about 413 lines across eight components (risk-matrix and slope are
-  estimates, the rest measured).
-- Shared label kernels in `cartesian.js`: `buildCategoryLabels` (`:1052-1171`) and
-  `buildValueLabel` (`:1204-1226`), about 143 lines.
+- Private key code: about 421 lines across seven components (journey 23, scatter 89 and
+  word-cloud about 140 measured; gantt, hub-spoke, risk-matrix and slope are estimates).
+- Shared label kernels in `cartesian.js`: `buildCategoryLabels` (`:1052-1155`) and
+  `buildValueLabel` (`:1204-1215`), about 116 lines.
 
 Only 5 manifests declare `labelSet`.
 
 ### 3.2 Doc drift found on the way
 
 These four statements are wrong today and get fixed in the same change that touches the code:
-`chart-family.docs.md:162` says journey's keys are "CSS-only" (the transform builds them);
-`:167` says state-chart has "no key" (it calls `buildKey`); `:142-146` lists four integrated
-SVG-key charts and "13 members" (bar, line, stacked-bar, tower and heatmap now call it too);
-a comment near `tools/check-ownership.js:5466` puts gantt's swatch at `gantt.transform.js:586`
+`chart-family.docs.md:165` says journey's keys are "CSS-only" (the transform builds them);
+`:167-168` says state-chart has "no key" (it calls `buildKey`); `:143` says "13 members" and `:146-147` lists four integrated
+SVG-key charts (bar, line, stacked-bar, tower and heatmap now call it too);
+a comment at `tools/check-ownership.js:5470` puts gantt's swatch at `gantt.transform.js:586`
 (it is at `:879`).
 
 ### 3.3 Authoring today
@@ -83,8 +84,9 @@ An author can name a key three ways: derived (nothing written), inline
   parser. No module in `lib/` calls it; only the generated playground bundles copy it. So a
   front-matter `detail` has no engine caller today.
 - Segno's decision 20 says every new grammar is a Segno grammar, not a hand-written parser
-  (`2026-09-28-segno-unified-inline-notation.md:68`).
-- Per-mark notes ride a separate door: `note=` and sublist detail (`mark-detail.js`).
+  (`2026-09-28-segno-unified-inline-notation.md:71`).
+- Per-mark notes ride separate doors: heatmap's cell `note=` span, and the sublist detail that
+  `mark-detail.js` folds into the speaker note.
 
 ### 3.4 Narration today
 
@@ -102,9 +104,10 @@ An author can name a key three ways: derived (nothing written), inline
 
 ### 3.5 Gestures today
 
-- Only a key row that names one mark carries `data-mark-for`, and only pie
-  (`piechart.transform.js:88`) and map (`map.transform.js:286`) emit it. Such a row is a tap or
-  hover proxy that opens the mark's card (`chart-interact.js` `namedMark`, `:409-425`).
+- A key row that names one mark carries `data-mark-for`. Pie (`piechart.transform.js:88`), map
+  (`map.transform.js:286`) and risk-matrix's private numbered key (`risk-matrix.transform.js:198-206`)
+  emit it; many non-key labels carry it too (category labels, hub-spoke, gantt, quadrant,
+  scatter, heatmap). Such a row is a tap or hover proxy that opens the mark's card (`chart-interact.js` `namedMark`, `:409-425`).
 - Series keys (line, stacked-bar, radar) are inert on purpose (`chart-interact.js:410-412`).
   No code highlights or toggles a series from its swatch. HTML keys have no handlers.
 - The slide has no focus or tab stop for individual marks. Keys 1-9 reveal a mark, 0 or Esc
@@ -121,7 +124,7 @@ An author can name a key three ways: derived (nothing written), inline
 - The `pill` core slot has an optional text, `shape` (8 words), `color` (`c1`-`c12`), `size`
   and a named-only `icon` (`segno-slots.js:49-58`).
 - The JSON spec compiler always returns a record, so a top-level list slot is not expressible
-  in JSON; a list of records is expressible as a parameter (`segno-spec-core.js:167-190`).
+  in JSON; a list of records is expressible as a parameter (`segno-spec-core.js:43-47` and `:56-77`).
 - An inline plugin through `contributes.inline` needs a one-character sigil, and all three
   Segno tag characters are taken: `!` avatars, `^` icons, `~` sparks (`resolve.js:421-438`).
   The kind names `state` and `pill` are refused. The named form `@kind{…}` reaches a kind
@@ -153,8 +156,9 @@ Rules:
    the `--mark-*` and `--shape-*` lookups) and draws shapes, never typed glyphs (HARD RULE #29).
    Color comes from the element, shape from us (HARD RULE #3).
 4. **`for` is the link that makes a legend interactive and narratable.** It maps to the hooks
-   that exist: `data-mark-for` (single mark, pie and map today) and `data-series-for` (series,
-   line and ep-curve emit it today).
+   that exist: `data-mark-for` (single mark; key rows in pie, map and risk-matrix today) and
+   `data-series-for` (series; line and ep-curve emit it on direct series labels, and no key row
+   carries it today).
 5. **`detail` is first-class** and reaches narration, the speaker note and the PDF (section 7).
 
 Three layouts, one model:
@@ -257,8 +261,8 @@ carry full meaning.
 | Tier | Behavior | Needs |
 |---|---|---|
 | 0 Static | Meaning is in the drawing, narration and speaker note. | Section 7. No code beyond the emitters. |
-| 1 Proxy | Hover (fine pointer) or tap (coarse) on an entry with `for` opens that mark's card and dims the rest. Keys 1-9 already reveal a mark. | Generalize `data-mark-for` from pie and map to every `for` entry. Reuses `chart-interact.js`. |
-| 2 Series | Hover or tap an entry highlights its series and dims the others. | `data-series-for` on key rows for every series chart (line and ep-curve only today). |
+| 1 Proxy | Hover (fine pointer) or tap (coarse) on an entry with `for` opens that mark's card and dims the rest. Keys 1-9 already reveal a mark. | Generalize `data-mark-for` from pie, map and risk-matrix key rows to every `for` entry. Reuses `chart-interact.js`. |
+| 2 Series | Hover or tap an entry highlights its series and dims the others. | `data-series-for` on key rows for every series chart (today only line and ep-curve emit it, and only on direct series labels). |
 
 **Left out on purpose: toggling a series on and off.** In a presented deck it changes the data
 the audience sees from a swatch tap, nothing in the export records it, and the verb-parity rule
@@ -289,15 +293,16 @@ Constraints that bind every tier:
 | `html-legend.js` | 111 |
 | `graph-key.js` | 76 |
 | `label-set-key.js` | 178 |
-| Private key code (eight components) | about 413 |
-| **Total** | **about 1,415** |
+| Private key code (seven components) | about 421 |
+| **Total** | **about 1,423** |
 
 `label-set.js` (264) and `lift-label-set.js` (71) fold into the plugin's data layer rather than
 retire. Stays: `svg-label.js` (1,195), `label-drops.js` (187), computed axis ticks (`line`,
 `histogram`, `ep-curve` thinning), narration and `<desc>` text.
 
 Two kinds of key are not swatch keys and should not be forced in: the size ramps in `scatter`
-and `word-cloud`, and `risk-matrix`'s numbered index. Each is ported only if the `mark` kernel
+and `word-cloud`, and `risk-matrix`'s numbered index. Risk-matrix's rows are already tap
+proxies (`data-mark-for`), so a port must keep them. Each is ported only if the `mark` kernel
 expresses it without bending (a size ramp as a `ramp-step` mark; a numbered index as a `circle`
 plate with a number). Otherwise it stays a private builder and the note says why. This is
 decision 3.
@@ -352,7 +357,7 @@ the installed WebKit project.
   pill (`{LIVE}`) in the same span family. The spike reads every shipped label set.
 - **Census caveats.** Risk-matrix and slope line counts are estimates; only one of eight
   manifests with a `gesture` block was sampled; `chart-detail-layer.tsx` sanitizing was not read.
-- **Scope.** The plugin touches 23 components and the player. The waves keep each step
+- **Scope.** The plugin touches 21 components and the player. The waves keep each step
   reversible by one commit.
 
 ## 14. Decisions
