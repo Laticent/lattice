@@ -57,3 +57,10 @@ the test's own lock probe calling `flock(1)`, so it now falls back to perl (and 
 
 Add an entry to the registry with a `why` that names the OS-dependent behavior, list the `paths` that should select it, and run
 `npm run build:check`. Dispatch it by hand with the Actions tab or `gh workflow run platform-suites.yml -f suites=<name>`.
+
+## The nightly alert (2026-10-19)
+
+The workflow stays report-only (owner ruling 2026-10-18), but a red nightly used to raise nothing beyond a red row in the Actions tab and
+GitHub's default failure email to whoever last edited the cron line. The `alert` job now files the failure: on a scheduled or manual
+run, when `plan` or any suite fails, it opens one issue titled "Nightly platform suites failed" (or comments on the open one) with the
+failed jobs and the run link. No labels, so it touches no shared board state. A person closes the issue; nothing closes it automatically.

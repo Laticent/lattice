@@ -11,6 +11,10 @@ name: Platform suites (macOS / Windows)
 #                      most PRs select none, so the matrix is skipped
 # tools/platform-suites-plan.js holds the rule.
 #
+# ALERT. A scheduled or manual run that fails opens (or comments on) ONE GitHub issue titled "Nightly platform suites failed", with
+# the failed jobs and the run link; a person closes it. Without it a red nightly is only a red row in the Actions tab and
+# GitHub's default failure email to whoever last edited the cron line. Pull requests do not alert: their check already shows red.
+#
 # NOT A MERGE GATE. This workflow is separate from the `ci` gate and a suite's check is not in the required set. A red
 # suite is shown honestly (no continue-on-error); promoting one to required is a separate decision, made once it has run
 # clean for a while (owner ruling 2026-10-18).
@@ -113,3 +117,38 @@ jobs:
             printf '%s\n' "$SUITE_WHY"
           } >> "$GITHUB_STEP_SUMMARY"
           bash -c "$SUITE_RUN"
+
+  alert:
+    # Runs when `plan` or any suite failed on a scheduled or manual run, and files the failure where a person will see it.
+    needs: [plan, run]
+    if: ${{ always() && github.event_name != 'pull_request' && (needs.plan.result == 'failure' || needs.run.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      actions: read
+      contents: read
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          title='Nightly platform suites failed'
+          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            --jq '.jobs[] | select(.conclusion == "failure") | "- \(.name): \(.html_url)"')
+          body=$(printf '%s run on `%s` failed: %s\n\nFailed jobs:\n%s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
+            "$EVENT" "$REF" "$RUN_URL" "${failed:-"(none listed; open the run)"}")
+          existing=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number,title \
+            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$body"
+            echo "commented on #$existing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh issue create --repo "$REPO" --title "$title" --body "$body")
+            echo "opened $url" >> "$GITHUB_STEP_SUMMARY"
+          fi
