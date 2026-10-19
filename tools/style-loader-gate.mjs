@@ -84,13 +84,17 @@ async function session(browser, md, mode) {
   const frame = frameOf();
   // Fingerprinted until two readings in a row agree. A reading taken while a web font is still arriving, or while
   // an animated scene moves, differs from the next one; the first stable pair is the page's settled state. (An
-  // earlier version froze animations with an injected style tag instead; the injection forced a relayout at an
-  // unlucky moment and made the two modes disagree about a paragraph's line count, so it was dropped.) A scene
-  // that never settles falls through to its last reading, and the second whole-sheet session is its noise floor.
+  // earlier version froze animations with an injected style tag; the injection forced a relayout at an unlucky moment
+  // and made the two modes disagree about a paragraph's line count, so animations are now paused through the Web
+  // Animations API instead.) A scene that
+  // never settles falls through to its last reading, and the second whole-sheet session is its noise floor.
   let live = [];
   if (frame) {
     let prev = null;
     for (let i = 0; i < 10; i++) {
+      // Pin every running animation and transition at its start (Web Animations API: no style tag, so no relayout),
+      // so an animated control read at two phases in two sessions does not look like a missing rule.
+      await frame.evaluate(() => document.getAnimations().forEach((a) => { try { a.pause(); a.currentTime = 0; } catch { /* a finished or detached animation */ } })).catch(() => {});
       live = await frame.evaluate(pageFingerprint).catch(() => []);
       if (prev && prev.length === live.length && prev.every((h, k) => h === live[k])) break;
       prev = live;

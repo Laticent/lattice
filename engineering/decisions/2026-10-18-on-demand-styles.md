@@ -402,28 +402,33 @@ benchmark died on it twice; the loader loads the whole sheet there by design, an
 each frame built, and compares every element's computed style plus `::before` and `::after` in screen, print
 and dark, whole vs loader, on the static page and on the LIVE frame (the slides after the host's split and the
 runtime, read until two fingerprints in a row agree, with a second whole-sheet session as the noise floor).
-**Final build, all 294 decks (293 examples plus the gallery): Chromium 294 of 294 identical; WebKit 293 of 294
-identical, and the one that differed, `anima-scene`, is an animated scene: it differed on 1 of 3 re-runs, one
-element in 107, with no rule missing from the loader's sheet (a rule diff of the two frames is empty).** Real
-bugs the gate found along the way, each now pinned by a test that fails without the fix: the progress rail and
+**Final build, 296 decks (295 examples plus the gallery), run on the rebased tree.** Static page, screen, print and
+dark: **0 differing elements on every deck, on both engines.** Live frame: Chromium 293 of 296 identical, WebKit
+291 of 296; every live difference is 1 to 8 elements on an animated or load-sensitive deck and none survives
+every re-run: `anima-scene` is an animated control whose opacity reads 0.9216 in one session and 0.9136 in the
+other (one pulse caught at two phases; the rule sets of the two frames are identical), and the gallery's 23 on one
+Chromium run was the machine running a second gate, and read 0 on two quiet re-runs. The gate now pauses every
+animation through the Web Animations API before it reads; `anima-scene` still flakes on roughly one run in four.
+Real bugs the gate found along the way, each now pinned by a test that fails without the fix: the progress rail and
 other markup the runtime writes from HTML strings (`dark-canvas-ownership.md`: 9 diffs), function-plot's
 browser-built classes (`plugin-system-phase-b.md`: 149 diffs), and a font face only a `lattice.css` module
-defines that a palette names (`accent-on-accent.md`).
+defines that a palette names (`accent-on-accent.md`). A rebuilt-from-stale harness also showed up as 3 static
+diffs (the browser's engine bundle was older than `main`'s `.lat-pill`); `npm run build` before `build:e2e` fixes it.
 
 **Timing and bytes, `docs/scripts/style-loader-bench.mjs`, median of 3, first slide styled** (the local server
 is HTTP/1.1, so the 68 requests queue six at a time):
 
 | engine, network | deck | whole sheet | loader |
 |---|---|---|---|
-| Chromium, none | focus (14 slides) | 116 KB wire, 1167 ms | 70 KB wire in 68 requests, 1075 ms |
-| Chromium, cable | focus | 3977 ms | 3759 ms |
-| Chromium, 4g | focus | 11429 ms | 12251 ms |
-| Chromium, none | gallery (120 slides) | 116 KB, 1927 ms | 181 KB in 59 requests, 2106 ms |
-| WebKit, none | focus | 116 KB, 1620 ms | 71 KB, 1552 ms |
-| WebKit, none | gallery | 116 KB, 2740 ms | 182 KB, 2964 ms |
+| Chromium, none | focus (14 slides) | 116 KB wire, 1204 ms | 69 KB wire in 67 requests, 1199 ms |
+| Chromium, cable | focus | 4018 ms | 3772 ms |
+| Chromium, 4g | focus | 11529 ms | 12147 ms |
+| Chromium, none | gallery (120 slides) | 116 KB, 2037 ms | 180 KB in 58 requests, 2336 ms |
+| WebKit, none | focus | 116 KB, 1601 ms | 70 KB, 1631 ms |
+| WebKit, none | gallery | 116 KB, 2860 ms | 181 KB, 3113 ms |
 
 **Read this honestly.** The loader cuts first-slide bytes by about 40% on a typical deck and is level on time on a
-fast link; on a throttled link it is slightly slower, because round trips cost more than the bytes saved. A deck
+fast link (the second render that a grown base costs is paid in full now that the engine has no `restyle()`); on a throttled link it is slightly slower, because round trips cost more than the bytes saved. A deck
 that needs most of the sheet (the gallery) loads the floor, then the whole sheet, and pays for both (181 KB
 against 116). The 4 s backstop also fetches the whole sheet after the first render, so a session that stays
 longer than that has downloaded both; the saving is on the critical path, not in total bytes. Production serves
