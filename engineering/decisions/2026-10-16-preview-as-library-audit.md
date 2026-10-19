@@ -842,6 +842,126 @@ These replace the matching 2026-10-17 rulings in section 9 and the phase order i
 trappings (mark, catalog, docs, demo, guide, build, gate); then the Studio picture-in-picture on live, wireframe and
 pill tiles; posters last.
 
+## 11g. Built on 2026-10-19: the rendered index (P2)
+
+`docs/src/lib/rendered-index.ts` is the rendered index §11d.1 proved on paper. The engine is not changed and
+nothing reaches an export. Three findings changed the design:
+
+1. **The slide number is not the part.** `data-lattice-slide` numbers the engine's sections after it has cloned
+   slides, so a `_focusSteps` slide (`examples/focus.md`: 11 authored, 14 rendered) and a pane slide at a tall size
+   (`examples/panes.md`, 35 portrait and square decks in all) shift every later number. Reading `N - 1` as the part
+   was wrong for those decks, and a first version that did so left pages unexplained in 9 decks. The stamp is kept as
+   the engine slide (`slide`) and the structural split's run (`run`, the `.k`); the **clone** is a third coordinate,
+   `copy`, and the part comes from counting.
+2. **Counting is the lookup, and it is rare.** `buildRenderedIndex(stamps, deck, perPart?)` joins stamps to the outline.
+   When the engine's slide count equals the outline's part count (almost every deck) the stamps are the whole answer.
+   Only when they differ does `renderedIndexOf` ask the engine how many slides each part makes on its own
+   (`sectionsPerPart`: one render per part under the deck's front matter, memoized by part text, so an edit re-renders
+   one part). §11d.1 priced this at 115 ms on the gallery, once.
+3. **The bridge computes it lazily.** `RenderResult.index()` in `playground-engine.ts` returns one memoized promise
+   and does no work, not even the outline parse, until a map asks, so a Playground with no map pays nothing per keystroke. The stamps come from the
+   one `splitForPreview` call the frame shows.
+
+4. **Two things the engine does that the outline does not.** The auto-glossary appends pages after the last part
+   (`autoGlossarySections`), so they are marked `synthetic` and each part is counted with the glossary trigger removed
+   (a part rendered alone would grow its own glossary page). An empty slide is rendered by the engine and dropped by
+   the outliner; the index reports the surplus page as unexplained instead of shifting later pages onto the wrong
+   part. Fixing the dropped slide at the source is the empty-slide defect in the next handoff (P7). Both came from an
+   independent checker, not from the first test run.
+
+**Evidence.** `rendered-index.test.ts` renders all 292 example and baseline decks through the Playground's path
+(auto-glossary appended) at their own size, at portrait and at square (876 renders), and requires zero unexplained pages and zero unexplained parts at each, with the clone and
+split paths exercised. Its failing arm reads the same decks without the clone counts and must flag `focus.md` and
+`panes.md`. `playground-engine.index.test.ts` pins the laziness and the single split.
+
+## 11h. Built on 2026-10-19: the Playground map rail (P1)
+
+The first connector for Veduta's second window. Turn it on with **Map** in the Playground toolbar (remembered per
+browser, off by default). Beside the preview on a wide window and under it where the panes stack (the 820 px split
+breakpoint), it shows one tile per **part** (the rendered slides the PDF numbers) with first, previous, next and last.
+
+- **Veduta.** `MapRail` asks `windowFor({ policy: 'pip', viewports: { map } })` each time the rail scrolls, resizes or
+  the focus moves, and mounts exactly the intent: the tiles in and just around its own view, the nearest `liveBudget`
+  (8) at `live` and the rest at `wireframe`. Every other tile is an offset in a spacer. It reports what it mounted with
+  `settle`, and a host with no pictures reports a live capacity of zero.
+- **Tiles.** Wireframe tiles are sketched from the slide's source (`wireframe.ts`, microseconds, no render). Live tiles
+  are the Studio's pooled preview frames (`studio/preview-pool.tsx`), so the Playground grows no second thumbnail
+  renderer and a WebKit frame is re-pointed, never destroyed.
+- **Fuoco.** `PlaygroundMap` owns one hub (`deckOutliner`). The preview *reports*: the walk's page in Explore, and in
+  Edit the page with most of the view (the walk's own rule, with its hysteresis). The rail *asks*: `hub.go` and
+  `hub.step`. Each names its origin, so a pick scrolls the preview and the preview's report never echoes back. Edit also
+  holds the preview's reports until the pick's scroll has been still for 160 ms, so the scroll's slides on the way do
+  not overrule it. The rendered index (section 11g) turns a page into its part and a part into its first page, so a
+  portrait slide cut into pages, or a focus-step slide cloned into several, is still one tile.
+- **Cost when off: none.** The map is a lazy chunk (`React.lazy`); `.pg-preview-row` is `display: contents` until the
+  map is on, so the preview's layout is byte-for-byte what it was.
+- **Left for the Studio.** The rail takes a count, a focus and callbacks only; the Studio will feed it from its own hub.
+
+## 11i. Closed on 2026-10-19: the WebKit "placeholder under the middle" (P4)
+
+The 2782 follow-up said a jump to 25% of the 15-slide `kpi` deck on WebKit at the tablet box left a placeholder under the
+middle of the view 600 ms later. **The probe was wrong, and the filmstrip is right.** On real WebKit 26 (Playwright build
+2215) at 1180x703, the frame's vertical middle (y = 248) at 25% falls in the 29 px gap between slide 4 (bottom 242) and
+slide 5 (top 271), and `elementFromPoint` there answers with the `ARTICLE.lattice` container. Both slides in view are
+real sections; the same holds at 75% (slides 11 and 12). The old probe read "not a section" as "a placeholder".
+
+Re-measured with the right oracle (every slide touching the viewport, not the element at one point): 15 jumps (five
+fractions x three repeats) at the tablet box and 15 at the phone box on WebKit, with the map off and with it on, show
+**0 placeholders in view in all 60**. `playground-filmstrip-jump.spec.ts` pins that oracle on desktop, mobile and
+`webkit-tablet`, with a failing arm that plants a placeholder in view and must see it. `syncVirtual` is unchanged.
+
+## 11j. Built on 2026-10-19: the Studio picture-in-picture (P3)
+
+The Studio's focused preview now has the same map rail (`studio/StudioMap.tsx` over `map-rail/MapRail.tsx`), turned on
+by the map button at the end of the slide navigator bar (remembered, off by default). It sits beside the slide on a pane
+at least 560 px wide and under it otherwise, measured on a wrapper the rail does not resize.
+
+- **One hub, no second focus.** The Studio's Fuoco hub already holds the focused part and every view reports to it, so the
+  rail only reads it (`useFocus`) and picks through `onRailPick`, the call a pill makes (it expands a collapsed preview and
+  moves the hub). First, previous, next and last resolve to a part in the view and take the same call.
+- **The viewed set.** A reader lens reshapes the deck, so the rail's units are the parts of `viewChunks`, numbered within
+  the view as the counter and the pills are. A focus the lens hides sits on the nearest earlier shown part
+  (`StudioMap.test.tsx`).
+- **Live tiles** are the Studio's pooled frames, given the main preview's look (palette, mode, finish CSS) and the viewed
+  deck as context, with the part alone as the fallback when the engine's slide count differs (`_focusSteps`).
+- **Allowed web images.** Tiles get the shell's `deckOptions` (which carry `webOrigins`), so an image the reader has allowed in the
+  main preview loads in a tile too.
+- **Cost.** A lazy chunk; the Studio's eager bundle grows 0.7 KB gz (498.9 to 499.6), inside the 2 KB per-PR allowance. The map
+  stays mounted once opened and is only hidden (`ui/keep-mounted.tsx`), so toggling it re-uses its pool frames; a test counts the
+  documents created across three close/open cycles and requires none.
+- **What this does and does not prove about Veduta.** The rail takes its windowing from Veduta (the band, the map's own
+  viewport ranking, the live/wireframe tiers) and reports the held run through `settle`. It does **not** report a pool capacity:
+  today `settle` reads only `cap`, the pool sizes its own slots (10, up to 28) and the rail keeps its live budget under that ceiling
+  (the tiles on screen, at most 24) instead of learning it. The Studio's stage is not driven by Veduta, and the page-global live
+  budget priced per connector has one connector. So the 11f.2 tripwire ("the Playground adopts the core with no change to it")
+  is met for the band arithmetic and the map window only; the capacity report, the joint stage-and-map budget and the poster tier
+  have no production caller. Publishing to npm should wait for those (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`).
+- **Found by the trio and fixed before merge.** A scrollbar loop (React #185 wherever scrollbars take layout space; the scroller
+  now always carries its track and the measuring effect no longer re-runs with `refresh`), arrow keys that handed focus to the
+  editor after one step (a key now picks quietly), a hidden focus before every lens-shown slide (no tile is highlighted and Next
+  goes to the first), stale or out-of-range tile pictures while typing (a tile keeps its sketch until its slide settles), a rail
+  left over in phone-landscape cinema mode, a `mapStacked` observer left on a detached node after a breakpoint crossing, and a
+  fixed live budget of 8 that left tiles on a large screen as sketches.
+
+## 11k. Closed or filed on 2026-10-19: the two defects the audit found and never recorded (P7)
+
+**The filmstrip window hole is fixed.** `syncVirtual` unmounts what is more than five slides from the view and mounts three
+either side, so a jump could leave an old slide inside the new keep range with a never-mounted slide between it and the new
+run: from slides 0..7 mounted, a jump to slide 12 left `[7, 9..17]`, a placeholder at 8. Nothing showed on screen, but
+`contiguous` stayed false and every later scroll frame left the cached fast path until the hole filled. The reproduction is
+`deck-render.hole.test.ts` (a deterministic case and a seeded 4,000-step walk with 20% jump frames; both red before the fix).
+`applyWindow` now keeps a slide inside the keep range only while mounted slides connect it to the run just mounted
+(`joined`); `mountAround`'s landing pin is its own island and is kept whole, and `mountAround` itself is unchanged. Measured on
+2,000 seeded walks of 60 steps with 20% jumps: 559 walks (674 of 120,000 frames) hit a hole before and 0 after. The 976-of-2,000 in
+section 11d.2 used longer walks. `deck-render.window.test.ts` still pins the arithmetic, and all 398 `src/playground` tests pass.
+
+**The empty-slide defect is reproduced; the map no longer suffers it, and the outline half is filed.** The outliner drops an
+empty chunk and the engine renders it. A checker pointed out that the map is the surface this PR adds, so the index now finds the
+blank page from its markup (`blanksOf`), gives it no part, and keeps every other page on its own (tested through the real engine
+on decks with one and three blank slides). The outline still drops the slide, which the Studio's pills and counters inherit; that
+unit model is read by every editor path, so it is `followups.d/2789-p3-outliner-drops-empty-slides.md`, with an `it.fails` arm in
+`rendered-index.test.ts` that turns red the day the outline counts it. No shipped deck has a blank slide (0 of 292).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

@@ -9,10 +9,12 @@
 // Everything here touches window/fetch, so it lives outside the React tree and
 // the pure controller (playground-controller.ts). PlaygroundApp drives it.
 
+import type { DeckIndex } from './deck-outline';
 import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
+import type { RenderedIndex } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
 import { createThemeFetcher } from './theme-fetch';
 
@@ -29,7 +31,11 @@ export type RenderResult =
 	// coalesce a heavy write.
 	// `anchor` is where the reader was in the document a full write just replaced (null on a
 	// patch, or at the top) — the host scrolls the new document back to it.
-	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean; anchor: { index: number; frac: number; slide?: string } | null }
+	// `index` says which authored slide and part each page belongs to (rendered-index.ts). It reads the
+	// stamps of the one `splitForPreview` call below, and it is LAZY: nothing is computed until a
+	// map of the preview asks, so a Playground with no map pays nothing per keystroke. Each call
+	// returns the same promise.
+	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean; anchor: { index: number; frac: number; slide?: string } | null; index: () => Promise<RenderedIndex> }
 	| { status: 'error'; message: string }
 	| { status: 'pending' }; // engine not loaded yet — caller should retry
 
@@ -50,6 +56,11 @@ export function createEngineBridge(
 	assets: { dagreUrl?: string; katexUrl?: string } = {},
 ) {
 	const isKnownTheme = (name: string) => validPalettes.includes(name);
+	// The deck outline of the last source rendered, so the next render re-parses only what changed.
+	let deckIndex: DeckIndex | undefined;
+	// Slides each part makes on its own, by part text: only a deck whose slide count differs from its
+	// part count needs it (rendered-index.ts `renderedIndexOf`), and an edit re-renders one part.
+	const partCounts = new Map<string, number>();
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
 	const themes = createThemeFetcher(themeBase);
@@ -134,6 +145,29 @@ export function createEngineBridge(
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
 			const html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
+			// Which authored slide and part each page of this render is: read later and once, when a map
+			// asks (rendered-index.ts). The outline too is built there, so a Playground with no map does
+			// not parse the deck a second time per keystroke.
+			let indexed: Promise<RenderedIndex> | null = null;
+			const index = () =>
+				(indexed ??= (async () => {
+					// Loaded when a map asks, not with the Playground: the outline, the index and the glossary
+					// kernel are only needed to place pages on slides.
+					const [{ updateDeckIndex }, { blanksOf, chromeProbeOf, deckChromeOf, NO_CHROME, renderedIndexOf, stampsOf }, { autoGlossarySections }] = await Promise.all([import('./deck-outline'), import('./rendered-index'), import('../../../lib/core/glossary-auto.mjs')]);
+					const deck = (deckIndex = updateDeckIndex(deckIndex, source));
+					// The chrome the front matter gives every slide, so a blank slide is told from one that set its own.
+					// Rendered from the front matter plus one slide; a deck that sets none skips the render.
+					const probe = chromeProbeOf(source);
+					const deckChrome = probe ? deckChromeOf((await renderMarkdown(PGref, probe, theme, { baseUrl: samplesBase, samplesUrl: samplesBase })).html) : NO_CHROME;
+					return renderedIndexOf(
+						stampsOf(html),
+						deck,
+						async (md) => stampsOf((await renderMarkdown(PGref, md, theme, { baseUrl: samplesBase, samplesUrl: samplesBase })).html).length,
+						partCounts,
+						autoGlossarySections(source),
+						blanksOf(html, deckChrome),
+					);
+				})());
 			// Letterbox the filmstrip in the BRAND background (the pane's `--bg-alt` for the
 			// active palette + mode), not the engine's generic `#0c0c0c`/`#e7e7ea` default: the
 			// preview pane shows solid `--bg-alt` while the engine loads, so matching the iframe
@@ -179,7 +213,7 @@ export function createEngineBridge(
 				// EDGE"); this flag only has the fit agent tell it the on-screen scale.
 				slideEdge: true,
 			});
-			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched, anchor: r.anchor ?? null };
+			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched, anchor: r.anchor ?? null, index };
 		} catch (e) {
 			return { status: 'error', message: String((e as Error)?.message || e) };
 		}

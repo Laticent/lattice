@@ -368,6 +368,43 @@
 	   time, and the slides fade in over the SAME color — nothing to flicker. */
 	background: var(--bg-alt);
 }
+/* The slide map (PlaygroundMap.tsx). The row wraps the preview and the map. With the map off it
+   generates no box at all (`display: contents`), so the preview's layout is exactly what it was
+   before the map existed; with it on, the row is the flex item and holds the two side by side, or
+   one over the other where the panes stack. */
+.pg-preview-row {
+	display: contents;
+}
+.pg-preview-row[data-map] {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+}
+.pg-preview-row[data-map='side'] {
+	flex-direction: row;
+}
+/* Stacked, the map lives in the walk bar (WalkBar `mapSlot`), so the row holds only the preview. */
+.pg-preview-row[data-map='stacked'] {
+	flex-direction: column;
+}
+.pg-preview-row[data-map='stacked'] > .pg-map {
+	display: none;
+}
+.pg-preview-row[data-map] > .pg-preview-wrap {
+	min-width: 0;
+}
+.pg-map {
+	flex: none;
+	min-width: 0;
+	min-height: 0;
+}
+.pg-preview-row[data-map='side'] > .pg-map {
+	width: 148px;
+}
+.pg-preview-row[data-map='stacked'] > .pg-map {
+	height: 112px;
+}
 /* Kill the shared animated skeleton for the Playground preview (see .pg-preview-wrap
    above): the pane's own brand fill is the placeholder. `!important` overrides the
    landing.css `::after` (which lists this wrap among its hosts) regardless of its
@@ -846,6 +883,36 @@
 }
 .pg-walk-caption.is-notice {
 	color: var(--accent);
+}
+/* With the slide map on, a narrow screen shares the walk bar with it: Prev, the position and Next stack in one
+   column and the map's strip fills the rest of the row, so the map adds no bar of its own and no second set
+   of buttons. */
+:is(:root[data-pg-view='read'], body[data-view='read']) .pg-walk[data-map] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas: 'steps map' 'caption caption';
+	align-items: center;
+	column-gap: 10px;
+}
+.pg-walk[data-map] .pg-walk-row {
+	grid-area: steps;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+}
+.pg-walk[data-map] .pg-walk-step.next {
+	max-inline-size: 9.5rem;
+}
+.pg-walk[data-map] .pg-walk-pos {
+	min-width: 0;
+}
+.pg-walk[data-map] .pg-walk-map {
+	grid-area: map;
+	block-size: 116px;
+	min-width: 0;
+}
+.pg-walk[data-map] .pg-walk-caption {
+	grid-area: caption;
 }
 @media (max-width: 560px) {
 	.pg-walk {

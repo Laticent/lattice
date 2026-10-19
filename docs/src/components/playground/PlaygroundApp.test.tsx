@@ -41,6 +41,8 @@ vi.mock('@/lib/playground-engine', () => ({
 			state: { frameSig: 'sig', lastSections: null },
 			geom: { w: 1280, h: 720 },
 			patched: true,
+			anchor: null,
+			index: async () => ({ pages: [], byFlat: [], unexplainedPages: [], unexplainedParts: [], slides: 0 }),
 		}),
 	}),
 }));

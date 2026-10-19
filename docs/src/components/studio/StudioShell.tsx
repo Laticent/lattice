@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import './asset-render-hook';
@@ -184,6 +184,8 @@ const Fabricate = React.lazy(() => {
 // (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
+// The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
+const StudioMap = React.lazy(() => import('./StudioMap'));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
 // The icon grid (and the icons' data it fetches on open) loads only when an author opens it.
 const IconGrid = React.lazy(() => import('./IconGrid').then((m) => ({ default: m.IconGrid })));
@@ -924,6 +926,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
+	// The slide map beside (or under) the focused preview. Off by default and remembered; read after
+	// hydration so the server and the client agree. `mapStacked` puts the rail under the slide when the
+	// pane is narrow, measured on the wrapper (which the rail does not resize) so it cannot flip-flop.
+	const [mapOn, setMapOn] = React.useState(false);
+	const [mapStacked, setMapStacked] = React.useState(false);
+	const mapWrapRef = React.useRef<HTMLDivElement>(null);
+	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
+	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
+	const mapEver = useEverTrue(mapOn);
+	React.useEffect(() => {
+		try {
+			if (localStorage.getItem('lattice-studio-map') === '1') setMapOn(true);
+		} catch {}
+	}, []);
+	const toggleMap = React.useCallback(() => {
+		setMapOn((on) => {
+			try {
+				localStorage.setItem('lattice-studio-map', on ? '0' : '1');
+			} catch {}
+			return !on;
+		});
+	}, []);
 	// Bumped on a tap over the iPhone-landscape cinema slide to re-reveal the whisper layer.
 	const [whisperReveal, setWhisperReveal] = React.useState(0);
 	// TYPING MODE: the Compose surface reports when the software keyboard is up (and the user
@@ -1468,6 +1492,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
+	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), so the wrapper this
+	// observes is looked up again then.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `mobile` is the trigger (the wrapper element changes with the tree); the body reads the ref.
+	React.useEffect(() => {
+		const el = mapWrapRef.current;
+		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
+		const read = () => setMapStacked(el.clientWidth < 560);
+		read();
+		const ro = new ResizeObserver(read);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [mapOn, mobile]);
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
 	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
 	// nothing on the other side of the breakpoint could ever clear it. That was survivable
@@ -2865,6 +2901,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the memoized rail re-renders only when the deck or the focused slide changes.
 	const goToSlideLatest = React.useRef(goToSlide);
 	goToSlideLatest.current = goToSlide;
+	// The map rail's pick. An arrow key on the rail must not hand keyboard focus to the editor or re-open a
+	// collapsed pane (a key is not a pick), so it moves the focus quietly; a click is a pick, like a pill.
+	const onMapPick = React.useCallback((chunkIndex: number, section: number, via?: { key: boolean }) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), via?.key ? { section, focus: false, expand: false } : { section }), []);
 	const onRailPick = React.useCallback((chunkIndex: number, section: number) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), { section }), []);
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {
@@ -5554,7 +5593,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+			<div ref={mapWrapRef} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
+			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -5616,6 +5656,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ErrorBoundary>
 				</div>
 			</div>
+			{mapEver && (
+				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[96px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
+					<Frozen active={mapOn && !landscapePhone}>
+					<React.Suspense fallback={null}>
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} />
+					</React.Suspense>
+					</Frozen>
+				</div>
+			)}
+			</div>
 			{slideClipped && clipVenue && clipVenue.scale > 1 && effectiveStop !== 'read' && (
 				<React.Suspense fallback={null}>
 					<ClipNotice venue={clipVenue} down={clipDown} slide={slides[curIndex] ?? ''} splittable={composeLens === 'full'} onSplit={opSplitForVenue} onDown={opVenueDown} />
@@ -5671,6 +5721,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</div>
 				)}
 			<SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />
+				<button
+					type="button"
+					aria-label="Slide map"
+					aria-pressed={mapOn}
+					title="Slide map — a rail of every slide beside the preview"
+					onClick={toggleMap}
+					className={cn('ml-auto grid size-8 shrink-0 place-items-center rounded-lg border bg-card transition-colors [@media(pointer:coarse)]:size-11', mapOn ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
+				>
+					<GalleryVerticalEnd className="size-4" aria-hidden />
+				</button>
 			</div>
 			)}
 			{!previewChromeless && (
