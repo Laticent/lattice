@@ -111,26 +111,39 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.ok(fs.existsSync(path.join(dir, 'out', 'img', 'assets', 'photo.jpg')), 'and the file came along');
   });
 
-  // The lift needs the `_class: …image…` comment and the `![bg]` in the SAME slide
-  // part, so it has to run BEFORE the split bake materializes heading boundaries as
-  // literal `---`. Run after, an image slide with TWO top-level headings had its
-  // `_class` in one part and its `![bg]` in the next — the lift skipped it silently and
-  // Marp's advanced-background machinery took the image, which is the exact defect the
-  // bake exists to prevent.
-  test('a `split: headings` image slide with two headings still gets its panel', () => {
-    const deck = ['---', 'marp: true', 'theme: indaco', 'split: headings', '---', '',
-      '<!-- _class: image -->', '', '## First heading', '', 'Prose.', '',
-      '## Second heading', '', 'More prose.', '', '![bg](p.jpg)', ''].join('\n');
+  // The lift takes its slides from the engine's own boundaries (lib/core/slide-class-spans.js), heading splits
+  // included, so the export and the engine agree on which slide a picture is on. A `![bg]` above the second
+  // heading belongs to the `image` slide and bakes its panel; one below it is on the next slide, which the engine
+  // renders as a plain slide with a full-bleed background, and so does the export. (The lift used to bake a panel
+  // there too, and the engine drew it as an unstyled, zero-height div on a `content form` slide: the picture was
+  // gone from both.)
+  const exportDeck = (lines) => {
+    const deck = ['---', 'marp: true', 'theme: indaco', 'split: headings', '---', '', ...lines, ''].join('\n');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-split-img-'));
     fs.writeFileSync(path.join(dir, 'p.jpg'), 'x');
     fs.writeFileSync(path.join(dir, 'd.md'), deck);
     execFileSync('node', [TOOL, path.join(dir, 'd.md'), path.join(dir, 'out')], { stdio: 'pipe' });
-    const baked = fs.readFileSync(path.join(dir, 'out', 'd', 'd.md'), 'utf8');
+    return { deck, baked: fs.readFileSync(path.join(dir, 'out', 'd', 'd.md'), 'utf8') };
+  };
+  const sections = (html) => String(html).split(/(?=<section\b)/).filter((x) => x.startsWith('<section'));
+  test('a `split: headings` image slide with two headings keeps the panel for a picture above the second heading', () => {
+    const { deck, baked } = exportDeck(['<!-- _class: image -->', '', '## First heading', '', 'Prose.', '', '![bg](p.jpg)', '',
+      '## Second heading', '', 'More prose.']);
     assert.match(baked, /<div class="lattice-bg/, 'the panel was baked');
     assert.doesNotMatch(baked, /!\[bg\]/);
     assert.match(baked, /split: rule/, 'and the splits are still baked');
-    // The engine lifts this deck too — that is the parity being kept.
-    assert.match(latticeEngine.createEngine().render(deck).html, /lattice-bg/);
+    const [first] = sections(latticeEngine.createEngine().render(deck).html);
+    assert.match(first, /class="image"/);
+    assert.match(first, /lattice-bg/, 'the engine draws the same panel');
+  });
+  test('a picture below the second heading is on the next slide, a full-bleed background in the engine and the export', () => {
+    const { deck, baked } = exportDeck(['<!-- _class: image -->', '', '## First heading', '', 'Prose.', '',
+      '## Second heading', '', 'More prose.', '', '![bg](p.jpg)']);
+    assert.doesNotMatch(baked, /<div class="lattice-bg/);
+    assert.match(baked, /!\[bg\]\(assets\/p\.jpg\)/, 'the picture stays a Marp background, on its own slide');
+    const second = sections(latticeEngine.createEngine().render(deck).html)[1];
+    assert.doesNotMatch(second, /lattice-bg/);
+    assert.match(second, /background-image:url\(&quot;p\.jpg&quot;\)/);
   });
 
   test('deck carries the BAKED front matter, with the deck-wide registers', () => {

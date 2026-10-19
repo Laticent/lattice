@@ -859,8 +859,17 @@ defects where they met:
   panel. The seed is now `deckClassTokensFromFrontMatter` of a closed block, the tokens the engine
   itself admits.
 
-Still open: a setext underline (`Title\n---`) reads as a slide break to the lift but as a heading
-to the engine (followups.d/2739-p10-bg-lift-setext-underline.md).
+- The lift no longer walks lines at all (#2776). Three checker passes ran the line walk against the
+  engine's own render and each found more shapes it got wrong: a setext underline (`Title\n---`), a
+  list item's continuation paragraph, `***`, a `---` inside `$$` math. The worst came from fixing the
+  first one: under the default `split: headings`, a setext `h2` is itself a slide boundary, so the
+  picture moved onto a plain slide. The lift now takes each slide's span and class from
+  `slideClassSpans` (lib/core/slide-class-spans.js, the engine's markdown-it boundaries, heading
+  splits included) and lifts only a `![bg]` that sits in prose, an `inline` token. Measured on a
+  differential run (fuzzed decks, with every `![bg]` replaced by a marker the engine renders as plain
+  text): 0 of 15,843 markers differ from the engine across both split modes, against 673 on `main`.
+  The cost is one more markdown-it parse, only for a deck that has a `![bg]`: 4.6 ms against 2.0 ms
+  on the 60 KB gallery deck, out of a 120 ms render.
 
 ### 11.8 The Studio's player shipped the authoring overflow marker to its reader
 

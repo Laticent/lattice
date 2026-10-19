@@ -369,14 +369,12 @@ function main(argv) {
   //      · AFTER localization, so the URL it embeds is the bundle's own `assets/…`
   //        path rather than the author's (a panel pointing at a file the bundle
   //        doesn't carry is the same defect as an un-localized `logo:`).
-  //      · BEFORE bakeSplits, because the lift needs the `_class: …image…` comment
-  //        and the `![bg]` in the SAME slide part. Once heading boundaries are
-  //        literal `---`, an image slide with TWO top-level headings has its
-  //        `_class` in the first part and its `![bg]` in the second — so the lift
-  //        silently skipped it and Marp's advanced-background machinery took the
-  //        image: photo full-bleed, prose unscrimmed on top, i.e. exactly the defect
-  //        this bake exists to prevent, on the deck shape most likely to hit it.
-  const withImagePanels = liftImageBgImages(localized.body, undefined);
+  //      · Handed the deck's front matter, because the lift takes its slides from the
+  //        engine's own boundaries (lib/core/slide-class-spans.js), and the `split:`
+  //        mode that decides them lives there. A `![bg]` that a heading split puts on
+  //        the next, non-`image` slide stays a full-bleed background, as the engine
+  //        renders it; bakeSplits then writes that same boundary as a literal `---`.
+  const withImagePanels = liftImageBgImages(localized.body, undefined, undefined, undefined, glossedFm ? glossedFm[0] : '');
   // 3) splits → literal `---`, LAST of the source bakes, so it sees the final body.
   //    (The glossary bake had to precede it too: it appends a whole slide and strips
   //    its own `glossary:` trigger.) Both are idempotent and self-contained, so the

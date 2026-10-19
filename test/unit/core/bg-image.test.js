@@ -9,6 +9,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const bg = require('../../../lib/core/bg-image');
+const { render, createEngine } = require('../../../lib/engine');
 
 describe('bg-image — liftBgImages (markdown pre-pass)', () => {
   test('rewrites ![bg right] to the lattice-bg background div', () => {
@@ -243,7 +244,7 @@ describe('bg-image — liftImageBgImages carries a class run to later slides', (
 });
 
 describe('bg-image — liftImageBgImages reads slides and directives as the engine does (followups.d/2739-p10)', () => {
-  const { render } = require('../../../lib/engine');
+
   const { readClassAttr } = require('../../../lib/core/section-walk');
   // One picture per deck. The engine's verdict: is the slide that holds it `image`? The lift must
   // draw a `.lattice-bg` panel exactly then (a panel on a `content form` slide is an empty box).
@@ -275,6 +276,18 @@ describe('bg-image — liftImageBgImages reads slides and directives as the engi
     'a `===` heading above `---` leaves `---` a break': ['<!-- _class: image -->\n\nTitle\n===\n---\n\n![bg left](a.jpg)\n', false],
     'a paragraph ending in `-->` above `---` is still a setext heading': ['<!-- _class: image -->\n\nText -->\n---\n\n![bg left](a.jpg)\n', true],
     'a comment block above `---` leaves `---` a break': ['<!-- _class: image -->\n\n<!--\nnote\n-->\n---\n\n![bg left](a.jpg)\n', false],
+    // The third checker's differential run (77e4c99): the default `split: headings` divider turns a setext `h2`
+    // into a slide boundary, which the line walk never modeled. The lift now asks the engine's own boundaries.
+    'a setext `h2` followed by a heading splits under `split: headings`': ['<!-- _class: image -->\n\nTitle\n---\n## Next\n\n![bg left](a.jpg)\n', false],
+    'a setext `h2` that is the slide\'s second heading starts a slide': ['<!-- _class: image -->\n\n# Cover\n\nSubtitle\n---\n\n![bg left](a.jpg)\n', false],
+    'the same deck under `split: rule` keeps one slide': ['---\nsplit: rule\n---\n\n<!-- _class: image -->\n\n# Cover\n\nSubtitle\n---\n\n![bg left](a.jpg)\n', true],
+    'a list item\'s continuation paragraph above `---` leaves `---` a break': ['<!-- _class: image -->\n\n- item\n\n  para\n---\n\n![bg left](a.jpg)\n', false],
+    'an ordered item\'s continuation paragraph above `---` leaves `---` a break': ['<!-- _class: image -->\n\n1. item\n\n   para\n---\n\n![bg left](a.jpg)\n', false],
+    'a directive indented as code inside a list item is code': ['- item\n\n      <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
+    'a pipe in prose above `---` is still a setext heading, and the heading after it splits': ['<!-- _class: image -->\n\nA | B prose\n---\n# H\n\n![bg left](a.jpg)\n', false],
+    '`***` is a slide break too': ['<!-- _class: image -->\n\n# T\n\n***\n\n![bg left](a.jpg)\n', false],
+    'a `---` inside a math block is not a break': ['<!-- _class: image -->\n\n# T\n\n$$\n---\n$$\n\n![bg left](a.jpg)\n', true],
+    'inline HTML opening a paragraph above `---` is a setext heading': ['<!-- _class: image -->\n\n<em>x</em> text\n---\n\n![bg left](a.jpg)\n', true],
     'the plain case still lifts': ['<!-- _class: image -->\n\n# T\n\n![bg left](a.jpg)\n', true],
     'a blank line before `---` is a real break': ['<!-- _class: image -->\n\n# T\n\n---\n\n![bg left](a.jpg)\n', false],
     'a list item then `---` is a break, not a setext underline': ['- item\n---\n\n<!-- _class: image -->\n\n![bg left](a.jpg)\n', true],
@@ -285,6 +298,43 @@ describe('bg-image — liftImageBgImages reads slides and directives as the engi
       assert.equal(liftDraws(md), engineSaysImage(md), 'the lift agrees with the engine');
     });
   }
+});
+
+describe('bg-image — the lift reads the engine\'s boundaries, not a line walk', () => {
+  const lifted = (md, fm) => bg.liftImageBgImages(md, 'file:///d/', undefined, undefined, fm);
+  test('a `![bg]` quoted in a fence or a comment on an image slide stays text', () => {
+    assert.match(lifted('<!-- _class: image -->\n\n# T\n\n```md\n![bg left](a.jpg)\n```\n'), /!\[bg left\]\(a\.jpg\)/);
+    assert.match(lifted('<!-- _class: image -->\n\n# T\n\n<!--\n![bg left](a.jpg)\n-->\n'), /!\[bg left\]\(a\.jpg\)/);
+  });
+  test('a body without its front matter reads the split mode from the front matter it is handed', () => {
+    const body = '<!-- _class: image -->\n\n# Cover\n\nSubtitle\n---\n\n![bg left](a.jpg)\n';
+    assert.doesNotMatch(lifted(body), /lattice-bg /, 'default `split: headings`: the picture is on a plain slide');
+    assert.match(lifted(body, '---\nsplit: rule\n---\n'), /lattice-bg /, '`split: rule`: one image slide');
+  });
+  // The fourth checker's call-shape cases: what the engine and the hosts hand the lift, not the lift alone.
+  const panels = (html) => [...String(html).matchAll(/<section\b[^>]*>/g)].map((m) => (/\bclass="[^"]*\bimage\b/.test(m[0]) ? 'image' : 'plain')).join(',') + (/lattice-bg /.test(String(html)) ? ' panel' : ' none');
+  test('a body that opens with its own `---` block is a slide, not front matter, when the real front matter is handed separately', () => {
+    assert.equal(panels(render('---\ntitle: x\n---\n---\n<!-- _class: image -->\n\n![bg left](x.jpg)\n\n---\n\nnext\n', {}).html), 'image,plain panel');
+    assert.equal(panels(render('---\nsplit: rule\n---\n---\nintro\n---\n<!-- _class: image -->\n\n## A\n\n## B\n\n![bg left](x.jpg)\n', {}).html), 'image panel');
+  });
+  test('an engine with math off splits inside `$$` for the lift as it does for the render', () => {
+    const deck = '<!-- _class: image -->\n\n$$\nx\n\n---\n\ny\n$$\n\n![bg left](x.jpg)\n';
+    assert.equal(panels(createEngine({ math: false }).render(deck, {}).html), 'image,plain none');
+    assert.equal(panels(render(deck, {}).html), 'image panel', 'math on: one image slide, and the parser is set back');
+  });
+  test('an engine with math off leaves the shared boundary parser as the host set it', async () => {
+    const { boundaryParser } = await import('../../../lib/core/boundary-parser.mjs');
+    createEngine({ math: false }).render('<!-- _class: image -->\n\n![bg left](x.jpg)\n', {});
+    assert.deepEqual(boundaryParser.parse('$$\na\n\n---\n\nb\n$$\n', {}).map((t) => t.type), ['math_block']);
+  });
+  test('a `![bg]` inside an HTML block that is not a comment still lifts, as it did', () => {
+    assert.equal(panels(render('<!-- _class: image -->\n\n<div>\n![bg left](x.jpg)\n</div>\n', {}).html), 'image panel');
+  });
+  test('only the `![bg]` lines change, and the front matter it was handed is not returned', () => {
+    const body = '<!-- _class: image -->\r\n\r\n# T\r\n\r\n![bg left](a.jpg)\r\nafter\r\n';
+    const out = lifted(body, '---\nsplit: rule\n---\n');
+    assert.equal(out.replace(/<div class="lattice-bg[^>]*><\/div>/, '![bg left](a.jpg)'), body);
+  });
 });
 
 describe('bg-image — a Marp ratio keeps the panel (followups.d/2739-p4)', () => {
