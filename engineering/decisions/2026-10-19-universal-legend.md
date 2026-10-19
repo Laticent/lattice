@@ -173,8 +173,9 @@ A plain label on a chart is a one-entry legend in `anchored`. There is no second
 
 ## 5. Authoring through Segno
 
-**Entry.** Two Segno record slots, tried in order (the retry is the same device `bindPill` already
-uses for an icon-only pill, `inline-pills.js:134-170`):
+**Entry.** Two Segno record slots, tried in order (`bindPill` re-reads a span through a second compiled slot for an
+icon-only pill, `inline-pills.js:134-170`; that retries after a successful read, ours after a
+refusal, so it is an analogy and not the same logic):
 
 1. `legend-entry`: ONE positional `text`, then bare words bound by type (`c1`-`c12`, a shape word,
    a size word) and named-only `detail="…"`, `mark=`, `for=`. This is the pill record with the
@@ -359,7 +360,7 @@ the installed WebKit project.
 
 ## 13. Spikes, and what is still unknown
 
-Both spikes ran against the real Segno compiler and reader (`compileSlot` from
+Four spikes ran against the real Segno compiler and reader (`compileSlot` from
 `lib/core/segno-spec.js`, `read` / `tryRead`), with the shipped label-set spans as input. The
 scripts are throwaway (`.scratch/`-style) and the results are the table below.
 
@@ -386,25 +387,44 @@ top-level list slot. Decision 1 stands.
 
 A number-first key (`{1, Cold}` only when the first word is a number) was also tried and
 rejected: it refuses `{Cold}` and `{done, Done}`, and flowchart keys are words and operators.
-**Census of shipped spans (spike 4).** A regex over `lib/`, `design/`, `engineering/`,
-`examples/`, the docs content and the baseline decks found 121 inline `[{…}]` spans holding 187
-records. Result under the adopted design:
+**Census of shipped spans (spike 4, re-counted by the independent checker).** A regex over
+`lib/`, `design/`, `engineering/`, `examples/`, the docs content and the baseline decks found 121
+inline `[{…}]` spans holding 187 records. The regex also catches axis specs, so the table
+separates them:
 
 | Records | Count | What they are |
 |---|---|---|
-| Read as an entry or a keyed pair | 129 | `{1, Cold}`, `{"=>", Happy path}`, `{dashed, Sent back}`, and the rest |
-| Axis specs the regex also caught | 35 | `{Effort, 0..10, 5}`, `{Timeline, 2026 Q1..Q4, today=Q3}`: the axis grammar, not a legend |
+| Real label-set records, read under the adopted design | 47 | `{1, Cold}`, `{"=>", Paging path}`, `{dotted, Waits for business hours}`, `{shipped, Enacted}`, `{applies, In force}` (8 read as entries, the rest as keyed pairs) |
+| Axis specs | 114 | `{Effort, 0..10, 5}`, `{Timeline, 2026 Q1..Q4, today=Q3}`, `{Annual loss, log}`. 79 happen to read as an entry or pair; 35 do not. All are the axis grammar, none is a hidden label set |
 | State-marker keys | 22 | `{[x], Enacted}`, `{[-], …}`, `{[ ], …}`, `{[/], …}` in roadmap, matrix-grid and obligation-matrix |
-| Prose in a decision note | 1 | `{el, label, hint?}` |
+| Viewport debug records | 3 | `{w:1440,h:900}` in a decision note |
+| Prose | 1 | `{el, label, hint?}` |
+
+47 + 114 + 22 + 3 + 1 = 187. Every real label-set record in the repo reads, except the 22
+marker keys, which need the compat arm below.
 
 **The marker keys do not read unquoted.** `[` is a Segno stop character, so neither slot can
 lex `[x]` as a bare key. Quoted, they read: `{"[x]", Enacted}`, `{"[ ]", Not started}`,
-`{"[-]", In committee}` and `{"[/]", Cut}` all bind as keyed pairs. Shipped decks write them
-unquoted, so the port keeps the existing bracket reader (`parseBracketList`) as a closed-set
-compat arm for exactly the state markers `x`, `-`, `/`, `!`, `?` and space, and the new grammar
-accepts the quoted spelling. Nothing an author wrote changes. That arm is not a Segno slot, which
-sits against Segno decision 20 (`2026-09-28-segno-unified-inline-notation.md:71`); it is bounded to
-six keys and retires when those decks migrate to the quoted spelling. This is decision 5.
+`{"[-]", In committee}` and `{"[/]", Cut}` all bind as keyed pairs.
+
+**A label with a comma in it is a tested contract the adopted slots refuse.** `label-set.js:59-62`
+splits only on the first comma, and `label-set.test.js:25-29` and `bracket-list.test.js:125-129,
+142, 145` pin it (`{2, Holding, but watch it}` gives the label "Holding, but watch it"). No shipped
+deck uses the shape, but it is a tested behavior.
+
+**Decision 5 covers both.** The existing bracket reader (`parseBracketList`, which already runs
+through Segno's generic parser without a slot schema, `bracket-list.js:27, 162`) stays as a
+**fallback arm**: when both slots refuse a span, it reads the plain `{key, label}` pairs exactly
+as today, which keeps the marker keys and the comma-in-label contract. Styling words and `detail`
+need the Segno slots. The fallback is not a Segno slot, which sits against Segno decision 20
+(`2026-09-28-segno-unified-inline-notation.md:71`) and decisions 9 and 24 (a clean break); it is
+bounded to plain pairs and retires when those decks and tests move to the quoted spelling.
+
+**One shape reads wrong silently, and the build adds a diagnostic for it.** A keyed pair whose
+label is a pill word reads as an entry with no error: `{1, lg}` is text "1" with size lg,
+`{2, c3}` is text "2" with color 3. None of the 47 real records has this shape, and today's
+reader takes `{1, Cold, c2}` as the label "Cold, c2". The legend plugin emits a lint diagnostic
+for a two-word record whose second word is a vocabulary word and says to quote it.
 
 **Settled by reading the code:** SVG keys sit inside the `aria-hidden` group (section 7); legend
 swatches carry no motion attribute (section 8).
@@ -430,9 +450,9 @@ swatches carry no motion attribute (section 8).
 | 3 | Size ramps, risk-matrix index and slope | Out of Waves 0-4; decided per proof in Wave 5 |
 | 4 | Where a free-standing `@legend{}` lands when the slide has no key slot | Below the figure in the body, using the lift logic `liftLabelSet` already has |
 
-Both spikes ran (section 13). Spike 1 passed. Spike 2 rejected the one-slot, two-positional
+The spikes ran (section 13). Spike 1 passed. Spike 2 rejected the one-slot, two-positional
 binding and adopted the entry-then-keyed retry. Decision 1 stands.
 
 | # | Decision | Outcome |
 |---|---|---|
-| 5 | How shipped state-marker keys (`[x]`, `[-]`, `[ ]`, `[/]`) keep working | Default taken: keep the bracket reader as a closed-set compat arm for the six markers, accept the quoted spelling, migrate decks later. The owner can veto; the alternative is a breaking migration of three components' decks in the first port |
+| 5 | How shipped state-marker keys (`[x]`, `[-]`, `[ ]`, `[/]`) and comma-in-label pairs keep working | Default taken: keep the bracket reader as a fallback arm for plain `{key, label}` pairs when both slots refuse, accept the quoted spelling, migrate decks and tests later. The owner can veto; the alternative is a breaking migration of three components' decks and two tested contracts in the first port |
