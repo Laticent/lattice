@@ -1020,8 +1020,11 @@ engine renders.
   down for the whole deck (2 source slides against 3 rendered sections) and quote every slide from the markdown flatten,
   now uses it (`narration-bake.test.ts`, red against `main`'s splitter); and **Compose** on the real Studio, which shows
   the blank slide as a card of its own and keeps it in the source through an edit to the slide after it
-  (`e2e/blank-slide-editors.spec.ts`, desktop; looked at in screenshots at 1440 and 820). The Coach and the share export
-  ran through their own suites only.
+  (`e2e/blank-slide-editors.spec.ts`, desktop; looked at in screenshots at 1440 and 820). Then the **share export**: the
+  Studio's Captions (.vtt) download, from the real Share sheet, captions a funnel after a blank slide with its computed
+  stage-over-stage facts; with `main`'s splitter the lists were one apart, the chart narration stood down for the whole
+  deck, and the same run fails (`e2e/share-blank-slide.spec.ts`, desktop, run both ways). The Coach ran through its own
+  suite only.
 - **What it removes.** The rendered index no longer needs to find a blank page from its markup: `blanksOf`, `chromeProbeOf`,
   `deckChromeOf` and the `blank` argument are gone, and so is the Playground bridge's extra render of the front matter to
   learn its chrome. A page the outline does not count is still reported as unexplained, never absorbed.
