@@ -464,7 +464,9 @@ What shipped, and the four places it departs from the design above.
 
 | Part | Where |
 |---|---|
-| Model, reader, `for=` on a grid, HTML `key` emitter | `lib/core/legend.js` |
+| Model, reader, `for=` on a grid | `lib/core/legend.js` |
+| HTML `key` emitter | `lib/core/legend-key.js` (shared), `lib/core/legend-html.js` (the legend's own classes) |
+| Diagnostic words | `lib/authoring/legend-messages.js` |
 | Mark slot | `lib/core/legend-mark.js` |
 | The two entry slots and the `legend` record | `lib/core/segno-slots.js` (`legend-entry`, `legend-keyed`, `legend`) |
 | SVG `anchored` emitter | `lib/components/chart/_chart-family/legend-svg.js` |
@@ -518,7 +520,7 @@ cell's card through the existing proxy), and a website catalog page for the plug
 
 ## 16. Wave 1, as built (2026-10-19)
 
-roadmap, matrix-grid and obligation-matrix draw their keys through `keyHtml` in `lib/core/legend.js`,
+roadmap, matrix-grid and obligation-matrix draw their keys through `keyHtml` in `lib/core/legend-key.js`,
 and `lib/core/html-legend.js` is gone. `keyHtml` has two modes with one markup shape: the legend's
 own classes (the mark slot draws the mark, the text may carry a plate), and a component's own
 classes, where the swatch is an empty span painted by the component's stylesheet from the row's

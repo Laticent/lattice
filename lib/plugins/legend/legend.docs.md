@@ -106,7 +106,8 @@ cannot hold — its description lists under "Not drawn".
 
 ## For components
 
-The model, reader and HTML emitter are `lib/core/legend.js`; the mark slot is
+The model and reader are `lib/core/legend.js`; the HTML key is `lib/core/legend-key.js` (a
+component's own classes) and `lib/core/legend-html.js` (the legend's own); the mark slot is
 `lib/core/legend-mark.js`; the SVG emitter is `lib/components/chart/_chart-family/legend-svg.js`
 (beside the placement pass it uses, since `lib/core` may not import a component). A component lifts
 the slide's legend paragraphs with `liftLegends` (`lib/core/lift-label-set.js`), resolves each

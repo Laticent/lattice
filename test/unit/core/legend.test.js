@@ -2,14 +2,20 @@
  * Unit: the legend model, its Segno reader and the HTML emitter (lib/core/legend.js), and the mark
  * slot (lib/core/legend-mark.js). Design: engineering/decisions/2026-10-19-universal-legend.md.
  *
+ * The diagnostics carry a code and facts, not prose (the runtime bundles the reader); the words are
+ * lib/authoring/legend-messages.js, checked here once per code.
+ *
  * The reader cases are the spike-2 table of § 13, re-run against the shipped slots: an entry first,
  * a keyed pair only on the entry slot's refusal, and the one silent shape (`{1, lg}`) reported.
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { readLegend, readEntry, gridTarget, legendHtml, LEGEND_READERS } = require('../../../lib/core/legend');
-const { MARKS, markHtml, markSvg, colorAttr } = require('../../../lib/core/legend-mark');
+const { readLegend, readEntry, gridTarget, LEGEND_READERS } = require('../../../lib/core/legend');
+const { legendHtml } = require('../../../lib/core/legend-html');
+const { colorAttr } = require('../../../lib/core/legend-key');
+const { MARKS, markHtml, markSvg } = require('../../../lib/core/legend-mark');
+const { legendMessage } = require('../../../lib/authoring/legend-messages');
 const { LEGEND_MARKS, PLATE_SHAPES, CORE } = require('../../../lib/core/segno-slots');
 
 describe('readEntry: entry first, keyed pair on refusal (§ 13 spike 2)', () => {
@@ -35,7 +41,7 @@ describe('readEntry: entry first, keyed pair on refusal (§ 13 spike 2)', () => 
   test('a record neither slot reads is refused with the entry slot\'s reason', () => {
     const r = readEntry('{a, b, c}');
     assert.equal(r.ok, false);
-    assert.match(r.diagnostics[0].message, /legend entry/);
+    assert.match(legendMessage(r.diagnostics[0]), /legend entry/);
   });
 });
 
@@ -156,4 +162,24 @@ test('LEGEND_READERS names only real slide classes', () => {
   for (const name of LEGEND_READERS) {
     assert.ok(fs.existsSync(path.join(__dirname, `../../../lib/components/chart/${name}/${name}.manifest.json`)), name);
   }
+});
+
+describe('legend-messages: every code the reader emits has words', () => {
+  const cases = [
+    ['@legend{{1, lg}}', 'legend/ambiguous-pair', /reads as the label "1" with the style word `lg`/],
+    ['@legend{', 'legend/syntax', /is not a legend: write/],
+    ['@legend{{A}, layout=sideways}', 'legend/layout', /`sideways` is not a legend layout/],
+    ['@legend{x}', 'legend/item', /`x` is not a legend entry/],
+    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is an anchored label with nothing to anchor to/],
+  ];
+  for (const [src, code, words] of cases) {
+    test(code, () => {
+      const d = readLegend(src).diagnostics.find((x) => x.code === code);
+      assert.ok(d, `${src} reports ${code}`);
+      assert.match(legendMessage(d), words);
+    });
+  }
+  test('legend/empty', () => {
+    assert.equal(legendMessage(readLegend('@legend{x}').diagnostics[1]), 'The legend has no entries it can draw.');
+  });
 });

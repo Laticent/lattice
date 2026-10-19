@@ -1,4 +1,4 @@
-// The HTML key — `keyHtml` in lib/core/legend.js, in the component mode that replaced
+// The HTML key — `keyHtml` in lib/core/legend-key.js, in the component mode that replaced
 // lib/core/html-legend.js (legend note § 10, Wave 1). Every arm below is that file's, unchanged in
 // what it asserts; only the call shape moved onto the legend's entry fields.
 //
@@ -12,7 +12,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { keyHtml } = require('../../../lib/core/legend');
+const { keyHtml } = require('../../../lib/core/legend-key');
 
 // The old call shape, mapped onto the legend's: four class names become `classes`, a row's
 // `stateClass` its `rowClass`, `markState` its `swatch`, and `label` its `text`.
