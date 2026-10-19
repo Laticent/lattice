@@ -3836,8 +3836,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			hoverRaf = requestAnimationFrame(() => {
 				hoverRaf = 0;
 				if (hoverAt) {
-					hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
-					hoverCollageAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					const overCopy = hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					const overPhoto = hoverCollageAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
+					const cursor = overPhoto ? 'zoom-in' : overCopy ? 'pointer' : '';
+					if (holder.style.cursor !== cursor) holder.style.cursor = cursor;
 				}
 			});
 		};
@@ -3845,6 +3848,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			hoverAt = null;
 			hoverCodeCopyAt(hoverFrame(), null, null);
 			hoverCollageAt(hoverFrame(), null, null);
+			holder.style.cursor = '';
 		};
 		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);

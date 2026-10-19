@@ -172,6 +172,18 @@ test('@smoke @gecko the photo under the mouse in the Studio preview pops, its ne
 	// The look follows the marker: the hovered tile scales up and the rest drop their opacity.
 	await expect.poll(() => tiles.nth(1).evaluate((el) => getComputedStyle(el).transform), { timeout: 5_000 }).not.toBe('none');
 	await expect.poll(() => tiles.nth(0).evaluate((el) => Number(getComputedStyle(el).opacity)), { timeout: 5_000 }).toBeLessThan(1);
+	// It also reads as something to click: the pointer is the zoom cursor (the holder wears it, because the frame takes
+	// no pointer events), and the photo carries the accent ring the keyboard focus draws.
+	const holderCursor = () =>
+		page.evaluate(() => {
+			for (let e = document.querySelector('iframe.live')?.parentElement ?? null; e; e = e.parentElement) if (e.style.cursor) return e.style.cursor;
+			return '';
+		});
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
+	await expect
+		.poll(() => tiles.nth(1).locator('img').evaluate((el) => { const c = getComputedStyle(el); return `${c.outlineStyle} ${c.outlineWidth}`; }), { timeout: 5_000 })
+		.toMatch(/^solid [1-9]/);
+	await expect.poll(() => tiles.nth(0).locator('img').evaluate((el) => getComputedStyle(el).outlineStyle), { timeout: 5_000 }).toBe('none');
 	// Moving to another photo moves the marker; there is never more than one.
 	const next = await photoAt(page, 2);
 	await page.mouse.move(next.x, next.y, { steps: 6 });
@@ -181,6 +193,7 @@ test('@smoke @gecko the photo under the mouse in the Studio preview pops, its ne
 	await page.mouse.move(5, 5);
 	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
 	await expect.poll(() => tiles.nth(2).evaluate((el) => getComputedStyle(el).transform), { timeout: 5_000 }).toBe('none');
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');
 });
 
 test('@parity @webkit-phone a tap on a photo in the Studio preview opens it; a tap on the close button closes it', async ({ page }, info) => {
