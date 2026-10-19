@@ -24,8 +24,10 @@ name: Platform suites (macOS / Windows)
 # because it checked out the full history; it now does a shallow checkout and one API call (re-measure on the next run).
 # Nightly-equivalent run on main (2026-10-19, run 39297285443 at c27bbb1, whole-job times from the job list): `plan` 10 s;
 # macOS `export-confine` 2 m 06 s and `wait-for-macos` 2 m 34 s; Windows `build-windows` 3 m 24 s and `export-confine-windows`
-# 3 m 29 s (`npm ci` is about 75 s of each Windows job, the full build about 75 s). All four suites green. The scheduled nightly has
-# not run yet: re-measure from the first one.
+# 3 m 29 s (`npm ci` is about 75 s of each Windows job, the full build about 75 s). All four suites green. The cron trigger has
+# fired once (run 39235883310, 2026-10-19): due 04:41 UTC, it started 10:13 UTC, 5 h 32 m late (GitHub delays scheduled runs under
+# load, and can drop one), and went green. It ran at 2e2755d, before the Windows and wait-for suites landed, so it ran only
+# `export-confine` (plan 19 s, macOS job 2 m 20 s). The first cron run of all four suites is the next one: re-measure from it.
 
 on:
   schedule:
