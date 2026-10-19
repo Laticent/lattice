@@ -120,8 +120,8 @@ describe('the Underpainting', () => {
   });
 });
 
-// The brushwork moves on its own span so the compositor can slide it (a repaint per frame was
-// 5.9 fps on a 4K photo panel). The span must come and go with the painting, exactly once.
+// The brushwork moves on its own span so the compositor can slide it (a repaint per frame held a
+// 4K Studio photo slide to 34.7 fps). The span must come and go with the painting, exactly once.
 describe('the brush span', () => {
   const { JSDOM } = require('jsdom');
   const panel = () => new JSDOM('<div class="lattice-bg"><span class="keep"></span></div>').window.document.querySelector('.lattice-bg');

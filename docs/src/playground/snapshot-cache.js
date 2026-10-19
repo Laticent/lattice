@@ -336,6 +336,7 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// replay would hold the painting over a photo that is likely in the cache by then.
 		sec.removeAttribute('data-img-relayout');
 		for (const el of sec.querySelectorAll('[data-lattice-painting]')) el.removeAttribute('data-lattice-painting');
+		for (const el of sec.querySelectorAll('.lattice-paint-brush')) el.remove();
 		// Nor a card mid-morph: where the host has no Web Animations API, image-adaptive pins it at its
 		// old box with an inline transform, and a replay would paint it there for good.
 		for (const el of sec.querySelectorAll('[data-img-morph]')) {

@@ -356,8 +356,9 @@ section video[data-lattice-web-src] {
  * COST: like Nacre, nothing repaints per frame. The brushwork lives on the `::before` of a span the
  * runtime adds for as long as the painting shows (`.lattice-paint-brush`, image-painting.js), and
  * slides by `transform`, so the compositor moves a bitmap rasterized once. It used to move by
- * background and mask position, which repainted the whole element every frame: 5.9 fps against
- * 59.8 now for a photo panel at 4K (2026-10-19, headless Chromium). It runs only while a picture
+ * background and mask position, which repainted the whole element every frame: 34.7 fps against
+ * 58.7 now on a Studio photo slide at 4K (2026-10-19, headless Chromium compositing in software,
+ * so read the ratio; the design doc has the table). It runs only while a picture
  * is loading and stops for reduced motion; the one-off sweep is a clip. */
 section [data-lattice-painting] {
   /* Nacre's three tones: the accent, and two hue-shifted relatives (+34° and −28°, Nacre's own
