@@ -12,8 +12,7 @@ name: Platform suites (macOS / Windows)
 # tools/platform-suites-plan.js holds the rule.
 #
 # ALERT. A scheduled or manual run that fails (or is cancelled, which is how a timeout reads) opens a GitHub issue titled "Nightly
-# platform suites failed", or comments on the open one, with the failed jobs and the run link; a person closes it. Looking up an open
-# issue goes through GitHub's search, which can lag a few seconds, so two failing runs that overlap could open two. Without it a red nightly is only a red row in the Actions tab and
+# platform suites failed", or comments on the open one, with the failed jobs and the run link; a person closes it. The lookup matches the exact title and the bot author (the nightly family's form), so an issue someone else files under that title is never the thread; two failing runs that overlap could still each open one. Without it a red nightly is only a red row in the Actions tab and
 # GitHub's default failure email to whoever last edited the cron line. Pull requests do not alert: their check already shows red.
 #
 # NOT A MERGE GATE. This workflow is separate from the `ci` gate and a suite's check is not in the required set. A red
