@@ -67,7 +67,6 @@ export function PluginsSettings({ source, onWrite, installed = [], stamp = '', o
 			const now = deckPluginList(s);
 			return writeDeckPlugins(s, on ? [...now, name] : now.filter((n: string) => n !== name));
 		});
-	const rows = React.useMemo(() => PLUGIN_GRAMMAR.filter((g) => !g.embedded), []);
 	const embedded = React.useMemo(() => PLUGIN_GRAMMAR.filter((g) => g.embedded), []);
 	return (
 		<div className="space-y-0" data-plugins-settings="">
