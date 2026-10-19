@@ -1,0 +1,458 @@
+---
+status: proposed
+summary: >
+  Charts draw their keys, value labels, callouts and edge names through 11 separate key
+  implementations and no shared label model, and none of it narrates a detail line or responds to
+  a gesture beyond pie and map. The proposal is one built-in `legend` plugin: a legend is a group
+  of labels, a label has three optional slots (mark, text, plate), and a legend draws in one of
+  three layouts (key, anchored, along-path) through one HTML emitter and one SVG emitter. Authors
+  write it in Segno. Narration and gestures are designed in from the start, in three tiers, with
+  series toggling deliberately left out. Existing keys port over one adopter per commit,
+  byte-identical; the placement geometry in `svg-label.js` stays.
+---
+
+# One legend plugin: labels, marks, plates, narration, gestures
+
+**2026-10-19.** Status: proposed. Nothing in this note is built. Facts below come from three
+read-only audits of the tree and are cited by file and line; the lines marked UNVERIFIED are
+the ones nobody opened.
+
+## 1. The ask
+
+Every chart should take custom labels. Heatmap has none. One plugin should replace the labels
+and keys we have today, work in HTML and SVG, scale with the slide, serve every current and
+future component, work on any component, be authored through Segno, and support narration and
+gestures. The default render is a bare label: no background, no border, no icon.
+
+## 2. Names (settled by the owner)
+
+- **Legend** is the plugin and the whole model.
+- **Label** is one entry in a legend.
+- **Key** is the layout that decodes an encoding (swatch + text, apart from the marks). It is
+  the sense `svg-legend.js` uses today.
+
+## 3. Audit: what exists
+
+### 3.1 Keys and labels
+
+21 components draw a key. They use 11 separate implementations: 4 shared builders and 7 private
+ones (command: per-symbol `grep -rln` over `lib/components` and `lib/core`, per-chart `grep -c`
+of each builder). Bullet, funnel and waterfall mention a legend only in comments.
+
+| Implementation | Components | Medium |
+|---|---|---|
+| `buildSvgLegend` (`svg-legend.js`) | bar, stacked-bar, line (fallback only), tower, piechart, map, quadrant, radar, heatmap (only with `scale`) | SVG |
+| `buildHtmlLegend` (`html-legend.js`) | roadmap, matrix-grid | HTML |
+| `label-set-key.js` post-pass | obligation-matrix (the one manifest with `keyedBy: "transformer"`) | HTML |
+| `graph-key.js` `buildKey` | flowchart, state-chart | HTML |
+| Private builders | journey (23 lines), gantt (~62), hub-spoke (~29), risk-matrix (~17), scatter (89, a size ramp), word-cloud (~141, a size ramp), slope (~60) | mixed |
+
+Components with no key by design: waterfall, funnel, bullet, progress, kanban, timeline-list,
+histogram, ep-curve (they label their own marks). Heatmap's key is opt-in, so a five-band ramp
+has no key by default (`heatmap.docs.md:38`).
+
+Size of the layer, measured with `wc -l`:
+
+- Shared emit layer: 2,857 lines (`svg-legend.js` 637, `svg-label.js` 1,195, `label-drops.js`
+  187, `label-set.js` 264, `label-set-catalog.generated.js` 138, `label-set-key.js` 178,
+  `html-legend.js` 111, `graph-key.js` 76, `lift-label-set.js` 71).
+- Private key code: about 421 lines across seven components (journey 23, scatter 89 and
+  word-cloud about 140 measured; gantt, hub-spoke, risk-matrix and slope are estimates).
+- Shared label kernels in `cartesian.js`: `buildCategoryLabels` (`:1052-1155`) and
+  `buildValueLabel` (`:1204-1215`), about 116 lines.
+
+Only 5 manifests declare `labelSet`.
+
+### 3.2 Doc drift found on the way
+
+These four statements are wrong today and get fixed in the same change that touches the code:
+`chart-family.docs.md:165` says journey's keys are "CSS-only" (the transform builds them);
+`:167-168` says state-chart has "no key" (it calls `buildKey`); `:143` says "13 members" and `:146-147` lists four integrated
+SVG-key charts (bar, line, stacked-bar, tower and heatmap now call it too);
+a comment at `tools/check-ownership.js:5470` puts gantt's swatch at `gantt.transform.js:586`
+(it is at `:879`).
+
+### 3.3 Authoring today
+
+An author can name a key three ways: derived (nothing written), inline
+(`[{1, Cold}, {3, Warm}]`), and a front-matter register. The facts that matter:
+
+- The inline form is **not read by a Segno slot.** `parseInlineSet` (`label-set.js:79`) gates
+  the span with a regex and calls `parseBracketList` (`bracket-list.js:155`), which uses
+  Segno's parser but binds no slot. It returns `{key, label}` and never `detail`.
+- `detail` comes only from `parseRegisterBlock` (`label-set.js:105`), a hand-written regex
+  parser. No module in `lib/` calls it; only the generated playground bundles copy it. So a
+  front-matter `detail` has no engine caller today.
+- Segno's decision 20 says every new grammar is a Segno grammar, not a hand-written parser
+  (`2026-09-28-segno-unified-inline-notation.md:71`).
+- Per-mark notes ride separate doors: heatmap's cell `note=` span, and the sublist detail that
+  `mark-detail.js` folds into the speaker note.
+
+### 3.4 Narration today
+
+- Each narrator re-derives the chart from the raw Markdown (`chart-narration.js:1-55`) and
+  binds every sentence to `{act, unit, id, value, label}` (`:230-240`).
+- A key is read by its words only. For journey, matrix-grid and roadmap, `keyedWords` merges
+  author renames over the defaults and consumes the line (`:5857-5874`). Nothing in
+  `chart-narration.js` reads `.detail`.
+- A label-set `detail` becomes an HTML `title` attribute (`html-legend.js:95`) and nothing
+  else. It reaches no speech, speaker note, PDF or `<desc>`.
+- SVG keys give screen readers one `<desc>` ("Key — label value, …", `svg-legend.js:245`),
+  not a list.
+- A per-mark detail sublist, by contrast, is spoken and folded into the speaker note
+  (`speakItemDetail` `:445-492`, `mark-detail.js:165-190`).
+
+### 3.5 Gestures today
+
+- A key row that names one mark carries `data-mark-for`. Pie (`piechart.transform.js:88`), map
+  (`map.transform.js:286`) and risk-matrix's private numbered key (`risk-matrix.transform.js:198-206`)
+  emit it; many non-key labels carry it too (category labels, hub-spoke, gantt, quadrant,
+  scatter, heatmap). Such a row is a tap or hover proxy that opens the mark's card (`chart-interact.js` `namedMark`, `:409-425`).
+- Series keys (line, stacked-bar, radar) are inert on purpose (`chart-interact.js:410-412`).
+  No code highlights or toggles a series from its swatch. HTML keys have no handlers.
+- The slide has no focus or tab stop for individual marks. Keys 1-9 reveal a mark, 0 or Esc
+  clears (`handleKey`, `:791-797`).
+- Interaction runs in the parent page; the slide iframe stays a pure paint surface
+  (`chart-interact.js:1-21`). Input-verb parity requires keyboard, wheel and touch on every
+  surface that shows a slide (`2026-08-10-input-verb-parity.md:10-17`).
+
+### 3.6 Segno today
+
+- A value is a record `{item, …}`, a list `[elem, …]` or a scalar. An item is a bare value or
+  `name=value`. Bare words bind by type; a `named` parameter must be written `name=value`
+  (`2026-09-28-segno-unified-inline-notation.md:80-170`).
+- The `pill` core slot has an optional text, `shape` (8 words), `color` (`c1`-`c12`), `size`
+  and a named-only `icon` (`segno-slots.js:49-58`).
+- The JSON spec compiler always returns a record, so a top-level list slot is not expressible
+  in JSON; a list of records is expressible as a parameter (`segno-spec-core.js:43-47` and `:56-77`).
+- An inline plugin through `contributes.inline` needs a one-character sigil, and all three
+  Segno tag characters are taken: `!` avatars, `^` icons, `~` sparks (`resolve.js:421-438`).
+  The kind names `state` and `pill` are refused. The named form `@kind{…}` reaches a kind
+  without a sigil (`inline-code-directives.js:99-130`).
+- Whitespace is space, tab and U+00A0, so there is no multi-line inline form. A comma separates
+  items, so detail prose containing commas must be quoted.
+
+## 4. The model
+
+```
+legend  = { entries: label[], layout: key | anchored | along-path }
+label   = { text, key?, detail?, mark?, plate?, tone?, for? }
+mark    = none | swatch(fill|outline) | line(solid|heavy|dashed|dotted [+ head open|dot|cross|arrow])
+          | icon(name) | ramp-step(n)
+plate   = none (default) | pill | chip | tag | tag-bordered | circle | chevron-* | diamond
+tone    = c1..c12 or a semantic tone (pass, warn, fail, info, mute)
+for     = a mark | a series | a ramp step | nothing
+```
+
+Rules:
+
+1. **Text is the only required slot.** A bare label is text with no mark and no plate. That is
+   the default the owner asked for.
+2. **The plate is the pill.** It reuses the pill's shape words, color slots and `--pill-*`
+   geometry. The pill grammar does not grow a mark slot, a dash pattern or an arrow; a pill
+   stays "text on a plate".
+3. **The mark is a new shared kernel**, `lib/core/legend-mark.js`. It absorbs the three copies
+   of the swatch vocabulary (`keySwatch` in `graph-key.js`, `swatchClass` in `svg-legend.js`,
+   the `--mark-*` and `--shape-*` lookups) and draws shapes, never typed glyphs (HARD RULE #29).
+   Color comes from the element, shape from us (HARD RULE #3).
+4. **`for` is the link that makes a legend interactive and narratable.** It maps to the hooks
+   that exist: `data-mark-for` (single mark; key rows in pie, map and risk-matrix today) and
+   `data-series-for` (series; line and ep-curve emit it on direct series labels, and no key row
+   carries it today).
+5. **`detail` is first-class** and reaches narration, the speaker note and the PDF (section 7).
+
+Three layouts, one model:
+
+| Layout | Draws | Example |
+|---|---|---|
+| `key` | Labels with marks, apart from the figure, stacked or flowed | The five-step ramp key |
+| `anchored` | Labels placed at a mark, handed to `placeLabels` | A heatmap callout, a bar value |
+| `along-path` | A label riding a line | A flowchart edge name |
+
+A plain label on a chart is a one-entry legend in `anchored`. There is no second plugin for it.
+
+## 5. Authoring through Segno
+
+**Entry.** Two Segno record slots, tried in order (`bindPill` re-reads a span through a second compiled slot for an
+icon-only pill, `inline-pills.js:134-170`; that retries after a successful read, ours after a
+refusal, so it is an analogy and not the same logic):
+
+1. `legend-entry`: ONE positional `text`, then bare words bound by type (`c1`-`c12`, a shape word,
+   a size word) and named-only `detail="…"`, `mark=`, `for=`. This is the pill record with the
+   extra named parameters, so `{Poor, c1}` and `{LIVE, tag, c4}` read as they do for a pill.
+2. `legend-keyed`: on a refusal from slot 1 only, `key` and `text` as two positionals plus
+   `detail` and `color`. This keeps every shipped `[{1, Cold}, {3, Warm}]` and the flowchart
+   `[{"=>", Happy path}, {dashed, Sent back}]` working unchanged (spike 2 below).
+
+Rejected design: ONE slot with two positionals. Segno fills positionals before it binds by
+type, so `{Cold, c1}` read as text "Cold" plus text "c1" and silently lost the color (spike 2).
+
+A label whose second word is a vocabulary word reads as an entry, so `{1, tag}` is text "1"
+with a tag shape. Quote it, as the pill does, to keep it a keyed pair: `{1, "tag"}`.
+
+Examples (proposed spelling):
+
+```
+[{1, Cold}, {3, Warm}, {5, Hot}]                       renames ramp steps (works today)
+[{1, Cold, detail="Under 20 percent"}, {5, Hot}]       adds a detail line (new)
+@legend{[{Poor, c1}, {Fair, c2}, {Good, c3}], key}     a free-standing key on any slide
+@legend{{Month 2 drop-off, tag, c4, for=14}}           one anchored callout, with a plate
+```
+
+**Where the grammar lives.** Three facts shape this:
+
+- No tag character is free, so `contributes.inline` with a sigil cannot carry `legend` without
+  widening the tag set. Widening touches the grammar (`notation-grammar.ts:25`, `isDirective`
+  at `notation.ts:414`, the copy at `resolve.js:421` and the test that pins it).
+- The pill is a **core slot**, not a plugin, and the owner asked for "an embedded plugin
+  similar to pills".
+- A list of records is expressible as a slot parameter, not as a top-level slot.
+
+So: the `legend-entry` slot and a `legend` record slot (with an `entries` list parameter) live
+in `lib/core/segno-slots.js` beside `pill`. The plugin under `lib/plugins/legend/` supplies the
+manifest, docs, fixtures, styles and the `chart-family` extension-point wiring. The `@legend{}`
+named form reaches it without a sigil. The tag-character widening is not taken. This is
+decision 1 below.
+
+**Register.** The front-matter register becomes a Segno-read block, replacing the regex
+`parseRegisterBlock` (which has no engine caller today, so the swap changes no shipped output).
+`label-set.js` becomes the data layer of the plugin: `resolveLabelSet` keeps its merge by key
+and its drop of authored keys the chart did not derive.
+
+**Diagnostics.** Segno returns `{code, severity, message, from, to, fix?}` and leaves the span
+literal on error. The plugin adds codes for a `for=` that names nothing, a `detail` on a layout
+that cannot show it, and a ramp key that no cell uses (heatmap already drops it and says so).
+
+## 6. Rendering: two emitters, one model
+
+- **HTML emitter.** A flex row of `[mark][text][plate]`, sized in `cqi` and `em` so it scales
+  with the slide. Replaces `html-legend.js`, `graph-key.js`, `label-set-key.js` and the HTML
+  private builders. Output stays class-for-class what each caller emits today until its port.
+- **SVG emitter.** A `<g>` with `<tspan>` text from `wrapSvgLabel`, the mark as SVG path or
+  rect, an optional `<rect>` plate sized from `measureLabel`. Everything is viewBox units;
+  the legend font is a fixed fraction of the diagram height (`FS_OF_HEIGHT = 9/200`,
+  `svg-legend.js`) so the key is the same physical size on every chart.
+- **Why two, not one.** `<foreignObject>` is unreliable in the Chromium-to-PDF path and the
+  motion system cannot animate an HTML node inside an SVG
+  (`2026-07-26-svg-chart-labels-motion.md` §2). One model, two emitters is the only shape that
+  keeps both.
+- **Kept as is:** `svg-label.js` wrap, measure, de-collide, leader lines and eight-position
+  placement; `label-drops.js` drop reporting. They become the SVG emitter's back end.
+- **Held by tests that stay green:** `svg-label-css-mirror.test.js` (kernel font size must equal
+  the CSS size), the drop census, `checkChartMarks` (a class must appear whole in a string
+  literal, so classes are spelled out in full, never composed from a prefix).
+
+## 7. Narration
+
+A legend becomes a first-class narration unit instead of a consumed line.
+
+1. **Every entry binds with `said()`** to `{act, unit:'key', id, value, label}`, so the
+   timeline can address it. The manifest gets a `gesture.units.key` block with the selectors
+   (`select` and `labels`), as pie's `labels: [data-mark-for="{mark}"]` does today.
+2. **A key reads as one sentence by default** ("Poor is 1, Fair is 2 … Exceptional is 5"),
+   replacing the consumed-line behavior in `keyedWords`, with each entry's words unchanged so
+   existing narration stays word-for-word.
+3. **`detail` is spoken only when asked** (`act:'note'`, the way `speakItemDetail` treats a
+   mark's detail), and always folded into the speaker note, so the PDF carries it. This closes
+   the gap where `detail` reaches nothing but a tooltip.
+4. **Screen readers get a list from the HTML emitter only.** The SVG key sits inside the
+   chart's `aria-hidden` group (`bar.transform.js:649-656` puts `legend.body` in `body`, and
+   `ariaHiddenMarks` wraps it, `cartesian.js:1314`), so a `role="list"` on SVG rows would be
+   inert. For SVG the `<desc>` stays the one reader route, and it now includes each entry's
+   `detail`. Only the HTML emitter renders a real list.
+
+## 8. Gestures
+
+Three tiers, each gated by what the surface can do. The PDF has no JavaScript, so tier 0 must
+carry full meaning.
+
+| Tier | Behavior | Needs |
+|---|---|---|
+| 0 Static | Meaning is in the drawing, narration and speaker note. | Section 7. No code beyond the emitters. |
+| 1 Proxy | Hover (fine pointer) or tap (coarse) on an entry with `for` opens that mark's card and dims the rest. Keys 1-9 already reveal a mark. | Generalize `data-mark-for` from pie, map and risk-matrix key rows to every `for` entry. Reuses `chart-interact.js`. |
+| 2 Series | Hover or tap an entry highlights its series and dims the others. | `data-series-for` on key rows for every series chart (today only line and ep-curve emit it, and only on direct series labels). |
+
+**Left out on purpose: toggling a series on and off.** In a presented deck it changes the data
+the audience sees from a swatch tap, nothing in the export records it, and the verb-parity rule
+would require keyboard, wheel and touch versions of it. It can be revisited with its own note.
+
+Constraints that bind every tier:
+
+- Interaction stays in the parent page; the slide iframe remains a paint surface.
+- Hover alone does not satisfy parity. Every entry with `for` also needs a keyboard route.
+  The slide has no focus handling today, so this is new work and is stated as such.
+- Do not put `data-mark` on a legend row. It would shift the popover's index map; the radar
+  precedent is `2026-07-26-svg-chart-labels-motion.md` §5. Use `data-mark-for`.
+- Popover HTML comes from templates through `templateSafe` (`mark-detail.js:131-136`); legend
+  text is escaped (`html-legend.js:53-60`, `svg-legend.js:100`). A legend that injects markup
+  after the sanitizer must be listed in `SANCTIONED_RUNTIME_MARKUP_SINKS` with its
+  justification (HARD RULE #22).
+- Any change to the exported player changes export bytes and needs the owner's sign-off with a
+  dark and a light render.
+- Motion (read from code, not driven): `chartToScene` animates only nodes with `data-mark` or
+  `data-anima-role`, plus every `<text>` as role `label` (`chart-anima.ts:236, 256`). Legend
+  swatches carry neither attribute, so they stay static, and legend text already animates in
+  as a label. Driving it on the real Playground stays on the build's verification list.
+
+## 9. What retires, what stays
+
+| Retires after its port | Lines |
+|---|---|
+| `svg-legend.js` | 637 |
+| `html-legend.js` | 111 |
+| `graph-key.js` | 76 |
+| `label-set-key.js` | 178 |
+| Private key code (seven components) | about 421 |
+| **Total** | **about 1,423** |
+
+`label-set.js` (264) and `lift-label-set.js` (71) fold into the plugin's data layer rather than
+retire. Stays: `svg-label.js` (1,195), `label-drops.js` (187), computed axis ticks (`line`,
+`histogram`, `ep-curve` thinning), narration and `<desc>` text.
+
+Two kinds of key are not swatch keys and should not be forced in: the size ramps in `scatter`
+and `word-cloud`, and `risk-matrix`'s numbered index. Risk-matrix's rows are already tap
+proxies (`data-mark-for`), so a port must keep them. Each is ported only if the `mark` kernel
+expresses it without bending (a size ramp as a `ramp-step` mark; a numbered index as a `circle`
+plate with a number). Otherwise it stays a private builder and the note says why. This is
+decision 3.
+
+## 10. Migration plan
+
+Rule: **a port is byte-identical or it is an export change.** The legend port already proved the
+method: `buildHtmlLegend` matched `buildStatusLegend` against a committed PDF. A port that
+changes bytes stops for the owner's dark and light sign-off (QUALITY BAR).
+
+| Wave | Components | Why this order |
+|---|---|---|
+| 0 | `legend-mark.js`, both emitters, `legend-entry` slot, plugin shell, heatmap anchored labels (first PR) | The kernel, plus one visible new capability that proves it end to end |
+| 1 | roadmap, matrix-grid, obligation-matrix | Already on `buildHtmlLegend` or the post-pass; HTML; lowest risk |
+| 2 | bar, stacked-bar, tower, piechart, map, quadrant, radar, heatmap key, line fallback | Nine callers of `buildSvgLegend`; the SVG emitter wraps it first |
+| 3 | flowchart, state-chart | `graph-key` groups entries by tone; renaming lives in the grammar, not `labelSet` |
+| 4 | journey, gantt, hub-spoke | Private builders. Journey does not use `buildHtmlLegend`, so its markup changes; treat as an export change |
+| 5 | scatter, word-cloud, slope, risk-matrix | Only if the mark kernel expresses them (section 9) |
+
+One adopter per commit; one PR for the session's line of work (CLAUDE.md). "Byte-identical
+plausible" in the census is a reading of call shapes, not a diff, so Wave 1's first port
+doubles as the test of that claim.
+
+## 11. Gates this touches
+
+`checkChartMarks` (`check-ownership.js:5497`, class list), `checkFontMetricsPin` (`:13137`,
+`GLYPH_UPPER` imported from `svg-label.js`), the label-drop notes (`:5638-5733`), and the
+tests: `svg-legend`, `svg-label`, `svg-label-css-mirror`, `svg-tspan-baseline`, `label-drops`,
+`chart-label-drop-census`, `html-legend`, `label-set`, `label-set-key` (unit and parity),
+`chart-mark-contract`, `chart-marks-gate`, `chart-finish-css` and `chart-tap-proxies`. Also
+HARD RULE #20 (no margin), #21 (US English), #22 (escaping) and #29 (no typed glyphs).
+
+## 12. How each claim gets verified (HARD RULE #23)
+
+| Claim | Surface | Artifact |
+|---|---|---|
+| A port is byte-identical | Engine HTML/SVG output | Diff of the rendered SVG/HTML, before and after, per adopter |
+| Export unchanged | PDF | Rendered demo deck, dark and light, sent for sign-off |
+| Narration reads a key and a detail | Narration output for a demo deck | The spoken script, with the `detail` sentence present |
+| Hover/tap works | The real Playground | `tools/screenshot.js` at 1440, 820 and 390 widths, plus a driven tap |
+| Keyboard parity | The real Playground | A keyboard-only run that reaches an entry with `for` |
+| Responsive | Docs site | Screenshots at three widths |
+
+CI green and unit tests do not verify any row above. iOS touch is UNVERIFIED until driven in
+the installed WebKit project.
+
+## 13. Spikes, and what is still unknown
+
+Four spikes ran against the real Segno compiler and reader (`compileSlot` from
+`lib/core/segno-spec.js`, `read` / `tryRead`), with the shipped label-set spans as input. The
+scripts are throwaway (`.scratch/`-style) and the results are the table below.
+
+**Spike 1: a list of entry records inside a record parameter. PASS.**
+`{[{1, Cold}, {3, Warm}, {5, Hot}]}`, `{[{Poor, c1}, {Fair, c2}], key}`,
+`{[{1, Cold, detail="Under 20 percent"}], layout=key}` and `{[]}` all compile and read, with
+`detail` and `layout` bound. So `@legend{…}` can carry its entries in a record slot and needs no
+top-level list slot. Decision 1 stands.
+
+**Spike 2: key + text beside the pill record. One design FAILED, the replacement PASSES.**
+
+| Input | One slot, two positionals (rejected) | `legend-entry`, then `legend-keyed` retry (adopted) |
+|---|---|---|
+| `{Cold, c1}` | text "Cold", text "c1": color lost | entry: text "Cold", color 1 |
+| `{LIVE, tag, c4}` | text "LIVE", text "tag": shape lost | entry: text, shape tag, color 4 |
+| `{1, Cold}` | key "1", text "Cold" | keyed: key "1", text "Cold" |
+| `{"=>", Happy path}` | not tried | keyed pair |
+| `{dashed, Sent back}` | not tried | keyed pair |
+| `{dotted, Waits for business hours}` | not tried | keyed pair |
+| `{1, Cold, detail="Under 20, maybe"}` | key, text, detail | keyed pair with detail |
+| `{1, Cold, c2}` | key, text, color | keyed pair with color |
+| `{1, "tag"}` | not tried | keyed pair (quoting keeps it a pair) |
+| `{1, tag}` | not tried | entry: text "1", shape tag (documented, quote it) |
+
+A number-first key (`{1, Cold}` only when the first word is a number) was also tried and
+rejected: it refuses `{Cold}` and `{done, Done}`, and flowchart keys are words and operators.
+**Census of shipped spans (spike 4, re-counted by the independent checker).** A regex over
+`lib/`, `design/`, `engineering/`, `examples/`, the docs content and the baseline decks found 121
+inline `[{…}]` spans holding 187 records. The regex also catches axis specs, so the table
+separates them:
+
+| Records | Count | What they are |
+|---|---|---|
+| Real label-set records, read under the adopted design | 47 | `{1, Cold}`, `{"=>", Paging path}`, `{dotted, Waits for business hours}`, `{shipped, Enacted}`, `{applies, In force}` (8 read as entries, the rest as keyed pairs) |
+| Axis specs | 114 | `{Effort, 0..10, 5}`, `{Timeline, 2026 Q1..Q4, today=Q3}`, `{Annual loss, log}`. 79 happen to read as an entry or pair; 35 do not. All are the axis grammar, none is a hidden label set |
+| State-marker keys | 22 | `{[x], Enacted}`, `{[-], …}`, `{[ ], …}`, `{[/], …}` in roadmap, matrix-grid and obligation-matrix |
+| Viewport debug records | 3 | `{w:1440,h:900}` in a decision note |
+| Prose | 1 | `{el, label, hint?}` |
+
+47 + 114 + 22 + 3 + 1 = 187. Every real label-set record in the repo reads, except the 22
+marker keys, which need the compat arm below.
+
+**The marker keys do not read unquoted.** `[` is a Segno stop character, so neither slot can
+lex `[x]` as a bare key. Quoted, they read: `{"[x]", Enacted}`, `{"[ ]", Not started}`,
+`{"[-]", In committee}` and `{"[/]", Cut}` all bind as keyed pairs.
+
+**A label with a comma in it is a tested contract the adopted slots refuse.** `label-set.js:59-62`
+splits only on the first comma, and `label-set.test.js:25-29` and `bracket-list.test.js:125-129,
+142, 145` pin it (`{2, Holding, but watch it}` gives the label "Holding, but watch it"). No shipped
+deck uses the shape, but it is a tested behavior.
+
+**Decision 5 covers both.** The existing bracket reader (`parseBracketList`, which already runs
+through Segno's generic parser without a slot schema, `bracket-list.js:27, 162`) stays as a
+**fallback arm**: when both slots refuse a span, it reads the plain `{key, label}` pairs exactly
+as today, which keeps the marker keys and the comma-in-label contract. Styling words and `detail`
+need the Segno slots. The fallback is not a Segno slot, which sits against Segno decision 20
+(`2026-09-28-segno-unified-inline-notation.md:71`) and decisions 9 and 24 (a clean break); it is
+bounded to plain pairs and retires when those decks and tests move to the quoted spelling.
+
+**One shape reads wrong silently, and the build adds a diagnostic for it.** A keyed pair whose
+label is a pill word reads as an entry with no error: `{1, lg}` is text "1" with size lg,
+`{2, c3}` is text "2" with color 3. None of the 47 real records has this shape, and today's
+reader takes `{1, Cold, c2}` as the label "Cold, c2". The legend plugin emits a lint diagnostic
+for a two-word record whose second word is a vocabulary word and says to quote it.
+
+**Settled by reading the code:** SVG keys sit inside the `aria-hidden` group (section 7); legend
+swatches carry no motion attribute (section 8).
+
+**Still unknown, and none of it bears on the grammar or the model:**
+
+- "Byte-identical port" rests on reading call shapes, not on a diff. Wave 1's first port is
+  its test.
+- iOS touch and the real-Playground gestures are driven in the build, not here.
+- `chart-detail-layer.tsx` sanitizing was not read; a legend that injects popover markup must
+  be listed under `SANCTIONED_RUNTIME_MARKUP_SINKS` with its justification (HARD RULE #22).
+- Census caveats: risk-matrix and slope line counts are estimates; one of eight manifests with a
+  `gesture` block was sampled.
+- The adversarial trio (HARD RULE #25) has not run. This note is a design, so the trio runs on
+  the build that ships, not on the note.
+
+## 14. Decisions (confirmed by the owner, 2026-10-19)
+
+| # | Decision | Outcome |
+|---|---|---|
+| 1 | Where the grammar lives | Core slots beside `pill`, plus a plugin shell reached by `@legend{}`. The Segno tag set is not widened |
+| 2 | Series toggling | Left out. Revisit with its own note |
+| 3 | Size ramps, risk-matrix index and slope | Out of Waves 0-4; decided per proof in Wave 5 |
+| 4 | Where a free-standing `@legend{}` lands when the slide has no key slot | Below the figure in the body, using the lift logic `liftLabelSet` already has |
+
+The spikes ran (section 13). Spike 1 passed. Spike 2 rejected the one-slot, two-positional
+binding and adopted the entry-then-keyed retry. Decision 1 stands.
+
+| # | Decision | Outcome |
+|---|---|---|
+| 5 | How shipped state-marker keys (`[x]`, `[-]`, `[ ]`, `[/]`) and comma-in-label pairs keep working | Default taken: keep the bracket reader as a fallback arm for plain `{key, label}` pairs when both slots refuse, accept the quoted spelling, migrate decks and tests later. The owner can veto; the alternative is a breaking migration of three components' decks and two tested contracts in the first port |
