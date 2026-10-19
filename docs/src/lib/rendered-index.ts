@@ -74,6 +74,23 @@ export function stampsOf(html: string): string[] {
 }
 
 /**
+ * Whether markup holds any text outside its tags. A scan, not a replace: this decides a heuristic (is a slide
+ * empty?) and never produces markup, and a scan has no pattern a sanitization scanner could mistake for one.
+ * Anything it cannot read (an unclosed tag) counts as text, so a doubtful slide is never called blank.
+ */
+function hasText(markup: string): boolean {
+	let inTag = false;
+	for (let i = 0; i < markup.length; i++) {
+		const c = markup[i];
+		if (inTag) inTag = c !== '>';
+		else if (c === '<') inTag = true;
+		else if (!/\s/.test(c) && !(c === '&' && markup.startsWith('&nbsp;', i))) return true;
+		else if (c === '&') i += 5;
+	}
+	return inTag;
+}
+
+/**
  * Whether each top-level section is BLANK: no text, no picture, no drawing. The engine renders a slide the
  * author left empty (`---` twice in a row) and the outliner drops it, so the index needs to know which engine
  * slides own no part. Read from the markup, in the same order as `stampsOf`.
@@ -83,7 +100,7 @@ export function blanksOf(html: string): boolean[] {
 	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; inner?: string }>) {
 		if (p.type !== 'section') continue;
 		const inner = p.inner ?? '';
-		out.push(!/<(img|svg|video|canvas|table|pre|figure|iframe|object|picture)\b/i.test(inner) && inner.replace(/<[^>]*>/g, '').replace(/&nbsp;|\s/g, '') === '');
+		out.push(!/<(img|svg|video|canvas|table|pre|figure|iframe|object|picture)\b/i.test(inner) && !hasText(inner));
 	}
 	return out;
 }
