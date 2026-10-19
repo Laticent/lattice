@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { admitNpmBundle, externalRefusal } = require('../../../lib/packages/npm-plugin-admission.js');
-const { npmLayerRefusal, npmRefusals } = require('../../../lib/core/os-sandbox.js');
+const { npmLayerRefusal, npmRefusals, judgeWindowsRows } = require('../../../lib/core/os-sandbox.js');
 
 const sha = (c) => crypto.createHash('sha256').update(c).digest('hex');
 const GOOD = 'function render(f){ return "<p>" + f.body.length + "</p>"; }\nexport { render as default };';
@@ -84,10 +84,8 @@ describe('npmLayerRefusal (decision 7)', () => {
   test('OFF is refused everywhere', () => {
     for (const p of ['linux', 'darwin', 'win32']) assert.match(npmLayerRefusal(layer('off'), p), /reads OFF/);
   });
-  test('unmeasured is a failed probe on Linux and the platform default elsewhere', () => {
-    assert.match(npmLayerRefusal(layer('unmeasured'), 'linux'), /cannot be determined counts as OFF/);
-    assert.equal(npmLayerRefusal(layer('unmeasured'), 'darwin'), null);
-    assert.equal(npmLayerRefusal(layer('unmeasured'), 'win32'), null);
+  test('unmeasured is a failed probe on every platform, so it refuses (decision 13: macOS and Windows are measured now)', () => {
+    for (const p of ['linux', 'darwin', 'win32']) assert.match(npmLayerRefusal(layer('unmeasured'), p), /cannot be (measured|determined)/);
   });
   test('a missing or malformed layer counts as OFF', () => {
     for (const bad of [undefined, null, {}, { os: 'maybe' }, 'on', 5]) assert.match(npmLayerRefusal(bad, 'darwin'), /counts as OFF/, JSON.stringify(bad));
@@ -100,3 +98,13 @@ describe('npmLayerRefusal (decision 7)', () => {
     assert.deepEqual(npmRefusals(job, layer('on'), 'linux'), {});
   });
 });
+
+describe('judgeWindowsRows (decision 13: Windows is read from chrome://sandbox)', () => {
+  test('every renderer locked down reads on; one not sandboxed reads off; none listed, or an unknown state, reads unmeasured', () => {
+    assert.equal(judgeWindowsRows(['1234\tRenderer\tLockdown\tUntrusted', '5678\tRenderer\tLockdown\tUntrusted']), true);
+    assert.equal(judgeWindowsRows(['1234\tRenderer\tLockdown', '5678\tRenderer\tNot Sandboxed']), false);
+    assert.equal(judgeWindowsRows([]), null);
+    assert.equal(judgeWindowsRows(['1234\tRenderer\tsomething new']), null);
+  });
+});
+

@@ -236,7 +236,7 @@ describe('fetching into the cache', () => {
     served.set(new URL(loader.tarballUrl(REG, e.package, e.version)).pathname, tgz([{ name: 'package/x.js', body: GOOD }]));
     assert.match((await loader.fetchOne(e, { registry: REG, dir: freshDir() })).reason, /holds no lattice-plugin\.js/);
     const big = entry({ package: 'lattice-gantt-e' });
-    served.set(new URL(loader.tarballUrl(REG, big.package, big.version)).pathname, (req, res) => {
+    served.set(new URL(loader.tarballUrl(REG, big.package, big.version)).pathname, (_req, res) => {
       res.writeHead(200);
       const chunk = Buffer.alloc(1024 * 1024);
       let n = 0;
@@ -257,10 +257,10 @@ describe('fetching into the cache', () => {
     const e = entry({ package: 'lattice-gantt-redir' });
     const real = '/elsewhere.tgz';
     served.set(real, tgz([{ name: 'package/lattice-plugin.js', body: GOOD }]));
-    served.set(new URL(loader.tarballUrl(REG, e.package, e.version)).pathname, (req, res) => res.writeHead(302, { location: real }).end());
+    served.set(new URL(loader.tarballUrl(REG, e.package, e.version)).pathname, (_req, res) => res.writeHead(302, { location: real }).end());
     assert.equal((await loader.fetchOne(e, { registry: REG, dir: freshDir() })).ok, true);
     const off = entry({ package: 'lattice-gantt-redir-off' });
-    served.set(new URL(loader.tarballUrl(REG, off.package, off.version)).pathname, (req, res) => res.writeHead(302, { location: 'http://169.254.169.254/latest/meta-data/' }).end());
+    served.set(new URL(loader.tarballUrl(REG, off.package, off.version)).pathname, (_req, res) => res.writeHead(302, { location: 'http://169.254.169.254/latest/meta-data/' }).end());
     const before = requests.length;
     const r = await loader.fetchOne(off, { registry: REG, dir: freshDir() });
     assert.match(r.reason, /could not be downloaded/);

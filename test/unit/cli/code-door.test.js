@@ -318,7 +318,7 @@ describe('the OS layer', () => {
     assert.doesNotMatch(line({ summary: 'on: confined', layer: { os: 'on', tried: [], reason: null } }), /to put it on/);
   });
 
-  test('the render’s notice: OFF warns with the reason’s remedy; the platform default is a plain line', () => {
+  test('the render’s notice: OFF warns with the reason’s remedy; a layer nobody could measure warns too; on is a plain line', () => {
     const { sandboxNotice } = require('../../../lib/packages/code-door.js');
     const off = sandboxNotice(['tally'], { os: 'off', summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason: 'apparmor-userns' });
     assert.equal(off.warn, true);
@@ -326,8 +326,10 @@ describe('the OS layer', () => {
     assert.doesNotMatch(off.text, /CHROME_PATH/, 'the render repeated the old remedy after the prompt gave the right one');
     const root = sandboxNotice(['tally'], { os: 'off', summary: 'OFF', tried: ['as nobody: EACCES'], reason: 'unprivileged-user-cannot-run' });
     assert.match(root.text, /To put it on, set CHROME_PATH to a Chromium the unprivileged user can run/);
-    const mac = sandboxNotice(['tally'], { os: 'unmeasured', summary: "on by the platform's default, running as ann (not measured here)", tried: [], reason: null });
-    assert.deepEqual(mac, { warn: false, text: "  code packages: tally — OS sandbox on by the platform's default, running as ann (not measured here)" });
+    const unread = sandboxNotice(['tally'], { os: 'unmeasured', summary: 'could not be measured here, running as ann', tried: [], reason: null });
+    assert.deepEqual(unread, { warn: true, text: 'warning: code packages: tally — OS sandbox could not be measured here, running as ann.' });
+    const on = sandboxNotice(['tally'], { os: 'on', summary: 'on: Chromium’s OS sandbox confines the renderer, running as ann', tried: [], reason: null });
+    assert.deepEqual(on, { warn: false, text: '  code packages: tally — OS sandbox on: Chromium’s OS sandbox confines the renderer, running as ann' });
   });
 
   // launchCodeSandbox, driven with a stub puppeteer whose sandboxed launch fails: the wiring from

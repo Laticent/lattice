@@ -291,12 +291,13 @@ module, which does not, so a `<!--` line could hide an `importScripts` line from
 determined** (decision 7). `--trust` does not override it. Refusing it at approval is the safe default
 for the followup's question (3): an approval at OFF would approve something the door will never run.
 
-**`unmeasured` on macOS and Windows stays admitted, for now.** `npmLayerRefusal` admits it because
-those platforms have no `/proc` to probe and Chromium's sandbox is on there by default; on Linux,
-`unmeasured` means the probe failed and it refuses. Decision 7 says a failed probe counts as OFF and
-does not say whether "no probe exists" is a failed probe. That call is the owner's
-(`followups.d/2749-p3-npm-plugin-unmeasured-layer.md`); the default keeps today's behavior, and
-reversing it is one line in `npmLayerRefusal`.
+**Every platform is measured (decision 13, 2026-10-19).** `rendererSandboxed` reads Linux renderers'
+seccomp mode, asks macOS's kernel through `sandbox_check` for each renderer pid, and reads Chromium's
+`chrome://sandbox` page on Windows. `unmeasured` now means a probe failed, on any platform, so an npm
+plugin refuses there (`npmLayerRefusal`) and a code package's render warns. The proof runs on real
+runners: the `os-sandbox-measure` platform suite (`.github/platform-suites.json`) reads `on` on macOS and
+Windows, its control reads a `--no-sandbox` browser as `false`, and the npm admission test runs the real
+door on both.
 
 **One approval per plugin name.** An approval is stored under `plugin/<name>` with one digest, so two
 projects that pin different versions of one plugin replace each other's approval at each `fetch`. It
