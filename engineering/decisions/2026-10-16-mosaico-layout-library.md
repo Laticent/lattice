@@ -674,6 +674,32 @@ additive, in `docs/src/lib/mosaico/grid.ts` and `justified.ts`.
 - **Demo page** (`/libraries/mosaico/`): two new tabs, "Even grid" and "Justified".
 - **Still out:** the past-six-items heuristic for `tree`, as the owner said.
 
+### 8.8 What the pane matrix showed, and a correction (2026-10-19)
+
+An earlier line in this thread said no pane declares a floor. That was wrong: it read the `columns` and
+`rows` docs, not the manifests of the components inside the panes.
+
+**What exists.** 79 manifests carry `pane.side` and `pane.stack`, the least share of the slide a component
+reads at (for example `line`, `diagram`, `table`: 35% side by side; `funnel`, `slope`: 50%; `roadmap`: 65%).
+Below its floor the engine stacks the slide or splits it into one slide per pane (`lib/core/pane-spec.js`).
+Ten charts also receive the pane's own box (`data-pane-view`, `viewFor` in `_chart-family/cartesian.js`) and
+redraw to it, so `bar` and `line` fill any pane. Mermaid draws once and scales uniformly with a floor.
+
+**Measured** on a CLI render of each component beside a text pane at 25/75, 50/50 and 75/25:
+
+| Figure | Result |
+|---|---|
+| `bar`, `line` | fill the pane at every share |
+| `piechart`, `radar`, `funnel`, `map` | scale a fixed drawing: small, with empty space, at narrow shares |
+| `diagram` (wide LR flowchart) | empty bands above and below even at 75% |
+| `table` | flows to any shape; splits below its 35% floor, as designed |
+| photo in a plain pane | takes the pane width at its own shape, cropped with "Content clipped" when that is taller than the pane (wide 75%, tall 50% and 75%, square 75%) |
+
+**Reading.** The gap is sizing by a figure's shape, for fixed-shape figures. A photo's shape comes from the
+`image` plugin's stamped `aspect-ratio` (media-plugins §4.7), not from a manifest. Recorded as followup
+`2779-p1`; `2744-p3` (route panes through `template`) waits on it. Not tested: a photo as a plugin figure
+(the plugin is unbuilt), dark themes, `rows`.
+
 ## 9. Decisions
 
 **Settled (owner, 2026-10-16):**
