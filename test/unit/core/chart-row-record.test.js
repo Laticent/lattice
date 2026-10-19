@@ -829,6 +829,10 @@ describe('the paths agree on the data row', () => {
       const one = deck('bullet', '- Uptime `{99.4, target=99.9}`\n- Cost `{3, target=5}`');
       assert.ok(narrateChart(one), 'control: the one-line form narrates');
       assert.equal(narrateChart(wrap), narrateChart(one));
+      for (const gap of ['', '  ', '    ', '\t']) {
+        const padded = deck('bullet', `- Uptime \` {99.4,\n${gap}target=99.9}\n${gap}\`\n- Cost \`{3, target=5}\``);
+        assert.equal(narrateChart(padded), narrateChart(one), `a padded span closed on its own line, continuation indented ${JSON.stringify(gap)}`);
+      }
       for (const gap of ['    ', '\t', '      ']) {
         assert.equal(narrateChart(deck('bullet', `- Uptime \`{99.4,\n${gap}target=99.9}\`\n- Cost \`{3, target=5}\``)), narrateChart(one), `a continuation indented ${JSON.stringify(gap)}`);
       }
