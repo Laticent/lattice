@@ -22,7 +22,7 @@ test('a side keyword on a slide that is not image warns, with the fix', () => {
 	assert.match(f[0].fix, /<!-- _class: image -->/);
 });
 
-test('a ratio on an image slide warns that it is not read', () => {
+test('a ratio on an image slide warns that the layout keeps its own share', () => {
 	const f = findBgKeywordIssues(deck('<!-- _class: image -->\n\n# One\n\n![bg left:40%](a.jpg)'));
 	assert.deepEqual(f.map((x) => x.rule), ['bg-ratio-unread']);
 	assert.match(f[0].fix, /!\[bg left\]/);

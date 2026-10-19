@@ -1,0 +1,1 @@
+- The Studio's PDF, images (.zip), PowerPoint and LibreOffice exports no longer print the authoring overflow marker (red ring, "OVERFLOWS", "Fix Me") into a clipped slide for the recipient; they carry the workspace's export setting, `reader` by default, which shows a calm "Content clipped" pill. A clipped slide in these files looks different from before.

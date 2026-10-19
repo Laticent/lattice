@@ -837,6 +837,17 @@ export function DeckPreview({
 		return () => obs.disconnect();
 	}, []);
 
+	// The HOST's plugin defaults changed with no edit (`LatticePlayground.setPluginDefaults`): the same
+	// source now renders differently, and every render-cache key already moves with the defaults, so a
+	// scheduled render is a real one. Without this the Studio kept a drawn diagram after its plugin went
+	// off (#2759). The event's NAME, not an import of `@/lib/plugin-admission`, which statically imports
+	// the lint bundle and would make it eager here (PlaygroundApp.tsx does the same).
+	React.useEffect(() => {
+		const rerender = () => schedulerRef.current?.schedule();
+		window.addEventListener('lattice:plugin-defaults', rerender);
+		return () => window.removeEventListener('lattice:plugin-defaults', rerender);
+	}, []);
+
 	// Render ONLY on the rising edge of `active` (e.g. switching back to a tab).
 	// Also routed through the frame scheduler (was a bare requestAnimationFrame →
 	// direct render), so a re-show mid-render can't overlap the in-flight one either.

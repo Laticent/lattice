@@ -1,0 +1,1 @@
+- The Read · Article copy of a diagram or chart nested in a blockquote, list or table now gets its own ids, so an exported player no longer holds the same `id` twice for it.

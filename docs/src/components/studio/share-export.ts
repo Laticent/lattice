@@ -10,6 +10,7 @@
 
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
+import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -50,6 +51,8 @@ export type DeckRender = {
 	 *  runtime bundle because inlining it put 25.9 KiB gzipped on every reader of every
 	 *  deck for an engine only a branching machine uses. */
 	dagreUrl?: string;
+	/** Who a clipped slide's marker speaks to in the exported file (lib/core/resolve-overflow-marker.js). Set by the export entry points, never by `buildDeckRender`: the Studio's own measuring and reading views stay on the authoring default. */
+	overflowMarker?: OverflowMarker;
 	/** The engine's FLAT pack (`styles: 'flat'`), wrapper-stripped, with the local component
 	 *  CSS after it. Present only when the caller asked for the flat mode — a host that shows
 	 *  slide content outside a slide (the Reading view). */
@@ -364,12 +367,17 @@ type PlayerCore = {
  * stored value, so the resolver is what keeps a stored `off` or a junk string from silencing the
  * marker; it always answers a level, never nothing.
  */
-async function webpageOverflowMarker(): Promise<OverflowMarker> {
+async function exportOverflowMarker(): Promise<OverflowMarker> {
 	const [{ loadSettings }, core] = await Promise.all([
 		import('./studio-store'),
 		import('../../../../lib/core/resolve-overflow-marker.js') as unknown as Promise<{ default: { resolveExportOverflowMarker: (o: { workspace?: unknown }) => { marker: OverflowMarker } } }>,
 	]);
 	return core.default.resolveExportOverflowMarker({ workspace: loadSettings().overflowMarker }).marker;
+}
+
+/** An export's render, with the marker level the export setting names (`reader` unless the author chose otherwise). The capture frame paints the runtime's marker into every raster, so without this a clipped slide reached a PDF, PNG or PowerPoint reader with the red ring and "OVERFLOWS" (followups.d/2739-p6). */
+export async function withExportMarker(render: DeckRender): Promise<DeckRender> {
+	return { ...render, overflowMarker: await exportOverflowMarker() };
 }
 
 export async function shareHtmlPlayer(
@@ -410,6 +418,9 @@ export async function shareHtmlPlayer(
 	// placeholder. The file is self-contained either way; this decides only whether the author's
 	// browser contacts those sites now.
 	embedWebPictures = false,
+	// Origins whose pictures the player loads only after the reader presses "Load pictures" — the CLI's
+	// `--player-consent`, through the same `assemblePlayer` field. Ignored for pictures that were embedded.
+	consentOrigins: string[] = [],
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
@@ -584,7 +595,7 @@ export async function shareHtmlPlayer(
 			// chips to its reader (decisions/2026-10-16-player-as-library-audit.md §11.8).
 			// Through the resolver the CLI and the Marp bundle use, so a stored `off` (never a valid
 			// standing default) or a junk value falls back to `reader` instead of silencing every clip.
-			overflowMarker: await webpageOverflowMarker(),
+			overflowMarker: await exportOverflowMarker(),
 		}, { playerBake: true });
 		// Slide-count parity is the correctness gate: notes, narration cues and the
 		// manifest are all indexed by slide, so a bake that lost or gained a section
@@ -664,6 +675,12 @@ export async function shareHtmlPlayer(
 	}
 	if (mediaWarning) {
 		bakeWarning = bakeWarning ? `${bakeWarning}; ${mediaWarning}` : mediaWarning;
+	}
+	// A fence whose plugin is off ships as source: the panel said so before the export, the toast says so after (#2758).
+	const offList = offFences(source);
+	if (offList) {
+		const offWarning = offFencesSentence(offList, 'shipped');
+		bakeWarning = bakeWarning ? `${bakeWarning}; ${offWarning}` : offWarning;
 	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
@@ -880,6 +897,7 @@ export async function shareHtmlPlayer(
 			// deck are byte-identical, and the same deck at the same epoch packs the same from either
 			// host (decisions/2026-10-16-player-as-library-audit.md §11). Nothing reads the stamp.
 			now: 0,
+			...(consentOrigins.length ? { consentOrigins } : {}),
 			// The same provenance a CLI export stamps: the engine's version and the player's (the core
 			// defaults `playerVersion` to the one PLAYER_VERSION). Which tool made the file is the
 			// `host` field, the one piece of metadata host parity ignores (§11.9).
@@ -921,7 +939,7 @@ export async function shareHtmlPlayer(
  */
 export async function renderThemeShowcase(options: SingleSlideOptions, theme: { name: string; label?: string; css: string }): Promise<Blob> {
 	const { showcaseDeck } = await import('./asset-bundle');
-	const render = await buildDeckRender(options, showcaseDeck(theme.label || theme.name), theme.name, 'light', { name: theme.name, css: theme.css });
+	const render = await withExportMarker(await buildDeckRender(options, showcaseDeck(theme.label || theme.name), theme.name, 'light', { name: theme.name, css: theme.css }));
 	const ex = await exporters();
 	return ex.renderPdfBlob(render, `${theme.name}-showcase`, undefined, { deck: `${theme.name} showcase`, engine: 'lattice' });
 }
@@ -1131,7 +1149,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
@@ -1146,7 +1164,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
 	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource });
 }
@@ -1155,7 +1173,7 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
  *  picture per slide, or with `editable` every paragraph as a real text box over a picture
  *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
 	return ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource });
 }
@@ -1199,7 +1217,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 		const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
 		if (!darkExists) renderMode = 'light';
 	}
-	const render = await buildDeckRender(options, src, palette, renderMode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, src, palette, renderMode, extra, extraCss));
 
 	// The chart/diagram SVG "look" (transparent/light/dark/print) renders the extracted vectors
 	// independent of the slides. When it differs from the slides' own scheme, do a SECOND full

@@ -406,6 +406,22 @@ was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Fi
 inside a run that no face declares (550 between 500 and 600) is the one case that would render
 differently, so the guard refuses the merge. Record: `decisions/2026-10-16-player-as-library-audit.md` §3.
 
+**The Studio's raster exports carry the export setting's overflow marker.** PDF, images, PowerPoint and LibreOffice rasterize a
+capture frame whose runtime paints the marker, so `share-export.ts` passes each one the workspace's level (`reader` by
+default); `docs/e2e/studio-raster-export-marker.spec.ts` reads the left-edge pixel of a clipped slide in each (an
+authoring ring is red there).
+
+**The Studio's Webpage export takes `--player-consent`'s choice.** Share → Webpage lists the other sites a deck's pictures use
+(`webPictureOrigins`, `lib/export/inline-url-media.mjs`); a ticked site goes to `assemblePlayer` as `consentOrigins`, the field
+the CLI sets. `docs/e2e/studio-player-consent.spec.ts` drives it on Chromium, Firefox and WebKit against a loopback server:
+the export, and the file before the reader consents, make no request.
+
+**The CLI draws a Mermaid fence in a quote or a list item.** `lib/core/mermaid-fences.js` (shared with the narrator) opens a
+fence only at 0-3 spaces, so `mermaid.bake.js` also asks `lib/plugins/mermaid/shared/nested-fences.js`, which reads the fence
+tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. The Studio's export flags a
+quoted or list-nested diagram as overflowing on some runs and the CLI's never does (`followups.d/2739-p11`), so the parity
+spec carries neither shape yet.
+
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
 Studio's own modules bundled into Chromium. That covers the packer.
