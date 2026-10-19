@@ -203,7 +203,7 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 	const label = React.useCallback(
 		(i: number) => {
 			const title = wire(i).title;
-			return `Slide ${i + 1}${title ? `, ${title}` : ''}`;
+			return `Slide ${i + 1}${title ? `, ${title.slice(0, 80)}` : ''}`;
 		},
 		[wire],
 	);
@@ -221,13 +221,23 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 	// The pictures follow the deck once typing pauses (use-settled.ts); the sketches follow it at once.
 	const input = React.useMemo(() => ({ source: rendered.source, count, front, outline, look, options }), [rendered.source, count, front, outline, look, options]);
 	const snap = useSettled(input);
+	// One element per tile per snapshot: React then skips a tile whose input did not change, so a keystroke does not
+	// re-point the pool's frames (the pool's props effect runs after every render of a tile).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new snapshot is what empties the cache.
+	const liveCache = React.useMemo(() => new Map<number, React.ReactNode>(), [snap]);
 	const live = React.useCallback(
 		(i: number) => {
-			const at = snap.outline ? partOfFlat(snap.outline, i) : null;
+			const at = snap.outline && i < snap.count ? partOfFlat(snap.outline, i) : null;
 			const text = snap.outline && at ? partText(snap.outline, at.unit, at.part) : '';
-			return <PooledThumbFace options={snap.options} sample={snap.source} slideIndex={i} slideCount={snap.count} slideMarkdown={snap.front + text} drawn={hasDrawnFence(text)} paletteOverride={snap.look.palette} modeOverride={snap.look.mode} className="size-full" />;
+			// Until the pictures catch up with an edit, a tile whose slide changed keeps its sketch (see StudioMap).
+			if (!at || text !== textOf(i)) return null;
+			const hit = liveCache.get(i);
+			if (hit) return hit;
+			const face = <PooledThumbFace options={snap.options} sample={snap.source} slideIndex={i} slideCount={snap.count} slideMarkdown={snap.front + text} drawn={hasDrawnFence(text)} paletteOverride={snap.look.palette} modeOverride={snap.look.mode} className="size-full" />;
+			liveCache.set(i, face);
+			return face;
 		},
-		[snap],
+		[snap, liveCache, textOf],
 	);
 
 	const onStep = React.useCallback((action: RailStep) => void hub.step('rail', action, { pages: false }), [hub]);

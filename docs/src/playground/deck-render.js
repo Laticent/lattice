@@ -204,7 +204,7 @@ const PIN_MS = 1500;
  * a different slide arriving, and `in-place` would let the runtime hand one slide's diagram to
  * another (lib/core/swap-kind.mjs). Returns whether anything changed.
  */
-function applyWindow(frame, sections, lo, hi, keepLo, keepHi) {
+function applyWindow(frame, sections, lo, hi, keepLo, keepHi, joined = false, pin = null) {
 	const doc = frame.contentDocument;
 	const lattice = doc?.querySelector('.lattice');
 	if (!lattice || !sections) return false;
@@ -235,10 +235,19 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi) {
 		} else unfitted = true;
 		lattice.replaceChild(fresh, old);
 	};
+	let from = keepLo;
+	let to = keepHi;
+	if (joined) {
+		// Grow outward from the mounted run through slides that are already real, stopping at the first placeholder.
+		from = lo;
+		to = hi;
+		while (from - 1 >= keepLo && from - 1 >= 0 && !cur[from - 1].hasAttribute(LV_ATTR)) from--;
+		while (to + 1 <= keepHi && to + 1 < cur.length && !cur[to + 1].hasAttribute(LV_ATTR)) to++;
+	}
 	for (let i = 0; i < cur.length; i++) {
 		const ph = cur[i].hasAttribute(LV_ATTR);
 		if (ph && i >= lo && i <= hi) swap(i, withIndex(sections[i], i));
-		else if (!ph && (i < keepLo || i > keepHi)) swap(i, placeholderCached(sections[i]));
+		else if (!ph && (i < from || i > to) && !(pin && i >= pin.lo && i <= pin.hi)) swap(i, placeholderCached(sections[i]));
 	}
 	// Whatever was cached about this window is stale now — the next scroll re-reads it.
 	if (changed && frame.contentWindow) frame.contentWindow.__lvGeom = null;
@@ -287,14 +296,9 @@ export function syncVirtual(frame, state) {
 	const vis = visibleRange(win.scrollY, win.innerHeight, top, pitch, cur.length);
 	if (!vis) return false;
 	const { mount, keep: kept } = mountPlan(cur.length, { y: win.scrollY, h: win.innerHeight, top, pitch }, vis.first, null);
-	const keep = { lo: kept.lo, hi: kept.hi };
 	// A pinned landing (mountAround) stays mounted until its scroll has had time to arrive.
 	const pin = win.__lvPin;
-	if (pin && pin.until > Date.now()) {
-		keep.lo = Math.min(keep.lo, pin.lo);
-		keep.hi = Math.max(keep.hi, pin.hi);
-	}
-	const changed = applyWindow(frame, sections, mount.lo, mount.hi, keep.lo, keep.hi);
+	const changed = applyWindow(frame, sections, mount.lo, mount.hi, kept.lo, kept.hi, true, pin && pin.until > Date.now() ? pin : null);
 	// Re-read the run after a move (the old NodeList holds the replaced nodes). This runs only
 	// when something mounted, never on the settled frames the cache answers.
 	const after = changed ? lattice.querySelectorAll(SLIDE_SELECTOR) : cur;

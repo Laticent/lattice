@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { geometryFor, MapRail, type MapRailProps } from './MapRail';
 import type { Wire } from './wireframe';
@@ -43,11 +43,12 @@ describe('MapRail', () => {
 		expect(screen.getByRole('button', { name: 'Slide 251' }).getAttribute('aria-current')).toBe('true');
 	});
 
-	it('asks for live pictures only up to the budget, nearest the view first, and the rest are sketches', () => {
+	it('makes the tiles in view live, never past the pool ceiling, and the overscan tiles sketches', () => {
 		render(<MapRail {...props({ count: 40, live: (i) => <i data-live={i} />, liveBudget: 3 })} />);
 		const t = tiers();
-		expect(t.filter(([, tier]) => tier === 'live').length).toBe(3);
-		expect(document.querySelectorAll('[data-live]').length).toBe(3);
+		const liveCount = t.filter(([, tier]) => tier === 'live').length;
+		expect(liveCount).toBeGreaterThanOrEqual(3);
+		expect(liveCount).toBeLessThanOrEqual(24);
 		expect(t.some(([, tier]) => tier === 'wireframe')).toBe(true);
 	});
 
@@ -61,15 +62,15 @@ describe('MapRail', () => {
 		render(<MapRail {...p} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Slide 3' }));
 		expect(p.onPick).toHaveBeenCalledWith(2);
-		fireEvent.click(screen.getByRole('button', { name: 'Next slide' }));
-		fireEvent.click(screen.getByRole('button', { name: 'Last slide' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Map, next slide' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Map, last slide' }));
 		expect(p.onStep).toHaveBeenNthCalledWith(1, 'next');
 		expect(p.onStep).toHaveBeenNthCalledWith(2, 'last');
-		expect((screen.getByRole('button', { name: 'First slide' }) as HTMLButtonElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'Previous slide' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Map, first slide' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Map, previous slide' }) as HTMLButtonElement).disabled).toBe(true);
 		cleanup();
 		render(<MapRail {...props({ count: 20, focus: 19 })} />);
-		expect((screen.getByRole('button', { name: 'Last slide' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Map, last slide' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('moves by the arrow keys the orientation names, and Home and End', () => {
@@ -87,6 +88,24 @@ describe('MapRail', () => {
 		render(<MapRail {...props({ count: 30, focus: 4 })} />);
 		const stops = [...document.querySelectorAll<HTMLElement>('button[data-unit]')].filter((b) => b.tabIndex === 0);
 		expect(stops.map((b) => b.dataset.unit)).toEqual(['4']);
+	});
+
+	it('keeps a tab stop when a hand scroll has taken the focused tile out of the window', () => {
+		render(<MapRail {...props({ count: 500, focus: 250 })} />);
+		const scroller = document.querySelector('[data-map-rail] > div:last-child') as HTMLElement;
+		Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: 0, writable: true });
+		act(() => {
+			scroller.scrollTop = 0;
+			fireEvent.scroll(scroller);
+		});
+		const stops = [...document.querySelectorAll<HTMLElement>('button[data-unit]')].filter((b) => b.tabIndex === 0);
+		expect(stops.length).toBe(1);
+	});
+
+	it('asks for enough live tiles to cover what is on screen, above the base budget', () => {
+		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, liveBudget: 2 })} />);
+		// 600 px of rail at about 82 px a tile shows 8 tiles: a budget of 2 would leave six sketches in view.
+		expect(document.querySelectorAll('[data-live]').length).toBeGreaterThanOrEqual(8);
 	});
 
 	it('renders nothing for an empty deck and names itself for assistive tech', () => {

@@ -31,8 +31,8 @@ export interface MapRailProps {
 	focus: number;
 	/** The reader picked a unit. */
 	onPick: (unit: number) => void;
-	/** The reader asked to move by a step; the host resolves it against the focus hub. */
-	onStep: (action: RailStep) => void;
+	/** The reader asked to move by a step; the host resolves it against the focus hub. `key` is true for an arrow, Home or End on the rail, which must not take keyboard focus away from it. */
+	onStep: (action: RailStep, via?: { key: boolean }) => void;
 	/** The sketch of a unit. Called only for units in the window, and the host should memoize it. */
 	wire: (unit: number) => Wire;
 	/** The screen-reader name of a unit ("Slide 4, Overview"). */
@@ -45,7 +45,7 @@ export interface MapRailProps {
 	aspect: number;
 	/** `vertical` is a rail beside the preview; `horizontal` is a strip under it. */
 	orientation: 'vertical' | 'horizontal';
-	/** How many tiles may be live at once. Default 8. */
+	/** The least number of tiles that may be live at once (default 8). The rail raises it to cover the tiles on screen, since the budget caps what a pool RETAINS, never what the reader sees. */
 	liveBudget?: number;
 	className?: string;
 }
@@ -53,6 +53,8 @@ export interface MapRailProps {
 /** Space round the tiles and between them, in px. */
 const PAD = 8;
 const GAP = 8;
+/** The most live tiles a rail asks for, under the preview pool's own ceiling (HARD_MAX_SLOTS, 28). */
+const MAX_LIVE = 24;
 
 export interface Geometry {
 	/** A tile's size along the scroll axis, and across it. */
@@ -154,13 +156,19 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 			focus: Math.max(0, Math.min(count - 1, focus)),
 			viewports: { map: { y: pos, h: len, top: PAD, pitch: geo.pitch, cols: 1 } },
 			// The stage is the host's preview, not a window of this rail: it asks for nothing and is charged nothing.
-			budget: { live: liveOn ? liveBudget : 0, wireframe: Infinity, stageTier: 'placeholder', mapTile: liveOn ? 'live' : 'wireframe', cost: { stage: 0, map: 1 } },
+			budget: { live: liveOn ? Math.min(MAX_LIVE, Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1)) : 0, wireframe: Infinity, stageTier: 'placeholder', mapTile: liveOn ? 'live' : 'wireframe', cost: { stage: 0, map: 1 } },
 		});
 		const sig = intent.mapUnits.map((i) => `${i}${intent.tiers.map.get(i)?.[0]}`).join(',');
 		setPlan((p) => (p.sig === sig ? p : { units: intent.mapUnits, tiers: intent.tiers.map, sig }));
 	}, [count, focus, geo.pitch, liveBudget, liveOn, vertical, viewCross]);
 
 	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
+	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
+	// change when the tiles start to overflow: a scrollbar that came and went with the content made the tiles
+	// shrink and grow in a loop (React #185 wherever scrollbars take space). `refresh` is read through a ref so
+	// this effect does not re-run, and so re-measure, every time it changes.
+	const refreshRef = React.useRef(refresh);
+	refreshRef.current = refresh;
 	React.useLayoutEffect(() => {
 		const el = scrollerRef.current;
 		if (!el) return;
@@ -169,11 +177,11 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 		if (typeof ResizeObserver === 'undefined') return;
 		const ro = new ResizeObserver(() => {
 			read();
-			refresh();
+			refreshRef.current();
 		});
 		ro.observe(el);
 		return () => ro.disconnect();
-	}, [vertical, refresh]);
+	}, [vertical]);
 
 	const raf = React.useRef(0);
 	const onScroll = React.useCallback(() => {
@@ -195,7 +203,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the focus, the pitch and the count are the triggers; the body reads the DOM.
 	React.useLayoutEffect(() => {
 		const el = scrollerRef.current;
-		if (el && count && geo.pitch > 0 && viewCross > 0) {
+		if (el && count && focus >= 0 && geo.pitch > 0 && viewCross > 0) {
 			const start = PAD + focus * geo.pitch;
 			const end = start + geo.main;
 			const pos = vertical ? el.scrollTop : el.scrollLeft;
@@ -209,8 +217,12 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 		refresh();
 	}, [focus, geo.pitch, count, viewCross, refresh]);
 
-	// Tell Veduta what is mounted. Only `cap` changes what it asks next: a host with no pictures has a
-	// live capacity of zero, and the core then keeps every tile at the sketch.
+	// Tell Veduta what is mounted. Today only `cap` changes what it asks next (the core reads `map` and `live`
+	// only under a test switch), so this keeps the held run for the hysteresis band and says a host with no
+	// pictures has a live capacity of zero, which keeps every tile at the sketch. It does not report a pool
+	// capacity: the pool decides its own slots and this rail stays under its ceiling instead.
+	// The one tab stop is the focused tile; when a hand scroll has taken it out of the window, the first mounted tile.
+	const tabStop = plan.units.includes(focus) ? focus : (plan.units[0] ?? -1);
 	const liveMounted = liveOn ? plan.units.filter((i) => plan.tiers.get(i) === 'live').length : 0;
 	React.useEffect(() => {
 		veduta.current.settle({ map: plan.units, live: liveMounted, ...(liveOn ? {} : { cap: { live: 0 } }) });
@@ -231,7 +243,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 		if (!action) return;
 		e.preventDefault();
 		keyNav.current = true;
-		onStep(action);
+		onStep(action, { key: true });
 	};
 
 	const Prev = vertical ? ChevronUp : ChevronLeft;
@@ -239,6 +251,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 	const First = vertical ? ChevronsUp : ChevronsLeft;
 	const Last = vertical ? ChevronsDown : ChevronsRight;
 	const atStart = count === 0 || focus <= 0;
+	// With no focused tile (a reader lens hides the focus before every shown slide) First is still a move.
+	const atFirst = count === 0 || focus === 0;
 	const atEnd = count === 0 || focus >= count - 1;
 	const btn = 'grid min-h-8 min-w-8 place-items-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
 
@@ -255,7 +269,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 							onClick={() => onPick(i)}
 							aria-current={on ? 'true' : undefined}
 							aria-label={label(i)}
-							tabIndex={on ? 0 : -1}
+							tabIndex={i === tabStop ? 0 : -1}
 							data-tier={tier}
 							data-unit={i}
 							className={cn('group relative block size-full text-left outline outline-2 outline-offset-[3px] transition-[outline-color]', on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}
@@ -278,26 +292,26 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 	return (
 		<nav aria-label="Slide map" data-map-rail={orientation} className={cn('flex min-h-0 min-w-0 bg-[var(--bg-alt)]', vertical ? 'h-full flex-col border-l border-border' : 'h-full w-full flex-row border-t border-border', className)}>
 			<div className={cn('shrink-0 gap-1 p-1', vertical ? 'grid grid-cols-4 [@media(pointer:coarse)]:grid-cols-2' : 'grid grid-cols-2 content-center')}>
-				<button type="button" className={btn} aria-label="First slide" disabled={atStart} onClick={() => onStep('first')}>
+				<button type="button" className={btn} aria-label="Map, first slide" disabled={atFirst} onClick={() => onStep('first')}>
 					<First className="size-4" aria-hidden />
 				</button>
-				<button type="button" className={btn} aria-label="Previous slide" disabled={atStart} onClick={() => onStep('prev')}>
+				<button type="button" className={btn} aria-label="Map, previous slide" disabled={atStart} onClick={() => onStep('prev')}>
 					<Prev className="size-4" aria-hidden />
 				</button>
-				<button type="button" className={btn} aria-label="Next slide" disabled={atEnd} onClick={() => onStep('next')}>
+				<button type="button" className={btn} aria-label="Map, next slide" disabled={atEnd} onClick={() => onStep('next')}>
 					<Next className="size-4" aria-hidden />
 				</button>
-				<button type="button" className={btn} aria-label="Last slide" disabled={atEnd} onClick={() => onStep('last')}>
+				<button type="button" className={btn} aria-label="Map, last slide" disabled={atEnd} onClick={() => onStep('last')}>
 					<Last className="size-4" aria-hidden />
 				</button>
 				{vertical && (
-					<span className="col-span-4 text-center font-mono text-[10px] text-muted-foreground [@media(pointer:coarse)]:col-span-2" aria-live="polite">
-						{count ? `${Math.min(count, focus + 1)} / ${count}` : ''}
+					<span className="col-span-4 text-center font-mono text-[10px] text-muted-foreground [@media(pointer:coarse)]:col-span-2" >
+						{count ? `${focus >= 0 ? Math.min(count, focus + 1) : '-'} / ${count}` : ''}
 					</span>
 				)}
 			</div>
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are the roving-tabindex pattern over the tile buttons inside it; the buttons are the interactive elements */}
-			<div ref={scrollerRef} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-auto overflow-x-hidden' : 'overflow-x-auto overflow-y-hidden')}>
+			<div ref={scrollerRef} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
 				{wrap ? wrap(tiles) : tiles}
 			</div>
 		</nav>

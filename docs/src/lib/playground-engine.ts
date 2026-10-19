@@ -15,7 +15,7 @@ import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
-import { type RenderedIndex, renderedIndexOf, stampsOf } from './rendered-index';
+import { blanksOf, type RenderedIndex, renderedIndexOf, stampsOf } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
 import { createThemeFetcher } from './theme-fetch';
 
@@ -159,6 +159,7 @@ export function createEngineBridge(
 						async (md) => stampsOf((await renderMarkdown(PGref, md, theme, { baseUrl: samplesBase, samplesUrl: samplesBase })).html).length,
 						partCounts,
 						autoGlossarySections(source),
+						blanksOf(html),
 					);
 				})());
 			// Letterbox the filmstrip in the BRAND background (the pane's `--bg-alt` for the

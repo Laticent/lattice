@@ -54,13 +54,18 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	await mapOn(page);
 	const pills = await railButtons(page).count();
 	expect(pills).toBeGreaterThan(2);
+	// One tile per pill: the rail's last tile is the pills' last slide, and there is none after it.
+	await page.locator(RAIL).getByRole('button', { name: 'Map, last slide' }).click();
+	await expect(page.locator(`${RAIL} button[data-unit="${pills - 1}"]`)).toHaveAttribute('aria-current', 'true');
+	await expect(page.locator(`${RAIL} button[data-unit="${pills}"]`)).toHaveCount(0);
+	await page.locator(RAIL).getByRole('button', { name: 'Map, first slide' }).click();
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toHaveAttribute('data-unit', '0');
 	expect(await current(page)).toBe('0');
 	// A live picture is a pooled frame, and no more than the budget are asked for at once.
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
 	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(8);
 	await page.getByRole('button', { name: 'Slide map' }).click();
-	await expect(page.locator(RAIL)).toHaveCount(0);
+	await expect(page.locator(RAIL)).toBeHidden();
 });
 
 test('@crosswidth a tile moves the focus: the label, the pill and the tile agree', async ({ page }) => {
@@ -82,13 +87,13 @@ test('first, last, previous and next on the rail', async ({ page }) => {
 	await mapOn(page);
 	const total = await railButtons(page).count();
 	const rail = page.locator(RAIL);
-	await rail.getByRole('button', { name: 'Last slide' }).click();
+	await rail.getByRole('button', { name: 'Map, last slide' }).click();
 	await label(page, `Slide ${total} / ${total}`);
-	await rail.getByRole('button', { name: 'Previous slide' }).click();
+	await rail.getByRole('button', { name: 'Map, previous slide' }).click();
 	await label(page, `Slide ${total - 1} / ${total}`);
-	await rail.getByRole('button', { name: 'First slide' }).click();
+	await rail.getByRole('button', { name: 'Map, first slide' }).click();
 	await label(page, `Slide 1 / ${total}`);
-	await rail.getByRole('button', { name: 'Next slide' }).click();
+	await rail.getByRole('button', { name: 'Map, next slide' }).click();
 	await label(page, `Slide 2 / ${total}`);
 });
 
@@ -129,4 +134,49 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 			.filter((c) => c.w < 44 || c.h < 44),
 	);
 	expect(small).toEqual([]);
+});
+
+test('the arrow keys walk the rail slide by slide and keyboard focus stays on it', async ({ page }) => {
+	await gotoStudio(page);
+	await mapOn(page);
+	const total = await railButtons(page).count();
+	await page.locator(`${RAIL} button[aria-current="true"]`).focus();
+	for (const n of [2, 3, 4]) {
+		await page.keyboard.press('ArrowDown');
+		await label(page, `Slide ${n} / ${total}`);
+	}
+	expect(await page.evaluate(() => document.activeElement?.closest('[data-map-rail]') !== null)).toBe(true);
+	await page.keyboard.press('End');
+	await label(page, `Slide ${total} / ${total}`);
+});
+
+test('closing and reopening the map re-uses its preview frames instead of creating new documents', async ({ page }) => {
+	await gotoStudio(page);
+	await page.evaluate(() => {
+		(window as unknown as { __frames: number }).__frames = 0;
+		new MutationObserver((ms) => {
+			for (const m of ms) for (const n of Array.from(m.addedNodes)) if ((n as Element).querySelectorAll) (window as unknown as { __frames: number }).__frames += (n as Element).tagName === 'IFRAME' ? 1 : (n as Element).querySelectorAll('iframe').length;
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+	await mapOn(page);
+	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
+	await expect.poll(() => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length)).toBeGreaterThan(0);
+	const first = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
+	for (let i = 0; i < 3; i++) {
+		await page.getByRole('button', { name: 'Slide map' }).click();
+		await expect(page.locator(RAIL)).toBeHidden();
+		await page.getByRole('button', { name: 'Slide map' }).click();
+		await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible();
+	}
+	expect(await page.evaluate(() => (window as unknown as { __frames: number }).__frames)).toBe(first);
+});
+
+test('the rail restacks when the window crosses the narrow breakpoint and back', async ({ page }) => {
+	await gotoStudio(page);
+	await mapOn(page);
+	expect(await page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
+	await page.setViewportSize({ width: 390, height: 844 });
+	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
 });

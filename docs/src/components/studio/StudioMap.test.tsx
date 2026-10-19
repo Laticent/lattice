@@ -49,7 +49,7 @@ describe('StudioMap', () => {
 		const { ui, onPick } = setup();
 		render(ui);
 		fireEvent.click(screen.getByRole('button', { name: 'Slide 3, Two B' }));
-		expect(onPick).toHaveBeenCalledWith(1, 1);
+		expect(onPick).toHaveBeenCalledWith(1, 1, undefined);
 	});
 
 	it('follows the hub focus, and steps in parts through the same pick', () => {
@@ -57,14 +57,31 @@ describe('StudioMap', () => {
 		render(ui);
 		act(() => hub.go('shell', { unitIndex: 2 }));
 		expect(screen.getByRole('button', { name: 'Slide 4, Three' }).getAttribute('aria-current')).toBe('true');
-		fireEvent.click(screen.getByRole('button', { name: 'Next slide' }));
-		expect(onPick).toHaveBeenLastCalledWith(3, 0);
-		fireEvent.click(screen.getByRole('button', { name: 'Previous slide' }));
-		expect(onPick).toHaveBeenLastCalledWith(1, 1);
-		fireEvent.click(screen.getByRole('button', { name: 'First slide' }));
-		expect(onPick).toHaveBeenLastCalledWith(0, 0);
-		fireEvent.click(screen.getByRole('button', { name: 'Last slide' }));
-		expect(onPick).toHaveBeenLastCalledWith(3, 0);
+		fireEvent.click(screen.getByRole('button', { name: 'Map, next slide' }));
+		expect(onPick).toHaveBeenLastCalledWith(3, 0, undefined);
+		fireEvent.click(screen.getByRole('button', { name: 'Map, previous slide' }));
+		expect(onPick).toHaveBeenLastCalledWith(1, 1, undefined);
+		fireEvent.click(screen.getByRole('button', { name: 'Map, first slide' }));
+		expect(onPick).toHaveBeenLastCalledWith(0, 0, undefined);
+		fireEvent.click(screen.getByRole('button', { name: 'Map, last slide' }));
+		expect(onPick).toHaveBeenLastCalledWith(3, 0, undefined);
+	});
+
+	it('a focus the lens hides before every shown slide highlights none, and Next goes to the first shown', () => {
+		const { ui, onPick } = setup([2, 3]);
+		render(ui);
+		expect(document.querySelector('button[aria-current="true"]')).toBeNull();
+		fireEvent.click(screen.getByRole('button', { name: 'Map, next slide' }));
+		expect(onPick).toHaveBeenLastCalledWith(2, 0, undefined);
+	});
+
+	it('an arrow key picks quietly (via.key) and a click does not', () => {
+		const { ui, onPick } = setup();
+		render(ui);
+		fireEvent.keyDown(screen.getByRole('button', { name: 'Slide 1, One' }), { key: 'ArrowDown' });
+		expect(onPick).toHaveBeenLastCalledWith(1, 0, { key: true });
+		fireEvent.click(screen.getByRole('button', { name: 'Slide 3, Two B' }));
+		expect(onPick).toHaveBeenLastCalledWith(1, 1, undefined);
 	});
 
 	it('lists only the lens set, numbered within it, and a hidden focus sits on the nearest earlier slide', () => {

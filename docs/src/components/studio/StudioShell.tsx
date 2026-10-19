@@ -932,6 +932,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [mapOn, setMapOn] = React.useState(false);
 	const [mapStacked, setMapStacked] = React.useState(false);
 	const mapWrapRef = React.useRef<HTMLDivElement>(null);
+	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
+	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
+	const mapEver = useEverTrue(mapOn);
 	React.useEffect(() => {
 		try {
 			if (localStorage.getItem('lattice-studio-map') === '1') setMapOn(true);
@@ -945,15 +948,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return !on;
 		});
 	}, []);
-	React.useEffect(() => {
-		const el = mapWrapRef.current;
-		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
-		const read = () => setMapStacked(el.clientWidth < 560);
-		read();
-		const ro = new ResizeObserver(read);
-		ro.observe(el);
-		return () => ro.disconnect();
-	}, [mapOn]);
 	// Bumped on a tap over the iPhone-landscape cinema slide to re-reveal the whisper layer.
 	const [whisperReveal, setWhisperReveal] = React.useState(0);
 	// TYPING MODE: the Compose surface reports when the software keyboard is up (and the user
@@ -1498,6 +1492,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
+	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), so the wrapper this
+	// observes is looked up again then.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `mobile` is the trigger (the wrapper element changes with the tree); the body reads the ref.
+	React.useEffect(() => {
+		const el = mapWrapRef.current;
+		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
+		const read = () => setMapStacked(el.clientWidth < 560);
+		read();
+		const ro = new ResizeObserver(read);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [mapOn, mobile]);
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
 	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
 	// nothing on the other side of the breakpoint could ever clear it. That was survivable
@@ -2895,6 +2901,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the memoized rail re-renders only when the deck or the focused slide changes.
 	const goToSlideLatest = React.useRef(goToSlide);
 	goToSlideLatest.current = goToSlide;
+	// The map rail's pick. An arrow key on the rail must not hand keyboard focus to the editor or re-open a
+	// collapsed pane (a key is not a pick), so it moves the focus quietly; a click is a pick, like a pill.
+	const onMapPick = React.useCallback((chunkIndex: number, section: number, via?: { key: boolean }) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), via?.key ? { section, focus: false, expand: false } : { section }), []);
 	const onRailPick = React.useCallback((chunkIndex: number, section: number) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), { section }), []);
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {
@@ -5643,11 +5652,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ErrorBoundary>
 				</div>
 			</div>
-			{mapOn && (
-				<div className={cn('shrink-0', mapStacked ? 'h-[112px]' : 'w-[148px]')}>
+			{mapEver && !landscapePhone && (
+				<div className={cn('shrink-0', !mapOn && 'hidden', mapStacked ? 'h-[112px]' : 'w-[148px]')} hidden={!mapOn}>
+					<Frozen active={mapOn}>
 					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onRailPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} />
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} />
 					</React.Suspense>
+					</Frozen>
 				</div>
 			)}
 			</div>

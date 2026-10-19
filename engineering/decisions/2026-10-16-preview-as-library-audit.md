@@ -924,9 +924,41 @@ at least 560 px wide and under it otherwise, measured on a wrapper the rail does
   (`StudioMap.test.tsx`).
 - **Live tiles** are the Studio's pooled frames, given the main preview's look (palette, mode, finish CSS) and the viewed
   deck as context, with the part alone as the fallback when the engine's slide count differs (`_focusSteps`).
-- **Known limit.** A pooled tile cannot carry the deck's allowed web origins (`PooledPreviewProps` has no such field), so a
-  web image the reader has allowed in the main preview shows as its placeholder in a tile.
-- **Cost.** A lazy chunk; the Studio's eager bundle is unchanged within the per-PR allowance (see the PR's route-budget line).
+- **Allowed web images.** Tiles get the shell's `deckOptions` (which carry `webOrigins`), so an image the reader has allowed in the
+  main preview loads in a tile too.
+- **Cost.** A lazy chunk; the Studio's eager bundle grows 0.7 KB gz (498.9 to 499.6), inside the 2 KB per-PR allowance. The map
+  stays mounted once opened and is only hidden (`ui/keep-mounted.tsx`), so toggling it re-uses its pool frames; a test counts the
+  documents created across three close/open cycles and requires none.
+- **What this does and does not prove about Veduta.** The rail takes its windowing from Veduta (the band, the map's own
+  viewport ranking, the live/wireframe tiers) and reports the held run through `settle`. It does **not** report a pool capacity:
+  today `settle` reads only `cap`, the pool sizes its own slots (10, up to 28) and the rail keeps its live budget under that ceiling
+  (the tiles on screen, at most 24) instead of learning it. The Studio's stage is not driven by Veduta, and the page-global live
+  budget priced per connector has one connector. So the 11f.2 tripwire ("the Playground adopts the core with no change to it")
+  is met for the band arithmetic and the map window only; the capacity report, the joint stage-and-map budget and the poster tier
+  have no production caller. Publishing to npm should wait for those (`followups.d/*-p2-veduta-pool-capacity-and-stage.md`).
+- **Found by the trio and fixed before merge.** A scrollbar loop (React #185 wherever scrollbars take layout space; the scroller
+  now always carries its track and the measuring effect no longer re-runs with `refresh`), arrow keys that handed focus to the
+  editor after one step (a key now picks quietly), a hidden focus before every lens-shown slide (no tile is highlighted and Next
+  goes to the first), stale or out-of-range tile pictures while typing (a tile keeps its sketch until its slide settles), a rail
+  left over in phone-landscape cinema mode, a `mapStacked` observer left on a detached node after a breakpoint crossing, and a
+  fixed live budget of 8 that left tiles on a large screen as sketches.
+
+## 11k. Closed or filed on 2026-10-19: the two defects the audit found and never recorded (P7)
+
+**The filmstrip window hole is fixed.** `syncVirtual` unmounts what is more than five slides from the view and mounts three
+either side, so a jump could leave an old slide inside the new keep range with a never-mounted slide between it and the new
+run: from slides 0..7 mounted, a jump to slide 12 left `[7, 9..17]`, a placeholder at 8. Nothing showed on screen, but
+`contiguous` stayed false and every later scroll frame left the cached fast path until the hole filled. The reproduction is
+`deck-render.hole.test.ts` (a deterministic case and a seeded 4,000-step walk with 20% jump frames; both red before the fix).
+`applyWindow` now keeps a slide inside the keep range only while mounted slides connect it to the run just mounted
+(`joined`); `mountAround`'s landing pin is its own island and is kept whole, and `mountAround` itself is unchanged. Measured on
+2,000 seeded walks of 60 steps with 20% jumps: HOLE_BEFORE walks hit a hole before, HOLE_AFTER after. The 976-of-2,000 in
+section 11d.2 used longer walks. `deck-render.window.test.ts` still pins the arithmetic, and all 398 `src/playground` tests pass.
+
+**The empty-slide defect is reproduced and filed.** The outliner drops an empty chunk and the engine renders it. The rendered
+index now reports the surplus page instead of absorbing it, and `rendered-index.test.ts` holds an `it.fails` arm that turns red
+the day the outline counts the blank slide. No shipped deck has one (0 of 292); the fix touches the unit model every Studio editor
+reads, so it is `followups.d/*-p3-outliner-drops-empty-slides.md`, not part of this change.
 
 ## 12. Next step
 

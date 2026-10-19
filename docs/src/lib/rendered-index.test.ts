@@ -6,7 +6,7 @@ import { appendAutoGlossary, autoGlossarySections } from '../../../lib/core/glos
 import structural from '../../../lib/core/structural-split.js';
 import { createEngine } from '../../../lib/engine';
 import { buildDeckIndex } from './deck-outline';
-import { buildRenderedIndex, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
+import { blanksOf, buildRenderedIndex, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
 
 type Split = {
 	splitCapacityFrom: (m: unknown) => unknown;
@@ -134,6 +134,53 @@ describe('what the engine adds or the outline drops', () => {
 		expect(ix.unexplainedParts).toEqual([]);
 		expect(ix.pages.some((p) => p.copy > 0)).toBe(false);
 		expect(ix.pages.filter((p) => p.synthetic).length).toBe(autoGlossarySections(md));
+	});
+});
+
+describe('known defect: the outliner drops an empty slide the engine renders', () => {
+	// `it.fails` passes while the defect stands and turns red the day the outline counts the blank slide,
+	// which is the cue to delete this block and the followup that names it
+	// (followups.d/*-p3-outliner-drops-empty-slides.md).
+	it.fails('counts a blank middle slide as a unit, as the engine renders it', () => {
+		const md = '# A\n\n---\n\n---\n\n# C\n';
+		expect(buildDeckIndex(md).units.length).toBe(countSlides(md));
+	});
+
+	it('without a blank mark the index reports the surplus page instead of placing later pages on the wrong part', () => {
+		const md = '# A\n\n---\n\n---\n\n# C\n';
+		expect(countSlides(md)).toBe(3);
+		expect(buildDeckIndex(md).units.length).toBe(2);
+		const ix = buildRenderedIndex(['1', '2', '3'], buildDeckIndex(md), [1, 1]);
+		expect(ix.unexplainedPages).toEqual([2]);
+	});
+
+	it('with the blank mark the blank slide owns no part and the slides after it keep theirs', () => {
+		const deck = buildDeckIndex('# A\n\n---\n\n---\n\n# C\n');
+		const ix = buildRenderedIndex(['1', '2', '3'], deck, [1, 1], 0, [false, true, false]);
+		expect(ix.pages.map((p) => p.flat)).toEqual([0, -1, 1]);
+		expect(ix.byFlat).toEqual([[0], [2]]);
+		expect(ix.unexplainedPages).toEqual([]);
+		expect(ix.unexplainedParts).toEqual([]);
+	});
+
+	it('reads a real deck with a blank slide, through the engine, with no wrong placement', async () => {
+		for (const md of ['# A\n\n---\n\n---\n\n# C\n', '# A\n\n---\n\n# B\n\n---\n\n---\n\n---\n\n# D\n', '# A\n\n---\n\n---\n\n# C\n\n---\n\n# D\n']) {
+			const { stamps, html } = pagesOf(md);
+			const blanks = blanksOf(html);
+			expect(blanks.some(Boolean), md).toBe(true);
+			const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanks);
+			expect(ix.unexplainedPages, md).toEqual([]);
+			expect(ix.unexplainedParts, md).toEqual([]);
+			// Each non-blank page lands on the part whose title it shows.
+			const titles = [...md.matchAll(/^# (\w)$/gm)].map((m) => m[1]);
+			const shown = ix.pages.filter((p) => p.flat >= 0).map((p) => p.flat);
+			expect(shown.length, md).toBe(titles.length);
+			expect(shown, md).toEqual(titles.map((_, i) => i));
+		}
+	});
+
+	it('blanksOf calls an empty section blank and a slide with a picture or text not blank', () => {
+		expect(blanksOf('<section data-lattice-slide="1"></section><section><h1>T</h1></section><section><p>&nbsp;</p></section><section><svg></svg></section>')).toEqual([true, false, true, false]);
 	});
 });
 

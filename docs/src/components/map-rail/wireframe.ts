@@ -32,7 +32,7 @@ function plain(heading: string): string {
 		.replace(/^#{1,6}\s+/, '')
 		.replace(/\s+#+\s*$/, '')
 		.replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-		.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g, '$1')
 		.replace(/[*_`~]/g, '')
 		.trim();
 }

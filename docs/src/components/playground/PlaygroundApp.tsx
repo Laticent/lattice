@@ -4,6 +4,7 @@ import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-det
 import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
+import { Frozen, useEverTrue } from '@/components/ui/keep-mounted';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
 	Select,
@@ -537,6 +538,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const lastRenderedSourceRef = React.useRef<string | null>(null);
 	const getMapIndex = React.useCallback(() => lastIndexRef.current?.() ?? null, []);
 	const [mapStacked, setMapStacked] = React.useState(false);
+	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
+	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
+	const mapEver = useEverTrue(mapOn);
 	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
 	const lastPgCaptureRef = React.useRef(0);
 	const firstCaptureDoneRef = React.useRef(false);
@@ -2184,7 +2188,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Turning the map on seeds it from the render already on screen.
 	React.useEffect(() => {
 		if (mapOn && lastRenderedSourceRef.current != null) setMapRendered({ source: lastRenderedSourceRef.current, key: ++mapKeyRef.current });
-		if (!mapOn) setMapRendered(null);
 	}, [mapOn]);
 	// Beside the preview on a wide window, under it where the panes stack (the same 820px as the split).
 	React.useEffect(() => {
@@ -3087,8 +3090,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
 						</div>
-						{mapOn && mapRendered && (
-							<div className="pg-map">
+						{mapEver && mapRendered && (
+							<div className="pg-map" hidden={!mapOn}>
+								<Frozen active={mapOn}>
 								<React.Suspense fallback={null}>
 									<PlaygroundMap
 										rendered={mapRendered}
@@ -3102,6 +3106,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 										orientation={mapStacked ? 'horizontal' : 'vertical'}
 									/>
 								</React.Suspense>
+								</Frozen>
 							</div>
 						)}
 						</div>
