@@ -367,20 +367,35 @@ Two kinds of reader touch a pane marker, and the door treats them differently.
 | `docs/src/components/studio/pane-probe.ts` | `PANE_PROBE`, a cheap over-matching reject | the regex is built from the shared marker vocabulary and adds `{pane` / `{panes` | it must stay cheap and must never reject a deck the door would accept |
 | `docs/src/lib/compose/pane-model.ts` | `paneMarkerText` (`:132`) and an inline writer (`:318`) write `<!-- _pane: … -->`; a read at `:391`; class read is `pane-spec` `classOf` | both writers go through `writeMeta`, the read through `parsePaneMarker`; the class read follows `pane-spec` | Compose must write the form the cut leaves standing |
 
-**Eight more files read or write a pane marker from authored text** and are not among the six (found by the independent check,
-2026-10-19). They already count as `migrated` or `stays` for the class directive, which is a different question. Each moves
-to `parsePaneMarker` at the door, and step 2 first traces whether it sees source before or after the door runs (the trace is
-not done: a reader after the door sees only the internal form and needs no change):
-`docs/src/components/studio/lint.ts` (`/^<!--\s*_?pane:/gm`), `docs/src/components/studio/slide-directives.ts` (three
-marker regexes), `docs/src/lib/compose/deck-source.ts` (`PANE_MARKER_RE`), `docs/src/lib/compose/comment-block.ts`
-(`PANE_MARKER_SHAPE`, which accepts only `_pane:`), `docs/src/lib/code-packages/door.ts` (`/^pane\s*:/`),
-`lib/diagnostics/slice-equivalence-core.mjs` (`/<!--\s*_?pane\s*:/g`), `lib/plugins/deck-plugins.mjs` (a `pane` key
-check; not in the §14 census at all), and `lib/layout/bridge.js` (calls `parseMarker`, so it follows `pane-spec`).
+Eight more files read or write a pane marker from authored text. §5.4.2 traces each one.
 
 The census marks the six in the table `door`. The other 16 `stays` keep the reason they were given in step 1: a strip, a positional
 rewrite, an over-matching probe, a producer-owned pragma, or a published package that cannot import `lib/core`. Step 2 is
-done with this section only when the six rows read `migrated`, no `door` row is left, and the eight files above are each
-moved or shown to run after the door.
+done with this section only when the six rows read `migrated`, no `door` row is left, and every file in §5.4.2 reads
+through `parsePaneMarker`.
+
+### 5.4.2 The eight other pane readers: all run on authored text, so all move
+
+Traced 2026-10-19 by reading each file and its callers. **The result is the same for all eight: each one reads source text a
+person typed, and no placement of the door can change that**, so each calls `parsePaneMarker` instead of keeping its own
+regex. The strongest evidence is `admitPlugins(source)`, which `lib/engine/index.js:350`, `lib/playground/index.js:134`,
+`lib/plugins/host-bake.js:80` and the Studio's `PluginsSettings.tsx:55` all call on the authored deck. The Studio call never
+passes through the engine, so a door at engine entry cannot rewrite what it reads.
+
+| File | Read | Caller sees | If missed |
+|---|---|---|---|
+| `lib/plugins/deck-plugins.mjs` | a `pane` key adds the component's plugin to the deck's set | authored source (`admitPlugins` callers above) | a `{pane="bar"}` deck does not admit the bar chart's plugin and the pane renders unstyled, with no error |
+| `lib/layout/bridge.js` | `referencedComponents` calls `parseMarker` per line | authored source (`lib/packages/render.js:24`, Studio) | follows `pane-spec` with no edit of its own; a saved component used only in a record-form pane renders unstyled |
+| `lib/diagnostics/slice-equivalence-core.mjs` | `/<!--\s*_?pane\s*:/g` inside `positionIsTrustworthy` | the Studio's authored deck | a record-form panes deck counts as one slide per source slide, so the caret-to-page position is trusted when it is wrong |
+| `docs/src/components/studio/slide-directives.ts` | `isPaneMarkerBody`, three marker regexes | the editor's authored text | the editor treats a record-form marker as a speaker note |
+| `docs/src/components/studio/lint.ts` | `slideClass` counts two `_?pane:` markers to name a panes slide | the editor's authored text | the rail labels a record-form panes slide `text` |
+| `docs/src/lib/compose/deck-source.ts` | `PANE_MARKER_RE` keeps a marker in place | authored text | Compose moves a record-form marker like a directive |
+| `docs/src/lib/compose/comment-block.ts` | `PANE_MARKER_SHAPE`, a guard that admits only `_pane:` | text Compose is about to write | this guard widens to admit the exact record shape `{pane="…"}` of lowercase words, and nothing else; it stays a refusal for every other `_` name |
+| `docs/src/lib/code-packages/door.ts` | `/^pane\s*:/` adds the pane's component to the packages a deck needs | authored text | a package used only in a record-form pane is not offered |
+
+`lint.ts` and `comment-block.ts` stay `stays` in the census for their other reasons (a published guard, and Studio lint
+grammar); this table only adds their pane regexes to step 2's list. `deck-plugins.mjs` is not in the §14 census, which counts
+class-directive readers, so it has no census row.
 
 ### 5.5 Edge cases
 
