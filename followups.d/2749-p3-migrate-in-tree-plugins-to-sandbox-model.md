@@ -66,3 +66,14 @@ zoom (decision 16). Evidence: the PDF and `--player` files of `examples/plugin-s
 `math-form-frame.md` and `marp-export-fidelity.md` are byte-identical before and after, and a debug run showed the
 capture page with `window.functionPlot` undefined while the kept `.html` still holds the library. No export bytes
 changed. Still open: function-plot in the previews (decision 15), and math.
+
+math in the CLI, moved 2026-10-19: before a deck's real render, the CLI collects its formulas with one render and
+typesets them all in the locked page (`lib/export/math-typeset.js` and `math-typeset-worker.js`: KaTeX as a fence
+renderer in `openPackageSandbox`). Each result is sanitized, and KaTeX's own bytes are kept when the sanitizer
+removed nothing. Every render then reads the results through `math.render.js`'s `setTypesetter`; KaTeX is never
+loaded into the CLI's process (pinned by a `require.cache` probe in `math-locked.test.js`). If the locked page
+cannot start, the formulas are typeset in-process with one warning (the owner's D-A). Evidence: the HTML of
+`math.fixtures.md`, the gallery and `math-form-frame.md` is byte-identical, and so are the PDFs of the first and
+last. The gallery's PDF differs run to run on `main` too: two old runs differed on page 33, where the new run matches
+one of them. Cost: +1.3 s on `math-form-frame.md` (3.1 s to 4.4 s), the locked page's launch. Still open: the
+previews (decision 15) and the library API (D-A).

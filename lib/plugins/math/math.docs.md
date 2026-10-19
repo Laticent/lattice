@@ -3,7 +3,10 @@
 Typeset math on any slide. `$…$` renders inline, and a paragraph that is exactly `$$…$$`
 renders as a centered display equation. [KaTeX](https://katex.org/) draws both, synchronously,
 at parse time — the same call on every surface, so the CLI's PDF, the HTML player, the Studio
-and the Playground agree.
+and the Playground agree. The CLI runs that call in the **locked page** (no network, the OS
+sandbox where the machine allows it), never in its own process: it typesets a deck's formulas
+there before the render reads them (`lib/export/math-typeset.js`; owner decision 14), byte for
+byte what KaTeX gives in Node (`test/integration/parity/math-sandbox-parity.test.js`).
 
 This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`). It contributes the
 `$` syntax to every slide — `$$…$$` on a plain content slide typesets exactly as it does on a
@@ -45,7 +48,7 @@ $$
 |---|---|
 | `math.manifest.json` | the two syntax rules (`math_inline`, `math_block`), their `$` trigger and host anchors, and the `math` fence |
 | `math.syntax.mjs` | the grammar — both markdown-it rules and `detect(source)`, which also finds a ` ```math ` fence. Pure and KaTeX-free, so the boundary parser and the docs site's pre-scan import it without KaTeX's 76 KB gzip |
-| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer |
+| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer. Its `setTypesetter` seam lets a host typeset elsewhere: the CLI's is `lib/export/math-typeset.js`, and with one set KaTeX never loads here |
 | `math.fixtures.md` | the conformance cases the plugin harness runs |
 
 **Options** (`createEngine`): `math: false` disables the plugin (the `$` stays text);

@@ -2197,6 +2197,8 @@ function topLevelSectionStrings(latticeHtml) {
 let webImagesReported = false;
 // Every web reference the render swapped for a placeholder, for --player-consent's report.
 const webBlockedAtRender = [];
+/** The CLI's math typesetter (lib/export/math-typeset.js), made on the first deck that holds math and kept for the run. */
+let MATH_TYPESETTER = null;
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2256,6 +2258,13 @@ function engineSlides(deckSource = rawMd) {
   for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
   const assetUrls = deckAssets.urls;
   const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl, assetUrls);
+  // MATH IN THE LOCKED PAGE (owner decision 14; lib/export/math-typeset.js): the deck's formulas are typeset by KaTeX in
+  // the code sandbox's page before the real render, which reads them; KaTeX never runs in this process. A cheap test
+  // first: a deck with no `$` and no math fence has nothing to typeset.
+  if (/\$|```\s*math/.test(deckMd)) {
+    MATH_TYPESETTER ??= require('./lib/export/math-typeset.js').createMathTypesetter({ chromePath: CHROME_EXEC });
+    MATH_TYPESETTER.prepare(() => engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl }));
+  }
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
