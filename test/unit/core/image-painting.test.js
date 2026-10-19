@@ -4,7 +4,7 @@
 
 const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
-const { paintUntilDecoded, PAINTING, PAINTING_CAP_MS } = require('../../../lib/core/image-painting');
+const { paintUntilDecoded, paintStill, PAINTING, BRUSH, PAINTING_CAP_MS } = require('../../../lib/core/image-painting');
 
 function el() {
   const attrs = new Map();
@@ -120,6 +120,43 @@ describe('the Underpainting', () => {
   });
 });
 
+// The brushwork moves on its own span so the compositor can slide it (a repaint per frame was
+// 5.9 fps on a 4K photo panel). The span must come and go with the painting, exactly once.
+describe('the brush span', () => {
+  const { JSDOM } = require('jsdom');
+  const panel = () => new JSDOM('<div class="lattice-bg"><span class="keep"></span></div>').window.document.querySelector('.lattice-bg');
+  const brushes = (e) => e.querySelectorAll(`:scope > .${BRUSH}`).length;
+
+  it('arrives with the painting, once, and leaves with it', async () => {
+    const e = panel();
+    const v = view();
+    const p = probe({ src: 'brush-1.jpg' });
+    paintUntilDecoded(e, p, v);
+    assert.equal(brushes(e), 1);
+    assert.equal(e.querySelector(`.${BRUSH}`).getAttribute('aria-hidden'), 'true');
+    paintUntilDecoded(e, probe({ src: 'brush-1.jpg' }), v);
+    assert.equal(brushes(e), 1, 'a second pass adds no second span');
+    p.land();
+    await flush();
+    assert.equal(brushes(e), 1, 'the span fades with the painting');
+    for (const t of v.timers.filter((x) => x.live)) t.fn();
+    assert.equal(e.hasAttribute(PAINTING), false);
+    assert.equal(brushes(e), 0, 'and leaves with the attribute');
+    assert.equal(e.querySelectorAll('.keep').length, 1, 'the element keeps its own children');
+  });
+
+  it('a still painting keeps its brushwork, and a pass puts back a span someone removed', () => {
+    const still = panel();
+    paintStill(still);
+    assert.equal(brushes(still), 1);
+    const e = panel();
+    paintUntilDecoded(e, probe({ src: 'brush-2.jpg' }), view());
+    e.querySelector(`.${BRUSH}`).remove();
+    paintUntilDecoded(e, probe({ src: 'brush-2.jpg' }), view());
+    assert.equal(brushes(e), 1);
+  });
+});
+
 // The look is shared (#1): both surfaces that carry a picture as their own background take the
 // same attribute, and one stylesheet draws it. Pin that the drawing stays palette-blind and has
 // the reduced-motion arm.
@@ -131,9 +168,11 @@ describe('the Underpainting stylesheet', () => {
     assert.doesNotMatch(block, /#[0-9a-f]{3,8}\b/i);
     assert.match(block, /var\(--accent\)/);
   });
-  it('moves its brushwork by position inside the box, and stops for reduced motion', () => {
-    assert.match(block, /@keyframes lattice-paint-brush[\s\S]*?mask-position/);
-    assert.doesNotMatch(block, /width: 300%/, 'no layer wider than the element: it would trip the overflow probe');
+  it('slides its brushwork by transform inside a span that clips it, and stops for reduced motion', () => {
+    const loop = block.slice(block.indexOf('@keyframes lattice-paint-brush'), block.indexOf('@media (prefers-reduced-motion'));
+    assert.match(loop, /transform: translateX/);
+    assert.doesNotMatch(loop, /position/, 'no background or mask position in the loop: that repaints every frame');
+    assert.match(block, /> \.lattice-paint-brush \{[^}]*?inset: 0;[^}]*?overflow: hidden;/, 'the span is the element\'s own size and clips the wider band');
     assert.match(block, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none/);
   });
 });

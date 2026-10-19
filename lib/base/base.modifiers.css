@@ -353,10 +353,12 @@ section video[data-lattice-web-src] {
  * element whose background IS the picture — a photo panel's `.lattice-bg`, a video poster — and
  * only in a document that opted in as a live preview (`<html data-lattice-live-media>`,
  * lib/core/image-painting.js); export captures and Print never do. Every color is the deck's own token, so it follows the theme and the mode.
- * COST: unlike Nacre, the brushwork repaints: it has to stay inside the element's own box (see
- * below), so it moves by background and mask position rather than by transform. It is one small
- * layer, runs only while a picture is loading, and stops for reduced motion; the one-off sweep
- * is a clip. */
+ * COST: like Nacre, nothing repaints per frame. The brushwork lives on the `::before` of a span the
+ * runtime adds for as long as the painting shows (`.lattice-paint-brush`, image-painting.js), and
+ * slides by `transform`, so the compositor moves a bitmap rasterized once. It used to move by
+ * background and mask position, which repainted the whole element every frame: 5.9 fps against
+ * 59.8 now for a photo panel at 4K (2026-10-19, headless Chromium). It runs only while a picture
+ * is loading and stops for reduced motion; the one-off sweep is a clip. */
 section [data-lattice-painting] {
   /* Nacre's three tones: the accent, and two hue-shifted relatives (+34° and −28°, Nacre's own
      offsets). A browser without relative colors keeps plain token mixes. */
@@ -374,12 +376,14 @@ section [data-lattice-painting] {
   }
 }
 section [data-lattice-painting]::before,
-section [data-lattice-painting]::after {
-  content: "";
+section [data-lattice-painting] > .lattice-paint-brush {
   position: absolute;
   pointer-events: none;
   opacity: 1;
   transition: opacity 450ms ease-out;
+}
+section [data-lattice-painting]::before {
+  content: "";
 }
 /* The canvas: an abstract landscape underpainting — a sky wash, a glow on the horizon, a heavier
  * ground, a faint linen weave. Opaque, so the picture beneath stays hidden until the painting
@@ -399,17 +403,29 @@ section [data-lattice-painting]::before {
   animation: lattice-paint-lay 1100ms cubic-bezier(0.22, 0.7, 0.2, 1) both;
 }
 /* The brushwork: long strokes in the three tones, cut to stroke shapes by a mask, with dry-brush
- * striations of the canvas colour running along them. The layer is EXACTLY the element's box: a
- * wider band overflows the element's scroll area even when clipped, and the slide's overflow
- * probe then flags the slide (measured: +1161px of scrollWidth on a photo panel). So the strokes
- * move inside it instead: the background and the mask slide together by exactly one tile, which
- * loops without a seam. The tile is sized in the slide's own container units, wider than any
- * panel, so a stroke never visibly repeats inside one; every stroke ends inside its tile, since
- * one crossing the tile's edge is cut there with a hard vertical seam. */
-section [data-lattice-painting]::after {
+ * striations of the canvas color running along them. A band wider than the element overflows
+ * the element's scroll area even when the element clips it, and the slide's overflow probe then
+ * flags the slide (measured: +1161px of scrollWidth on a photo panel). So the band sits inside the
+ * brush span, which is EXACTLY the element's box and clips it; the element only ever holds a
+ * box its own size. The band is one tile wider than the span and slides left by exactly one
+ * tile, which loops without a seam. The tile is sized in the slide's own container units, wider
+ * than any panel, so a stroke never visibly repeats inside one; every stroke ends inside its
+ * tile, since one crossing the tile's edge is cut there with a hard vertical seam. */
+section [data-lattice-painting] > .lattice-paint-brush {
   inset: 0;
   z-index: 1;
+  overflow: hidden;
   border-radius: inherit;
+  opacity: 0.9;
+}
+section [data-lattice-painting] > .lattice-paint-brush::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(100% + 64cqi);
+  will-change: transform;
   background-image:
     repeating-linear-gradient(0deg, color-mix(in oklab, var(--bg-alt, var(--bg)) 55%, transparent) 0 1px, transparent 1px 3px, color-mix(in oklab, var(--bg-alt, var(--bg)) 25%, transparent) 3px 4px, transparent 4px 7px),
     repeating-linear-gradient(0deg, transparent 0 5px, color-mix(in oklab, var(--bg-alt, var(--bg)) 35%, transparent) 5px 6.5px, transparent 6.5px 11px),
@@ -436,7 +452,6 @@ section [data-lattice-painting]::after {
   mask-size: 64cqi 100%;
   -webkit-mask-repeat: repeat-x;
   mask-repeat: repeat-x;
-  opacity: 0.9;
   animation: lattice-paint-brush 12s linear infinite;
 }
 /* STILL: a picture that is not coming (a web image the reader has not loaded, or one that failed).
@@ -446,10 +461,12 @@ section [data-lattice-painting="still"]::before {
   animation: none;
   filter: saturate(0.4);
 }
-section [data-lattice-painting="still"]::after {
-  animation: none;
+section [data-lattice-painting="still"] > .lattice-paint-brush {
   opacity: 0.4;
   filter: saturate(0.4);
+}
+section [data-lattice-painting="still"] > .lattice-paint-brush::before {
+  animation: none;
 }
 /* The same picture resuming in a re-created section: no second sweep. */
 section [data-lattice-painting="again"]::before {
@@ -457,10 +474,10 @@ section [data-lattice-painting="again"]::before {
 }
 /* Decoded: the painting fades away over the picture, which was painting beneath it all along. */
 section [data-lattice-painting="done"]::before,
-section [data-lattice-painting="done"]::after {
+section [data-lattice-painting="done"] > .lattice-paint-brush {
   opacity: 0;
 }
-section [data-lattice-painting="done"]::after {
+section [data-lattice-painting="done"] > .lattice-paint-brush::before {
   animation-play-state: paused;
 }
 @keyframes lattice-paint-lay {
@@ -469,13 +486,14 @@ section [data-lattice-painting="done"]::after {
 }
 @keyframes lattice-paint-brush {
   /* Exactly one tile: the loop has no seam. */
-  from { background-position: 0 0; -webkit-mask-position: 0 0; mask-position: 0 0; }
-  to { background-position: -64cqi 0; -webkit-mask-position: -64cqi 0; mask-position: -64cqi 0; }
+  from { transform: translateX(0); }
+  to { transform: translateX(-64cqi); }
 }
 /* Less motion asked for: a still painting, and the picture simply replaces it. */
 @media (prefers-reduced-motion: reduce) {
   section [data-lattice-painting]::before,
-  section [data-lattice-painting]::after {
+  section [data-lattice-painting] > .lattice-paint-brush,
+  section [data-lattice-painting] > .lattice-paint-brush::before {
     animation: none;
     transition: none;
   }
