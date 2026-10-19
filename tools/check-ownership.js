@@ -4014,14 +4014,14 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // GLYPH_DECK_ROOTS, ends `.gallery.md`, or declares `marp: true`), so the branch
       // was measurably dead — a widening no gate could act on.
       if (e.name.startsWith('.') && e.name !== '.github') continue;
-      if (rel === path.join('engineering', 'decisions')) continue; // historical records
+      if (rel === 'engineering/decisions') continue; // historical records
       // Gitignored build artifacts the docs dev/build stages into public/ —
       // duplicates of already-counted sources. A clean checkout doesn't have
       // them, so counting them made the gate red on any tree that had merely
       // RUN the docs site while CI stayed green (observed: 1351 → 1517 with
       // the artifacts present).
       // See engineering/decisions/2026-07-02-website-copy-positioning.md §8.5.
-      if (rel === path.join('docs', 'public', 'playground', 'v')) continue;
+      if (rel === 'docs/public/playground/v') continue;
       // Its sibling, and a stronger case: `playground/hljs/` is 156 minified
       // highlight.js grammars (tools/build-hljs-languages.js), gitignored like
       // `v/` above. The hits in there are third-party LANGUAGE KEYWORDS, not
@@ -4029,12 +4029,12 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // Mercury's `initialise`/`finalise`, pgsql's `analyse`: 6 in total, which
       // are third-party keywords no migration here could rename. (The US-English
       // ratchet that once counted them is gone; the walk now serves HARD RULE #29.)
-      if (rel === path.join('docs', 'public', 'playground', 'hljs')) continue;
+      if (rel === 'docs/public/playground/hljs') continue;
       // And `playground/fmt/`: the code formatter's browser build
       // (tools/build-code-format.js), gitignored, minified Prettier/ruff/sql-formatter
       // chunks. Their words are third-party identifiers (a formatter's own option
       // names, a DOM property), which no one here can rename.
-      if (rel === path.join('docs', 'public', 'playground', 'fmt')) continue;
+      if (rel === 'docs/public/playground/fmt') continue;
       // Same class, different producer: `release/` is the gitignored output of
       // a release run (tools/release.js). `notes-v<x.y.z>.md` is a verbatim
       // copy of a CHANGELOG section, so counting it double-charges a source that is
@@ -4047,7 +4047,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // don't author) and test-results holds failure snapshots of app copy.
       // Same local-only false-red class as playground/v above — a clean
       // checkout/CI never has them; any tree that RAN `npm run test:e2e` does.
-      if (rel === path.join('docs', 'playwright-report') || rel === path.join('docs', 'test-results')) continue;
+      if (rel === 'docs/playwright-report' || rel === 'docs/test-results') continue;
       listRepoTextFiles(p, out);
     } else if (
       US_TEXT_EXTS.has(path.extname(e.name)) &&
@@ -8785,7 +8785,7 @@ const VETRINA_SANCTIONED_DEP = '@laticent/ltt';
 function staysInFolder(dir, file, spec) {
   if (!spec.startsWith('./')) return false;
   const rel = relPosix(dir, path.resolve(path.dirname(file), spec));
-  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+  return rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel);
 }
 
 // `dir` defaults to the real library; the unit test points it at a scratch folder to prove the
@@ -9524,13 +9524,13 @@ function collectAudioSourceFiles(dir, out = []) {
 }
 function checkAudioPlaybackBoundary(errors) {
   const DOCS_SRC = path.join(ROOT, 'docs', 'src');
-  const SUONO_REL = path.join('docs', 'src', 'lib', 'suono');
+  const SUONO_REL = 'docs/src/lib/suono';
   const sanctioned = new Map(SANCTIONED_LEGACY_AUDIO.map((s) => [s.file, s]));
   const seen = new Set();
   for (const file of collectAudioSourceFiles(DOCS_SRC)) {
     const rel = relPosix(ROOT, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests mock the engine, not a real player
-    if (rel === SUONO_REL || rel.startsWith(SUONO_REL + path.sep)) continue; // Suono IS the player
+    if (rel === SUONO_REL || rel.startsWith(`${SUONO_REL}/`)) continue; // Suono IS the player
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
     if (!RAW_AUDIO_PATTERNS.some((re) => re.test(src))) continue;
     seen.add(rel);

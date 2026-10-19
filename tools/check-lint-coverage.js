@@ -567,25 +567,30 @@ function runProbe(root, biome, targets, token = crypto.randomBytes(6).toString('
 	try {
 		for (const [i, p] of abs.entries()) fs.writeFileSync(p, PROBE_LANGUAGES[probes[i].ext].source);
 		const maxRules = Math.max(...Object.values(PROBE_LANGUAGES).map((l) => l.rules.length));
-		const cap = Math.min(20000, probes.length * maxRules + 100);
-		const res = spawnBiome(
-			biome,
-			['check', '--reporter=json', `--max-diagnostics=${cap}`, ...probes.map((p) => p.path)],
-			{ cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 },
-		);
-		if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
-		let report;
-		try {
-			report = parseBiomeJson(res.stdout);
-		} catch {
-			throw new Error(`biome did not return JSON for the teeth probe:\n${res.stdout}${res.stderr}`);
+		// One Biome run per batch of probe paths (the Windows command-line limit; one batch elsewhere), diagnostics merged.
+		const diagnostics = [];
+		for (const batch of batchPaths(probes.map((p) => p.path))) {
+			const cap = Math.min(20000, batch.length * maxRules + 100);
+			const res = spawnBiome(biome, ['check', '--reporter=json', `--max-diagnostics=${cap}`, ...batch], {
+				cwd: root,
+				encoding: 'utf8',
+				maxBuffer: 1 << 28,
+			});
+			if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
+			let report;
+			try {
+				report = parseBiomeJson(res.stdout);
+			} catch {
+				throw new Error(`biome did not return JSON for the teeth probe:\n${res.stdout}${res.stderr}`);
+			}
+			if (report.summary?.diagnosticsNotPrinted) {
+				throw new Error(
+					`biome truncated ${report.summary.diagnosticsNotPrinted} probe diagnostic(s); raise the --max-diagnostics cap`,
+				);
+			}
+			diagnostics.push(...(report.diagnostics ?? []));
 		}
-		if (report.summary?.diagnosticsNotPrinted) {
-			throw new Error(
-				`biome truncated ${report.summary.diagnosticsNotPrinted} probe diagnostic(s); raise the --max-diagnostics cap`,
-			);
-		}
-		return { probes, silent: diffProbes({ probes, diagnostics: report.diagnostics ?? [] }) };
+		return { probes, silent: diffProbes({ probes, diagnostics }) };
 	} finally {
 		for (const s of signals) process.removeListener(s, onSignal);
 		sweep();
