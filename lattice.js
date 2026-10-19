@@ -1887,6 +1887,7 @@ const bakeServices = {
   readToken: readScopeToken,
   scopeKey: diagramScopeKey,
   paletteReader: paletteTokenReader,
+  fileConfine: DECK_CONFINE,
 };
 const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, ...PLUGIN_HOST });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
@@ -3257,12 +3258,12 @@ async function renderBody(browser, g, closeBrowser) {
     const { WEB_IMAGE_PLACEHOLDER } = require('./lib/core/remote-ref.js');
     // The command line names two more places the caller trusts by construction: the layout stylesheet and the
     // palette files (their `url()` assets sit beside them). They join the deck folder and the install.
-    const { createFileConfiner } = require('./lib/export/file-confine.js');
+    const { createFileConfiner, localPathOfFileUrl } = require('./lib/export/file-confine.js');
     const confine = createFileConfiner([...DECK_CONFINE.roots, path.dirname(path.resolve(cssFile)), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
     const outHtmlReal = fs.realpathSync(path.resolve(outHtml));
     // The output page itself, compared by REAL path (the output folder may be reached through a symlink, as
     // /tmp is on macOS), and never throwing: a `file://host/share` address has no local path.
-    const isOutputPage = (url) => { try { return fs.realpathSync(fileURLToPath(url.split(/[?#]/)[0])) === outHtmlReal; } catch { return false; } };
+    const isOutputPage = (url) => { try { const local = localPathOfFileUrl(url); return local !== null && fs.realpathSync(local) === outHtmlReal; } catch { return false; } };
     const standIn = decodeURIComponent(WEB_IMAGE_PLACEHOLDER.slice(WEB_IMAGE_PLACEHOLDER.indexOf(',') + 1));
     const refused = new Set();
     await g(() => page.setRequestInterception(true), 'confine local files');

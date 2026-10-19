@@ -195,11 +195,11 @@ describe('render worker: a dead page is not a diagram error', () => {
 
   test('the caller bounds the child process too', () => {
     // The worker bounds its own CDP calls, but a child that wedges before it can report
-    // leaves the caller's synchronous `execFileSync` blocked with no budget at all.
+    // leaves the caller's synchronous `spawnSync` blocked with no budget at all.
     // The export path: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D).
     const emulator = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8')
       + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
-    assert.match(emulator, /execFileSync\(process\.execPath, \[MERMAID_WORKER, jobFile\], \{[^}]*timeout \}/,
+    assert.match(emulator, /(?:execFileSync|spawnSync)\(process\.execPath, \[MERMAID_WORKER, jobFile\], \{[^}]*\btimeout\b/,
       'the worker spawn must carry a timeout');
   });
 });

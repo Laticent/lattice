@@ -1,5 +1,5 @@
 {
-  "$comment": "The platform-suite registry (engineering/development.md \u00a7 Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
   "suites": [
     {
       "name": "export-confine",
@@ -17,10 +17,12 @@
         "test/unit/export/bake-helper.js",
         "lattice.js",
         "lib/export/video.mjs",
-        "test/unit/export/cli-file-urls.test.js"
+        "test/unit/export/cli-file-urls.test.js",
+        "lib/plugins/mermaid/shared/render-worker.js",
+        "test/integration/export/mermaid-worker-confine.test.js"
       ],
-      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js",
-      "why": "A render reads a local file only by REAL path inside the deck folder (media note \u00a74.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. Windows reaches the same code through drive letters and backslashes: the CLI names its output page with pathToFileURL (file:///C:/\u2026), and file-confine must turn that back into a path on the same drive. Windows symlinks may need a privilege the runner lacks; the run records which assertions that skips or fails."
+      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+      "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. Windows reaches the same code through drive letters and backslashes: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive. The Mermaid worker's own page applies the same check. Windows symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
     }
   ]
 }

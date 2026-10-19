@@ -280,7 +280,7 @@ It may require anything; no browser bundle ever loads it. `ctx` is frozen and ca
 - `name`, a fresh `state` object the bake may fill, and the export's GENERIC services
   (`BAKE_SERVICES` in `lib/plugins/host-bake.js`; `bakeDeck` refuses any other): `pkgRoot`,
   `quiet`, `print`, `paletteUsesTexture`, `orientation`, `browser: { path, args }`,
-  `readToken(scope, name)` (a palette token as a `{ band, hand }` scope resolves it),
+  `fileConfine` (the CLI's local-file confiner: `.roots` and `.allows(fileUrl)`, which a bake with its own browser page applies to every `file:` request), `readToken(scope, name)` (a palette token as a `{ band, hand }` scope resolves it),
   `scopeKey(scope)` and `paletteReader(palette, hand)` (a token reader over any palette, with the sketch face's
   re-points). None names a plugin: what a plugin builds from a palette is the plugin's.
 

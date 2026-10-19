@@ -984,3 +984,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   and pass now. Out of scope on purpose: `<iframe>`, `<object>`, `<embed>`, `<input type=image>` and media `src`, which are not
   picture positions and which the slide sanitizer governs. `followups.d/2748-p3-player-inliner-other-picture-positions.md` is
   deleted; the Windows item was fixed in the follow-through PR that added the `windows-latest` leg (CLI file URLs now use `pathToFileURL`).
+- 2026-10-19: **the Mermaid worker page is confined too.** `render-worker.js` runs its own Chromium page, which the main-page guard never
+  saw: a flowchart image node (`A@{ img: "file:///…" }`) made it open any file. `confineFileRequests` now answers a `file:` request whose
+  real path is outside the render page's folder, the install and the job's `confineRoots` (the deck folder, from the new generic bake
+  service `fileConfine`) with the stand-in, and names it on stderr, which the bake forwards to the CLI's. Measured on the real page: before the guard both the outside and the
+  inside picture were requested; after it the outside one is refused and the inside one loads (`mermaid-worker-confine.test.js`). The
+  CLI also builds its file URLs with `pathToFileURL` now, and `export-confine` has a `windows-latest` leg.

@@ -1,5 +1,5 @@
 // A file: URL is built with pathToFileURL, never by string concatenation: 'file://' + 'C:\\x\\y.html' is not
-// a valid Windows address (followups.d/2771-p3-cli-windows-file-urls.md).
+// a valid Windows address.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

@@ -1,1 +1,2 @@
-- The CLI names its output page and the MP4 encoder pages with `pathToFileURL`, so a render on Windows loads `file:///C:/…` instead of a malformed `file://C:\…`. The `export-confine` platform suite gains a `windows-latest` leg.
+- The CLI names its output page and the MP4 encoder pages with `pathToFileURL` instead of string concatenation, so the address is a valid `file:///C:/…` on Windows (and percent-encoded correctly for a path with a space or `#` everywhere). The `export-confine` platform suite gains a `windows-latest` leg.
+- A host-qualified `file://host/share/x` address is refused before any file-system call, so on Windows it can no longer reach a network share.
