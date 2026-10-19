@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: decided (design); not built
 summary: >
   Every chart should take custom labels, and the family has at least seven separate label
   mechanisms that do not share a model. The proposal is ONE label model with two emitters (HTML,
@@ -110,14 +110,25 @@ would mean `<foreignObject>`, which §2 above rules out.
 `label-set.js` stays the authoring and data layer for the collection; it already holds
 `{key, label, detail}`.
 
-## Plugin or kernel?
+## Plugin or kernel? Decided: an embedded plugin, like pills
 
-Recommend a **core kernel** (`lib/core/label.js` plus `label-mark.js`), not an author-facing
-plugin, for the reason `html-legend.js` gives for living in `lib/core`: charts in several
-buckets must import it. A plugin in the `lib/plugins` sense (manifest, fence or inline
-grammar, `LPM.md` contract) pays for an author-visible syntax. The author-visible part
-already exists (label sets, the `{…}` pill record), so a new syntax is not needed to ship this.
-A plugin manifest can wrap the kernel later if third-party label kinds become a goal.
+The owner chose a **built-in ("embedded") plugin that ships with the engine, as pills do**,
+over a bare core kernel. The shape that follows:
+
+- A `label` plugin under `lib/plugins/label/` (manifest, docs, fixtures, styles) that
+  contributes the inline author form and registers with the host the way `icons` and `avatars`
+  do, so the loader, the docs site's Plugins hub and the conformance harness all see it.
+- The model, the mark vocabulary and both emitters live in `lib/core/label*.js`, so charts in
+  every bucket import the kernel directly (HARD RULE #1). The plugin is the author-facing and
+  registry-facing shell around that kernel; the chart-family `kernel` extension point is how
+  charts take it.
+- Per the grammar decision, an author writes a per-occurrence label with the pill record
+  (`{text, c3, tag}`, same words) and a deck-wide set in the label-set register.
+
+Open sub-question (assumed, not asked): whether the inline form needs a new sigil. Pills use
+`{…}`, icons `^{…}`, avatars `!{…}`. Recommend NO new sigil in phase 1: heatmap annotations
+ride the existing cell `note=` and `{…}` forms, and the plugin's author surface is the label
+set. Add a sigil only if an author cannot say something the existing forms already cover.
 
 ## What this retires, and what it does not
 
@@ -147,11 +158,10 @@ Does not retire:
   `wrapSvgLabel`, adopted by `svg-legend`; (4) author surface for custom labels on marks;
   (5) heatmap annotation labels as the first new capability, which proves the ask end to end.
 
-## Open decisions (owner's)
+## Decisions
 
-1. Kernel vs plugin (above, recommend kernel).
-2. Author grammar for custom labels on a mark, value or axis: reuse the `{text, c3, tag}`
-   pill record, extend the label-set register, or both.
-3. Scope of the first PR: audit and kernel only, or kernel plus the first adopter.
-4. Whether `plate` defaults to none everywhere, including keys, which today render swatch +
-   text with no plate (recommend yes; matches current output and keeps ports byte-identical).
+1. **Form: embedded plugin, like pills.** Kernel in `lib/core`, shell in `lib/plugins/label`.
+2. **Grammar: both** the pill record (per occurrence) and the label-set register (deck-wide).
+3. **First PR: kernel + heatmap annotations.** Legend and chart ports follow, one adopter per
+   commit, byte-identical.
+4. **Plate defaults to none everywhere**, keys included, so ports stay byte-identical.
