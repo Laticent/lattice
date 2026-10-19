@@ -38,3 +38,11 @@ No new plugin ships browser code (no manifest other than the two above declares 
 
 Mermaid cost, measured 2026-10-18 on this container with the current bake path (a one-slide `flowchart LR A-->B-->C` deck against a one-slide plain deck, `.html` export): 2,216,222 bytes against 2,202,922 (**+13.3 KB**), 4.1 s against 1.9 s to render (**+2.2 s**, the Chromium subprocess), the diagram baked as inline SVG with no Mermaid library in the file (0 references to `mermaid.initialize` or `mermaid.run`). The PDF is 10.8 KB. So the default export already ships a baked diagram; what is left in the browser is the `hydrate` pass (click links, per `mermaid.hydrate.js:1077`) and the payload for decks that need it. Moving the bake into the locked page changes no export bytes if the SVG is identical, and needs the diagram golden check to prove that; **it is an export-affecting change, so it stops for the owner's sign-off with dark and light renders (CLAUDE.md QUALITY BAR)**. Not measured: diagram quality against a bake in the locked page, and decks that use the payload.
 
+
+Math feasibility, measured 2026-10-19 (the npm-plugin-safety PR): the vendored `katex.min.js` (272 KB, under the door's
+1 MB cap) runs as a fence renderer in the LOCKED sandbox page (`openPackageSandbox`, `runPackage`) and renders all 80
+formulas in the math docs, fixtures, gallery and examples, plus a malformed one, **byte-identical** to `renderTex` in
+Node (81 in all). `test/integration/parity/math-sandbox-parity.test.js` pins it, and goes red when one option differs (6 of 81).
+Cost: 447 ms to open the sandbox once, then about 4.4 ms per formula against 0.9 ms in Node (the memo would cut repeats
+in both). So moving math changes no export bytes. Dark and light renders of `examples/math-form-frame.md` went to the
+owner for sign-off; **math moves after that sign-off, not before.** Mermaid and function-plot are not measured yet.
