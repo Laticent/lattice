@@ -140,7 +140,7 @@ describe('what the engine adds or the outline drops', () => {
 describe('known defect: the outliner drops an empty slide the engine renders', () => {
 	// `it.fails` passes while the defect stands and turns red the day the outline counts the blank slide,
 	// which is the cue to delete this block and the followup that names it
-	// (followups.d/*-p3-outliner-drops-empty-slides.md).
+	// (followups.d/2789-p3-outliner-drops-empty-slides.md).
 	it.fails('counts a blank middle slide as a unit, as the engine renders it', () => {
 		const md = '# A\n\n---\n\n---\n\n# C\n';
 		expect(buildDeckIndex(md).units.length).toBe(countSlides(md));

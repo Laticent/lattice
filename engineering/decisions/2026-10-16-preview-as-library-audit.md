@@ -935,7 +935,7 @@ at least 560 px wide and under it otherwise, measured on a wrapper the rail does
   (the tiles on screen, at most 24) instead of learning it. The Studio's stage is not driven by Veduta, and the page-global live
   budget priced per connector has one connector. So the 11f.2 tripwire ("the Playground adopts the core with no change to it")
   is met for the band arithmetic and the map window only; the capacity report, the joint stage-and-map budget and the poster tier
-  have no production caller. Publishing to npm should wait for those (`followups.d/*-p2-veduta-pool-capacity-and-stage.md`).
+  have no production caller. Publishing to npm should wait for those (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`).
 - **Found by the trio and fixed before merge.** A scrollbar loop (React #185 wherever scrollbars take layout space; the scroller
   now always carries its track and the measuring effect no longer re-runs with `refresh`), arrow keys that handed focus to the
   editor after one step (a key now picks quietly), a hidden focus before every lens-shown slide (no tile is highlighted and Next
@@ -959,7 +959,7 @@ section 11d.2 used longer walks. `deck-render.window.test.ts` still pins the ari
 empty chunk and the engine renders it. A checker pointed out that the map is the surface this PR adds, so the index now finds the
 blank page from its markup (`blanksOf`), gives it no part, and keeps every other page on its own (tested through the real engine
 on decks with one and three blank slides). The outline still drops the slide, which the Studio's pills and counters inherit; that
-unit model is read by every editor path, so it is `followups.d/*-p3-outliner-drops-empty-slides.md`, with an `it.fails` arm in
+unit model is read by every editor path, so it is `followups.d/2789-p3-outliner-drops-empty-slides.md`, with an `it.fails` arm in
 `rendered-index.test.ts` that turns red the day the outline counts it. No shipped deck has a blank slide (0 of 292).
 
 ## 12. Next step
