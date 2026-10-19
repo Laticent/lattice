@@ -386,8 +386,25 @@ top-level list slot. Decision 1 stands.
 
 A number-first key (`{1, Cold}` only when the first word is a number) was also tried and
 rejected: it refuses `{Cold}` and `{done, Done}`, and flowchart keys are words and operators.
-Every shipped label-set span in `lib/`, `design/` and the heatmap note reads under the adopted
-design.
+**Census of shipped spans (spike 4).** A regex over `lib/`, `design/`, `engineering/`,
+`examples/`, the docs content and the baseline decks found 121 inline `[{…}]` spans holding 187
+records. Result under the adopted design:
+
+| Records | Count | What they are |
+|---|---|---|
+| Read as an entry or a keyed pair | 129 | `{1, Cold}`, `{"=>", Happy path}`, `{dashed, Sent back}`, and the rest |
+| Axis specs the regex also caught | 35 | `{Effort, 0..10, 5}`, `{Timeline, 2026 Q1..Q4, today=Q3}`: the axis grammar, not a legend |
+| State-marker keys | 22 | `{[x], Enacted}`, `{[-], …}`, `{[ ], …}`, `{[/], …}` in roadmap, matrix-grid and obligation-matrix |
+| Prose in a decision note | 1 | `{el, label, hint?}` |
+
+**The marker keys do not read unquoted.** `[` is a Segno stop character, so neither slot can
+lex `[x]` as a bare key. Quoted, they read: `{"[x]", Enacted}`, `{"[ ]", Not started}`,
+`{"[-]", In committee}` and `{"[/]", Cut}` all bind as keyed pairs. Shipped decks write them
+unquoted, so the port keeps the existing bracket reader (`parseBracketList`) as a closed-set
+compat arm for exactly the state markers `x`, `-`, `/`, `!`, `?` and space, and the new grammar
+accepts the quoted spelling. Nothing an author wrote changes. That arm is not a Segno slot, which
+sits against Segno decision 20 (`2026-09-28-segno-unified-inline-notation.md:71`); it is bounded to
+six keys and retires when those decks migrate to the quoted spelling. This is decision 5.
 
 **Settled by reading the code:** SVG keys sit inside the `aria-hidden` group (section 7); legend
 swatches carry no motion attribute (section 8).
@@ -415,3 +432,7 @@ swatches carry no motion attribute (section 8).
 
 Both spikes ran (section 13). Spike 1 passed. Spike 2 rejected the one-slot, two-positional
 binding and adopted the entry-then-keyed retry. Decision 1 stands.
+
+| # | Decision | Outcome |
+|---|---|---|
+| 5 | How shipped state-marker keys (`[x]`, `[-]`, `[ ]`, `[/]`) keep working | Default taken: keep the bracket reader as a closed-set compat arm for the six markers, accept the quoted spelling, migrate decks later. The owner can veto; the alternative is a breaking migration of three components' decks in the first port |
