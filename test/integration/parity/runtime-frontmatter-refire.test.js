@@ -30,6 +30,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
+const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock, FRONT_MATTER_TYPE } = require('../../../lib/core/deck-front-matter');
 
@@ -129,7 +130,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.ok(document.querySelector('.tile-meta'), 'meta Tile re-filled after the live-edit wipe');
     assert.ok(document.querySelector('section').classList.contains('dark'), 'dark class re-applied after the live-edit wipe');
 
-    window.close();
+    closeQuietly(window);
   });
 
   // The surface the fetch never worked on: a `file://` open (a recipient
@@ -179,7 +180,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.ok(document.querySelector('.tile-meta'), 'meta Tile re-filled after the live-edit wipe');
     assert.ok(document.querySelector('section').classList.contains('dark'), 'dark class re-applied');
 
-    window.close();
+    closeQuietly(window);
   });
 
   // The DEFAULT-component rule (#1292) is the fourth member of this family, and it was
@@ -217,7 +218,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.deepEqual(componentsOn(document), ['content'],
       're-stamped after the wipe — otherwise every render after the first is unstyled, which is #1292 itself');
 
-    window.close();
+    closeQuietly(window);
   });
 
   // A deck-wide `class:` naming a COMPONENT used to claim every slide. It is refused
@@ -245,7 +246,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     await new Promise((r) => setTimeout(r, 400));
     assert.deepEqual(componentsOn(document), ['content'], 'and still after a live-edit wipe');
 
-    window.close();
+    closeQuietly(window);
   });
 
   // R1 FROM #1416, on the surface it was reachable from. The reverted attempt made
@@ -300,7 +301,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.ok(cls.includes('dark'), `the slide's own pin survives, got "${cls.join(' ')}"`);
     assert.ok(!cls.includes('color-light'), 'and the deck color mode does not stack on top of it');
 
-    window.close();
+    closeQuietly(window);
   });
 });
 

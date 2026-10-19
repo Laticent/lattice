@@ -35,6 +35,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
+const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
 const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
@@ -93,7 +94,7 @@ const runRuntime = async (fmLines) => {
     sketch: section.classList.contains('sketch'),
     ticks: document.querySelectorAll('text.gantt-tick').length,
   };
-  window.close();
+  closeQuietly(window);
   return result;
 };
 
@@ -159,7 +160,7 @@ const runRuntimeFetched = async (fmLines) => {
     backdrop: hasBackdrop(),
     backdropGap,
   };
-  window.close();
+  closeQuietly(window);
   return result;
 };
 
@@ -208,7 +209,7 @@ const countTransformPasses = async (fmLines, baked) => {
   await new Promise((r) => setTimeout(r, 400));
   const passes = window.__passes || 0;
   const ticks = document.querySelectorAll('text.gantt-tick').length;
-  window.close();
+  closeQuietly(window);
   return { passes, ticks };
 };
 
