@@ -46,3 +46,13 @@ Node (81 in all). `test/integration/parity/math-sandbox-parity.test.js` pins it,
 Cost: 447 ms to open the sandbox once, then about 4.4 ms per formula against 0.9 ms in Node (the memo would cut repeats
 in both). So moving math changes no export bytes. Dark and light renders of `examples/math-form-frame.md` went to the
 owner for sign-off; **math moves after that sign-off, not before.** Mermaid and function-plot are not measured yet.
+
+Mermaid's CLI bake, moved 2026-10-19 (the npm-plugin-safety PR): `render-worker.js` now draws in the LOCKED page. It
+runs in the code sandbox's browser (`launchCodeSandbox`, the OS sandbox on where the machine allows it), on a synthetic
+origin the worker answers from Lattice's own files, under a CSP that admits those files and nothing else. Before, it
+ran on a `file:` page with `--no-sandbox`. A flowchart image node's `file:` picture is re-addressed onto the origin,
+answered through the same file confiner, and its address is restored in the SVG. Evidence: 32 of 32 gallery and
+fixture diagrams are byte-identical, and so are the PDFs of `examples/mermaid-diagram-surface.md`,
+`dark-diagram-fills.md` and `mermaid-init-merge.md` and the fixtures' HTML and PDF. No export bytes changed, so there
+is nothing to sign off. Still open: Mermaid's `hydrate` in the previews and in the plain `.html` export's click
+links (owner decision 15, previews), function-plot, and math.

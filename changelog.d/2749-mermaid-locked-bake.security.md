@@ -1,0 +1,1 @@
+- The CLI now draws Mermaid diagrams in a locked browser page: Chromium's OS sandbox where the machine allows it, no network, and a page that can load only Lattice's own Mermaid files. Before, the bake ran with the OS sandbox off on a `file:` page. Exports are byte-identical.

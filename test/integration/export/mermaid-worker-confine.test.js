@@ -43,3 +43,46 @@ test('a flowchart image node naming a file outside the deck is refused; one insi
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
+
+// The worker's page is the LOCKED page (threat-model note 2026-10-16 §6 row 14): its own origin, a strict CSP, the code
+// sandbox's browser. A diagram that names a web picture reaches nothing; the control fetches the same address from an
+// ordinary page and is heard, so the zero is the page's wall and not a listener that never answers.
+test('a diagram that names a web picture reaches no listener from the locked page; an ordinary page does', async () => {
+  const http = require('node:http');
+  const hits = [];
+  const server = http.createServer((req, res) => {
+    hits.push(req.url);
+    res.writeHead(200, { 'content-type': 'image/svg+xml' });
+    res.end('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const at = `http://127.0.0.1:${server.address().port}`;
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-locked-'));
+  try {
+    const outFile = path.join(base, 'out.json');
+    const jobFile = path.join(base, 'job.json');
+    const definition = `flowchart LR\n A@{ img: "${at}/locked.svg", label: "A", pos: "b", w: 80, h: 60 }\n A --> B`;
+    fs.writeFileSync(jobFile, JSON.stringify({ pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [base], diagrams: [{ definition, config: {} }] }));
+    const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(r.status, 0, r.stderr);
+    // Whether Mermaid draws a node whose picture never loads is its own business (the export swaps a web picture for
+    // the stand-in before the worker sees it, lib/core/remote-ref.js); what matters here is where the request went.
+    const out = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    assert.ok(['on', 'off', 'unmeasured'].includes(out.layer), `the worker reports the OS layer it ran at: ${out.layer}`);
+    await new Promise((res) => setTimeout(res, 500));
+    assert.deepEqual(hits, [], 'the locked page reached the listener');
+    // The control: the same address from an ordinary page.
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox'] });
+    try {
+      const page = await browser.newPage();
+      await page.setContent(`<img src="${at}/control.svg">`, { waitUntil: 'load' });
+    } finally {
+      await browser.close();
+    }
+    assert.deepEqual(hits, ['/control.svg'], 'the control did not reach the listener, so the zero above proves nothing');
+  } finally {
+    server.close();
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
