@@ -11,7 +11,7 @@ summary: >
   placement geometry are not retired.
 ---
 
-# One label model, two emitters, three slots
+# One legend model, two emitters, three slots
 
 **2026-10-19.** Status: proposed. Nothing in this note is built.
 
@@ -89,7 +89,7 @@ label = { text, detail?, mark?, plate?, tone? }
   `inline-pills.js`) and the `--pill-*` geometry. The label does not import the pill's author
   grammar; it imports its vocabulary and tokens. That keeps the pill from growing a `mark`
   slot, an arrow, a dash pattern. A pill stays "text on a plate".
-- **Mark** is a new small kernel (`lib/core/label-mark.js`) that absorbs `keySwatch`,
+- **Mark** is a new small kernel (`lib/core/legend-mark.js`) that absorbs `keySwatch`,
   `swatchClass` and the `--mark-*` / `--shape-*` lookups. Color comes from the element, shape
   from us (#3, #29).
 
@@ -110,15 +110,33 @@ would mean `<foreignObject>`, which §2 above rules out.
 `label-set.js` stays the authoring and data layer for the collection; it already holds
 `{key, label, detail}`.
 
+## Name: legend (decided)
+
+The owner chose **`legend`** for the plugin, over `label`. The model below stays the same: a
+record of text, mark and plate. What changes is the word. "Legend" is the plugin's name and the
+name of the broad concept; "label" remains the word for one record, and `label-set` keeps its
+name as the data shape for a collection.
+
+Consequences to handle during the build, not after:
+
+- `lib/core/html-legend.js` and `svg-legend.js` already use the word for the key alone. The
+  plugin absorbs both, so the old files retire into the new kernel rather than sit beside it.
+  Until each port lands, docs must say "the legend plugin" for the new thing and name the old
+  files by path.
+- A legend now covers value labels, axis names and node names as well as keys. Its docs open by
+  saying so, because a reader who knows the old meaning will assume a key.
+- The key layout keeps a name of its own so the two senses stay apart: `key` (swatch + text,
+  stacked or flowed) versus the other collection layouts `anchored` and `along-path`.
+
 ## Plugin or kernel? Decided: an embedded plugin, like pills
 
 The owner chose a **built-in ("embedded") plugin that ships with the engine, as pills do**,
 over a bare core kernel. The shape that follows:
 
-- A `label` plugin under `lib/plugins/label/` (manifest, docs, fixtures, styles) that
+- A `legend` plugin under `lib/plugins/legend/` (manifest, docs, fixtures, styles) that
   contributes the inline author form and registers with the host the way `icons` and `avatars`
   do, so the loader, the docs site's Plugins hub and the conformance harness all see it.
-- The model, the mark vocabulary and both emitters live in `lib/core/label*.js`, so charts in
+- The model, the mark vocabulary and both emitters live in `lib/core/legend*.js`, so charts in
   every bucket import the kernel directly (HARD RULE #1). The plugin is the author-facing and
   registry-facing shell around that kernel; the chart-family `kernel` extension point is how
   charts take it.
@@ -160,7 +178,7 @@ Does not retire:
 
 ## Decisions
 
-1. **Form: embedded plugin, like pills.** Kernel in `lib/core`, shell in `lib/plugins/label`.
+1. **Form: embedded plugin, like pills.** Kernel in `lib/core`, shell in `lib/plugins/legend`.
 2. **Grammar: both** the pill record (per occurrence) and the label-set register (deck-wide).
 3. **First PR: kernel + heatmap annotations.** Legend and chart ports follow, one adopter per
    commit, byte-identical.
