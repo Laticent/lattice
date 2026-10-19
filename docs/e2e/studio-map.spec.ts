@@ -62,9 +62,9 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	await page.keyboard.press('Home');
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toHaveAttribute('data-unit', '0');
 	expect(await current(page)).toBe('0');
-	// A live picture is a pooled frame, and never more than the pool's ceiling.
+	// A live picture is a pooled frame, and never more than the pool's ceiling (HARD_MAX_SLOTS).
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
-	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(24);
+	expect(await page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeLessThanOrEqual(28);
 	await page.getByRole('button', { name: 'Slide map' }).click();
 	await expect(page.locator(RAIL)).toBeHidden();
 });
@@ -104,6 +104,18 @@ test('the rail follows the deck as it is edited', async ({ page }) => {
 	await setEditorContent(page, '# One\n\n---\n\n# Two\n\n---\n\n# Three\n\n---\n\n# Four\n');
 	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(4, { timeout: 15_000 });
 	await expect(page.locator(`${RAIL} button[aria-label="Slide 4, Four"]`)).toBeVisible();
+});
+
+test('a blank slide is a pill and a tile, and the slide after it is picked as itself', async ({ page }) => {
+	await gotoStudio(page);
+	await mapOn(page);
+	// The engine renders the empty chunk between the two separators as slide 2, and the PDF counts it.
+	await setEditorContent(page, '# One\n\n---\n\n---\n\n# Three\n');
+	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(3, { timeout: 15_000 });
+	await expect(railButtons(page)).toHaveCount(3);
+	await page.locator(`${RAIL} button[aria-label="Slide 3, Three"]`).click();
+	await label(page, 'Slide 3 / 3');
+	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '2');
 });
 
 test('a slide the structural split cuts into pages is still one tile', async ({ page }) => {

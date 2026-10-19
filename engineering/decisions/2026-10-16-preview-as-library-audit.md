@@ -997,6 +997,40 @@ carries a constant.**
   (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`, narrowed). The npm tripwire should not count as met until a
   production value can bind.
 
+## 11m. Fixed on 2026-10-19: a blank slide is a unit (continuation P2)
+
+Section 11k filed the outline half of the empty-slide defect. It is fixed at the source: the outline now counts what the
+engine renders.
+
+- **The rule, measured on the engine.** `splitOnHr` (`lib/engine/slides.js`) keeps every group except a FIRST group that
+  holds no tokens. So `# A`, `---`, `---`, `# C` is three slides, a trailing `---` is a blank last slide, and a body that
+  opens with a separator loses only that leading chunk. Both splitters drop a BLANK first chunk and keep every other one.
+  They do not use the kernel's `leadingEmpty` flag, which is also true for a first chunk holding only a link reference
+  definition: the engine renders nothing for it, but it is source, and every caller that rejoins the list (`deck-ops.ts`,
+  Compose) would delete it and break every link that uses it. A checker caught that in an earlier draft of this change; on
+  that one shape the outline still counts one unit more than the engine, as it did before.
+- **Where.** `splitSlides` (`studio/lint.ts`) keeps an empty chunk as `''`; the outliner (`deck-outline.ts`, `rawChunks`)
+  keeps it as a unit whose start is its end. An empty body is still no slides. The incremental update now sorts old units
+  by where they START: an empty unit starts where it ends, so at the end of the text or right after the region's opening
+  separator it sat on both edges, and the incremental-equals-full property (3,000 runs) found that within one run.
+- **What it fixes beyond the map.** Every slide-indexed caller of `splitSlides` (27 call sites) now indexes the list the
+  engine renders rather than one with the blank slides taken out. Tested here: the Studio's pills and counters (e2e), and
+  `deck-ops.ts`, which rejoins the list after every move, duplicate, add or delete and so used to delete a blank slide from
+  the source. The other callers (the Coach, narration, the share export, Compose) were run through their own suites, all
+  green, and not tested on a blank slide specifically.
+- **What it removes.** The rendered index no longer needs to find a blank page from its markup: `blanksOf`, `chromeProbeOf`,
+  `deckChromeOf` and the `blank` argument are gone, and so is the Playground bridge's extra render of the front matter to
+  learn its chrome. A page the outline does not count is still reported as unexplained, never absorbed.
+- **Evidence.** `rendered-index.test.ts` renders eight blank-slide shapes (middle, several, trailing, whitespace-only,
+  leading, after front matter) and requires the outline's unit count to equal the engine's slide
+  count, and every page to land on its own unit; its arm rebuilds the old splitter and must disagree with the engine on
+  every shape but the leading one. `deck-ops.test.ts` keeps the blank slide through move, duplicate and add, and keeps a
+  leading link reference definition through a move and an add.
+  `studio-map.spec.ts` (desktop) shows the blank slide as a pill and a tile and picks the slide after it as itself;
+  `playground-map.spec.ts` shows it as a tile in a deck with a front-matter header and page numbers, with every later tile
+  on its own engine slide. None of the 309 example and baseline decks (`git ls-files 'examples/*.md'
+  'test/integration/baseline-decks/*.md'`) holds a blank slide, so no shipped deck changes.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

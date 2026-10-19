@@ -153,19 +153,14 @@ export function createEngineBridge(
 				(indexed ??= (async () => {
 					// Loaded when a map asks, not with the Playground: the outline, the index and the glossary
 					// kernel are only needed to place pages on slides.
-					const [{ updateDeckIndex }, { blanksOf, chromeProbeOf, deckChromeOf, NO_CHROME, renderedIndexOf, stampsOf }, { autoGlossarySections }] = await Promise.all([import('./deck-outline'), import('./rendered-index'), import('../../../lib/core/glossary-auto.mjs')]);
+					const [{ updateDeckIndex }, { renderedIndexOf, stampsOf }, { autoGlossarySections }] = await Promise.all([import('./deck-outline'), import('./rendered-index'), import('../../../lib/core/glossary-auto.mjs')]);
 					const deck = (deckIndex = updateDeckIndex(deckIndex, source));
-					// The chrome the front matter gives every slide, so a blank slide is told from one that set its own.
-					// Rendered from the front matter plus one slide; a deck that sets none skips the render.
-					const probe = chromeProbeOf(source);
-					const deckChrome = probe ? deckChromeOf((await renderMarkdown(PGref, probe, theme, { baseUrl: samplesBase, samplesUrl: samplesBase })).html) : NO_CHROME;
 					return renderedIndexOf(
 						stampsOf(html),
 						deck,
 						async (md) => stampsOf((await renderMarkdown(PGref, md, theme, { baseUrl: samplesBase, samplesUrl: samplesBase })).html).length,
 						partCounts,
 						autoGlossarySections(source),
-						blanksOf(html, deckChrome),
 					);
 				})());
 			// Letterbox the filmstrip in the BRAND background (the pane's `--bg-alt` for the

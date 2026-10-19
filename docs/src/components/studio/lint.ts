@@ -31,7 +31,16 @@ function separatorPositions(body: string): Array<{ index: number; length: number
 	return separatorRanges(String(body ?? '')).ranges;
 }
 
-/** Split a deck BODY (front matter already stripped) into trimmed, non-empty slide chunks. */
+/**
+ * Split a deck BODY (front matter already stripped) into trimmed slide chunks, one per slide the engine
+ * renders. An EMPTY chunk is a slide: `# A\n\n---\n\n---\n\n# C` renders three, and a trailing `---`
+ * renders a blank last slide. Only a blank FIRST chunk is dropped, because the engine drops it too (a body that
+ * opens with a separator; `splitOnHr` in lib/engine/slides.js). An empty body is no slides.
+ *
+ * This used to drop every empty chunk, so a blank slide the PDF counts was missing from the rail, the
+ * counters and every slide-indexed editor call, and a structural edit (deck-ops.ts) rejoined the list
+ * without it, deleting the blank slide from the source (followups.d/2789-p3, closed).
+ */
 export function splitSlides(src: string): string[] {
 	const text = String(src ?? '');
 	const seps = separatorPositions(text);
@@ -42,7 +51,13 @@ export function splitSlides(src: string): string[] {
 		pos = s.index + s.length;
 	}
 	chunks.push(text.slice(pos));
-	return chunks.map((s) => s.trim()).filter(Boolean);
+	const out = chunks.map((s) => s.trim());
+	// A BLANK first chunk is dropped, as the engine drops it. Not the kernel's `leadingEmpty`, which is also true
+	// for a first chunk that holds only a link reference definition: that chunk renders nothing but is real source,
+	// and every caller that rejoins this list (deck-ops.ts, Compose) would delete it, and with it every link that
+	// uses it. Keeping it costs a count one too high on that shape, as before; dropping it loses bytes.
+	if (out.length && !out[0]) out.shift();
+	return out;
 }
 
 // WHICH `_class` GOVERNS A SLIDE — asked of the ONE module that already knows.
