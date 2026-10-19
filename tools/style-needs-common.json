@@ -2,6 +2,7 @@
  "threshold": 0.7,
  "decks": 292,
  "ids": [
+  "head:base.tokens#rest",
   "head:base.elements",
   "head:scaffold",
   "katex",
@@ -14,6 +15,7 @@
   "base:modifiers#color-system",
   "base:modifiers#title~3",
   "base:modifiers#actors",
+  "base:modifiers#divider",
   "base:modifiers#marker-rail",
   "base:modifiers#clip-marked",
   "base:modifiers#illegible",
@@ -22,8 +24,13 @@
   "base:modifiers#lat-split-rail",
   "base:modifiers#rest~5",
   "base:treatments",
+  "base:finish#finish",
+  "base:finish#finish~2",
+  "base:finish#finish~3",
   "base:finish#rest",
   "base:finish#title",
+  "base:finish#finish~4",
+  "base:finish#finish~5",
   "base:focus",
   "tail:base.variants#silent",
   "tail:base.variants#confidential",
@@ -37,6 +44,7 @@
   "tail:base.accent-finish",
   "tail:code.styles",
   "tail:mermaid.styles",
-  "tail:base.fluid-view"
+  "tail:base.fluid-view",
+  "generated:slicing"
  ]
 }

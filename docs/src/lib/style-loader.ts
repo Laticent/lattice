@@ -1,6 +1,6 @@
 // On-demand engine styles for the Playground (E3 of engineering/decisions/2026-10-18-on-demand-styles.md).
 //
-// `dist/lattice-min.css` is 933 KB (117 KB gzipped) and a deck uses a median 21% of it. `dist/styles-min/`
+// `dist/lattice-min.css` is 936 KiB (117 KB gzipped) and a deck uses a median 21% of it. `dist/styles-min/`
 // cuts it into 187 ordered modules, and `lib/core/style-needs-scan.mjs` says which of them a rendered
 // document needs. This loader is the browser half: it fetches the index and the always-needed modules
 // first, scans the HTML the engine rendered, fetches the modules that HTML needs, and hands the host
@@ -9,8 +9,8 @@
 // through `docStyleText`, which sanitizes the composed sheet again.
 //
 // THE UNION ONLY GROWS. Each scan adds modules; none is dropped within a session. Deleting a component
-// from the source then re-adding it never reloads anything, and the host re-renders only when a scan
-// brings in a module the base does not have yet (`ensureFor` returns true), which is one extra render
+// from the source then re-adding it never reloads anything, and the host recomposes the sheet only when a scan
+// brings in a module the base does not have yet (`ensureFor` answers `grew`), which is one recompose (`restyle()`)
 // in the cold case and almost never after that.
 //
 // HINTS ONLY WARM. `warm(markdown)` reads `_class:` / `class=` words and starts fetching the modules
@@ -193,7 +193,14 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 		void loadIndex()
 			.then((n) => {
 				const words = new Set<string>();
-				for (const m of markdown.matchAll(/(?:^|[\s<!-])_?class:\s*([^\n]*?)\s*(?:-->|\n|$)/g)) for (const w of m[1].split(/\s+/)) if (w) words.add(w.replace(/['"]/g, '').toLowerCase());
+				// Line by line, never one regex over the whole text: a `_class:` directive followed by tens of
+				// thousands of spaces cost seconds with the single pattern (red team, 2026-10-19).
+				for (const line of markdown.split('\n')) {
+					if (line.length > 2000) continue;
+					const at = line.indexOf('class:');
+					if (at < 0) continue;
+					for (const w of line.slice(at + 6).replace(/-->.*$/, '').split(/\s+/)) if (w) words.add(w.replace(/['"]/g, '').toLowerCase());
+				}
 				const named = n.index.flatMap((m, i) => (!m.always && !included[i] && m.alts.some((alt) => alt[0].length > 0 && alt[0].every((c) => words.has(c))) ? [i] : []));
 				// A deck whose words name most of the sheet will be loaded whole (`ensureFor` says so):
 				// prefetching its modules one by one would be fetched twice.

@@ -3,12 +3,16 @@
  *
  * `tools/style-needs-audit.mjs` proves the scanner against CLI renders. This script proves the LOADER:
  * for each deck it opens the real Playground twice in a fresh browser context, once with the whole
- * sheet (`?styles=full`) and once with the loader, and reads the stylesheet each frame actually built
+ * sheet (the default) and once with the loader, and reads the stylesheet each frame actually built
  * (`#lattice-doc`, the composed sheet after the engine's own pack and mask steps and the host's
  * sanitizer, so it is the bytes the user's frame holds). It then puts the SAME slide HTML in a blank
  * page under each sheet and compares every element's computed style, plus ::before and ::after, in
  * screen, print and dark. Two loads of the whole-sheet page give the noise floor (animations, time).
  * Any difference left is a rule the loader dropped.
+ *
+ * The same comparison runs on the LIVE frame (the slides it holds after the host's split, the web-image block
+ * and the runtime), screen only, with a second whole-sheet load as the noise floor: the static page cannot see
+ * what those add, and that is where the review found three breaks.
  *
  * It also records what the loader cost: style bytes fetched (index + modules, raw and gzipped) against
  * the whole sheet, and the milliseconds from navigation to the first slide in the frame, cold.
@@ -24,7 +28,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
-import { fingerprints } from './style-gate-lib.mjs';
+import { fingerprints, pageFingerprint } from './style-gate-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -60,7 +64,7 @@ async function session(browser, md, mode) {
     assets.push({ url: r.url(), raw: body.length, gz: zlib.gzipSync(body).length });
   });
   const t0 = Date.now();
-  await page.goto(`${base}/playground/${mode === 'full' ? '?styles=full' : ''}`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/playground/${mode === 'full' ? '' : '?styles=modules'}`, { waitUntil: 'domcontentloaded' });
   const frameOf = () => page.frames().find((f) => f !== page.mainFrame() && f.url().startsWith('about:srcdoc'));
   // First slide in the frame, then the sheet stops changing (a second render pass lands late).
   await page.waitForFunction(() => [...document.querySelectorAll('iframe')].some((f) => f.contentDocument?.querySelector('section')), null, { timeout: 60000 });
@@ -74,9 +78,13 @@ async function session(browser, md, mode) {
     same = now && now === css ? same + 1 : 0;
     css = now;
   }
-  const [theme] = await Promise.all([page.evaluate(() => document.documentElement.getAttribute('data-palette'))]);
+  // The LIVE frame: the slides it really holds, after the host's split, the web-image block and the runtime
+  // have all run. The static comparison below cannot see anything those add; this can (the red team found three
+  // breaks that way). Only the mounted slides, which are the same window in every session of one deck.
+  const frame = frameOf();
+  const live = frame ? await frame.evaluate(pageFingerprint).catch(() => []) : [];
   await ctx.close();
-  return { css, firstSlideMs, assets, theme };
+  return { css, firstSlideMs, assets, live };
 }
 
 async function staticPage(browser, html, css) {
@@ -98,6 +106,7 @@ async function gateDeck(browser, deck) {
     return r;
   }
   const full = await session(browser, md, 'full');
+  const full2 = await session(browser, md, 'full');
   const mod = await session(browser, md, 'modules');
   if (!full.css || !mod.css) {
     r.error = 'no sheet from the frame';
@@ -125,6 +134,12 @@ async function gateDeck(browser, deck) {
     if (fp1[k].length !== fpB[k].length) diff += Math.abs(fp1[k].length - fpB[k].length);
     r.gate[k] = { elements: fp1[k].length, noise, differing: diff };
   }
+  // Live frame: elements that differ between two whole-sheet loads are noise; any other difference is the loader's.
+  const n = Math.min(full.live.length, mod.live.length);
+  let liveDiff = full.live.length === mod.live.length ? 0 : Math.abs(full.live.length - mod.live.length);
+  for (let i = 0; i < n; i++) if (full.live[i] === full2.live[i] && full.live[i] !== mod.live[i]) liveDiff++;
+  r.liveElements = n;
+  r.liveDiff = liveDiff;
   Object.assign(r, {
     ok: true,
     fullCssBytes: full.css.length,
@@ -154,7 +169,7 @@ const worker = async () => {
     }
     results.push(r);
     const g = r.gate ? Object.values(r.gate).reduce((a, x) => a + x.differing, 0) : '-';
-    console.error(`[${results.length}/${decks.length}] ${r.deck} ${r.ok ? `gate-diff ${g}  styles ${(r.modFetchGz / 1024).toFixed(0)}/${(r.fullFetchGz / 1024).toFixed(0)} KB gz` : `SKIP ${r.error}`}`);
+    console.error(`[${results.length}/${decks.length}] ${r.deck} ${r.ok ? `gate-diff ${g} live-diff ${r.liveDiff}/${r.liveElements}  styles ${(r.modFetchGz / 1024).toFixed(0)}/${(r.fullFetchGz / 1024).toFixed(0)} KB gz` : `SKIP ${r.error}`}`);
   }
 };
 await Promise.all(Array.from({ length: jobs }, worker));
@@ -167,9 +182,9 @@ const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 const med = (a) => [...a].sort((x, y) => x - y)[a.length >> 1];
 console.log(`\n${engineName}: ${ok.length} decks gated on the Playground, ${results.length - ok.length} skipped`);
 for (const r of results.filter((x) => !x.ok)) console.log(`  skipped ${r.deck}: ${r.error}`);
-const bad = ok.filter((r) => Object.values(r.gate).some((x) => x.differing > 0));
+const bad = ok.filter((r) => Object.values(r.gate).some((x) => x.differing > 0) || r.liveDiff > 0);
 console.log(`computed-style gate (screen, print, dark; every element + ::before/::after): ${ok.length - bad.length} of ${ok.length} identical`);
-for (const r of bad) console.log(`  DIFFERS ${r.deck}: ${Object.entries(r.gate).map(([k, x]) => `${k} ${x.differing}/${x.elements}`).join(', ')}`);
+for (const r of bad) console.log(`  DIFFERS ${r.deck}: ${Object.entries(r.gate).map(([k, x]) => `${k} ${x.differing}/${x.elements}`).join(', ')}, live frame ${r.liveDiff}/${r.liveElements}`);
 console.log(`sheet in the frame   whole ${kb(med(ok.map((r) => r.fullCssBytes)))}, loader ${kb(med(ok.map((r) => r.modulesCssBytes)))} (median)`);
 console.log(`fetched, raw         whole ${kb(med(ok.map((r) => r.fullFetchRaw)))}, loader ${kb(med(ok.map((r) => r.modFetchRaw)))} in ${med(ok.map((r) => r.modRequests))} requests`);
 console.log(`fetched, gzipped     whole ${kb(med(ok.map((r) => r.fullFetchGz)))}, loader ${kb(med(ok.map((r) => r.modFetchGz)))}`);

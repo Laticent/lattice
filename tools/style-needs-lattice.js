@@ -30,6 +30,65 @@ function runtimeTokens() {
 }
 const RUNTIME_TOKENS = runtimeTokens();
 
+/**
+ * Every class and attribute the shipped runtime and the Playground host WRITE into a slide after it is
+ * scanned, found in their source, kept only when a module's selectors key on the name (so the list stays
+ * bounded by what could matter). A hand-kept list missed `.overflow`, which the runtime toggles on a slide
+ * that overflows and which draws the author's red outline (found by the inversion review, 2026-10-19), and
+ * listed ~20 more that happened to sit in always-loaded modules. Reading the source makes the list a
+ * property of the code that writes the tokens. It is a regex over `classList.add/toggle`, `setAttribute`
+ * and `dataset.x =` calls, so a token built at run time from a variable is invisible to it: the live-frame
+ * comparison (docs/e2e/playground-style-loader.spec.ts) is the check on that.
+ */
+function derivedRuntimeTokens(index, root = ROOT) {
+  const vocab = { c: new Set(), a: new Set() };
+  for (const m of index) {
+    for (const alt of m.alts) {
+      for (const x of alt[0]) vocab.c.add(x);
+      for (const x of alt[1]) vocab.a.add(x);
+    }
+  }
+  const files = [];
+  const walk = (dir) => {
+    for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, f.name);
+      if (f.isDirectory()) {
+        if (f.name !== 'node_modules' && f.name !== 'dist') walk(p);
+      } else if (/\.(m?js|ts|tsx)$/.test(f.name) && !/\.(test|generated)\./.test(f.name)) files.push(p);
+    }
+  };
+  for (const d of ['lib/runtime', 'docs/src/playground', 'docs/src/components/playground', 'docs/src/lib/anima']) if (fs.existsSync(path.join(root, d))) walk(path.join(root, d));
+  const c = new Set();
+  const a = new Set();
+  for (const f of files) {
+    const text = fs.readFileSync(f, 'utf8');
+    for (const m of text.matchAll(/classList\.(?:add|toggle|replace)\(\s*['"]([\w-]+)['"]/g)) c.add(m[1].toLowerCase());
+    for (const m of text.matchAll(/(?:setAttribute|toggleAttribute)\(\s*['"]([\w-]+)['"]/g)) a.add(m[1].toLowerCase());
+    for (const m of text.matchAll(/\.dataset\.(\w+)\s*=/g)) a.add(`data-${m[1].replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}`);
+  }
+  // The host's own transforms of the HTML between the engine and the frame write ATTRIBUTES through string
+  // rewrites and template literals, which the call patterns above cannot see: the rough-ink layer
+  // (`svg[data-lattice-rough-ink]`) and the blocked-web-image placeholder (`data-lattice-web-src`). Only
+  // `data-lattice-*` names are read from those files, because a broader read (every word) made the average
+  // deck "need" 720 KB of the 936 KB sheet and gave the loader nothing to save. The CLASSES the structural split
+  // adds (`lat-split-cover`, ...) are not listed at all: the loader scans the HTML after the split, so they are
+  // in the document it reads.
+  const coreDir = path.join(root, 'lib/core');
+  if (fs.existsSync(coreDir)) {
+    for (const f of fs.readdirSync(coreDir)) {
+      if (!/(split|rough-ink|remote-ref|surface-registers)[\w.-]*\.(m?js)$/.test(f) || /\.test\./.test(f)) continue;
+      for (const m of fs.readFileSync(path.join(coreDir, f), 'utf8').matchAll(/data-lattice-[a-z0-9]+(?:-[a-z0-9]+)*/g)) a.add(m[0]);
+    }
+  }
+  return { c: [...c].filter((x) => vocab.c.has(x)).sort(), a: [...a].filter((x) => vocab.a.has(x)).sort() };
+}
+
+/** The static player-prune list plus what the runtime and host source write, for one index. */
+function runtimeTokensFor(index, root = ROOT) {
+  const derived = derivedRuntimeTokens(index, root);
+  return { c: [...new Set([...RUNTIME_TOKENS.c, ...derived.c])].sort(), a: [...new Set([...RUNTIME_TOKENS.a, ...derived.a])].sort() };
+}
+
 /** `dist/styles/manifest.json` with each module's text read in. */
 function readModules(root = ROOT) {
   const dir = path.join(root, 'dist/styles');
@@ -65,10 +124,10 @@ function buildLatticeIndex({ verified = true, root = ROOT } = {}) {
     version: 1,
     verified,
     floor,
-    runtime: RUNTIME_TOKENS,
+    runtime: runtimeTokensFor(index, root),
     modules: min.modules.map((m) => ({ id: m.id, file: m.file, bytes: m.bytes })),
     index,
   };
 }
 
-module.exports = { RUNTIME_TOKENS, readModules, buildLatticeIndex };
+module.exports = { RUNTIME_TOKENS, runtimeTokensFor, derivedRuntimeTokens, readModules, buildLatticeIndex };

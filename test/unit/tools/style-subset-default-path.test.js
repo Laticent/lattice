@@ -1,6 +1,6 @@
 /**
  * Unit: a style subset rendered through `-c` takes the SAME mask and the SAME minified spelling as the
- * default render (followups.d/2780-p8; engineering/decisions/2026-10-18-on-demand-styles.md §7).
+ * default render (engineering/decisions/2026-10-18-on-demand-styles.md §7).
  *
  * The engine masks a slide-own `::after { content }` (lib/engine/css.js `isPaginationTarget`), and the
  * mask reads the selector's SPELLING: on the minified text the default render ships it fires, on the
@@ -22,7 +22,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { buildIndex, scanDocument, neededModules } = require('../../../tools/style-needs');
-const { RUNTIME_TOKENS, readModules } = require('../../../tools/style-needs-lattice');
+const { runtimeTokensFor, readModules } = require('../../../tools/style-needs-lattice');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const built = fs.existsSync(path.join(ROOT, 'dist/styles-min/manifest.json')) && fs.existsSync(path.join(ROOT, 'dist/lattice-min.css'));
@@ -52,7 +52,7 @@ describe('style subset through the default render path', { skip: !built && 'dist
     const modules = readModules(ROOT);
     const index = buildIndex(modules);
     const doc = new JSDOM(html).window.document;
-    const flags = neededModules(index, scanDocument(doc.documentElement), undefined, RUNTIME_TOKENS);
+    const flags = neededModules(index, scanDocument(doc.documentElement), undefined, runtimeTokensFor(index));
     assert.ok(flags.filter(Boolean).length < modules.length, 'the subset should drop modules, or this test proves nothing');
     const min = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist/styles-min/manifest.json'), 'utf8')).modules;
     const subset = min.filter((_, i) => flags[i]).map((m) => fs.readFileSync(path.join(ROOT, 'dist/styles-min', m.file), 'utf8')).join('');

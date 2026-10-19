@@ -319,6 +319,35 @@ describe('createThemeFetcher — on-demand base (style loader)', () => {
 		expect(await f.growBase('<section class="funnel"></section>')).toBe(false);
 	});
 
+	it('reports the render stale when a whole sheet lands while the modules are fetching', async () => {
+		const styles = fakeLoader();
+		let release: () => void = () => {};
+		styles.ensureFor.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					release = () => resolve('grew');
+				}),
+		);
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		const startedUnder = f.baseVersion();
+		const pending = f.growBase('<section class="funnel"></section>', startedUnder);
+		await createThemeFetcher('/themes/').ensure('indaco', 'light'); // a stranger demands the whole sheet
+		release();
+		expect(await pending).toBe(true); // the caller must take the new sheet, not paint the floor's
+		expect(registered.get('lattice')).toBe(FULL);
+	});
+
+	it('reports the render stale when another render registered a base after it began, even with nothing new to load', async () => {
+		const styles = fakeLoader();
+		const f = createThemeFetcher('/themes/', { styles: styles as never });
+		await f.ensure('indaco', 'light');
+		const startedUnder = f.baseVersion();
+		expect(await f.growBase('<section class="funnel"></section>')).toBe(true); // a concurrent render grew the base
+		expect(await f.growBase('<section class="funnel"></section>', startedUnder)).toBe(true);
+		expect(await f.growBase('<section class="funnel"></section>', f.baseVersion())).toBe(false);
+	});
+
 	it('falls back to the whole sheet when the loader cannot start (index 404)', async () => {
 		const styles = fakeLoader();
 		styles.ready.mockRejectedValue(new Error('style index (404)'));

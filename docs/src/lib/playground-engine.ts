@@ -55,9 +55,12 @@ export function createEngineBridge(
 	// deck-preview.js has no jsdelivr defaults any more.
 	// See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
 	assets: { dagreUrl?: string; katexUrl?: string } = {},
-	// On-demand engine styles (style-loader.ts). `stylesBase` is the folder the sync script stages the
-	// modules and their index in; omitted, or `?styles=full` in the page URL, the Playground registers
-	// the whole `lattice.css` as it always did — the escape hatch if a deck ever renders short a rule.
+	// On-demand engine styles (style-loader.ts), OPT-IN: `?styles=modules` in the page URL (with a
+	// `stylesBase`, the folder the sync script stages the modules and their index in). Off by default, so
+	// the Playground registers the whole `lattice.css` as it always did. The reviews of 2026-10-19 found the
+	// default-on case unsupported: first visitors take the newcomer bake, which carries the whole sheet, and
+	// the runtime-token list that keeps the scan honest needs a live-frame gate and a device check first
+	// (engineering/decisions/2026-10-18-on-demand-styles.md §11).
 	options: { stylesBase?: string; stylesIndex?: string } = {},
 ) {
 	const isKnownTheme = (name: string) => validPalettes.includes(name);
@@ -68,9 +71,9 @@ export function createEngineBridge(
 	const partCounts = new Map<string, number>();
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
-	const wholeSheet = typeof location !== 'undefined' && /[?&]styles=full(?:&|$)/.test(location.search);
+	const loaderOn = typeof location !== 'undefined' && /[?&]styles=modules(?:&|$)/.test(location.search);
 	let styles: StyleLoader | undefined;
-	if (options.stylesBase && !wholeSheet) {
+	if (options.stylesBase && loaderOn) {
 		// What the frame document holds that the engine's HTML does not (the host's own `<html>`
 		// attributes, the texture <defs>, the classes and attributes its agents add later) is declared
 		// by the preview module, which loads after this bridge is built: so it is read per scan.
@@ -82,6 +85,9 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 	const samplesBase = samplesBaseFor(themeBase);
 
 	/** True once both irreducible globals are present (engine bundle + bridge). */
+	let backstopArmed = false;
+	const BACKSTOP_MS = 4000;
+
 	function ready(): boolean {
 		return Boolean(window.LatticePlayground && window.LatticeDeckPreview);
 	}
@@ -164,20 +170,15 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			await themes.ensure(deckPalette, deckMode);
 			mark('floor');
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
+			// The base this render starts under: `growBase` answers true if it has moved by the time the
+			// scan is done, even when the scan itself finds nothing new.
+			const startedUnder = themes.baseVersion();
 			let out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
 			mark('render1');
-			// The slides are rendered; now the styles they need. A scan that brings in a module the base
-			// lacks re-registers the base, and the render runs again so the sheet it returns has the
-			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
-			if (await themes.growBase(out.html)) {
-				mark('modules');
-				// The sheet for this deck against the base as it is now: the engine recomputes it without
-				// rendering the slides again (a result that lost the hook, through a spread or a clone,
-				// renders again, which is the same answer at the price of the whole render).
-				const sheet = out.restyle?.();
-				out = sheet !== undefined ? { ...out, css: sheet } : await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
-				mark('render2');
-			}
+			// What the FRAME will hold is what must be scanned, not what the engine returned: the structural split
+			// adds the cover and card classes of a portrait or square deck, and a scan of the unsplit HTML never
+			// asked for their modules (found by the red team, 2026-10-19: 30 of 38 portrait and square examples
+			// painted a plain cover). Everything the host does to the HTML happens before the scan.
 			const geom = { w: out.width || 1280, h: out.height || 720 };
 			// Split on STRUCTURE, the way the PDF export does (lib/core/structural-split.js). The
 			// render is one section per authored slide; at portrait/square the export cuts each
@@ -186,6 +187,25 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
 			const html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
+			// The slides are rendered; now the styles they need. A scan that brings in a module the base
+			// lacks re-registers the base, and the engine recomposes the sheet so it has the
+			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
+			if (await themes.growBase(html, startedUnder)) {
+				mark('modules');
+				// The sheet for this deck against the base as it is now: the engine recomputes it without
+				// rendering the slides again (a result that lost the hook, through a spread or a clone,
+				// renders again, which is the same answer at the price of the whole render).
+				const sheet = out.restyle?.();
+				out = sheet !== undefined ? { ...out, css: sheet } : await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
+				mark('restyled');
+			}
+			// The net under the loader: once the page has been quiet for a few seconds, fetch the whole sheet and
+			// make it the base. A module no scan could know to ask for heals; a tab that outlives a deploy keeps a
+			// complete sheet. Once per bridge; a failed fetch changes nothing.
+			if (styles && !backstopArmed) {
+				backstopArmed = true;
+				setTimeout(() => void themes.backstop(), BACKSTOP_MS);
+			}
 			// Which authored slide and part each page of this render is: read later and once, when a map
 			// asks (rendered-index.ts). The outline too is built there, so a Playground with no map does
 			// not parse the deck a second time per keystroke.

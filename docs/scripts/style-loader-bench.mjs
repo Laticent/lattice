@@ -2,7 +2,7 @@
 /**
  * What the Playground's on-demand style loader changes for the FIRST SLIDE, cold and warm.
  *
- * For each deck, on each engine, in each mode (`?styles=full`, the whole `lattice.css`, and the
+ * For each deck, on each engine, in each mode (the default, the whole `lattice.css`, and `?styles=modules`, the
  * loader), it loads the real Playground and records:
  *   - style bytes the page fetched (the index and modules, or the whole sheet), raw and on the wire;
  *   - requests for them;
@@ -53,7 +53,7 @@ const med = (a) => [...a].sort((x, y) => x - y)[a.length >> 1];
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 
 async function visit(page, mode) {
-  await page.goto(`${base}/playground/${mode === 'full' ? '?styles=full' : ''}`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/playground/${mode === 'full' ? '' : '?styles=modules'}`, { waitUntil: 'domcontentloaded' });
   // Styled, not merely present: the first slide's computed container-type is `size`.
   const at = await page.waitForFunction(
     () => {

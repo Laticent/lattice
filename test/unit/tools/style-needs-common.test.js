@@ -38,4 +38,12 @@ describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, (
     const floorBytes = idx.modules.reduce((a, m, i) => a + (idx.index[i].always || idx.floor.includes(i) ? m.bytes : 0), 0);
     assert.ok(floorBytes / total < 0.4, `the floor is ${((100 * floorBytes) / total).toFixed(0)}% of the sheet`);
   });
+
+  test('the runtime tokens are read from the code that writes them: `.overflow` is on the list', () => {
+    // The runtime toggles `.overflow` on a slide that overflows; the rule that draws the author's red
+    // outline keys on it and lives in an on-demand module. A hand-kept list missed it.
+    const idx = buildLatticeIndex({ verified: false });
+    assert.ok(idx.runtime.c.includes('overflow'), 'overflow');
+    assert.ok(idx.runtime.c.includes('fit-marked') || idx.runtime.c.includes('clip-marked'));
+  });
 });

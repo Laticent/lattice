@@ -312,17 +312,17 @@ unconditional). Three moves would remove most of it, each a source change with i
 
 - **Owner decision, package size.** Ship `dist/styles/` and `dist/styles-min/` in the tarball (about 0.94 MB
   gzipped together, measured by `tar czf`) or generate them on install.
-- **Owner decision, index shape.** Ship the verified index (71 KB gzipped, 21% fewer bytes loaded) or the
-  token-only index (29 KB gzipped). The harness measures both on any deck.
+- **Index shape: decided by measurement (2026-10-19), §11.** The token-only index ships (14 KB gzipped after
+  dropping subsumed alternatives); the verified index (77 KB gzipped) costs more than the bytes it saves.
 - **Unify the state-pseudo lists.** `tools/style-needs.js` and `lib/export/player-prune.js` each keep one;
   the core must not import the export pipeline, so the shared piece belongs in a generic kernel (E4).
 - **WebKit** now runs in full (293 decks, 0 misses); only iOS Safari on a real device is open (followup P7).
-- **Not built:** E3 (the loader), E4 (the generic core and a second domain), E5 (integrations and export
-  bytes, which need the owner's dark and light sign-off).
+- **Built, opt-in:** E3, the Playground loader (§11). **Not built:** E4 (the generic core and a second
+  domain), E5 (integrations and export bytes, which need the owner's dark and light sign-off).
 
 ## 9. Next
 
-E3 (the Playground loader prototype: first-slide bytes and time against the §2 baseline, cold and warm,
+*(Superseded by §11 for E3, which is built.)* E3 (the Playground loader prototype: first-slide bytes and time against the §2 baseline, cold and warm,
 Chromium and WebKit, no flash of unstyled content, and a late-appearing unit loading its modules before it
 shows) and the three regrouping moves in §7, in that order of value. Both wait for the owner's review of E1
 and E2. E3 is a style sink (HARD RULE #22) and gets the adversarial trio on its final shape.
@@ -353,3 +353,81 @@ not a committed benchmark; re-derive them with the method below before acting on
 - **Audit time.** `node tools/style-needs-audit.mjs --all --jobs 3` took about 95 minutes for 281 decks in
   Chromium on a 4-core sandbox, with the computed-style gate on. The WebKit run of 293 decks took about 90
   minutes in chunks of 40 decks.
+
+## 11. E3: the Playground loader (2026-10-19)
+
+**Status: built, gated, opt-in.** `/playground/?styles=modules` loads only the style modules a deck uses.
+Without the parameter the Playground registers the whole `lattice.css`, as it always did. The default stays
+whole on the evidence below; flipping it is one line (`loaderOn` in `docs/src/lib/playground-engine.ts`).
+
+**How it works.** `docs/src/lib/style-loader.ts` fetches `styles/needs.json` (the index) and a **floor**
+(the 13 always-needed modules plus the 44 that at least 70% of the 292 example decks need,
+`tools/style-needs-common.json`), starting in parallel with the engine bundle. The bridge
+(`playground-engine.ts renderInto`) renders, scans the rendered HTML (`lib/core/style-needs-scan.mjs`, one
+copy shared with the audit), fetches the modules still missing, re-registers the `lattice` base, and takes the
+new sheet from `render().restyle()`: a non-enumerable method the engine adds (`lib/engine/index.js`), so the
+slides are not rendered twice (the second render cost 200 to 500 ms on a heavy deck, the recompose 30 to 70).
+Past 55% of the sheet's bytes the loader answers "whole" and the host loads the whole file. Every module passes
+`sanitizeStyleText` on arrival (HARD RULE #22), and the composed sheet reaches the frame only through
+`docStyleText`, which sanitizes it again. Four **fallbacks never raise an error**: a failed index, a failed
+module, and a failed whole-sheet fetch all keep drawing with what is loaded; an idle backstop (4 s after the
+first render) fetches the whole sheet and makes it the base, so a module no scan could name heals, and a tab
+that outlives a deploy has a complete sheet in memory.
+
+**The shared slot.** The engine has ONE `lattice` slot and every consumer on the page renders against whatever
+is in it. `theme-fetch.ts` therefore tracks `baseMode` (`none | subset | full`) and a `baseVersion`: a consumer
+with no loader always gets the whole sheet; a whole sheet is never replaced by a subset; and a render hands
+`growBase` the version it began under, which answers true when the base moved while it waited (the independent
+checker found the case where it did not: a whole sheet landing mid-fetch left the frame painted with the
+floor's sheet; two regression tests pin it).
+
+**Measured (production build, Chromium 131, loopback, 5 runs, medians, idle machine).**
+`docs/scripts/style-loader-bench.mjs`; "styled" means the first slide's computed `container-type` is `size`.
+
+| Deck | Style bytes on the wire | Cold, first styled slide | Warm |
+|---|---|---|---|
+| `focus.md` (14 slides) | 116 KB in 1 request, then **62 KB in 57** | 1835 → **1590 ms** | 1543 → **1140 ms** |
+| `claim.md` | 116 KB, then **65 KB in 57** | 1681 → **1629 ms** | 1437 → **1231 ms** |
+| `system-design-foundations.md` | 116 KB, then **93 KB in 78** | 2741 → 2843 ms (noise) | 2449 → 2348 ms |
+
+Bytes fall 45% on a typical deck and 20% on a heavy one; time is flat to 25% better, and on loopback bytes are
+nearly free, so the unthrottled column understates the win on a slow link. **Not measured:** a throttled run
+(`--throttle cable|4g` exists and was not run before the review), WebKit timing, the gallery deck (the
+benchmark died on it twice; the loader loads the whole sheet there by design, and a loaded-machine run read
+209 to 230 KB on the wire against 116), a real phone.
+
+**Gate.** `tools/style-loader-gate.mjs` loads the real Playground twice (whole sheet, loader), reads the sheet
+each frame built, and compares every element's computed style plus `::before` and `::after` in screen, print
+and dark, whole vs loader. Sample of 37 decks on Chromium: **37 of 37 identical**. «FULL-RUN RESULT: see the
+PR body; the final run was started after the last code change.»
+
+**What the reviews found (HARD RULE #25), and what changed.**
+
+1. *The runtime-token list was hand-kept and wrong.* The runtime toggles `.overflow` on a slide that
+   overflows, and the rule that draws the author's red outline lives in an on-demand module; with the loader
+   the outline was gone. The gate could not see it: it compares a static page with no runtime. The list is now
+   **derived from the source** that writes the tokens (`tools/style-needs-lattice.js derivedRuntimeTokens`),
+   kept only where a module keys on the name, and a unit test pins `.overflow`. A token built at run time from
+   a variable stays invisible to it, so the live-frame comparison is still owed (below).
+2. *Default-on was not supported* (inversion): first visitors take the newcomer bake, which carries the whole
+   sheet, so the bytes never help the visitor they matter most for; the gain is a returning visitor's first
+   paint. That is why the loader is opt-in.
+3. *An offline tab or one that outlives a deploy raised a render error on every edit that needed a module.*
+   Now non-fatal, plus the backstop above.
+4. *Measurement flattery:* both harnesses seed `localStorage` (so the newcomer path never runs) and block the
+   service worker. Stated here, not fixed.
+
+**Still owed before the default can flip:** the gate run on the live frame (runtime and `SCAN_SHELL` present,
+the site's own dark palette), a throttled and a WebKit timing table, a real-iPhone check (followup P7, still
+UNVERIFIED), and a measurement of the per-keystroke scan on a phone (3.6 ms for 14 slides and 23 ms for 120 on
+desktop Chromium; 5 and 42 ms on desktop WebKit).
+
+**Smaller facts.** The token index is 14 KB gzipped, from 33 KB, by dropping every alternative another
+alternative of the same module is a subset of (exact for "any alternative met"; 5,802 alternatives to 1,735).
+The floor costs no bytes for most decks: over 292 decks the median deck loads 243 KB minified with the floor
+and with the always-needed set alone, and waits for 5 modules after the first render instead of 43. The route
+budget: `playground` eager JS +2,061 bytes (declared +2,200 in `docs/route-budget.d/`). The engine's content
+mask reads selector spelling (`isPaginationTarget`): the minified text the default render ships is masked,
+the source spelling is not, so a `-c` file of unminified CSS differs from the default render; logged as a
+followup.
+

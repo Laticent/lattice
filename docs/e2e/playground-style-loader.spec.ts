@@ -11,7 +11,7 @@ import { expect, test } from './studio-fixture';
 //      whole `lattice.css` (the byte win);
 //   2. a component that first appears in an EDIT has its rules before it shows (no flash of unstyled
 //      content): the sheet it needs arrives with the slide, in the same write;
-//   3. `?styles=full` is the escape hatch: it registers the whole sheet, as the page always did.
+//   3. the loader is OPT-IN (`?styles=modules`): without it the page registers the whole sheet, as it always did.
 //
 // The all-decks computed-style proof lives in `tools/style-loader-gate.mjs`; these tests pin the
 // behavior a regression in the wiring (not in the scanner) would break.
@@ -98,7 +98,7 @@ test('a plain deck loads a fraction of the engine sheet and never the whole file
 		const m = STYLE_ASSET.exec(r.url());
 		if (m) fetched.push(r.url().slice(r.url().indexOf(m[1])));
 	});
-	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await page.goto('/playground/?view=edit&styles=modules', { waitUntil: 'domcontentloaded' });
 	const modular = await settledSheetLength(await previewFrame(page));
 
 	// ANTI-VACUITY: the loader ran (it asked for its index), and the whole file was not requested.
@@ -112,7 +112,7 @@ test('a plain deck loads a fraction of the engine sheet and never the whole file
 		([k, s]) => localStorage.setItem(k as string, s as string),
 		[SOURCE_KEY, PLAIN],
 	);
-	await whole.goto('/playground/?view=edit&styles=full', { waitUntil: 'domcontentloaded' });
+	await whole.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	const full = await settledSheetLength(await previewFrame(whole));
 	await whole.close();
 
@@ -121,7 +121,7 @@ test('a plain deck loads a fraction of the engine sheet and never the whole file
 
 test('a component that first appears in an edit has its rules in the sheet before it is shown', async ({ page }) => {
 	await seed(page, PLAIN);
-	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await page.goto('/playground/?view=edit&styles=modules', { waitUntil: 'domcontentloaded' });
 	const before = await settledSheetLength(await previewFrame(page));
 
 	// Watch the frame for the funnel slide's arrival and record, at that instant, how many rules in the
@@ -170,14 +170,14 @@ test('a component that first appears in an edit has its rules in the sheet befor
 	if (seen?.length) expect(Math.min(...seen), 'the funnel slide appeared before its rules').toBeGreaterThan(0);
 });
 
-test('?styles=full registers the whole sheet and loads no module', async ({ page }) => {
+test('without ?styles=modules the page registers the whole sheet and loads no module', async ({ page }) => {
 	await seed(page, PLAIN);
 	const fetched: string[] = [];
 	page.on('request', (r) => {
 		const m = STYLE_ASSET.exec(r.url());
 		if (m) fetched.push(r.url().slice(r.url().indexOf(m[1])));
 	});
-	await page.goto('/playground/?view=edit&styles=full', { waitUntil: 'domcontentloaded' });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await settledSheetLength(await previewFrame(page));
 	expect(fetched.filter((u) => u === 'themes/lattice.css').length, 'the whole sheet was fetched').toBeGreaterThan(0);
 	expect(fetched.filter((u) => u.startsWith('styles/')), 'no module or index was fetched').toEqual([]);

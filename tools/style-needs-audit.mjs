@@ -34,7 +34,7 @@ const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const { buildIndex, scanDocument, neededModules } = require('./style-needs.js');
-const { RUNTIME_TOKENS } = require('./style-needs-lattice.js');
+const { runtimeTokensFor } = require('./style-needs-lattice.js');
 const { fingerprints, open } = await import('./style-gate-lib.mjs');
 const { chromium, webkit } = await import(path.join(ROOT, 'docs/node_modules/@playwright/test/index.mjs'));
 
@@ -58,7 +58,7 @@ if (!['chromium', 'webkit'].includes(engine)) {
 }
 
 // The Lattice adapter's RUNTIME TOKENS live in tools/style-needs-lattice.js (shared with the docs sync).
-const runtime = RUNTIME_TOKENS;
+let runtime;
 
 const manifestPath = path.join(ROOT, 'dist/styles/manifest.json');
 if (!fs.existsSync(manifestPath)) {
@@ -79,6 +79,7 @@ if (modulesMin.map((m) => m.text).join('') !== fs.readFileSync(path.join(ROOT, '
   process.exit(2);
 }
 const index = buildIndex(modules);
+runtime = runtimeTokensFor(index);
 const indexSel = buildIndex(modules, { selectors: true });
 const bytes = modules.map((m) => m.bytes);
 const sum = (flags) => flags.reduce((a, f, i) => a + (f ? bytes[i] : 0), 0);
