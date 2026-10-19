@@ -22,10 +22,14 @@
 // running half is door-run.ts, loaded only once a render meets a code package, so a Studio with no
 // code package never downloads the kernel, the sanitizer or the runner.
 
+import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
+import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
 import { pluginConsentText } from '../../../../lib/packages/code-shape.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
+
+/** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
 /** A code package the Studio knows: a saved component whose package carries a `transform.js`. */
 // `facts`: the slide-facts version the package's manifest declares (lib/packages/code-shape.mjs factsRefusal).
@@ -254,7 +258,13 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 	if (deckClass) add(deckClass[1]);
 	// `pane:` too: a package in a pane runs through the same slot (the inversion lens found a pane
 	// slide whose note pointed at a notice that never came).
-	for (const m of text.matchAll(/<!--\s*(?:_?class|pane)\s*:\s*([^>]*?)\s*-->/g)) add(m[1]);
+	// `_class:` / `class:` go through the shared directive grammar; a `pane:` marker is pane grammar
+	// (design note 2026-10-17-meta-record.md §5.4) and stays a local read of the text after its colon.
+	for (const inner of commentBodies(text)) {
+		const dir = readDirectiveComment(`<!--${inner}-->`, CLASS_VOCAB);
+		if (dir) add(dir.value);
+		else if (/^pane\s*:/.test(inner)) add(inner.slice(inner.indexOf(':') + 1));
+	}
 	return [...[...packages.values()].filter((p) => tokens.has(p.name) && !isApproved(p)), ...pluginsWanted];
 }
 

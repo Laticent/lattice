@@ -1,3 +1,4 @@
+import { LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { type DeckOpResult, SLIDE_SEP } from './deck-ops';
 import { frontMatterBlock, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
@@ -24,9 +25,10 @@ function rejoin(source: string, slides: string[]): string {
 type Collection = { start: number; end: number; members: [number, number][]; head: number };
 
 const ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]+\S/;
-// A slide directive: a spot `_name:` or one of Marp's local names. A speaker note that happens to
-// open with a word and a colon (`<!-- Note: mention Q3 -->`) is not one, so it is never doubled.
-const DIRECTIVE_RE = /^<!--\s*(?:_[A-Za-z][\w-]*|class|paginate|header|footer|color|backgroundColor|backgroundImage|backgroundPosition|backgroundRepeat|backgroundSize)\s*:/;
+// A slide directive: a spot `_name:` or one of Marp's local names (the keys the `meta` manifest marks
+// `local`). A speaker note that happens to open with a word and a colon (`<!-- Note: mention Q3 -->`)
+// is not one, so it is never doubled.
+const DIRECTIVE_RE = new RegExp(`^<!--\\s*(?:_[A-Za-z][\\w-]*|${[...LOCAL_KEYS].join('|')})\\s*:`);
 
 /** The slide's biggest top-level list or table (≥ 2 members), as line ranges. Lines inside a code
  *  fence or an HTML comment never count, so a list in a code sample or a speaker note is left alone. */

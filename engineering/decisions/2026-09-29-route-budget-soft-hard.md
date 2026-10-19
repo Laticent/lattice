@@ -189,3 +189,47 @@ transitions nor server islands, and React's ids come from the separate `prefix` 
 
 So the gate needs no noise band: three `measure-route-base.sh` runs of one commit, each in a
 fresh temp folder, measure every metric of every route identically. #2709 records the runs.
+
+## 8. The gate ignores the hashes an engine change moves (2026-10-17, widened 2026-10-18)
+
+§7 made two builds of one tree in two folders agree, and CI still charged #2708 and #2718
+(which bundled nothing) a few bytes. The asset version `/playground/v/<12 hex>/` is the
+trigger: `sync-playground-assets.mjs` hashes every staged asset into it. A stale root `dist/`
+reproduced the CI symptom locally (studio +11, playground +2). A fresh local build agreed to
+0 bytes, so some synced asset differs between the base worktree and the PR checkout on a
+runner, for a reason this sandbox does not have.
+
+**The first fix was wrong, and a checker found it.** The first cut gzipped each chunk with the
+version string replaced. A build with only the version changed showed the string is in two
+`_astro` chunks (`authoring-door`, `code-record-source`) and in no eager closure, so that
+replacement changed zero bytes. The noise comes one step later: Rollup content-hashes those two
+chunks' file names, a new version renames them, and the rename cascades through every chunk that
+imports or preloads them (StudioIsland +3, architect -2, diff-card -2 on one pair of builds).
+
+**Decision (the owner chose "both", 2026-10-17):**
+
+1. `closure()` in `check-route-budget.mjs` gzips each chunk with the version and every
+   `name.<8 chars>.js` chunk hash replaced by a fixed string of the same length. Only the
+   measured copy changes, so the static import scan and every file lookup still read the real
+   text, and the lengths are fixed, so no real size move is hidden. On the checker's two builds
+   (one tree, only the version changed) studio moved 514,320 to 514,317 before and 508,630 to
+   508,630 after; the other four routes were already equal. Absolute numbers fall about 1%
+   (studio -5.7KB, home -1.7KB) because zeros gzip smaller than random characters, inside the 5%
+   stale slack. Base and PR are measured by this same code, so the allowance is unaffected. The
+   unit test models the cascade and fails (183 against 169 bytes) when the replacement is removed.
+2. A temporary `docs-build` step prints which synced asset differs between the base and the PR
+   on the same runner (`measure-route-base.sh` keeps the base's staged assets for it). It runs
+   unless the job is cancelled, never fails the job, and comes out once one bundle-free PR has
+   reported and the cause is fixed at its source.
+
+**A second checker found a third hash (2026-10-18).** esbuild's engine chunks are named
+`chunk-<8 A-Z0-9>.js` (hyphen, no leading dot), so the Rollup pattern missed them, and a CI runner
+showed all 29 differ between base and PR. Renaming them on a real build moved engineJsGz +5,
+studio chartKernelGz +7, chartKernelsGz +20 and lintCoreGz +4, and eagerJsGz 0. Only `eagerJsGz`
+is compared with the base (`evaluateAllowance`), so the allowance was never affected; the other
+four are checked against the ledger's limits, where the noise can tip a metric sitting near one
+(lintCoreGz was 99.3KB against a 100.3KB ceiling). `closure()` now fixes these names too.
+The Rollup pattern also matches an ordinary 8-character file name (`lib.polyfill.js`): the length
+is kept and base and PR go through the same code, so no comparison changes, only a tiny shift in
+absolute numbers. Zeros gzip a little smaller than random characters, so a PR that adds many new
+hash references is undercounted by a few gzip bytes per hash; it never hides a change in the length of the shipped bytes.

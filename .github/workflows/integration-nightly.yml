@@ -297,7 +297,7 @@ jobs:
       #   check:chart-fit   does a chart paint OUTSIDE `.cell-stage` (which is
       #                     `overflow: clip`, so it is CUT silently), re-derive an
       #                     inset the stage already owns, or spill its own viewBox?
-      #                     Three emulator renders, one per @size.
+      #                     Four emulator renders, one per @size.
       #   geometry:check    does a slide measure differently depending on the window
       #                     it is viewed in? Renders 5 decks across 8 surfaces,
       #                     including transform-scaled ones.
@@ -492,7 +492,7 @@ jobs:
       # `check-chart-fit: [^0-9]` AND `geometry-parity error:` ARE THE CATCH-ALLS, and
       # leaving them out was this change's own near-repeat of #1529. Matching each FINDING
       # headline is not enough: both tools end in a `.catch` that prints the stack and
-      # exits 2, and for a step that drives a browser through three emulator renders THAT
+      # exits 2, and for a step that drives a browser through four emulator renders THAT
       # is the likeliest failure — a dead subprocess, a missing sidecar, a navigation
       # timeout — not a clip. Every such line was unmatched, so a crash would have filed an
       # issue whose marker block held the section header and nothing else, while the

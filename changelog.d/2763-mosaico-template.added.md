@@ -1,0 +1,1 @@
+- `@laticent/mosaico` (unpublished) gains a `template` strategy: give an arrangement such as `V(0,H(1,2))` and items with a shape, a shape range, floors, caps, a weight and `fit: 'contain'`, and it returns exact boxes with exact gutters. Nothing in Lattice renders through it yet.

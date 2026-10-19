@@ -81,7 +81,7 @@ duplicate and change a tie-break.
 
 ### 4.1 Items are size rules
 
-**Status:** proposed; the closure argument below is a sketch that slice 2 owes as a property test.
+**Status:** built in slice 2 (§8.6). The closure argument below is checked by a property test, `test/unit/mosaico/template.test.js`.
 
 | Item | Size rule in the (width, height) plane | Example |
 |---|---|---|
@@ -533,6 +533,179 @@ needs the owner's sign-off; it is logged as a follow-up. A first visit therefore
 state on each animation frame. Against main's `logo-marks.js` it fails on desktop and the WebKit phone project
 (the revisit refetches all 4 marks and paints `measuring` first); with the fix the revisit paints `packed` only,
 with 0 fetches, and the spec fails if the Studio ever swaps the frame instead of patching it.
+
+### 8.5 Slice 4: the measuring kit, and exports that wait (2026-10-18)
+
+`lib/core/measure-kit.js` replaces the two private copies. Both components call `run({ list, attr,
+sources, finish })`; the kit does the rest:
+
+- **Measure.** `aspectOfImage(img)` reads a loaded `<img>` at once and waits for `load` / `error` on one
+  still loading (a failed image is `complete` and unknown, so it never burns the cap). The logo wall's
+  SVG-tag fetch stays in `logo-marks.js` and goes through the same `remember`.
+- **Remember.** `remember(key, load)` keeps one aspect per URL for the life of the document and shares
+  the in-flight Promise. A null or a rejection is forgotten so a later visit retries. The logo wall's
+  revisit spec (§8.4) still passes on it, and collage now stamps a revisit at once too.
+- **Hold.** `run` marks the list `measuring`, waits for every source, and calls `finish` once after the
+  cap (4 s, `DEFAULT_CAP_MS`). A second `run` on a list being measured returns false. **That is the
+  stability rule: a list packs once, never again as a late item arrives.** Both components pack from
+  the final shapes and never re-pack, so the "re-run only the sizing step" refinement in §4.5 is not
+  built; nothing needed it.
+- **Signal.** Each run registers on `doc.__latticeMeasure`. `idle(ms)` resolves true when nothing is
+  measuring and false at `ms`; `settle()` finishes whatever is still measuring with what is known.
+
+**The kit lives in `lib/core`, not in the Mosaico package.** Mosaico has no DOM by contract (§5), and
+the kit reads `<img>` and a document. Mosaico's README points to it.
+
+**Exports wait.** `createCaptureFrame` (`deck-export.js`) calls `waitForMeasuring(doc, 4000)` after the
+diagram wait: `idle(4000)`, then `settle()` if it timed out. All eight capture lanes share it, so no
+Studio export captures a list still measuring. `finishBake` also turns any list still `measuring` into
+`fallback` (the unpacked grid), the backstop for a frame whose runtime never reported. With that in
+place the logo wall hides while measuring, as collage does, so a first visit paints once.
+
+**Print.** The Studio's vector print builds its own frame and calls `print()` on a timer (`PrintOptionsPanel.tsx`), so
+it waits for the kit too: `idle(2500)` inside the same 3 s bound, then `settle()` just before `print()`.
+`docs/e2e/print-waits-for-measuring.spec.ts` records each list's state and computed visibility inside the print frame at
+the moment `print()` is called, with every picture delayed 3 s. Against main's panel: collage packed/visible, logo wall
+**measuring/hidden** (a gap on the page). With the wait: both packed/visible, `print()` 4.7 s after the click.
+
+**Measured.** `logo-wall-first-visit.spec.ts` on the real Studio, marks delayed 300 ms: every painted
+state before `packed` is `measuring` with `visibility: hidden`, never the grid; with one mark delayed
+9 s the cap shows the unpacked grid, visible. Exports of a collage and logo-wall deck with every
+picture delayed 1.5 s and 3 s, light and dark: no list baked hidden, and at 1.5 s the pages are
+pixel-identical to exports built from main's code. **Found, not caused:** the Studio Webpage export drew the
+logo wall as `fallback` in both builds. Resolved below (§8.5.1).
+
+#### 8.5.1 The Webpage export packed nothing: a `;charset` blind spot (2026-10-18)
+
+**Cause.** The Studio inlines each `sample:` mark into the capture frame as
+`data:image/svg+xml;charset=utf-8,<percent-encoded svg>`. `svgFromDataUri`
+(`lib/core/logo-wall-pack.js`) matched only `data:image/svg+xml,` and `;base64,`, so it returned null,
+`planWall` saw an unknown aspect and chose `fallback`, and `deck-export.js` baked that. The kit's
+measuring, the cap and the export wait were never involved: the wall was already `fallback` before the
+wait began, because `measureMark` reads a data: mark in place and found it unreadable.
+**The clue in the brief was a red herring:** the CSP was never the cause: in the capture frame the marks arrive as
+data: URIs, so nothing is fetched at all.
+
+**Fix.** `svgFromDataUri` accepts any media-type parameters and still detects `;base64` as the last one
+(unit tests in `test/unit/components/logo-wall-pack.test.js`).
+
+**Measured** on the real Studio, `examples/logo-wall-equal-weight.md`, light and dark:
+
+| Export lane | Before | After |
+|---|---|---|
+| Webpage (.html) | 6 walls `fallback` (4/4/2 equal cells, oversized marks) | 6 walls `packed` (4/3/3 balanced rows, equal weight) |
+| PDF | packed | packed, 8 of 8 pages pixel-identical to before |
+| Images (.zip) | packed | packed, every PNG byte-identical to before |
+
+Only the Webpage lane was affected. Why the raster lanes already packed was not traced; their output is unchanged, which is what matters here.
+`docs/e2e/webpage-export-logo-wall.spec.ts` pins the Webpage lane.
+
+### 8.6 Slice 2: range items and `template`, as built (2026-10-18)
+
+`docs/src/lib/mosaico/region.ts` holds the regions and `template.ts` the strategy; `pack(items, container,
+{ strategy: 'template', template })` is the entry. Nothing renders through it yet.
+
+- **Regions are convex polygons** of `[w, h]` points, with a "no upper bound" size larger than the container
+  standing in for infinity, so every region is closed. A fixed shape is a segment, a range a clipped wedge, a
+  floor or cap a box. A join slices both polygons at every vertex height of either; between those heights both
+  slices are linear, so the joined polygon is exact, not sampled. A stacked join is the same with the axes
+  swapped. Collinear vertices are dropped after each join, because without that the vertex count roughly doubled
+  per alternating join (the checker measured 1,448 vertices at 12 items).
+- **The sizing step is a flex-style share, not a convex program.** Each join splits its width (or height) in
+  proportion to weight, freezing a child at the edge of the sizes it allows at the shared height (or width), and
+  the rest share what is left. §4.1 expected "a small convex program"; this is its common case (linear bounds,
+  the quadratic goal "stay close to the proportional split") and it is exact per join. A nested join counts as
+  one child, as a nested flex container does, so the share is not the same as the flat n-ary join once a bound
+  freezes. A goal that wants something else, such as `equal-size`, would need the program. **The goal that
+  matters today is the root-size choice** (below), and "largest area" is provisional.
+- **Fixed shapes come in two kinds.** `exact` fills the cell, so a fixed shape pins the cell's shape. That
+  was the first cut's only kind, and it failed the use case §6 gives for `template`: a text pane beside a 16:9
+  image got width 0 (the image took the whole height, the pane's floor of 0 was the cheapest place to find room).
+  The red team, the checker and the inversion each found it. `contain` lets the cell be any shape and returns the
+  largest picture inside it in `fitted`.
+- **Fit.** The container's own size is used when the root region contains it. Otherwise the layout is the size in
+  the region, inside the container, with the largest area. Two guards make that safe: an item with no stated
+  floor gets 2% of the short side, and any layout that leaves an item with no visible size is refused
+  (`does-not-fit`), as `tree` refuses a zero track. With a width and no height the height is the region's lowest
+  at that width, which the floors keep above zero.
+- **Limits.** At most 64 items and 64 levels of nesting (deeper recursion overflowed the stack at about 2,000
+  levels).
+- **The property tests** (seeded; `test/unit/mosaico/template.test.js`): a size of A and a size of B at one
+  height always sum to a size of the join (6,000 pairs); a size of a stacked join splits back into one from each
+  (3,000 points, by a grid search and an exact interval check); every join of joins, not only a join of a node
+  and a leaf, is convex and holds the midpoint of two of its sizes; for any size a random root allows, every item
+  lands inside its own rule, nothing overlaps and the container is filled exactly; and for any container, inside
+  the root region or not, with n-ary, nested and width-only layouts, every ok result shows every item, obeys the
+  limits it was given, stays inside the container and does not overlap. Dropping the join's gutter fails
+  completeness, sizing and the round-trip test, and using only the lower and upper ends as breakpoints fails
+  soundness.
+- **Cost, measured** (200 random left-leaning folds per size, feasible rules, one machine, 2026-10-18): mean
+  0.16 ms at 6 items, 0.19 at 12, 0.44 at 40 and 0.43 at 64; the slowest single run was 4.6 ms. Pane-like layouts
+  (floors only, 1280 x 720) mean 0.04 to 0.24 ms. All inside the 16 ms re-pack budget of §4.5. The first cut's
+  figures were taken on mostly infeasible inputs, which refuse early; the checker found 4.4 ms mean and 519 ms
+  worst at 40 items before the vertex fix.
+- **Stated limits of the hardening:** the region helpers are exported as experimental, and `tree` and `rows`
+  read a range as its geometric mean rather than throwing.
+
+**The `columns` / `rows` panes do not route through it yet.** The owner's slice-2 brief named them as the first
+user, with a demo deck. They are fixed-ratio pairs (`ratio-60-40`, nine lines of CSS), so a move changes no pixel
+and touches every pane slide, and the gallery-isolation rule (HARD RULE #8) makes each pane deck a separate
+review. The exact weighted case is the first test in `template.test.js`; the image-beside-pane case is the second
+test block. This is a deviation from the brief, taken without the owner's say: it is logged for the owner in the
+PR and as `followups.d/2744-p3-panes-through-template.md`.
+
+### 8.7 The `grid` strategy and justified rows (2026-10-18)
+
+The owner put both in v1 (2026-10-18; §4.4 listed them, no build-order slice carried them). Both are small and
+additive, in `docs/src/lib/mosaico/grid.ts` and `justified.ts`.
+
+- **Justified rows** are the `justified` goal of `rows`. A row of items i..j has one height that makes its items
+  and gaps add to the width; dynamic programming over breaks minimizes the sum of squared differences between
+  row heights and `targetRowHeight`; the last row keeps the target (or its natural height, if smaller) and sits
+  by `lastRow`. `align: 'justify'`, the older way of spreading leftover width into gaps, is unchanged and
+  belongs to the equal-weight goal. Breaks stop widening a row once it would be under 20% of the target, which
+  keeps the search linear in the item count.
+- **Grid** picks the column count that maximizes the sum of the items' contained areas, ties to fewer columns.
+  Items are contained in uniform cells (`fitted`), not cropped, and `placed` holds the cells so `toGrid` works.
+  With a width and no height the host names `columns` and a `cellAspect`.
+- **Tests:** `test/unit/mosaico/grid-justified.test.js`, with seeded property tests (every row full and one
+  height, exact shapes and gaps; uniform non-overlapping cells inside the container). Swapping the grid's
+  comparison and un-capping the last row each fail three tests.
+- **Demo page** (`/libraries/mosaico/`): two new tabs, "Even grid" and "Justified".
+- **Still out:** the past-six-items heuristic for `tree`, as the owner said.
+
+### 8.8 What the pane matrix showed, and a correction (2026-10-19)
+
+An earlier line in this thread said no pane declares a floor. That was wrong: it read the `columns` and
+`rows` manifests (which declare `false`, as hosts), not the manifests of the components inside the panes.
+
+**What exists.** All 79 component manifests carry a `pane` object; 67 declare a numeric floor, the least share
+of the slide the component reads at (`pane.side` in 66, `pane.stack` in 53; for example `line`, `diagram`,
+`table`: 35% side by side; `funnel`, `slope`: 50%; `roadmap`: 65%). The other 12 are `false` in both directions
+(`columns`, `rows`, `title`, `divider`, `split-panel` and others): they do not sit in a pane. When a pane is below
+its floor, `arrangePanes` (`lib/core/pane-spec.js`) picks one of three outcomes: keep the layout, turn it (side by
+side to stacked, or the reverse), or split the slide into one slide per pane.
+The engine stamps every pane with its box (`data-pane-view`, `paneView()` in `lib/engine/index.js`). Twelve charts
+redraw to it through `viewFor` (`bar`, `stacked-bar`, `histogram`, `scatter`, `slope`, `risk-matrix`, `tower`,
+`bullet`, `line`, `waterfall`, `ep-curve`, `heatmap`), so they fill any pane. `map`, `quadrant`, `piechart` and
+`radar` read it only to refit their legend key; the drawing stays fixed. A Mermaid fence in a pane scales
+uniformly into the pane's box and may turn orientation for a tall one, with no size floor (the `--lp-fig-*` clamp
+is the Read hosts', `engineering/mermaid.md`).
+
+**Measured** on a CLI render of each component beside a text pane at 25/75, 50/50 and 75/25:
+
+| Figure | Result |
+|---|---|
+| `bar`, `line` | fill the pane at every share |
+| `piechart`, `radar`, `funnel`, `map` | scale a fixed drawing: small, with empty space, at narrow shares |
+| `diagram` (wide LR flowchart) | empty bands above and below even at 75% |
+| `table` | flows to any shape; splits below its 35% floor, as designed |
+| photo in a plain pane | takes the pane width at its own shape, cropped with "Content clipped" when that is taller than the pane (wide 75%, tall 50% and 75%, square 75%) |
+
+**Reading.** The gap is sizing by a figure's shape, for fixed-shape figures. A photo's shape comes from the
+`image` plugin's stamped `aspect-ratio` (media-plugins §4.11, a guard owed by its slices 2 and 3; the plugin does not exist yet), not from a manifest. Recorded as followup
+`2779-p1`; `2744-p3` (route panes through `template`) waits on it. Not tested: a photo as a plugin figure
+(the plugin is unbuilt), dark themes, `rows`.
 
 ## 9. Decisions
 
