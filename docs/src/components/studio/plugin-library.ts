@@ -23,15 +23,17 @@ export type StudioPluginRecord = {
 	placeholder?: { placement?: string; aspect?: string; size?: string };
 	/** Its inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): name, slot spec, placeholder size, title. */
 	kinds?: StudioPluginKind[];
+	/** Its declared return fields (`contributes.returns`), as the manifest held them. */
+	returns?: unknown;
 };
 
-type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; addedAt?: number };
+type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown; addedAt?: number };
 
-const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.placeholder ? { placeholder: a.placeholder } : {}), ...(Array.isArray(a.kinds) && a.kinds.length ? { kinds: a.kinds } : {}) });
+const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.placeholder ? { placeholder: a.placeholder } : {}), ...(Array.isArray(a.kinds) && a.kinds.length ? { kinds: a.kinds } : {}), ...(a.returns !== undefined ? { returns: a.returns } : {}) });
 
 /** Save a plugin; re-saving the same name replaces it in place (the store keys on kind + name, with a history snapshot). */
-export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[] }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
-	const stored = (await putAsset({ kind: 'plugin', name: input.name, fence: input.fence, text: input.code, css: input.css ?? '', title: input.title ?? input.name, description: input.description ?? '', ...(input.placeholder ? { placeholder: input.placeholder } : {}), ...(input.kinds?.length ? { kinds: input.kinds } : {}), addedAt: Date.now() }, opts)) as PluginAssetRecord;
+export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
+	const stored = (await putAsset({ kind: 'plugin', name: input.name, fence: input.fence, text: input.code, css: input.css ?? '', title: input.title ?? input.name, description: input.description ?? '', ...(input.placeholder ? { placeholder: input.placeholder } : {}), ...(input.kinds?.length ? { kinds: input.kinds } : {}), ...(input.returns !== undefined ? { returns: input.returns } : {}), addedAt: Date.now() }, opts)) as PluginAssetRecord;
 	return toRecord(stored);
 }
 

@@ -339,7 +339,7 @@ describe('the door entries a render gets', () => {
     const r = loader.npmPluginEntries(proj, ['gantt', 'unfetched', 'mermaid'], { dir, taken: new Set(['mermaid']), approvals: { 'plugin/gantt': { layer: 'on' } } });
     assert.deepEqual(
       r.entries.map((e) => ({ ...e, code: Buffer.from(e.code).toString() })),
-      [{ name: 'gantt', fence: 'gantt', kinds: [], code: GOOD, source: 'npm', pin: sha(GOOD), layer: 'on' }],
+      [{ name: 'gantt', fence: 'gantt', kinds: [], returns: [], code: GOOD, source: 'npm', pin: sha(GOOD), layer: 'on' }],
     );
     assert.match(r.warnings.join('\n'), /unfetched .* is not fetched.*lattice packages fetch/);
     assert.match(r.warnings.join('\n'), /mermaid has the name of a plugin Lattice ships/);

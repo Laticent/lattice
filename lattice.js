@@ -1813,7 +1813,8 @@ function withInstalledPlugins(source) {
     const written = inlineKindsOf(p.pkg.manifest).filter((k) => source.includes(`\`@${k.name}{`));
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
-  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null })), ...npm];
+  const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null })), ...npm];
 }
 
 /**

@@ -166,6 +166,12 @@ neither (§6 rows 3 and 4 and decision 10: plugins never send code) and part 3 c
    it must not pass by recording the exit and accepting it. Accepting an exit is a separate owner
    decision.
 4. **Data-return case (decision 10).** The canary hands the host hostile data (a script, an event handler, a `javascript:` link, a `</style>` break-out, oversized values) and checks two things: the host sanitizes or drops it, and the host disables the plugin and alerts the user.
+   **Built 2026-10-19** (decisions 11 and 12): `DATA RETURN` in `test/integration/export/npm-plugin-canary.test.js`
+   runs one plugin per hostile value in one real render, next to a clean one. Fourteen values (an undeclared
+   handler name, a forged engine name, a word outside its list, `<script>`, `</style>`, a `javascript:` link, a
+   plain link, an image, inline HTML, a fence, an oversized text, a number out of range, a number sent as text and a
+   flag sent as text) each disable their plugin with an alert and put neither a drawing nor a value on the page; the
+   clean plugin's values land escaped on its `<section>`. Removing any one check in `checkReturnData` turns it red.
 5. **Keep the canary open-ended.** It is pinned to the listener and policy surface, not to a fixed
    list. Any exit a reviewer names is added before the door opens, and the canary runs in
    Chromium, WebKit and Firefox as §3.1 did.
@@ -185,8 +191,7 @@ an online page raw and reads zero after the host's sanitizer. A committed WEAKEN
 wall all removed (a manual run, not committed), the door arm goes red and names `fetch`, `importscripts`, `websocket` and `xhr`; with the first
 three removed and the worker wall left, it stays green, because the worker wall holds alone. `export-nightly/npm-plugin-export-check.test.js` (nightly) opens the real
 `--player` and plain exports with normal browser arguments in Chromium, WebKit and Firefox and is `todo` because it
-reads open exits (below); it must lose the `todo` only by closing them. The red team found a bypass the first canary missed: an address held in a custom property and read through `image-set(var(--q))` survived the door's sanitizer (`cssRefTargets`). The first fix was bypassable and over-broad (the checker found an inherited variable, a space, backslashes and a comment slipped past, and a plain `--sep:"/"` label was stripped); the second lists an address-shaped string (a network scheme, `//` or a backslash pair) from any custom property, and the canary now carries the inherited, spaced and backslash forms in real Chromium; the same hole in the package stylesheet gate is closed (2026-10-19): `findCssExfil` (`lib/core/css-scan.js`) reports an address-shaped string in a custom property or an `@property` `initial-value` as `css-var-address`, which `firstRefusal` refuses, so a component, theme or plugin package carrying one is refused. The same walk replaced the `image-set()` regex, which stopped at the first `)` and missed `image-set(url(data:…) type(…) 1x, "//evil" 2x)`. The canary's STYLESHEET arm renders each form as an installed component through the real CLI and opens the export in an online browser; with the fix reverted all five forms reached the listener. Part 4 waits on the data-return surface
-(`followups.d/2749-p4-plugin-data-return-surface.md`). What stays open is in
+reads open exits (below); it must lose the `todo` only by closing them. The red team found a bypass the first canary missed: an address held in a custom property and read through `image-set(var(--q))` survived the door's sanitizer (`cssRefTargets`). The first fix was bypassable and over-broad (the checker found an inherited variable, a space, backslashes and a comment slipped past, and a plain `--sep:"/"` label was stripped); the second lists an address-shaped string (a network scheme, `//` or a backslash pair) from any custom property, and the canary now carries the inherited, spaced and backslash forms in real Chromium; the same hole in the package stylesheet gate is closed (2026-10-19): `findCssExfil` (`lib/core/css-scan.js`) reports an address-shaped string in a custom property or an `@property` `initial-value` as `css-var-address`, which `firstRefusal` refuses, so a component, theme or plugin package carrying one is refused. The same walk replaced the `image-set()` regex, which stopped at the first `)` and missed `image-set(url(data:…) type(…) 1x, "//evil" 2x)`. The canary's STYLESHEET arm renders each form as an installed component through the real CLI and opens the export in an online browser; with the fix reverted all five forms reached the listener. Part 4 runs since 2026-10-19 (`DATA RETURN`, §5.2 item 4 and §6.1). What stays open is in
 `followups.d/2743-p1-npm-plugin-canary-harness.md`.
 
 **Measured 2026-10-18 on real exports, normal browser arguments, each cell with a control that reached the
@@ -374,6 +379,44 @@ covers. Implementing 7 to 9 is done: the door enforces them, and the loader that
 
 This note does not edit `2026-09-13` Axis 2 beyond a pointer. Decisions 3 and 4 mean that row's npm line ("code,
 Node-side, resolved at build time") no longer describes the plan. Superseding it is `followups.d/2749-p1-supersede-plugin-architecture-axis2-npm-row.md`.
+
+### 6.1 The returns surface, as built (decisions 11 and 12, 2026-10-19)
+
+A plugin opts in with `contributes.returns.fields` (`spec/LPM.md` §3.3, `lib/plugins/plugin.schema.json`). The gate
+(`returnsRefusal`, `lib/packages/code-shape.mjs`) admits only the five types of decision 11, at most 16 fields named
+`[a-z][a-z0-9-]{0,31}` with no `--` and no trailing hyphen, text capped at 256 characters and markdown at 2,000. The
+declaration is pinned into the consent digest and SHOWN in both approval prompts (`returnsConsent`: each field, its
+bounds and the attribute it lands on), so widening a word list asks again with a prompt that says what changed; a
+plugin that declares none keeps the digest it had.
+
+**Where values land: `data-returned-<plugin>--<field>`, not decision 12's `data-<plugin>-<name>`.** Decision 12 fixed
+the place (the slide's own `<section>`, never the deck context); the attribute shape was this note's proposal. Built as
+proposed, with a list of engine prefixes kept off it, the red team and the inversion lens both found the list already
+stale: a plugin named `split` could write `data-split-mods` (`lib/base/base.variants.css` tones a slide by it), `build`
+reached `data-build-at`, `focus` reached `data-focus-style`, and any plugin's `state` field collided with the settle
+protocol's `data-<plugin>-state`. Plugin `a` with field `b-c` and plugin `a-b` with field `c` also wrote one attribute.
+A host-owned prefix that nothing in the tree reads, with `--` before the field, closes both by construction; a unit test
+fails if anything in `lib/`, `themes/` or `docs/src/` starts reading the prefix. The owner may veto the spelling; the
+place is unchanged.
+
+At run time the worker sends `{ html, data }` across the frame as one string (`RETURN_ENVELOPE`). Each door, the CLI
+(`lib/packages/code-door.js`) and the Studio (`docs/src/lib/code-packages/door-run.ts`), sanitizes the html as any
+fence output and holds every value to its field with one shared check (`checkReturnData`,
+`lib/packages/plugin-returns.mjs`), on every render, a remembered result included. Markdown is parsed with HTML
+detection on and markdown-it's link filter off, so `[x](javascript:…)` shows up as a link and is refused rather
+than quietly turned to text. One violation disables the plugin for the whole render: its blocks keep their source
+with a note, the CLI warns, and the Studio's strip says why. Both doors apply the output cap first, counting returned data with the drawing: a block the cap
+replaces returns nothing, so its values are neither checked nor written. Clean values land as
+`data-returned-<plugin>--<field>` on the slide's own `<section>`, escaped as attribute values, first block wins per
+slide and the author is told of a clash. The host writes them by walking the open tag attribute by attribute: a regex
+over the whole tag matched a name inside another attribute's quoted value and broke the tag's quoting (the red team).
+Each value is also held to twice its declared length BEFORE cleaning, and a lone surrogate is refused.
+
+Not built, and put to the owner (the ❓ card on the PR): no host surface SHOWS a returned value yet. The values are
+attributes a deck's own CSS can select on (`section[data-returned-gantt--status="late"]`), but a plugin's own
+`styles.css` does not reach a CLI export (`lattice.js` embeds component sheets only) and markdown is never rendered,
+although decision 11 says the host renders it; `renderReturnMarkdown` waits for that surface. The deck context stays
+out of reach (decision 12). Recorded in `followups.d/2749-p3-plugin-returns-consumer.md`.
 
 ## 7. What is not verified
 

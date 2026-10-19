@@ -75,6 +75,29 @@
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"},
           "additionalProperties": {"type": "string", "minLength": 1}
         },
+        "returns": {
+          "type": "object",
+          "description": "Values a renderer may hand back besides its drawing (threat-model decisions 10 to 12, engineering/decisions/2026-10-16-npm-plugin-threat-model.md). The renderer returns `{ html, data }`; the HOST holds every value to its field here and writes it as `data-returned-<plugin>--<field>` on the slide's own <section>. A value its field does not admit, or a name not declared here, disables the plugin for the render with an alert. Pinned into consent. Checked by `returnsRefusal` (lib/packages/code-shape.mjs).",
+          "additionalProperties": false,
+          "required": ["fields"],
+          "properties": {
+            "fields": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 16,
+              "propertyNames": {"pattern": "^(?=[a-z][a-z0-9-]{0,31}$)(?!.*--)(?!.*-$)"},
+              "additionalProperties": {
+                "oneOf": [
+                  {"type": "object", "additionalProperties": false, "required": ["type", "values"], "properties": {"type": {"const": "word"}, "values": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"}}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "number"}, "min": {"type": "number"}, "max": {"type": "number"}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "flag"}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "text"}, "max": {"type": "integer", "minimum": 1, "maximum": 256}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "markdown"}, "max": {"type": "integer", "minimum": 1, "maximum": 2000}}}
+                ]
+              }
+            }
+          }
+        },
         "fences": {
           "type": "object",
           "description": "Fenced code blocks this plugin renders, keyed by the fence NAME an author writes (```name). The host owns one fence table keyed by name and alias; the plugin's `<name>.render.js` exports a `fences` object with the same keys. A name or alias two plugins claim, or one a code language already owns (a highlight.js language or alias, or a host-reserved name), fails the build by name.",
