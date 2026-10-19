@@ -387,7 +387,7 @@ until the agent module lands, then re-prices). Merged into `main`: −15 B, noth
   `measureDeckFit`, imported by the lazy agent from settings the shell hands over as plain
   data, `fitRender`) and reads back the runtime's own per-slide verdict: `.overflow`,
   `.clip-marked`, `.illegible`. A slide the turn wrote that overflows or cuts text counts as an
-  error and holds the turn open; the same on an untouched slide is reported, not charged. It
+  error and holds the turn open; the same on an untouched slide is reported, not charged. The check that rides an edit renders only the slides the turn changed (the rest are emptied before the frame lays them out, `measureDeckFit`'s `scope`; `check_deck`, a front-matter change, and a changed or removed slide holding a bare `class:`/`header:`/`footer:` directive measure all, because that directive carries forward to later slides), because laying out a whole deck cost the page ~2 s on 40 slides at 4x CPU (`2026-10-19-studio-main-thread-jank.md`). It
   does not judge how a slide looks, and the prompt says so. The render uses the live deck's
   palette and mode, not a theme the agent just set — fit barely depends on them. Proven on the
   real Studio with a mocked model (`docs/e2e/chat-agent-fit.spec.ts`): a 28-item slide comes

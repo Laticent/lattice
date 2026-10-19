@@ -428,6 +428,57 @@ describe('the loop', () => {
 		expect(tb.settled()).toBe(true);
 	});
 
+	// The fit render lays out every slide it is given, ~2 s of main thread on a 40-slide deck at 4x CPU.
+	// The check that rides an edit therefore asks for the slides the turn changed, and check_deck all of them.
+	it('asks the fit render for the changed slides only; check_deck and a front-matter change ask for all', async () => {
+		const check = vi.fn(async (_src: string, _scope?: { only: number[]; slideCount: number }) => ({ findings: [], fit: fitFor(0) }));
+		const tb = toolbox({ check });
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(check.mock.calls[0][1]).toEqual({ only: [3], slideCount: 3 });
+		await tb.run('check_deck', '{}');
+		expect(check.mock.calls[1][1]).toBeUndefined();
+		const fm = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check: fm }).run('set_front_matter', JSON.stringify({ key: 'size', value: '4:3', summary: 's' }));
+		expect(fm.mock.calls[0][1]).toBeUndefined();
+	});
+
+	// `<!-- class: dense -->` holds for every slide after it, so a slide that writes or removes one can
+	// change slides whose text it never touched; the underscore form holds for its own slide only.
+	it('measures every slide when a changed or removed slide holds a carry-forward directive', async () => {
+		const scoped = (scope?: unknown) => scope;
+		const check = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- class: dense -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(scoped(check.mock.calls[0][1])).toBeUndefined();
+		const own = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check: own }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: dense -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(own.mock.calls[0][1]).toEqual({ only: [3], slideCount: 3 });
+		const globalKey = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ check: globalKey }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- theme: cuoio -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(globalKey.mock.calls[0][1]).toBeUndefined();
+		const withHeader = DECK.replace('## Revenue grew', '<!-- header: Big -->\n## Revenue grew');
+		const del = vi.fn(async (_src: string, _scope?: unknown) => ({ findings: [], fit: fitFor(0) }));
+		await toolbox({ source: withHeader, check: del }).run('edit_slides', JSON.stringify({ edits: [{ action: 'delete', slide: 2 }], summary: 's' }));
+		expect(del.mock.calls[0][1]).toBeUndefined();
+	});
+
+	it('a turn that changed no slide text asks for no fit measure', async () => {
+		const check = vi.fn(async (_src: string, _scope?: { only: number[]; slideCount: number }) => ({ findings: [], fit: [] }));
+		await toolbox({ check }).run('edit_slides', JSON.stringify({ edits: [{ action: 'delete', slide: 3 }], summary: 's' }));
+		expect(check.mock.calls[0][1]?.only).toEqual([]);
+	});
+
+	it('names only the slides it measured, and never says the whole deck fits', async () => {
+		const rows = [1, 2, 3].map((slide) => ({ slide, overflows: false, clipped: false, illegible: false, skipped: slide !== 3 }));
+		const out = await toolbox({ check: async () => ({ findings: [], fit: rows }) }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(out).toContain('the 1 slide this turn changed fit');
+		expect(out).toContain('The other 2 slides were not re-measured, so do not say the whole deck fits.');
+		expect(out).not.toMatch(/all \d+ slides? fit/);
+		// A misfit on the measured slide is still an error, and the unmeasured ones are not charged.
+		const bad = await toolbox({ check: async () => ({ findings: [], fit: rows.map((r) => (r.slide === 3 ? { ...r, overflows: true } : r)) }) }).run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(bad).toMatch(/slide 3 overflows its frame[^\n]*an error/);
+		expect(bad).toContain('The other 2 slides were not re-measured');
+	});
+
 	it('says fit was not measured rather than implying the slides fit', async () => {
 		const tb = toolbox({ check: async () => ({ findings: [] }) });
 		expect(await tb.run('check_deck', '{}')).toContain('Fit was not measured');
@@ -554,7 +605,7 @@ describe('efficiency: fewer rounds, cached tails', () => {
 		expect(out).toContain('Replaced slide 3');
 		expect(out).toContain('Check of the draft after this change');
 		expect(out).toContain('bad nesting');
-		expect(check).toHaveBeenCalledWith(tb.draft);
+		expect(check).toHaveBeenCalledWith(tb.draft, { only: [3], slideCount: 3 });
 		const fm = await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium' }));
 		expect(fm).toContain('Check of the draft after this change');
 	});

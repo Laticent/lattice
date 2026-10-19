@@ -52,11 +52,7 @@ test. Six test files now close through `test/helpers/jsdom-close.js`. Real brows
 
 ## Measured and not fixed
 
-- **The agent's fit check hangs the page for the length of a whole-deck render.** Each `edit_slides` result
-  renders the entire draft in an offscreen frame and measures every slide (`draft-fit.ts`, `measureDeckFit`). On a
-  40-slide gallery deck at 4x it produced a 3.7 s gap (about 0.9 s unthrottled), mostly layout and style
-  recalculation inside the frame. Chunking cannot split that work. Measuring only the slides the agent touched
-  would cut it by the deck size, but it changes what the agent may say ("all N slides fit"), so it is an owner decision (see the PR's decision card).
+- **The agent's fit check hung the page for the length of a whole-deck render. FIXED in a follow-up PR (`perf/agent-fit-changed-slides`), after the owner decided on 2026-10-19 that it should check only the slides it changed.** Each `edit_slides` result rendered the entire draft in an offscreen frame and measured every slide (`draft-fit.ts`, `measureDeckFit`). On a 40-slide gallery deck at 4x it produced a 2 s gap (three runs: 1.9, 2.0, 2.2 s), mostly layout and style recalculation inside the frame; the whole turn took 8.4 s. The edit's check now asks for the slides the turn changed (`checkDeck(scoped)` passes `fitScope`), and `measureDeckFit` hands the frame every other slide as an empty section that keeps its open tag, number and place. Same deck, same throttle, three runs: gap 1.3, 1.0, 0.9 s; turn 5.3, 5.0, 4.7 s. What is left is fixed per-frame cost (runtime boot, sanitizing, browser layout), not per-slide work. The agent's wording changed with it: it says "the N slides this turn changed fit" and is told not to claim the whole deck fits. `check_deck` and any turn that changes front matter still measure every slide, because a theme or size change can break a slide without changing a word. A deck whose rendered sections differ in number from its slides (an auto-glossary, a `split:` slide) cannot be addressed by number and is measured whole, as before.
 - **Typing** costs about 110 ms per keystroke at 4x on that 40-slide deck, with or without the chat open. That is the
   budgeted full-deck re-render (`test/benchmark/preview-budget.json`), unchanged.
 - **Slide changes** by rail click or arrow key are cheap here (a few long tasks in 20 changes at 4x, none unthrottled, in Chromium and Firefox). The slide-change hang on the owner's machine is not reproduced; the idle loop and the chat re-render are the candidates this PR removes.

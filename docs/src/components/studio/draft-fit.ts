@@ -7,8 +7,12 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { measureDeckFit } from './export/deck-export.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
-/** `undrawn`: a diagram on the slide had not drawn when it was measured, so its fit is unknown. */
-export type SlideFit = { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean };
+/** `undrawn`: a diagram on the slide had not drawn when it was measured, so its fit is unknown.
+ *  `skipped`: the check was asked for other slides only, so this one was not measured at all. */
+export type SlideFit = { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean; skipped?: boolean };
+
+/** Which slides to measure: 1-based source slide numbers, and the deck's slide count. */
+export type FitScope = { only: number[]; slideCount: number };
 
 /** How long a fit check may take before the checker reports fit as not measured. Measured on
  *  the built Studio, a session's FIRST check takes ~0.4 s, because the live preview has already
@@ -19,14 +23,16 @@ export type SlideFit = { slide: number; overflows: boolean; clipped: boolean; il
 export const DRAFT_FIT_TIMEOUT_MS = 15000;
 
 /** Per-slide fit for `draft`, or undefined when it could not be measured in time — never a
- *  guess, the same contract as the Mermaid check beside it. */
-export async function measureDraftFit(options: SingleSlideOptions, draft: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<SlideFit[] | undefined> {
+ *  guess, the same contract as the Mermaid check beside it. With `scope`, only those slides are
+ *  measured and the rest come back `skipped`; an empty `only` renders nothing at all. */
+export async function measureDraftFit(options: SingleSlideOptions, draft: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string, scope?: FitScope): Promise<SlideFit[] | undefined> {
+	if (scope && !scope.only.length) return Array.from({ length: scope.slideCount }, (_, i) => ({ slide: i + 1, overflows: false, clipped: false, illegible: false, skipped: true }));
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const late = new Promise<undefined>((res) => {
 		timer = setTimeout(() => res(undefined), DRAFT_FIT_TIMEOUT_MS);
 	});
 	try {
-		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss).then((r) => measureDeckFit(r) as Promise<SlideFit[] | null>);
+		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss).then((r) => measureDeckFit(r, scope) as Promise<SlideFit[] | null>);
 		const out = await Promise.race([run, late]);
 		return out ?? undefined;
 	} catch {
