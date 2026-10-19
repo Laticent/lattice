@@ -94,6 +94,24 @@ describe('MapRail', () => {
 		expect(document.activeElement?.getAttribute('data-unit')).toBe('199');
 	});
 
+	it('a key that moves nothing cannot take keyboard focus later', () => {
+		vi.useFakeTimers();
+		try {
+			const p = props({ count: 5, focus: 4 });
+			const { rerender } = render(<MapRail {...p} />);
+			const field = document.createElement('textarea');
+			document.body.appendChild(field);
+			fireEvent.keyDown(screen.getByRole('button', { name: 'Slide 5' }), { key: 'ArrowDown' });
+			field.focus();
+			act(() => vi.advanceTimersByTime(1500));
+			rerender(<MapRail {...p} focus={1} />);
+			expect(document.activeElement).toBe(field);
+			field.remove();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('has exactly one tab stop among its tiles: the focused one', () => {
 		render(<MapRail {...props({ count: 30, focus: 4 })} />);
 		const stops = [...document.querySelectorAll<HTMLElement>('button[data-unit]')].filter((b) => b.tabIndex === 0);

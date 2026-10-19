@@ -97,10 +97,15 @@ function hasText(markup: string): boolean {
  */
 export function blanksOf(html: string): boolean[] {
 	const out: boolean[] = [];
-	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; inner?: string }>) {
+	for (const p of splitSections(String(html ?? '')) as Array<{ type: string; openTag?: string; inner?: string }>) {
 		if (p.type !== 'section') continue;
+		// What the engine draws for a slide with nothing on it: a standard-frame section with no background
+		// (`style=`) or component (`data-class=`) and an EMPTY stage. A slide that holds only a background
+		// image, a `_class` directive, a speaker-note comment or a spacer is not blank, and a section the
+		// scan cannot recognize is not blank either, so a doubtful slide never loses its tile.
+		const open = p.openTag ?? '';
 		const inner = p.inner ?? '';
-		out.push(!/<(img|svg|video|canvas|table|pre|figure|iframe|object|picture)\b/i.test(inner) && !hasText(inner));
+		out.push(!/\sstyle=|\sdata-class=/i.test(open) && /\sdata-frame="standard"/i.test(open) && /<div class="cell-stage"><\/div>/.test(inner) && !hasText(inner));
 	}
 	return out;
 }

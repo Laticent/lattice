@@ -137,6 +137,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 	const [viewCross, setViewCross] = React.useState(0);
 	const [plan, setPlan] = React.useState<Plan>(EMPTY);
 	const keyNav = React.useRef(false);
+	const keyNavTimer = React.useRef(0);
+	React.useEffect(() => () => window.clearTimeout(keyNavTimer.current), []);
 	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation), [count, viewCross, aspect, orientation]);
 	const liveOn = !!live;
 
@@ -251,7 +253,13 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 		const action: RailStep | null = e.key === next || e.key === (vertical ? 'ArrowRight' : 'ArrowDown') ? 'next' : e.key === prev || e.key === (vertical ? 'ArrowLeft' : 'ArrowUp') ? 'prev' : e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null;
 		if (!action) return;
 		e.preventDefault();
+		// The request lasts a second at most, so a key that moves nothing (at the end of the deck) cannot leave it
+		// armed to take keyboard focus from wherever the reader goes next.
 		keyNav.current = true;
+		window.clearTimeout(keyNavTimer.current);
+		keyNavTimer.current = window.setTimeout(() => {
+			keyNav.current = false;
+		}, 1000);
 		onStep(action, { key: true });
 	};
 

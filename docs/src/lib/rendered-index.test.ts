@@ -179,8 +179,22 @@ describe('known defect: the outliner drops an empty slide the engine renders', (
 		}
 	});
 
-	it('blanksOf calls an empty section blank and a slide with a picture or text not blank', () => {
-		expect(blanksOf('<section data-lattice-slide="1"></section><section><h1>T</h1></section><section><p>&nbsp;</p></section><section><svg></svg></section>')).toEqual([true, false, true, false]);
+	it('blanksOf calls only the engine\u2019s empty slide blank, never one that holds a background, a directive, a note or a spacer', () => {
+		const slide = (md: string) => blanksOf(pagesOf(`# A\n\n---\n\n${md}\n\n---\n\n# C\n`).html)[1];
+		expect(slide('')).toBe(true);
+		expect(slide('![bg](x.png)')).toBe(false);
+		expect(slide('<!-- _class: divider -->')).toBe(false);
+		expect(slide('<!-- a speaker note -->')).toBe(false);
+		expect(slide('<div class="spacer"></div>')).toBe(false);
+		expect(slide('# Real')).toBe(false);
+	});
+
+	it('a deck with a background-only slide and a later real blank drops the blank, not the background slide', async () => {
+		const md = '# A\n\n---\n\n![bg](x.png)\n\n---\n\n# C\n\n---\n\n---\n\n# E\n';
+		const { stamps, html } = pagesOf(md);
+		const ix = await renderedIndexOf(stamps, buildDeckIndex(md), countSlides, new Map(), 0, blanksOf(html));
+		expect(ix.pages.map((p) => p.flat)).toEqual([0, 1, 2, -1, 3]);
+		expect(ix.unexplainedPages).toEqual([]);
 	});
 });
 
