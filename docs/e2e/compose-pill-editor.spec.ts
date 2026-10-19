@@ -24,9 +24,11 @@ async function savedDeck(page: Page): Promise<string> {
  * gate. The rest (undo, "Edit as text", the locked slide, the literal deck) run nightly.
  *
  * The oracle for "only that word" is the PERSISTED SOURCE, not the screen: the whole deck, byte
- * for byte, with one substitution. `desktop` only. The phone's sheet and two-row bar were driven by
- * hand in a desktop browser at 390px with touch enabled (emulation: not a device), and the touch
- * projects reach Compose through different chrome, so nothing here claims a phone.
+ * for byte, with one substitution. Most of this file is `desktop` only. The one `@parity` test
+ * (a touch tap opens the editor and a pick rewrites one word) also runs on the three `*-touch`
+ * projects at 1440, 820 and 390px, with a real touch tap. That is touch EMULATION in Chromium, not a
+ * device, so it claims the touch event path and the layout at those widths, not a phone's keyboard,
+ * its sheet animation or iOS.
  */
 
 const COMPOSE = 'Compose — rich editor';
@@ -59,6 +61,10 @@ const DECK = [
 
 async function openDeckInCompose(page: Page, source = DECK): Promise<void> {
 	await gotoStudio(page);
+	// A phone opens on Preview, with the source behind its own button; a wider Studio shows it already.
+	if (!(await page.getByLabel('Deck source').isVisible())) {
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	}
 	await setEditorContent(page, source);
 	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
 	await page.locator('.cs-host .ProseMirror').waitFor();
@@ -105,6 +111,27 @@ test.describe('compose pill editor', () => {
 		await editor(page).getByRole('radio', { name: 'Size: Large' }).click();
 		await editor(page).getByRole('radio', { name: 'Color: theme default' }).click();
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, diamond, lg}`'));
+	});
+
+	// The same oracle as the tap test above, run under BOTH pointer states (`@parity` runs on the
+	// `*-touch` projects as well as `desktop`). On a touch project the pill is opened with a real
+	// touch tap, not a mouse click: the click path is the one thing `desktop` already covers, and the
+	// editor that opens, and the pick that rewrites one word, are what a phone author depends on.
+	test('@parity a touch tap on a pill opens the editor, and a pick rewrites only the word that was picked', async ({ page }) => {
+		await openDeckInCompose(page);
+		const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
+		const target = chip(page, 'SHIPPED');
+		if (touch) await target.tap();
+		else await target.click();
+		// A popover on desktop and tablet, a bottom sheet (a dialog) on a phone.
+		const panel = page.locator('[data-slot="popover-content"], [role="dialog"]').last();
+		await expect(panel).toBeVisible();
+
+		const pick = panel.getByRole('radio', { name: 'Color 5' });
+		if (touch) await pick.tap();
+		else await pick.click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, c5}`'));
+		await expect(drawnPills(page).first()).toHaveAttribute('data-c', 'c5');
 	});
 
 	test('@smoke the order and spelling of the words the author wrote are kept', async ({ page }) => {
