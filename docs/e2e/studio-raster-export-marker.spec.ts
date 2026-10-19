@@ -101,21 +101,17 @@ test('the Studio PDF export shows no authoring ring on a clipped slide @crosswid
 });
 
 // The Print panel builds its own sheet PDF from the same capture frame (PrintOptionsPanel.tsx), so it owes the same level.
-test('the Studio Print deck PDF shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
-	test.setTimeout(300_000);
-	try {
-		execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
-	} catch {
-		test.skip(true, 'pdftoppm (poppler-utils) is not installed');
-	}
+// Two arms: the default (`reader`) shows no author red, and the workspace's `author` setting does. The second is the
+// positive control: it proves the oracle sees the ring on this surface and that the panel honors the setting.
+async function printSheetRedPixels(page: import('@playwright/test').Page): Promise<number> {
 	const file = await exportOverflowDeck(page, 'print');
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-print-marker-'));
 	execFileSync('pdftoppm', ['-r', '60', '-png', file, path.join(dir, 'page')]);
 	const pages = fs.readdirSync(dir).filter((n) => n.endsWith('.png')).sort();
 	expect(pages.length, 'the sheet PDF has pages').toBeGreaterThan(0);
-	// A sheet may hold both slides on one page: no pixel anywhere on any page is the author red.
+	let total = 0;
 	for (const n of pages) {
-		const red = await page.evaluate(async (b64) => {
+		total += await page.evaluate(async (b64) => {
 			const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
 			const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d') as OffscreenCanvasRenderingContext2D;
 			ctx.drawImage(bmp, 0, 0);
@@ -124,6 +120,29 @@ test('the Studio Print deck PDF shows no authoring ring on a clipped slide @cros
 			for (let i = 0; i < d.length; i += 4) if (d[i] > 190 && d[i + 1] < 90 && d[i + 2] < 70) hits++;
 			return hits;
 		}, fs.readFileSync(path.join(dir, n)).toString('base64'));
-		expect(red, `${n}: author-red pixels`).toBeLessThan(40);
 	}
-});
+	return total;
+}
+
+for (const [level, seeded] of [['reader (the default)', null], ['author (the workspace setting)', 'author']] as const) {
+	test(`the Studio Print deck PDF follows the export setting: ${level} @crosswidth @webkit-tablet @webkit-phone @gecko`, async ({ page }) => {
+		test.setTimeout(300_000);
+		try {
+			execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
+		} catch {
+			test.skip(true, 'pdftoppm (poppler-utils) is not installed');
+		}
+		if (seeded) {
+			await page.addInitScript((v) => {
+				try {
+					localStorage.setItem('lattice-studio-settings', JSON.stringify({ overflowMarker: v }));
+				} catch {
+					/* a blocked store just means the default */
+				}
+			}, seeded);
+		}
+		const red = await printSheetRedPixels(page);
+		if (seeded) expect(red, 'the author ring is painted when the setting asks for it').toBeGreaterThan(200);
+		else expect(red, 'no author-red pixels under the reader default').toBeLessThan(40);
+	});
+}

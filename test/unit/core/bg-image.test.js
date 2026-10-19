@@ -262,6 +262,19 @@ describe('bg-image — liftImageBgImages reads slides and directives as the engi
     'an indented code line above `---` is not a setext heading': ['<!-- _class: image -->\n\n# One\n\nText\n\n    code line\n---\n\n![bg](a.jpg)\n', false],
     'a directive on the second line of an indented code block is code': ['# One\n\n    code\n    <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
     'a directive indented straight under a heading is code': ['# One\n    <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
+    // From the second checker pass: a pipe, a `$$` or a lazy indented line inside a plain paragraph still makes a
+    // setext heading; an unclosed trailing comment voids the directive; list content is not code; only the
+    // line's first comment can carry the directive.
+    'a pipe in prose above `---` is still a setext heading': ['<!-- _class: image -->\n\nA | B in prose\n---\n\n![bg left](a.jpg)\n', true],
+    'inline `$$` above `---` is still a setext heading': ['<!-- _class: image -->\n\nPay $5 or $$x$$ inline\n---\n\n![bg left](a.jpg)\n', true],
+    'a lazy indented line above `---` is still a setext heading': ['<!-- _class: image -->\n\nText\n    more indented\n---\n\n![bg left](a.jpg)\n', true],
+    'a table above `---` is a table, and `---` a break': ['<!-- _class: image -->\n\na | b\n--- | ---\n1 | 2\n\n---\n\n![bg left](a.jpg)\n', false],
+    'an unclosed comment after the directive voids it': ['<!-- _class: image --> <!-- b\n\n![bg left](a.jpg)\n', false],
+    'a directive in a list item\'s indented continuation is read': ['- item\n\n    continuation para\n    <!-- _class: image -->\n\n![bg left](a.jpg)\n', true],
+    'only the first comment on a line can carry the directive': ['<!-- a --> <!-- _class: image -->\n\n![bg left](a.jpg)\n', false],
+    'a `===` heading above `---` leaves `---` a break': ['<!-- _class: image -->\n\nTitle\n===\n---\n\n![bg left](a.jpg)\n', false],
+    'a paragraph ending in `-->` above `---` is still a setext heading': ['<!-- _class: image -->\n\nText -->\n---\n\n![bg left](a.jpg)\n', true],
+    'a comment block above `---` leaves `---` a break': ['<!-- _class: image -->\n\n<!--\nnote\n-->\n---\n\n![bg left](a.jpg)\n', false],
     'the plain case still lifts': ['<!-- _class: image -->\n\n# T\n\n![bg left](a.jpg)\n', true],
     'a blank line before `---` is a real break': ['<!-- _class: image -->\n\n# T\n\n---\n\n![bg left](a.jpg)\n', false],
     'a list item then `---` is a break, not a setext underline': ['- item\n---\n\n<!-- _class: image -->\n\n![bg left](a.jpg)\n', true],
