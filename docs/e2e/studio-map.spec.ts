@@ -202,3 +202,31 @@ test('the rail restacks when the window crosses the narrow breakpoint and back',
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
 });
+
+// THE CAPACITY REPORT BINDING ON THE REAL STUDIO. The pool reports its ceiling to the rail, and the rail passes it to
+// Veduta's `settle`, which caps the live tiles it asks for. No shipped setting lowers the ceiling below 28, so the
+// diagnostic key does (StudioMap.tsx `diagnosticSlots`); the arm without it shows the same deck asks for more.
+const TEN = Array.from({ length: 10 }, (_, i) => `# Slide ${i + 1}`).join('\n\n---\n\n');
+async function openTen(page: Page, slots: string | null) {
+	if (slots) await page.addInitScript((n) => window.localStorage.setItem('lattice-studio-map-slots', n), slots);
+	await gotoStudio(page);
+	await setEditorContent(page, TEN);
+	await mapOn(page);
+	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(10, { timeout: 15_000 });
+}
+const liveTiles = (page: Page) => page.locator(`${RAIL} button[data-tier="live"]`).count();
+const railFrames = (page: Page) => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
+
+test('a pool ceiling lowered to 3 caps the live tiles at 3 through settle, and the frames with them', async ({ page }) => {
+	await openTen(page, '3');
+	await expect.poll(() => railFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
+	await expect.poll(() => liveTiles(page), { message: 'the rail asked for more live tiles than the pool reported it holds' }).toBe(3);
+	test.info().annotations.push({ type: 'capped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+});
+
+test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles', async ({ page }) => {
+	await openTen(page, null);
+	await expect.poll(() => liveTiles(page)).toBeGreaterThan(3);
+	await expect.poll(() => railFrames(page)).toBeGreaterThan(3);
+	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+});

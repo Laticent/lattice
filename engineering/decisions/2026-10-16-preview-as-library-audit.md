@@ -976,7 +976,7 @@ carries a constant.**
   to Veduta as `cap.live`. The rail no longer clamps the budget itself (`MAX_LIVE` is gone); the core's
   `min(budget.live, caps.live)` does. The first ask of a mount runs before any settle and is uncapped; the settle after it
   carries the cap and re-asks at once, and the pool clamps the extra meanwhile, so nothing shows.
-- **In production the capacity is 28.** No shipped host passes `maxSlots`, so both map rails learn `HARD_MAX_SLOTS`. Against
+- **In production the capacity is 28.** No shipped setting lowers `maxSlots` (the Studio map's diagnostic key is opt-in), so both map rails learn `HARD_MAX_SLOTS`. Against
   the old fixed 24 the visible effect is four more live tiles before the 29th tile on screen falls to a sketch. A host that
   budgets its frames below that (a memory budget, WebKit, where a destroyed frame is never given back) now has a way to say so
   that reaches the core; none does yet.
@@ -991,8 +991,10 @@ carries a constant.**
   `it` blocks go red (run, not reasoned). `preview-pool.test.tsx`: `maxSlots` caps even on-screen tiles, the report arrives
   before the first pass, and `slots` stays at the high-water mark after every tile leaves. On real WebKit 26 (`webkit-tablet`)
   and on desktop Chromium, three close and open cycles of the Studio map create no new documents (7 frames before and after).
-  That e2e shows frame reuse and no harm; at 7 live tiles against a capacity of 28 it cannot show the cap binding, which only
-  the jsdom tests do.
+  That e2e shows frame reuse and no harm; at 7 live tiles against a capacity of 28 it cannot show the cap binding. A
+  diagnostic key, `localStorage['lattice-studio-map-slots']`, lowers the Studio map pool's ceiling (unset, nothing changes),
+  and with it the binding is shown on the real Studio: a ten-slide deck gets 3 live tiles and 3 frames with the ceiling at
+  3, and 10 and 10 without it (`studio-map.spec.ts`, desktop Chromium).
 - **Not done here.** The pill rail as a map tier, and a stage window that changes what is mounted, are still open
   (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`, narrowed). The npm tripwire should not count as met until a
   production value can bind.

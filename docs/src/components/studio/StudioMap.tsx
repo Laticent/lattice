@@ -52,6 +52,21 @@ export interface StudioMapProps {
  *  live budget as the tiles and the rail reports the pool's capacity plus this one frame. */
 const STAGE = { cost: 1 };
 
+/**
+ * A DIAGNOSTIC CEILING for the map's frame pool, read once from `localStorage['lattice-studio-map-slots']` (an
+ * integer, clamped by the pool to 1..HARD_MAX_SLOTS). Unset, the pool keeps its own ceiling and nothing changes.
+ * It exists so the capacity report can be shown binding on the real Studio (e2e/studio-map.spec.ts): no shipped
+ * setting lowers the ceiling, so without it the report always carries 28 and never limits what the rail asks for.
+ */
+function diagnosticSlots(): number | undefined {
+	try {
+		const n = Number.parseInt(window.localStorage.getItem('lattice-studio-map-slots') ?? '', 10);
+		return Number.isFinite(n) && n > 0 ? n : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 interface Item {
 	unit: number;
 	section: number;
@@ -120,5 +135,6 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		[look, liveCache, textOf],
 	);
 
-	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles, report) => <PreviewPool onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
+	const [maxSlots] = React.useState(diagnosticSlots);
+	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
 }
