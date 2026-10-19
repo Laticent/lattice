@@ -360,16 +360,27 @@ Two kinds of reader touch a pane marker, and the door treats them differently.
 
 | File | Reads | Moves to | Why |
 |---|---|---|---|
-| `lib/core/pane-spec.js` | authored `_pane:` and `pane:` (`PANE_RE`, `MARKER_RE`) plus the internal form | the authored regexes go to `parsePaneMarker`; the `INTERNAL_*` regexes stay | after the door nothing authored reaches the engine |
+| `lib/core/pane-spec.js` | authored `_pane:` and `pane:` (`PANE_RE`, `MARKER_RE`), authored `panes:` (`PANES_RE`), the `mayHavePanes` substring gate, plus the internal form | the authored regexes and the gate go to `parsePaneMarker`; the `INTERNAL_*` regexes stay | after the door nothing authored reaches the engine |
 | `lib/core/panes.js` | `normalizePaneSyntax` rewrites authored markers; the carve reads the internal form | the rewrite and its forgery guard become part of `compileMetaSource` (§5.1 item 4); the carve stays | one guard, run first, and the carve is the largest single risk (§9), so it is not rewritten |
 | `docs/src/components/studio/PresentOverlay.tsx` | `hasPaneMarker`, a `<!-- pane:` regex | `hasPaneMarker` from the shared module | the regex misses the `_pane:` spelling today and would miss the record form |
 | `docs/src/components/studio/pane-pages.ts` | `PANE_MARKER` | `parsePaneMarker` | same three spellings |
 | `docs/src/components/studio/pane-probe.ts` | `PANE_PROBE`, a cheap over-matching reject | the regex is built from the shared marker vocabulary and adds `{pane` / `{panes` | it must stay cheap and must never reject a deck the door would accept |
-| `docs/src/lib/compose/pane-model.ts` | `markerFor` writes `<!-- _pane: … -->`; class read is `pane-spec` `classOf` | writes through `writeMeta`; the class read follows `pane-spec` | Compose must write the form the cut leaves standing |
+| `docs/src/lib/compose/pane-model.ts` | `paneMarkerText` (`:132`) and an inline writer (`:318`) write `<!-- _pane: … -->`; a read at `:391`; class read is `pane-spec` `classOf` | both writers go through `writeMeta`, the read through `parsePaneMarker`; the class read follows `pane-spec` | Compose must write the form the cut leaves standing |
 
-The census marks these six `door`. The other 16 `stays` keep the reason they were given in step 1: a strip, a positional
+**Eight more files read or write a pane marker from authored text** and are not among the six (found by the independent check,
+2026-10-19). They already count as `migrated` or `stays` for the class directive, which is a different question. Each moves
+to `parsePaneMarker` at the door, and step 2 first traces whether it sees source before or after the door runs (the trace is
+not done: a reader after the door sees only the internal form and needs no change):
+`docs/src/components/studio/lint.ts` (`/^<!--\s*_?pane:/gm`), `docs/src/components/studio/slide-directives.ts` (three
+marker regexes), `docs/src/lib/compose/deck-source.ts` (`PANE_MARKER_RE`), `docs/src/lib/compose/comment-block.ts`
+(`PANE_MARKER_SHAPE`, which accepts only `_pane:`), `docs/src/lib/code-packages/door.ts` (`/^pane\s*:/`),
+`lib/diagnostics/slice-equivalence-core.mjs` (`/<!--\s*_?pane\s*:/g`), `lib/plugins/deck-plugins.mjs` (a `pane` key
+check; not in the §14 census at all), and `lib/layout/bridge.js` (calls `parseMarker`, so it follows `pane-spec`).
+
+The census marks the six in the table `door`. The other 16 `stays` keep the reason they were given in step 1: a strip, a positional
 rewrite, an over-matching probe, a producer-owned pragma, or a published package that cannot import `lib/core`. Step 2 is
-done with this table only when the six rows read `migrated` and no `door` row is left.
+done with this section only when the six rows read `migrated`, no `door` row is left, and the eight files above are each
+moved or shown to run after the door.
 
 ### 5.5 Edge cases
 

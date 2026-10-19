@@ -13,6 +13,8 @@ source: https://github.com/Laticent/lattice/pull/2772
 The reader decision is made (design §5.4.1): all six pane marker readers move at the door, and the census marks them `door`.
 Building it is step 2 work, not done here. When the door lands, the census must show no `door` row.
 
+Eight more files carry their own pane regex (design §5.4.1, second list); trace each against the door.
+
 Three smaller gaps from step 1 stay open:
 
 - `meta-not-own-line` misses a record indented under a list item.
