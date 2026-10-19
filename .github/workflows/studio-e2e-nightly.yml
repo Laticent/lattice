@@ -27,7 +27,7 @@ on:
     # is a probe, not the nightly: it files nothing on the rolling issue and skips e2e-ai.
     inputs:
       spec:
-        description: 'Spec path(s) under docs/, space-separated (e.g. e2e/workspace-backup-size.spec.ts). Empty = the whole suite.'
+        description: 'Spec path(s) under docs/, space-separated (e.g. e2e/workspace-backup-size.spec.ts). Empty = the whole suite. Not e2e/player-host-parity.spec.ts: the `player-parity` job runs that on every dispatch, and this suite skips it.'
         required: false
         default: ''
 
@@ -118,6 +118,8 @@ jobs:
       # would run the throttled suite (plus a full site build) twice a night on two runners, and a
       # breach would red THIS workflow — which files no issue — an hour before perf-nightly.yml,
       # which does. The perf axis belongs to the job that can raise the alarm.
+      # @player-parity IS EXCLUDED too: the host-parity spec has its own job below (`player-parity`),
+      # because inside this step it was the first thing the 45-minute limit cut off.
       # The suite exits non-zero on a failure. Capture the verdict into an output and keep
       # the STEP green so the artifact upload + issue steps below always run and key off
       # `failed` — the shape perf-nightly, preview-e2e-nightly and integration-nightly all
@@ -139,7 +141,7 @@ jobs:
           for f in "${specs[@]}"; do
             case "$f" in e2e/*) ;; *) echo "spec input must name paths under e2e/, got: $f" >&2; exit 2 ;; esac
           done
-          if npm run test:e2e -- --grep-invert @perf "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-report.txt"; then
+          if npm run test:e2e -- --grep-invert "@perf|@player-parity" "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-report.txt"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
@@ -474,6 +476,152 @@ jobs:
         if: always() && steps.security.outputs.failed == 'true'
         run: |
           echo "::error::the sandbox specs failed; the report is in this run's artifact."
+          exit 1
+
+  # THE TWO HOSTS' PLAYER FILES, BYTE FOR BYTE (engineering/decisions/2026-10-16-player-as-library-audit.md
+  # §11.9). docs/e2e/player-host-parity.spec.ts exports three decks through the Studio's Share →
+  # Webpage flow and through the CLI's `--player`, and fails on a one-byte difference. It used to run
+  # inside the `e2e` job, whose run step overran its 45 minutes on most recent nights, so the guard
+  # was the first thing cut off. Its own job (owner's pick, 2026-10-17; followups.d/2739-p9) means
+  # it finishes and files its own alarm. The `e2e` job skips it by tag (`@player-parity`).
+  #
+  # Chromium only: the claim is per browser build, and the spec runs the CLI on the same Chromium
+  # the suite drives. `--retries=0`: a byte that differs on one run in three is still a gap.
+  player-parity:
+    # No `spec` filter, like `security`: it runs on every dispatch, so a hand-run on a branch
+    # proves this job as well. Its issue steps file only for `main`.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+
+      # The CLI half of the spec runs `lattice.js`, and the webServer builds the site: both need
+      # the root deps (#1498).
+      - name: Install root deps (engine deps the docs build and the CLI import)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+
+      - name: Install Playwright browsers (pinned to @playwright/test)
+        run: npx playwright install --with-deps chromium
+        working-directory: docs
+
+      # Same shape as the `security` job's run step: keep the STEP green on a spec failure so the
+      # alarm always runs, carry the verdict in an output, and time the step out below the job.
+      - name: Run the host-parity spec on Chromium
+        id: parity
+        timeout-minutes: 20
+        run: |
+          set -uo pipefail
+          if npm run test:e2e -- e2e/player-host-parity.spec.ts --project=player-parity --retries=0 2>&1 \
+            | tee "$GITHUB_WORKSPACE/studio-parity-report.txt"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: docs
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report + trace/video artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-player-parity-${{ github.run_id }}
+          path: |
+            docs/playwright-report/**
+            docs/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Its OWN rolling title, so a drifting export arrives as its own thread and not as one more
+      # comment on the whole suite's.
+      - name: Open / append regression issue
+        if: always() && (steps.parity.outputs.failed == 'true' || steps.parity.outcome != 'success') && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TITLE='[studio-player-parity] Studio and CLI player-file parity failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-parity-report.txt"
+          BODY="$GITHUB_WORKSPACE/studio-parity-body.md"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
+          {
+            echo "The host-parity spec failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.parity.outcome }}). The Studio's Share → Webpage export and the CLI's \`--player\` no longer write the same bytes for one deck, or an export step failed before the comparison. A \`first difference at byte\` line in the report means the bytes differ; a new runtime stamp on a slide is the usual cause (followups.d/2739-p9)."
+            echo ""
+            echo '```'
+            grep -E '^\s+[0-9]+\) |✘|first difference|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ failed|[0-9]+ passed' \
+              "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
+            echo '```'
+            echo ""
+            echo "<details><summary>Last 120 lines</summary>"
+            echo ""
+            echo '```'
+            tail -n 120 "$REPORT" 2>/dev/null | head -c 20000 || true
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "_Run: ${RUN_URL}._"
+          } > "$BODY"
+          # The exact-title lookup the `e2e` job documents (never `--search "in:title …"`).
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create --title "$TITLE" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # COMMENTS, never closes: one clean night does not prove a drift that depends on the deck is
+      # gone. The three conditions are the `e2e` job's, for the reasons documented there.
+      - name: Report a passing run on the rolling issue
+        if: always() && steps.parity.outcome == 'success' && steps.parity.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          TITLE='[studio-player-parity] Studio and CLI player-file parity failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-parity-report.txt"
+          if [ ! -f "$REPORT" ] || ! grep -qE '[1-9][0-9]* passed' "$REPORT"; then
+            echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
+            exit 0
+          fi
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
+          {
+            echo "Measured green on \`main@${{ github.sha }}\`: the Studio and CLI player files matched byte for byte (${PASSED}, no retries)."
+            echo ""
+            echo "**Left open deliberately.** Check what changed and close by hand; a recurrence appends here."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+
+      # LAST, so the upload and both issue steps have already run. The run step stays green on a
+      # spec failure so they always fire, which would leave the JOB green too; this makes the run
+      # read red (the `security` job's reasoning, followups.d/2557-p3).
+      - name: Fail the job when the parity spec failed
+        if: always() && steps.parity.outputs.failed == 'true'
+        run: |
+          echo "::error::the host-parity spec failed (a byte difference, or an export step died); the report is in this run's artifact."
           exit 1
 
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):

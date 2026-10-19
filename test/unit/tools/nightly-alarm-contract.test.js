@@ -117,6 +117,9 @@ const COMMENTS_ONLY = {
   'studio-e2e-nightly.yml::security':
     'absolute per run, but a sandbox leak can be intermittent, so one clean night (no retries) ' +
     'does not prove it gone',
+  'studio-e2e-nightly.yml::player-parity':
+    'absolute per run, but the gap it guards depends on the deck: three decks matching tonight do ' +
+    'not prove a new runtime stamp is absent from a fourth',
   'webkit-baselines-nightly.yml::audit':
     'absolute per run, but its tolerance lives in the workflow and the tool, and widening it ' +
     'turns a night green without moving a label — the same shape as a re-bless',
@@ -641,7 +644,7 @@ test('nightly alarm contract', async (t) => {
     // secret unset Playwright skips every test, prints "N skipped" and EXITS 0.
     // Outcome and output both read green while nothing was tested.
     const pw = jobs.filter((j) => j.file === 'studio-e2e-nightly.yml');
-    assert.equal(pw.length, 3, 'expected the three studio-e2e jobs');
+    assert.equal(pw.length, 4, 'expected the four studio-e2e jobs');
     for (const { id, standDown } of pw) {
       // The GUARD specifically — `! grep -qE …` — not merely the pattern
       // somewhere in the step. The step greps twice (once to gate, once for the
