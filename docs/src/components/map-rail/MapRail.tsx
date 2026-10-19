@@ -39,6 +39,11 @@ export interface MapRailProps {
 	label: (unit: number) => string;
 	/** The picture of a unit, called only for units Veduta asks at `live`. Omit for a sketch-only rail. */
 	live?: (unit: number) => React.ReactNode;
+	/** A still picture of a unit (poster-cache.ts), called only for units Veduta asks at `poster`, which a tile that
+	 *  misses the live budget falls to before the sketch. Return null when there is none yet: the sketch shows. */
+	poster?: (unit: number) => React.ReactNode | null;
+	/** How many tiles may be posters at once (default 0, so Veduta never asks for one). */
+	posterBudget?: number;
 	/** Wraps the tile list, so a host's frame pool can position its frames over the tiles. The pool passes its
 	 *  capacity to `report` (a `PreviewPool`'s `onSettle` does), and the rail hands it to Veduta's `settle` as the
 	 *  live cap, so no more tiles are asked live than the pool can hold. */
@@ -136,7 +141,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -149,6 +154,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation), [count, viewCross, aspect, orientation]);
 	const liveOn = !!live;
 	const stageOn = !!stage;
+	const posterOn = !!poster;
 	const stageCost = stage && Number.isFinite(stage.cost) ? Math.max(0, stage.cost) : 0;
 	// The pool's capacity, as it reported it (undefined until a pool has, or with no pool at all).
 	const [poolCap, setPoolCap] = React.useState<number | undefined>(undefined);
@@ -177,15 +183,16 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 			// pool's reported capacity reaches the core through `settle` (below) and caps it there.
 			budget: {
 				live: (liveOn ? Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1) : 0) + stageCost,
+				poster: posterOn && Number.isFinite(posterBudget) ? Math.max(0, posterBudget) : 0,
 				wireframe: Infinity,
 				stageTier: stageOn ? 'live' : 'placeholder',
 				mapTile: liveOn ? 'live' : 'wireframe',
 				cost: { stage: stageCost, map: 1 },
 			},
 		});
-		const sig = intent.mapUnits.map((i) => `${i}${intent.tiers.map.get(i)?.[0]}`).join(',');
+		const sig = intent.mapUnits.map((i) => `${i}${intent.tiers.map.get(i)}`).join(',');
 		setPlan((p) => (p.sig === sig ? p : { units: intent.mapUnits, tiers: intent.tiers.map, sig }));
-	}, [count, focus, geo.pitch, liveBudget, liveOn, stageOn, stageCost, vertical, viewCross]);
+	}, [count, focus, geo.pitch, liveBudget, liveOn, posterOn, posterBudget, stageOn, stageCost, vertical, viewCross]);
 
 	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
 	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
@@ -331,6 +338,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 								</span>
 							)}
 							{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
+							{tier === 'poster' && poster ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
 							<span className="absolute bottom-1 left-1 z-10 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
 						</button>
 					</li>

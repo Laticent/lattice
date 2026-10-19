@@ -1053,6 +1053,30 @@ PR's decision card.
   chrome matching the front matter's, so a carried header made a blank after it look like a slide. Since §11m a blank slide is
   a unit and that chrome test is gone, so the carry no longer affects the map at all.
 
+## 11o. Built on 2026-10-19: the poster tier's cache and tile, not its capture (continuation P4)
+
+Section 11f put posters last, to pay only once decks over the pool cap hurt. Measured first, as the follow-up asked: of the
+295 example and baseline decks, the median has 8 slides and the 90th percentile 10; 12 have more than 12 and 4 more than the
+pool's 28. A rail's live budget already covers the tiles on screen, so a poster would only ever show on the overscan tiles of
+one of those few long decks while the reader scrolls.
+
+- **Built: the cache** (`map-rail/poster-cache.ts`). Content-addressed (`posterKey` of the slide text and its look, so a moved
+  slide keeps its poster and an edited one never shows the old picture), LRU under a byte budget, and pinned windows that are
+  never evicted, whatever the budget. Evicted values go to the host's `release`. A poster larger than the whole budget is
+  refused unless pinned (a checker found the first draft emptied the cache to make room for it, then dropped it too).
+  `posterKey`'s `look` must carry everything outside the slide's text that changes its picture, front matter and carried
+  directives included. `poster-cache.test.ts` pins each rule.
+- **Built: the tile kind.** `MapRail` takes `poster` and `posterBudget` (default 0) and passes the budget to Veduta's poster
+  rung, so a tile that misses the live cap falls to a poster before the sketch, and a host that has none yet returns null and
+  the sketch shows. `MapRail.test.tsx`: no poster without a budget; with a pool that reports 3 and a poster budget of 4, 3
+  live tiles and 4 posters.
+- **Not built: capture. BLOCKED, for two reasons.** A poster is a picture of a live tile, and the pool's frames are not
+  reachable from a tile today: capturing one needs a pool API (`capture(tileId)`) on the shared preview path. And the cost the
+  follow-up names, the capture hitch on WebKit (`html-to-image` clones and inlines a slide on the main thread, the route the
+  export already takes), has to be measured on a real Safari device, which this sandbox cannot reach. So no shipped host
+  passes `poster`, the poster rung stays at 0, and Safari is **UNVERIFIED**
+  (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to capture).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

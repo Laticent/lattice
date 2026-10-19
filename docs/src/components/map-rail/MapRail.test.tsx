@@ -84,6 +84,24 @@ describe('MapRail', () => {
 		expect(liveTiles()).toBe(4);
 	});
 
+	it('asks for no poster unless the host gives a poster budget, and then fills the tiles past the live cap with them', () => {
+		const live = (i: number) => <i data-live={i} />;
+		const poster = (i: number) => <b data-poster={i} />;
+		const wrap: MapRailProps['wrap'] = (tiles, report) => (
+			<Pool capacity={3} report={report}>
+				{tiles}
+			</Pool>
+		);
+		const { rerender } = render(<MapRail {...props({ count: 100, live, poster, wrap })} />);
+		expect(tiers().filter(([, t]) => t === 'poster').length).toBe(0);
+		rerender(<MapRail {...props({ count: 100, live, poster, posterBudget: 4, wrap })} />);
+		expect(liveTiles()).toBe(3);
+		expect(tiers().filter(([, t]) => t === 'poster').length).toBe(4);
+		expect(document.querySelectorAll('[data-poster]').length).toBe(4);
+		// The posters go to the tiles nearest the rail's view after the live ones, never past the budget.
+		expect(tiers().filter(([, t]) => t === 'wireframe').length).toBeGreaterThan(0);
+	});
+
 	it('a host with no pictures gets no live tiles whatever its pool reports', () => {
 		render(<MapRail {...props({ count: 100, wrap: (tiles, report) => <Pool capacity={20} report={report}>{tiles}</Pool> })} />);
 		expect(liveTiles()).toBe(0);
