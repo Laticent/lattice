@@ -910,6 +910,24 @@ fractions x three repeats) at the tablet box and 15 at the phone box on WebKit, 
 **0 placeholders in view in all 60**. `playground-filmstrip-jump.spec.ts` pins that oracle on desktop, mobile and
 `webkit-tablet`, with a failing arm that plants a placeholder in view and must see it. `syncVirtual` is unchanged.
 
+## 11j. Built on 2026-10-19: the Studio picture-in-picture (P3)
+
+The Studio's focused preview now has the same map rail (`studio/StudioMap.tsx` over `map-rail/MapRail.tsx`), turned on
+by the map button at the end of the slide navigator bar (remembered, off by default). It sits beside the slide on a pane
+at least 560 px wide and under it otherwise, measured on a wrapper the rail does not resize.
+
+- **One hub, no second focus.** The Studio's Fuoco hub already holds the focused part and every view reports to it, so the
+  rail only reads it (`useFocus`) and picks through `onRailPick`, the call a pill makes (it expands a collapsed preview and
+  moves the hub). First, previous, next and last resolve to a part in the view and take the same call.
+- **The viewed set.** A reader lens reshapes the deck, so the rail's units are the parts of `viewChunks`, numbered within
+  the view as the counter and the pills are. A focus the lens hides sits on the nearest earlier shown part
+  (`StudioMap.test.tsx`).
+- **Live tiles** are the Studio's pooled frames, given the main preview's look (palette, mode, finish CSS) and the viewed
+  deck as context, with the part alone as the fallback when the engine's slide count differs (`_focusSteps`).
+- **Known limit.** A pooled tile cannot carry the deck's allowed web origins (`PooledPreviewProps` has no such field), so a
+  web image the reader has allowed in the main preview shows as its placeholder in a tile.
+- **Cost.** A lazy chunk; the Studio's eager bundle is unchanged within the per-PR allowance (see the PR's route-budget line).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.
