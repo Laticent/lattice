@@ -151,7 +151,8 @@ test('the arrow keys walk the rail slide by slide and keyboard focus stays on it
 	await label(page, `Slide ${total} / ${total}`);
 });
 
-test('closing and reopening the map re-uses its preview frames instead of creating new documents', async ({ page }) => {
+// On WebKit a destroyed frame is never given back, so the same check runs there too (desktop drops a webkit-only title).
+async function reusesFrames(page: Page) {
 	await gotoStudio(page);
 	await page.evaluate(() => {
 		(window as unknown as { __frames: number }).__frames = 0;
@@ -169,8 +170,16 @@ test('closing and reopening the map re-uses its preview frames instead of creati
 		await page.getByRole('button', { name: 'Slide map' }).click();
 		await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible();
 	}
-	expect(await page.evaluate(() => (window as unknown as { __frames: number }).__frames)).toBe(first);
-});
+	const after = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
+	expect(after).toBe(first);
+	// The pool reports its capacity to Veduta, so the rail never asks for more live tiles than there are frames to show them.
+	const live = await page.locator(`${RAIL} button[data-tier="live"]`).count();
+	const frames = await page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
+	expect(live).toBeLessThanOrEqual(frames);
+	test.info().annotations.push({ type: 'retained', description: `frames created ${first}, after 3 toggles ${after}; live tiles ${live}, rail frames ${frames}` });
+}
+test('closing and reopening the map re-uses its preview frames instead of creating new documents', async ({ page }) => reusesFrames(page));
+test('@webkit-tablet on WebKit, closing and reopening the map creates no new documents', async ({ page }) => reusesFrames(page));
 
 test('the rail restacks when the window crosses the narrow breakpoint and back', async ({ page }) => {
 	await gotoStudio(page);

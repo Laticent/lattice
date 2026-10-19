@@ -39,14 +39,21 @@ export interface MapRailProps {
 	label: (unit: number) => string;
 	/** The picture of a unit, called only for units Veduta asks at `live`. Omit for a sketch-only rail. */
 	live?: (unit: number) => React.ReactNode;
-	/** Wraps the tile list, so a host's frame pool can position its frames over the tiles. */
-	wrap?: (tiles: React.ReactNode) => React.ReactNode;
+	/** Wraps the tile list, so a host's frame pool can position its frames over the tiles. The pool passes its
+	 *  capacity to `report` (a `PreviewPool`'s `onSettle` does), and the rail hands it to Veduta's `settle` as the
+	 *  live cap, so no more tiles are asked live than the pool can hold. */
+	wrap?: (tiles: React.ReactNode, report: (pool: { capacity: number }) => void) => React.ReactNode;
 	/** The slide's width over its height, from the deck's box. */
 	aspect: number;
 	/** `vertical` is a rail beside the preview; `horizontal` is a strip under it. */
 	orientation: 'vertical' | 'horizontal';
-	/** The least number of tiles that may be live at once (default 8). The rail raises it to cover the tiles on screen, since the budget caps what a pool RETAINS, never what the reader sees. */
+	/** The least number of tiles that may be live at once (default 8). The rail raises it to cover the tiles on screen, since the budget caps what a pool RETAINS, never what the reader sees. The pool's reported capacity caps it. */
 	liveBudget?: number;
+	/** The host's stage (the big preview beside the rail) is a live view on the same page: name what one costs and
+	 *  Veduta charges it to the same live budget as the tiles, and ranks it first. The rail adds the same cost to
+	 *  the budget and the cap, so today it never takes a tile from the map; it is the accounting a stage window
+	 *  that mounts more than the focus will need. Omit it when the stage is not priced. */
+	stage?: { cost: number };
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
 	className?: string;
@@ -55,8 +62,6 @@ export interface MapRailProps {
 /** Space round the tiles and between them, in px. */
 const PAD = 8;
 const GAP = 8;
-/** The most live tiles a rail asks for, under the preview pool's own ceiling (HARD_MAX_SLOTS, 28). */
-const MAX_LIVE = 24;
 
 export interface Geometry {
 	/** A tile's size along the scroll axis, and across it. */
@@ -131,7 +136,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap, aspect, orientation, liveBudget = 8, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -143,6 +148,15 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 	React.useEffect(() => () => window.clearTimeout(keyNavTimer.current), []);
 	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation), [count, viewCross, aspect, orientation]);
 	const liveOn = !!live;
+	const stageOn = !!stage;
+	const stageCost = stage && Number.isFinite(stage.cost) ? Math.max(0, stage.cost) : 0;
+	// The pool's capacity, as it reported it (undefined until a pool has, or with no pool at all).
+	const [poolCap, setPoolCap] = React.useState<number | undefined>(undefined);
+	const report = React.useCallback((pool: { capacity: number }) => {
+		if (!Number.isFinite(pool.capacity)) return;
+		const cap = Math.max(0, Math.floor(pool.capacity));
+		setPoolCap((c) => (c === cap ? c : cap));
+	}, []);
 
 	/** Ask Veduta what the rail's view needs and keep the answer if it changed. */
 	const refresh = React.useCallback(() => {
@@ -159,12 +173,19 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 			count,
 			focus: Math.max(0, Math.min(count - 1, focus)),
 			viewports: { map: { y: pos, h: len, top: PAD, pitch: geo.pitch, cols: 1 } },
-			// The stage is the host's preview, not a window of this rail: it asks for nothing and is charged nothing.
-			budget: { live: liveOn ? Math.min(MAX_LIVE, Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1)) : 0, wireframe: Infinity, stageTier: 'placeholder', mapTile: liveOn ? 'live' : 'wireframe', cost: { stage: 0, map: 1 } },
+			// The budget covers the tiles on screen, plus the stage when the host prices it. It is not capped here: the
+			// pool's reported capacity reaches the core through `settle` (below) and caps it there.
+			budget: {
+				live: (liveOn ? Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1) : 0) + stageCost,
+				wireframe: Infinity,
+				stageTier: stageOn ? 'live' : 'placeholder',
+				mapTile: liveOn ? 'live' : 'wireframe',
+				cost: { stage: stageCost, map: 1 },
+			},
 		});
 		const sig = intent.mapUnits.map((i) => `${i}${intent.tiers.map.get(i)?.[0]}`).join(',');
 		setPlan((p) => (p.sig === sig ? p : { units: intent.mapUnits, tiers: intent.tiers.map, sig }));
-	}, [count, focus, geo.pitch, liveBudget, liveOn, vertical, viewCross]);
+	}, [count, focus, geo.pitch, liveBudget, liveOn, stageOn, stageCost, vertical, viewCross]);
 
 	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
 	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
@@ -221,16 +242,26 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 		refresh();
 	}, [focus, geo.pitch, count, viewCross, refresh]);
 
-	// Tell Veduta what is mounted. Today only `cap` changes what it asks next (the core reads `map` and `live`
-	// only under a test switch), so this keeps the held run for the hysteresis band and says a host with no
-	// pictures has a live capacity of zero, which keeps every tile at the sketch. It does not report a pool
-	// capacity: the pool decides its own slots and this rail stays under its ceiling instead.
+	// Tell Veduta what is mounted. Only `cap` changes what it asks next (the core reads `map` and `live` only
+	// under a test switch), so this keeps the held run for the hysteresis band and reports the live capacity:
+	// zero for a host with no pictures, which keeps every tile at the sketch, and otherwise what the pool
+	// reported, plus the stage's cost when the host prices its stage, since the cap is page-wide. The very
+	// first ask of a mount runs before any settle, so it is uncapped; the settle after it carries the cap and,
+	// because that changes what Veduta holds, re-asks at once (the pool clamps the extra meanwhile, so nothing
+	// shows). A capacity that changes later re-asks the same way, so a smaller pool is never left over-asked.
 	// The one tab stop is the focused tile; when a hand scroll has taken it out of the window, the first mounted tile.
 	const tabStop = plan.units.includes(focus) ? focus : (plan.units[0] ?? -1);
 	const liveMounted = liveOn ? plan.units.filter((i) => plan.tiers.get(i) === 'live').length : 0;
+	const liveCap = !liveOn ? 0 : poolCap === undefined ? undefined : poolCap + stageCost;
+	const heldCap = React.useRef<number | undefined>(undefined);
 	React.useEffect(() => {
-		veduta.current.settle({ map: plan.units, live: liveMounted, ...(liveOn ? {} : { cap: { live: 0 } }) });
-	}, [plan, liveMounted, liveOn]);
+		const next = veduta.current.settle({ map: plan.units, live: liveMounted, ...(liveCap === undefined ? {} : { cap: { live: liveCap } }) });
+		const held = next ? next.caps.live : undefined;
+		if (held !== heldCap.current) {
+			heldCap.current = held;
+			refreshRef.current();
+		}
+	}, [plan, liveMounted, liveCap]);
 
 	// After a key moved the focus, put keyboard focus on the new current tile. A jump (Home, End) lands on a tile
 	// the window has not mounted yet, so the request waits for it, and gives up after a second.
@@ -333,7 +364,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, wrap,
 			)}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are the roving-tabindex pattern over the tile buttons inside it; the buttons are the interactive elements */}
 			<div ref={scrollerRef} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
-				{wrap ? wrap(tiles) : tiles}
+				{wrap ? wrap(tiles, report) : tiles}
 			</div>
 		</nav>
 	);

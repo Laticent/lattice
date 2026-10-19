@@ -962,6 +962,41 @@ on decks with one and three blank slides). The outline still drops the slide, wh
 unit model is read by every editor path, so it is `followups.d/2789-p3-outliner-drops-empty-slides.md`, with an `it.fails` arm in
 `rendered-index.test.ts` that turns red the day the outline counts it. No shipped deck has a blank slide (0 of 292).
 
+## 11l. Built on 2026-10-19: the pool reports its capacity (continuation P1)
+
+Section 11j said the rail kept its live budget under a fixed ceiling of 24 instead of learning the pool's. It learns it now,
+and the honest size of that change is smaller than the mechanism: **the channel is wired and tested, and in production it
+carries a constant.**
+
+- **The pool reports.** `PreviewPool` takes `onSettle` and calls it with a `PoolReport`: `capacity` (the most frames it will
+  hold: its new `maxSlots` prop, never above `HARD_MAX_SLOTS`), `slots` (the frames it retains, which is the high-water mark,
+  since a pool never releases one) and `held` (how many show a tile). It reports from a layout effect at mount, before any
+  pass, so the rail has the capacity at its first settle, and again after every pass.
+- **The rail passes it to `settle`.** `MapRail`'s `wrap` hands the pool a `report` callback, and the rail sends the capacity
+  to Veduta as `cap.live`. The rail no longer clamps the budget itself (`MAX_LIVE` is gone); the core's
+  `min(budget.live, caps.live)` does. The first ask of a mount runs before any settle and is uncapped; the settle after it
+  carries the cap and re-asks at once, and the pool clamps the extra meanwhile, so nothing shows.
+- **In production the capacity is 28.** No shipped host passes `maxSlots`, so both map rails learn `HARD_MAX_SLOTS`. Against
+  the old fixed 24 the visible effect is four more live tiles before the 29th tile on screen falls to a sketch. A host that
+  budgets its frames below that (a memory budget, WebKit, where a destroyed frame is never given back) now has a way to say so
+  that reaches the core; none does yet.
+- **The stage is priced, and the price is not load-bearing yet.** The Studio rail passes `stage: { cost: 1 }`, so Veduta asks
+  for the focused preview at `live`, ranks it first and charges it to the same budget, and the rail adds the same cost to the
+  cap it reports, since the cap is page-wide. The two cancel, so the stage never takes a tile from the map, and nothing reads
+  `stageUnits`: the Studio's stage is one fixed frame. It is the accounting a stage window that mounts more than the focus
+  would need; it is not that window.
+- **Evidence.** `MapRail.test.tsx`: a pool that reports 3 gets exactly 3 live tiles where the rail wants 9; one that grows to 12
+  is used; one that shrinks to 2 is re-asked at once; a stage of cost 2 leaves the pool its full 3; and a real `PreviewPool`
+  with `maxSlots={4}` inside the rail gets 4. With the report taken out of `settle` (the old code), the first two of those
+  `it` blocks go red (run, not reasoned). `preview-pool.test.tsx`: `maxSlots` caps even on-screen tiles, the report arrives
+  before the first pass, and `slots` stays at the high-water mark after every tile leaves. On real WebKit 26 (`webkit-tablet`)
+  and on desktop Chromium, three close and open cycles of the Studio map create no new documents (7 frames before and after).
+  That e2e shows frame reuse and no harm; at 7 live tiles against a capacity of 28 it cannot show the cap binding, which only
+  the jsdom tests do.
+- **Not done here.** The pill rail as a map tier, and a stage window that changes what is mounted, are still open
+  (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`, narrowed). The npm tripwire should not count as met until a
+  production value can bind.
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

@@ -268,6 +268,18 @@ export const BASE_SLOTS = 10;
  *  is a visible defect rather than an invisible one. */
 export const HARD_MAX_SLOTS = 28;
 
+/**
+ * What a pool tells its host after it mounts and after every pass. `capacity` is the most frames it will
+ * ever hold (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
+ * the rest blank, so it should ask for no more. `slots` is how many frames it retains now, which is its
+ * high-water mark because a pool never releases one; `held` is how many of them show a tile.
+ */
+export interface PoolReport {
+	capacity: number;
+	slots: number;
+	held: number;
+}
+
 /** Minimum gap between re-point passes. Long enough that a flick settles into one reassignment
  *  rather than sixty, short enough that letting go feels immediate. */
 export const APPLY_MS = 220;
@@ -287,11 +299,20 @@ export const RELEASE_GRACE = 600;
  * A surface that shows one or two at a time passes less: the chat transcript passes 4, because the
  * cap still grows to cover whatever is on screen and a frame it never needs is memory it never
  * spends (engineering/decisions/2026-10-12-chat-figures-bakeoff.md).
+ *
+ * `maxSlots` lowers the hard ceiling for a host that budgets its frames (never above HARD_MAX_SLOTS).
+ * `onSettle` receives a `PoolReport`: the slide map (map-rail/MapRail.tsx) passes its `capacity` to
+ * Veduta's `settle` as the live cap, so the core never asks this pool for more live tiles than it holds.
  */
-export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { children: React.ReactNode; className?: string; baseSlots?: number }) {
+export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSlots = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
 	// Read by the assignment pass, which outlives a render: a ref, so a changed prop reaches it.
 	const baseSlotsRef = React.useRef(baseSlots);
 	baseSlotsRef.current = baseSlots;
+	const ceiling = Number.isFinite(maxSlots) ? Math.max(1, Math.min(HARD_MAX_SLOTS, Math.floor(maxSlots))) : HARD_MAX_SLOTS;
+	const ceilingRef = React.useRef(ceiling);
+	ceilingRef.current = ceiling;
+	const onSettleRef = React.useRef(onSettle);
+	onSettleRef.current = onSettle;
 	const layerRef = React.useRef<HTMLDivElement>(null);
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
@@ -437,7 +458,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 			const rank = (x: { t: Tile; on: boolean }) => (x.on ? 0 : x.t.inBand ? 1 : 2);
 			// THE CAP COVERS EVERYTHING ON SCREEN, so the sort decides who waits a beat, never who is
 			// left staring at an empty card.
-			const cap = Math.min(HARD_MAX_SLOTS, Math.max(baseSlotsRef.current, ranked.filter((x) => x.on).length));
+			const cap = Math.min(ceilingRef.current, Math.max(Math.min(baseSlotsRef.current, ceilingRef.current), ranked.filter((x) => x.on).length));
 			const want = ranked
 				.sort((a, b) => (rank(a) === rank(b) ? b.t.seq - a.t.seq : rank(a) - rank(b)))
 				.slice(0, cap)
@@ -490,7 +511,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
 				let slot = free.find((s) => s.key === k);
 				const shapeless = !next.some((s) => s.key === k && s.id === idk);
-				if (!slot && (next.length < cap || (shapeless && next.length < HARD_MAX_SLOTS))) {
+				if (!slot && (next.length < cap || (shapeless && next.length < ceilingRef.current))) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
@@ -515,6 +536,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 				slot.rect = rectOf(t.el);
 			}
 			setSlots(next);
+			onSettleRef.current?.({ capacity: ceilingRef.current, slots: next.length, held: next.filter((x) => x.tileId !== null).length });
 		}, wait);
 	}, [rectOf]);
 
@@ -614,6 +636,14 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 			nested.current.clear();
 		};
 	}, [schedule]);
+
+	// THE CAPACITY IS KNOWN BEFORE ANY PASS, so it is reported at once, from a layout effect, which runs before
+	// the effects of the host that wraps this pool. A host that settles in an effect (the map rail) therefore
+	// has it at its first settle. It is reported again whenever the ceiling changes, and after every pass with
+	// what the pool then retains.
+	React.useLayoutEffect(() => {
+		onSettleRef.current?.({ capacity: ceiling, slots: slotsRef.current.length, held: slotsRef.current.filter((x) => x.tileId !== null).length });
+	}, [ceiling]);
 
 	React.useEffect(() => {
 		const layer = layerRef.current;

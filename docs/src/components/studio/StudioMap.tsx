@@ -10,7 +10,9 @@
 //     the chunks on show, in order, exactly as `SlideRail` lists its pills. A unit's number is its place in
 //     the view, which is what the counter and the PDF print under that lens.
 //   · LIVE TILES from the Studio's pooled preview frames (preview-pool.tsx), drawn from the same look as the
-//     main preview (palette, mode, finish CSS) so a tile is the slide the preview shows.
+//     main preview (palette, mode, finish CSS) so a tile is the slide the preview shows. The pool reports its
+//     capacity and the rail passes it to Veduta's `settle`; the focused preview is priced as the stage under
+//     the same live budget (`STAGE`).
 //
 // Loaded only when the map is on (React.lazy in StudioShell): the Studio's eager bundle is budgeted.
 
@@ -45,6 +47,10 @@ export interface StudioMapProps {
 	aspect: number;
 	orientation: 'vertical' | 'horizontal';
 }
+
+/** The focused preview beside the rail is one live document on the same page, so Veduta charges it to the same
+ *  live budget as the tiles and the rail reports the pool's capacity plus this one frame. */
+const STAGE = { cost: 1 };
 
 interface Item {
 	unit: number;
@@ -114,5 +120,5 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		[look, liveCache, textOf],
 	);
 
-	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles) => <PreviewPool>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} controls={orientation === 'vertical'} />;
+	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles, report) => <PreviewPool onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
 }

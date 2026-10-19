@@ -258,7 +258,7 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 			wire={wire}
 			label={label}
 			live={live}
-			wrap={(tiles) => <PreviewPool>{tiles}</PreviewPool>}
+			wrap={(tiles, report) => <PreviewPool onSettle={report}>{tiles}</PreviewPool>}
 			aspect={geom.w / geom.h}
 			orientation={orientation}
 			// The walk bar beside a strip already steps, and draws its own edge.
