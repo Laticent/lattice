@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Studio live preview flashed a blank card while there was no slide to paint yet (cold boot, reload, the post-hydration gap while the ~505KB engine loads). We fill that "no slide yet" moment with a screen-only animated finish — Nacre — picked via the design-competition workflow and several rounds of user art direction, scored 9.3 against three pure-CSS alternatives (metaballs, oil-slick, @property-mesh). Nacre breaks the three ceilings that capped the others at ~7.5 — Performance (blur+hue-rotate are STATIC filters rasterized once; only transform:rotate animates, so the compositor spins cached bitmaps with no per-frame re-blur), fake iridescence (three co-present hues counter-rotate for spatially-varying nacre, not a global hue-swing), and dead spots (continuous rotation never stops). SHIPPED as an opt-in DeckPreview `loader` prop enabled only on the Studio's shared preview; palette-blind off the docs-root --accent/--bg tokens; screen→multiply blend flip keeps it visible on light grounds; prefers-reduced-motion freezes it. Preview-only — exported bytes unchanged. Verified in the real built Studio (dark+light indaco). TRACKED FOLLOW-UPS: iOS on-device perf sign-off (UNVERIFIED per HARD RULE #23 — the perf argument is reasoning about compositing, not a device measurement) and a pre-hydration instant-shell nacre variant for the returning-no-match blank.
+summary: The Studio live preview flashed a blank card while there was no slide to paint yet (cold boot, reload, the post-hydration gap while the ~505KB engine loads). We fill that "no slide yet" moment with a screen-only animated finish — Nacre — picked via the design-competition workflow and several rounds of user art direction, scored 9.3 against three pure-CSS alternatives (metaballs, oil-slick, @property-mesh). Nacre breaks the three ceilings that capped the others at ~7.5 — Performance (blur+hue-rotate are STATIC filters rasterized once; only transform:rotate animates, so the compositor spins cached bitmaps with no per-frame re-blur), fake iridescence (three co-present hues counter-rotate for spatially-varying nacre, not a global hue-swing), and dead spots (continuous rotation never stops). SHIPPED as an opt-in DeckPreview `loader` prop enabled only on the Studio's shared preview; palette-blind off the docs-root --accent/--bg tokens; screen→multiply blend flip keeps it visible on light grounds; prefers-reduced-motion freezes it. Preview-only — exported bytes unchanged. Verified in the real built Studio (dark+light indaco). TRACKED FOLLOW-UPS: iOS on-device perf sign-off (UNVERIFIED per HARD RULE #23 — the perf argument is reasoning about compositing, not a device measurement) and a pre-hydration instant-shell nacre variant for the returning-no-match blank. UPDATE 2026-10-19: the "rasterized once" performance claim was wrong (Chromium re-runs a moving layer's filter every frame) and stalled 4K desktops; Nacre now carries no filter, and the Underpainting's brushwork slides by transform on a runtime-added span instead of repainting.
 ---
 
 # Nacre preview loader — a living "no slide yet" atmosphere for the Studio
@@ -134,6 +134,64 @@ capture frame and Print document carry it too, and a painting caught at capture 
 Nacre's performance story: the brush layer must stay inside its element's box (a wider band trips
 the slide's overflow probe through `scrollWidth`, whatever the clipping), so it moves by background
 and mask position — a repaint of one small layer while a picture loads — not by transform.
+
+> **Superseded (2026-10-19).** The brushwork now moves by transform, on a span the runtime adds
+> so the band has a box of its own to be clipped by. See the next section.
+
+## Update (2026-10-19) — the performance claim was wrong; both loaders are now compositor-only
+
+**What the owner saw:** on a 4K desktop both loaders were sluggish and the Nacre gradients banded,
+while a phone looked fine.
+
+**Why.** The technique section above says `blur` + `hue-rotate` are static filters "rasterized
+once per layer". In Chromium they are not: a layer's `filter` runs again on every frame the layer
+moves, so Nacre ran three blurs per frame over three layers each 170% of the box per side (the
+`inset: -35%` oversize). The cost scales with device pixels, and a 4K preview box has about 10x a
+phone's. The Underpainting moved its brushwork by `background-position` and `mask-position`, which
+repaints the whole painted element on every frame. The banding is 8-bit quantization: the cloud is
+dark, low-contrast color, so each of its few dozen color steps is a few device pixels wide on a
+phone (which also dithers) and many pixels wide on a large desktop panel. The blur also removed any
+dithering the gradients had.
+
+**What changed.**
+
+- **Nacre carries no filter.** Each blob's softness lives in its own gradient (smoothstep-shaped
+  stops), and each layer's hue offset is a fixed `--nacre-tone` from relative `oklch()` (+34°,
+  −28°, the same offsets). A layer rasterizes once and the compositor only rotates it. The stops
+  are tuned against paused frames of the old loader: mean brightness at 4K matches within 1.5/255
+  in both modes (RMS difference ~5/255). A browser without relative colors keeps a `hue-rotate`
+  filter on two layers and pays the old cost there only.
+- **Nacre has grain.** A static SVG-noise tile at 2.5% opacity dithers the ramps. It rasterizes
+  once and never repaints.
+- **The Underpainting's brushwork has its own box.** `lib/core/image-painting.js` appends one empty
+  `<span class="lattice-paint-brush" aria-hidden="true">` to the painted element while the
+  attribute is on, and removes it with the attribute. The span is the element's own size and
+  clips; its `::before` is a band one tile (`64cqi`) wider that slides left by exactly one tile
+  with `transform`. The element's `scrollWidth` never grows, so the overflow probe stays quiet
+  (measured 0 in the real Studio). Paused at the same instant, the new frames are pixel-identical
+  to the old ones (max difference 3/255). `lib/runtime/index.js` skips a mutation burst that only
+  adds or removes the span, so it schedules no content pass.
+
+**Measured** (headless Chromium in the cloud sandbox, which composites in software; read the
+ratios, not the absolute numbers):
+
+| Surface | Viewport | Before | After |
+|---|---|---|---|
+| Nacre, real Studio shell | 390 @3x | 23.4 fps | 60.2 fps |
+| Nacre, real Studio shell | 820 @2x | 20.2 fps | 60.5 fps |
+| Nacre, real Studio shell | 1440 @1x | 6.3 fps | 38.4 fps |
+| Nacre, real Studio shell | 1920 @2x (4K) | 3.5 fps | 18.3 fps |
+| Underpainting, real Studio, `image split` slide with an 8 s photo | 1440 @1x | 55.2 fps | 60.5 fps |
+| Underpainting, real Studio, same | 1920 @2x (4K) | 34.7 fps | 58.7 fps |
+| Underpainting, isolated full-height panel | 1920 @2x (4K) | 5.2 fps | 60.2 fps |
+
+What is left of Nacre's 4K cost in this sandbox is compositing three `mix-blend-mode: screen`
+layers with a software rasterizer (dropping the blend alone measured 6.9 → 12.2 fps in the
+isolated page). The blend is the look, so it stays; a real GPU does that compositing cheaply.
+
+**UNVERIFIED (HARD RULE #23):** frame rates on a real GPU-backed 4K desktop and on a real phone.
+The sandbox has neither. What the numbers prove is the per-frame work removed, not the frame
+rate the owner's machine will reach.
 
 ## Files
 

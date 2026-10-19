@@ -2,11 +2,15 @@
  * live preview. Three hue-offset accent layers COUNTER-ROTATE: their overlaps remix
  * into spatially-varying iridescence and their offset orbits morph like fluid.
  *
- * PERFORMANCE is the whole point: `blur` + `hue-rotate` are STATIC filters (rasterized
- * ONCE per layer); only `transform: rotate` animates, so the compositor spins cached
- * bitmaps with NO per-frame re-blur and NO scale — cheap enough to run during React
- * hydration + the engine-bundle load. Palette-blind via the docs-root --accent / --bg
- * tokens, so it auto-matches theme + dark/light. Screen-only (never exported).
+ * PERFORMANCE is the whole point, so there is NO filter. Chromium runs a layer's `filter`
+ * again on every frame the layer moves: the old `blur(26px)` + `hue-rotate` on three
+ * oversized rotating layers meant three full-box blurs per frame, and a 4K desktop, with
+ * ~10x a phone's pixels, stalled (measured: the 2026-10-19 update in the design doc). Each
+ * blob now carries its own soft eased gradient, and each layer's tone is a fixed `oklch()`
+ * hue offset, so a layer rasterizes once and the compositor only spins it. A static grain
+ * layer dithers the dark, low-contrast ramps that band on a large 8-bit desktop panel.
+ * Palette-blind via the docs-root --accent / --bg tokens, so it auto-matches theme +
+ * dark/light. Screen-only (never exported).
  * Design: engineering/decisions/2026-07-20-nacre-preview-loader.md.
  */
 .nacre-loader {
@@ -37,21 +41,48 @@
 	will-change: transform;
 }
 .nacre-loader__layer--0 {
-	filter: blur(26px);
+	--nacre-tone: var(--accent, #5b8fc7);
 	animation: nacre-rot 9s linear infinite;
 }
 .nacre-loader__layer--1 {
-	filter: blur(26px) hue-rotate(34deg); /* +hue → a second, distinct nacre tone */
+	--nacre-tone: oklch(from var(--accent, #5b8fc7) l c calc(h + 34)); /* +hue → a second, distinct nacre tone */
 	animation: nacre-rot 12s linear infinite reverse;
 }
 .nacre-loader__layer--2 {
-	filter: blur(26px) hue-rotate(-28deg); /* −hue → a third tone; three co-present = iridescence */
+	--nacre-tone: oklch(from var(--accent, #5b8fc7) l c calc(h - 28)); /* −hue → a third tone; three co-present = iridescence */
 	animation: nacre-rot 15s linear infinite;
 }
+/* A browser without relative colors shifts the hue with a filter instead, and pays the
+   per-frame filter cost there and only there. */
+@supports not (color: oklch(from red l c h)) {
+	.nacre-loader__layer--1,
+	.nacre-loader__layer--2 {
+		--nacre-tone: var(--accent, #5b8fc7);
+	}
+	.nacre-loader__layer--1 {
+		filter: hue-rotate(34deg);
+	}
+	.nacre-loader__layer--2 {
+		filter: hue-rotate(-28deg);
+	}
+}
+/* The softness the blur used to give lives in the gradient: smoothstep-shaped stops, so the
+   falloff eases out with no rim where the ramp ends. The peak is lower than the old 60%
+   because a blur spread that energy outward: these stops match the blurred cloud's mean
+   brightness at 4K in both modes (measured against paused frames). */
 .nacre-loader__blob {
 	position: absolute;
 	border-radius: 50%;
-	background: radial-gradient(circle, color-mix(in srgb, var(--accent, #5b8fc7) 60%, transparent), transparent 64%);
+	background: radial-gradient(
+		circle,
+		color-mix(in srgb, var(--nacre-tone) 42%, transparent) 0%,
+		color-mix(in srgb, var(--nacre-tone) 39%, transparent) 16%,
+		color-mix(in srgb, var(--nacre-tone) 30%, transparent) 32%,
+		color-mix(in srgb, var(--nacre-tone) 19%, transparent) 44%,
+		color-mix(in srgb, var(--nacre-tone) 10%, transparent) 54%,
+		color-mix(in srgb, var(--nacre-tone) 4%, transparent) 62%,
+		transparent 70%
+	);
 }
 .nacre-loader__blob:nth-child(1) {
 	width: 54%;
@@ -80,6 +111,17 @@
 	position: absolute;
 	inset: 0;
 	box-shadow: inset 0 0 70px 14px color-mix(in srgb, var(--bg, #0c1626) 92%, transparent);
+}
+/* Grain: a static gray noise tile at 2.5% that dithers the color ramps. A large 8-bit desktop
+   panel otherwise shows each color step as a contour band; a phone's dense, dithering screen
+   hides them. Static, so it rasterizes once and never repaints. */
+.nacre-loader::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	opacity: 0.025;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
+	background-size: 128px 128px;
 }
 @keyframes nacre-rot {
 	to {

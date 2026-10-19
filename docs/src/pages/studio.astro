@@ -434,15 +434,17 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 // --accent/--bg tokens. KEEP IN SYNC with nacre-loader.css (keyframes name + fallback hexes).
 const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:var(--bg,#0c1626);}
 #studio-ssr-shell .nacre-loader__layer{position:absolute;inset:-35%;mix-blend-mode:screen;transform-origin:50% 50%;will-change:transform;}
-#studio-ssr-shell .nacre-loader__layer--0{filter:blur(26px);animation:nacre-rot 9s linear infinite;}
-#studio-ssr-shell .nacre-loader__layer--1{filter:blur(26px) hue-rotate(34deg);animation:nacre-rot 12s linear infinite reverse;}
-#studio-ssr-shell .nacre-loader__layer--2{filter:blur(26px) hue-rotate(-28deg);animation:nacre-rot 15s linear infinite;}
-#studio-ssr-shell .nacre-loader__blob{position:absolute;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--accent,#5b8fc7) 60%,transparent),transparent 64%);}
+#studio-ssr-shell .nacre-loader__layer--0{--nacre-tone:var(--accent,#5b8fc7);animation:nacre-rot 9s linear infinite;}
+#studio-ssr-shell .nacre-loader__layer--1{--nacre-tone:oklch(from var(--accent,#5b8fc7) l c calc(h + 34));animation:nacre-rot 12s linear infinite reverse;}
+#studio-ssr-shell .nacre-loader__layer--2{--nacre-tone:oklch(from var(--accent,#5b8fc7) l c calc(h - 28));animation:nacre-rot 15s linear infinite;}
+@supports not (color:oklch(from red l c h)){#studio-ssr-shell .nacre-loader__layer--1,#studio-ssr-shell .nacre-loader__layer--2{--nacre-tone:var(--accent,#5b8fc7);}#studio-ssr-shell .nacre-loader__layer--1{filter:hue-rotate(34deg);}#studio-ssr-shell .nacre-loader__layer--2{filter:hue-rotate(-28deg);}}
+#studio-ssr-shell .nacre-loader__blob{position:absolute;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--nacre-tone) 42%,transparent) 0%,color-mix(in srgb,var(--nacre-tone) 39%,transparent) 16%,color-mix(in srgb,var(--nacre-tone) 30%,transparent) 32%,color-mix(in srgb,var(--nacre-tone) 19%,transparent) 44%,color-mix(in srgb,var(--nacre-tone) 10%,transparent) 54%,color-mix(in srgb,var(--nacre-tone) 4%,transparent) 62%,transparent 70%);}
 #studio-ssr-shell .nacre-loader__blob:nth-child(1){width:54%;aspect-ratio:1;left:10%;top:16%;}
 #studio-ssr-shell .nacre-loader__blob:nth-child(2){width:46%;aspect-ratio:1;left:56%;top:20%;}
 #studio-ssr-shell .nacre-loader__blob:nth-child(3){width:50%;aspect-ratio:1;left:32%;top:56%;}
 #studio-ssr-shell .nacre-loader__core{position:absolute;inset:0;background:radial-gradient(58% 58% at 50% 46%,color-mix(in srgb,var(--accent,#5b8fc7) 15%,transparent),transparent 72%);}
 #studio-ssr-shell .nacre-loader__vig{position:absolute;inset:0;box-shadow:inset 0 0 70px 14px color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
+#studio-ssr-shell .nacre-loader::after{content:"";position:absolute;inset:0;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");background-size:128px 128px;}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
 @keyframes nacre-rot{to{transform:rotate(360deg);}}
