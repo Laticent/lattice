@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "pricing",
+  "inlineRun": { "depths": [1, 2], "slots": [".badge", "em", "strong"] },
   "cards": {
     "default": "center",
     "withCoda": "stretch"

@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "agenda",
+  "inlineRun": { "depths": [1] },
   "cards": {
     "default": "center"
   },
