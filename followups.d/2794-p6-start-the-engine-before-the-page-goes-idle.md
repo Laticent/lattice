@@ -20,3 +20,6 @@ where     — docs/src/components/playground/PlaygroundApp.tsx (the `requestIdle
 done when — the engine request starts within 100 ms of navigation on cable throttle (it starts at 2047 ms today), measured with `docs/scripts/style-loader-bench.mjs`-style resource timing, and the first styled slide on cable is at least 10% earlier than today's 4229 ms on `focus.md`, with no regression in the chrome's first paint.
 evidence  — resource timing before and after on loopback, cable and 4g.
 verify    — tier 2.
+
+status    — PARTLY DONE (2026-10-20, branch claude/playground-styles-continuation-o2iruz). The engine and its chunks now start at first paint
+(`playground.astro` head script); see decision note §11 "Starting the engine earlier". Open: the 100 ms target and the runtime slimming (below).

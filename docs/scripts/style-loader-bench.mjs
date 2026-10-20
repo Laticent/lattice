@@ -22,7 +22,7 @@
  *
  *   node scripts/style-bench-server.mjs --port 4443 --proto h2 &    (prints `spki <hash>`; pass it as --spki)
  *   node scripts/style-loader-bench.mjs --base https://localhost:4443 --spki <hash> --label h2 [--engine chromium|webkit] [--runs 5]
- *        [--modes full,modules,floor,bundle] [--throttle cable|4g] [--json out.json] [deck.md ...]
+ *        [--modes full,modules,floor,bundle] [--throttle cable|4g] [--no-preload|--with-preload] [--json out.json] [deck.md ...]
  *
  * `--throttle` (Chromium only) shapes the network through the DevTools protocol: `cable` is 5 Mbps down, 28 ms round
  * trip; `4g` is 1.6 Mbps, 150 ms. Loopback makes bytes nearly free, so the unthrottled rows show the engine's own cost
@@ -31,6 +31,7 @@
  * Linux engines only; real iOS is not measured (HARD RULE #23).
  */
 import fs from 'node:fs';
+import https from 'node:https';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,6 +47,11 @@ const engineName = opt('--engine', 'chromium');
 const runs = Number(opt('--runs', '5'));
 const modes = opt('--modes', 'full,modules,floor,bundle').split(',');
 const label = opt('--label', '');
+// `--no-preload` strips the page's head <link rel=modulepreload> and the script that adds them at first paint, before the browser sees it: the engine then starts from the idle
+// callback as it did before followup 2794-p6, so one build gives both arms of the comparison.
+const noPreload = argv.includes('--no-preload');
+// An A/B run sends the document through the same Node fetch in BOTH arms (`--with-preload` keeps the links), so the only difference is the links.
+const routeDoc = noPreload || argv.includes('--with-preload');
 // The bench server's certificate hash, so Chromium treats a self-signed TLS origin as valid and caches (see style-bench-server.mjs).
 const spki = opt('--spki', '');
 const PROFILES = {
@@ -117,10 +123,18 @@ async function visit(page, mode, oracle) {
       .filter((e) => rx.test(e.name))
       .map((e) => ({ start: e.startTime, end: e.responseEnd, ttfb: e.responseStart - e.requestStart, wire: e.encodedBodySize, raw: e.decodedBodySize, transferred: e.transferSize, proto: e.nextHopProtocol }));
   }, STYLE_ASSET.source);
+  // When the engine bundle was first REQUESTED (ms from navigation): the figure followup 2794-p6 moves.
+  const engineStart = await page.evaluate(() => {
+    const e = performance.getEntriesByType('resource').filter((x) => /\/esm\/engine\.js|lattice-playground\.js/.test(x.name));
+    return e.length ? Math.min(...e.map((x) => x.startTime)) : 0;
+  });
+  const fcp = await page.evaluate(() => performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0);
   const start = Math.min(...res.map((r) => r.start));
   const end = Math.max(...res.map((r) => r.end));
   return {
     ms,
+    engineStart,
+    fcp,
     requests: res.length,
     raw: res.reduce((a, r) => a + r.raw, 0),
     wire: res.reduce((a, r) => a + r.wire, 0),
@@ -136,6 +150,21 @@ async function oneRun(browser, md, mode, oracle) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block', ignoreHTTPSErrors: engineName !== 'chromium' || !spki });
   await ctx.addInitScript(([k, s]) => localStorage.setItem(k, s), [SOURCE_KEY, md]);
   const page = await ctx.newPage();
+  if (routeDoc) {
+    // Playwright's own fetch does not trust the pinned certificate, so the document comes from Node with verification off.
+    await page.route(/\/playground\/(\?.*)?$/, async (route) => {
+      const html = await new Promise((resolve, reject) => {
+        https
+          .get(route.request().url(), { rejectUnauthorized: false }, (res) => {
+            const parts = [];
+            res.on('data', (c) => parts.push(c));
+            res.on('end', () => resolve(Buffer.concat(parts).toString('utf8')));
+          })
+          .on('error', reject);
+      });
+      await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: noPreload ? html.replace(/<link rel="modulepreload"[^>]*>/g, '').replace(/<script>[^<]*?engineWarm[\s\S]*?<\/script>/, '') : html });
+    });
+  }
   if (throttle) {
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Network.enable');
@@ -165,6 +194,8 @@ for (const deck of decks) {
       spanMs: pick((s) => s.cold.span),
       ttfbMedMs: pick((s) => s.cold.ttfbMed),
       ttfbMaxMs: pick((s) => s.cold.ttfbMax),
+      engineStartMs: pick((s) => s.cold.engineStart),
+      fcpMs: pick((s) => s.cold.fcp),
       coldMs: pick((s) => s.cold.ms),
       warmMs: pick((s) => s.warm.ms),
       warmNetwork: pick((s) => s.warm.network),
@@ -172,11 +203,11 @@ for (const deck of decks) {
   }
   out.push(row);
   console.log(`\n${engineName}${throttle ? ` (${throttle})` : ''}${label ? ` [${label}]` : ''}  ${deck}  (median of ${runs})`);
-  console.log('  arm            proto  reqs   raw      wire    fetch span  ttfb med/max   first slide styled: cold   warm');
+  console.log('  arm            proto  reqs   raw      wire    fetch span  ttfb med/max   engine req at  FCP   first slide styled: cold   warm');
   for (const mode of modes) {
     const m = row.modes[mode];
     console.log(
-      `  ${mode.padEnd(14)} ${String(m.proto).padEnd(5)} ${String(m.requests).padStart(4)}  ${kb(m.raw).padStart(7)}  ${kb(m.wire).padStart(6)}  ${String(Math.round(m.spanMs)).padStart(6)} ms  ${String(Math.round(m.ttfbMedMs)).padStart(4)}/${String(Math.round(m.ttfbMaxMs)).padEnd(4)} ms ${String(Math.round(m.coldMs)).padStart(18)} ms ${String(Math.round(m.warmMs)).padStart(5)} ms  (warm: ${m.warmNetwork} hit the network)`,
+      `  ${mode.padEnd(14)} ${String(m.proto).padEnd(5)} ${String(m.requests).padStart(4)}  ${kb(m.raw).padStart(7)}  ${kb(m.wire).padStart(6)}  ${String(Math.round(m.spanMs)).padStart(6)} ms  ${String(Math.round(m.ttfbMedMs)).padStart(4)}/${String(Math.round(m.ttfbMaxMs)).padEnd(4)} ms ${String(Math.round(m.engineStartMs)).padStart(10)} ms ${String(Math.round(m.fcpMs)).padStart(5)} ms ${String(Math.round(m.coldMs)).padStart(14)} ms ${String(Math.round(m.warmMs)).padStart(5)} ms  (warm: ${m.warmNetwork} hit the network)`,
     );
   }
 }

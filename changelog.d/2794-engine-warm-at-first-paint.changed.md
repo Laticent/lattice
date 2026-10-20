@@ -1,0 +1,1 @@
+- The Playground starts downloading its engine and the engine's 22 static chunks at first paint, not when the page goes idle. Cold, on a cable link the engine request starts at 0.6 s instead of 2.4 s and the first slide appears 8 to 9% sooner; first paint does not move.

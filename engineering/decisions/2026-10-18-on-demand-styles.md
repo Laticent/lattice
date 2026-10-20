@@ -567,6 +567,27 @@ an opt-in `&predict=source` (and `&predict=3,9,12`, an explicit list, as an orac
 slide; the engine start and the page's downloads are. The `implies` table is therefore NOT built into the site (it would add 14 s to
 every docs build for a 1 to 4% gain); the evaluator and the opt-in hook stay so the number can be re-measured.
 
+**Starting the engine earlier (2026-10-20, followup 2794-p6).** `PlaygroundApp.tsx` asked for the engine from `requestIdleCallback`, so
+the request waited for hydration. A head script now adds `<link rel=modulepreload>` for the engine and its 22 static chunks (the
+list `preloadEntry` reads at run time, read from `esm/chunks.json` at build) once the page's first contentful paint happens, with a
+1.5 s fallback. `load-engine.ts` `import()`s the same URLs and reuses the fetches. Chromium 131, h2, `focus.md`, `full` sheet,
+median of 9 (7 on 4g), the SAME build in both arms (`style-loader-bench.mjs --no-preload` strips the script, `--with-preload` keeps it):
+
+| network | engine requested | first paint | first slide styled |
+|---|---|---|---|
+| none | 887 to 226 ms | 205 to 181 ms | 2046 to 1908 ms (-7%) |
+| cable | 2382 to 625 ms | 602 to 602 ms | 4439 to 4076 ms (-8%; -9% in a 7-run repeat) |
+| 4g | 6157 to 1580 ms | 1588 to 1640 ms | 10929 to 10888 ms (flat) |
+
+**Why first paint, not parse.** Plain `<link rel=modulepreload>` links in the HTML start the engine at 30 to 200 ms but take first paint
+with them: cable 622 to 865 ms, 4g 1.6 to 2.4 s (the bytes share the pipe with the CSS and the fonts). `fetchpriority="low"` on the
+links gave cable 3898 ms to the first slide (-10.6%) and did not fix first paint (862 ms, 4g 3173 ms). The follow-up's two targets
+(engine requested within 100 ms; first slide 10% earlier on cable) trade against its third (no first-paint regression), and the
+first-paint version is the one that keeps first paint flat, and it is the one shipped. **Not met:** the 100 ms request (it is 0.6 s on
+cable, the first-paint time), and the 10% (8 to 9%). On 4g the first slide does not move: the pipe is full whichever order the bytes
+arrive in, so only fewer bytes help, which is the runtime slimming half of the follow-up. A preload of `lattice.css` was tried and dropped
+(cable 4259 to 4318 ms: no gain). Not measured: WebKit, a real phone, a warm cache with the head script running.
+
 **What the reviews found (HARD RULE #25), and what changed.**
 
 1. *The runtime-token list was hand-kept and wrong.* The runtime toggles `.overflow` on a slide that

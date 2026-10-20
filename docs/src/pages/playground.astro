@@ -34,6 +34,7 @@ import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPL
 // known gap: a renamed key used to fail SILENTLY here, seeding the wrong first paint.
 import { COMPONENT_KEY, HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY, resolveComponent } from '../lib/playground-controller';
 import { joinBase } from '../lib/base-url.mjs';
+import { SAFE_CHUNK } from '../lib/engine-base';
 import { isPreviewDeploy } from '../lib/deploy-env.mjs';
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { loadGalleries, GALLERY_GROUPS } from '../playground/galleries.mjs';
@@ -127,6 +128,21 @@ const galleryGroups = GALLERY_GROUPS.map((grp) => ({
 // serializes it); the deck sources can contain a literal `</script>` (the jargon
 // gallery ends with two), but as a serialized prop — not an inline <script> —
 // Astro escapes it safely, so the old `<` hand-escape is no longer needed.
+
+// The engine and its static chunks, which the head script below module-preloads once the chrome has painted. The engine is the
+// first slide's longest wait: asked for from the idle callback it began at 2.4 s on cable (6.3 s on 4g) behind the page's own scripts,
+// and its 22 chunks a second later still. Linked in the HTML it starts at parse but takes first paint with it (cable 622 to 865 ms,
+// 4g 1.6 to 2.4 s: the same bytes share the pipe with the CSS and fonts), so it waits for first-contentful-paint, with a 1.5 s
+// fallback. load-engine.ts import()s the same URLs and reuses them. The chunk list is the one its own preloadEntry reads at run time,
+// from the manifest sync-playground-assets stages beside the engine; same filename rule as ensure-charts.ts.
+const engineWarm: string[] = [url(engineAsset())];
+try {
+	const manifest = JSON.parse(readFileSync(join(process.cwd(), 'public', assetBase(), 'esm', 'chunks.json'), 'utf8'));
+	for (const file of manifest.entries?.['engine.js'] ?? []) if (SAFE_CHUNK.test(file)) engineWarm.push(url(pg + 'esm/' + file));
+} catch {
+	// No manifest (a dev server before sync): the engine still loads, its chunks one round trip per level.
+}
+
 // The NEWCOMER'S FIRST PREVIEW DOCUMENT (scripts/bake-newcomer-frame.mjs bakes it after the
 // build): the first component's walk, in the default palette, one file per mode. The page loads
 // it into the preview frame during parse when the boot will show exactly that deck, and the app
@@ -199,6 +215,32 @@ const pgData = {
 		<title>Lattice playground — try it in the browser</title>
 		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
+		{/* Followup 2794-p6, in `engineWarm` above: this script adds the engine's module preloads once the chrome has painted. */}
+		<script is:inline define:vars={{ engineWarm }}>
+			(function () {
+				var done = false;
+				function go() {
+					if (done) return;
+					done = true;
+					engineWarm.forEach(function (href) {
+						var l = document.createElement('link');
+						l.rel = 'modulepreload';
+						l.fetchPriority = 'low';
+						l.href = href;
+						document.head.appendChild(l);
+					});
+				}
+				try {
+					new PerformanceObserver(function (list, o) {
+						if (list.getEntriesByName('first-contentful-paint').length) {
+							o.disconnect();
+							go();
+						}
+					}).observe({ type: 'paint', buffered: true });
+				} catch (e) {}
+				setTimeout(go, 1500);
+			})();
+		</script>
 		<script
 			is:inline
 			define:vars={{
