@@ -7,15 +7,15 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { AlertTriangle, ArrowLeft, Globe, ImageDown, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
+import { ArrowLeft, Globe, ImageDown, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
 import * as React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { offFences, offFencesSentence } from '@/lib/off-fences';
 import { cn } from '@/lib/utils';
 import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { webPictureOrigins } from '../../../../lib/export/inline-url-media.mjs';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
+import { OffFencesNotice } from './OffFencesNotice';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
 
@@ -46,6 +46,7 @@ export function WebpageOptionsPanel({
 	onBack,
 	onExport,
 	onCancel,
+	onWrite,
 }: {
 	busy?: boolean;
 	status?: string | null;
@@ -65,6 +66,8 @@ export function WebpageOptionsPanel({
 	onExport: (choice: WebpageExportChoice) => void;
 	/** Stop a bake in progress. Owned by the sheet, not this panel — see `launch`. */
 	onCancel: () => void;
+	/** Edits the deck (the off-fence notice's "Turn on"); absent, the notice offers no action. */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
@@ -83,16 +86,6 @@ export function WebpageOptionsPanel({
 	// makes the author's browser contact those sites at export time; the FILE is self-contained
 	// either way — the recipient's copy carries the bytes and its policy loads nothing on open.
 	const [embedWebPictures, setEmbedWebPictures] = React.useState(false);
-	// FENCES WHOSE PLUGIN IS OFF ship as source; say so before the export, not after (#2758).
-	// Re-read when the host changes its plugin defaults with the panel open, as the preview does.
-	const [defaultsTick, setDefaultsTick] = React.useState(0);
-	React.useEffect(() => {
-		const bump = () => setDefaultsTick((n) => n + 1);
-		window.addEventListener('lattice:plugin-defaults', bump);
-		return () => window.removeEventListener('lattice:plugin-defaults', bump);
-	}, []);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: defaultsTick is the re-read signal, not an input.
-	const offFenceList = React.useMemo(() => offFences(source), [source, defaultsTick]);
 	const webOrigins = React.useMemo(() => webPictureOrigins(source, typeof location === 'undefined' ? undefined : location.origin), [source]);
 	const deckHasWebPictures = webOrigins.length > 0;
 	// ASK THE READER INSTEAD: the origins the author lets the player load from, behind a "Load pictures" button in the file.
@@ -218,17 +211,7 @@ export function WebpageOptionsPanel({
 				) : null}
 
 				{/* Fences whose plugin is off for this deck — only when the deck holds one. */}
-				{offFenceList ? (
-					<div className="rounded-xl border border-border bg-background p-3.5" data-off-fences-notice="">
-						<span className="flex items-start gap-2">
-							<AlertTriangle className="mt-0.5 size-4 text-[var(--accent)]" />
-							<span>
-								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Some fences will ship as source</span>
-								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{offFencesSentence(offFenceList)}.</span>
-							</span>
-						</span>
-					</div>
-				) : null}
+				<OffFencesNotice source={source} onWrite={onWrite} />
 
 				{/* Pictures from other sites — only when the deck shows one. */}
 				{deckHasWebPictures ? (

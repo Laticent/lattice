@@ -1799,10 +1799,18 @@ host can turn one off.
 
 **The export says so (2026-10-18, #2758).** A fence whose plugin is off ships as source, so Share → Webpage names it
 before the export (a row in the options panel) and after (the completion message), read from the registry and the
-deck's admission (`docs/src/lib/off-fences.ts`), never from a plugin's name. No action button yet: the deck's
-`plugins:` list only adds, and the Studio has no setting that narrows the defaults, so a deck that hits this is one
-under a host that narrowed them. The other Studio exports (PDF, PNG, PowerPoint, Marp bundle, print) carry no notice
-yet: `followups.d/2758-p1-off-fence-notice-action-and-other-exports.md`.
+deck's admission (`docs/src/lib/off-fences.ts`), never from a plugin's name.
+
+**Every export, and an action (2026-10-20, followup `2758-p1`).** One component, `OffFencesNotice`
+(`docs/src/components/studio/OffFencesNotice.tsx`), shows the notice in every Share panel whose export draws
+diagrams: PDF, PowerPoint, LibreOffice, Images, Webpage, the Marp bundle and Print. The same sentence joins each of
+those exports' completion message (`withOffFences` in `share-export.ts`; Print has no completion message, its panel
+is the one place). The notice's **Turn on** writes the plugin into the deck's `plugins:` list, the same write as the
+Plugins tab's checkbox. A deck's list adds to the host's defaults (`admitPlugins`), so under a host that narrowed
+them the listed plugin is admitted again, the next render draws the fence and the next export ships the drawing;
+the choice travels with the deck. A host that hands the panels no way to edit the deck gets the notice without the
+button. `docs/e2e/plugin-admission.spec.ts` drives both arms through the real Share sheet for every panel, and the
+action through to an export that draws.
 
 ## References
 

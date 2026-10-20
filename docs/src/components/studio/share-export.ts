@@ -380,6 +380,16 @@ export async function withExportMarker(render: DeckRender): Promise<DeckRender> 
 	return { ...render, overflowMarker: await exportOverflowMarker() };
 }
 
+/** A fence whose plugin is off ships as source: the panel said so before the export, the completion message
+ *  says so after (#2758). Folded into an export's degradation reason, append-never-assign, by every Studio
+ *  export that draws diagrams. */
+function withOffFences(reason: string | undefined, source: string): string | undefined {
+	const off = offFences(source);
+	if (!off) return reason;
+	const sentence = offFencesSentence(off, 'shipped');
+	return reason ? `${reason}; ${sentence}` : sentence;
+}
+
 export async function shareHtmlPlayer(
 	options: SingleSlideOptions,
 	source: string,
@@ -676,12 +686,7 @@ export async function shareHtmlPlayer(
 	if (mediaWarning) {
 		bakeWarning = bakeWarning ? `${bakeWarning}; ${mediaWarning}` : mediaWarning;
 	}
-	// A fence whose plugin is off ships as source: the panel said so before the export, the toast says so after (#2758).
-	const offList = offFences(source);
-	if (offList) {
-		const offWarning = offFencesSentence(offList, 'shipped');
-		bakeWarning = bakeWarning ? `${bakeWarning}; ${offWarning}` : offWarning;
-	}
+	bakeWarning = withOffFences(bakeWarning, source);
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
 	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
@@ -1141,7 +1146,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
 	const removed = await ex.exportMarp(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, files: photos?.files, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
-	return [marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined;
+	return withOffFences([marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined, source);
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format
@@ -1155,7 +1160,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
 	// `embedSource` — the `.lattice` to carry when the author chose "Re-openable in Lattice".
-	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource });
+	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource }), source);
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's
@@ -1166,7 +1171,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource });
+	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource }), source);
 }
 
 /** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
@@ -1175,7 +1180,7 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource });
+	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource }), source);
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
@@ -1260,7 +1265,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// left null — the `generator: 'studio'` field already marks the source.
 	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
 	const ex = await exporters();
-	return ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta);
+	return withOffFences(await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta), source);
 }
 
 type ReadAlongCore = {

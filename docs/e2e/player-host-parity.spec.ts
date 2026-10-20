@@ -18,12 +18,46 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
 // RUNS IN ITS OWN NIGHTLY JOB (`player-parity` in .github/workflows/studio-e2e-nightly.yml); the
 // `@player-parity` tag keeps the big `e2e` job from running it a second time.
 //
-// Three decks, each standing for a class of gap the audit closed: a plain deck (the sheet, the fonts,
+// Five decks, each standing for a class of gap the audit closed: a plain deck (the sheet, the fonts,
 // the record), Mermaid diagrams with `light-dark()` tokens and a drop shadow (the baked figure, the
-// token reader, the export render's config and box), and a portrait split (the structural cut).
+// token reader, the export render's config and box), a portrait split (the structural cut), and a
+// Mermaid fence inside a list item and inside a quote (the nested figure's size and place,
+// followups.d/2739-p11).
 
 const REPO = path.resolve(process.cwd(), '..');
-const DECKS = ['html-player', 'carbone-curation', 'inventory-split-portrait'];
+const DECKS = ['html-player', 'carbone-curation', 'inventory-split-portrait', 'mermaid-nested-fences', 'mermaid-quoted-fence'];
+
+// THE 25-DECK CORPUS, on demand: `PARITY_CORPUS=1 npx playwright test e2e/player-host-parity.spec.ts
+// --project=player-parity`. These are the decks §11.9 measured identical when parity landed. A change
+// to the Studio's bake or to a runtime pass the bake frame runs (a new stamp on a slide or inside one)
+// re-runs this before it ships; the nightly keeps the five above, because 25 decks do not fit its
+// job. `PARITY_DECKS=a,b` runs a named list instead.
+const CORPUS = [
+	...DECKS,
+	'marp-export-fidelity',
+	'chart-family-coverage',
+	'collage',
+	'build',
+	'studio-present',
+	'backdrop-register',
+	'math-bare-equation',
+	'avatars',
+	'adaptive-sizing',
+	'a11y',
+	'auto-split',
+	'cover-paginate',
+	'system-design-foundations',
+	'sequence-narration',
+	'mindmap-branch-colors',
+	'mermaid-sketch-labels',
+	'xychart-narration',
+	'containment-tier',
+	'chart-body-tier',
+	'hub-spoke-sketch',
+	'plugin-system-phase-b',
+	'card-tag-placements',
+];
+const RUN = process.env.PARITY_DECKS ? process.env.PARITY_DECKS.split(',') : process.env.PARITY_CORPUS ? CORPUS : DECKS;
 
 // The only normalization: the three exclusions, nothing else.
 function comparable(html: string): string {
@@ -44,7 +78,7 @@ function firstDifference(a: string, b: string): string {
 	return `first difference at byte ${i} of ${a.length}/${b.length}\n  cli:    …${JSON.stringify(a.slice(Math.max(0, i - 80), i + 160))}\n  studio: …${JSON.stringify(b.slice(Math.max(0, i - 80), i + 160))}`;
 }
 
-for (const deck of DECKS) {
+for (const deck of RUN) {
 	test(`${deck}: the Studio's Webpage export is the CLI's --player, byte for byte @player-parity`, async ({ page }, testInfo) => {
 		test.setTimeout(480_000);
 		const source = await readFile(path.join(REPO, 'examples', `${deck}.md`), 'utf8');

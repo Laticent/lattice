@@ -1677,3 +1677,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — every srcdoc write of the live preview, the capture frames, the Playground.
 - **Removable when** — never; a wait that can have nothing to wait for should not start.
 - **Commits** — the PR that added the early return.
+
+## An e2e Enter on the editor's completion menu adds a list item instead of accepting
+
+- **Symptom** — a spec types `- te` on a collage slide, sees the photo menu with its option `aria-selected`, presses Enter, and the editor reads `- te` plus a new `- ` line. It passes locally and fails now and then in CI, on PRs that touch nothing near the editor (`library-images-complete.spec.ts`, four repeats in a week).
+- **Cause** — CodeMirror's `acceptCompletion` returns false for `interactionDelay` (75 ms, its default, which the Studio keeps) after the menu first opens, and while a completion source is still pending (the menu then carries `cm-tooltip-autocomplete-disabled` but keeps its options and its `aria-selected`). The Enter falls through to the Markdown keymap, which continues the list. A spec whose assertions before the Enter all pass on their first poll presses inside that window. Pressing Enter the moment the menu appears reproduces it 3 times in 5.
+- **Mitigation** — accept through a helper that waits for an enabled menu older than the delay: `acceptCompletion` in `docs/e2e/library-images-complete.spec.ts` records when the menu opened from a `MutationObserver` in the page and polls on it. 60 of 60 green after the change.
+- **Triggered by** — any e2e spec that presses Enter or Tab on a CodeMirror completion menu.
+- **Removable when** — never, while the Studio keeps CodeMirror's interaction delay (it is what stops a menu that pops up under a fast typist's Enter from eating the newline).
+- **Commits** — the PR that added `acceptCompletion` (followups.d/2649-p3).

@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
+import { OffFencesNotice } from './OffFencesNotice';
 
 export function ExportOptionsPanel({
 	format = 'pdf',
@@ -28,6 +29,8 @@ export function ExportOptionsPanel({
 	busy,
 	status,
 	onBack,
+	source,
+	onWrite,
 	onExport,
 }: {
 	/** Which export this step is for. Only the PDF takes sticky notes; only the office
@@ -39,6 +42,10 @@ export function ExportOptionsPanel({
 	slideCount?: number;
 	busy?: boolean;
 	status?: string | null;
+	/** The deck, for the off-fence notice (#2758). */
+	source?: string;
+	/** Edits the deck (the off-fence notice's "Turn on"). */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 	onBack: () => void;
 	onExport: (opts: ExportOptions) => void;
 }) {
@@ -66,6 +73,8 @@ export function ExportOptionsPanel({
 					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export {label}</h3>
 					<p className="mt-0.5 text-[12px] text-muted-foreground">{isPdf ? 'One slide per page, high-resolution.' : editable ? 'Real text boxes over a picture of each slide.' : 'One full-bleed picture per slide.'} Choose what rides along before you download.</p>
 				</div>
+
+				{source ? <OffFencesNotice source={source} onWrite={onWrite} /> : null}
 
 				{/* Comments → sticky notes. Only actionable when the deck has comments. */}
 				{isPdf && (
