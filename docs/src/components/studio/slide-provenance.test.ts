@@ -260,10 +260,12 @@ describe('image-card provenance (the `image-card:` register)', () => {
 	it('mirrors the kernel word → class maps exactly', async () => {
 		const { IMAGE_CARD_AXES } = await import('./slide-provenance');
 		const kernel = await import('../../../../lib/core/resolve-image-card.js');
-		expect(IMAGE_CARD_AXES).toEqual(kernel.IMAGE_CARD_AXES);
-		// Order too: the first word on each axis is its default.
-		for (const axis of Object.keys(IMAGE_CARD_AXES) as (keyof typeof IMAGE_CARD_AXES)[]) {
-			expect(Object.keys(IMAGE_CARD_AXES[axis])).toEqual(Object.keys(kernel.IMAGE_CARD_AXES[axis]));
+		const axes: readonly { axis: string; names: readonly string[]; tokens: readonly string[] }[] = kernel.IMAGE_CARD_REGISTER.AXES;
+		// Same axes in the same order, each word mapped to the same class, in the same order (the
+		// first word on each axis is its default).
+		expect(Object.keys(IMAGE_CARD_AXES)).toEqual(axes.map((a) => a.axis));
+		for (const a of axes) {
+			expect(Object.entries(IMAGE_CARD_AXES[a.axis as keyof typeof IMAGE_CARD_AXES])).toEqual(a.names.map((n, i) => [n, a.tokens[i]]));
 		}
 	});
 

@@ -16,10 +16,8 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
-const {
-  IMAGE_CARD_TOKENS, IMAGE_CARD_AXES, parseImageCard, imageCardClasses, readImageCard,
-  imageCardTokenAxis, imageCardDeckTokens,
-} = require(path.join(ROOT, 'lib/core/resolve-image-card.js'));
+const { IMAGE_CARD_REGISTER, imageCardClasses, imageCardDeckTokens } = require(path.join(ROOT, 'lib/core/resolve-image-card.js'));
+const { TOKENS: IMAGE_CARD_TOKENS, parse: parseImageCard, read: readImageCard, tokenAxis: imageCardTokenAxis } = IMAGE_CARD_REGISTER;
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 
 const IMAGE = (cls = '') => `<!-- _class: image spotlight ${cls} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)`;
@@ -55,7 +53,7 @@ test('kernel: every class sits on exactly one axis, and every class is a declare
     assert.ok(imageCardTokenAxis(t), t);
     assert.ok(t === 'compact' || manifest.variants.includes(t), `${t} is not an image variant`);
   }
-  const all = Object.values(IMAGE_CARD_AXES).flatMap((a) => Object.values(a));
+  const all = IMAGE_CARD_REGISTER.AXES.flatMap((a) => a.tokens);
   assert.equal(new Set(all).size, all.length, 'no class on two axes');
 });
 
