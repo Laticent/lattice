@@ -146,14 +146,14 @@ size — i.e. something the marks don't already spell out. That test sorts the
 **Color/size-categorical → integrated SVG key.** `piechart`, `radar`, `map`,
 and `quadrant·cohort` carry their key **inside the diagram's own `<svg>`
 viewBox**: diagram, a gradient **spine**, and the swatch+label+value key are one
-unit that scales together (emitted by `svg-legend.js` — see
+unit that scales together (emitted by `legend-svg-key.js` — see
 `engineering/decisions/2026-06-13-svg-native-legend.md`). No CSS grid, no
 `::before` spine — the key is SVG `<text>`/`<rect>` in viewBox units, so it tracks
 the diagram at any size and the four read as one family; long labels **wrap**
 (never clip). `word-cloud` joined them on 2026-07-27 with a key of a different
 KIND: not swatch·label·value rows but a `size = frequency` A-ramp, since word size
 is what encodes weight there. It is emitted by the kernel rather than by
-`buildSvgLegend`, but it shares the family's **spine** (`svg-legend.js buildSpine`)
+`keySvg` (`legend-svg-key.js`), but it shares the family's **spine** (`svg-legend.js buildSpine`)
 and lives in the cloud's own viewBox, so key and words scale as one unit. The
 `--chart-spine*` tokens it used to own are deleted — nothing reads them now.
 
@@ -182,7 +182,7 @@ slides, so cross-renderer parity holds.
 
 A keyed chart's key and diagram are ONE viewBox, so CSS cannot reflow them — the
 kernel does, at render time. In a tall box the right rail letterboxes the whole
-unit into a short band, so `svg-legend.js buildPortrait` stacks the key beneath
+unit into a short band, so `legend-svg-key.js buildPortrait` stacks the key beneath
 the diagram instead (`piechart`, `radar`, `map`, `quadrant·cohort`, and
 `word-cloud` with its own A-ramp).
 
@@ -394,7 +394,7 @@ rather than placing text itself. Every rule below names the code that enforces i
    or curve's name sits at its right end in the series' own text-safe ink (`.cart-series`,
    `--mark-ink`), wraps to two lines and is nudged clear of its neighbors; it carries
    `data-series-for`, not `data-series`, so it is not counted as one of the series' shapes.
-   When names cannot fit, `line` falls back to a key. A key is drawn by `buildSvgLegend`
+   When names cannot fit, `line` falls back to a key. A key is drawn by `keySvg` (`legend-svg-key.js`)
    inside the chart's own viewBox: a right rail in landscape, stacked below in portrait,
    labels wrapped, never clipped. The three-way test for whether a chart needs a key at all is
    § Legend / key system.
@@ -426,7 +426,7 @@ rather than placing text itself. Every rule below names the code that enforces i
 - Axis titles sit at slightly different heights (`scatter` 3 units from the bottom on its
   baseline, `histogram` and `ep-curve` 10 units up, hanging).
 - § Legend / key system's catalog predates `bar grouped`, `line`, `stacked-bar`, `heatmap` and
-  `tower`, which also draw keys through `buildSvgLegend`.
+  `tower`, which also draw keys through `keySvg`.
 - `tower` and `risk-matrix` print figures ON their marks, against rule 1, each with ink chosen
   for the mark it sits on (`tower`'s computed from its segment's fill; `risk-matrix`'s the
   canvas color on a heading-ink disk).
@@ -619,7 +619,7 @@ when its mark was drawn (a non-numeric bar, an all-zero stack or a name-only bul
 draws none). A tap on a label opens a card only when the marks at its index name ONE
 thing: a stacked bar's segments and a grouped bar's series are several cards, so their
 category name and total recede with the bar but a tap on them falls through to the
-nearest mark (`namedMark`). A pie or map legend row is one too: `buildSvgLegend` stamps
+nearest mark (`namedMark`). A pie or map legend row is one too: `keySvg` stamps
 a row only when the caller passes `markFor` (the pie passes the wedge index, the map
 its entry's mark index, since its legend is sorted by value). A legend of series
 (line, stacked-bar, radar) passes none, so its rows stay inert instead of opening

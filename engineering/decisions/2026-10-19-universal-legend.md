@@ -13,7 +13,7 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: in progress. Waves 0 and 1 are built (§§ 15, 16); Waves 2 to 5 are not. Facts in
+**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. Facts in
 §§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
 marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
 how and why.
@@ -589,3 +589,48 @@ byte for byte; they carry 19 roadmap keys, 20 matrix-grid keys and 22 obligation
 `test/unit/core/legend-key-html.test.js` keeps every arm of the old builder's test, including the
 one transcribed from roadmap's original `buildStatusLegend`.
 
+## 17. Wave 2, as built (2026-10-20)
+
+The nine SVG keys of the chart family (bar, stacked-bar, tower, piechart, map, quadrant, radar, the
+heatmap key and the line fallback) draw through `keySvg`, the legend's SVG emitter for the `key`
+layout. It lives in `lib/components/chart/_chart-family/legend-svg-key.js`, and `legend-svg.js`, home
+of the `anchored` lane Wave 0 built, re-exports it, so the emitter has one front door. `buildSvgLegend`
+is gone from `svg-legend.js`.
+
+**The port is a move, not a wrapper.** § 10 said the SVG emitter "wraps it first". A wrapper would
+leave two names for one builder and the key's code in a file the legend does not own, so the builder
+moved whole: `keySvg` is the old `buildSvgLegend` with its row emitter, portrait column, band packer,
+mark-contract stamp and `<desc>`, under the same signature and the same row shape. `svg-legend.js`
+keeps what the key shares with the rest of the family: the font ratio and the spine's metrics,
+`buildSpine` (scatter and word-cloud use it too), `wrapLabelToLines`, and `fitKeyToPane`, which takes
+the caller's `keySvg` call as a callback and so never imported the builder. The dependency runs one
+way, `legend-svg.js` to `legend-svg-key.js` to `svg-legend.js`, with no cycle. The row shape is
+unchanged on purpose: translating rows into the legend model's entries is the step that would move
+bytes, and it belongs to the wave that first needs a model field the rows lack.
+
+**Why the key has a file of its own: the docs site ships each chart as its own kernel.** The first
+build put `keySvg` inside `legend-svg.js`. The checker on this wave bundled each transform (esbuild,
+minified, gzip -6) and found eight kernels about 2.2KB larger each, because the lane, plate and
+marker code now rode into charts that draw only a key; `chart-map` is the kernel `chartKernelGz`
+watches. Split out, as `lib/core/legend-key.js` is for the HTML key, the kernels move by tens of
+bytes: map 96,820 to 96,889, bar 35,098 to 35,172, piechart 34,532 to 34,592, radar 57,928 to
+57,989, line 36,818 to 36,903, heatmap 46,295 to 46,470. The key's own metrics (row gap, swatch
+edge, column widths) moved with it rather than being exported from `svg-legend.js`, because the
+minifier cannot inline a constant read across modules. The preview runtime
+(`dist/lattice-runtime-min.js`) gzips to 425,943 bytes against 425,957 at `main`.
+
+**One commit, not nine.** § 10 says one adopter per commit. The owner's brief for this session asked
+for one commit per priority, and a move cannot land one caller at a time without a second copy of
+the builder for the commits in between, so the nine callers moved in one commit.
+
+**The byte-identical claim is a diff.** Every tracked Markdown file in the repository (3,707 of
+them, which includes every deck under `lib/`, `examples/`, the baseline decks, `design/` and the docs
+content) was rendered through `createEngine().render()` at `main` (2a8091b) and after the port, and
+the two trees were compared with `diff -r`. The only differences are the prose of
+`chart-family.docs.md` and of this record, whose text this commit edits. (One file, a math fixture,
+throws the same KaTeX error on both sides.) The rendered decks carry 141 keyed sections:
+44 piechart, 33 radar, 31 map, 13 tower, 7 quadrant, 6 bar, 6 heatmap and 1 stacked-bar, 5 of them
+portrait. No tracked deck reaches line's key fallback or a keyed chart in a pane, so a synthetic deck
+covered those (line's fallback, a pie and a radar in panes, and the same deck at 9:16); it too
+rendered identically before and after. `test/unit/transformers/svg-legend.test.js` keeps every arm,
+including the frozen landscape golden, now pointed at `keySvg`.

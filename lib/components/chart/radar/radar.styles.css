@@ -169,7 +169,7 @@
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────
- * The key is now SVG-native (svg-legend.js → `.chart-key-*`, styled in
+ * The key is now SVG-native (legend-svg-key.js → `.chart-key-*`, styled in
  * lib/plugins/chart-family/chart-family.styles.css). A muted reference series (target / before /
  * comparison band) is keyed with a quiet swatch from the kernel rather than the
  * old dashed-chip CSS. The HTML `.radar-legend` rules are retired with it. See
