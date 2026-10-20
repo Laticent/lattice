@@ -22,7 +22,20 @@ describe('activitySentence', () => {
 	});
 });
 
+describe('activitySentence on a damaged saved reply', () => {
+	it('treats a non-array activity as none instead of throwing', () => {
+		expect(activitySentence({} as unknown as string[])).toBe('');
+		expect(activitySentence('read about x' as unknown as string[])).toBe('');
+	});
+});
+
 describe('thoughtTail', () => {
+	it('never splits an emoji when it cuts', () => {
+		const out = thoughtTail('😀'.repeat(300), 20);
+		expect(Array.from(out)).toHaveLength(21); // the ellipsis plus 20 whole emoji
+		expect(out.isWellFormed()).toBe(true);
+	});
+
 	it('keeps a short thought whole', () => {
 		expect(thoughtTail('  a short   thought ')).toBe('a short thought');
 		expect(thoughtTail('')).toBe('');

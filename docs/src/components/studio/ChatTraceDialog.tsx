@@ -120,7 +120,7 @@ function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?:
 								<details className="group">
 									<summary className="cursor-pointer truncate text-[var(--accent)] hover:underline">
 										<span>Thinking</span>
-										<span className="font-normal text-muted-foreground"> · {snippet(r.reasoning)}</span>
+										{snippet(r.reasoning) && <span className="font-normal text-muted-foreground"> · {snippet(r.reasoning)}</span>}
 									</summary>
 									<Thinking text={r.reasoning} md={md} />
 								</details>
@@ -147,10 +147,23 @@ function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?:
 	);
 }
 
-/** The first line of a thought with its markdown marks removed, for the one-line summary above the full text. */
-export function snippet(text: string, max = 80): string {
-	const line = (text.split('\n').map((l) => l.replace(/^[\s>*#\-\d.]+/, '').replace(/[*_`]/g, '').trim()).find(Boolean) ?? '').trim();
-	return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
+/** The first line of a thought with its markdown marks removed, for the one-line summary above the full text. Only list markers and
+ *  heading or quote marks come off the front, so "3 slides need work" and "-1.5% is bad" keep their first characters. Empty when the
+ *  thought has no letter or digit in it. Cuts by code point. */
+export function snippet(text: unknown, max = 80): string {
+	if (typeof text !== 'string') return '';
+	const line =
+		text
+			.split('\n')
+			.map((l) =>
+				l
+					.replace(/[*_`]/g, '')
+					.replace(/^\s*(?:[>#]+|[-+]|\d+[.)])\s+/, '')
+					.trim(),
+			)
+			.find((l) => /[\p{L}\p{N}]/u.test(l)) ?? '';
+	const chars = Array.from(line);
+	return chars.length > max ? `${chars.slice(0, max - 1).join('').trimEnd()}…` : line;
 }
 
 /** The model's thinking, formatted, with a button in its corner to read the exact characters instead. Formatted is the default

@@ -29,6 +29,11 @@ describe('the one-line activity row', () => {
 		expect(screen.getByText(/^Read about the big number layout/)).toBeTruthy();
 	});
 
+	it('survives a damaged saved activity (an imported backup) without throwing', () => {
+		const { container } = render(<ChatActivityRow activity={{} as unknown as string[]} hasTrace={false} onOpen={() => {}} />);
+		expect(container.firstChild).toBeNull();
+	});
+
 	it('renders nothing when there is neither activity nor a trace', () => {
 		const { container } = render(<ChatActivityRow activity={[]} hasTrace={false} onOpen={() => {}} />);
 		expect(container.firstChild).toBeNull();

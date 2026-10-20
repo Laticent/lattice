@@ -69,4 +69,29 @@ describe('Show work', () => {
 			vi.unstubAllGlobals();
 		}
 	});
+
+	it('keeps meaningful leading digits and punctuation in a thought snippet', () => {
+		expect(snippet('3 slides need work')).toBe('3 slides need work');
+		expect(snippet('2026 revenue is the headline')).toBe('2026 revenue is the headline');
+		expect(snippet('-1.5% is bad')).toBe('-1.5% is bad');
+		expect(snippet('1. Read the deck\n2. Fix it')).toBe('Read the deck'); // a list marker does come off
+		expect(snippet('- a bullet')).toBe('a bullet');
+	});
+
+	it('gives an empty snippet for separators, odd input and a cut that would split an emoji', () => {
+		expect(snippet('---')).toBe('');
+		expect(snippet('...\n\n')).toBe('');
+		expect(snippet(undefined)).toBe('');
+		expect(snippet({} as unknown as string)).toBe('');
+		const cut = snippet(`ab${'😀'.repeat(50)}`, 10);
+		expect(Array.from(cut)).toHaveLength(10);
+		expect(cut.endsWith('…')).toBe(true);
+		expect(cut.isWellFormed()).toBe(true); // no lone surrogate
+	});
+
+	it('draws no dangling separator when a thought has no readable first line', () => {
+		const t: ChatTrace = { ...trace, rounds: [{ reasoning: '---', calls: [], cost: 0, prompt: 0, completion: 0 }] };
+		render(<ChatTraceDialog trace={t} open onOpenChange={() => {}} />);
+		expect(screen.getByText('Thinking').parentElement?.textContent).toBe('Thinking');
+	});
 });
