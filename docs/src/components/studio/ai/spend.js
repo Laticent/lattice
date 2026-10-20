@@ -60,6 +60,7 @@ export function recordSpend(cost, tokens = 0) {
   if (Number.isFinite(c) && c > 0) { addTo(ls, SPEND_TOTAL_KEY, c); addTo(ss, SPEND_SESSION_KEY, c); }
   const t = Number(tokens);
   if (Number.isFinite(t) && t > 0) { addTo(ls, SPEND_TOTAL_TOK_KEY, t); addTo(ss, SPEND_SESSION_TOK_KEY, t); }
+  bookLedger(c > 0 ? c : 0, t > 0 ? t : 0);
 }
 
 // A SIGNED correction to the running cost tally. Unlike recordSpend (which only ever
@@ -73,7 +74,57 @@ export function adjustSpend(costDelta) {
   const bump = (store, key) => { try { if (store) store.setItem(key, String(Math.max(0, (Number(store.getItem(key)) || 0) + d))); } catch {} };
   bump(globalThis.localStorage, SPEND_TOTAL_KEY);
   bump(globalThis.sessionStorage, SPEND_SESSION_KEY);
+  bookLedger(d, 0);
 }
+
+// The ledger: the same charges as the tally above, bucketed by LOCAL day and deck, so the chat
+// can answer "this deck" and "today" without a second source of truth. A bucket per (day, deck)
+// rather than a row per call keeps it a few hundred bytes a day. `setSpendDeck` names the deck
+// the next charges belong to (the Studio sets it when the active deck changes); a charge made
+// with none set books under LEDGER_NO_DECK. Days older than LEDGER_KEEP_DAYS are dropped on write.
+export const SPEND_LEDGER_KEY = 'lattice-db-spend-ledger';
+export const LEDGER_NO_DECK = '_';
+const LEDGER_KEEP_DAYS = 120;
+let ledgerDeck = LEDGER_NO_DECK;
+export function setSpendDeck(deckId) { ledgerDeck = deckId ? String(deckId) : LEDGER_NO_DECK; }
+/** A local calendar day as YYYY-MM-DD. "Today" is the author's today, not UTC's. */
+export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function readLedgerRaw() {
+  try {
+    const v = JSON.parse(globalThis.localStorage?.getItem(SPEND_LEDGER_KEY) || '{}');
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch { return {}; }
+}
+function bookLedger(cost, tokens) {
+  if (!cost && !tokens) return;
+  const ls = globalThis.localStorage;
+  if (!ls) return;
+  try {
+    const led = readLedgerRaw();
+    const day = (led[dayKey()] ||= {});
+    const cell = (day[ledgerDeck] ||= [0, 0]);
+    cell[0] = Math.max(0, (Number(cell[0]) || 0) + cost);
+    cell[1] = Math.max(0, (Number(cell[1]) || 0) + tokens);
+    const cutoff = dayKey(new Date(Date.now() - LEDGER_KEEP_DAYS * 86400000));
+    for (const k of Object.keys(led)) if (k < cutoff) delete led[k];
+    ls.setItem(SPEND_LEDGER_KEY, JSON.stringify(led));
+  } catch { /* storage full or unavailable: the tally above still counts */ }
+}
+/** What was spent today (every deck) and on one deck (every day still kept). */
+export function readLedger(deckId, now = new Date()) {
+  const led = readLedgerRaw();
+  let today = 0, deck = 0, todayTokens = 0, deckTokens = 0;
+  const t = dayKey(now);
+  for (const [day, decks] of Object.entries(led)) {
+    for (const [id, cell] of Object.entries(decks || {})) {
+      const c = Number(cell?.[0]) || 0, k = Number(cell?.[1]) || 0;
+      if (day === t) { today += c; todayTokens += k; }
+      if (id === deckId) { deck += c; deckTokens += k; }
+    }
+  }
+  return { today, deck, todayTokens, deckTokens, keepDays: LEDGER_KEEP_DAYS };
+}
+
 export function readSpend() {
   const ls = globalThis.localStorage;
   const ss = globalThis.sessionStorage;

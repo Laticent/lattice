@@ -195,6 +195,17 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// prices only an open round — a finished one already reported its exact cost.
 	let roundOpen = false;
 	let rounds = 0;
+	// What the rounds that FINISHED reported, for the reply's usage line and the context meter. It comes from the same
+	// `usage` block that already feeds the spend tally, so keeping it is free; an aborted round never reports and is absent.
+	const used = { cost: 0, prompt: 0, completion: 0, cached: 0, reasoning: 0, rounds: 0 };
+	const tally = (u: Parameters<NonNullable<Parameters<ArchitectModel['complete']>[0]['onUsage']>>[0]) => {
+		used.rounds++;
+		used.cost += Number(u?.cost) || 0;
+		used.prompt = Number(u?.prompt_tokens) || 0;
+		used.completion += Number(u?.completion_tokens) || 0;
+		used.cached = Number(u?.prompt_tokens_details?.cached_tokens) || 0;
+		used.reasoning += Number(u?.completion_tokens_details?.reasoning_tokens) || 0;
+	};
 	let blockedNote: string | null = null;
 	const soFar = () => [...done, streamed].map((t) => t.trim()).filter(Boolean).join('\n\n');
 	const complete: AgentComplete = async (msgs, { tools, onToken }) => {
@@ -253,7 +264,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 				finish = r;
 			},
 			signal: opts?.signal,
-			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			onUsage: (u) => {
+				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0));
+				tally(u);
+			},
 		});
 		roundOpen = false;
 		rounds++;
@@ -331,7 +345,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			else notes.push(`This turn stopped partway with an error: ${msg.slice(0, 140)}`);
 		}
 	}
-	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
+	const result = finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
+	if (result.status !== 'ok' || !used.rounds) return result;
+	const modelId = model.openRouterModel?.() ?? '';
+	// The catalog is already loaded by now on a normal turn; a miss (an alias id, a slow fetch) leaves the window unknown.
+	const window = (await catalog().catch(() => []) as { id: string; contextLength?: number | null }[]).find((m) => m.id === modelId)?.contextLength ?? null;
+	return { ...result, usage: { ...used, window, model: modelId } };
 }
 
 /** The checker's warnings on a draft the turn ended on: no errors, but worth a look. Said to

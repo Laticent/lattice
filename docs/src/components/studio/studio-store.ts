@@ -676,6 +676,24 @@ export type ChatVideo = {
 	poster?: string;
 };
 
+/** What one assistant reply cost and how full the model's window was after it. All of it comes
+ *  back in the response's own `usage` block, so recording it adds no request and no charge.
+ *  `prompt` is the LAST round's input — the conversation the model had to read, i.e. the context
+ *  fill, and `cached` is the part of it read from cache — while `cost`, `completion` and `reasoning` are summed over the turn's rounds. */
+export type ChatUsage = {
+	cost: number;
+	prompt: number;
+	completion: number;
+	/** Of `prompt`, the tokens served from the prompt cache (the last round's, like `prompt`). */
+	cached: number;
+	/** Output tokens the model spent thinking (already inside `completion`). 0 on a model that does not report it. */
+	reasoning: number;
+	rounds: number;
+	/** The model's context window in tokens, or null when the catalog did not know it. */
+	window: number | null;
+	model: string;
+};
+
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
@@ -697,6 +715,8 @@ export type ChatMessage = {
 	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */
 	activity?: string[];
+	/** Assistant turn only: cost and context fill for this reply (ChatUsage). Never sent back to the model. */
+	usage?: ChatUsage;
 };
 
 export function loadChat(deckId: string): ChatMessage[] {

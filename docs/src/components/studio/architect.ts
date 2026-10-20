@@ -183,7 +183,14 @@ function voicedModel(model: ArchitectModel, generation: string, deckLang?: strin
 	return { ...model, complete: (o) => model.complete({ ...o, messages: withStudioVoice(o.messages, generation, deckLang) }) };
 }
 
-type Usage = { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
+type Usage = {
+	cost?: number;
+	total_tokens?: number;
+	prompt_tokens?: number;
+	completion_tokens?: number;
+	prompt_tokens_details?: { cached_tokens?: number };
+	completion_tokens_details?: { reasoning_tokens?: number };
+};
 
 /** A catalog entry, the shape architect-model.js `listOpenRouterModels()` yields. */
 export type ORModel = {
@@ -1298,7 +1305,7 @@ export type ProposedEdit = {
 	diff: DiffRow[];
 };
 export type ChatResult =
-	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[] }
+	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage }
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
 

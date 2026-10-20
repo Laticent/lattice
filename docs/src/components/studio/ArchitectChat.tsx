@@ -495,7 +495,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			} else if (out.status === 'blocked') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
-				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}) }]);
+				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}), ...(out.usage ? { usage: out.usage } : {}) }]);
 			}
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
@@ -734,7 +734,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
