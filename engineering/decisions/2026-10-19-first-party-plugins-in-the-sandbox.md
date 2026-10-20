@@ -143,3 +143,24 @@ An alternative for math alone that keeps `render()` synchronous and starts no br
 
 **Not built in this session.** The owner was away and D-B is a decided item whose premise these facts change, so the build waits on the ❓ card (`followups.d/2800-p1-preview-sandbox-pool-fork.md`).
 
+### D1 decided: A, the pool plus a draw frame (owner, 2026-10-20), and the design that follows
+
+The owner chose option A: previews go through the pool, with a second frame document for the libraries that need a screen. It rides PR #2822, one commit per slice. The spike that fixed the numbers (headless Chromium 131, a `sandbox="allow-scripts"` frame, a strict policy with one hashed inline script):
+
+| | Opens | First draw | Later draws | Notes |
+|---|---|---|---|---|
+| Mermaid (3.1 MB of script) | about 2,000 ms | 200 ms | about 50 ms | no `'unsafe-eval'` needed; the parent cannot reach into the frame |
+| function-plot (199 KB) | about 70 ms | about 45 ms | about 30 ms | **refused without `'unsafe-eval'`** ("Refused to evaluate a string as JavaScript") |
+
+So the owner's pick includes `'unsafe-eval'` in the function-plot frame's policy, and only there. The frame stays a sandboxed, opaque-origin document with no network, storage or reach into the Studio. Opening a Mermaid frame per render, as the worker pool does, would cost about 2 s each time, so **draw frames stay open for the page's life** (they hold first-party library code only, never a deck's or a third party's, so the carry-over that made the worker pool per-render does not apply).
+
+**The seam already exists.** The CLI export draws figures from outside the page: `hydrate-script.js` marks a hydrator `drawnByHost`, its placeholders wait `pending`, and `lib/export/locked-figures.js` reads them, draws and writes the result back. The preview does the same through a host the Studio and Playground install on the page (`window.__latticeDrawHost`, read through `win.parent`), so a deck, which cannot run script in the preview, cannot spoof it. Where no host is present (every export and the plain `.html`), the runtime keeps loading the libraries as today.
+
+**Pieces.**
+1. `docs/src/lib/code-packages/draw-host.ts`: opens the frames, fetches each library from beside the runtime, checks its SHA-256 against the manifest's pin before inlining it (the frame runs it by hash), serves `draw(kind, job)` and closes nothing until the page does.
+2. Preview runtime (`lib/plugins/host-browser.mjs`, the Mermaid pass, `function-plot.hydrate.js`): with a draw host, send `{config, size}` out and write the answer back; no library `<script>` in the deck page.
+3. Output: function-plot's drawing goes through the slide sanitizer, as the CLI's `WRITE` does. Mermaid's carries `<foreignObject>` labels and a `<style>`, which the slide sanitizer deletes, so it gets a diagram profile, accepted only if every gallery diagram passes byte-identical (the CLI check was 32 of 32). A diagram that does not pass falls back to the provenance census (HARD RULE #22 shape 4).
+4. Math: the engine leaves a placeholder and the door fills it from KaTeX in the pool worker (a two-pass render, the fence door's shape). The display-math reflow (`data-math-reflow`) reads the typeset, so it moves with it.
+
+**Slices.** (1) draw host and frames, no consumer; (2) function-plot; (3) Mermaid; (4) math; (5) the preview stops loading libraries, then the trio on what ships. Each slice leaves every preview working.
+

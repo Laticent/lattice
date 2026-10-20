@@ -581,8 +581,19 @@ function renderDrawnLibrary(ordered) {
     const [payload] = Object.values(p.manifest.payload || {});
     if (payload) files[p.manifest.name] = payload.from.split('/').pop();
   }
+  // The libraries a sandboxed DRAW FRAME runs (lib/packages/draw-frame-core.mjs): every plugin that draws in a browser, a
+  // runtime pass's (Mermaid) or a hydrator's (function-plot). The frame runs a library by the hash of its text, so the
+  // pin rides with the file name: the host checks the staged bytes against it before they are inlined.
+  const frameLibraries = {};
+  for (const p of ordered.filter((q) => ['pass', 'browser'].includes(q.manifest.render?.exec?.hydrate))) {
+    const [payload] = Object.values(p.manifest.payload || {});
+    if (payload?.vendored?.sha256) frameLibraries[p.manifest.name] = { file: payload.from.split('/').pop(), global: payload.global, sha256: payload.vendored.sha256 };
+  }
   return `${HEADER('Each runtime-drawn plugin\'s library file name, staged beside the runtime. Plain data, for lazily loaded readers.')}
 export const DRAWN_LIBRARY_FILES = Object.freeze(${JSON.stringify(files)});
+
+// The libraries a sandboxed draw frame runs, with the SHA-256 of each vendored copy (the staged file must match it).
+export const DRAW_FRAME_LIBRARIES = Object.freeze(${JSON.stringify(frameLibraries)});
 `;
 }
 
