@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "kpi",
+  "inlineRun": { "depths": [1, 2], "slots": [".lat-spark", "strong"] },
   "cards": { "default": "center" },
   "function": "evidence",
   "form": "ledger",
