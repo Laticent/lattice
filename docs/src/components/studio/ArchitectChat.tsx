@@ -17,6 +17,7 @@ import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { ChatTraceDialog } from './ChatTraceDialog';
 import { activitySentence } from './chat-activity';
+import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
@@ -196,6 +197,19 @@ function LiveReply({ store, thoughts, deck, activity, onGrow }: { store: ReturnT
 	);
 }
 
+/** Where a thread was compacted: what stands in for the earlier messages, and what it saves. */
+function CompactedDivider({ info }: { info: NonNullable<ChatMessage['compacted']> }) {
+	return (
+		<details className="rounded-lg border border-dashed border-border px-2.5 py-1.5 text-[11.5px] text-muted-foreground" data-testid="chat-compacted">
+			<summary className="cursor-pointer">
+				{info.count} earlier messages compacted · about {Math.round(info.saved / 100) / 10}K tokens lighter each turn
+			</summary>
+			<p className="mt-1.5 whitespace-pre-wrap leading-snug text-foreground">{info.summary}</p>
+			<p className="mt-1 text-[10.5px]">This briefing is what the Architect reads in place of those messages.</p>
+		</details>
+	);
+}
+
 type ChatNotice = { deck: string; kind: 'offline' | 'blocked' | 'error'; text: string };
 
 // A FAILURE NOTICE HAS TO OUTLIVE THE PANEL, NOT JUST THE RENDER.
@@ -307,6 +321,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const thoughtBuf = React.useRef('');
 	const thoughtTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [traceIdx, setTraceIdx] = React.useState<number | null>(null);
+	// Compaction. `undoCompact` holds the thread as it was until the next send, so a briefing that dropped something the author
+	// cared about is one click from undone; it is memory only, because a reload is a decision to keep the result.
+	const [compacting, setCompacting] = React.useState(false);
+	const [undoCompact, setUndoCompact] = React.useState<{ deck: string; messages: ChatMessage[] } | null>(null);
 	// What the agent is doing between replies ("Reading a component…"), for the live bubble.
 	// Panel state like `streaming`, cleared with it when the turn ends.
 	const [liveActivity, setLiveActivity] = React.useState<string | null>(null);
@@ -473,7 +491,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
 			const lastIdx = history.length - 1;
-			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }));
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: modelText({ ...m, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }) }));
 			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
 			const clips = (await Promise.all(sentVideos.map(async (v) => ({ name: v.name, dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (clips.length < sentVideos.length) notify('That video is no longer in the Library, so the model did not see it.');
@@ -559,11 +577,45 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		}
 	};
 
+	const compact = async () => {
+		const split = splitForCompaction(messages);
+		if (!split || busy || compacting) return;
+		const sendDeckId = deckId;
+		const before = messages;
+		setCompacting(true);
+		try {
+			const [{ summarizeChat }, { deckOutputLang }] = await Promise.all([import('./chat-compact-run'), import('./studio-language')]);
+			const out = await summarizeChat(transcript(split.older), deckOutputLang(source));
+			if (out.status === 'blocked') return void notify(out.note);
+			if (out.status !== 'ok') return void notify(out.status === 'offline' ? 'Compacting needs a connected cloud model.' : 'The model returned no summary, so nothing changed.');
+			const done = applyCompaction(split, out.summary);
+			saveChat(sendDeckId, done.messages);
+			if (mountedRef.current && deckIdRef.current === sendDeckId) {
+				setMessages(done.messages);
+				setUndoCompact({ deck: sendDeckId, messages: before });
+			}
+			setPulse((p) => p + 1);
+			globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+			notify(`Compacted ${done.removed} messages. About ${Math.round(done.saved / 100) / 10}K tokens lighter on every turn; the compaction cost $${out.cost.toFixed(3)}.`);
+		} catch {
+			notify('Compacting failed, so nothing changed.');
+		} finally {
+			if (mountedRef.current) setCompacting(false);
+		}
+	};
+	const undoCompaction = () => {
+		if (!undoCompact || undoCompact.deck !== deckId) return;
+		saveChat(deckId, undoCompact.messages);
+		setMessages(undoCompact.messages);
+		setUndoCompact(null);
+	};
+
 	const send = () => {
 		const text = input.trim();
 		// A photo alone is a message: the model is told what was attached either way.
 		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos) return;
 		const sendDeckId = deckId;
+		setUndoCompact(null);
 		const photos = pendingPhotos;
 		const videos = pendingVideos.map(({ name, durationMs }) => ({ name, durationMs }));
 		setInput('');
@@ -764,7 +816,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} compact={{ run: compact, busy: compacting || busy, undo: undoCompact?.deck === deckId ? undoCompaction : null }} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
@@ -807,18 +859,19 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				<ChatFigureContext.Provider value={figureRender}>
 				<PreviewPool className="space-y-3" baseSlots={4}>
 				{empty && <ChatEmptyCard aiReady={aiReady} />}
-				{messages.map((m, i) =>
-					m.role === 'user' ? (
-						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
-						<div key={i} className="flex justify-end">
+				{messages.map((m, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
+					<React.Fragment key={i}>
+					{m.compacted && <CompactedDivider info={m.compacted} />}
+					{m.role === 'user' ? (
+						<div className="flex justify-end">
 							<div className="flex max-w-[92%] flex-col items-end gap-1.5">
 								{m.photos?.length || m.videos?.length ? <MessagePhotos photos={m.photos ?? []} videos={m.videos} deckId={deckId} /> : null}
 								<div className="whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
 							</div>
 						</div>
 					) : (
-						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
-						<div key={i} className="flex flex-col gap-1.5">
+						<div className="flex flex-col gap-1.5">
 							<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 								<Sparkles className="size-3 text-[var(--accent)]" /> Architect
 							</div>
@@ -839,8 +892,9 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 								</span>
 							)}
 						</div>
-					),
-				)}
+					)}
+					</React.Fragment>
+				))}
 				{traceIdx !== null && messages[traceIdx]?.trace && <ChatTraceDialog trace={messages[traceIdx].trace as NonNullable<ChatMessage['trace']>} usage={messages[traceIdx].usage} open onOpenChange={(v) => !v && setTraceIdx(null)} />}
 				{live && <LiveReply store={liveStore.current} thoughts={thoughtStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
 				{shownNotice && (

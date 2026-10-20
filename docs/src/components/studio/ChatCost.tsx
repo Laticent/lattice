@@ -5,6 +5,7 @@ import { readLedger } from '@/components/studio/ai/spend.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
+import { approxTokens, modelText, SUMMARY_MAX_TOKENS, shouldSuggestCompaction, splitForCompaction } from './chat-compact';
 import { ModelList, useModelCatalog } from './ModelPicker';
 import { assetChoices, onAssetUrlsChanged } from './media-urls';
 import { type ReferenceDoc, refDocsTokens } from './reference-doc';
@@ -36,7 +37,7 @@ import type { ChatMessage, ChatUsage } from './studio-store';
 // moved INTO the dropdown, where it has room to say which end is a question and which an
 // edit — the dropdown is also where you are when the price should change your choice.
 
-export function ChatCost({ source, grounding, docs, primed, explicitCache = true, deckId, messages, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; deckId?: string; messages?: ChatMessage[]; className?: string }) {
+export function ChatCost({ source, grounding, docs, primed, explicitCache = true, deckId, messages, compact, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; deckId?: string; messages?: ChatMessage[]; compact?: CompactControls; className?: string }) {
 	const [spend, setSpend] = React.useState(() => architectSpend());
 	const [pulse, setPulse] = React.useState(0);
 	const status = useArchitectStatus(pulse);
@@ -79,10 +80,13 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	return (
 		<span className={cn('flex min-w-0 items-center gap-2 font-sans text-[11px] normal-case tracking-normal', className)}>
 			<ModelChip status={status} turnEst={turnEst} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} />
-			<MetricsMenu spend={spend} deckId={deckId} last={last} usd={usd} />
+			<MetricsMenu spend={spend} deckId={deckId} last={last} usd={usd} messages={messages} price={status.price} compact={compact} />
 		</span>
 	);
 }
+
+/** What the metrics dropdown needs to offer compaction: run it, whether a turn or a compaction is already in flight, and undo (null when there is nothing to undo). */
+export type CompactControls = { run: () => void; busy: boolean; undo: (() => void) | null };
 
 /** The newest reply's usage in a thread, or null when none has been recorded (a thread saved before usage was kept). */
 export function lastUsage(messages: ChatMessage[] | undefined): ChatUsage | null {
@@ -111,7 +115,7 @@ const levelColor = (l: string) => (l === 'over' ? 'text-[var(--fail,#b3261e)]' :
 const levelBar = (l: string) => (l === 'over' ? 'bg-[var(--fail,#b3261e)]' : l === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary');
 
 /** The session figure and the dropdown behind it. */
-function MetricsMenu({ spend, deckId, last, usd }: { spend: Spend; deckId?: string; last: ChatUsage | null; usd: (n: number) => string }) {
+function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { spend: Spend; deckId?: string; last: ChatUsage | null; usd: (n: number) => string; messages?: ChatMessage[]; price: { promptPerM: number | null; completionPerM: number | null } | null; compact?: CompactControls }) {
 	const [open, setOpen] = React.useState(false);
 	// Read when the menu opens and whenever a charge lands: the ledger is localStorage, not state.
 	const [tick, setTick] = React.useState(0);
@@ -129,6 +133,16 @@ function MetricsMenu({ spend, deckId, last, usd }: { spend: Spend; deckId?: stri
 	const ctxLevel = level(fill);
 	const pct = fill == null ? null : Math.round(fill * 100);
 	const cachedPct = last?.prompt ? Math.min(100, Math.round((last.cached / last.prompt) * 100)) : null;
+	// Compaction: what cutting the older messages would save each turn, and what the one summarizing call costs. Both are estimates
+	// (4 characters a token), shown as such; the real cost is reported when it is done.
+	const split = React.useMemo(() => (messages ? splitForCompaction(messages) : null), [messages]);
+	const suggest = !!messages && shouldSuggestCompaction(messages, fill);
+	const plan = React.useMemo(() => {
+		if (!split) return null;
+		const was = split.older.reduce((n, m) => n + approxTokens(modelText(m)), 0);
+		const cost = price?.promptPerM != null && price.completionPerM != null ? (was / 1e6) * price.promptPerM + (SUMMARY_MAX_TOKENS / 1e6) * price.completionPerM : null;
+		return { messages: split.older.length, saved: Math.max(0, was - 300), cost };
+	}, [split, price]);
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
@@ -140,6 +154,7 @@ function MetricsMenu({ spend, deckId, last, usd }: { spend: Spend; deckId?: stri
 				>
 					{fill != null && <ContextRing fill={fill} level={ctxLevel} />}
 					<span className={cn('font-semibold', over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{sessionFmt}</span>
+					{suggest && <span className="size-1.5 shrink-0 rounded-full bg-[var(--warn,#9a6a00)]" title="This conversation is long enough that compacting may pay off" />}
 					<ChevronDown className="size-3 shrink-0" />
 				</button>
 			</PopoverTrigger>
@@ -165,6 +180,7 @@ function MetricsMenu({ spend, deckId, last, usd }: { spend: Spend; deckId?: stri
 					<>
 						<Row label="Used">
 							<span className={cn('font-semibold', levelColor(ctxLevel))}>
+								{last.estimated ? '≈ ' : ''}
 								{fmtTok(last.prompt)}
 								{last.window ? ` of ${fmtTok(last.window)}` : ''}
 								{pct != null ? ` · ${pct}%` : ''}
@@ -187,6 +203,45 @@ function MetricsMenu({ spend, deckId, last, usd }: { spend: Spend; deckId?: stri
 					</>
 				) : (
 					<p className="text-muted-foreground">Send a message and the window fills in here.</p>
+				)}
+				{compact && (
+					<>
+						<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Conversation</div>
+						{plan ? (
+							<>
+								{suggest && <p className="mb-1.5 rounded-md bg-[var(--accent-soft)] px-2 py-1.5 leading-snug">This conversation is getting long. Compacting would shrink what is re-sent every turn.</p>}
+								<Row label="Would compact" hint="the older messages become a short briefing; the latest six stay word for word">
+									<span className="font-semibold">{plan.messages} messages</span>
+								</Row>
+								<Row label="Saves about" hint="estimated from text length">
+									<span className="font-semibold">{fmtTok(plan.saved)} tokens a turn</span>
+								</Row>
+								<Row label="Costs once" hint="one model call to write the briefing">
+									<span className="font-semibold">{plan.cost == null ? '—' : `≈ ${usd(plan.cost)}`}</span>
+								</Row>
+							</>
+						) : (
+							<p className="text-muted-foreground">Too short to compact. It becomes useful once a thread has a dozen or so messages.</p>
+						)}
+						<div className="mt-2 flex gap-2">
+							<button
+								type="button"
+								disabled={!plan || compact.busy}
+								onClick={() => {
+									compact.run();
+									setOpen(false);
+								}}
+								className="rounded-md border border-border px-2 py-1 font-medium hover:border-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+							>
+								{compact.busy ? 'Working…' : 'Compact conversation'}
+							</button>
+							{compact.undo && (
+								<button type="button" onClick={compact.undo} className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:text-foreground">
+									Undo
+								</button>
+							)}
+						</div>
+					</>
 				)}
 				<p className="mt-3 text-[10.5px] leading-snug text-muted-foreground">Figures come from the usage OpenRouter reports with each reply. Reading them costs nothing.</p>
 			</PopoverContent>

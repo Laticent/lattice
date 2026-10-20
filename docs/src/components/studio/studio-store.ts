@@ -692,6 +692,8 @@ export type ChatUsage = {
 	/** The model's context window in tokens, or null when the catalog did not know it. */
 	window: number | null;
 	model: string;
+	/** True after a compaction, until the next reply: `prompt` is then our estimate of the smaller thread, not the provider's count. */
+	estimated?: boolean;
 };
 
 /** One command the agent ran: its name, the arguments it sent, and a short form of what came back. */
@@ -739,6 +741,8 @@ export type ChatMessage = {
 	activity?: string[];
 	/** Assistant turn only: cost and context fill for this reply (ChatUsage). Never sent back to the model. */
 	usage?: ChatUsage;
+	/** The first message kept after a compaction: the briefing that stands in for the `count` messages before it, and the tokens it saves per turn (estimated). The model reads it ahead of this message (chat-compact.ts `modelText`); the author sees it as a divider. */
+	compacted?: { summary: string; count: number; saved: number };
 	/** Assistant turn only: the rounds behind this reply — reasoning, commands, per-call cost (ChatTrace). Never sent back to the model. */
 	trace?: ChatTrace;
 };
