@@ -2870,11 +2870,10 @@ section.lattice-exporting .fit-culprit { outline: none !important; }
  * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
  * implementation (a DOM mirror of the same injection).
  *
- * The `--logo-*` placement properties are declared on the SECTION, not on this img,
- * so a section-level rule can read them; the img picks them up by inheritance, so its
- * own rules are unchanged. (They were put there for a marker-stack reserve that is
- * gone — the tabs berth top-center now and clear the mark outright — but the reason
- * generalizes and a custom property on the img is invisible to everything above it.)
+ * Placement, size and color are the `logo-finish:` register's words, stamped as classes on the
+ * SECTION (lib/core/resolve-logo-finish.js), so a section-level rule can read them — the stand-down
+ * of the header, footer and page number below does. The one custom property set on the img itself
+ * is `--logo-scale` (by the `logo-sm` / `logo-lg` rules); only the img reads it.
  * ──────────────────────────────────────────────────────────────────── */
 /* The INVERSE-CANVAS pair, defined ONCE. Every rule that declares a dark canvas points its
  * `--deck-logo-filter` here rather than repeating the values, so the two dark-canvas
@@ -3005,19 +3004,20 @@ svg.deck-logo-tint { position: absolute; color: var(--logo-tint); }
  *   bottom-left,
  *   bottom-center   → the footer text (it spans the whole bottom edge)
  *   bottom-right    → the page number and the progress rail (the footer keeps its text)
- * Only an EXPLICIT word does this; a deck without a placement word keeps header and logo together
- * exactly as before. `.form` is in the Form selectors to out-rank the show rules in stage.css
+ * Only an EXPLICIT word does this, and only on a slide that HAS the mark (`:has(> img.deck-logo)`):
+ * the deck's words ride every section, so keying on the class alone hid the chrome on slides the
+ * `title` scope skipped, on `no-logo` slides, and on a deck with no `logo:` at all. A deck without a
+ * placement word keeps header and logo together exactly as before. `.form` is in the Form selectors to out-rank the show rules in stage.css
  * (`section.form > .cell-footer > footer`, (0,2,2)); the legacy direct-child footer is the second
  * selector of each pair. Same reach `no-footer` / `no-paginate` use. */
-section:is(.logo-top-left, .logo-top-center, .logo-top-right):not(.no-logo) > header,
-section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):not(.no-logo) .tile-meta,
-section:is(.logo-bottom-left, .logo-bottom-center):not(.no-logo) > footer,
-section.form:is(.logo-bottom-left, .logo-bottom-center):not(.no-logo) > .cell-footer > footer,
-section.form.logo-bottom-right:not(.no-logo) .lat-pagination,
-section.form.logo-bottom-right:not(.no-logo) .tile-progress {
+section:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) > header,
+section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) .tile-meta,
+section:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > footer,
+section.form:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > .cell-footer > footer,
+section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress) {
   display: none;
 }
-section.logo-bottom-right.logo-bottom-right:not(.no-logo)::after { content: none; }
+section.logo-bottom-right.logo-bottom-right:has(> img.deck-logo)::after { content: none; }
 
 /* `brand` — keep the logo's original colors on a soft plate. The plate uses the theme's
  * surface token so it harmonises with the canvas without picking a hard hue. */

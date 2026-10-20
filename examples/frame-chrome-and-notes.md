@@ -48,7 +48,7 @@ finish's own backdrop. Neither is in flow, so neither costs the stage a pixel.
 | Chrome | Declared | Rendered |
 |---|---|---|
 | running header | 28px / 30px berth | 116px / 94px, on 11 of 15 slides |
-| deck logo | `logo-finish: bottom-center` | centered across, bottom edge on the frame inset, every slide |
+| deck logo | `logo-finish: bottom-center title` | centered across, bottom edge on the frame inset, title slide only (the footer yields there and nowhere else) |
 
 A mark whose y drifts per slide is the tell: an absolute placement cannot depend on the copy above it.
 

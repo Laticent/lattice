@@ -69,4 +69,18 @@ describe('the retired keys warn and fix', () => {
     const out = fixed(deck('logo: lattice\nlogo-on: all'));
     assert.doesNotMatch(out, /logo-on|logo-finish/);
   });
+
+  test('a CRLF deck keeps its line endings through the merge', () => {
+    const out = fixed('---\r\nlogo: lattice\r\nlogo-scale: 2\r\n---\r\n\r\n## A\r\n');
+    assert.match(out, /logo-finish: lg\r\n---/);
+    assert.equal(/[^\r]\n/.test(out), false, 'no bare LF crept in');
+  });
+  test('the author\'s trailing comment on an existing logo-finish line survives', () => {
+    const out = fixed(deck('logo: lattice\nlogo-finish: top-left # mine\nlogo-scale: 2'));
+    assert.match(out, /logo-finish: top-left lg # mine\n/);
+  });
+  test('the fix says a named berth now hides chrome the old keys left showing', () => {
+    const f = found(deck('logo: lattice\nlogo-x: 50\nlogo-y: 82'), 'retired-logo-key').find((x) => x.replaceLine);
+    assert.match(f.fix, /hides the header, footer or page number/);
+  });
 });
