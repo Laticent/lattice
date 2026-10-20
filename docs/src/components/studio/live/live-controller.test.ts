@@ -30,7 +30,7 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
-const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, ...over });
+const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, ...over });
 const shell = () => {
 	const notes: string[] = [];
 	const host: LiveHost = { setSource: () => {}, goToSlide: () => {}, openSharedDeck: () => 'shared-deck', notify: (m) => notes.push(m), notifyAction: (m) => notes.push(m), rerender: () => {} };
@@ -642,7 +642,7 @@ describe('what you share (2026-10-12)', () => {
 		const reloaded = new LiveController(shell().host, deps('host-deck'));
 		reloaded.actions.start('Sharmarke');
 		await until(() => reloaded.view().status === 'live', reloaded);
-		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true });
+		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true, doing: true, pointer: true });
 		expect(awOf(reloaded).getLocalState()).toHaveProperty('slideHidden', true);
 		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('slide');
 		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('cursor');
@@ -650,9 +650,9 @@ describe('what you share (2026-10-12)', () => {
 
 	it('what you share is in your view, all on to begin with', async () => {
 		const { h } = await hostSession();
-		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true });
+		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true, doing: true, pointer: true });
 		h.actions.setShare({ slide: false });
-		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true });
+		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true, doing: true, pointer: true });
 	});
 });
 
@@ -954,5 +954,234 @@ describe('LiveController: Library records', () => {
 		expect(recordsOf(g).themes).toEqual([]);
 		expect(spy.mock.calls.filter((c) => c[1] === 'beacon')).toHaveLength(1);
 		spy.mockRestore();
+	});
+});
+
+// Activity, wide Follow and pointers (2026-10-20-live-uniform-experience.md §5.4, §6, §7.6).
+describe('LiveController: activity, Follow and pointers', () => {
+	it('everyone sees what a member is doing, and never their AI chat; a member can hide it', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.update(deps('shared-deck', { panel: 'coach', view: 'compose' }));
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing?.panel === 'coach', h, g);
+		g.update(deps('shared-deck', { panel: null, view: 'article', presenting: true }));
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing?.presenting === true, h, g);
+		g.actions.setShare({ doing: false });
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing === undefined, h, g);
+	});
+
+	it('a forged activity is dropped: a panel or view outside the lists never arrives', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client writing straight into its presence.
+		(g as any).rt.aw.setLocalStateField('doing', { panel: 'chat', view: 'compose', presenting: false });
+		await settle(h, g);
+		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		(g as any).rt.aw.setLocalStateField('doing', { panel: '<img src=x>', view: 'settings', presenting: 'yes' });
+		await settle(h, g);
+		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
+	});
+
+	it('following someone opens their panel and view; opening another of your own stops following', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: Array<{ panel: string | null; view: string }> = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => true;
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		g.actions.follow(hostId);
+		h.update(deps('host-deck', { panel: 'library', view: 'compose' }));
+		await until(() => moves.some((m) => m.panel === 'library'), h, g);
+		// The follow move arrives: this browser now has Library open, and still follows.
+		g.update(deps('shared-deck', { panel: 'library', view: 'compose' }));
+		expect(g.view().following).toBe(hostId);
+		// Opening Coach yourself stops it.
+		g.update(deps('shared-deck', { panel: 'coach', view: 'compose' }));
+		expect(g.view().following).toBeNull();
+	});
+
+	it('pointers: a member\'s pointer reaches the others in slide coordinates, never from a hidden one, and a flood is dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		const seen: Array<Array<{ name: string; x: number; y: number; slide: number }>> = [];
+		const off = h.pointerSource.subscribe((p) => seen.push(p));
+		g.pointerSource.send({ slide: 0, x: 0.25, y: 0.5 });
+		await until(() => seen.at(-1)?.some((p) => p.name === 'Amina' && p.x === 0.25) ?? false, h, g);
+		// Out of the slide or malformed: dropped (sent well past the flood gate, so only the range check can drop it).
+		await new Promise((r) => setTimeout(r, 60));
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a pointer off the slide.
+		(g as any).post({ k: 'ptr', s: 0, x: 4, y: -1 });
+		await settle(h, g);
+		expect(seen.at(-1)?.find((p) => p.name === 'Amina')?.x).toBe(0.25);
+		g.pointerSource.send(null);
+		await until(() => (seen.at(-1)?.length ?? 1) === 0, h, g);
+		g.actions.setShare({ pointer: false });
+		// Past the send throttle, so a pointer that went out would have arrived.
+		await new Promise((r) => setTimeout(r, 150));
+		g.pointerSource.send({ slide: 0, x: 0.75, y: 0.5 });
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		expect(seen.at(-1)).toEqual([]);
+		off();
+	});
+
+	it('pointers leave with the member', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let last: unknown[] = [];
+		const off = h.pointerSource.subscribe((p) => {
+			last = p;
+		});
+		g.pointerSource.send({ slide: 0, x: 0.5, y: 0.5 });
+		await until(() => last.length === 1, h, g);
+		g.actions.leave();
+		await until(() => last.length === 0, h, g);
+		off();
+	});
+
+	it('Follow never moves anyone into Fabricate, and asks instead of moving someone who is typing', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: Array<{ panel: string | null; view: string }> = [];
+		const asks: string[] = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => true;
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		g.actions.follow(g.view().people.find((p) => p.role === 'host')?.id as string);
+		h.update(deps('host-deck', { panel: null, view: 'fabricate' }));
+		await settle(h, g);
+		expect(moves.some((m) => m.view === 'fabricate')).toBe(false);
+		// Typing now (a local edit to the shared text), then the host opens Coach: a Go, not a move.
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		const before = moves.length;
+		h.update(deps('host-deck', { panel: 'coach', view: 'compose' }));
+		await until(() => asks.some((a) => a.includes('opened Coach')), h, g);
+		expect(moves.length).toBe(before);
+	});
+
+	it('a phone or tablet follows the slide only: it is never moved and never offered a Go it cannot use', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: unknown[] = [];
+		const asks: string[] = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => false;
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		g.actions.follow(g.view().people.find((p) => p.role === 'host')?.id as string);
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.update(deps('host-deck', { panel: 'coach', view: 'compose' }));
+		await settle(h, g);
+		expect(moves).toEqual([]);
+		expect(asks.filter((a) => a.includes('opened'))).toEqual([]);
+	});
+
+	it('a flood of pointer clicks is dropped like a flood of moves', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let calls = 0;
+		const off = h.pointerSource.subscribe(() => calls++);
+		const before = calls;
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting clicks in a tight loop.
+		for (let i = 0; i < 200; i++) (g as any).post({ k: 'ptr', s: 0, x: 0.5, y: 0.5, c: 1 });
+		await settle(h, g);
+		expect(calls - before).toBeLessThan(5);
+		off();
+	});
+
+	it('activity is published when the session starts, and again when the switch is turned back on', async () => {
+		const { h } = await hostSession({ panel: 'coach' });
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => g.view().people.find((p) => p.role === 'host')?.doing?.panel === 'coach', h, g);
+		h.actions.setShare({ doing: false });
+		await until(() => g.view().people.find((p) => p.role === 'host')?.doing === undefined, h, g);
+		h.actions.setShare({ doing: true });
+		await until(() => g.view().people.find((p) => p.role === 'host')?.doing?.panel === 'coach', h, g);
+		expect(h.view().people.find((p) => p.me)?.doing).toBeUndefined();
+	});
+
+	it('hiding your slide sends no pointer, since a pointer names its slide', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let last: unknown[] = [];
+		const off = h.pointerSource.subscribe((p) => {
+			last = p;
+		});
+		g.actions.setShare({ slide: false });
+		await new Promise((r) => setTimeout(r, 150));
+		g.pointerSource.send({ slide: 0, x: 0.5, y: 0.5 });
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		expect(last).toEqual([]);
+		off();
+	});
+
+	it('pointers go out at most about ten a second, the last position winning', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		const xs: number[] = [];
+		const off = h.pointerSource.subscribe((p) => {
+			const a = p.find((q) => q.name === 'Amina');
+			if (a) xs.push(a.x);
+		});
+		for (let i = 1; i <= 20; i++) g.pointerSource.send({ slide: 0, x: i / 100, y: 0.5 });
+		// The in-memory network delivers on settle: deliver the first now, the throttled last one later.
+		await settle(h, g);
+		await new Promise((r) => setTimeout(r, 200));
+		await settle(h, g);
+		expect(xs.length).toBeLessThanOrEqual(3);
+		expect(xs.at(-1)).toBe(0.2);
+		off();
+	});
+
+	it('moves arriving faster than the flood gate are dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let calls = 0;
+		const off = h.pointerSource.subscribe(() => calls++);
+		const before = calls;
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting moves in a tight loop.
+		for (let i = 0; i < 200; i++) (g as any).post({ k: 'ptr', s: 0, x: i / 400, y: 0.5 });
+		await settle(h, g);
+		expect(calls - before).toBeLessThan(5);
+		off();
 	});
 });

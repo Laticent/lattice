@@ -139,7 +139,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { formatCodeNotice, type StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
+import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -3795,6 +3795,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return liveRecordsRef.current;
 	}, [deckPackages]);
 	const liveSiteTheme = React.useMemo(() => (activeTheme ? { name: activeTheme.name, css: activeTheme.css } : null), [activeTheme]);
+	const livePublicPanelRef = React.useRef<'coach' | 'lenses' | 'library' | 'live' | null>(null);
+	if (activeAssistant !== 'chat') livePublicPanelRef.current = activeAssistant;
+	const livePublicPanel = livePublicPanelRef.current;
 	const live = useLiveSession({
 		source,
 		setSource: setSourceFromEditor,
@@ -3805,6 +3808,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		mode: mode === 'dark' ? 'dark' : 'light',
 		records: liveRecords,
 		siteTheme: liveSiteTheme,
+		// Activity (§7.6): the AI Chat panel is never reported; what someone asks the AI is theirs. The last
+		// other panel stands in for it, so opening Chat neither shows nor closes anything for a follower.
+		panel: livePublicPanel,
+		view,
+		presenting: presentOpen,
+		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
+		canFollowDoing: () => desktop,
+		followDoing: (d) => {
+			if (!desktop) return;
+			if (d.panel) revealCraftDock();
+			setActiveAssistant(d.panel);
+			setView(d.view);
+		},
 		activeSlide: activeFullIndex,
 		goToSlide: goToFullSlide,
 		openSharedDeck: ({ deckId, title, source: shared }) => {
@@ -3929,7 +3945,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		rehoverRef.current?.();
 	}, [viewIndex]);
+	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
+	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
+		previewHolderElRef.current = holder;
 		previewHolderRoRef.current?.disconnect();
 		previewHolderRoRef.current = null;
 		zoomRef.current?.dispose();
@@ -5680,6 +5699,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{(liveBySlide.get(activeFullIndex)?.length ?? 0) > 0 && (
 					<PanelLoader panel={liveCornerPanel} shell={() => null}>
 						{(LiveCorner) => <LiveCorner people={liveBySlide.get(activeFullIndex) ?? []} />}
+					</PanelLoader>
+				)}
+				{/* Live: everyone's pointer over the slide, drawn only (§7.6); loaded with the session. */}
+				{live.pointers && live.view.status === 'live' && (
+					<PanelLoader panel={livePointersPanel} shell={() => null}>
+						{(LivePointers) => <LivePointers source={live.pointers as NonNullable<typeof live.pointers>} holder={previewHolderElRef} slide={activeFullIndex} />}
 					</PanelLoader>
 				)}
 				{/* The zoom's only chrome, and it earns its place twice: it tells a reader

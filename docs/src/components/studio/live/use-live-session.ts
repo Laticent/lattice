@@ -32,12 +32,14 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				setSource: (s) => depsRef.current.setSource(s),
 				goToSlide: (i) => depsRef.current.goToSlide(i),
 				openSharedDeck: (o) => depsRef.current.openSharedDeck(o),
+				followDoing: (d) => depsRef.current.followDoing?.(d),
+				canFollowDoing: () => depsRef.current.canFollowDoing?.() ?? false,
 				notify: (m) => notify(m),
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,
 			};
-			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme } = depsRef.current;
-			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme });
+			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting } = depsRef.current;
+			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting });
 			setCtl(c);
 			return c;
 		});
@@ -68,7 +70,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	// Feed the controller this render's Studio state (it diffs against the last one).
 	React.useEffect(() => {
-		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme });
+		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme, panel: deps.panel, view: deps.view, presenting: deps.presenting });
 	});
 
 	// Hosting others: ask before the tab goes.
@@ -125,5 +127,5 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 	const noteEditorWrite = React.useCallback((next: string) => ctl?.noteEditorWrite(next), [ctl]);
 	const mayLeaveDeck = React.useCallback(() => ctl?.mayLeaveDeck() ?? true, [ctl]);
 	const collab: LiveCollab | null = ctl?.collab() ?? null;
-	return { view: ctl?.view() ?? IDLE_VIEW, actions, lobby: ctl?.lobby() ?? null, lobbyActions, now: ctl?.now ?? Date.now(), collab, noteEditorWrite, mayLeaveDeck };
+	return { pointers: ctl?.pointerSource ?? null, view: ctl?.view() ?? IDLE_VIEW, actions, lobby: ctl?.lobby() ?? null, lobbyActions, now: ctl?.now ?? Date.now(), collab, noteEditorWrite, mayLeaveDeck };
 }

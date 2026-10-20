@@ -14,7 +14,7 @@ import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LivePerson, type LivePointer, type LivePointerSource, type LiveShare, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -41,10 +41,10 @@ const LINKS_KEY = 'lattice-live-links';
 /** sessionStorage: what this person shares (cursor, slide, typing), so a reload keeps it. */
 const SHARE_KEY = 'lattice-live-share';
 const readShare = (): LiveShare => {
-	const all = { cursor: true, slide: true, typing: true };
+	const all = { cursor: true, slide: true, typing: true, doing: true, pointer: true };
 	try {
 		const raw = JSON.parse(sessionStorage.getItem(SHARE_KEY) || '{}') as Partial<LiveShare>;
-		return { cursor: raw.cursor !== false, slide: raw.slide !== false, typing: raw.typing !== false };
+		return { cursor: raw.cursor !== false, slide: raw.slide !== false, typing: raw.typing !== false, doing: raw.doing !== false, pointer: raw.pointer !== false };
 	} catch {
 		return all;
 	}
@@ -164,6 +164,8 @@ type Post =
 	| { k: 'tip'; seq: number; startedAt: number; look?: LiveLook }
 	| { k: 'typing' }
 	| { k: 'bye' }
+	/** a member's pointer over the slide it is on, in the slide's coordinates; `off` when it left the slide */
+	| { k: 'ptr'; s?: number; x?: number; y?: number; c?: 1; off?: 1 }
 	/** host → member: the Library records the deck uses that the host shares (themes, finish recipes,
 	 *  and custom component NAMES only). A member takes them only from the host, through the import gate. */
 	| { k: 'records'; themes: LiveTheme[]; finishes: LiveFinish[]; components: string[] }
@@ -234,7 +236,36 @@ function holdHostLock(room: string): Promise<(() => void) | null> {
 			.catch(() => resolve(() => {}));
 	});
 }
-type AwState = { peer?: string; user?: { name: string; color: string; colorLight: string }; slide?: number; slideHidden?: boolean; editingAt?: number; summon?: { slide: number; n: number }; cursor?: { anchor: unknown; head: unknown } };
+type AwState = { peer?: string; user?: { name: string; color: string; colorLight: string }; slide?: number; slideHidden?: boolean; editingAt?: number; summon?: { slide: number; n: number }; cursor?: { anchor: unknown; head: unknown }; doing?: LiveDoing };
+/** The panels and views presence may name (live-model.ts types them; the lists live here, with the lazy code). */
+const LIVE_PANELS: readonly LiveDoing['panel'][] = ['coach', 'lenses', 'library', 'live'];
+const LIVE_VIEWS: readonly LiveDoing['view'][] = ['compose', 'fabricate', 'article'];
+/** A `doing` field as a peer sent it, or undefined: a panel and a view from the fixed lists, and a boolean. */
+const cleanDoing = (v: unknown): LiveDoing | undefined => {
+	if (!v || typeof v !== 'object') return undefined;
+	const { panel, view, presenting } = v as Record<string, unknown>;
+	if (panel !== null && !(LIVE_PANELS as readonly unknown[]).includes(panel)) return undefined;
+	if (!(LIVE_VIEWS as readonly unknown[]).includes(view)) return undefined;
+	return { panel: panel as LiveDoing['panel'], view: view as LiveDoing['view'], presenting: presenting === true };
+};
+/** This browser's activity from its Studio state. */
+const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting });
+/** Pointers: at most this many a second leave this browser; one arriving faster from a peer is dropped,
+ *  and one that has not moved for this long disappears. */
+const POINTER_EVERY_MS = 100;
+const POINTER_MIN_GAP_MS = 30;
+const POINTER_IDLE_MS = 6000;
+/** A click is drawn at most this often per member; a flood of clicks is dropped like a flood of moves. */
+const POINTER_CLICK_GAP_MS = 150;
+/** No deck has this many slides; a pointer naming a slide past it is dropped. */
+const POINTER_MAX_SLIDE = 10_000;
+/** Whether the person is typing in a text field outside the editor (a chat prompt, a search): Follow waits. */
+const typingInAField = (): boolean => {
+	if (typeof document === 'undefined') return false;
+	const el = document.activeElement as HTMLElement | null;
+	if (!el || el.closest('.cm-editor')) return false;
+	return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && /^(text|search|email|url|)$/.test(el.type)) || el.isContentEditable;
+};
 
 type Runtime = {
 	session: Session;
@@ -370,6 +401,8 @@ export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (cl
 			const anchor = cleanRelPos(cur?.anchor);
 			const head = cleanRelPos(cur?.head);
 			if (anchor && head) clean.cursor = { anchor, head };
+			const doing = cleanDoing(st.doing);
+			if (doing) clean.doing = doing;
 			state = clean;
 		}
 		out.push([client, clock, JSON.stringify(state)]);
@@ -421,6 +454,24 @@ export class LiveController {
 	 *  carried in the host save, and taken by a member only from the current host's `tip`. A member
 	 *  that takes over keeps the one it holds, so a takeover never re-skins anyone's deck. */
 	private look: LiveLook | null = null;
+	/** Pointers: the others', by peer, and who wants them (the overlay, outside React's render). */
+	private pointers = new Map<string, LivePointer & { at: number }>();
+	private pointerSubs = new Set<(p: LivePointer[]) => void>();
+	private pointerSent = 0;
+	private pointerLater: ReturnType<typeof setTimeout> | null = null;
+	private pointerNext: { slide: number; x: number; y: number; click?: boolean } | null = null;
+	private pointerSweep: ReturnType<typeof setInterval> | null = null;
+	/** Follow: the panel and view this browser was moved to, so a change it made itself stops following. */
+	private followedDoing: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
+	private followAsked = -1;
+	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
+	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view'] }) {
+		if (!this.following) return;
+		this.followAsked = -1;
+		this.followPending = null;
+		this.followedDoing = target;
+		this.host.followDoing?.(target);
+	}
 	/** Member (and an heir): the host's records, validated, held in memory for the session only. */
 	private received: LiveRecords = NO_RECORDS;
 	private recordsSeq = 0;
@@ -633,6 +684,7 @@ export class LiveController {
 			if (field === 'cursor' && !this.share.cursor) return;
 			if (field === 'editingAt' && !this.share.typing) return;
 			if (field === 'slide' && !this.share.slide) return;
+			if (field === 'doing' && !this.share.doing) return;
 			setField(field, value);
 		};
 		const REMOTE = Symbol('tavola-remote');
@@ -720,7 +772,8 @@ export class LiveController {
 		});
 		this.rt = rt;
 		// A session started in a tab that already chose what to hide (a reload, or a second session): make the presence match.
-		if (!(this.share.cursor && this.share.slide && this.share.typing)) this.applyShare();
+		if (!(this.share.cursor && this.share.slide && this.share.typing && this.share.doing)) this.applyShare();
+		else aw.setLocalStateField('doing', doingOf(d));
 		const r = rt;
 
 		let prev: SessionState = session.getState();
@@ -767,6 +820,7 @@ export class LiveController {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
 						this.remoteMic.delete(id);
+						if (this.pointers.delete(id)) this.emitPointers();
 						if (this.removed.delete(id)) {
 							this.sys(`${m.name} was removed`);
 							continue;
@@ -951,6 +1005,12 @@ export class LiveController {
 		this.componentNoteAt = 0;
 		this.verdicts = new Map();
 		this.lookTheme = null;
+		this.pointers.clear();
+		this.emitPointers();
+		if (this.pointerLater) clearTimeout(this.pointerLater);
+		this.pointerLater = null;
+		this.pointerNext = null;
+		this.followedDoing = null;
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -1132,6 +1192,8 @@ export class LiveController {
 		const st = { ...(r.aw.getLocalState() as Record<string, unknown> | null) };
 		if (!this.share.cursor) delete st.cursor;
 		if (!this.share.typing) delete st.editingAt;
+		if (this.share.doing) st.doing = doingOf(this.deps);
+		else delete st.doing;
 		if (this.share.slide) {
 			delete st.slideHidden;
 			st.slide = this.deps.activeSlide;
@@ -1334,6 +1396,14 @@ export class LiveController {
 			if (this.followJump) this.followJump = false;
 			else if (this.following) this.following = null;
 		}
+		// So does opening another panel or view of my own; following there does not.
+		if (prev.panel !== deps.panel || prev.view !== deps.view) {
+			const moved = this.followedDoing;
+			if (this.following && !(moved && moved.panel === deps.panel && moved.view === deps.view)) this.following = null;
+			this.followedDoing = null;
+		}
+		// Activity: what I am doing, when I share it.
+		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting)) r.aw.setLocalStateField('doing', doingOf(deps));
 		// The host keeps the lobby invite current.
 		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
 			this.invitedAs = s.me?.name;
@@ -1371,6 +1441,23 @@ export class LiveController {
 			else if (slide !== undefined && slide !== this.deps.activeSlide) {
 				this.followJump = true;
 				this.host.goToSlide(slide);
+			}
+			const doing = this.following ? byPeer.get(this.following)?.doing : undefined;
+			// Fabricate is a workspace of one's own, never mirrored: leaving it would throw away the follower's work.
+			const view = doing && doing.view !== 'fabricate' && this.deps.view !== 'fabricate' ? doing.view : this.deps.view;
+			if (doing && this.host.followDoing && this.host.canFollowDoing?.() && (doing.panel !== this.deps.panel || view !== this.deps.view)) {
+				const target = { panel: doing.panel, view };
+				const name = s.members.find((m) => m.id === this.following)?.name ?? 'They';
+				// Nobody is moved while typing (design note §5.3, §12.3), in the editor or any other field: say where
+				// they went, once per burst of typing, with a Go that takes you to wherever they are when you press it.
+				if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+					this.followPending = target;
+					if (this.followAsked !== this.myEditAt) {
+						this.followAsked = this.myEditAt;
+						const who = this.following;
+						this.host.notifyAction(`${name} opened ${target.panel ? { coach: 'Coach', lenses: 'Views', library: 'Library', live: 'Live' }[target.panel] : target.view === 'article' ? 'Read' : 'the editor'}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) });
+					}
+				} else this.followTo(target);
 			}
 		}
 		if (!s.isHost) {
@@ -1713,6 +1800,80 @@ export class LiveController {
 		this.host.notify(message);
 	}
 
+	/** The pointer overlay's way in: the others' pointers as they move, and this browser's own to send.
+	 *  It runs outside React's render, so ten moves a second never re-render the Studio. */
+	readonly pointerSource: LivePointerSource = {
+		subscribe: (cb) => {
+			this.pointerSubs.add(cb);
+			cb(this.pointerList());
+			this.pointerSweep ??= setInterval(() => this.sweepPointers(), 1000);
+			return () => {
+				this.pointerSubs.delete(cb);
+				if (!this.pointerSubs.size && this.pointerSweep) {
+					clearInterval(this.pointerSweep);
+					this.pointerSweep = null;
+				}
+			};
+		},
+		send: (p) => this.sendPointer(p),
+	};
+	private pointerList(): LivePointer[] {
+		return [...this.pointers.values()].map(({ at: _at, ...p }) => p);
+	}
+	private emitPointers() {
+		const list = this.pointerList();
+		for (const cb of this.pointerSubs) cb(list);
+	}
+	private sweepPointers() {
+		const now = Date.now();
+		let gone = false;
+		for (const [id, p] of this.pointers) if (now - p.at > POINTER_IDLE_MS) gone = this.pointers.delete(id) || gone;
+		if (gone) this.emitPointers();
+	}
+	/** Send this browser's pointer: at most one a second every POINTER_EVERY_MS (the last position wins), a
+	 *  click at once, and `null` when it leaves the slide. Nothing at all when the person hides it. */
+	private sendPointer(p: { slide: number; x: number; y: number; click?: boolean } | null) {
+		const s = this.rt?.session.getState();
+		// A pointer names its slide, so a person who hides their slide sends none (it would say where they are).
+		if (!s || s.stage !== 'live' || !this.share.pointer || !this.share.slide) return;
+		if (!p) {
+			this.pointerNext = null;
+			if (this.pointerLater) clearTimeout(this.pointerLater);
+			this.pointerLater = null;
+			this.post({ k: 'ptr', off: 1 });
+			return;
+		}
+		this.pointerNext = p;
+		const wait = this.pointerSent + POINTER_EVERY_MS - Date.now();
+		if (p.click || wait <= 0) this.flushPointer();
+		else this.pointerLater ??= setTimeout(() => this.flushPointer(), wait);
+	}
+	private flushPointer() {
+		if (this.pointerLater) clearTimeout(this.pointerLater);
+		this.pointerLater = null;
+		const p = this.pointerNext;
+		this.pointerNext = null;
+		if (!p) return;
+		this.pointerSent = Date.now();
+		const round = (n: number) => Math.round(n * 1000) / 1000;
+		this.post({ k: 'ptr', s: p.slide, x: round(p.x), y: round(p.y), ...(p.click ? { c: 1 as const } : {}) });
+	}
+	/** A member's pointer: theirs only (Tavola names the sender), on a slide, inside it; a flood is dropped. */
+	private takePointer(from: string, sender: { name: string; color: LiveColor }, p: Extract<Post, { k: 'ptr' }>) {
+		if (p.off) {
+			if (this.pointers.delete(from)) this.emitPointers();
+			return;
+		}
+		const ok = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
+		if (!Number.isInteger(p.s) || (p.s as number) < 0 || (p.s as number) > POINTER_MAX_SLIDE || !ok(p.x) || !ok(p.y)) return;
+		const now = Date.now();
+		const was = this.pointers.get(from);
+		// Moves are gated against the last post, clicks against the last click, so a click right after a move lands.
+		if (was && (p.c ? now - was.clickAt < POINTER_CLICK_GAP_MS : now - was.at < POINTER_MIN_GAP_MS)) return;
+		this.pointers.set(from, { id: from, name: sender.name, color: sender.color, slide: p.s as number, x: p.x, y: p.y, clickAt: p.c ? now : (was?.clickAt ?? 0), at: now });
+		this.emitPointers();
+	}
+
 	/** A post from an admitted member (Tavola dropped everyone else's). */
 	private onPost(data: Uint8Array, from: string) {
 		const r = this.rt;
@@ -1732,6 +1893,8 @@ export class LiveController {
 			const was = this.typingAt.get(from) ?? 0;
 			this.typingAt.set(from, Date.now());
 			if (Date.now() - was > 1000) this.host.rerender();
+		} else if (p.k === 'ptr') {
+			this.takePointer(from, sender, p);
 		} else if (p.k === 'mic' && typeof p.on === 'boolean') {
 			this.remoteMic.set(from, p.on);
 			this.host.rerender();
@@ -1820,7 +1983,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), ...(!me && st?.doing ? { doing: st.doing } : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
@@ -2007,6 +2170,7 @@ export class LiveController {
 		setMasterVolume: (v) => this.audio?.setMasterVolume(v),
 		copyLog: () => this.copyLog(),
 		setShare: (patch) => {
+			if ((patch.pointer === false || patch.slide === false) && this.share.pointer && this.share.slide) this.sendPointer(null);
 			this.share = { ...this.share, ...patch };
 			try {
 				sessionStorage.setItem(SHARE_KEY, JSON.stringify(this.share));

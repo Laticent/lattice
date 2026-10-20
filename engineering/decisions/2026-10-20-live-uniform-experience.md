@@ -282,6 +282,40 @@ lost when one toast replaced another; and records re-sent on every keystroke. He
 reaches a document except through the existing style sinks, which run `sanitizeStyleText`; records
 are taken only from the host; members' exports and Library are unchanged.
 
+**Slice 2 as built (2026-10-20).** Activity rides presence as a `doing` field (the open panel, the view,
+and whether the person is presenting), which the receiving browser rebuilds through `cleanDoing` from fixed
+lists, so a panel or view outside them never arrives. The AI Chat panel is never reported: while it is open,
+the last other panel stands in, so opening Chat neither shows nor closes anything for a follower. "Show what
+I'm doing" withholds the field at the one place presence leaves the browser (`setLocalStateField`); a
+follower of someone who hides it keeps following their slide only, as with a hidden slide.
+
+Follow mirrors the followed person's panel and view through `LiveHost.followDoing`, only where the shell says
+it can (`canFollowDoing`: the desktop rail; a phone or tablet follows the slide and is never offered a Go it
+cannot use). It never mirrors Fabricate, which is a workspace of one's own. It never moves someone who typed
+in the editor in the last 2.5 s or has focus in another text field: they get one "X opened Coach · Go" per
+burst of typing, and Go takes them wherever the person is when it is pressed, and only if they still follow
+the same person. A panel or view change the follower makes stops following, as a slide change does.
+
+Pointers ride a `ptr` post in slide coordinates. At most about ten a second leave a browser (the last
+position wins); a held pointer is said again every 2 s; one arriving faster than 30 ms after the last move,
+or a click faster than 150 ms after the last click, is dropped; a value outside 0..1 or a slide past 10,000 is
+dropped; a pointer still for 6 s, or whose member left, disappears. A pointer names its slide, so a person
+who hides their slide sends none. Touch sends nothing (a finger on the slide is a swipe). `LivePointers.tsx`,
+loaded with the session, draws them in a `pointer-events: none` fixed portal clipped to the preview: it never
+dispatches an event or scrolls; it draws nothing on a hidden or inert frame (a phone on its Source pane); it
+measures the frame on each pointer, on resize and scroll, and every 500 ms for a zoom's transform; it honors
+reduced motion, and a long name is cut to 12 rem.
+
+Measured on real headless Chromium browsers: a guest read "Slide 1 · in Coach" on the host's row; following
+the host opened the guest's Library when the host opened theirs, and kept following; the host's pointer at
+slide (0.500, 0.400) drew on the guest's slide at (0.500, 0.400) with its click ring, and showed at 820 and
+390 px on the Preview pane; a 390 px guest on the Source pane drew none. The adversarial trio found and the
+commit fixes, with tests: a pointer naming a hidden slide; Follow pulling a follower out of Fabricate (losing
+the work), moving them while typing, and closing their panel when the leader opened Chat; held pointers
+vanishing, touch sent as clicks, a pointer left on a slide its sender left; a measuring loop every frame; a
+flood of clicks past the gate; dead Go toasts on phones; a pointer drawn over a phone's editor; and two tests
+that could not fail (each now fails when its guard is removed).
+
 ### 7.2 Present together
 
 **What travels is a transport, not pixels.** Captions and Guide derive from the deck plus a
@@ -384,7 +418,7 @@ trio (HARD RULE #25, `engineering/orchestration.md` tier 2).
 |---|---|---|---|
 | 1a | The frozen look (§5.1) | The §3 reproduction, re-run, shows the same theme on both sides; two real browsers with different palettes and modes render pixel-equal previews of an un-themed deck, through a host drop and a takeover | Tier 1 checker; two-browser screenshots |
 | 1b | Library records (§5.2, §6 rules 5, 6, 8) | A deck using a saved theme and finish renders pixel-equal; a guest who types a new private name gets nothing until the host agrees; code components fall back with a label | Adversarial trio; two-browser screenshots |
-| 2 | Activity, wide Follow, pointers, sender rules and allowlist (§6, §7.6) | Avatars show panel, view and presenting; Following mirrors them at 1440/820/390; a forged post from the wrong sender or outside the allowlist does nothing | Adversarial trio; a test that replays forged posts; two-browser screenshots at three widths |
+| 2 | Activity, wide Follow, pointers, sender rules and allowlist (§6, §7.6) | Rows show panel, view and presenting; Following mirrors them on desktop and follows the slide elsewhere; pointers draw at 1440/820/390; a forged post from the wrong sender or outside the allowlist does nothing | Adversarial trio; a test that replays forged posts; two-browser screenshots at three widths |
 | 3 | Present together and narration (§7.2–7.3) | Host starts it; idle members join, a typist gets a toast; keys stay inert until clicked; the call mix and direct clips work; no member calls TTS | Adversarial trio; two-browser recording at phone and desktop width; the call mix measured on a real call. Needs 2704 first |
 | 4 | Show me on every screen (§7.5) | A tour started by one member plays on every screen at once, and the shared deck is byte-identical afterward | Tier 1 checker; two-browser recording |
 | 5 | AI activity and share (§5.3) | "asking the AI", the applied-edit line, a Share-a-turn card | Tier 1 checker; a grep shows no key or cost leaves the browser |

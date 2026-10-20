@@ -19,6 +19,8 @@ export type LivePerson = {
 	slide: number | null;
 	/** Typed in the last couple of seconds. */
 	editing: boolean;
+	/** What they are doing in the Studio, when they share it (not for this browser's own row). */
+	doing?: LiveDoing;
 	/** `off`: not on the call (no mic shown). `muted`: on the call, muted. */
 	mic: 'off' | 'muted' | 'on' | 'speaking';
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that
@@ -48,7 +50,21 @@ export function qualityLine(q: NonNullable<LivePerson['quality']>): string {
  *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once
  *  permission is given). */
 /** What this person lets the others see of them. All on by default. */
-export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean };
+export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean; doing: boolean; pointer: boolean };
+
+/** The Studio panels and views a member can be in, as presence carries them (2026-10-20-live-uniform-experience.md
+ *  §7.6). The AI Chat panel is never one: what someone asks the AI is theirs. */
+export type LivePanelId = 'coach' | 'lenses' | 'library' | 'live';
+export type LiveViewId = 'compose' | 'fabricate' | 'article';
+/** What a member is doing in the Studio: activity, shown to everyone, followed by whoever follows them. */
+export type LiveDoing = { panel: LivePanelId | null; view: LiveViewId; presenting: boolean };
+/** A remote pointer over the slide, in the slide's own coordinates (0..1 each way). */
+export type LivePointer = { id: string; name: string; color: LiveColor; slide: number; x: number; y: number; clickAt: number };
+/** What the pointer overlay reads: the others' pointers, and this browser's own to send. */
+export type LivePointerSource = {
+	subscribe: (cb: (pointers: LivePointer[]) => void) => () => void;
+	send: (p: { slide: number; x: number; y: number; click?: boolean } | null) => void;
+};
 
 export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null; highFidelity: boolean;
 	/** How loud this browser sends, 0–2 (1 = as captured). */
@@ -189,7 +205,7 @@ export const IDLE_VIEW: LiveView = {
 	hostAway: false,
 	heir: null,
 	audio: false,
-	share: { cursor: true, slide: true, typing: true },
+	share: { cursor: true, slide: true, typing: true, doing: true, pointer: true },
 	call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false, micLevel: 1, canShapeMic: false, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: false },
 	canChat: true,
 	typing: [],

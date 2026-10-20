@@ -25,6 +25,11 @@ export type LiveDeps = {
 	/** This browser's site palette as a saved theme, when it is one: what a host may offer to share
 	 *  as the session's look (§5.1). */
 	siteTheme: LiveTheme | null;
+	/** What this browser is doing, as presence carries it: the open panel (the AI Chat panel never
+	 *  shows), the view, and whether it is presenting (§7.6). */
+	panel: 'coach' | 'lenses' | 'library' | 'live' | null;
+	view: 'compose' | 'fabricate' | 'article';
+	presenting: boolean;
 };
 
 /** A saved theme as a session carries it: its name and its CSS. */
@@ -52,6 +57,11 @@ export type LiveHost = {
 	notify: (message: string) => void;
 	notifyAction: (message: string, opts: { label: string; onClick: () => void }) => void;
 	rerender: () => void;
+	/** Follow: open the panel and view of the person followed. The shell decides what fits its width
+	 *  (a phone follows the slide only). Optional: a shell without panels follows slides alone. */
+	followDoing?: (d: { panel: 'coach' | 'lenses' | 'library' | 'live' | null; view: 'compose' | 'fabricate' | 'article' }) => void;
+	/** Whether this shell mirrors a panel and view at its current width (a phone or tablet does not). */
+	canFollowDoing?: () => boolean;
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
