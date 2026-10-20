@@ -20,6 +20,8 @@ export type DrawJob =
 export type DrawHost = {
 	/** Draw one figure, answering its SVG as text, or rejecting with why it did not draw. */
 	draw: (job: DrawJob, ms?: number) => Promise<string>;
+	/** Fetch and pin the kind's library and open its frame now, so a later draw finds both ready. Rejects with why it could not. */
+	warm: (kind: DrawKind) => Promise<void>;
 	/** Close every frame. The host is not used again. */
 	close: () => void;
 };
@@ -33,6 +35,14 @@ export type DrawHostDeps = {
 	subtle?: SubtleCrypto;
 };
 
+/** A named point on the page's timeline (`performance.getEntriesByType('mark')`), so a slow first draw can be read phase by phase. */
+const mark = (name: string) => {
+	try {
+		performance.mark(`lattice-draw:${name}`);
+	} catch {
+		/* no performance timeline: nothing to mark */
+	}
+};
 const OPEN_MS = 30_000;
 const DRAW_MS = 15_000;
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -57,9 +67,12 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 				if (!pin) throw new Error(`no library is pinned for ${kind}`);
 				const url = deps.libraryUrl(pin.file);
 				if (!url) throw new Error(`${pin.file} has no staged address yet`);
+				mark('library-fetch-start');
 				const text = await fetchText(url);
+				mark('library-fetched');
 				const digest = hex(await subtle.digest('SHA-256', new TextEncoder().encode(text)));
 				if (digest !== pin.sha256) throw new Error(`${pin.file} as staged does not match its pin, so it is not run`);
+				mark('library-pinned');
 				return text;
 			})();
 			// A load that failed is tried again on the next draw, not remembered for the page's life.
@@ -73,6 +86,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		const script = drawFrameScript({ kind, library: await library(kind), ...(kind === 'function-plot' ? { hydrateSource: deps.hydrateSource() } : {}) });
 		const hash = b64(await subtle.digest('SHA-256', new TextEncoder().encode(script)));
 		const html = drawFrameDocument({ kind, script, hash });
+		mark('script-hashed');
 		const frame = doc.createElement('iframe');
 		frame.setAttribute('sandbox', 'allow-scripts');
 		frame.setAttribute('aria-hidden', 'true');
@@ -110,6 +124,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			if (!w) return;
 			f.waiting.delete(r.id);
 			clearTimeout(w.timer);
+			mark('draw-answered');
 			if ('error' in r) w.reject(new Error(r.error));
 			else w.resolve(r.out);
 		};
@@ -128,6 +143,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			f.close();
 			throw e;
 		}
+		mark('frame-ready');
 		return f;
 	}
 
@@ -173,11 +189,17 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 							f.close();
 						}, ms);
 						f.waiting.set(id, { resolve, reject, timer });
+						mark('draw-sent');
 						f.frame.contentWindow?.postMessage({ t: 'draw', id, ...job }, '*');
 					}),
 			);
 			f.queue = next.catch(() => {});
 			return next;
+		},
+		async warm(kind) {
+			if (done) throw new Error('the draw host is closed');
+			if (!Object.hasOwn(DRAW_KINDS, kind)) throw new Error(`no draw frame for ${String(kind)}`);
+			await frameFor(kind);
 		},
 		close() {
 			done = true;

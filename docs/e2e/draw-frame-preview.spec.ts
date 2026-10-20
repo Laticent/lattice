@@ -60,6 +60,9 @@ test('function-plot draws in the preview through a sandboxed draw frame, and its
 	if (!baseline) await expect(frames).toHaveCount(1);
 	const redrawMs = Date.now() - again;
 	test.info().annotations.push({ type: 'latency', description: `first draw ${firstDrawMs} ms, redraw ${redrawMs} ms` });
+	// Each phase of the first draw, from the page's own timeline (the host marks them): where the time goes.
+	const marks = await page.evaluate(() => performance.getEntriesByType('mark').filter((m) => m.name.startsWith('lattice-draw:')).map((m) => `${m.name.slice(13)}@${Math.round(m.startTime)}`));
+	test.info().annotations.push({ type: 'phases', description: marks.join(' ') });
 
 	// 4. THREE WIDTHS
 	for (const [width, height] of [

@@ -31,6 +31,7 @@ import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
 import type { LatticePlaygroundEngine } from './playground-global';
+import { warmPreviewDrawHost } from './preview-draw-host';
 
 export type RenderMarkdownOpts = {
 	baseUrl?: string;
@@ -109,6 +110,13 @@ export type RenderMarkdownResult = {
  * the grammars this deck names, and the ones those embed — median 2.1 KB each — and
  * never rejects: a grammar that will not load costs its fence its color, not its text.
  */
+/**
+ * The words a deck that holds a function-plot fence contains: its fence name and its deprecated alias
+ * (lib/plugins/function-plot/function-plot.manifest.json; render-engine.plot-warm.test.ts pins the two together). A
+ * superset probe, like the other source probes: a deck that merely names one gets a warm frame it never uses.
+ */
+export const PLOT_FENCE_WORDS = ['functionplot', 'latticeplot'] as const;
+
 export async function renderMarkdown(
 	PG: LatticePlaygroundEngine,
 	source: string,
@@ -120,6 +128,10 @@ export async function renderMarkdown(
 	// reference-appendix slide live in the Studio exactly as it does in the export (HARD RULE #1).
 	// A no-op unless the deck opts in and defines terms; idempotent (strips its own trigger).
 	const rendered = appendAutoGlossary(source);
+	// A deck with a plot warms the previews' draw host NOW, before the render and before the preview frame boots, so the
+	// host's code, the library and the frame's start overlap them instead of following the first draw
+	// (docs/src/lib/preview-draw-host-impl.ts; measured: they were 400 ms of a 520 ms first draw).
+	if (PLOT_FENCE_WORDS.some((w) => rendered.indexOf(w) !== -1)) warmPreviewDrawHost('function-plot');
 	if (sourceHasMath(rendered)) {
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});

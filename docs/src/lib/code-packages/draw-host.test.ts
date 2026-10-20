@@ -128,6 +128,36 @@ describe('the draw host', () => {
 		await expect(next).resolves.toBe('<svg/>');
 	});
 
+	it('warms a frame ahead of the first draw, which then finds it open and posts at once', async () => {
+		const { host, frames } = rig();
+		opened.push(host.close);
+		await host.warm('function-plot');
+		expect(frames).toHaveLength(1);
+		expect(frames[0].posted).toHaveLength(0);
+		const a = host.draw(JOB);
+		await new Promise((r) => setTimeout(r, 0));
+		expect(frames).toHaveLength(1);
+		expect(frames[0].posted[0]).toMatchObject({ t: 'draw', id: 1 });
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(a).resolves.toBe('<svg/>');
+	});
+
+	it('a warm-up that cannot run says why, and the next draw tries again', async () => {
+		let calls = 0;
+		const { host, frames } = rig({
+			fetchText: async () => {
+				if (++calls === 1) throw new Error('offline');
+				return PLOT_LIB;
+			},
+		});
+		opened.push(host.close);
+		await expect(host.warm('function-plot')).rejects.toThrow('offline');
+		const a = host.draw(JOB);
+		await new Promise((r) => setTimeout(r, 20));
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(a).resolves.toBe('<svg/>');
+	});
+
 	it('draws nothing once closed, and stops its frames', async () => {
 		const { host, frames } = rig();
 		const a = host.draw(JOB);
