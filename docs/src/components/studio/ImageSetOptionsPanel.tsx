@@ -12,6 +12,7 @@ import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { OffFencesNotice } from './OffFencesNotice';
 import type { ImageSetOptions } from './share-export';
 
 type Format = 'png' | 'jpeg' | 'webp';
@@ -72,10 +73,16 @@ export function ImageSetOptionsPanel({
 	busy,
 	status,
 	onBack,
+	source,
+	onWrite,
 	onExport,
 }: {
 	busy?: boolean;
 	status?: string | null;
+	/** The deck, for the off-fence notice (#2758). */
+	source?: string;
+	/** Edits the deck (the off-fence notice's "Turn on"). */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 	onBack: () => void;
 	onExport: (opts: ImageSetOptions) => void;
 }) {
@@ -105,6 +112,8 @@ export function ImageSetOptionsPanel({
 					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export images</h3>
 					<p className="mt-0.5 text-[12px] text-muted-foreground">A <code>.zip</code> with one image per slide, plus optional thumbnails and the deck’s charts &amp; diagrams as standalone SVGs.</p>
 				</div>
+
+				{source ? <OffFencesNotice source={source} onWrite={onWrite} /> : null}
 
 				{/* Color mode — how the whole set (slides, thumbnails, chart/diagram marks) renders. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">

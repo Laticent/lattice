@@ -91,3 +91,19 @@ Two tiny calls to `anthropic/claude-sonnet-4.5` through OpenRouter on the owner'
 carries `cached_tokens` and `reasoning_tokens` as read. So Show work's Thinking section appears only for models that think by default; on
 Claude with default settings it shows the commands, cost and sizes but no thinking. Showing Claude's thinking would mean sending a
 `reasoning` setting, which bills those tokens, and that was left as a decision for the owner, not done here.
+
+## 8. Follow-up: one line in the transcript, the rest in a sheet (2026-10-20)
+
+The owner drove #2813's preview on a phone and found the transcript too heavy. Under every reply sat an activity sentence that
+wrapped to five lines, a separate "Show work" link and, while streaming, a one-line italic ticker of the model's thought that started
+mid-word and was clipped on the right. Their ask: the Claude Code app's pattern, where a reply carries a short snippet and a tap opens
+the details.
+
+- **A finished reply keeps one line.** `ChatActivityRow` shows the activity sentence clipped to one line with an ellipsis; the whole row
+  is the button that opens Show work. The separate link is gone. A reply saved before traces existed keeps the sentence as plain text.
+- **Show work is a bottom sheet under 640 px**, the centered dialog above it. Same content, one `TraceBody`. Each round's "Thinking"
+  summary now carries the first line of the thought, so the sheet reads as a list of snippets before anything is expanded.
+- **The streaming thought wraps over two lines at its latest words.** The store keeps the last 200 characters, which can open mid-word;
+  `thoughtTail` starts the snippet on a word boundary and marks the cut with an ellipsis.
+- **Not changed:** the streaming row is not tappable. It lasts seconds and is replaced by the finished row, so a live sheet was not
+  worth a second code path. Say so if you want it.

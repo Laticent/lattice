@@ -1,0 +1,1 @@
+- Present's chart card now has an end-to-end test: a press outside the slide closes it, and Escape closes the card before it leaves Present. No behavior change.

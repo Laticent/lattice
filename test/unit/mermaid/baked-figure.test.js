@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  mermaidKindLabel, labelDiagramSvg, collapseSankeyText, DIAGRAM_STAGE_WIDTH,
+  mermaidKindLabel, labelDiagramSvg, collapseSankeyText, DIAGRAM_STAGE_WIDTH, STAGE_TEXT_RESET,
 } = require('../../../lib/plugins/mermaid/shared/baked-figure.js');
 const { bakedFigureOpenTag, stampFigureIndex } = require('../../../lib/plugins/mermaid/shared/baked-figure-tag.js');
 
@@ -59,4 +59,11 @@ test('every path takes these pieces from the one module', () => {
   assert.match(read('lib/plugins/mermaid/shared/render-worker.js'), /#container\{width:\$\{DIAGRAM_STAGE_WIDTH\}px\}/);
   assert.match(read('docs/src/components/studio/export/deck-export.js'), /bakedFigureOpenTag\(\{ name: 'mermaid'/);
   assert.equal(DIAGRAM_STAGE_WIDTH, 784, 'the box the CLI has always drawn in: 800 px viewport less 8 px margins');
+});
+
+test('the export stage starts from a bare page\'s text styles, and keeps its own box (followups.d/2739-p9)', () => {
+  // `all` leaves `direction` out by spec, so it is named; `display` goes back to the stage's block box.
+  assert.equal(STAGE_TEXT_RESET, 'all:initial;direction:ltr;display:block;');
+  const hydrate = fs.readFileSync(path.join(ROOT, 'lib/plugins/mermaid/mermaid.hydrate.js'), 'utf8');
+  assert.match(hydrate, /cssText = `\$\{STAGE_TEXT_RESET\}position:absolute;left:0;top:0;width:\$\{DIAGRAM_STAGE_WIDTH\}px;visibility:hidden;pointer-events:none;`/, 'the reset comes first, so the stage\'s own box and hiding win');
 });

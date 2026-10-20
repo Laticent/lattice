@@ -226,6 +226,8 @@ export type ORPrice = {
 	completionPerM: number | null;
 	/** OpenRouter's `pricing.image` ×1e6, when the model lists one; absent or null otherwise (and on a catalog cached before this field). */
 	imagePerM?: number | null;
+	/** The model's context window in tokens; null for an alias or a model the catalog lists without one. Absent on a catalog cached before this field. */
+	contextLength?: number | null;
 };
 
 /** The generation-ladder availability flags `architect-model.js` reports. */

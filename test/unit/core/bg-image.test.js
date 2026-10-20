@@ -9,6 +9,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const bg = require('../../../lib/core/bg-image');
+const { liftImageBgImages } = require('../../../lib/core/bg-image-lift');
 
 describe('bg-image — liftBgImages (markdown pre-pass)', () => {
   test('rewrites ![bg right] to the lattice-bg background div', () => {
@@ -199,7 +200,7 @@ describe('bg-image — the page number never folds into .image-text', () => {
 });
 
 describe('bg-image — liftImageBgImages carries a class run to later slides', () => {
-  const lifted = (md) => bg.liftImageBgImages(md, 'file:///d/');
+  const lifted = (md) => liftImageBgImages(md, 'file:///d/');
   test('`<!-- class: image -->` lifts every later slide until another class run replaces it', () => {
     const md = '# a\n\n![bg left](a.svg)\n\n---\n\n<!-- class: image -->\n\n![bg right](b.svg)\n\n---\n\n![bg left](c.svg)\n\n---\n\n<!-- class: plain -->\n\n![bg](d.svg)\n';
     const out = lifted(md);
@@ -244,7 +245,7 @@ describe('bg-image — liftImageBgImages carries a class run to later slides', (
 
 
 describe('bg-image — a Marp ratio keeps the panel (followups.d/2739-p4)', () => {
-  const lifted = (md) => bg.liftImageBgImages(md, 'file:///d/');
+  const lifted = (md) => liftImageBgImages(md, 'file:///d/');
   test('`![bg left:40%]` on an image slide lifts to the left panel; the share is the layout\'s own', () => {
     assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg left:40%](a.svg)\n'), /lattice-bg-left[^>]*a\.svg/);
     assert.match(lifted('<!-- _class: image -->\n\n# T\n\n![bg right:30%](a.svg)\n'), /lattice-bg-right[^>]*a\.svg/);

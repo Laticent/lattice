@@ -335,7 +335,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         const kin = (catalogCache || []).filter((x) => x.id.startsWith(family) && x.promptPerM != null);
         m = kin.sort((a, b) => (b.completionPerM ?? 0) - (a.completionPerM ?? 0))[0];
       }
-      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null } : null;
+      // `contextLength` only for a listed model: an alias's dearest family member may have a different window, so it stays null there.
+      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null, contextLength: m.id === id ? m.contextLength ?? null : null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The

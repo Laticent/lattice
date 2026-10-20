@@ -162,4 +162,17 @@ describe('style-needs', () => {
       assert.deepEqual(need({ x: '.a, 12px .b { color: red }' }, '<i></i>'), { x: true });
     });
   });
+
+  test('the token index drops subsumed alternatives and answers the same', () => {
+    // `.a` is met whenever `.a.b` is, so the longer alternative adds nothing; `.c` stays.
+    const css = { m: '.a { color: red } .a.b { color: blue } .a .b .d { color: green } .c { color: red }' };
+    const pruned = buildIndex(mods(css));
+    assert.equal(pruned[0].alts.length, 2);
+    for (const html of ['<i class="a"></i>', '<i class="b"></i>', '<i class="c"></i>', '<i class="a b d"></i>', '<i></i>']) {
+      const doc = docOf(html);
+      const tokens = scanDocument(doc.documentElement);
+      const full = buildIndex(mods(css), { selectors: true }); // unpruned (each alternative carries its selector)
+      assert.deepEqual(neededModules(pruned, tokens), neededModules(full, tokens), html);
+    }
+  });
 });

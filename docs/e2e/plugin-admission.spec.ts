@@ -347,36 +347,71 @@ async function webpageExport(page: import('@playwright/test').Page): Promise<str
 	return fs.readFileSync(file, 'utf8');
 }
 
-// THE EXPORT SAYS SO WHEN A FENCE WILL SHIP AS SOURCE (#2758). Both arms through the real Share sheet:
-// the Webpage options panel names the fences before the export, and nothing shows when the plugin is on.
+// THE EXPORT SAYS SO WHEN A FENCE WILL SHIP AS SOURCE (#2758). Both arms through the real Share sheet, in
+// every panel whose export draws diagrams: each names the fences before the export when the plugin is off,
+// and none shows anything when it is on. Print goes last because its panel stays mounted (hidden) once
+// opened, so the notice is read through `:visible`.
+const NOTICE_PANELS = ['pdf', 'pptx', 'odp', 'images', 'webpage', 'marp', 'print'] as const;
+const OFF_SENTENCE = '1 mermaid fence will ship as source: the Mermaid diagrams plugin is off for this deck';
+
 for (const [label, defaults, shows] of [
 	['Mermaid off', [] as string[], true],
 	['Mermaid on', null, false],
 ] as const) {
-	test(`the Webpage export panel ${shows ? 'warns' : 'is silent'} when ${label} @crosswidth @webkit-tablet @webkit-phone @gecko`, async ({ page }) => {
-		test.setTimeout(120_000);
+	test(`every diagram-drawing export panel ${shows ? 'warns' : 'is silent'} when ${label} @crosswidth @webkit-tablet @webkit-phone @gecko`, async ({ page }) => {
+		test.setTimeout(240_000);
 		await gotoStudio(page);
 		await setDefaults(page, defaults === null ? null : [...defaults]);
 		await writeDeck(page, DECK(`Notice ${label}`));
 		await expect.poll(() => persistedSource(page)).toContain(`# Notice ${label}`);
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
-		await page.getByRole('dialog').getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
-		const notice = page.getByRole('dialog').locator('[data-off-fences-notice]');
-		if (shows) {
-			await expect(notice).toBeVisible();
-			await expect(notice).toContainText('1 mermaid fence will ship as source: the Mermaid diagrams plugin is off for this deck');
-		} else {
-			await expect(page.getByRole('dialog').getByText('Export webpage')).toBeVisible();
-			await expect(notice).toHaveCount(0);
-		}
-		if (process.env.ADMISSION_EVIDENCE && shows) {
-			for (const [w, h] of [[1440, 900], [820, 1100], [390, 844]]) {
-				await page.setViewportSize({ width: w, height: h });
-				await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-				await page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, `p3-notice-${w}.png`) });
+		const dialog = page.getByRole('dialog');
+		const notice = dialog.locator('[data-off-fences-notice]:visible');
+		for (const panel of NOTICE_PANELS) {
+			await dialog.getByRole('button', { name: SHARE_EXPORTS[panel].row }).click();
+			// The panel is up (its back button) before the notice is read, so a silent arm cannot pass early.
+			await expect(dialog.getByRole('button', { name: /All formats/ }).filter({ visible: true })).toBeVisible();
+			if (shows) {
+				await expect(notice, `${panel} panel`).toBeVisible();
+				await expect(notice, `${panel} panel`).toContainText(OFF_SENTENCE);
+				await expect(notice.getByRole('button', { name: /^Turn on/ }), `${panel} panel`).toBeVisible();
+			} else {
+				await expect(notice, `${panel} panel`).toHaveCount(0);
 			}
+			if (process.env.ADMISSION_EVIDENCE && shows) {
+				for (const [w, h] of [[1440, 900], [820, 1100], [390, 844]]) {
+					await page.setViewportSize({ width: w, height: h });
+					await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+					await page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, `p3-notice-${panel}-${w}.png`) });
+				}
+				await page.setViewportSize({ width: 1440, height: 900 });
+			}
+			if (panel !== 'print') await dialog.getByRole('button', { name: /All formats/ }).filter({ visible: true }).click();
 		}
 		await page.keyboard.press('Escape');
 		await setDefaults(page, null);
 	});
 }
+
+// THE NOTICE'S ACTION TURNS THE PLUGIN ON (#2758): "Turn on" lists the plugin in the deck's `plugins:` front
+// matter, the notice goes, and the next export draws the diagram instead of shipping its source.
+test('the off-fence notice turns the plugin on, and the next export draws the diagram @crosswidth', async ({ page }) => {
+	test.setTimeout(300_000);
+	await gotoStudio(page);
+	await setDefaults(page, []);
+	await writeDeck(page, DECK('Notice action'));
+	await expect.poll(() => persistedSource(page)).toContain('# Notice action');
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.pdf.row }).click();
+	const notice = dialog.locator('[data-off-fences-notice]:visible');
+	await expect(notice).toContainText(OFF_SENTENCE);
+	await notice.getByRole('button', { name: /^Turn on/ }).click();
+	await expect(notice).toHaveCount(0);
+	await expect.poll(() => persistedSource(page)).toContain('plugins: [mermaid]');
+	await page.keyboard.press('Escape');
+	const frame = livePreview(page);
+	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
+	expect(await webpageExport(page)).not.toMatch(/data-lattice-off=\\?"mermaid/);
+	await setDefaults(page, null);
+});

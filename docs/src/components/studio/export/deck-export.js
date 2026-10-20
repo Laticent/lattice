@@ -250,7 +250,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -307,6 +307,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// resolves it from the workspace setting (share-export.ts).
 	// `withRuntimeScriptsReport` also drops the deck's own executable HTML (marp-cli would run it on the
 	// recipient's machine) and says what it dropped; this function returns that for the toast.
+	// The Marp bundle ships Markdown, so it keeps the SOURCE lift of `![bg]`; every render lifts on the engine's tokens.
+	// Imported here, not at the top: Node's unit tests import this module, and the loader names `@/` paths.
+	const { liftImageBgImages } = await (await import('../../../playground/bg-image-lift-source.js')).loadBgImageLift();
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.

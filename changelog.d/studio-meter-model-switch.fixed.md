@@ -1,0 +1,1 @@
+- Studio chat: the context ring and "Used" figure now measure against the model you have selected, not the model that wrote the last reply, so switching to a larger or smaller model updates them at once.

@@ -77,7 +77,7 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
 	if (!cloud) return null;
-	const last = lastUsage(messages);
+	const last = withCurrentWindow(lastUsage(messages), status.price?.contextLength);
 	return (
 		<span className={cn('flex min-w-0 items-center gap-2 font-sans text-[11px] normal-case tracking-normal', className)}>
 			<ModelChip status={status} turnEst={turnEst} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} />
@@ -103,6 +103,11 @@ export function fmtTok(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
 	if (n >= 1000) return `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}K`;
 	return String(Math.round(n));
+}
+
+/** The newest reply's usage, measured against the model chosen NOW: the reply saved the window of the model that wrote it, and a switch since then would leave the ring on the old one. The prompt size stays the reply's, the best count of the thread. */
+export function withCurrentWindow(last: ChatUsage | null, window: number | null | undefined): ChatUsage | null {
+	return last && window ? { ...last, window } : last;
 }
 
 /** How full the window is, 0..1, or null when either number is unknown. */
