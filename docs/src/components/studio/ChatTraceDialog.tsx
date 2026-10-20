@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { fmtTok } from './ChatCost';
@@ -25,7 +25,12 @@ const PARTS: { key: keyof ChatTrace['sent']; label: string; hint: string }[] = [
 	{ key: 'photos', label: 'Photos and video', hint: 'Attached media' },
 ];
 
-export function ChatTraceDialog({ trace, usage, open, onOpenChange }: { trace: ChatTrace; usage?: ChatUsage; open: boolean; onOpenChange: (v: boolean) => void }) {
+/** Renders the model's own markdown (its thinking and its prose). The host passes the chat's renderer, so this dialog adds no second
+ *  sanitizer: model text reaches markup only through the one sink the chat already has. */
+export type RenderMarkdown = (text: string) => React.ReactNode;
+
+export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdown }: { trace: ChatTrace; usage?: ChatUsage; open: boolean; onOpenChange: (v: boolean) => void; renderMarkdown?: RenderMarkdown }) {
+	const md = (t: string) => renderMarkdown?.(t) ?? <p className="whitespace-pre-wrap">{t}</p>;
 	const total = PARTS.reduce((n, p) => n + (trace.sent[p.key] || 0), 0);
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -67,10 +72,10 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange }: { trace: C
 							{r.reasoning && (
 								<details className="group">
 									<summary className="cursor-pointer text-[var(--accent)] hover:underline">Thinking</summary>
-									<p className="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-[11.5px] leading-snug text-muted-foreground">{r.reasoning}</p>
+									<div className="mt-1 rounded-md bg-muted/50 p-2 text-[11.5px] leading-snug text-muted-foreground">{md(r.reasoning)}</div>
 								</details>
 							)}
-							{r.text && <p className="whitespace-pre-wrap text-[11.5px] leading-snug">{r.text}</p>}
+							{r.text && <div className="text-[11.5px] leading-snug">{md(r.text)}</div>}
 							{r.calls.map((c, j) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: a call's position within its round is its identity.
 								<details key={j} className="rounded-md bg-muted/40 px-2 py-1">

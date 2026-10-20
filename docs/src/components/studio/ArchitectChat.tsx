@@ -895,7 +895,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 					)}
 					</React.Fragment>
 				))}
-				{traceIdx !== null && messages[traceIdx]?.trace && <ChatTraceDialog trace={messages[traceIdx].trace as NonNullable<ChatMessage['trace']>} usage={messages[traceIdx].usage} open onOpenChange={(v) => !v && setTraceIdx(null)} />}
+				{traceIdx !== null && messages[traceIdx]?.trace && <ChatTraceDialog trace={messages[traceIdx].trace as NonNullable<ChatMessage['trace']>} usage={messages[traceIdx].usage} renderMarkdown={(t) => <AssistantBody text={t} streaming={false} />} open onOpenChange={(v) => !v && setTraceIdx(null)} />}
 				{live && <LiveReply store={liveStore.current} thoughts={thoughtStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
 				{shownNotice && (
 					<div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed', shownNotice.kind === 'blocked' ? 'border-[var(--warn,#9a6a00)]/40 text-[var(--warn,#9a6a00)]' : 'border-border text-muted-foreground')}>

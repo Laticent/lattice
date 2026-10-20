@@ -37,8 +37,8 @@ async function mockModel(page: import('@playwright/test').Page, onSummary?: () =
 		const frames =
 			round % 2 === 1
 				? [
-						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: 'The author asks about slide 2. ' } }] },
-						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: 'I should read the big-number layout first.' } }] },
+						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: '**Plan**\n\n- The author asks about slide 2.\n' } }] },
+						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: '- I should read the `big-number` layout first.' } }] },
 						{ id: 'g1', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call-1', type: 'function', function: { name: 'read_component', arguments: '{"name":"big-number"}' } }] } }] },
 						{ id: 'g1', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage: USAGE_1 },
 					]
@@ -93,7 +93,10 @@ for (const [w, h] of [
 		await expect(dialog.getByText('Lattice primer')).toBeVisible();
 		await expect(dialog.getByText('2 model calls')).toBeVisible();
 		await dialog.getByText('Thinking', { exact: true }).click();
-		await expect(dialog.getByText('I should read the big-number layout first.')).toBeVisible();
+		// The thinking is markdown: a bold heading and a real list, not asterisks and dashes.
+		await expect(dialog.locator('strong', { hasText: 'Plan' })).toBeVisible();
+		await expect(dialog.locator('li', { hasText: 'I should read the' })).toBeVisible();
+		await expect(dialog.getByText('**Plan**')).toHaveCount(0);
 		await dialog.getByText('Read component', { exact: true }).click();
 		await expect(dialog.getByText('{"name":"big-number"}')).toBeVisible();
 		const dbox = await dialog.boundingBox();

@@ -17,7 +17,7 @@ const usage: ChatUsage = { cost: 0.016, prompt: 18400, completion: 160, cached: 
 
 describe('Show work', () => {
 	it('lists what was sent, each call, and its commands behind a link', async () => {
-		render(<ChatTraceDialog trace={trace} usage={usage} open onOpenChange={() => {}} />);
+		render(<ChatTraceDialog trace={trace} usage={usage} open onOpenChange={() => {}} renderMarkdown={(t) => <em data-testid="md">{t}</em>} />);
 		expect(screen.getByText('Lattice primer')).toBeTruthy();
 		expect(screen.queryByText('Reference documents')).toBeNull(); // empty parts are not listed
 		expect(screen.getByText('2 model calls')).toBeTruthy();
@@ -27,7 +27,8 @@ describe('Show work', () => {
 		expect(screen.getByText('{"slides":[1,2]}')).toBeTruthy();
 		expect(screen.getByText('slide 1 ...')).toBeTruthy();
 		await userEvent.click(screen.getByText('Thinking'));
-		expect(screen.getByText('The deck has three slides.')).toBeTruthy();
+		// Thinking goes through the host's markdown renderer, not a bare <pre>.
+		expect(screen.getAllByTestId('md').some((n) => n.textContent === 'The deck has three slides.')).toBe(true);
 		expect(screen.getByText(/30 thinking tokens/)).toBeTruthy();
 	});
 });
