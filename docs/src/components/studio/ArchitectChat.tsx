@@ -15,7 +15,9 @@ import { ChatCost } from './ChatCost';
 import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigure';
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
+import { ChatTraceDialog } from './ChatTraceDialog';
 import { activitySentence } from './chat-activity';
+import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
@@ -165,8 +167,10 @@ function createPaintScheduler(paint: () => void) {
 
 // The reply still arriving: the only subscriber to the live store, so a painted frame re-renders this bubble and
 // nothing else. `deck` is the deck on screen; text for another deck's turn is not shown (#1787).
-function LiveReply({ store, deck, activity, onGrow }: { store: ReturnType<typeof createLiveStore>; deck: string; activity: string | null; onGrow: () => void }) {
+function LiveReply({ store, thoughts, deck, activity, onGrow }: { store: ReturnType<typeof createLiveStore>; thoughts: ReturnType<typeof createLiveStore>; deck: string; activity: string | null; onGrow: () => void }) {
 	const v = React.useSyncExternalStore(store.subscribe, store.get, store.get);
+	const th = React.useSyncExternalStore(thoughts.subscribe, thoughts.get, thoughts.get);
+	const thought = th && th.deck === deck ? th.text : '';
 	const text = v && v.deck === deck ? v.text : null;
 	React.useLayoutEffect(() => {
 		if (text !== null) onGrow();
@@ -183,8 +187,26 @@ function LiveReply({ store, deck, activity, onGrow }: { store: ReturnType<typeof
 				</div>
 			)}
 			{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
+			{thought && (
+				<p className="truncate text-[11px] italic leading-snug text-muted-foreground" data-testid="chat-live-thought">
+					{thought}
+				</p>
+			)}
 			<ChatLiveStatus label={activity ?? (text === '' ? THINKING : 'Writing…')} progress={`${activity ?? ''}|${text.length}`} />
 		</div>
+	);
+}
+
+/** Where a thread was compacted: what stands in for the earlier messages, and what it saves. */
+function CompactedDivider({ info }: { info: NonNullable<ChatMessage['compacted']> }) {
+	return (
+		<details className="rounded-lg border border-dashed border-border px-2.5 py-1.5 text-[11.5px] text-muted-foreground" data-testid="chat-compacted">
+			<summary className="cursor-pointer">
+				{info.count} earlier messages compacted · about {Math.round(info.saved / 100) / 10}K tokens lighter each turn
+			</summary>
+			<p className="mt-1.5 whitespace-pre-wrap leading-snug text-foreground">{info.summary}</p>
+			<p className="mt-1 text-[10.5px]">This briefing is what the Architect reads in place of those messages.</p>
+		</details>
 	);
 }
 
@@ -292,6 +314,20 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const [streamingDeck, setStreamingDeck] = React.useState<string | null>(null);
 	const liveStore = React.useRef<ReturnType<typeof createLiveStore>>(null as never);
 	if (!liveStore.current) liveStore.current = createLiveStore();
+	// The model's thinking while it streams (a provider that sends it), tail-clipped to one line for the live bubble. A store of
+	// its own, for the same reason the reply has one: only the bubble re-renders. Written at most every 250 ms.
+	const thoughtStore = React.useRef<ReturnType<typeof createLiveStore>>(null as never);
+	if (!thoughtStore.current) thoughtStore.current = createLiveStore();
+	const thoughtBuf = React.useRef('');
+	const thoughtTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [traceIdx, setTraceIdx] = React.useState<number | null>(null);
+	// Compaction. `undoCompact` holds the thread as it was until the next send, so a briefing that dropped something the author
+	// cared about is one click from undone; it is memory only, because a reload is a decision to keep the result.
+	const [compacting, setCompacting] = React.useState(false);
+	const [undoCompact, setUndoCompact] = React.useState<{ deck: string; messages: ChatMessage[]; after: ChatMessage[] } | null>(null);
+	// The thread as the panel holds it right now, for the two places that must compare against it after an await.
+	const messagesRef = React.useRef(messages);
+	messagesRef.current = messages;
 	// What the agent is doing between replies ("Reading a component…"), for the live bubble.
 	// Panel state like `streaming`, cleared with it when the turn ends.
 	const [liveActivity, setLiveActivity] = React.useState<string | null>(null);
@@ -366,6 +402,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		return () => {
 			mountedRef.current = false;
 			paintRef.current.cancel();
+			if (thoughtTimer.current) {
+				clearTimeout(thoughtTimer.current);
+				thoughtTimer.current = null;
+			}
 			// NOTE: we deliberately do NOT abort on unmount — the request keeps completing
 			// and commits to its originating deck (the survival contract). Only Stop aborts.
 		};
@@ -439,6 +479,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		bufferRef.current = '';
 		liveDeckRef.current = sendDeckId;
 		liveStore.current.set({ deck: sendDeckId, text: '' });
+		thoughtBuf.current = '';
+		thoughtStore.current.set(null);
 		setStreamingDeck(sendDeckId);
 		const onToken = (tok: string) => {
 			bufferRef.current += tok;
@@ -452,7 +494,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
 			const lastIdx = history.length - 1;
-			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }));
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: modelText({ ...m, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }) }));
 			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
 			const clips = (await Promise.all(sentVideos.map(async (v) => ({ name: v.name, dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (clips.length < sentVideos.length) notify('That video is no longer in the Library, so the model did not see it.');
@@ -470,7 +512,15 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const onActivity = (label: string) => {
 				if (mountedRef.current) setLiveActivity(label);
 			};
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
+			const onReasoning = (t: string) => {
+				thoughtBuf.current = (thoughtBuf.current + t).slice(-400);
+				if (thoughtTimer.current) return;
+				thoughtTimer.current = setTimeout(() => {
+					thoughtTimer.current = null;
+					if (mountedRef.current) thoughtStore.current.set({ deck: sendDeckId, text: thoughtBuf.current.replace(/\s+/g, ' ').trim().slice(-200) });
+				}, 250);
+			};
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -495,7 +545,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			} else if (out.status === 'blocked') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
-				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}) }]);
+				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}), ...(out.usage ? { usage: out.usage } : {}), ...(out.trace ? { trace: out.trace } : {}) }]);
 			}
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
@@ -516,6 +566,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			if (mountedRef.current) {
 				setBusy(false);
 				liveStore.current.set(null);
+				thoughtStore.current.set(null);
 				setStreamingDeck(null);
 				setLiveActivity(null);
 				setPulse((p) => p + 1);
@@ -529,11 +580,54 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		}
 	};
 
+	const compact = async () => {
+		const split = splitForCompaction(messages);
+		if (!split || busy || compacting) return;
+		const sendDeckId = deckId;
+		const before = messages;
+		setCompacting(true);
+		try {
+			const [{ summarizeChat }, { deckOutputLang }] = await Promise.all([import('./chat-compact-run'), import('./studio-language')]);
+			const out = await summarizeChat(transcript(split.older), deckOutputLang(source));
+			if (out.status === 'blocked') return void notify(out.note);
+			if (out.status !== 'ok') return void notify(out.status === 'offline' ? 'Compacting needs a connected cloud model.' : 'The model returned no summary, so nothing changed.');
+			// The briefing was written from the thread as it stood at the click. If anything touched it since (a send that slipped in, a deck
+			// switch), writing it back would drop that message, so say so and change nothing. The call itself was real and is already in the tally.
+			if (messagesRef.current !== before || deckIdRef.current !== sendDeckId) {
+				setPulse((p) => p + 1);
+				globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+				return void notify(`The conversation changed while compacting, so nothing was changed. The summary cost $${out.cost.toFixed(3)}.`);
+			}
+			const done = applyCompaction(split, out.summary);
+			saveChat(sendDeckId, done.messages);
+			setMessages(done.messages);
+			setUndoCompact({ deck: sendDeckId, messages: before, after: done.messages });
+			setPulse((p) => p + 1);
+			globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+			notify(`Compacted ${done.removed} messages. About ${Math.round(done.saved / 100) / 10}K tokens lighter on every turn; the compaction cost $${out.cost.toFixed(3)}.`);
+		} catch {
+			notify('Compacting failed, so nothing changed.');
+		} finally {
+			if (mountedRef.current) setCompacting(false);
+		}
+	};
+	// Undo is offered only while the thread is exactly what the compaction produced: a regenerate, an applied edit or a new message makes
+	// the saved "before" stale, and restoring it would delete that work.
+	const canUndoCompact = !!undoCompact && undoCompact.deck === deckId && undoCompact.after === messages;
+	const undoCompaction = () => {
+		if (!undoCompact || !canUndoCompact) return;
+		saveChat(deckId, undoCompact.messages);
+		setMessages(undoCompact.messages);
+		setUndoCompact(null);
+	};
+
 	const send = () => {
 		const text = input.trim();
+		if (compacting) return;
 		// A photo alone is a message: the model is told what was attached either way.
 		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos) return;
 		const sendDeckId = deckId;
+		setUndoCompact(null);
 		const photos = pendingPhotos;
 		const videos = pendingVideos.map(({ name, durationMs }) => ({ name, durationMs }));
 		setInput('');
@@ -696,7 +790,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const stop = () => abortRef.current?.abort();
 
 	const regenerate = () => {
-		if (busy) return;
+		if (busy || compacting) return;
 		// Re-send the thread up to and including the last user turn (drop a trailing
 		// assistant reply so the model answers fresh).
 		let end = messages.length;
@@ -706,6 +800,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	};
 
 	const applyProposal = (idx: number) => {
+		if (compacting) return;
 		const m = messages[idx];
 		if (!m?.proposed?.length) return;
 		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
@@ -730,11 +825,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);
 		} else notify('Edit applied — restore from History to undo.');
 	};
-	const discardProposal = (idx: number) => setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
+	const discardProposal = (idx: number) => !compacting && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} compact={{ run: compact, busy: compacting || busy, undo: canUndoCompact ? undoCompaction : null }} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
@@ -777,18 +872,19 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				<ChatFigureContext.Provider value={figureRender}>
 				<PreviewPool className="space-y-3" baseSlots={4}>
 				{empty && <ChatEmptyCard aiReady={aiReady} />}
-				{messages.map((m, i) =>
-					m.role === 'user' ? (
-						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
-						<div key={i} className="flex justify-end">
+				{messages.map((m, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
+					<React.Fragment key={i}>
+					{m.compacted && <CompactedDivider info={m.compacted} />}
+					{m.role === 'user' ? (
+						<div className="flex justify-end">
 							<div className="flex max-w-[92%] flex-col items-end gap-1.5">
 								{m.photos?.length || m.videos?.length ? <MessagePhotos photos={m.photos ?? []} videos={m.videos} deckId={deckId} /> : null}
 								<div className="whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
 							</div>
 						</div>
 					) : (
-						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
-						<div key={i} className="flex flex-col gap-1.5">
+						<div className="flex flex-col gap-1.5">
 							<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 								<Sparkles className="size-3 text-[var(--accent)]" /> Architect
 							</div>
@@ -796,6 +892,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
 							{m.activity?.length ? <p className="text-[11.5px] leading-snug text-muted-foreground">{activitySentence(m.activity)}</p> : null}
+							{m.trace ? (
+								<button type="button" onClick={() => setTraceIdx(i)} className="self-start text-[11px] font-medium text-[var(--accent)] hover:underline">
+									Show work
+								</button>
+							) : null}
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
@@ -804,9 +905,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 								</span>
 							)}
 						</div>
-					),
-				)}
-				{live && <LiveReply store={liveStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
+					)}
+					</React.Fragment>
+				))}
+				{traceIdx !== null && messages[traceIdx]?.trace && <ChatTraceDialog trace={messages[traceIdx].trace as NonNullable<ChatMessage['trace']>} usage={messages[traceIdx].usage} renderMarkdown={(t) => <AssistantBody text={t} streaming={false} />} open onOpenChange={(v) => !v && setTraceIdx(null)} />}
+				{live && <LiveReply store={liveStore.current} thoughts={thoughtStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
 				{shownNotice && (
 					<div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed', shownNotice.kind === 'blocked' ? 'border-[var(--warn,#9a6a00)]/40 text-[var(--warn,#9a6a00)]' : 'border-border text-muted-foreground')}>
 						<TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

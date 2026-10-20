@@ -34,11 +34,13 @@ function read<T>(key: string): T | null {
 		return null;
 	}
 }
-function write(key: string, value: unknown): void {
+function write(key: string, value: unknown): boolean {
 	try {
 		localStorage.setItem(key, JSON.stringify(value));
+		return true;
 	} catch {
 		/* storage full / unavailable — non-fatal */
+		return false;
 	}
 }
 function remove(key: string): void {
@@ -676,6 +678,48 @@ export type ChatVideo = {
 	poster?: string;
 };
 
+/** What one assistant reply cost and how full the model's window was after it. All of it comes
+ *  back in the response's own `usage` block, so recording it adds no request and no charge.
+ *  `prompt` is the LAST round's input — the conversation the model had to read, i.e. the context
+ *  fill, and `cached` is the part of it read from cache — while `cost`, `completion` and `reasoning` are summed over the turn's rounds. */
+export type ChatUsage = {
+	cost: number;
+	prompt: number;
+	completion: number;
+	/** Of `prompt`, the tokens served from the prompt cache (the last round's, like `prompt`). */
+	cached: number;
+	/** Output tokens the model spent thinking (already inside `completion`). 0 on a model that does not report it. */
+	reasoning: number;
+	rounds: number;
+	/** The model's context window in tokens, or null when the catalog did not know it. */
+	window: number | null;
+	model: string;
+	/** True after a compaction, until the next reply: `prompt` is then our estimate of the smaller thread, not the provider's count. */
+	estimated?: boolean;
+};
+
+/** One command the agent ran: its name, the arguments it sent, and a short form of what came back. */
+export type ChatTraceCall = { name: string; args: string; result: string };
+
+/** One model call within a reply. `reasoning` is the model's own thinking when its provider streams it. */
+export type ChatTraceRound = {
+	reasoning?: string;
+	/** The prose the model wrote beside its tool calls (or its final answer). */
+	text?: string;
+	calls: ChatTraceCall[];
+	cost: number;
+	/** This call's input and output tokens. */
+	prompt: number;
+	completion: number;
+};
+
+/** Everything "Show work" lists for a reply. Bounded by `boundTrace` (chat-trace.ts) before it is saved. */
+export type ChatTrace = {
+	rounds: ChatTraceRound[];
+	/** Estimated tokens by part of the FIRST call's input — what we sent, not what we were billed (the billed total is `usage.prompt`). */
+	sent: { primer: number; deck: number; history: number; tools: number; docs: number; photos: number };
+};
+
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
@@ -697,13 +741,52 @@ export type ChatMessage = {
 	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */
 	activity?: string[];
+	/** Assistant turn only: cost and context fill for this reply (ChatUsage). Never sent back to the model. */
+	usage?: ChatUsage;
+	/** The first message kept after a compaction: the briefing that stands in for the `count` messages before it, and the tokens it saves per turn (estimated). The model reads it ahead of this message (chat-compact.ts `modelText`); the author sees it as a divider. */
+	compacted?: { summary: string; count: number; saved: number };
+	/** Assistant turn only: the rounds behind this reply — reasoning, commands, per-call cost (ChatTrace). Never sent back to the model. */
+	trace?: ChatTrace;
 };
 
 export function loadChat(deckId: string): ChatMessage[] {
 	return read<ChatMessage[]>(CHAT_PREFIX + deckId) ?? [];
 }
+/** Only this many of a thread's newest replies keep their Show-work trace. A trace is up to ~8 KB (chat-trace.ts), so 60 of them would be
+ *  ~480 KB of an origin's ~5 MB. Older replies keep their text, usage and activity line. */
+export const CHAT_TRACE_KEEP = 20;
+
+/** `messages` with `trace` dropped from every reply except the newest `keep`. */
+export function withoutOldTraces(messages: ChatMessage[], keep: number): ChatMessage[] {
+	let seen = 0;
+	const out = messages.slice();
+	for (let i = out.length - 1; i >= 0; i--) {
+		if (!out[i].trace) continue;
+		if (seen++ >= keep) {
+			const { trace: _drop, ...rest } = out[i];
+			out[i] = rest;
+		}
+	}
+	return out;
+}
+
+/** Save a deck's chat. A full storage must never cost the author a REPLY, so when the write is refused the traces go first: all but the
+ *  newest three, then all of them. The words, the proposals and the usage are never what gets dropped. */
 export function saveChat(deckId: string, messages: ChatMessage[]): void {
-	write(CHAT_PREFIX + deckId, messages.slice(-CHAT_CAP));
+	const kept = messages.slice(-CHAT_CAP);
+	// The briefing of a compaction rides the first message kept. When the cap trims that message off, carry the briefing onto the new first
+	// one: it still stands in for the history the model no longer receives, and dropping it would lose that context with no notice.
+	if (kept.length && !kept[0].compacted) {
+		const carried = messages
+			.slice(0, messages.length - kept.length)
+			.reverse()
+			.find((m) => m.compacted)?.compacted;
+		if (carried) kept[0] = { ...kept[0], compacted: carried };
+	}
+	const key = CHAT_PREFIX + deckId;
+	if (write(key, withoutOldTraces(kept, CHAT_TRACE_KEEP))) return;
+	if (write(key, withoutOldTraces(kept, 3))) return;
+	write(key, withoutOldTraces(kept, 0));
 }
 
 // The unsent chat draft, per deck — so a closed (or unmounted) Architect panel

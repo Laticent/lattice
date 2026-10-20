@@ -11,7 +11,7 @@ import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
-import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -183,7 +183,14 @@ function voicedModel(model: ArchitectModel, generation: string, deckLang?: strin
 	return { ...model, complete: (o) => model.complete({ ...o, messages: withStudioVoice(o.messages, generation, deckLang) }) };
 }
 
-type Usage = { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
+type Usage = {
+	cost?: number;
+	total_tokens?: number;
+	prompt_tokens?: number;
+	completion_tokens?: number;
+	prompt_tokens_details?: { cached_tokens?: number };
+	completion_tokens_details?: { reasoning_tokens?: number };
+};
 
 /** A catalog entry, the shape architect-model.js `listOpenRouterModels()` yields. */
 export type ORModel = {
@@ -236,7 +243,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high' }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high' }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -1298,7 +1305,7 @@ export type ProposedEdit = {
 	diff: DiffRow[];
 };
 export type ChatResult =
-	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[] }
+	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage; trace?: import('./studio-store').ChatTrace }
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
 
@@ -1429,7 +1436,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; /** The model's own thinking as it streams, on a provider that sends it. */ onReasoning?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or
@@ -1438,6 +1445,8 @@ export const FACT_GUARD =
 	'\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.';
 
 export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: ChatOptions): Promise<ChatResult> {
+	// This turn's charges book under the deck it was sent from, even if the author switches decks before it ends.
+	const turnDeck = getSpendDeck();
 	await loadArchitectAuthoring();
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
@@ -1542,7 +1551,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 			onGenerationId: (id) => { genId = id; },
 			onFinishReason: (r) => { finishReason = r; },
 			signal: opts?.signal,
-			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), turnDeck),
 		});
 	} catch (e) {
 		// An explicit abort (Stop) is not a failure — keep whatever streamed so far. The
@@ -1557,12 +1566,12 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		if ((e as { name?: string })?.name === 'AbortError') {
 			if (generation === 'openrouter' && streamed) {
 				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs) + photoTokens, photoUsd) ?? 0;
-				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
+				if (est) recordSpend(est, Math.ceil(streamed.length / 4), turnDeck);
 				if (genId && model.openRouterGenerationCost) {
 					void model.openRouterGenerationCost(genId)
 						.then((exact) => {
 							if (exact == null || !Number.isFinite(exact)) return;
-							adjustSpend(exact - est);
+							adjustSpend(exact - est, turnDeck);
 							try { globalThis.dispatchEvent?.(new Event('lattice-spend-changed')); } catch { /* no window */ }
 						})
 						.catch(() => {});

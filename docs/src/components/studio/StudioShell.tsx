@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { setSpendDeck } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -1305,6 +1306,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// shelf) load on that first use, scoped to the OPEN deck so its own photos are offered beside the shared ones.
 	const deckIdRef = React.useRef(deck.id);
 	deckIdRef.current = deck.id;
+	// The spend ledger books each charge under the open deck, so the chat can say what THIS deck has cost.
+	React.useEffect(() => setSpendDeck(deck.id), [deck.id]);
 	const completionAssets = React.useCallback(
 		() =>
 			import('./media-urls').then(async (m) => {
