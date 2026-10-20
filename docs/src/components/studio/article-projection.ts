@@ -230,15 +230,15 @@ export async function projectDeckArticle(
 	// the scoped shape for the diagram bake's capture frame.
 	const built = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'flat');
 	// WEB IMAGES (trio follow-up 11). This view renders in the Studio's OWN page, which carries no
-	// content-security policy, so the deck's web images and web `url()`s would load here whatever
-	// the reader chose. Rewritten three times: the render before the bake, the flat CSS the page
+	// content-security policy, so the deck's web images, web `url()`s and web fonts would load here
+	// whatever the reader chose (`fonts: true`: no `font-src` refuses a font here either). Rewritten three times: the render before the bake, the flat CSS the page
 	// takes in, and the projected article after it (a baked Mermaid diagram can add an image).
 	const { default: remoteRef } = (await loadRemoteRef()) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
 	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
 	const allowed = remoteRef.withOwnOrigin(options.webOrigins ?? []);
 	const render: DeckRender = {
 		...built,
-		html: remoteRef.blockWebImages(built.html, allowed).html,
+		html: remoteRef.blockWebImages(built.html, allowed, { fonts: true }).html,
 		...(built.flatCss !== undefined ? { flatCss: remoteRef.blockWebCss(built.flatCss, allowed).css } : {}),
 	};
 	// THE DEPTH-AWARE SPLITTER, which is what the export twin uses (`share-export.ts` →
@@ -256,7 +256,7 @@ export async function projectDeckArticle(
 	if (!staticSections.length) return { articleHtml: '', toc: [], css: '' };
 	const baked = await bakeArticleSections(render, staticSections, isStale);
 	const projected = await projectSectionsToArticle(baked ?? staticSections);
-	const article = { ...projected, articleHtml: remoteRef.blockWebImages(projected.articleHtml, allowed).html };
+	const article = { ...projected, articleHtml: remoteRef.blockWebImages(projected.articleHtml, allowed, { fonts: true }).html };
 	return { ...article, css: await scopedArticleCss(article.articleHtml, render.flatCss, mode) };
 }
 
