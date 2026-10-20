@@ -13,8 +13,10 @@ const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(
 const USAGE_1 = { prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011, prompt_tokens_details: { cached_tokens: 16000 }, completion_tokens_details: { reasoning_tokens: 50 } };
 const USAGE_2 = { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 18460, cost: 0.006, prompt_tokens_details: { cached_tokens: 16500 }, completion_tokens_details: { reasoning_tokens: 20 } };
 
-test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls inside itself', async ({ page }) => {
-	test.setTimeout(90_000);
+const LONG_THOUGHT = 'I should read the big-number layout first, then check the stats slide, because the author wants one number to carry the claim and the cards-grid slide may repeat it. After that I will compare the eyebrow wording across slides and look for a caption longer than one line so nothing overflows. Last words are the finish line.';
+
+/** Mock the model. `holdSecondRoundMs` keeps the second call open so the live thought stays on screen while a test looks at it. */
+async function mockModel(page: import('@playwright/test').Page, opts: { reasoning?: string; holdSecondRoundMs?: number } = {}) {
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -32,11 +34,12 @@ test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls
 			return;
 		}
 		round++;
+		if (round % 2 === 0 && opts.holdSecondRoundMs) await new Promise((r) => setTimeout(r, opts.holdSecondRoundMs));
 		const frames =
 			round % 2 === 1
 				? [
-						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: '**Plan**\n\n- The author asks about slide 2.\n' } }] },
-						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: '- I should read the `big-number` layout first.' } }] },
+						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: opts.reasoning ?? '**Plan**\n\n- The author asks about slide 2.\n' } }] },
+						{ id: 'g1', choices: [{ index: 0, delta: { reasoning: opts.reasoning ? '' : '- I should read the `big-number` layout first.' } }] },
 						{ id: 'g1', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call-1', type: 'function', function: { name: 'read_component', arguments: '{"name":"big-number"}' } }] } }] },
 						{ id: 'g1', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage: USAGE_1 },
 					]
@@ -46,6 +49,11 @@ test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls
 					];
 		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
 	});
+}
+
+test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls inside itself', async ({ page }) => {
+	test.setTimeout(90_000);
+	await mockModel(page);
 
 	const { width } = page.viewportSize() ?? { width: 390 };
 	await gotoStudio(page);
@@ -97,4 +105,37 @@ test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls
 	await page.keyboard.press('Escape');
 	await expect(sheet).toHaveCount(0);
 	await expect(row).toBeVisible();
+});
+
+test('@webkit-phone the streaming thought is two lines at most and shows its latest words', async ({ page }) => {
+	test.setTimeout(90_000);
+	await mockModel(page, { reasoning: LONG_THOUGHT, holdSecondRoundMs: 8_000 });
+	const { width } = page.viewportSize() ?? { width: 390 };
+	await gotoStudio(page);
+	await openChatAtWidth(page, width);
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('does slide 2 work as a single number?');
+	await page.getByRole('button', { name: 'Send', exact: true }).tap();
+
+	// The second call is held open, so the first call's thought is what the author is looking at.
+	const thought = page.getByTestId('chat-live-thought');
+	await expect(thought).toBeVisible({ timeout: 30_000 });
+	await expect(thought).toContainText('finish line');
+	const geometry = await thought.evaluate((el) => {
+		const box = el.getBoundingClientRect();
+		const text = el.querySelector('p')?.getBoundingClientRect();
+		const scroller = el.closest('.overflow-y-auto');
+		return {
+			height: box.height,
+			textBottomGap: text ? Math.abs(text.bottom - box.bottom) : 999,
+			textHeight: text?.height ?? 0,
+			clipped: text ? box.top - text.top : 0,
+			sideways: scroller ? scroller.scrollWidth - scroller.clientWidth : 0,
+		};
+	});
+	expect(geometry.height).toBeLessThanOrEqual(33); // two lines of 16px
+	expect(geometry.textBottomGap).toBeLessThan(1); // the last line sits on the bottom edge, so a clip can only be at the START
+	const intoLine = ((geometry.clipped % 16) + 16) % 16;
+	expect(Math.min(intoLine, 16 - intoLine)).toBeLessThan(0.75); // and it falls between lines: no line is cut through the middle
+	expect(geometry.sideways).toBeLessThanOrEqual(0);
+	await page.screenshot({ path: test.info().outputPath('webkit-live-thought.png') });
 });

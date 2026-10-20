@@ -190,7 +190,7 @@ function LiveReply({ store, thoughts, deck, activity, onGrow }: { store: ReturnT
 			{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
 			{thought && (
 				<div className="flex max-h-8 flex-col-reverse overflow-hidden text-[11.5px] leading-4 text-muted-foreground" data-testid="chat-live-thought">
-					<p>{thoughtTail(thought)}</p>
+					<p className="m-0">{thoughtTail(thought)}</p>
 				</div>
 			)}
 			<ChatLiveStatus label={activity ?? (text === '' ? THINKING : 'Writing…')} progress={`${activity ?? ''}|${text.length}`} />
