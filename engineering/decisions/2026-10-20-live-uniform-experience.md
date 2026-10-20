@@ -729,7 +729,19 @@ Still unverified:
   generated tone, narration synthesized from the shipped sample deck. The guest decoded non-silent audio from the
   presenter, followed to slide 2 and decoded its clips, and made no call to the voice endpoint. An analyser on the
   guest's audio destination read a peak of about 0.28 at the speakers in all three engines (the tone's own peak is
-  0.277); Firefox needs a sound device, so the sandbox ran a PulseAudio null sink. It does not hear:
+  0.277); Firefox needs a sound device, so the sandbox ran a PulseAudio null sink.
+- The phone path, by emulation. `--iphone` runs the guest as WebKit with Playwright's iPhone 13 profile and takes the
+  tap as a touch event; it passes. Playwright's WebKit does not enforce iOS's rule that sound starts only from inside a
+  tap, so `--ios-gate` adds a page-side stand-in for the rule as `stage.ts` documents it: until a source is started
+  inside a gesture, every started source is dropped. On the shipped code nothing is dropped and the output reads
+  0.278 (the first in-gesture start is `unlock` called from the overlay's tap handler). With `unlock()` delayed in the
+  built Suono file, 5 starts are dropped and the output reads 0.000, so the check can fail. This shows our code
+  starts sound inside the tap under that rule. It is not Safari on a device.
+- On the call. `tools/live-narration-call-check.mjs`: two real Chromium browsers (fake microphone) both on the
+  call, the host muted (a muted sender keeps its track open, so the mix still goes out). The guest's inbound call
+  audio energy was 0.0001 a second before the host played and 0.0524 a second while it narrated; the guest's Voice
+  button was disabled (no second copy), and it decoded no clips and never called the voice endpoint. It does not
+  hear:
   echo, the call mix and a real iPhone stay open (`followups.d/2810-p2-live-present-together-with-narration.md`).
 - Known limits of the clip path, from the 2026-10-20 trio: it follows the presenter's position, not their
   playback, so a presenter who pauses does not pause a member, a replay of the same slide is not replayed, and

@@ -30,6 +30,13 @@ const ENGINE = arg('--engine', 'chromium');
 const BASE = arg('--base', 'http://127.0.0.1:4321/studio/');
 const OUT = `${path.resolve(ROOT, arg('--out', '.scratch/live-narration'))}/`;
 const PHONE = process.argv.includes('--phone');
+// `--iphone`: the guest is WebKit with Playwright's iPhone 13 profile (touch, mobile user agent, 390 px) and takes the
+// "Tap to listen" tap as a real touch event. It is emulation of the browser engine and the gesture, not Safari on a device.
+const IPHONE = process.argv.includes('--iphone');
+// `--ios-gate`: the guest page emulates iOS's rule that a context makes no sound until a source is started (or the
+// context resumed) from inside a user gesture: until then every started source is dropped. A stand-in for the rule
+// as the repo documents it (stage.ts unlock), not iOS itself.
+const IOSGATE = process.argv.includes('--ios-gate');
 mkdirSync(OUT, { recursive: true });
 const proxy = process.env.HTTPS_PROXY;
 const executablePath = ENGINE === 'chromium' ? (process.env.LIVE_CHROMIUM ?? (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined)) : undefined;
@@ -70,7 +77,7 @@ const tone = (ms, hz = 330) => {
 	return buf;
 };
 
-const seed = (isHost) => {
+const seed = ({ isHost, gate }) => {
 	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
 	localStorage.setItem('lattice-docs-mode', 'light');
 	if (isHost) localStorage.setItem('lattice-db-or-key', 'sk-or-test-not-a-real-key');
@@ -117,6 +124,39 @@ const seed = (isHost) => {
 	} catch {
 		/* an engine without these nodes: the decode figures still hold */
 	}
+	if (gate) {
+		window.__gesture = false;
+		window.__blocked = 0;
+		for (const ev of ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'keydown']) {
+			addEventListener(
+				ev,
+				() => {
+					window.__gesture = true;
+					setTimeout(() => {
+						window.__gesture = false;
+					}, 0);
+				},
+				true,
+			);
+		}
+		// AudioBufferSourceNode and OscillatorNode each define their own start(), so each is wrapped.
+		for (const Node of [window.AudioBufferSourceNode, window.OscillatorNode]) {
+			const nativeStart = Node?.prototype.start;
+			if (!nativeStart) continue;
+			Node.prototype.start = function (...a) {
+				const ctx = this.context;
+				if (!ctx.__unlocked) {
+					if (!window.__gesture) {
+						window.__blocked++;
+						return undefined;
+					}
+					ctx.__unlocked = true;
+					window.__unlockedBy = new Error().stack.split('\n').slice(1, 6).join(' | ');
+				}
+				return nativeStart.apply(this, a);
+			};
+		}
+	}
 	// What the page's audio actually decodes and starts, so "it played" is measured, not assumed.
 	window.__decoded = [];
 	window.__starts = 0;
@@ -148,7 +188,7 @@ const seed = (isHost) => {
 const size = PHONE ? { width: 390, height: 844 } : { width: 1440, height: 900 };
 const hb = await launch();
 const hctx = await hb.newContext({ ignoreHTTPSErrors: ENGINE !== 'chromium', viewport: { width: 1440, height: 900 }, permissions: ENGINE === 'chromium' ? ['clipboard-read', 'clipboard-write'] : [] });
-await hctx.addInitScript(seed, true);
+await hctx.addInitScript(seed, { isHost: true, gate: false });
 let ttsCalls = 0;
 await hctx.route(/openrouter\.ai\//, (route) => {
 	const url = route.request().url();
@@ -171,8 +211,8 @@ const link = await host.waitForFunction(() => window.__copied || null, null, { t
 log('host live');
 
 const gb = await launch();
-const gctx = await gb.newContext({ ignoreHTTPSErrors: ENGINE !== 'chromium', viewport: size, permissions: ENGINE === 'chromium' ? ['clipboard-read', 'clipboard-write'] : [] });
-await gctx.addInitScript(seed, false);
+const gctx = await gb.newContext({ ignoreHTTPSErrors: ENGINE !== 'chromium', ...(IPHONE ? pw.devices['iPhone 13'] : { viewport: size }), permissions: ENGINE === 'chromium' ? ['clipboard-read', 'clipboard-write'] : [] });
+await gctx.addInitScript(seed, { isHost: false, gate: IOSGATE });
 let guestTts = 0;
 await gctx.route(/openrouter\.ai\//, (route) => {
 	if (route.request().url().includes('/audio/speech')) guestTts++;
@@ -204,10 +244,13 @@ await host.screenshot({ path: `${OUT}${ENGINE}-host-present.png` });
 const tap = guest.getByRole('button', { name: /^Voice off/ });
 await tap.waitFor({ timeout: 30000 });
 expectTrue(!(await tap.isDisabled()), "the guest's Voice button is live (not 'comes through the call')");
-expectTrue(/Tap to listen/.test((await tap.textContent()) ?? '') || PHONE, "the guest's Voice button reads 'Tap to listen'");
+expectTrue(/Tap to listen/.test((await tap.textContent()) ?? '') || PHONE || IPHONE, "the guest's Voice button reads 'Tap to listen'");
 await guest.screenshot({ path: `${OUT}${ENGINE}-guest-before-tap.png` });
 expectTrue((await guest.evaluate(() => window.__starts)) === 0, 'nothing plays on the guest before the tap');
-await tap.click();
+if (IPHONE) {
+	const box = await tap.boundingBox();
+	await guest.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+} else await tap.click();
 await guest.getByRole('button', { name: /^Voice on/ }).waitFor({ timeout: 10000 });
 // A decoded, non-silent clip on the guest, and a source started from it.
 const heard = await guest
@@ -217,6 +260,8 @@ const decoded = await guest.evaluate(() => window.__decoded);
 log(`guest decoded ${decoded.length} clip(s): ${JSON.stringify(decoded.slice(0, 4))}; sources started: ${await guest.evaluate(() => window.__starts)}`);
 expectTrue(heard, 'the guest decoded non-silent audio from the presenter and started playing it');
 const audible = await guest.waitForFunction(() => window.__outPeak > 0.02, null, { timeout: 15000 }).then(() => true, () => false);
+if (IOSGATE) log(`first in-gesture start came from: ${await guest.evaluate(() => window.__unlockedBy)}`);
+if (IOSGATE) log(`iOS-gate emulation: ${await guest.evaluate(() => window.__blocked)} source start(s) dropped as outside a gesture`);
 log(`guest output peak at the speakers: ${(await guest.evaluate(() => window.__outPeak)).toFixed(3)}`);
 expectTrue(audible, 'sound reaches the guest\'s audio output (analyser on the destination, peak above 0.02)');
 log(`guest voice button: ${JSON.stringify(((await guest.getByRole('button', { name: /^Voice on/ }).textContent()) ?? '').trim())}`);
