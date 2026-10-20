@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 11
+    "plugin": 12
   },
   "packages": [
     {
@@ -1455,6 +1455,17 @@
         "vocab.generated.js"
       ],
       "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "legend",
+      "path": "lib/plugins/legend",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "manifest.json",
+        "styles.css"
+      ]
     },
     {
       "type": "plugin",

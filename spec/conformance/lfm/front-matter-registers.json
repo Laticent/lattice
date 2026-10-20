@@ -932,6 +932,20 @@
    }
   },
   {
+   "name": "legend: on",
+   "source": "---\nlegend: on\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "legend: off",
+   "source": "---\nlegend: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
    "name": "spark: framed",
    "source": "---\nspark: framed\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {

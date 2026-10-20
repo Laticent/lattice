@@ -40,6 +40,17 @@
 
 import { narrateChart as narrateChartDefault, plainSay } from '@/playground/read-along-core.generated.js';
 
+/** What the deck says that one slide's Markdown cannot: the switches a chart narrator reads off the
+ *  deck rather than the slide (the legend's `legend: off` and the host's plugin switch). The slides a
+ *  caller hands in have their front matter stripped, so it travels here. */
+export type NarrationDeck = { frontMatter?: string; pluginsOff?: readonly string[] };
+
+/** The deck's front matter body (no fences) and the plugins its host left off, for `applyChartNarration`. */
+export function narrationDeck(source: string, pluginsOff: readonly string[] = []): NarrationDeck {
+	const fm = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(String(source ?? ''));
+	return { frontMatter: fm ? fm[1] : '', pluginsOff };
+}
+
 /** What a single slide offers, in precedence order. Every field is optional: each caller
  *  supplies the rungs it actually has, and a blank/whitespace value never wins. */
 export type NarrationChain = {
@@ -90,17 +101,19 @@ export function resolveNarration(chain: NarrationChain): string {
  *        narrator needs the fence — it is gone from a baked render)
  * @param projected the component-aware projection, index-aligned to `slidesMd`
  * @param narrateChart injectable for tests; defaults to the shared kernel's narrator
+ * @param deck the deck's front matter and the plugins its host left off (`narrationDeck`)
  */
 export function applyChartNarration(
 	slidesMd: readonly string[],
 	projected: readonly string[],
-	narrateChart: (md: string) => string | null = narrateChartDefault,
+	narrateChart: (md: string, deck?: NarrationDeck) => string | null = narrateChartDefault,
+	deck?: NarrationDeck,
 ): string[] {
 	const out = [...projected];
 	if (!slidesMd.length || slidesMd.length !== projected.length) return out;
 	for (let i = 0; i < slidesMd.length; i++) {
 		try {
-			const chart = narrateChart(slidesMd[i]);
+			const chart = narrateChart(slidesMd[i], deck);
 			if (String(chart ?? '').trim()) out[i] = chart as string;
 		} catch {
 			// This slide keeps its projection. Never let one chart take the deck down.

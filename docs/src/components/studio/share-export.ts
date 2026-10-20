@@ -1395,7 +1395,8 @@ export async function shareCaptions(
 	// export has substituted them at projection precedence since #902 Gap 1; this browser
 	// export never did, so the same deck's captions disagreed with what Present spoke. Same
 	// substitution, shared rather than copied (narration-resolve.ts).
-	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
+	const { deckPluginsOff: offFor } = await import('@/lib/plugin-admission');
+	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected, undefined, narrationResolve.narrationDeck(source, offFor(source)));
 	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { sayLines, fmSayMap });
 	// Emphasis only where the resolved text is still the text the spans were measured against —
 	// the ONE shared rule, so all four producers spend the same beats. This sibling was missed on

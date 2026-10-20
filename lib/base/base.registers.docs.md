@@ -47,6 +47,7 @@ model, see `design/concepts.md`.
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
+| [`legend:`](#the-legend-front-matter-register-chart-callouts) | Whether the legend plugin's callouts are drawn | `on` |
 | [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
 
 ## The `plugins:` front-matter import list
@@ -1100,6 +1101,33 @@ corners keeps a frame in a bare deck unless it also says `bare`. A ring's frame 
 square rather than 3:2. The table slide above drops the
 frame and keeps the deck's etching and rounded words for any spark that asks for a frame back.
 `lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
+
+## The `legend:` front-matter register (chart callouts)
+
+The **legend plugin** draws the labels an author writes on a chart, such as a heatmap callout
+(`` `@legend{{Onboarding change, for="Feb 2026 · M2"}}` ``,
+[`legend.docs.md`](../plugins/legend/legend.docs.md)). It is on by default. `legend:` turns it
+off for the whole deck; the legend plugin declares it in `legend.manifest.json`, and
+`lib/core/register-factory.js` builds it.
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `on` | `legend-on` | Callouts are drawn and narrated. **The default** (omit the key) |
+| `off` | `legend-off` | Callouts are hidden: not drawn, not described, not read aloud |
+
+```markdown
+---
+legend: off
+---
+
+<!-- _class: heatmap legend-on -->
+```
+
+**The slide wins over the deck**, so the heatmap above shows its callouts in a deck that hides
+them everywhere else. A hidden callout's `detail` still joins its cell's hover card and the
+speaker note, so the words the author wrote reach the PDF. `lint:deck` notes each hidden callout
+(`legend-off`, info) so a callout that vanished is never a mystery. A host turns the plugin off
+outright with `--disable-plugin legend`, with the same result.
 
 ## The slide's corner — `corners:`
 

@@ -1,0 +1,119 @@
+# legend — conformance fixtures
+
+The plugin harness (`test/unit/plugins/conformance.test.js`) runs every case below. Each `##`
+heading is one case: the ` ```markdown ` fence is the input, rendered by the engine, and each
+bullet is an assertion about that render:
+
+- `renders` — the HTML contains the quoted text
+- `omits` — the HTML does not contain it
+
+## a heatmap draws an anchored label at the cell it names
+
+```markdown
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 | M2 |
+| ------ | --: | -: | -: |
+| Jan    | 100 | 62 | 48 |
+| Feb    | 100 | 58 | 31 |
+
+`@legend{{Drop-off, tag, c4, row=Feb, col=M2}}`
+```
+
+- renders `class="legend legend--anchored"`
+- renders `data-mark-for="5"`
+- renders `legend-plate legend-plate--tag`
+- renders `legend-number`
+- renders `>Drop-off</tspan>`
+- omits `<code>@legend`
+
+## with no style words, the marker is a circle and the words are bare
+
+```markdown
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 |
+| ------ | --: | -: |
+| Jan    | 100 | 62 |
+
+`@legend{{Peak, for=0}}`
+```
+
+- renders `legend-text legend-text--bare`
+- renders `legend-plate legend-plate--circle`
+- renders `legend-knockout`
+- omits `chart-leader`
+
+## a label's detail reaches the speaker note
+
+```markdown
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 |
+| ------ | --: | -: |
+| Jan    | 100 | 62 |
+
+`@legend{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
+```
+
+- renders `Dip: Pricing change`
+
+## a label that names no cell is reported, not drawn
+
+```markdown
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 |
+| ------ | --: | -: |
+| Jan    | 100 | 62 |
+
+`@legend{{Lost, row=Mar, col=M9}}`
+```
+
+- renders `which names no cell`
+- omits `legend--anchored`
+
+## a heatmap with no legend is untouched
+
+```markdown
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 |
+| ------ | --: | -: |
+| Jan    | 100 | 62 |
+```
+
+- omits `legend`
+
+## legend: off hides a callout and keeps its detail
+
+```markdown
+---
+legend: off
+---
+
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 |
+| ------ | --: | -: |
+| Jan    | 100 | 62 |
+
+`@legend{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
+```
+
+- renders `legend-off`
+- renders `Dip: Pricing change`
+- omits `legend--anchored`
+- omits `<code>@legend`

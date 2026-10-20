@@ -1,0 +1,172 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+ * LEGEND — the paint side of the legend plugin.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Design: engineering/decisions/2026-10-19-universal-legend.md. The kernels (lib/core/legend.js,
+ * lib/core/legend-mark.js, lib/components/chart/_chart-family/legend-svg.js) write geometry, a class
+ * and a `data-c` color slot; this file is the only place a legend gets a color (HARD RULE #3). Every
+ * color is a theme token, so a legend follows a palette and a light or dark canvas with no code.
+ *
+ * Sizes inside an SVG are viewBox user units: the kernel emits a label's `font-size` as an attribute
+ * so its wrap math and the painted glyphs cannot disagree (svg-label.js "WHO OWNS THE FONT SIZE"),
+ * and this file sets none.
+ */
+
+/* ── SVG: anchored labels ─────────────────────────────────────────────────── */
+
+/* A BARE label (the default): body ink, or its color slot's mark ink. It sits on the canvas (the
+ * heatmap's callout lane, legend-svg.js), so it needs no halo: the CLI's vector PDF writer would drop
+ * one anyway. */
+text.legend-text {
+  fill: var(--text-body);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+text.legend-text--bare[data-c='c1']  { fill: var(--cat-1-mark); }
+text.legend-text--bare[data-c='c2']  { fill: var(--cat-2-mark); }
+text.legend-text--bare[data-c='c3']  { fill: var(--cat-3-mark); }
+text.legend-text--bare[data-c='c4']  { fill: var(--cat-4-mark); }
+text.legend-text--bare[data-c='c5']  { fill: var(--cat-5-mark); }
+text.legend-text--bare[data-c='c6']  { fill: var(--cat-6-mark); }
+text.legend-text--bare[data-c='c7']  { fill: var(--cat-7-mark); }
+text.legend-text--bare[data-c='c8']  { fill: var(--cat-8-mark); }
+text.legend-text--bare[data-c='c9']  { fill: var(--cat-9-mark); }
+text.legend-text--bare[data-c='c10'] { fill: var(--cat-10-mark); }
+text.legend-text--bare[data-c='c11'] { fill: var(--cat-11-mark); }
+text.legend-text--bare[data-c='c12'] { fill: var(--cat-12-mark); }
+
+/* A label ON A PLATE takes the pill's ink rule: on a color slot the plate is that slot's fill and the
+ * words are the on-fill ink; with no slot the plate is the canvas with an ink edge. */
+text.legend-text--plated[data-c] {
+  fill: var(--cat-on-fill);
+}
+
+/* A callout's numbered marker (legend-svg.js `markerSvg`): the numeral is bold so a single digit
+ * reads at marker size, and it sits on a KNOCKOUT, its plate's shape a little larger in the canvas
+ * color, which parts it from whatever cell fill lies under it in either mode. */
+text.legend-number {
+  font-weight: 700;
+}
+
+.legend-knockout {
+  fill: var(--bg);
+  stroke: none;
+}
+
+.legend-plate {
+  fill: var(--bg);
+  stroke: var(--text-body);
+  stroke-width: 1;
+}
+
+.legend-plate--tag-bordered {
+  stroke-width: 1.2;
+}
+
+.legend-plate[data-c='c1']  { fill: var(--cat-1-fill); stroke: var(--cat-1-mark); }
+.legend-plate[data-c='c2']  { fill: var(--cat-2-fill); stroke: var(--cat-2-mark); }
+.legend-plate[data-c='c3']  { fill: var(--cat-3-fill); stroke: var(--cat-3-mark); }
+.legend-plate[data-c='c4']  { fill: var(--cat-4-fill); stroke: var(--cat-4-mark); }
+.legend-plate[data-c='c5']  { fill: var(--cat-5-fill); stroke: var(--cat-5-mark); }
+.legend-plate[data-c='c6']  { fill: var(--cat-6-fill); stroke: var(--cat-6-mark); }
+.legend-plate[data-c='c7']  { fill: var(--cat-7-fill); stroke: var(--cat-7-mark); }
+.legend-plate[data-c='c8']  { fill: var(--cat-8-fill); stroke: var(--cat-8-mark); }
+.legend-plate[data-c='c9']  { fill: var(--cat-9-fill); stroke: var(--cat-9-mark); }
+.legend-plate[data-c='c10'] { fill: var(--cat-10-fill); stroke: var(--cat-10-mark); }
+.legend-plate[data-c='c11'] { fill: var(--cat-11-fill); stroke: var(--cat-11-mark); }
+.legend-plate[data-c='c12'] { fill: var(--cat-12-fill); stroke: var(--cat-12-mark); }
+
+/* The named mark's ring: drawn inside the mark's own box, in body ink, so the cell a callout names
+ * reads at a glance in a field of near-identical cells. Not a color: an edge. */
+.legend-target {
+  fill: none;
+  stroke: var(--text-body);
+  stroke-width: 1;
+}
+
+/* ── HTML: the key ───────────────────────────────────────────────────────── */
+
+/* A flex row of labels, sized in `em` so it scales with the text around it. Spaced with `gap`, never
+ * `margin` (HARD RULE #20). */
+.legend--key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em 1.1em;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.legend--key > .legend-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.legend-label > .legend-text[data-c='c1']:not(.lat-pill)  { color: var(--cat-1-mark); }
+.legend-label > .legend-text[data-c='c2']:not(.lat-pill)  { color: var(--cat-2-mark); }
+.legend-label > .legend-text[data-c='c3']:not(.lat-pill)  { color: var(--cat-3-mark); }
+.legend-label > .legend-text[data-c='c4']:not(.lat-pill)  { color: var(--cat-4-mark); }
+.legend-label > .legend-text[data-c='c5']:not(.lat-pill)  { color: var(--cat-5-mark); }
+.legend-label > .legend-text[data-c='c6']:not(.lat-pill)  { color: var(--cat-6-mark); }
+.legend-label > .legend-text[data-c='c7']:not(.lat-pill)  { color: var(--cat-7-mark); }
+.legend-label > .legend-text[data-c='c8']:not(.lat-pill)  { color: var(--cat-8-mark); }
+.legend-label > .legend-text[data-c='c9']:not(.lat-pill)  { color: var(--cat-9-mark); }
+.legend-label > .legend-text[data-c='c10']:not(.lat-pill) { color: var(--cat-10-mark); }
+.legend-label > .legend-text[data-c='c11']:not(.lat-pill) { color: var(--cat-11-mark); }
+.legend-label > .legend-text[data-c='c12']:not(.lat-pill) { color: var(--cat-12-mark); }
+
+/* ── The mark slot (lib/core/legend-mark.js) ─────────────────────────────── */
+
+/* One custom property carries the slot's color to every mark shape, so each shape below names it
+ * once and a new slot is one line above. */
+.legend-mark[data-c='c1']  { --legend-mark-ink: var(--cat-1-mark); }
+.legend-mark[data-c='c2']  { --legend-mark-ink: var(--cat-2-mark); }
+.legend-mark[data-c='c3']  { --legend-mark-ink: var(--cat-3-mark); }
+.legend-mark[data-c='c4']  { --legend-mark-ink: var(--cat-4-mark); }
+.legend-mark[data-c='c5']  { --legend-mark-ink: var(--cat-5-mark); }
+.legend-mark[data-c='c6']  { --legend-mark-ink: var(--cat-6-mark); }
+.legend-mark[data-c='c7']  { --legend-mark-ink: var(--cat-7-mark); }
+.legend-mark[data-c='c8']  { --legend-mark-ink: var(--cat-8-mark); }
+.legend-mark[data-c='c9']  { --legend-mark-ink: var(--cat-9-mark); }
+.legend-mark[data-c='c10'] { --legend-mark-ink: var(--cat-10-mark); }
+.legend-mark[data-c='c11'] { --legend-mark-ink: var(--cat-11-mark); }
+.legend-mark[data-c='c12'] { --legend-mark-ink: var(--cat-12-mark); }
+
+span.legend-mark {
+  display: inline-block;
+  flex: none;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 0.15em;
+}
+
+span.legend-mark--swatch { background: var(--legend-mark-ink, var(--text-body)); }
+span.legend-mark--outline { border: 0.12em solid var(--legend-mark-ink, var(--text-body)); }
+
+span.legend-mark--line,
+span.legend-mark--heavy,
+span.legend-mark--dashed,
+span.legend-mark--dotted {
+  width: 1.6em;
+  height: 0;
+  border-radius: 0;
+  border-top: 0.12em solid var(--legend-mark-ink, var(--text-body));
+}
+
+span.legend-mark--heavy { border-top-width: 0.24em; }
+span.legend-mark--dashed { border-top-style: dashed; }
+span.legend-mark--dotted { border-top-style: dotted; }
+
+rect.legend-mark--swatch { fill: var(--legend-mark-ink, var(--text-body)); }
+rect.legend-mark--outline { fill: none; stroke: var(--legend-mark-ink, var(--text-body)); stroke-width: 0.8; }
+
+line.legend-mark {
+  stroke: var(--legend-mark-ink, var(--text-body));
+  stroke-width: 1;
+}
+
+line.legend-mark--heavy { stroke-width: 2; }
+line.legend-mark--dashed { stroke-dasharray: 3 2; }
+line.legend-mark--dotted { stroke-dasharray: 0.1 2; stroke-linecap: round; }

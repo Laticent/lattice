@@ -179,6 +179,8 @@ distinct, stable ID.
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
+| `legend-span` | warning | — | A `@legend{…}` span that does not read, has an anchored label with no `for=`, reads `{1, lg}` as a styled label, or sits on a slide where no component reads a legend. |
+| `legend-off` | info | — | A `@legend{…}` callout on a slide where the author switched the legend off (`legend: off`, `legend-off`): it is hidden, and its detail still reaches the speaker note. |
 | `bare-row-pill` | warning | — | A bare code span where a component used to draw a pill from one (cards, kpi, actors, a register, a roadmap header and the others): it is plain inline code now, and the pills plugin's `{…}` draws the pill. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |

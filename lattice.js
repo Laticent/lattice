@@ -6274,7 +6274,9 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
           // Per-slide guard: one pathological chart slide can't disable narration for
           // the rest of the deck (a deck-wide try/catch would).
           try {
-            const chart = narrateChartScript(blocks[i]);
+            // The deck's switches (`legend: off`, `--disable-plugin legend`) live off the slide: the split
+            // drops the front matter, so the narrator is handed it with this run's admission.
+            const chart = narrateChartScript(blocks[i], { frontMatter: deckFrontMatterBody(md), pluginsOff: PLUGIN_ADMISSION.off });
             if (chart) {
               projected[i] = chart.text;
               if (chart.refs.length) chartRefs[i] = chart.refs;

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Charts draw their keys, value labels, callouts and edge names through 11 separate key
   implementations and no shared label model, and none of it narrates a detail line or responds to
@@ -13,9 +13,10 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: proposed. Nothing in this note is built. Facts below come from three
-read-only audits of the tree and are cited by file and line; the lines marked UNVERIFIED are
-the ones nobody opened.
+**2026-10-19.** Status: in progress. Waves 0 and 1 are built (§§ 15, 16); Waves 2 to 5 are not. Facts in
+§§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
+marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
+how and why.
 
 ## 1. The ask
 
@@ -456,3 +457,135 @@ binding and adopted the entry-then-keyed retry. Decision 1 stands.
 | # | Decision | Outcome |
 |---|---|---|
 | 5 | How shipped state-marker keys (`[x]`, `[-]`, `[ ]`, `[/]`) and comma-in-label pairs keep working | Default taken: keep the bracket reader as a fallback arm for plain `{key, label}` pairs when both slots refuse, accept the quoted spelling, migrate decks and tests later. The owner can veto; the alternative is a breaking migration of three components' decks and two tested contracts in the first port |
+
+## 15. Wave 0, as built (2026-10-19)
+
+What shipped, and the four places it departs from the design above.
+
+| Part | Where |
+|---|---|
+| Model, reader, `for=` on a grid | `lib/core/legend.js` |
+| HTML `key` emitter | `lib/core/legend-key.js` (shared), `lib/core/legend-html.js` (the legend's own classes) |
+| Diagnostic words | `lib/authoring/legend-messages.js` |
+| Mark slot | `lib/core/legend-mark.js` |
+| The two entry slots and the `legend` record | `lib/core/segno-slots.js` (`legend-entry`, `legend-keyed`, `legend`) |
+| SVG `anchored` emitter | `lib/components/chart/_chart-family/legend-svg.js` |
+| The lift of a `@legend{…}` paragraph | `lib/core/lift-label-set.js` `liftLegends` |
+| Plugin shell (on by default, `legend:` register) | `lib/plugins/legend/` |
+| First reader | `heatmap` (`resolveCallouts`, `calloutLane`) |
+| Narration | `lib/core/chart-narration.js` `gridCalloutSentences` |
+| Lint | `lib/authoring/lint-core.js` `findLegendSpans`, rule `legend-span` |
+| Demo deck | `examples/legend-anchored.md` |
+
+**Departure 1: the SVG emitter's first strategy is a lane, not `placeLabels`.** § 6 handed an
+anchored label to the placement pass. On a heatmap that fails: every cell is filled and prints its
+number at its center, so a label set on the grid covers a number or sits on a fill its ink cannot
+hold contrast against. The halo that would fix contrast (`paint-order: stroke`) paints in Chrome,
+but the CLI's vector PDF writer draws SVG text as plain fill and drops the stroke
+(`lib/core/pdf-compose/read-slide.mjs` `textRefusal` does not refuse a stroked SVG `<text>`).
+Measured on the demo deck: the bare label read cleanly in `--chrome-pdf` and lost its halo in the
+default PDF. So `laneSvg` sets labels in a lane beside the figure, on the canvas. A chart with open
+space adopts `placeLabels` when it joins the legend. The halo
+gap is pre-existing. Read from the code and not rendered: the same writer path draws the
+stacked-bar, waterfall, scatter, radar and pie labels that carry a halo, so theirs is lost too. It
+is logged as a followup rather than fixed here, because the fix moves export bytes on every one of
+those charts and needs the owner's dark and light sign-off.
+
+**Departure 1b: a number ties a lane label to its mark, not a leader (owner, #2798).** The first
+build joined each label to its cell with a leader routed along the canvas-colored gap between two
+rows, so it never crossed a cell. The owner found the line hard to see, and a prototype of four
+forms in both modes showed why: a line in the gutter vanishes against the canvas, a line across the
+grid covers values, and two callouts on one row put two lines in one gap, where they merge. The
+owner chose numbers: the cell is ringed and carries a numbered marker in its top-left corner, and
+the same marker leads the label in the lane. The marker IS the label's plate, so the pill words
+(`circle` by default, `tag`, `c4`, …) style it and nothing new is added to the vocabulary; it sits
+on a knockout of the canvas color, a filled shape the PDF writer keeps, so it reads on any cell.
+It goes in the first spot that covers nothing (inside a corner, else on one, at full size and then
+at the floor size), tested against every printed value, the row and column names and the markers
+already placed; where no spot is clear, as on a grid whose four-digit values fill their cells, the
+marker is left off and the ring alone marks the cell (the checker on #2798 found the first rule,
+"on the corner when the cell is small", covered neighbors' values and the column names). Numbers run row by row, then left to right. On the owner's second look, two more: with no
+color word a marker takes the slot of its number, so the numbers differ by color too; and the marker
+on a cell is sized from the cell (a quarter of its shorter side, held between 0.75 and 1.1 of the
+label size), while the lane's copy is sized from its label, as a pill is from its text. Making the
+HTML pill itself size from its container is a pills-plugin change logged as
+`followups.d/2798-p3-pills-size-from-their-container.md`.
+
+**Departure 1c: a cell is named by `row=` and `col=`, not by `for="Row · Column"` (owner, #2798).**
+The first build named a heatmap cell by the string the chart prints in `data-label`, `Row · Column`.
+The owner pointed out nobody types a middle dot. The survey: a spreadsheet counts (`C2`, which also
+collides with labels like `M2`), pandas' `.loc` and a reader name the row and the column by their
+labels, and a chart grammar filters on fields. The owner chose the labels as two named words,
+`{Dip, row="Feb 2026", col=M2}`: nothing to type between them, a label holding `/` or `·` is named
+whole, and `row=` or `col=` alone leaves room for a whole-row or whole-column callout later. `for=`
+stays as the short form, the mark's index (`for=14`) or `Row/Column`; `·` is still read and no
+longer taught. The reader turns the pair into the entry's target, so every surface (render,
+narration, lint) resolves it through the one `gridTarget`. A pair missing a half, and a label that
+names its cell both ways, are diagnostics of their own.
+
+**Departure 2: the `@legend{…}` paragraph is read by the component, not by an inline row.** The
+plugin adds no row to the dispatcher (`inline-code-directives.js`). A row would have to draw a
+legend in place, and an anchored label has no place of its own: it belongs to the chart. So the
+component lifts the paragraph, the way it lifts a label set. `LEGEND_READERS` in `legend.js` lists
+the readers (today, `heatmap`), and `lint:deck` warns on a legend anywhere else, where it renders
+as code. When a second reader lands, that list moves to a manifest field the build collects.
+
+**Departure 3: `for=` on a grid names a cell by its printed row and column.** `for=14` (the
+`data-mark` index) works, but an author cannot count cells. `for="Feb 2026 · M2"` matches the
+cell's own `data-label`; `/` works in place of the middle dot. `gridTarget` resolves both, and
+the heatmap and the narrator share it.
+
+**Departure 4: on by default, and the author can turn it off (owner, 2026-10-19).** The first build
+made the plugin embedded, reading § 5's "an embedded plugin similar to pills". The owner then chose
+otherwise on #2798: legends are on by default, and an author can turn them off. It is an essential
+plugin with a front-matter register, `legend: off` for the deck and `legend-off` / `legend-on` per
+slide, built by the same factory as `spark:` and `icon:` (`contributes.registers`). That reuses the
+plugin system's existing switch rather than adding removal syntax to `plugins:`, which stays an
+import list that only adds. A host can still turn it off with `--disable-plugin legend`, and the
+heatmap lists it as optional, so either switch has the same effect. Off, a callout is not drawn,
+described or narrated, so the slide reads as if the line were not there; its `detail` still joins
+the cell's card and speaker note, and `lint:deck` notes it (`legend-off`, info). The owner chose the
+switch and the hidden-when-off behavior in one round; the words `legend-off` / `legend-on` follow the
+register factory's `<key>-<word>` pattern.
+
+Every reader asks one question, `legendOff` in lib/core/legend.js, which reads the deck's value
+through the register factory the render uses, so `legend: OFF` or `legend: [off]` means the same to
+the render, the narrator and the linter. The narrator sees one split slide at a time, so its callers
+(the CLI read-along, the Studio's Present and bake, the share export) hand it the deck's front matter
+and the host's off-list. An exported runtime stamps `legend-off` on each slide when its host left the
+plugin off. `lint:deck` gives the info note only on a slide whose component reads a legend; anywhere
+else the span shows as code whatever the switch says, so the `legend-span` warning stands.
+
+**The route budget (owner, 2026-10-19, D1).** The preview runtime carries the heatmap transform and
+the Wave 1 keys, so the legend's reader and emitters ride into it. After the trims (the diagnostic
+words moved to `lib/authoring/legend-messages.js`, the key emitter split into `legend-key.js`) the
+getting-started route measured 311.4KB against a 309.7KB ceiling. The owner raised that ceiling by
+4KB rather than keep callouts out of the runtime, which would have shown `@legend` as code in the
+Marp export and the VS Code preview (`docs/route-budget.history.md`, 2026-10-19).
+
+**Detail (§ 7 rule 3).** A callout's `detail` joins its cell's card and speaker-note line
+(`cellMarks`), so the PDF carries it; narration speaks it as a `note` after the callout. A callout
+that names no cell is not drawn and not spoken, and the chart's `<desc>` lists it.
+
+**Not built in Wave 0:** the `key` and `along-path` layouts on any chart (the HTML key emitter
+exists and is tested, with no caller yet), the front-matter register swap (§ 5), the
+bracket-reader fallback arm (decision 5; it matters only once a label set is read through the
+slots), gestures beyond tier 1 (a callout carries `data-mark-for`, so hover and tap reach the
+cell's card through the existing proxy), and a website catalog page for the plugin.
+
+## 16. Wave 1, as built (2026-10-19)
+
+roadmap, matrix-grid and obligation-matrix draw their keys through `keyHtml` in `lib/core/legend-key.js`,
+and `lib/core/html-legend.js` is gone. `keyHtml` has two modes with one markup shape: the legend's
+own classes (the mark slot draws the mark, the text may carry a plate), and a component's own
+classes, where the swatch is an empty span painted by the component's stylesheet from the row's
+classes (`rowClass`) or the swatch's (`swatch`). The second mode is the old builder, moved.
+
+**The byte-identical claim is now a diff, not a reading of call shapes (§ 10, § 13).** Every
+tracked deck that uses one of the three classes (29 decks under `lib/`, `examples/`, the baseline
+decks, `design/` and the docs content) was rendered through `createEngine().render()` plus the
+`label-set-key` post-pass, at `main` (8933fad) and after the port. The 29 HTML files are identical
+byte for byte; they carry 19 roadmap keys, 20 matrix-grid keys and 22 obligation-matrix keys.
+`test/unit/core/legend-key-html.test.js` keeps every arm of the old builder's test, including the
+one transcribed from roadmap's original `buildStatusLegend`.
+

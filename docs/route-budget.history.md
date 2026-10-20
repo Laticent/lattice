@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-19 — measured on the legend plugin (#2798) built on top of main at b9cb419
+
+Raises the getting-started route's engine ceiling by 4KB (317145 → 321241 bytes), soft target unchanged; the owner chose this on 2026-10-19 (#2798, decision D1). The route's engine is the preview runtime, which ships the heatmap transform and the roadmap, matrix-grid and obligation-matrix keys, so the legend plugin's reader, lane emitter and key emitter ride along: heatmap callouts draw on the runtime's surfaces too (the Marp export, the VS Code preview), which the other choice, leaving them out of the runtime, would have broken. Before asking, #2798 gave back what the runtime never calls: the reader's diagnostic sentences moved to the linter (`lib/authoring/legend-messages.js`), and the key emitter split from the legend's own-class key and the mark vocabulary (`lib/core/legend-key.js`). That took the growth over main from 4,364 to 3,634 bytes gzipped on `dist/lattice-runtime-min.js`, and CI measured the route at 311.4KB against the old 309.7KB ceiling. 321241 leaves about 2.3KB over that measurement.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | engineJsGz | 288314 | 288314 | +0 | 321241 |
+
 ### 2026-10-18 — measured on the slide-metadata reader (#2772) built on top of main at adba03a
 
 Raises the lint core's ceiling by about 3KB (106000 → 109500 bytes), soft target unchanged; the owner chose this on 2026-10-18 (#2772). Main alone sits at the ceiling (105.7KB measured on this PR against 103.5KB). #2772 adds the one slide-metadata reader (`lib/core/meta-record.mjs`), the vocabulary it reads (`lib/plugins/meta.generated.mjs`, `lib/core/meta-keys.mjs`) and the five meta lint rules the design asks for (`meta-opener-bare`, `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container`, `legacy-directive-comment`) to the lint core. Before asking, it gave back what it could: the Studio-only structured edit moved to its own module (`lib/core/meta-edit.mjs`), the manifest's prose is left out of the generated vocabulary, and one scan serves about 20 rules that each scanned the deck. That took the growth over main from 3.4KB to 2.2KB gzipped on the minified lint bundle. 109500 is the measured 108237 bytes plus about 1.2KB so a later lint change does not trip it at once. The lint core loads after the Studio's first paint (engine-spine note §5).
