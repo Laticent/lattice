@@ -13,6 +13,9 @@
 //     main preview (palette, mode, finish CSS) so a tile is the slide the preview shows. The pool reports its
 //     capacity and the rail passes it to Veduta's `settle`; the focused preview is priced as the stage under
 //     the same live budget (`STAGE`).
+//   · LIVE PRESENCE. Where the map sits beside the slide the shell hides the pill navigator (the map is the
+//     navigator there), so what the pills carried moves onto the tiles: the dots that say who else is on a slide
+//     (`people`) and, outside the Read stop, the slide's component class as a caption (`classLabels`).
 //
 // Loaded only when the map is on (React.lazy in StudioShell): the Studio's eager bundle is budgeted.
 
@@ -25,7 +28,10 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { slideClass } from './lint';
+import { liveColor } from './live/live-model';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
+import type { RailPerson } from './SlideRail';
 import { hasDrawnFence } from './slide-thumb';
 
 export interface StudioMapProps {
@@ -46,6 +52,12 @@ export interface StudioMapProps {
 	/** The slide's width over its height. */
 	aspect: number;
 	orientation: 'vertical' | 'horizontal';
+	/** People on each chunk (full-deck index), drawn as dots on the chunk's first tile, as the pills draw them. */
+	people?: ReadonlyMap<number, readonly RailPerson[]>;
+	/** Caption each tile with its slide's component class, as the pills label them outside the Read stop. */
+	classLabels?: boolean;
+	/** Called once the map has mounted, so the shell hides the pills only when there is a map to replace them. */
+	onReady?: () => void;
 }
 
 /** The focused preview beside the rail is one live document on the same page, so Veduta charges it to the same
@@ -73,7 +85,7 @@ interface Item {
 	flat: number;
 }
 
-export default function StudioMap({ hub, index, view, onPick, options, sample, front, paletteOverride, extraTheme, modeOverride, extraCss, aspect, orientation }: StudioMapProps) {
+export default function StudioMap({ hub, index, view, onPick, options, sample, front, paletteOverride, extraTheme, modeOverride, extraCss, aspect, orientation, people, classLabels = false, onReady }: StudioMapProps) {
 	const items = React.useMemo(() => {
 		const out: Item[] = [];
 		for (const unit of view) {
@@ -94,13 +106,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 
 	const textOf = React.useCallback((i: number) => (items[i] ? partText(index, items[i].unit, items[i].section) : ''), [items, index]);
 	const wire = React.useCallback((i: number) => wireOf(textOf(i)), [textOf]);
-	const label = React.useCallback(
-		(i: number) => {
-			const title = wire(i).title;
-			return `Slide ${i + 1}${title ? `, ${title.slice(0, 80)}` : ''}`;
-		},
-		[wire],
-	);
+
 	const go = React.useCallback(
 		(i: number, via?: { key: boolean }) => {
 			const it = items[Math.max(0, Math.min(items.length - 1, i))];
@@ -135,6 +141,52 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		[look, liveCache, textOf],
 	);
 
+	const mark = React.useCallback(
+		(i: number) => {
+			const it = items[i];
+			const here = it && it.section === 0 ? people?.get(it.unit) : undefined;
+			if (!here || here.length === 0) return null;
+			return (
+				<span className="flex -space-x-1">
+					{here.slice(0, 3).map((x) => (
+						<span key={x.id} className="size-2.5 rounded-full border border-[var(--bg)]" style={{ background: liveColor(x.color) }} />
+					))}
+				</span>
+			);
+		},
+		[items, people],
+	);
+
+	// A markdown parse per slide, so cached by text: a keystroke re-derives only the slide it touched.
+	const classes = React.useRef(new Map<string, string>());
+	const caption = React.useCallback(
+		(i: number) => {
+			const text = textOf(i);
+			let c = classes.current.get(text);
+			if (c === undefined) {
+				if (classes.current.size > 4096) classes.current.clear();
+				c = slideClass(text);
+				classes.current.set(text, c);
+			}
+			return c;
+		},
+		[textOf],
+	);
+
+	// The accessible name carries the class too, as a pill's does outside Read; the visible caption is aria-hidden.
+	const label = React.useCallback(
+		(i: number) => {
+			const title = wire(i).title;
+			const cls = classLabels ? caption(i) : '';
+			return `Slide ${i + 1}${title ? `, ${title.slice(0, 80)}` : ''}${cls ? ` (${cls})` : ''}`;
+		},
+		[wire, classLabels, caption],
+	);
+
+	const onReadyRef = React.useRef(onReady);
+	onReadyRef.current = onReady;
+	React.useEffect(() => onReadyRef.current?.(), []);
+
 	const [maxSlots] = React.useState(diagnosticSlots);
-	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
+	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
 }

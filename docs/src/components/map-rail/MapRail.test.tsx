@@ -1,9 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { PreviewPool } from '../studio/preview-pool';
+import { PooledThumbFace, PreviewPool } from '../studio/preview-pool';
+
 import { geometryFor, MapRail, type MapRailProps } from './MapRail';
 import type { Wire } from './wireframe';
+
+const OPTIONS = { themeBase: '/t/', runtimeUrl: '/r.js', engineUrl: '/e.js' } as unknown as React.ComponentProps<typeof PooledThumbFace>['options'];
 
 // jsdom lays nothing out, so the rail's thickness and view length are stated here.
 beforeAll(() => {
@@ -82,6 +85,57 @@ describe('MapRail', () => {
 	it('a real PreviewPool with a lowered ceiling caps the rail through settle', () => {
 		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, wrap: (tiles, report) => <PreviewPool maxSlots={4} onSettle={report}>{tiles}</PreviewPool> })} />);
 		expect(liveTiles()).toBe(4);
+	});
+
+	it('with the stage priced, the tiles over a real pool\'s ceiling fall to sketches before they reach the pool', () => {
+		// The rail wants 9 live tiles plus the stage; the pool holds 4. The live tiles are real pooled faces, so every one
+		// the rail mounts registers with the pool. Veduta drops the extra tiles to `wireframe` first, so only 4 faces ever
+		// register and the pool holds at most 4, and the stage's price takes none of the four.
+		let held = 0;
+		const wrap: MapRailProps['wrap'] = (tiles, report) => (
+			<PreviewPool
+				maxSlots={4}
+				onSettle={(r) => {
+					held = Math.max(held, r.held);
+					report(r);
+				}}
+			>
+				{tiles}
+			</PreviewPool>
+		);
+		const face = (i: number) => <PooledThumbFace options={OPTIONS} sample={`# ${i}`} className="size-full" />;
+		vi.useFakeTimers();
+		try {
+			render(<MapRail {...props({ count: 100, live: face, stage: { cost: 1 }, wrap })} />);
+			act(() => {
+				vi.advanceTimersByTime(1000);
+			});
+			expect(liveTiles()).toBe(4);
+			expect(held, 'the pool never held a tile, so this test proves nothing').toBeGreaterThan(0);
+			expect(held, 'the pool was handed more tiles than its ceiling').toBeLessThanOrEqual(4);
+			expect(tiers().filter(([, t]) => t === 'wireframe').length).toBeGreaterThan(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('draws a host\'s mark on mounted tiles only, hidden from assistive tech', () => {
+		const mark = vi.fn((i: number) => (i === 2 ? <i data-mark={i} /> : null));
+		render(<MapRail {...props({ count: 100, mark })} />);
+		const dot = document.querySelector('[data-mark="2"]');
+		expect(dot).not.toBeNull();
+		expect(dot?.parentElement?.getAttribute('aria-hidden')).toBe('true');
+		const mounted = new Set(tiers().map(([u]) => u));
+		for (const [u] of mark.mock.calls) expect(mounted.has(u), `mark asked for unmounted tile ${u}`).toBe(true);
+		expect(screen.getByRole('button', { name: 'Slide 3' })).toBeTruthy();
+	});
+
+	it('captions a mounted tile beside its number, and not at all without a caption', () => {
+		const { rerender } = render(<MapRail {...props({ count: 100, caption: (i) => (i === 1 ? 'cards-grid' : '') })} />);
+		expect(document.querySelector('button[data-unit="1"]')?.textContent).toBe('2cards-grid');
+		expect(document.querySelector('button[data-unit="0"]')?.textContent).toBe('1');
+		rerender(<MapRail {...props({ count: 100 })} />);
+		expect(document.querySelector('button[data-unit="1"]')?.textContent).toBe('2');
 	});
 
 	it('asks for no poster unless the host gives a poster budget, and then fills the tiles past the live cap with them', () => {

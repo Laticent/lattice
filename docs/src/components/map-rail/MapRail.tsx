@@ -56,9 +56,16 @@ export interface MapRailProps {
 	liveBudget?: number;
 	/** The host's stage (the big preview beside the rail) is a live view on the same page: name what one costs and
 	 *  Veduta charges it to the same live budget as the tiles, and ranks it first. The rail adds the same cost to
-	 *  the budget and the cap, so today it never takes a tile from the map; it is the accounting a stage window
-	 *  that mounts more than the focus will need. Omit it when the stage is not priced. */
+	 *  the budget and the cap, so it never takes a tile from the map. The Studio's stage is one frame by ruling
+	 *  (Veduta README, "Why the Studio's stage is one frame"), so in production this price binds nothing. Omit it
+	 *  when the stage is not priced. */
 	stage?: { cost: number };
+	/** A short visible caption beside a tile's number (the Studio's component class, which the pill navigator showed
+	 *  and no slide renders). Called only for mounted tiles. Return '' for none. */
+	caption?: (unit: number) => string;
+	/** A small decoration for a tile's top corner (the Studio's Live presence dots), called only for mounted tiles.
+	 *  Decorative: the host lists the same facts in words elsewhere. Return null for none. */
+	mark?: (unit: number) => React.ReactNode | null;
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
 	className?: string;
@@ -141,7 +148,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -319,8 +326,10 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 				const tier = plan.tiers.get(i) ?? 'wireframe';
 				const on = i === focus;
 				const at = PAD + i * geo.pitch;
+				// The window mounts a few tiles of a long deck, so each says where it sits in the whole list: a screen reader
+				// then hears "4 of 40", as it did on the pill navigator, which listed every slide.
 				return (
-					<li key={i} className="absolute" style={vertical ? { top: at, left: PAD, width: geo.cross, height: geo.main } : { left: at, top: PAD, height: geo.cross, width: geo.main }}>
+					<li key={i} aria-setsize={count} aria-posinset={i + 1} className="absolute" style={vertical ? { top: at, left: PAD, width: geo.cross, height: geo.main } : { left: at, top: PAD, height: geo.cross, width: geo.main }}>
 						<button
 							type="button"
 							onClick={() => onPick(i)}
@@ -339,7 +348,11 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							)}
 							{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
 							{tier === 'poster' && poster ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
-							<span className="absolute bottom-1 left-1 z-10 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
+							{mark ? <span aria-hidden className="pointer-events-none absolute right-1 top-1 z-10 flex">{mark(i)}</span> : null}
+							<span className="absolute bottom-1 left-1 right-1 z-10 flex min-w-0 items-end gap-1">
+									<span className="shrink-0 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
+									{caption?.(i) ? <span aria-hidden className="min-w-0 truncate rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] leading-4 text-muted-foreground">{caption(i)}</span> : null}
+								</span>
 						</button>
 					</li>
 				);

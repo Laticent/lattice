@@ -935,7 +935,7 @@ at least 560 px wide and under it otherwise, measured on a wrapper the rail does
   (the tiles on screen, at most 24) instead of learning it. The Studio's stage is not driven by Veduta, and the page-global live
   budget priced per connector has one connector. So the 11f.2 tripwire ("the Playground adopts the core with no change to it")
   is met for the band arithmetic and the map window only; the capacity report, the joint stage-and-map budget and the poster tier
-  have no production caller. Publishing to npm should wait for those (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`).
+  have no production caller. Publishing to npm should wait for those (the follow-up that tracked them is closed by section 11p).
 - **Found by the trio and fixed before merge.** A scrollbar loop (React #185 wherever scrollbars take layout space; the scroller
   now always carries its track and the measuring effect no longer re-runs with `refresh`), arrow keys that handed focus to the
   editor after one step (a key now picks quietly), a hidden focus before every lens-shown slide (no tile is highlighted and Next
@@ -996,7 +996,7 @@ carries a constant.**
   and with it the binding is shown on the real Studio: a ten-slide deck gets 3 live tiles and 3 frames with the ceiling at
   3, and 10 and 10 without it (`studio-map.spec.ts`, desktop Chromium).
 - **Not done here.** The pill rail as a map tier, and a stage window that changes what is mounted, are still open
-  (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`, narrowed). The npm tripwire should not count as met until a
+  (narrowed, then closed by section 11p). The npm tripwire should not count as met until a
   production value can bind.
 
 ## 11m. Fixed on 2026-10-19: a blank slide is a unit (continuation P2)
@@ -1085,6 +1085,53 @@ one of those few long decks while the reader scrolls.
   export already takes), has to be measured on a real Safari device, which this sandbox cannot reach. So no shipped host
   passes `poster`, the poster rung stays at 0, and Safari is **UNVERIFIED**
   (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to capture).
+
+## 11p. Decided on 2026-10-20: the pill rail against the map, and the stage stays one frame (continuation P1)
+
+The last two pieces of the 2789 follow-up. Both are rulings with a small change behind them, not a new mechanism.
+
+- **The pills hide where the map sits beside the slide.** There the map is a second, richer list of the same slides,
+  with its own number, position and first-to-last controls, so the Studio's pill navigator under it was the same list
+  twice. `StudioShell.tsx` now renders `SlideRail` only when the map is off, stacked under the slide (a pane under
+  560 px, which is every phone and a narrow tablet pane), or dropped by the phone's cinema morph. The stacked strip has
+  no labels and no steps, so the pills stay there. This session also weighed pills as a map tier (a tile kind Veduta can
+  fall to) and chose against it: a pill is a label you read, a tile now carries the same label (below), and the ladder
+  falls only when a budget binds, which no shipped host's does.
+- **What the pills carried moves onto the tiles.** Outside the Read stop a pill's visible text is the slide's component
+  class, which no slide renders, so a tile that shows only a picture would have dropped the one deck-wide view of the
+  classes (an inversion found this in the first draft, which claimed nothing was lost). Tiles now carry it as a caption
+  beside the number (`MapRail`'s `caption`, filled by `StudioMap` from `slideClass` outside Read). In Read a pill shows
+  the title, which a live tile shows in its picture and every tile in its accessible name. The Live presence dots move
+  too (`mark`, from the same `liveBySlide` map, decorative as on the pills), only where the pills are hidden, so a
+  stacked strip does not draw them twice. Each tile says where it sits in the whole deck (`aria-setsize`,
+  `aria-posinset`), since the map mounts a window of a long deck where the pills listed every slide. A reader who saved
+  the map as on loses the pills beside it with no notice; the map button brings them back.
+- **When the pills hide.** Only once the map is measured as beside the slide AND has mounted (`onReady`), so a first
+  open on a slow network never leaves a moment with no navigator. The measure is a layout effect that follows the
+  wrapper element through a callback ref: a red team found that a round trip to the Article view (which unmounts the
+  preview pane) left the old observer on a detached wrapper, so the map stuck as a full-width strip on desktop and never
+  restacked. A resize across 560 px that keeps the tree (a split drag) reaches it through the observer, a frame later.
+- **The stage stays `pip` with one frame, and the Veduta README says why** (§"Why the Studio's stage is one frame"): a
+  step already takes the patch path in a loaded frame, a neighbor frame would be one more resident engine document
+  (about 11 MB on WebKit), and with the map open the neighbors are already live tiles. Under the rail's arithmetic a
+  neighbor would cost no map tile (the stage's cost is added to the cap as well as charged), so the case is memory
+  against an unmeasured step latency, not a lost tile. The `multi` stage is the Playground filmstrip's, in production.
+- **What this means for the npm tripwire (11f.2).** It is not met. The core's stage pricing (`stage: { cost }` and the
+  stage half of `settle`) still has no caller in which it binds: the Studio's value cancels by construction. So that API
+  is unproven, and before a publish it must be proven by a caller or removed from the core. The capacity report still
+  carries a constant in production (section 11l), and posters still need their capture measured on Safari.
+- **Evidence.** `MapRail.test.tsx`: with the stage priced and a real `PreviewPool` holding 4, the rail mounts 4 real
+  pooled faces and the rest as sketches, and the pool holds at least one tile and at most 4. With the cap taken out of
+  the rail, the same test mounts 9 (run, not reasoned). The follow-up asked for "a stage over budget falls down the
+  ladder". Under `pip` the stage cannot fall: the rail adds the stage's cost to the cap it charges, so what this test
+  shows is the tiles falling under a priced stage, which is the half that has a caller. A `mark` draws on mounted tiles
+  only and is hidden from assistive tech, and a `caption` shows beside the number. `studio-map.spec.ts` counts the pills
+  before opening the map, requires none beside it and the full set under it, reads the class caption on a tile beside
+  the slide, and watches the pills leave and come back as the viewport goes to 390 px wide and back (the pane then
+  crosses the 560 px line), keeps restacking after a round trip to the Article view, and gives each tile its place in the
+  whole deck. The Studio's tours waited for the pill count while typing a deck (`tour-kit.ts`
+  `railReady`), so beside the map each typed slide would have waited out Vetrina's 15 s give-up; the wait now reads the
+  map's tiles as well (`tour-kit.test.ts`). Screenshots at 1440, 820 and 390 were taken with `tools/screenshot.js` on the e2e build and looked at: beside the map at 1440, stacked with the pills at 820 and 390.
 
 ## 12. Next step
 

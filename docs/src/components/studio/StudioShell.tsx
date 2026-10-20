@@ -985,8 +985,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// hydration so the server and the client agree. `mapStacked` puts the rail under the slide when the
 	// pane is narrow, measured on the wrapper (which the rail does not resize) so it cannot flip-flop.
 	const [mapOn, setMapOn] = React.useState(false);
-	const [mapStacked, setMapStacked] = React.useState(false);
-	const mapWrapRef = React.useRef<HTMLDivElement>(null);
+	// `null` until the wrapper has been measured with the map on: the pills hide only once the map is KNOWN to sit beside.
+	const [mapStacked, setMapStacked] = React.useState<boolean | null>(null);
+	// A CALLBACK REF in state, not a ref object: the Article and Fabricate views unmount the preview pane and mount a
+	// new wrapper on the way back, and an observer left on the detached one read width 0 and stuck the map as a strip.
+	const [mapWrap, setMapWrap] = React.useState<HTMLDivElement | null>(null);
+	// The map has mounted (its chunk loaded): until then the pills stay, so there is never a moment with no navigator.
+	const [mapReady, setMapReady] = React.useState(false);
+	const onMapReady = React.useCallback(() => setMapReady(true), []);
 	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
 	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
 	const mapEver = useEverTrue(mapOn);
@@ -1556,6 +1562,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
+	// The map is a column beside the slide (not a strip under it, and not dropped by the phone's cinema morph).
+	const mapBeside = mapOn && mapReady && mapStacked === false && !landscapePhone;
 	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
 	// never the problem (`100dvh` already equals the visible height). The on-device geometry
@@ -1565,18 +1573,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
-	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), so the wrapper this
-	// observes is looked up again then.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `mobile` is the trigger (the wrapper element changes with the tree); the body reads the ref.
-	React.useEffect(() => {
-		const el = mapWrapRef.current;
+	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), or be unmounted by a view
+	// round trip, so the effect follows the wrapper element itself.
+	// A layout effect, so the first paint with the map on already knows whether it stacks, and the pills (hidden only
+	// beside it) are never dropped and remounted on a phone. A later resize across 560 px (a split drag, a window
+	// resize that keeps the tree) reaches it through the observer, a frame later.
+	React.useLayoutEffect(() => {
+		const el = mapWrap;
 		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
 		const read = () => setMapStacked(el.clientWidth < 560);
 		read();
 		const ro = new ResizeObserver(read);
 		ro.observe(el);
-		return () => ro.disconnect();
-	}, [mapOn, mobile]);
+		return () => {
+			ro.disconnect();
+			setMapStacked(null);
+		};
+	}, [mapOn, mapWrap]);
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
 	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
 	// nothing on the other side of the breakpoint could ever clear it. That was survivable
@@ -5979,7 +5992,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={mapWrapRef} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
+			<div ref={setMapWrap} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
 			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
@@ -6046,7 +6059,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[96px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} />
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} people={mapBeside ? liveBySlide : undefined} classLabels={effectiveStop !== 'read'} onReady={onMapReady} />
 					</React.Suspense>
 					</Frozen>
 				</div>
@@ -6106,7 +6119,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
 					</div>
 				)}
-			<SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />
+			{/* Where the map sits BESIDE the slide it is the navigator: its tiles carry the number, the position, first to
+			    last, the Live dots and (outside Read) the component class, so a second list of the same slides under them is only noise. Where it stacks
+			    under the slide (a narrow pane, a phone) the strip has no labels or steps, so the pills stay. */}
+			{!mapBeside && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />}
 				<button
 					type="button"
 					aria-label="Slide map"
