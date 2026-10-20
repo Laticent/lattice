@@ -60,3 +60,9 @@ test('the narrator reads a nested fence too (firstMermaidFenceBody)', () => {
 	assert.match(firstMermaidFenceBody('10. Tenth\n\n    ```mermaid\n    flowchart LR\n      A --> B\n    ```\n'), /^flowchart LR/);
 	assert.equal(firstMermaidFenceBody('no fence here'), null);
 });
+
+test('a fence indented two spaces under a bullet is reported with its indent, so its figure stays in the item (followups.d/2739-p11)', () => {
+	const md = '- First point:\n\n  ```mermaid\n  flowchart LR\n    A --> B\n  ```\n\n- Second point.\n';
+	assert.equal(matchMermaidFences(md).length, 1, 'the flat walker opens it too, at 0-3 spaces');
+	assert.deepEqual(nested(md), [{ prefix: '  ', body: 'flowchart LR\n  A --> B\n' }]);
+});

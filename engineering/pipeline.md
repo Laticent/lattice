@@ -418,9 +418,12 @@ the export, and the file before the reader consents, make no request.
 
 **The CLI draws a Mermaid fence in a quote or a list item.** `lib/core/mermaid-fences.js` (shared with the narrator) opens a
 fence only at 0-3 spaces, so `mermaid.bake.js` also asks `lib/plugins/mermaid/shared/nested-fences.js`, which reads the fence
-tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. The Studio's export flags a
-quoted or list-nested diagram as overflowing on some runs and the CLI's never does (`followups.d/2739-p11`), so the parity
-spec carries neither shape yet.
+tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. A fence indented one to three
+spaces under a list item is found by both walkers; the nested entry wins, so the figure keeps the item's indent and stays in
+the list, as the Studio draws it. In the Studio a quoted or list-nested figure sizes as the CLI's baked one does: the
+container's width and the height its viewBox gives (`mermaid.styles.css`, followups.d/2739-p11). Before, it kept the 1152×480
+box meant for hosts that are not slides, filled the stage and flagged the slide as overflowing. The parity spec carries both
+shapes (`examples/mermaid-nested-fences.md`, `examples/mermaid-quoted-fence.md`).
 
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
