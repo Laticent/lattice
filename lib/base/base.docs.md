@@ -1514,12 +1514,12 @@ One canvas is genuinely unanswerable, and one is not:
 ```yaml
 ---
 logo: lattice                     # a built-in name, or a path / URL of your own
-logo-style: bottom-center accent-ink lg   # optional: placement color size scope, one word each
+logo-finish: bottom-center accent-ink lg   # optional: placement color size scope, one word each
 ---
 ```
 
 The logo shows on every slide while `logo:` is set; `_class: no-logo` hides it on one slide. The words
-of `logo-style:` and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
+of `logo-finish:` and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
 placement hides the header, footer or page number in that band, because the brand wins.
 
 **A name, or a path — and the difference decides where your deck works.**
@@ -1566,7 +1566,7 @@ gracefully no-ops in the vscode-webview sandbox (fetch can't reach
 workspace files). Same constraint `class: dark` has — see
 `engineering/gotchas.md`.
 
-**Brand colors.** The `brand` color word (`logo-style: brand`) puts `logo-brand` on the section.
+**Brand colors.** The `brand` color word (`logo-finish: brand`) puts `logo-brand` on the section.
 The silhouette filter is removed; the logo's original colors render directly on a soft `--bg-alt`
 plate. Use when the brand's colors carry meaning (government insignia, university crests); reach for
 `auto` or a palette color otherwise.

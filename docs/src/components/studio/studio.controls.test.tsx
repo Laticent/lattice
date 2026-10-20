@@ -1007,12 +1007,12 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.tab();
 		await waitFor(() => expect(source()).toMatch(/logo: \.\/brand\/mark\.svg/));
 		// …and now they appear.
-		// All four controls write ONE `logo-style:` line, a default word left out.
+		// All four controls write ONE `logo-finish:` line, a default word left out.
 		await pick(user, 'Choose logo scope', 'Title slide only');
-		await waitFor(() => expect(source()).toMatch(/logo-style: "?title"?(?![A-Za-z])/));
+		await waitFor(() => expect(source()).toMatch(/logo-finish: "?title"?(?![A-Za-z])/));
 		await pick(user, 'Choose logo position', 'Bottom center');
 		await pick(user, 'Choose logo color', 'Accent + ink');
-		await waitFor(() => expect(source()).toMatch(/logo-style: "bottom-center accent-ink title"/));
+		await waitFor(() => expect(source()).toMatch(/logo-finish: "bottom-center accent-ink title"/));
 		expect(source()).not.toMatch(/logo-on|logo-at|logo-color/);
 	});
 

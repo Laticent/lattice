@@ -106,7 +106,7 @@ import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserv
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
 import { liveColor } from './live/live-model';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
-import { LOGO_PLACEMENT_HIDES, type LogoStyleAxis, logoStyleLabel, logoStyleOptions, logoStyleValue, logoStyleWords, parseLogoStyle } from './logo-style';
+import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -2251,14 +2251,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// mean anything once it is set, so the Inspector hides them until then.
 	const logo = getFrontMatter(source, 'logo') || '';
 	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
-	// ONE line styles it (`logo-style:`, lib/core/resolve-logo-style.js): placement, color, size, scope.
+	// ONE line styles it (`logo-finish:`, lib/core/resolve-logo-finish.js): placement, color, size, scope.
 	// A default word is left out and the key goes once every axis is default, like `image-card:`.
-	const logoWords = parseLogoStyle(getFrontMatter(source, 'logo-style') || '');
+	const logoWords = parseLogoFinish(getFrontMatter(source, 'logo-finish') || '');
 	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
-	const setLogoWord = (axis: LogoStyleAxis, v: string) =>
+	const setLogoWord = (axis: LogoFinishAxis, v: string) =>
 		settingsWrite('Logo style', (s) => {
-			const next = { ...parseLogoStyle(getFrontMatter(s, 'logo-style') || ''), [axis]: v === '__default__' ? undefined : v };
-			return writeFrontMatterLine(s, 'logo-style', logoStyleValue(next) || null);
+			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === '__default__' ? undefined : v };
+			return writeFrontMatterLine(s, 'logo-finish', logoFinishValue(next) || null);
 		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
 	const metaLine = getFrontMatter(source, 'meta') || '';
@@ -4953,7 +4953,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
 							const meta = {
-								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-style:</code> line.</> },
+								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-finish:</code> line.</> },
 								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors on a soft plate.</> },
 								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
 								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
@@ -4962,10 +4962,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
 									<CatalogSelect
 										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
-										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoStyleWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
 										onValueChange={(v) => setLogoWord(axis, v)}
 										className="w-full"
-										groups={[{ options: [{ value: '__default__', label: `${logoStyleLabel(logoStyleWords(axis)[0])} (default)` }, ...logoStyleOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoStyleLabel(w) }))] }]}
+										groups={[{ options: [{ value: '__default__', label: `${logoFinishLabel(logoFinishWords(axis)[0])} (default)` }, ...logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w) }))] }]}
 									/>
 								</Field>
 							);

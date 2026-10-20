@@ -2937,7 +2937,7 @@ img.deck-logo {
    * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
   z-index: var(--z-content);
   position: absolute;
-  /* Default: the top-right corner via frame insets. The `logo-style:` register moves and sizes
+  /* Default: the top-right corner via frame insets. The `logo-finish:` register moves and sizes
    * the mark with section classes (below) — a placement word, a size word. */
   top: var(--frame-inset-y);
   right: var(--frame-inset-x);
@@ -2971,7 +2971,7 @@ img.deck-logo {
   filter: var(--deck-logo-filter, grayscale(1) brightness(0.4) contrast(1.2));
 }
 
-/* ── THE `logo-style:` REGISTER, as section classes (lib/core/resolve-logo-style.js) ──────
+/* ── THE `logo-finish:` REGISTER, as section classes (lib/core/resolve-logo-finish.js) ──────
  * The deck's words and a slide's own land as classes on the section, so every rule below reads the
  * slide's FINAL word on each axis. `no-logo` removes the mark itself (the injectors skip the
  * slide), which is why the stand-down rules guard on `:not(.no-logo)`. */

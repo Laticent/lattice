@@ -6,7 +6,7 @@
     "logo"
   ],
   "z": 2,
-  "population": "front-matter `logo:` key — on whenever it is set. The `logo-style:` register (lib/core/resolve-logo-style.js) styles it with section classes (placement, color, size, scope), and `no-logo` on a slide hides it. Positioned against the SLIDE, not docked in a band: base.modifiers.css pins it at the frame insets as an absolutely positioned direct child of the section, and a `logo-<placement>` class moves it to another of the six berths. It read fits:[\"masthead-bay\"] until 2026-09-08; nothing ever docked it there.",
+  "population": "front-matter `logo:` key — on whenever it is set. The `logo-finish:` register (lib/core/resolve-logo-finish.js) styles it with section classes (placement, color, size, scope), and `no-logo` on a slide hides it. Positioned against the SLIDE, not docked in a band: base.modifiers.css pins it at the frame insets as an absolutely positioned direct child of the section, and a `logo-<placement>` class moves it to another of the six berths. It read fits:[\"masthead-bay\"] until 2026-09-08; nothing ever docked it there.",
   "hideToken": "no-logo",
   "status": "shipped"
 }

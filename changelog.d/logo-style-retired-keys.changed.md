@@ -1,2 +1,0 @@
-- **Breaking:** `logo-on:`, `logo-x:`, `logo-y:` and `logo-scale:` no longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into one `logo-style:` line: `logo-on: title` becomes `title`, `logo-scale` becomes `sm` or `lg`, and a free `logo-x`/`logo-y` position becomes the nearest of the six placements.
-- `logo-style: brand` keeps its meaning (the logo's original colors on a plate); `logo-style: auto` is now the default color word.

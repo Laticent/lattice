@@ -5,14 +5,14 @@ paginate: true
 header: Brand review
 footer: Confidential
 logo: lattice
-logo-style: bottom-center accent-ink lg
+logo-finish: bottom-center accent-ink lg
 ---
 
 <!-- _class: title -->
 
 # One line styles the logo
 
-`logo-style: bottom-center accent-ink lg` seats it, colors it and sizes it. The footer text yields to a bottom-center logo.
+`logo-finish: bottom-center accent-ink lg` seats it, colors it and sizes it. The footer text yields to a bottom-center logo.
 
 ---
 

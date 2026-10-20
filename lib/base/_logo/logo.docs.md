@@ -30,14 +30,14 @@ Two front-matter lines: the file, and one line that styles it.
 marp: true
 theme: indaco
 logo: sample:logo-acme-mark.svg      # the file — a path, a URL, or a built-in name
-logo-style: bottom-center accent-ink lg   # optional — one word per axis, autocompleted
+logo-finish: bottom-center accent-ink lg   # optional — one word per axis, autocompleted
 ---
 ```
 
 The logo shows on every slide whenever `logo:` is set. A slide hides it with `_class: no-logo`.
 
-`logo-style:` takes up to one word per axis, in any order (the register is
-`lib/core/resolve-logo-style.js`; the editor completes each word):
+`logo-finish:` takes up to one word per axis, in any order (the register is
+`lib/core/resolve-logo-finish.js`; the editor completes each word):
 
 | Axis | Words (default first) | Behavior |
 |---|---|---|
@@ -50,9 +50,9 @@ The words are class tokens on the section, so a slide can also change one axis f
 `_class: logo-ink` recolors the mark on that slide and leaves the deck's placement and size alone.
 `no-logo` is the one switch most decks need.
 
-**Migrating an old deck.** `logo-on:`, `logo-x:`, `logo-y:` and `logo-scale:` are retired and no
-longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into one `logo-style:` line and
-deletes them: `logo-on: title` becomes the `title` word, `logo-scale` becomes `sm` or `lg`, and a free
+**Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `chart-finish:`), `logo-on:`,
+`logo-x:`, `logo-y:` and `logo-scale:` are retired and no longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into one `logo-finish:` line and
+deletes them: `logo-style: brand` becomes `logo-finish: brand`, `logo-on: title` becomes the `title` word, `logo-scale` becomes `sm` or `lg`, and a free
 `logo-x`/`logo-y` position snaps to the nearest of the six berths (`50` / `82` is `bottom-center`).
 
 **The `title` scope reads firstness from the DECK, not from the document.** A single-slide render
@@ -116,7 +116,7 @@ through `lib/engine`, which runs the engine's pass, so only the runtime is a gen
 mirror and only it can drift. (The emulator used to re-run the engine's pass a second
 time, post-stamp; that call is gone — see below.) A change to `applyDeckLogoToHtml`'s
 selection or tint injection must land in the runtime's `applyCachedDeckLogo` in the same commit
-(HARD RULE #1). Both read the one `logo-style:` register (`lib/core/resolve-logo-style.js`).
+(HARD RULE #1). Both read the one `logo-finish:` register (`lib/core/resolve-logo-finish.js`).
 
 **Until 2026-08-16 the engine row of that table was a claim, not a behavior** (#1652).
 `applyDeckLogoToHtml` selected slides by `data-lattice-slide` — an attribute only the

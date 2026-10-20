@@ -35,7 +35,7 @@ A build-stage rewriter injects an `img` element with class `deck-logo` as the fi
 
 ```yaml
 logo: sample:logo-acme-mark.svg
-logo-style: bottom-center accent   # optional: placement color size scope, one word each
+logo-finish: bottom-center accent   # optional: placement color size scope, one word each
 ```
 
 Build-time only. The directive does not render in the marp-vscode preview pane because the extension does not run the engine's plugins.

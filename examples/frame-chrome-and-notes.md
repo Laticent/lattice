@@ -6,7 +6,7 @@ header: "Lattice · frame chrome"
 footer: "Feature deck"
 finish: atrium
 logo: sample:logo-acme-mark.svg
-logo-style: bottom-center title
+logo-finish: bottom-center title
 ---
 
 <!-- _class: title finish-none -->
@@ -48,7 +48,7 @@ finish's own backdrop. Neither is in flow, so neither costs the stage a pixel.
 | Chrome | Declared | Rendered |
 |---|---|---|
 | running header | 28px / 30px berth | 116px / 94px, on 11 of 15 slides |
-| deck logo | `logo-style: bottom-center` | centered across, bottom edge on the frame inset, every slide |
+| deck logo | `logo-finish: bottom-center` | centered across, bottom edge on the frame inset, every slide |
 
 A mark whose y drifts per slide is the tell: an absolute placement cannot depend on the copy above it.
 

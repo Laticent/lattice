@@ -906,33 +906,33 @@
    }
   },
   {
-   "name": "logo-style: bottom-center accent-ink lg",
-   "source": "---\nlogo-style: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo-finish: bottom-center accent-ink lg",
+   "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "logo-style: title",
-   "source": "---\nlogo-style: title\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo-finish: title",
+   "source": "---\nlogo-finish: title\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "logo-style: top-left brand",
-   "source": "---\nlogo-style: top-left brand\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo-finish: top-left brand",
+   "source": "---\nlogo-finish: top-left brand\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "logo-style: (unknown)",
-   "source": "---\nlogo-style: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo-finish: (unknown)",
+   "source": "---\nlogo-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-logo-style",
+      "rule": "unknown-logo-finish",
       "severity": "warning",
       "slide": 0
      }
