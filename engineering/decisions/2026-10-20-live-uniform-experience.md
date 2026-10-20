@@ -608,7 +608,7 @@ trio (HARD RULE #25, `engineering/orchestration.md` tier 2).
 | 3 | Present together and narration (§7.2–7.3) | Host starts it; idle members join, a typist gets a toast; keys stay inert until clicked; the call mix and direct clips work; no member calls TTS | Adversarial trio; two-browser recording at phone and desktop width; the call mix measured on a real call. Needs 2704 first |
 | 4 | Show me on every screen (§7.5) | A tour started by one member plays on every screen at once, and the shared deck is byte-identical afterward | Tier 1 checker; two-browser recording |
 | 5 | AI activity and share (§5.3) | "asking the AI", the applied-edit line, a Share-a-turn card | Tier 1 checker; a grep shows no key or cost leaves the browser |
-| 6 | Comments sync | Comments ride a `Y.Array`, per the comments note | `followups.d/2810-p4-live-comments-sync.md` |
+| 6 | Comments sync | Comments travel through the host, which holds who may resolve and delete (built; the comments note's `Y.Array` idea gave way to host authority, §7.5 "Slice 6 as built") | Two-browser run |
 
 ## 9. What the adversarial trio found (2026-10-20)
 
