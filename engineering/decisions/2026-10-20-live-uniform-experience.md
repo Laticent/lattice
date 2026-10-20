@@ -1,17 +1,17 @@
 ---
 status: proposed
 summary: >
-  Feedback on Live: it syncs the editor and preview but not Coach, the AI chat, open panels or
-  other actions. An audit of what a Live session shares today found a sharper problem first —
+  Feedback on Live: it syncs the editor and preview but not Coach, the AI chat, open panels,
+  Present or anyone's actions. An audit of what a session shares found a sharper problem first:
   two members can see DIFFERENT slides, because an un-themed deck renders in each viewer's own
   site palette and mode, and the host's saved themes, finishes and components never reach a
-  guest. Proposed: sort every piece of Studio state into five tiers (deck truth, activity,
-  follow, shared on purpose, never shared), sync the meaning of an action rather than the
-  click, and build it in six slices. A second round adds Present together (everyone joins), the
-  presenter's narration synthesized once and shared clip by clip from any holder with a hash
-  check, Show me on a scratch deck, Vetrina pointers that can never click, and a receiver-side
-  safety model: remote input is display only, and nothing reaches or leaves your Library because
-  of a peer. The owner settled every open choice on 2026-10-20.
+  guest. Proposed: five tiers of Studio state (deck truth, activity, follow, shared on purpose,
+  never), sync the meaning of an action rather than the click, and a safety model where the
+  RECEIVER decides and every message type has a named sender. Present together is host-started
+  with idle members joining at once; narration rides the call mix, with compressed clips from
+  the presenter for members off the call; Show me plays on every screen at once on a local
+  practice deck; pointers are plain overlays that cannot click. Hardened by the adversarial trio
+  the same day; the owner settled every choice on 2026-10-20.
 companion:
   - ./2026-10-06-studio-live-collaboration.md
   - ./2026-10-06-live-collaboration-roadmap.md
@@ -22,7 +22,8 @@ companion:
 # Live — as uniform an experience as we can give, and where it stops
 
 **Date:** 2026-10-20
-**Status:** Proposed; the design choices in §5 and §6 are settled. Nothing is built.
+**Status:** Proposed; every design choice is settled (§5). Nothing is built. Reviewed by the
+adversarial trio (red team, inversion, checker) on 2026-10-20; §9 records what each found.
 **Decision owner:** Sharmarke
 
 ## 1. The ask
@@ -31,38 +32,49 @@ companion:
 > like opening panels or clicking buttons. Some things we may not want to sync, for privacy or
 > security, but people who collaborate should have as uniform a live experience as possible.
 
+And, the same day:
+
+> There needs to be support for Present mode, narration, guide and caption. We want people to
+> share the Present experience. We also want Show me to be shared so someone can teach Lattice
+> with little effort. Finally we want to share mouse movement and actions so people can see what
+> is happening, via Vetrina, since we don't want people taking over one's real mouse. All of
+> this needs to be safe, so you don't have a situation where someone uploads something from your
+> computer to the Library.
+
 ## 2. What a session shares today
 
-Read from `docs/src/components/studio/live/live-controller.ts` and `live-model.ts` on `main` at
-`3bf8a7c`.
+Read from `docs/src/components/studio/live/` and `docs/src/lib/tavola/` on `main` at `3bf8a7c`.
 
 | Shared | Channel |
 |---|---|
 | The deck markdown | Yjs `doc.getText('source')` (`live-controller.ts:526`) |
-| Caret and selection, active slide, "typing", name, color, mic state | Awareness fields, behind the receiver whitelist; cursor, slide and typing can each be withheld (design note §12.3) |
-| People chat, join/leave lines, roster, the session clock | Tavola posts through the host (`post()`, `live-controller.ts:1391`) |
-| "Bring everyone here" | A `summon` awareness field |
+| Caret and selection, active slide, "typing", name, color | Awareness fields (`AwState`, `live-controller.ts:190`), rebuilt from a whitelist on receipt; cursor, slide and typing can each be withheld (design note §12.3) |
+| Mic state, chat, join and leave lines | Tavola posts (`post()`, `live-controller.ts:1391`); chat `say` goes through the host, which numbers it |
+| Roster, the session clock | Tavola control messages from the host |
+| "Bring everyone here" | A `summon` awareness field, honored only from the host (`live-controller.ts:321`) |
 | Follow | Your active slide tracks one member's `slide`. Nothing else follows |
 
-Everything else lives in one browser: which panel is open (`activeAssistant`), the view
-(`view`, `editMode`), Present (`presentOpen`), the Coach card (`coachCard`) and fix progress,
-the Architect chat transcript, comments, checkpoints, the site palette (`palette`) and mode
-(`mode`), and the Library (`savedThemes`, `localComponents`, `savedFinishes`).
+A session holds at most four people (`tavola/session.ts:205`). Everything else lives in one
+browser: the open panel (`activeAssistant`), the view (`view`, `editMode`), Present
+(`presentOpen`), the Coach card (`coachCard`), the Architect transcript, comments, checkpoints,
+the site palette (`palette`) and mode (`mode`), and the Library (`savedThemes`,
+`localComponents`, `savedFinishes`).
 
 ## 3. Finding: two members can see different slides
 
-This is a correctness bug, not a missing feature: Live's promise is one deck. Found by reading;
-**UNVERIFIED on a real two-browser session** — slice 1 starts by reproducing it.
+This is a correctness bug, not a missing feature: Live's promise is one deck. Found by reading,
+and confirmed by the independent checker's reading; **UNVERIFIED on a real two-browser
+session**. Slice 1 starts by reproducing it.
 
 1. **An un-themed deck renders in each viewer's own look.** `resolveDeckTheme` falls back to
    `sitePalette` and `siteMode` when the deck names no `theme:` (`StudioShell.tsx:3652-3669`).
-   Those come from each browser's `localStorage` and `data-mode`. A host in Indaco dark and a
-   guest in Cuoio light see two different decks.
+   Those come from each browser's `localStorage` (`:921-923`) and `data-mode` (`:3633`). A host
+   in Indaco dark and a guest in Cuoio light see two different decks.
 2. **The deck's Library dependencies stay behind.** A deck whose `theme:` names a saved theme
    resolves its CSS from `savedThemes` (`StudioShell.tsx:3662`); saved components and finishes
    resolve the same way. A guest has none of the host's records, so those slides fall back.
-   The `.lattice` file already solves this for export: `deckPackages`
-   (`StudioShell.tsx:3676`) collects exactly the records the deck uses. Live does not send them.
+   The `.lattice` file already solves this for export: `deckPackages` (`StudioShell.tsx:3674`)
+   collects the records the deck uses. Live does not send them.
 3. **Coach disagrees.** Its findings are deterministic from the source (`assessDeck`,
    `StudioShell.tsx:3298`), which is why it looks synced, but they also read `localNames` and
    `editorPalettes`. A guest gets "unknown component/theme" findings the host does not.
@@ -77,160 +89,256 @@ moves people who did not ask to move. So every piece of state gets exactly one t
 
 | Tier | Rule | Members |
 |---|---|---|
-| **1. Deck truth** | Identical for everyone; no opt-out | Source (done); the resolved theme and mode; the saved themes, finishes and components the deck uses |
-| **2. Activity** | Everyone can see it; it moves no one; withholdable like the cursor | Panel open ("in Coach"), view, presenting, the Coach card they are reading, "asking the AI" |
-| **3. Follow** | You opt in to mirror one person | Today: slide. Proposed: slide, panel, view and Present |
-| **4. Shared on purpose** | The owner shares each item | An AI chat turn; "applied an AI edit to slide 3" (designed in §5.7 of the design note, never built); comments; checkpoints |
-| **5. Never** | Private by construction | API keys and AI cost, unsent drafts, settings, devices, crash reports, Library records the deck does not use |
+| **1. Deck truth** | Identical for everyone; no opt-out | Source (done); the session's look (§5.1); the saved themes and finishes the deck uses |
+| **2. Activity** | Everyone can see it; it moves no one; withholdable like the cursor | Panel open ("in Coach"), view, presenting, the Coach card they read, "asking the AI", pointer (§7.6) |
+| **3. Follow** | You opt in to mirror one person | Slide (today), panel, view |
+| **4. Room events** | Started by the host (or a member the host allows); every idle member joins; anyone can leave | Present together (§7.2), Show me (§7.5) |
+| **5. Shared on purpose** | The owner shares each item | An AI chat turn; comments (slice 6); checkpoints (not planned) |
+| **6. Never** | Private by construction | API keys and AI cost, unsent drafts, settings (including CC, Voice and Guide switches), devices, crash reports, Library records the deck does not use |
 
 The rule for a new piece of state: name its tier in the PR that adds it.
 
 ## 5. Decisions (owner, 2026-10-20)
 
-1. **Look of an un-themed deck: the host's.** While live, the host publishes the resolved
-   palette and mode, and every member's preview renders with them. Each member's Studio chrome
-   keeps their own palette. Nothing is written into the deck.
-2. **Library dependencies: CSS arrives, code asks.** Saved themes and finishes travel as the
-   same package records `deckPackages` builds, and their CSS goes through `sanitizeStyleText`
-   before it reaches any document (HARD RULE #22: a peer's CSS is untrusted content). A component
-   with `transform.js` is code from another person, inside the threat model of
-   `2026-10-16-npm-plugin-threat-model.md`: the guest sees "Sharmarke's deck uses 2 custom
-   components — Trust and render", and the slides fall back until they accept. Trust lasts for
-   the session, not forever.
+Two rounds of questions, then a third after the adversarial trio. Where a later round changed
+an earlier answer, only the final one is listed, with what changed.
+
+1. **The session's look is frozen when sharing starts.** The host's resolved palette and mode
+   at that moment become the look of an un-themed deck for every member, and they survive a host
+   drop and a takeover (design note §12.1). A built-in palette travels by name. A saved theme
+   used as the host's site palette is a Library record the deck does not use, so the host is
+   asked first: "Share your theme Acme Brand so everyone sees the same deck?" If they decline,
+   members use the default palette. Each member's Studio chrome keeps their own palette. Nothing
+   is written into the deck. *(Round 1 said "the host's look"; the trio showed it leaked a record
+   and flipped on a takeover.)*
+2. **Library dependencies: CSS arrives, code waits.** Saved themes and finishes the deck uses
+   travel as the same records `deckPackages` builds. Each goes through the existing import gate
+   (`refuseImportedTheme`, `import-gate.ts:97`) on receipt, then `sanitizeStyleText` (HARD RULE
+   #22). `sanitizeStyleText` alone is not enough: by its own docblock it lets a stylesheet fetch
+   (`lib/core/sanitize-style-text.mjs:33-37`). A component with `transform.js` is code from
+   another person (`2026-10-16-npm-plugin-threat-model.md`): it falls back with a label in the
+   first build, and a session-only trust set keyed by the package's SHA-256 comes later. It
+   does not reuse the door approvals, which persist in `localStorage` by name
+   (`code-packages/door.ts:62`).
 3. **AI chat: activity plus opt-in share.** The room sees "Amina is asking the AI" (tier 2) and
-   "Amina applied an AI edit to slide 3" (a system line). A turn reaches the room only when its
-   owner presses Share; it arrives as a read-only card in the people chat, never in anyone's
-   Architect transcript.
-4. **Follow goes wide.** Following someone mirrors their slide, panel (Coach, Lenses, Library —
-   not their Chat, which is private), view and Present. Any action of your own stops following,
-   as today. On a width where their panel does not exist, you follow the slide and see a label.
+   "Amina applied an AI edit to slide 3" (a system line, designed in design note §5.7 and never
+   built). A turn reaches the room only when its owner presses Share, as a read-only card in the
+   people chat.
+4. **Follow goes wide.** Following someone mirrors their slide, panel (Coach, Lenses, Library,
+   never their Chat) and view. Any action of your own stops following. On a width where their
+   panel does not exist, you follow the slide and see a label.
+5. **Present together is host-started; idle members join.** Only the host, or a member the host
+   allows, can press "Present to everyone", and it is rate-limited. A member who has not typed in
+   the last few seconds joins at once; a member who is typing gets a "Join" toast, by the same
+   `myEditAt` rule Bring everyone already uses (design note §12.3). Opening Present for yourself
+   stays a solo action. *(Round 2 said "everyone joins at once" from any member; the trio showed
+   it was a griefing channel and that a typist's keystrokes would fire Present's shortcuts.)*
+6. **Narration rides the call; clips go direct.** Members on the call hear the presenter's
+   narration mixed into the presenter's call audio, so no speaker plays it twice and nobody's
+   mic is turned down. Members off the call get compressed clips straight from the presenter on
+   their own rate-limited channel. No swarm. *(Round 2 said clips from any holder with a hash
+   check; the trio showed the gain at four members is small and the surface large, §9.)*
+7. **Show me plays on every screen at once.** The teacher presses a tour, and every member's
+   Studio plays the same tour at the same moment, with no extra taps (§7.5). *(Round 2 said "a
+   temporary copy" of the shared deck; the trio showed the only tour starts by creating a new
+   deck, which ends the session.)*
+8. **Pointers are always shown, with a switch.** "Show my pointer" in Your settings, on by
+   default.
 
-## 6. Present, narration, Show me and pointers (owner, 2026-10-20, second round)
-
-The owner widened the ask the same day: share the Present experience with its narration, Guide
-and captions; share Show me so someone can teach Lattice with little effort; and show each
-person's mouse and actions. Showing must go through Vetrina, so nobody takes over anyone's real
-mouse. All of it has to be safe: no peer can make your browser upload a file, or write to or
-read from your Library.
-
-### 6.1 The safety model — the receiver decides
+## 6. The safety model — the receiver decides, and every message has a named sender
 
 Roles are cooperative in a peer-to-peer mesh (design note §5.4): a modified client can send
-anything. So every rule below is enforced by the **receiving** browser, the way the awareness
-whitelist already is, and holds against a hostile peer.
+anything, and Tavola delivers a post from any admitted member, viewers included
+(`tavola/session.ts:1012`). So every rule below is enforced by the **receiving** browser and
+holds against a hostile peer, including the host.
 
-1. **Remote input is display only.** No peer message ever becomes a DOM event, and no peer
-   message calls a Studio setter, except through rule 2.
-2. **One closed allowlist of navigation intents**, validated on receipt against fixed enums:
-   slide index, panel id, view, Present open or closed, transport position. Present applies to
-   everyone (§6.2); the rest applies only while you follow that person. Anything else is dropped.
-3. **Never on the list:** file pickers, Library writes or deletes, import, export, downloads,
-   clipboard, AI calls, keys, settings, mic and camera, opening a link, installing a plugin.
-4. **A peer cannot start a tour on your machine.** Tours run only from Lattice's own code, started
-   by a click in your own browser (§6.4).
-5. **Nothing reaches your storage without your click.** A deck's Library records and narration
-   clips that arrive in a session are held in memory for the session. "Save to my Library" is a
-   local action.
-6. **Nothing leaves your Library because of what a peer typed.** Slice 1 sends the host's records
-   the deck uses, so an editor who types `theme: <a private theme name>` into the deck would make the
-   host's browser send it. The host sends only the records the deck used when sharing started; a
-   record a peer's edit newly names asks the host first: "Amina's edit uses your saved theme
-   'Acme Brand' — share it?" The same rule covers any other local resource a peer could name.
+1. **Remote input is display only.** No peer message becomes a DOM event or calls a Studio
+   setter, except through rule 3.
+2. **Every message type names who may send it**, checked on receipt against the roster, the way
+   summon already counts only from the host:
 
-### 6.2 Present together
+   | Message | Sender |
+   |---|---|
+   | Look, Library records | The host |
+   | Present to everyone, Show me start, transport | The host, or a member the host allows |
+   | Narration clip | The current presenter |
+   | Activity, pointer, AI activity | The member it describes |
 
-**Everyone joins at once (owner).** When a member opens Present, Present opens on every screen,
-following the presenter. Nothing is lost by it: the deck lives in the shared `Y.Text`, so a
-member mid-edit keeps their text and caret. Each viewer has **Leave presentation**, and a
-"Rejoin" chip while it runs.
+3. **One closed allowlist of navigation intents**, validated against fixed enums on receipt: slide
+   index, panel id, view (applied only while you follow that person); Present open or closed, a
+   tour id from the shipped list, a transport position (applied as a room event, §5.5 and §5.7).
+   Anything else is dropped.
+4. **Never on the list:** file pickers, Library writes or deletes, import, export, downloads,
+   clipboard, AI calls, keys, settings, mic and camera, opening a link or window, installing a
+   plugin.
+5. **Nothing reaches your storage without your click.** Library records and narration clips that
+   arrive in a session are held in memory, with a size cap and least-recently-used eviction, and
+   dropped when it ends. "Save to my Library" is a local action. (The deck text itself is the
+   exception, as today: a guest's linked copy is saved, design note §5.5.)
+6. **Nothing leaves your Library because of what a peer typed.** The host sends only the records
+   the deck used when sharing started (the baseline). A record a peer's edit newly names asks the
+   host first: "Amina's edit uses your saved theme 'Acme Brand' — share it?" The baseline is kept
+   in the host's sealed save and handed to the heir, so a reload or a takeover cannot recompute it
+   from a deck an attacker shaped; an heir starts from an empty baseline for its own records. The
+   guard covers every name the host's browser resolves from local storage, not only the three in
+   `deckPackages`: `asset:` photos (`StudioShell.tsx:2376`), zip plugins resolved by fence name
+   (`:1266`), and code packages resolved by class name.
+7. **No peer can spend your money.** Only the presenter synthesizes narration, on their own key.
+   The narrated text is frozen when Present starts; an edit during the run re-quotes the cost and
+   the presenter approves it. A per-run character budget caps the rest.
+8. **Received bytes are bounded before they are parsed.** Tavola sets Trystero's
+   `maxReceiveBytes` to its own `MAX_MESSAGE` (4 MB, `session.ts:181`); today it is left at the
+   library default (`adapters/trystero.ts:172`). A clip's duration is checked against what its
+   text length predicts, from the header, before `decodeAudioData`, because a 4 MB clip at 8 kbps
+   decodes to about 800 MB of samples.
+9. **Labels are local strings.** "Amina opened Library" is built from an enum and the roster
+   name, never from text a peer sent. Names are deduplicated with look-alike characters folded,
+   and room events are labeled by role ("Host: presenting").
 
-**What travels is a transport, not pixels.** Narration, captions and Guide all derive from the
-deck plus a position in time (`present-guide.ts`, `PresentCaption.tsx`, the Cadenza track). The
-presenter publishes slide, build step, play or pause and the track position, stamped on the
-session clock (`session.now()`, design note §5.7). Each member renders captions and Guide locally
-from the same deck and the same clips, so they line up exactly with what that member hears. CC,
-Voice and Guide stay per-viewer switches (they are accessibility settings, tier 2 in spirit).
+## 7. How each piece works
 
-### 6.3 Narration — the presenter's voice, sent once, shared by everyone
+### 7.1 Deck truth (slice 1)
 
-**The owner's call: the presenter's narration is the voice everyone hears, and the audio travels
-with the timing track.** The design that follows from how narration already works:
+As §5.1, §5.2 and §6 rule 6. Slice 1 ships in two parts: 1a the frozen look, 1b the CSS records
+through the import gate.
 
-- **Synthesized once, on the presenter's key.** OpenRouter TTS costs money and Lattice is
-  bring-your-own-key, so only the presenter's browser ever synthesizes. Members never call TTS.
-  Clips the presenter already rehearsed come from their clip store (`narration-store.js`) at no
-  cost, and the export bake (`narration-bake.ts`) already prices what is missing; the same
-  `measureNarration` quote runs before a narrated session starts.
-- **Sent as data, not through the call.** Each clip is already a compressed file under a
-  content-complete key (64 kbps by default, `lib/core/narration-encode.mjs:56`). The presenter
-  publishes a manifest per slide: each clip's key, its byte length and a SHA-256 of its bytes.
-  Members fetch clips ahead of playback, the way Present's warm-ahead already prefetches the next
-  slide, and schedule each clip on the session clock.
-- **Why not through the call:** a mic path carries call quality (about 32 kbit/s Opus tuned for
-  speech, roadmap §3.1), needs everyone on the call, and feeds back when a speaker's output reaches
-  a listener's microphone.
-- **Shared load, like a swarm.** Every member who holds a clip can serve it. A member asks the
-  holders in turn instead of always the presenter, and checks the SHA-256 before playing, so a
-  peer cannot substitute audio (BitTorrent's piece hash, at our scale). The honest size of the
-  win: at 64 kbps a 20-minute talk is about 9.6 MB of narration, and in a four-person mesh the
-  presenter alone would upload about 29 MB. With sharing, the presenter uploads each clip roughly
-  once (about 9.6 MB) and the others relay the rest. It matters most for a presenter on a phone or
-  cellular, and for prefetch bursts. Rarest-first piece selection and trackers are not needed in a
-  fully connected mesh of six.
-- **Synchronization.** Every member starts each clip at the same session-clock time. The skew
-  between members is the clock estimate's error (Cristian's algorithm, half the best round trip),
-  expected in the tens of milliseconds. Captions and Guide on each screen follow that screen's own
-  audio, so they are never out of step locally.
-- **Feedback.** Narration that plays on a member's speakers can reach their microphone on the call
-  and be heard twice. The mitigation is to lower each member's outgoing mic level while narration
-  plays (Suono's `gainStream`, already used for Mic level, design note §12.3), and to let browser
-  echo cancellation handle the rest. Whether Chromium and Safari cancel page-played audio from the
-  mic is UNVERIFIED and is the first thing to measure on a real two-browser call.
+### 7.2 Present together
 
-### 6.4 Show me, shared
+**What travels is a transport, not pixels.** Captions and Guide derive from the deck plus a
+position in time (`present-guide.ts`, `PresentCaption.tsx`, the Cadenza track). The presenter
+publishes slide, build step, play or pause and track position, stamped on the session clock
+(`session.now()`, design note §5.7). Each member renders captions and Guide locally. A late
+joiner or a returning phone gets a snapshot of the current transport on join, the way chat uses
+`tip` and `since`. CC, Voice and Guide stay each viewer's own switches.
 
-**A temporary copy (owner).** A tour or lesson in a session runs on a scratch deck: a second shared
-text in the same session document (`Y.Text('scratch')`), seeded from the deck. Every member
-switches to it when the teacher starts and back when the run ends. The real deck is never touched.
+**Present opened by a room event takes no keys until you click into it.** Today Present's window
+`keydown` handler has no editable-target guard (`PresentOverlay.tsx:1883`), so a member typing
+when Present lands would fire `f` (fullscreen) and `s` (a Stage window). A member's Present moves
+focus out of the editor and ignores the keyboard map until that member clicks it.
 
-The tour runs only in the teacher's browser, with the teacher's setters (`use-studio-demo.ts`).
-Members see its effects three ways: the scratch deck's edits through sync, panel and view changes
-through the Present-style "everyone follows" rule for the length of the run, and the teacher's
-Vetrina cursor and caption redrawn locally as theater (§6.5). Narration of the tour's captions
-follows §6.3. A member's own click ends their view of the run for them only (Vetrina's take-over
-rule, applied per viewer); the teacher's run continues.
+**iPhones need one tap to play sound** (`read-aloud.ts:950`, the stage unlocks only inside a
+tap). A Present opened by a room event shows captions at once and a "Tap to listen" button.
 
-### 6.5 Pointers and actions
+**Prerequisite:** `followups.d/2704-p2-present-follows-the-hub.md`. Present seeds from an
+authored-chunk index and drifts on heading-split decks, so a transport keyed by slide index would
+put members on the wrong slide until 2704 lands.
 
-**Always shown, with a switch (owner).** Each member's pointer is a Vetrina overlay on the others'
-screens, in the bare pointer layer mode (`caption: 'none'`, Vetrina README), so it is
-`pointer-events: none` and cannot click. A position travels as an address, not pixels, because
-layouts differ by width: over a slide, slide coordinates; elsewhere, the nearest element with a
-stable `data-demo` or guide handle plus an offset inside it. A click travels as an action name
-and its target ("opened Library") and shows as Vetrina's click gesture plus a label. It never
-dispatches. "Show my pointer" joins the switches in Your settings; it ships on by default.
-Pointer updates ride a Tavola post at most about 20 a second, not awareness, which re-sends the
-whole state on every change.
+### 7.3 Narration — the presenter's voice, made once
 
-## 7. Slices
+- **Made once, on the presenter's key.** Lattice is bring-your-own-key, so a member without a key
+  cannot synthesize at all; the presenter must. The money is small (Kokoro lists at about $0.62
+  per million characters, `playground/tts-cost.js:16`, so a 20-minute talk of about 18,000
+  characters costs about a cent), but it is still the presenter's, so §6 rule 7 applies.
+  Rehearsed sentences come from the presenter's clip store (`narration-store.js`) at no cost, and
+  `measureNarration` (`narration-bake.ts:573`) quotes the rest before the run.
+- **Prepared before it plays.** `read-aloud.ts` synthesizes each sentence as it plays, so a member
+  would trail the presenter by synthesis plus transfer time. Narrated Present together prepares the
+  presenter's clips first; until they are ready, members get captions only.
+- **Members on the call hear it through the call.** The presenter's Suono stage already routes
+  the call send through a Web Audio graph (`gainStream`, design note §12.3); the narration is
+  mixed into that send. One speaker path per listener means no echo and no mic ducking, and
+  speech at call quality (Opus at about 32 kbit/s, roadmap §3.1) is clear. Whether the mix
+  sounds right on a real call is UNVERIFIED and is slice 3's first measurement.
+- **Members off the call get clips direct.** The clip store keeps what the engine returned, not a
+  compressed copy (`narration-bake.ts:771-794`): Kokoro and Gemini return raw 24 kHz WAV, about
+  7.7 times the size of the 64 kbps the bake writes (`lib/core/narration-encode.mjs:56`). So the
+  presenter compresses each clip before sending (about 107 ms a sentence, `narration-bake.ts:794`)
+  and sends it on its own Trystero action with backpressure on `bufferedAmount`. Today every post
+  shares one ordered channel (`adapters/trystero.ts:174`), and a clip burst would stall edits and
+  pointers behind it. Clips are addressed by content hash, served only from the current run's
+  set, never by text key from the presenter's store (`voice-model.js:273-275` keys are plaintext,
+  so serving by key would let a member probe the presenter's other decks).
+- **Sync is at sentence boundaries.** Each member's captions and Guide follow that member's own
+  audio. Bluetooth output adds a delay the page cannot measure (`read-aloud.ts`), so the target is
+  the presenter-to-member lag, re-synced at each sentence, not a cross-member skew nobody hears.
+- **Size, measured by arithmetic:** at 64 kbps a 20-minute talk is about 9.6 MB per member off the
+  call. With at most three other members that is at most about 29 MB of upload for the presenter,
+  only for members off the call.
 
-Each is one PR; 1 is a bug fix and goes first.
+### 7.4 Why the swarm was cut
+
+Round 2 asked for clips shared by any holder, like BitTorrent. The trio showed: a session holds at
+most four people, so the saving is at most two copies of the narration (about 19 MB in 20 minutes,
+about 0.13 Mbit/s); the hash check exists only to make relaying safe; holders serving from their
+store become an oracle for other decks' sentences; and every new binary request protocol is another
+surface for oversized or slow messages. The call mix removes most clip traffic anyway. If sessions
+grow past four (roadmap §2, an SFU), revisit it there.
+
+### 7.5 Show me on every screen at once
+
+The teacher presses a tour. Their browser sends one room event: the tour id, from the shipped list
+(`tours/index.ts`), and a start time on the session clock. Every member's browser runs that tour
+itself, at that moment.
+
+- **On a local practice deck.** A session-mode tour binding replaces the steps that would leave
+  the session or touch shared state: `createFirstDeck` (`tours/tour-kit.ts:93`) opens a local,
+  unsaved practice deck instead of a real one, so the session's deck binding
+  (`live-controller.ts:1176`) never sees a deck switch; typing goes to the practice deck, never
+  `Y.Text('source')`; the palette and mode the tour sets (the `applyPalette` and `toggleMode` bindings, restored at
+  `use-studio-demo.ts:178-179`) are left alone,
+  because the look is frozen (§5.1); the deck menu, Share and the Architect are not opened.
+- **Why this is safe** although a peer starts it: the tour is code that ships with Lattice, the
+  message carries only an id from a fixed list, and the practice deck is thrown away at the end.
+  The real deck, the session and each member's Library are untouched.
+- **Every screen in step.** Each member's Vetrina run follows its own layout, so a phone gets the
+  phone storyboard. The run starts at the same session-clock time; a member who clicks takes over
+  their own run only (Vetrina's take-over rule), and the others continue. iPhones show captions and
+  "Tap to listen".
+
+### 7.6 Pointers and actions
+
+Pointers are not Vetrina cues: `stage.point()` is an eased glide for choreographed tours, and cues
+call `reveal()`, which scrolls the page (`vetrina/stage.ts:1478`). A remote pointer is one plain,
+absolutely positioned element per member, with `pointer-events: none`, drawn in Vetrina's cursor
+style. It shows over a slide in slide coordinates; elsewhere it shows as a label on that member's
+avatar ("in Library"). Updates ride a Tavola post at about 10 a second, with interpolation, and
+never scroll. A click travels as an action name from an enum and shows as Vetrina's click ripple
+plus a local label. Nothing a peer sends becomes a selector.
+
+## 8. Slices
+
+Each is one PR; 1 is a bug fix and goes first. Slices with a security surface get the adversarial
+trio (HARD RULE #25, `engineering/orchestration.md` tier 2).
 
 | # | Slice | Done when | Verify |
 |---|---|---|---|
-| 1 | Deck truth: host's look, Library package sync, CSS sanitized, trust prompt for code, the §6.1 rule 6 guard | Two real browsers with different palettes, modes and Libraries render pixel-equal previews of a deck using a saved theme, finish and component; a guest who types a new private name gets nothing until the host agrees | Tier 1 checker (a new untrusted-CSS sink and a code-trust prompt); two-browser screenshots |
-| 2 | Activity, wide Follow, pointers and actions (§6.5), the receiver allowlist (§6.1) | Avatars show panel, view and presenting; Following mirrors them; pointers land on the same element at 1440/820/390; a forged post outside the allowlist does nothing | Two-browser check at three widths; a test that replays forged posts |
-| 3 | Present together with shared narration (§6.2, §6.3) | Everyone's Present follows the presenter; clips synthesized once and fetched from any holder with a hash check; members start each clip within a measured skew; the feedback mitigation measured | Two-browser check; skew and echo measured on a real call; a grep shows no member calls TTS |
-| 4 | Show me on a scratch deck (§6.4) | A tour run by one member plays on every screen, the real deck is byte-identical afterward | Two-browser check |
-| 5 | AI activity and share | "asking the AI", the applied-edit line, Share-a-turn card | Two-browser check; no key or cost leaves the browser (grep the posts) |
-| 6 | Comments sync | Comments ride a `Y.Array`, per the comments note | Tracked by the existing comments follow-up |
+| 1a | The frozen look (§5.1) | Reproduced first; then two real browsers with different palettes and modes render pixel-equal previews of an un-themed deck, through a host drop and a takeover | Tier 1 checker; two-browser screenshots |
+| 1b | Library records (§5.2, §6 rules 5, 6, 8) | A deck using a saved theme and finish renders pixel-equal; a guest who types a new private name gets nothing until the host agrees; code components fall back with a label | Adversarial trio; two-browser screenshots |
+| 2 | Activity, wide Follow, pointers, sender rules and allowlist (§6, §7.6) | Avatars show panel, view and presenting; Following mirrors them at 1440/820/390; a forged post from the wrong sender or outside the allowlist does nothing | Adversarial trio; a test that replays forged posts; two-browser screenshots at three widths |
+| 3 | Present together and narration (§7.2–7.3) | Host starts it; idle members join, a typist gets a toast; keys stay inert until clicked; the call mix and direct clips work; no member calls TTS | Adversarial trio; two-browser recording at phone and desktop width; the call mix measured on a real call. Needs 2704 first |
+| 4 | Show me on every screen (§7.5) | A tour started by one member plays on every screen at once, and the shared deck is byte-identical afterward | Tier 1 checker; two-browser recording |
+| 5 | AI activity and share (§5.3) | "asking the AI", the applied-edit line, a Share-a-turn card | Tier 1 checker; a grep shows no key or cost leaves the browser |
+| 6 | Comments sync | Comments ride a `Y.Array`, per the comments note | `followups.d/2810-p4-live-comments-sync.md` |
 
-Present-with-audience (`2547-p3-live-present-with-audience.md`, retired here) becomes slice 3, tracked by `followups.d/2810-p2-live-present-together-with-shared-narration.md`.
+## 9. What the adversarial trio found (2026-10-20)
 
-## 8. What is not verified
+**Checker.** No gate rejects the note (`build:check`, `check-ownership`, lint, the follow-up and
+US-English tests). It refuted four claims, all corrected above: clips are not stored compressed;
+mic state is a post, not awareness; a session caps at four, not six; `deckPackages` is at `:3674`.
+It found the tiers contradicted §6 on Present (now tier 4) and that security slices needed the
+trio, not a single checker.
 
-- §3 is read from code, not reproduced. Slice 1's first step is the reproduction.
-- Echo cancellation of page-played narration (§6.3) and the clip-start skew between members are
-  not measured.
-- Sending a deck's Library records costs bandwidth once per join; not measured. A saved theme
-  is CSS (kilobytes); a component package can carry assets.
+**Inversion.** "Uniform" had been read as "every screen does the same thing at once", which
+undid the 10-06 rule that nobody is moved while typing. It showed narration fails silently on
+iPhones without a tap, local playback beside open mics creates the echo it then tries to fix, the
+swarm buys little at four members, the tour code cannot run on a shared copy, and Present's slide
+index drifts on heading-split decks (2704). Each led to a change in §5 or §7.
+
+**Red team.** §6 said what a message may do, not who may send it; the sender table is the fix.
+It found: an editor could make the presenter pay for narration by churning text (§6 rule 7); a
+4 MB clip can decode to about 800 MB, and `maxReceiveBytes` is unset (rule 8); Present opened by a
+peer turns a typist's keys into fullscreen and window opens (§7.2); `sanitizeStyleText` lets a
+peer's theme fetch (§5.2); the rule 6 baseline did not survive a reload or a takeover, and missed
+photos, plugins and code packages; serving clips by text key would leak other decks; labels and
+names could be spoofed (rule 9); Vetrina cues scroll the page (§7.6). Held: posts from strangers
+and removed members are dropped, viewers' document updates are dropped, a peer cannot post under
+another's id, and a deck `style:` with a remote `@import` is stripped (run).
+
+## 10. What is not verified
+
+- §3 is read from code, not reproduced. Slice 1a's first step is the reproduction.
+- The call mix (§7.3), the iPhone tap (§7.2), and a Present opened by a room event on a phone have
+  not run on a real device.
+- The red team's findings on keys (§7.2), theme fetches (§5.2) and scrolling (§7.6) are reasoned
+  from code, not run in a browser.
+- Sending a deck's Library records costs bandwidth once per join; not measured.
