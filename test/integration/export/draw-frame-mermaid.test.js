@@ -100,7 +100,7 @@ test('CORPUS + SANITIZE: every diagram draws in the frame, and the diagram sanit
     assert.ok(figures.some((f) => f.includes('<style')), 'the corpus holds scoped sheets');
     const page = await browser.newPage();
     await page.setContent('<!doctype html><body></body>');
-    await page.addScriptTag({ path: path.join(ROOT, 'docs/node_modules/dompurify/dist/purify.js') });
+    await page.addScriptTag({ path: require.resolve('dompurify/dist/purify.js') });
     await page.addScriptTag({ content: sanitizerBundle() });
     const diffs = await page.evaluate((figures) => {
       const sanitize = DiagramSan.createDiagramSanitizer(window.DOMPurify, window);
@@ -127,7 +127,7 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
   try {
     const page = await browser.newPage();
     await page.setContent('<!doctype html><body></body>');
-    await page.addScriptTag({ path: path.join(ROOT, 'docs/node_modules/dompurify/dist/purify.js') });
+    await page.addScriptTag({ path: require.resolve('dompurify/dist/purify.js') });
     await page.addScriptTag({ content: sanitizerBundle() });
     const out = await page.evaluate(() => {
       const sanitize = DiagramSan.createDiagramSanitizer(window.DOMPurify, window);
