@@ -2011,3 +2011,42 @@ test('stats: a paragraph after the stat list reaches the article and narration o
 	assert.ok(text.indexOf('Signal recall') < text.indexOf('Source: CRM export'), text);
 	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
 });
+
+test('every layout\'s spoken state words are keyed by the check registry\'s ids', () => {
+	// prose-projection imports no kernel, so WORD_MAPS is the one home of the per-layout words;
+	// the registry (lib/core/state-marks.js CHECKS) owns the answers. A layout that misses an
+	// answer, or invents one, narrates a different set than the registry draws.
+	const { CHECKS, MARKER_LABELS } = require('../../../lib/core/state-marks.js');
+	const fs = require('node:fs');
+	const src = fs.readFileSync(require('node:path').join(__dirname, '../../../lib/transformers/prose-projection.mjs'), 'utf8');
+	const ids = CHECKS.map((c) => c.id).sort();
+	for (const layout of ['checklist', 'verdict-grid', 'pricing', 'obligation-matrix', 'state-cells']) {
+		const m = new RegExp(`(?:'${layout}'|${layout}):\\s*\\{([^}]*)\\}`).exec(src.slice(src.indexOf('const WORD_MAPS')));
+		assert.ok(m, `no WORD_MAPS row for ${layout}`);
+		const got = Object.fromEntries([...m[1].matchAll(/(\w+):\s*'([^']*)'/g)].map((x) => [x[1], x[2]]));
+		assert.deepEqual(Object.keys(got).sort(), ids, layout);
+		if (layout === 'state-cells') assert.deepEqual(got, Object.fromEntries(CHECKS.map((c) => [c.id, MARKER_LABELS[c.marker]])));
+	}
+});
+
+test('a check inside a pill narrates through the layout\'s words, with a space after it', () => {
+	// engineering/decisions/2026-10-18-checks.md §14: the composed grid read "yesResidency,
+	// does not applyAdoption" because narration keyed on `.badge` and the disc's label welded on.
+	const { stateHtml } = require('../../../lib/core/state-marks.js');
+	const { html } = engine.render('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Residency\n  - [/] Adoption\n  - [ ] Calibration\n', 'indaco', {});
+	const sem = { pass: '[x]', skip: '[/]', todo: '[ ]' };
+	const composed = html.replace(/<span class="badge (\w+) state-\w+">([^<]*)<\/span>/g,
+		(_, c, text) => `<span class="lat-pill" data-shape="capsule">${stateHtml(sem[c])}<span class="lat-label">${text}</span></span>`);
+	assert.notEqual(composed, html, 'the badges were replaced');
+	const speak1 = (h) => speak([...new JSDOM(`<body>${h}</body>`).window.document.querySelectorAll('section[data-class]')])[0];
+	const today = speak1(html);
+	assert.match(today, /Residency: yes/);
+	assert.equal(speak1(composed), today, 'the composed grid narrates like today\'s grid');
+});
+
+test('a disc inside a pill is spoken with a space after it, in a layout with no word map', async () => {
+	const { stateHtml } = require('../../../lib/core/state-marks.js');
+	const dom = new JSDOM(`<body><p><span class="lat-pill">${stateHtml('[x]')}Residency</span></p></body>`);
+	const { speechText } = await import('../../../lib/transformers/prose-projection.mjs');
+	assert.equal(speechText(dom.window.document.querySelector('p')), 'yes Residency');
+});
