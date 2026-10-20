@@ -15,6 +15,7 @@ import { ChatCost } from './ChatCost';
 import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigure';
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
+import { ChatTraceDialog } from './ChatTraceDialog';
 import { activitySentence } from './chat-activity';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
@@ -165,8 +166,10 @@ function createPaintScheduler(paint: () => void) {
 
 // The reply still arriving: the only subscriber to the live store, so a painted frame re-renders this bubble and
 // nothing else. `deck` is the deck on screen; text for another deck's turn is not shown (#1787).
-function LiveReply({ store, deck, activity, onGrow }: { store: ReturnType<typeof createLiveStore>; deck: string; activity: string | null; onGrow: () => void }) {
+function LiveReply({ store, thoughts, deck, activity, onGrow }: { store: ReturnType<typeof createLiveStore>; thoughts: ReturnType<typeof createLiveStore>; deck: string; activity: string | null; onGrow: () => void }) {
 	const v = React.useSyncExternalStore(store.subscribe, store.get, store.get);
+	const th = React.useSyncExternalStore(thoughts.subscribe, thoughts.get, thoughts.get);
+	const thought = th && th.deck === deck ? th.text : '';
 	const text = v && v.deck === deck ? v.text : null;
 	React.useLayoutEffect(() => {
 		if (text !== null) onGrow();
@@ -183,6 +186,11 @@ function LiveReply({ store, deck, activity, onGrow }: { store: ReturnType<typeof
 				</div>
 			)}
 			{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
+			{thought && (
+				<p className="truncate text-[11px] italic leading-snug text-muted-foreground" data-testid="chat-live-thought">
+					{thought}
+				</p>
+			)}
 			<ChatLiveStatus label={activity ?? (text === '' ? THINKING : 'Writing…')} progress={`${activity ?? ''}|${text.length}`} />
 		</div>
 	);
@@ -292,6 +300,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const [streamingDeck, setStreamingDeck] = React.useState<string | null>(null);
 	const liveStore = React.useRef<ReturnType<typeof createLiveStore>>(null as never);
 	if (!liveStore.current) liveStore.current = createLiveStore();
+	// The model's thinking while it streams (a provider that sends it), tail-clipped to one line for the live bubble. A store of
+	// its own, for the same reason the reply has one: only the bubble re-renders. Written at most every 250 ms.
+	const thoughtStore = React.useRef<ReturnType<typeof createLiveStore>>(null as never);
+	if (!thoughtStore.current) thoughtStore.current = createLiveStore();
+	const thoughtBuf = React.useRef('');
+	const thoughtTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [traceIdx, setTraceIdx] = React.useState<number | null>(null);
 	// What the agent is doing between replies ("Reading a component…"), for the live bubble.
 	// Panel state like `streaming`, cleared with it when the turn ends.
 	const [liveActivity, setLiveActivity] = React.useState<string | null>(null);
@@ -366,6 +381,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		return () => {
 			mountedRef.current = false;
 			paintRef.current.cancel();
+			if (thoughtTimer.current) {
+				clearTimeout(thoughtTimer.current);
+				thoughtTimer.current = null;
+			}
 			// NOTE: we deliberately do NOT abort on unmount — the request keeps completing
 			// and commits to its originating deck (the survival contract). Only Stop aborts.
 		};
@@ -439,6 +458,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		bufferRef.current = '';
 		liveDeckRef.current = sendDeckId;
 		liveStore.current.set({ deck: sendDeckId, text: '' });
+		thoughtBuf.current = '';
+		thoughtStore.current.set(null);
 		setStreamingDeck(sendDeckId);
 		const onToken = (tok: string) => {
 			bufferRef.current += tok;
@@ -470,7 +491,15 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const onActivity = (label: string) => {
 				if (mountedRef.current) setLiveActivity(label);
 			};
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
+			const onReasoning = (t: string) => {
+				thoughtBuf.current = (thoughtBuf.current + t).slice(-400);
+				if (thoughtTimer.current) return;
+				thoughtTimer.current = setTimeout(() => {
+					thoughtTimer.current = null;
+					if (mountedRef.current) thoughtStore.current.set({ deck: sendDeckId, text: thoughtBuf.current.replace(/\s+/g, ' ').trim().slice(-200) });
+				}, 250);
+			};
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -495,7 +524,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			} else if (out.status === 'blocked') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
-				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}), ...(out.usage ? { usage: out.usage } : {}) }]);
+				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}), ...(out.usage ? { usage: out.usage } : {}), ...(out.trace ? { trace: out.trace } : {}) }]);
 			}
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
@@ -516,6 +545,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			if (mountedRef.current) {
 				setBusy(false);
 				liveStore.current.set(null);
+				thoughtStore.current.set(null);
 				setStreamingDeck(null);
 				setLiveActivity(null);
 				setPulse((p) => p + 1);
@@ -796,6 +826,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
 							{m.activity?.length ? <p className="text-[11.5px] leading-snug text-muted-foreground">{activitySentence(m.activity)}</p> : null}
+							{m.trace ? (
+								<button type="button" onClick={() => setTraceIdx(i)} className="self-start text-[11px] font-medium text-[var(--accent)] hover:underline">
+									Show work
+								</button>
+							) : null}
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
@@ -806,7 +841,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						</div>
 					),
 				)}
-				{live && <LiveReply store={liveStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
+				{traceIdx !== null && messages[traceIdx]?.trace && <ChatTraceDialog trace={messages[traceIdx].trace as NonNullable<ChatMessage['trace']>} usage={messages[traceIdx].usage} open onOpenChange={(v) => !v && setTraceIdx(null)} />}
+				{live && <LiveReply store={liveStore.current} thoughts={thoughtStore.current} deck={deckId} activity={liveActivity} onGrow={followLive} />}
 				{shownNotice && (
 					<div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed', shownNotice.kind === 'blocked' ? 'border-[var(--warn,#9a6a00)]/40 text-[var(--warn,#9a6a00)]' : 'border-border text-muted-foreground')}>
 						<TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

@@ -694,6 +694,28 @@ export type ChatUsage = {
 	model: string;
 };
 
+/** One command the agent ran: its name, the arguments it sent, and a short form of what came back. */
+export type ChatTraceCall = { name: string; args: string; result: string };
+
+/** One model call within a reply. `reasoning` is the model's own thinking when its provider streams it. */
+export type ChatTraceRound = {
+	reasoning?: string;
+	/** The prose the model wrote beside its tool calls (or its final answer). */
+	text?: string;
+	calls: ChatTraceCall[];
+	cost: number;
+	/** This call's input and output tokens. */
+	prompt: number;
+	completion: number;
+};
+
+/** Everything "Show work" lists for a reply. Bounded by `boundTrace` (chat-trace.ts) before it is saved. */
+export type ChatTrace = {
+	rounds: ChatTraceRound[];
+	/** Estimated tokens by part of the FIRST call's input — what we sent, not what we were billed (the billed total is `usage.prompt`). */
+	sent: { primer: number; deck: number; history: number; tools: number; docs: number; photos: number };
+};
+
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
@@ -717,6 +739,8 @@ export type ChatMessage = {
 	activity?: string[];
 	/** Assistant turn only: cost and context fill for this reply (ChatUsage). Never sent back to the model. */
 	usage?: ChatUsage;
+	/** Assistant turn only: the rounds behind this reply — reasoning, commands, per-call cost (ChatTrace). Never sent back to the model. */
+	trace?: ChatTrace;
 };
 
 export function loadChat(deckId: string): ChatMessage[] {

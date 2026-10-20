@@ -206,3 +206,20 @@ describe('the loop hands pictures over', () => {
 		expect(second[second.length - 2].role).toBe('tool');
 	});
 });
+
+describe('onRound reports each model call with its commands', () => {
+	it('lists the commands with their arguments and results, then the final answer with none', async () => {
+		const call = (name: string, args: string): ToolCall => ({ id: `c-${name}`, function: { name, arguments: args } });
+		let n = 0;
+		const complete: AgentComplete = async () => {
+			n++;
+			return n === 1 ? { text: 'Looking.', toolCalls: [call('list_assets', '{"q":"door"}')], truncated: false } : { text: 'Done.', toolCalls: [], truncated: false };
+		};
+		const rounds: { text: string; calls: { name: string; args: string; result: string }[] }[] = [];
+		await runAgentLoop({ complete, messages: [{ role: 'user', content: 'x' }], toolbox: { run: async (name) => `ran ${name}` }, onRound: (r) => rounds.push(r) });
+		expect(rounds).toEqual([
+			{ text: 'Looking.', calls: [{ name: 'list_assets', args: '{"q":"door"}', result: 'ran list_assets' }] },
+			{ text: 'Done.', calls: [] },
+		]);
+	});
+});

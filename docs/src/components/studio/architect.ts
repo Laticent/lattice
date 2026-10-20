@@ -243,7 +243,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high' }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high' }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -1305,7 +1305,7 @@ export type ProposedEdit = {
 	diff: DiffRow[];
 };
 export type ChatResult =
-	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage }
+	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage; trace?: import('./studio-store').ChatTrace }
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
 
@@ -1436,7 +1436,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; /** The model's own thinking as it streams, on a provider that sends it. */ onReasoning?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or

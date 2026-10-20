@@ -949,6 +949,8 @@ export async function runAgentLoop(opts: {
 	toolbox: { run(name: string, args: string): Promise<string>; settled?(): boolean; takeImages?(): { name: string; url: string }[]; setLastRoundNext?(v: boolean): void };
 	onToken?: (t: string) => void;
 	onTool?: (name: string) => void;
+	/** Called once per model call, after its tool calls ran: the prose it wrote and each command with its arguments and result. */
+	onRound?: (r: { text: string; calls: { name: string; args: string; result: string }[] }) => void;
 	signal?: AbortSignal;
 	maxRounds?: number;
 }): Promise<AgentTurn> {
@@ -981,9 +983,13 @@ export async function runAgentLoop(opts: {
 		// A transport that did not stream (or streamed nothing) still returned its prose.
 		if (!wroteAny && out.text) onToken(out.text);
 		if (out.truncated) truncated = true;
-		if (!out.toolCalls.length) break;
+		if (!out.toolCalls.length) {
+			opts.onRound?.({ text: out.text, calls: [] });
+			break;
+		}
 		if (last) {
 			hitRoundCap = true;
+			opts.onRound?.({ text: out.text, calls: [] });
 			break;
 		}
 		msgs.push({ role: 'assistant', content: out.text || null, tool_calls: out.toolCalls });
@@ -991,15 +997,18 @@ export async function runAgentLoop(opts: {
 		opts.toolbox.setLastRoundNext?.(rounds === max - 1);
 		let clean = !!opts.toolbox.settled && !out.truncated;
 		const summaries: string[] = [];
+		const ran: { name: string; args: string; result: string }[] = [];
 		for (const call of out.toolCalls) {
 			const name = call.function?.name ?? '';
 			opts.onTool?.(name);
 			const result = await opts.toolbox.run(name, call.function?.arguments ?? '');
+			ran.push({ name, args: call.function?.arguments ?? '', result });
 			msgs.push({ role: 'tool', tool_call_id: call.id, content: result });
 			clean = clean && EDIT_TOOLS.has(name) && !!opts.toolbox.settled?.();
 			const said = editSummary(call.function?.arguments);
 			if (said && !summaries.includes(said)) summaries.push(said);
 		}
+		opts.onRound?.({ text: out.text, calls: ran });
 		// Pictures the model asked to see ride in one user turn after the tool results.
 		const images = opts.toolbox.takeImages?.() ?? [];
 		if (images.length) msgs.push({ role: 'user', content: imageTurn(images) });
