@@ -1,7 +1,7 @@
 # logo
 
-> Discreet author-supplied brand mark in the top-right corner. One
-> line of front matter, every theme.
+> Discreet author-supplied brand mark, top-right by default. One
+> line for the file, one for the style, every theme.
 
 **Feature tier** base / chrome — applies to every layout that has slide chrome.
 
@@ -23,33 +23,41 @@
 
 ## Authoring
 
-Six front-matter directives — one required, five optional:
+Two front-matter lines: the file, and one line that styles it.
 
 ```yaml
 ---
 marp: true
 theme: indaco
-logo: sample:logo-acme-mark.svg            # required — path to the image, relative to the deck
-logo-style: auto | brand         # optional, default `auto`
-logo-on: all | title             # optional, default `all`
-logo-x: 50                       # optional — 0–100, the mark's CENTER as a % of the slide
-logo-y: 82                       # optional — 0–100, ditto, vertically
-logo-scale: 1.0                  # optional — size multiplier, default 1
+logo: sample:logo-acme-mark.svg      # the file — a path, a URL, or a built-in name
+logo-finish: bottom-center accent-ink lg   # optional — one word per axis, autocompleted
 ---
 ```
 
-| Directive | Values | Behavior |
-|---|---|---|
-| `logo:` | image path or URL | **Required to activate.** A relative path resolves against the deck source (but see the output-directory gotcha below). An absolute `https://`, protocol-relative `//` or `data:` value is used verbatim and works cross-origin — nothing in the engine, the sanitizer or the docs site filters it. A site-relative `/mark.svg` is re-based onto the render's asset origin on the web-preview path (`resolveInlineImageSrcs`), which on the shipped Studio is the page's own origin. SVG and PNG both work. |
-| `logo-style:` | `auto` (default), `brand` | `auto` → faint grayscale watermark, brightness-inverted on dark canvases. `brand` → original colors on a soft surface plate. Use `brand` only for marks whose colors carry meaning (government insignia, university crests). |
-| `logo-on:` | `all` (default), `title` | `all` → logo on every slide. `title` → only on the title slide — meaning the deck's first slide, or any slide carrying the `title` class. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first and the mark is painted on a slide the export does not carry it on; see the note below the table. |
-| `logo-x:` | `0`–`100` | The mark's **center**, as a percentage of the slide width. Unset → the mark hugs the top-right corner at the frame inset. Setting either axis switches the mark from corner-hugging to centered-on-its-point. |
-| `logo-y:` | `0`–`100` | The same, vertically. `logo-y: 82` puts the mark's center 82% of the way down the slide — a common placement for a title-slide watermark under the lede. |
-| `logo-scale:` | multiplier, default `1` | Scales the mark. The base size is `6.25cqi × 4cqi`, so the mark stays resolution-independent at any scale. |
+The logo shows on every slide whenever `logo:` is set. A slide hides it with `_class: no-logo`.
 
-**`logo-on: title` reads firstness from the DECK, not from the document.** A single-slide render
+`logo-finish:` takes up to one word per axis, in any order (the register is
+`lib/core/resolve-logo-finish.js`; the editor completes each word):
+
+| Axis | Words (default first) | Behavior |
+|---|---|---|
+| placement | `top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right` | The berth. **Naming one clears the chrome in that band**: a top berth hides the running header and the meta line, `bottom-left` and `bottom-center` hide the footer text, `bottom-right` hides the page number and the progress rail. The brand wins every collision, so there is nothing to de-collide. Writing no placement word keeps today's top-right mark beside the header; writing `top-right` explicitly clears the header too. |
+| color | `auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas` | `auto` is the faint watermark that flips on a dark canvas. A palette role or a closed 50/50 blend paints the mark that color through a per-slide SVG filter (flood the color, keep the mark's own alpha), so the same word reads right in light and dark and under every finish. `brand` keeps the file's own colors on a soft plate (use it for marks whose colors carry meaning: insignia, crests). A tinted mark is fully opaque. |
+| size | `md` `sm` `lg` | `md` is the base size, `6.25cqi × 4cqi`; `sm` is 0.75× and `lg` 1.5×. |
+| scope | `all` `title` | `title` shows the mark only on the deck's first slide and any slide using the `title` layout. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first; see the note below. |
+
+The words are class tokens on the section, so a slide can also change one axis for itself:
+`_class: logo-ink` recolors the mark on that slide and leaves the deck's placement and size alone.
+`no-logo` is the one switch most decks need.
+
+**Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `chart-finish:`), `logo-on:`,
+`logo-x:`, `logo-y:` and `logo-scale:` are retired and no longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into one `logo-finish:` line and
+deletes them: `logo-style: brand` becomes `logo-finish: brand`, `logo-on: title` becomes the `title` word, `logo-scale` becomes `sm` or `lg`, and a free
+`logo-x`/`logo-y` position snaps to the nearest of the six berths (`50` / `82` is `bottom-center`).
+
+**The `title` scope reads firstness from the DECK, not from the document.** A single-slide render
 is its own document's first section, so until 2026-08-31 slicing slide 8 of a `logo-on: title` deck
-painted the mark on it — the preview showed a logo the export would not. `applyDeckLogoToHtml` now
+painted the mark on it — the preview showed a logo the export would not (it was `logo-on: title` then; it is the `title` scope word now). `applyDeckLogoToHtml` now
 takes the deck offset (the engine passes `page.offset`, the same value `svgA11yNames.applyToHtml`
 already took) and only reads the document's first section as the deck's first when no offset says
 otherwise. A whole-deck render supplies none and is unchanged. Found by the slice-equivalence sweep
@@ -106,9 +114,9 @@ Three render paths, one contract:
 There are **two** implementations, and the emulator is not one of them: it renders
 through `lib/engine`, which runs the engine's pass, so only the runtime is a genuine
 mirror and only it can drift. (The emulator used to re-run the engine's pass a second
-time, post-stamp; that call is gone — see below.) A change to `deckLogoVars` or
-`deckLogoPlacement` must land in the runtime's `applyLogoPlacement` in the same commit
-(HARD RULE #1).
+time, post-stamp; that call is gone — see below.) A change to `applyDeckLogoToHtml`'s
+selection or tint injection must land in the runtime's `applyCachedDeckLogo` in the same commit
+(HARD RULE #1). Both read the one `logo-finish:` register (`lib/core/resolve-logo-finish.js`).
 
 **Until 2026-08-16 the engine row of that table was a claim, not a behavior** (#1652).
 `applyDeckLogoToHtml` selected slides by `data-lattice-slide` — an attribute only the
@@ -138,9 +146,13 @@ Exports are unchanged, measured rather than argued: all five committed logo deck
 (`finish-backdrops`, `marp-export-fidelity`, `frame-chrome-and-notes`, `marker-corner`,
 `logo.gallery`) render **0 changed pixels** against a fresh `main` render, page by page.
 
-Each path emits two things: the `<img class="deck-logo">` as the section's first
-child, and — **on the `<section>`, not on the img** — the `--logo-*` placement
-properties.
+Each path emits the `<img class="deck-logo">` as the section's first child. A slide whose final
+class list carries a tint word (`logo-accent`, `logo-ink-canvas`, …) also gets a zero-size
+`<svg class="deck-logo-tint">` holding that slide's filter, and `--deck-logo-filter` /
+`--deck-logo-opacity` inline **on the `<section>`, not on the img**, so they beat the canvas flip.
+Placement, size and the stand-down of header, footer and page number are pure CSS on the section's
+`logo-*` classes (`base.modifiers.css`). The runtime builds the svg with DOM calls, not markup
+(HARD RULE #22).
 
 CSS lives at `lib/base/base.modifiers.css` — the `img.deck-logo` selector plus the
 dark-canvas brightness flip. The flip is carried by `--deck-logo-filter` /

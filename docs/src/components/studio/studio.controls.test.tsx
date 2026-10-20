@@ -997,7 +997,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await openDeckTab(user, 'Chrome');
 		// The four modifiers are meaningless without a logo, so an empty deck must not
 		// open this tab on four dead rows.
-		expect(screen.queryByRole('combobox', { name: 'Choose which slides carry the logo' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('combobox', { name: 'Choose logo scope' })).not.toBeInTheDocument();
 		const field = await screen.findByRole('textbox', { name: 'Logo' });
 		// `paste`, not `type`: every keystroke re-renders the whole Inspector, so typing a
 		// 16-character path is ~16 full renders and made this the slowest case in the file —
@@ -1007,8 +1007,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.tab();
 		await waitFor(() => expect(source()).toMatch(/logo: \.\/brand\/mark\.svg/));
 		// …and now they appear.
-		await pick(user, 'Choose which slides carry the logo', 'Title slide only');
-		await waitFor(() => expect(source()).toMatch(/logo-on: title/));
+		// All four controls write ONE `logo-finish:` line, a default word left out.
+		await pick(user, 'Choose logo scope', 'Title slide only');
+		await waitFor(() => expect(source()).toMatch(/logo-finish: "?title"?(?![A-Za-z])/));
+		await pick(user, 'Choose logo position', 'Bottom center');
+		await pick(user, 'Choose logo color', 'Accent + ink');
+		await waitFor(() => expect(source()).toMatch(/logo-finish: "bottom-center accent-ink title"/));
+		expect(source()).not.toMatch(/logo-on|logo-at|logo-color/);
 	});
 
 	it('the Meta line writes `meta:`, and clearing the field removes the key', async () => {

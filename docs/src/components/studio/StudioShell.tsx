@@ -108,6 +108,7 @@ import { type PresentLens, presentationIndices, splitSlides, unknownComponents, 
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
+import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -2319,17 +2320,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// mean anything once it is set, so the Inspector hides them until then.
 	const logo = getFrontMatter(source, 'logo') || '';
 	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
-	const logoOn = getFrontMatter(source, 'logo-on') || 'all';
-	const setLogoOn = (value: string) => settingsWrite(`Logo on → ${value}`, (s) => writeFrontMatterLine(s, 'logo-on', value === 'all' ? null : value));
-	const logoStyle = getFrontMatter(source, 'logo-style') || 'auto';
-	const setLogoStyle = (value: string) => settingsWrite(`Logo style → ${value}`, (s) => writeFrontMatterLine(s, 'logo-style', value === 'auto' ? null : value));
-	// Placement + size ride as free numbers (the engine clamps: x/y 0–100 as the logo
-	// CENTER in %, scale 0.2–3). A blank field clears the key back to the default spot.
-	const logoX = getFrontMatter(source, 'logo-x') || '';
-	const logoY = getFrontMatter(source, 'logo-y') || '';
-	const logoScale = getFrontMatter(source, 'logo-scale') || '';
-	const setLogoNum = (key: 'logo-x' | 'logo-y' | 'logo-scale', label: string) => (v: string) =>
-		settingsWrite(label, (s) => writeFrontMatterLine(s, key, v.trim() || null));
+	// ONE line styles it (`logo-finish:`, lib/core/resolve-logo-finish.js): placement, color, size, scope.
+	// A default word is left out and the key goes once every axis is default, like `image-card:`.
+	const logoWords = parseLogoFinish(getFrontMatter(source, 'logo-finish') || '');
+	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
+	const setLogoWord = (axis: LogoFinishAxis, v: string) =>
+		settingsWrite('Logo style', (s) => {
+			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === '__default__' ? undefined : v };
+			return writeFrontMatterLine(s, 'logo-finish', logoFinishValue(next) || null);
+		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
 	const metaLine = getFrontMatter(source, 'meta') || '';
 	const setMetaLine = (v: string) => settingsWrite('Meta line', (s) => writeFrontMatterLine(s, 'meta', v.trim() || null));
@@ -5261,24 +5260,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{pageNumbersField}
 				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{logoField}
-				{/* The five logo modifiers mean nothing without a logo, so they stay hidden
-				    until one is set — otherwise the tab opens with five dead rows. */}
+				{/* The logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with dead rows. */}
 				{logo.trim() !== '' && (
-					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
-					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
-					// this was a scope, searching the word that is the entire reason they exist
-					// hid all five and left the path field standing alone. A scope also takes the
-					// indent rule with them when they do filter out, which the marked div did.
+					// A SCOPE, not a bare marked div: these rows are `Position`, `Color`, `Size` and
+					// `Show on`, and not one of them says "logo" — so searching the word that is the
+					// entire reason they exist must keep all four.
 					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-						<Field label="Show on" desc="Every slide, or just the cover.">
-							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
-						</Field>
-						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
-							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
-						</Field>
-						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. A value outside 0.2–3 is clamped to the nearest end.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
-						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
-						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
+						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
+							const meta = {
+								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-finish:</code> line.</> },
+								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors on a soft plate.</> },
+								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
+								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
+							}[axis];
+							return (
+								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
+									<CatalogSelect
+										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
+										onValueChange={(v) => setLogoWord(axis, v)}
+										className="w-full"
+										groups={[{ options: [{ value: '__default__', label: `${logoFinishLabel(logoFinishWords(axis)[0])} (default)` }, ...logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w) }))] }]}
+									/>
+								</Field>
+							);
+						})}
 					</SettingsScope>
 				)}
 				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />

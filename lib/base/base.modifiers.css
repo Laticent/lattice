@@ -2868,13 +2868,12 @@ section.lattice-exporting .fit-culprit { outline: none !important; }
  * which lattice.js `require`s rather than re-implementing — this note used
  * to claim an "inline copy" there and there has not been one; plus
  * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
- * implementation, which must mirror deckLogoVars.
+ * implementation (a DOM mirror of the same injection).
  *
- * The `--logo-*` placement properties are declared on the SECTION, not on this img,
- * so a section-level rule can read them; the img picks them up by inheritance, so its
- * own rules are unchanged. (They were put there for a marker-stack reserve that is
- * gone — the tabs berth top-center now and clear the mark outright — but the reason
- * generalizes and a custom property on the img is invisible to everything above it.)
+ * Placement, size and color are the `logo-finish:` register's words, stamped as classes on the
+ * SECTION (lib/core/resolve-logo-finish.js), so a section-level rule can read them — the stand-down
+ * of the header, footer and page number below does. The one custom property set on the img itself
+ * is `--logo-scale` (by the `logo-sm` / `logo-lg` rules); only the img reads it.
  * ──────────────────────────────────────────────────────────────────── */
 /* The INVERSE-CANVAS pair, defined ONCE. Every rule that declares a dark canvas points its
  * `--deck-logo-filter` here rather than repeating the values, so the two dark-canvas
@@ -2937,18 +2936,12 @@ img.deck-logo {
    * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
   z-index: var(--z-content);
   position: absolute;
-  /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
-   * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and
-   * `logo-scale` (a multiplier). When x/y are set the injector also flips
-   * --logo-anchor-right to auto and --logo-nudge to translate(-50%,-50%), so the
-   * logo centers on its point instead of hugging the corner. All defaults reproduce
-   * the original placement, so untouched decks are unchanged. */
-  top: var(--logo-y, var(--frame-inset-y));
-  right: var(--logo-anchor-right, var(--frame-inset-x));
-  left: var(--logo-x, auto);
+  /* Default: the top-right corner via frame insets. The `logo-finish:` register moves and sizes
+   * the mark with section classes (below) — a placement word, a size word. */
+  top: var(--frame-inset-y);
+  right: var(--frame-inset-x);
   width: calc(6.25cqi * var(--logo-scale, 1));
   height: calc(4cqi * var(--logo-scale, 1));
-  transform: var(--logo-nudge, none);
   object-fit: contain;
   pointer-events: none;
   user-select: none;
@@ -2977,10 +2970,58 @@ img.deck-logo {
   filter: var(--deck-logo-filter, grayscale(1) brightness(0.4) contrast(1.2));
 }
 
-/* `deck-logo-brand` — keep the logo's original colors on a soft
- * plate. The plate uses the theme's surface token so it harmonises
- * with the canvas without picking a hard hue. */
-img.deck-logo.deck-logo-brand {
+/* ── THE `logo-finish:` REGISTER, as section classes (lib/core/resolve-logo-finish.js) ──────
+ * The deck's words and a slide's own land as classes on the section, so every rule below reads the
+ * slide's FINAL word on each axis. `no-logo` removes the mark itself (the injectors skip the
+ * slide), which is why the stand-down rules guard on `:not(.no-logo)`. */
+section.logo-top-left img.deck-logo { right: auto; left: var(--frame-inset-x); }
+section.logo-top-center img.deck-logo { right: auto; left: 50%; transform: translateX(-50%); }
+section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-y); right: auto; left: var(--frame-inset-x); }
+section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-y); right: auto; left: 50%; transform: translateX(-50%); }
+section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-y); }
+section.logo-sm img.deck-logo { --logo-scale: 0.75; }
+section.logo-lg img.deck-logo { --logo-scale: 1.5; }
+
+/* COLOR. A role or a closed blend sets `--logo-tint`; the slide's `<svg class="deck-logo-tint">`
+ * (injected beside the mark) reads it as `color`, and its filter floods that color through the
+ * mark's own alpha. The roles resolve per slide, so one word reads right in light and dark. The
+ * mark itself is pointed at the filter by an inline `--deck-logo-filter`, which beats the canvas
+ * flip. A palette role is a COLOR token reference only — never raw author CSS. */
+section.logo-accent { --logo-tint: var(--accent); }
+section.logo-ink { --logo-tint: var(--text-heading); }
+section.logo-muted { --logo-tint: var(--text-muted); }
+section.logo-canvas { --logo-tint: var(--bg); }
+section.logo-inverse { --logo-tint: var(--surface-inverse); }
+section.logo-accent-ink { --logo-tint: color-mix(in srgb, var(--accent) 50%, var(--text-heading)); }
+section.logo-accent-canvas { --logo-tint: color-mix(in srgb, var(--accent) 50%, var(--bg)); }
+section.logo-ink-canvas { --logo-tint: color-mix(in srgb, var(--text-heading) 50%, var(--bg)); }
+svg.deck-logo-tint { position: absolute; color: var(--logo-tint); }
+
+/* ── THE LOGO IS SUPREME: naming a placement clears the chrome in its band ──────────────
+ * The author chose a berth for the brand, so whatever else lives there gives way — no overlap
+ * to de-collide, no reserve to size. The band decides what stands down:
+ *   top-*           → the running header and the meta tile
+ *   bottom-left,
+ *   bottom-center   → the footer text (it spans the whole bottom edge)
+ *   bottom-right    → the page number and the progress rail (the footer keeps its text)
+ * Only an EXPLICIT word does this, and only on a slide that HAS the mark (`:has(> img.deck-logo)`):
+ * the deck's words ride every section, so keying on the class alone hid the chrome on slides the
+ * `title` scope skipped, on `no-logo` slides, and on a deck with no `logo:` at all. A deck without a
+ * placement word keeps header and logo together exactly as before. `.form` is in the Form selectors to out-rank the show rules in stage.css
+ * (`section.form > .cell-footer > footer`, (0,2,2)); the legacy direct-child footer is the second
+ * selector of each pair. Same reach `no-footer` / `no-paginate` use. */
+section:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) > header,
+section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) .tile-meta,
+section:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > footer,
+section.form:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > .cell-footer > footer,
+section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress) {
+  display: none;
+}
+section.logo-bottom-right.logo-bottom-right:has(> img.deck-logo)::after { content: none; }
+
+/* `brand` — keep the logo's original colors on a soft plate. The plate uses the theme's
+ * surface token so it harmonises with the canvas without picking a hard hue. */
+section.logo-brand img.deck-logo {
   opacity: 1;
   filter: none;
   background: color-mix(in srgb, var(--bg-alt) 70%, transparent);

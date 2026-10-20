@@ -131,6 +131,7 @@ specify them, and `split:` and `preset:` have none.
 | Key | Value | What it sets | Rule |
 |---|---|---|---|
 | `logo:` | a path or URL | The deck's logo on every slide. | — |
+| `logo-finish:` | up to one word per axis: a placement (`top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right`), a color (`auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas`), a size (`md` `sm` `lg`), a scope (`all` `title`) | How the logo looks and where it sits. A placement word hides the header, footer or page number in that band. | `unknown-logo-finish` |
 | `plugins:` | a list of plugin names | The plugins the deck needs loaded. It only adds: a renderer that loads more by default still does. | `unknown-plugin` |
 
 **Delivery** keys change no rendered pixel. They tell a self-presenting player how to

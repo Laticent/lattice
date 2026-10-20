@@ -362,7 +362,7 @@ special cases. It reconciles with the component model's slot vocabulary
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
 | meta · status | `masthead-bay` tiles | docked |
-| logo | `logo` | **frame-anchored, not docked** — `base.modifiers.css` pins the mark to the section at `top: var(--logo-y, var(--frame-inset-y))` / `right: var(--logo-anchor-right, var(--frame-inset-x))`, and `logo-x`/`logo-y` set its CENTER as a percent of the slide. Content plane (z2), `accepts: ["chrome"]`. This row read `masthead-bay` until 2026-09-08; nothing ever docked it there |
+| logo | `logo` | **frame-anchored, not docked** — `base.modifiers.css` pins the mark to the section at the frame insets, top-right by default, and a `logo-<placement>` class (the `logo-finish:` register) seats it in any of the six berths, clearing the header, footer or page number in that band. `no-logo` hides it. Content plane (z2), `accepts: ["chrome"]`. This row read `masthead-bay` until 2026-09-08; nothing ever docked it there |
 | pagination · progress | `pagination-right` · `progress-center` | docked |
 | watermark | `watermark` | **frame-anchored** — `watermark.transform.js` appends the ghost to the SECTION and `watermark.css` pins it at `right: -2cqi; bottom: -9cqi`, only on `section.form`. Atmosphere plane (z1), `accepts: ["surface"]`. This row read `stage` until 2026-09-08 |
 
@@ -372,8 +372,8 @@ only Cell in the catalog defined by where its occupants *aren't*: every other on
 a position (`masthead-lede`, `footer-left`, `pagination-right`, `progress-center`).
 These two share exactly one property — neither docks in a band — and that is a negative
 one. They differ in every positive respect: `chrome` vs `surface`, content plane vs
-atmosphere plane, a mark the author can move anywhere with `logo-x`/`logo-y` vs a fixed
-overscan ghost, `logo-on` on any slide vs `section.form` only.
+atmosphere plane, a mark the author can seat in any of six berths with `logo-finish:` vs a fixed
+overscan ghost, any slide vs `section.form` only.
 
 Three things follow, and the third is the one that decided it. A shared Cell forces one
 `z`, one `accepts` and one `capacity` onto two Tiles that agree on none of them — so it
@@ -492,7 +492,7 @@ delivered export; the stamp does. Do not re-invert these.
 **The deck logo sits on the CONTENT plane, not chrome.** Its *kind* is chrome — frame
 furniture, not author content — and its Tile manifest says so. Its *plane* is content,
 because a plane says what may cover what, and on that axis the mark belongs with the
-content it sits among. On chrome, an off-corner `logo-style: brand` plate erased four words
+content it sits among. On chrome, an off-corner `logo-finish: brand` plate erased four words
 of a pull-quote; on atmosphere it vanished under a split panel. Content is the only value
 correct on both, and it is where `z-index: auto` had it before the model existed.
 

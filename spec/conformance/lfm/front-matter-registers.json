@@ -906,6 +906,40 @@
    }
   },
   {
+   "name": "logo-finish: bottom-center accent-ink lg",
+   "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: title",
+   "source": "---\nlogo-finish: title\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: top-left brand",
+   "source": "---\nlogo-finish: top-left brand\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: (unknown)",
+   "source": "---\nlogo-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-logo-finish",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
    "name": "corners: square",
    "source": "---\ncorners: square\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {

@@ -1,0 +1,4 @@
+studio: +760
+home: +16
+The Studio's Chrome → Logo controls read and write the one `logo-finish:` line, so the Studio now ships `logo-finish.ts`: the register's four axes and their words, the option labels and the one-line parse/write helpers (+656 B gz in that chunk by itself, +721 B on the route in total, read off CI against main). It mirrors lib/core/resolve-logo-finish.js because the docs build cannot import that CommonJS kernel; a vitest pins the two together, so the copy cannot drift. The remainder is `StudioIsland` calling it (+47 B) and two reworded fidelity-overlay strings (+18 B).
+Home reads +10 B and the Studio +18 B only through `fidelity-findings` and `PreviewFidelityOverlay`, whose text now names the `title` scope of `logo-finish:` instead of the retired `logo-on: title`. The numbers carry a few bytes of gzip spread above what CI measured.

@@ -430,7 +430,7 @@ describe('the scope key survives the runtime stamping the section it keys on', (
   test('the deck-logo placement does not change the key either', () => {
     assert.equal(
       diagramScopeKey(el('diagram form', AUTHORED)),
-      diagramScopeKey(el('diagram form', `${AUTHORED}--logo-scale: 1.2; --logo-x: 4;`)),
+      diagramScopeKey(el('diagram form', `${AUTHORED}--deck-logo-filter: url(#deck-logo-tint-3); --deck-logo-opacity: 1;`)),
       'applyLogoPlacement stamps every section of a logo deck; it carries no palette',
     );
   });
@@ -538,7 +538,7 @@ describe('the scope key survives the runtime stamping the section it keys on', (
   test('the logo drop is the placement set, not every --logo- property', () => {
     assert.equal(
       diagramScopeKey(el('diagram', '--theme:"cuoio";')),
-      diagramScopeKey(el('diagram', '--theme:"cuoio";--logo-scale:1.2;--logo-x:4;')),
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--deck-logo-filter:url(#deck-logo-tint-3);--deck-logo-opacity:1;')),
       'placement carries no palette',
     );
     assert.notEqual(
