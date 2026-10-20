@@ -6054,6 +6054,24 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'and test/unit/components/graph-icons.test.js "a forged harness cannot inject markup" and ' +
       '"the cases the red team probed are pinned".',
   },
+  {
+    file: 'lib/plugins/function-plot/function-plot.hydrate.js',
+    sink: 'el.innerHTML',
+    count: 1,
+    provenance:
+      'THIRD PARTY, SANITIZED BEFORE IT ARRIVES — the drawing a page\'s DRAW HOST answers (`ctx.draw`, ' +
+      'lib/plugins/host-browser.mjs `drawHost`). Only the Studio and Playground previews offer one ' +
+      '(docs/src/lib/preview-draw-host.ts); every other surface has none and never reaches this line. The host runs ' +
+      'function-plot in a sandboxed draw frame (an opaque origin: no storage, no network, no reach into the Studio; ' +
+      'lib/packages/draw-frame-core.mjs) and passes what the frame returns through `sanitizeSlideHtml`, the slide ' +
+      'sanitizer, BEFORE it answers, because the runtime has no sanitizer to run it here. So the string written is ' +
+      'the sanitizer\'s output, and the guard is that one call in the host: the host\'s test ' +
+      '(docs/src/lib/preview-draw-host.test.ts "a plot\'s drawing is sanitized before the runtime sees it") fails if ' +
+      'it stops. The frame-side run of this same function never reaches the line (it has no `ctx.draw`), and the ' +
+      'error path writes `textContent`. A host that answered unsanitized markup would be a new undeclared sink in ' +
+      'docs/src/lib/preview-draw-host.ts, which `checkPreviewHtmlSinks`-style census would not see: do not add one ' +
+      'without sanitizing there.',
+  },
   // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
   // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
   // provenance — the pass still runs inside the preview frame, after the builder sanitized.

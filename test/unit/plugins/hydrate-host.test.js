@@ -353,3 +353,66 @@ describe('the host and a runtime-drawn figure', () => {
     assert.equal(called, 1, 'only the waiter that was taken is answered');
   });
 });
+
+describe('plugin host — a page that offers a draw host (the Studio and Playground previews; owner decisions 14 and 15, D1 A)', () => {
+  const withHost = (win, drawHost) => installHydrateHost(win, HYDRATORS, { fromBase64, releaseFigure, baseUrl: 'https://example.test/rt/lattice-runtime.js', drawHost }).run;
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  test('the figure goes out as a job, the answer lands as markup, and the library is never loaded into the page', async () => {
+    const win = page(PLOT);
+    const jobs = [];
+    withHost(win, () => ({ draw: async (job) => (jobs.push(job), '<svg class="function-plot" width="480" height="320" viewBox="0 0 480 320"></svg>') }))();
+    await flush();
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].kind, 'function-plot');
+    assert.equal(jobs[0].index, 0);
+    assert.equal(jobs[0].width, 480, 'a placeholder with no layout draws at the default size');
+    assert.equal(JSON.parse(jobs[0].configText).yAxis.label, 'x²', 'the decoded config goes out as text');
+    assert.equal(jobs[0].configB64, placeholder(win).getAttribute('data-lattice-config'), 'the packed attribute goes out too: it seeds the drawing\'s ids');
+    assert.equal(state(placeholder(win)), 'rendered');
+    assert.equal(placeholder(win).querySelector('svg').getAttribute('viewBox'), '0 0 480 320');
+    assert.equal(win.document.querySelector('script[src]'), null, 'no library <script> reached the page');
+  });
+
+  test('a draw that fails shows the plot\'s own error text and settles error; a figure is never left pending', async () => {
+    const win = page(PLOT);
+    withHost(win, () => ({ draw: async () => { throw new Error('the function-plot draw did not finish within 15000 ms'); } }))();
+    await flush();
+    assert.equal(state(placeholder(win)), 'error');
+    assert.match(placeholder(win).textContent, /^functionplot error: the function-plot draw did not finish/);
+    assert.ok(placeholder(win).classList.contains('functionplot-error'));
+    assert.equal(win.document.querySelector(PENDING_FIGURES), null);
+    // The frame's own message already carries the prefix and is not doubled.
+    const win2 = page(PLOT);
+    withHost(win2, () => ({ draw: async () => { throw new Error('functionplot error: bad config'); } }))();
+    await flush();
+    assert.equal(placeholder(win2).textContent, 'functionplot error: bad config');
+  });
+
+  test('two plots go out in document order with their own index, which seeds their ids', async () => {
+    const win = page(`${PLOT}\n${PLOT}`);
+    const jobs = [];
+    withHost(win, () => ({ draw: async (job) => (jobs.push(job.index), '<svg/>') }))();
+    await flush();
+    assert.deepEqual(jobs.sort(), [0, 1]);
+  });
+
+  test('with no host the library is loaded and run in the page, as before', () => {
+    const win = page(PLOT);
+    const calls = fakeLibrary(win);
+    withHost(win, () => null)();
+    assert.equal(calls.length, 1);
+    assert.equal(state(placeholder(win)), 'rendered');
+  });
+
+  test('a host that appears after a first pass is used on the next one', async () => {
+    const win = page(PLOT);
+    let host = null;
+    const run = withHost(win, () => host);
+    run(); // no host, no library: the page asks for the library and waits
+    host = { draw: async () => '<svg class="function-plot"/>' };
+    run();
+    await flush();
+    assert.equal(state(placeholder(win)), 'rendered');
+  });
+});

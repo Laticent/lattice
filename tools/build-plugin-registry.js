@@ -82,6 +82,7 @@ const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
 const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
 const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
 const DRAWN_LIBRARY_FILE = path.join(PLUGINS_DIR, 'drawn-library.generated.mjs');
+const DRAW_FRAME_LIBRARIES_FILE = path.join(PLUGINS_DIR, 'draw-frame-libraries.generated.mjs');
 const EXTENSION_POINTS_FILE = path.join(PLUGINS_DIR, 'extension-points.generated.json');
 const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
 const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
@@ -581,18 +582,26 @@ function renderDrawnLibrary(ordered) {
     const [payload] = Object.values(p.manifest.payload || {});
     if (payload) files[p.manifest.name] = payload.from.split('/').pop();
   }
-  // The libraries a sandboxed DRAW FRAME runs (lib/packages/draw-frame-core.mjs): every plugin that draws in a browser, a
-  // runtime pass's (Mermaid) or a hydrator's (function-plot). The frame runs a library by the hash of its text, so the
-  // pin rides with the file name: the host checks the staged bytes against it before they are inlined.
+  return `${HEADER('Each runtime-drawn plugin\'s library file name, staged beside the runtime. Plain data, for lazily loaded readers.')}
+export const DRAWN_LIBRARY_FILES = Object.freeze(${JSON.stringify(files)});
+`;
+}
+
+/**
+ * The libraries a sandboxed DRAW FRAME runs (lib/packages/draw-frame-core.mjs): every plugin that draws in a browser, a
+ * runtime pass's (Mermaid) or a hydrator's (function-plot), with the SHA-256 of its vendored copy. The frame runs a
+ * library by the hash of its text, so the pin rides with the file name: the host checks the staged bytes against it before
+ * they are inlined. Its own module, apart from drawn-library.generated.mjs, which the preview frame builders import
+ * EAGERLY: sharing a module put these pins in the Studio's startup bundle (measured: +171 bytes gz on three routes), and
+ * only the lazily loaded draw host (docs/src/lib/code-packages/draw-host.ts) reads them.
+ */
+function renderDrawFrameLibraries(ordered) {
   const frameLibraries = {};
   for (const p of ordered.filter((q) => ['pass', 'browser'].includes(q.manifest.render?.exec?.hydrate))) {
     const [payload] = Object.values(p.manifest.payload || {});
     if (payload?.vendored?.sha256) frameLibraries[p.manifest.name] = { file: payload.from.split('/').pop(), global: payload.global, sha256: payload.vendored.sha256 };
   }
-  return `${HEADER('Each runtime-drawn plugin\'s library file name, staged beside the runtime. Plain data, for lazily loaded readers.')}
-export const DRAWN_LIBRARY_FILES = Object.freeze(${JSON.stringify(files)});
-
-// The libraries a sandboxed draw frame runs, with the SHA-256 of each vendored copy (the staged file must match it).
+  return `${HEADER('The libraries a sandboxed draw frame runs, with the SHA-256 of each vendored copy (the staged file must match it).')}
 export const DRAW_FRAME_LIBRARIES = Object.freeze(${JSON.stringify(frameLibraries)});
 `;
 }
@@ -810,6 +819,7 @@ async function build(opts = {}) {
       [BAKE_FILE, renderBake(ordered)],
       [DRAWN_FILE, renderDrawn(ordered)],
       [DRAWN_LIBRARY_FILE, renderDrawnLibrary(ordered)],
+      [DRAW_FRAME_LIBRARIES_FILE, renderDrawFrameLibraries(ordered)],
       [EXTENSION_POINTS_FILE, renderExtensionPoints(ordered)],
       [INLINE_FILE, renderInline(ordered)],
       [SERVICES_FILE, renderServices(ordered)],

@@ -11,7 +11,7 @@
 // for it (docs/route-budget.json).
 
 import { checkDrawReply, DRAW_KINDS, drawFrameDocument, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
-import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/drawn-library.generated.mjs';
+import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/draw-frame-libraries.generated.mjs';
 
 export type DrawKind = keyof typeof DRAW_KINDS;
 export type DrawJob =
