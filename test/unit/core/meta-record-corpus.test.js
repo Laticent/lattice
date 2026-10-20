@@ -56,12 +56,19 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
     const perKey = {};
     let compared = 0;
     let skipped = 0;
+    let paneSplit = 0;
     let slides = 0;
     for (const { rel, src } of decks) {
       // preview:true keeps `data-debug`, which the export path strips (lib/engine/index.js).
       const html = engine.render(src, undefined, { preview: true }).html;
       const sections = [...html.matchAll(/<section\b([^>]*)>/g)].map((m) => m[1]);
       const scanned = scanMetaSource(src).slides.slice(2); // drop the two front-matter chunks
+      // A PANE-SPLIT divergence, a second known kind: a deck that cannot lay panes side by side (square, portrait,
+      // story, mobile) gives each pane its own page (lib/core/panes.js), which a `^---$` scan cannot see either.
+      if (sections.length > scanned.length && /<!--\s*_?pane:/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
+        paneSplit++;
+        continue;
+      }
       if (sections.length !== scanned.length) {
         // A BOUNDARY divergence, not a value one: `split: headings` injects boundaries the raw
         // source does not carry (the linter's pre-existing slide-numbering gap, named in
@@ -101,6 +108,7 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
     console.log(`# meta corpus: ${decks.length} decks · ${compared} compared · ${slides} slides · ${skipped} skipped · ${wrong.length} disagreements`);
     console.log(`# meta corpus: slides carrying each key, scan = engine: ${JSON.stringify(perKey)}`);
     assert.equal(skipped, 3, 'the boundary-divergence set should stay at the `split: headings` decks');
+    assert.equal(paneSplit, 1, 'and the pane-split set at examples/image-pane-story.md');
     assert.ok(compared > 400, `expected 400+ comparable decks, compared ${compared}`);
     assert.deepEqual(wrong, []);
   });

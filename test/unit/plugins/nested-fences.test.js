@@ -66,3 +66,23 @@ test('a fence indented two spaces under a bullet is reported with its indent, so
 	assert.equal(matchMermaidFences(md).length, 1, 'the flat walker opens it too, at 0-3 spaces');
 	assert.deepEqual(nested(md), [{ prefix: '  ', body: 'flowchart LR\n  A --> B\n' }]);
 });
+
+test('a line straight under a baked figure gets a blank line first, so it is not swallowed into the HTML block (followups.d/2739-p12)', () => {
+	const { blankLineAfter } = require('../../../lib/plugins/mermaid/shared/nested-fences');
+	assert.equal(blankLineAfter('', 'Caption **bold**'), '\n', 'flat: a plain blank line');
+	assert.equal(blankLineAfter('> ', '> Caption **bold**'), '\n>', 'quoted: a quoted blank line, so the quote stays one quote');
+	assert.equal(blankLineAfter('  ', '  Caption'), '\n', 'a bullet\'s continuation');
+	assert.equal(blankLineAfter('10. ', '    Caption'), '\n', 'a two-digit item\'s continuation');
+	assert.equal(blankLineAfter('> - ', '>   Caption'), '\n>', 'a list inside a quote');
+	// A line the HTML block would not take is left alone: an HTML block takes no lazy continuation.
+	assert.equal(blankLineAfter('', ''), '', 'already blank');
+	assert.equal(blankLineAfter('', undefined), '', 'end of file');
+	assert.equal(blankLineAfter('  ', '- Second point.'), '', 'a new list item');
+	assert.equal(blankLineAfter('> ', 'Outside the quote'), '', 'a line with no `>`');
+	assert.equal(blankLineAfter('> ', '>'), '', 'a quoted blank line');
+	assert.equal(blankLineAfter('    ', '- next'), '', 'a new item after a fence indented four spaces');
+	// The P6 checker's two misses: an over-indented fence is not the item's indent, and a quote needs no indent.
+	assert.equal(blankLineAfter('   ', '  caption *x*'), '\n', 'a fence indented past its item\'s text');
+	assert.equal(blankLineAfter('>  ', '> Caption **b**'), '\n>', 'a fence indented inside a quote');
+	assert.equal(blankLineAfter('', '- item'), '\n', 'a flat fence: the HTML block takes even a list marker');
+});

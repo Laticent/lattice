@@ -423,7 +423,11 @@ spaces under a list item is found by both walkers; the nested entry wins, so the
 the list, as the Studio draws it. In the Studio a quoted or list-nested figure sizes as the CLI's baked one does: the
 container's width and the height its viewBox gives (`mermaid.styles.css`, followups.d/2739-p11). Before, it kept the 1152×480
 box meant for hosts that are not slides, filled the stage and flagged the slide as overflowing. The parity spec carries both
-shapes (`examples/mermaid-nested-fences.md`, `examples/mermaid-quoted-fence.md`).
+shapes (`examples/mermaid-nested-fences.md`, `examples/mermaid-quoted-fence.md`). On a `diagram` slide a bulleted fence keeps the
+slide-level splice, so the figure fills the stage. The bake ends each figure with a blank line (quoted for a quote) when
+the next line would otherwise join its HTML block, so a caption under the fence renders as markdown (followups.d/2739-p12). In a tight list that blank line makes the list
+loose (each item's text in a `<p>`), where the Studio, which never bakes, keeps it tight: only a blank line ends that HTML
+block, so this is the price of the caption rendering at all, and `section p` carries no spacing of its own.
 
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the

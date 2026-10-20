@@ -13,3 +13,7 @@
   portrait, mobile) deck, panes become one page each, and the image pane's photo filled the whole page behind its
   title. It now takes the image layout's composition, as an `image` slide does. A 16:9 deck that lays the panes out
   side by side is unchanged.
+- **Fixed: a caption written straight under a diagram renders as text in the CLI's exports.** A line right after a
+  closing Mermaid fence, with no blank line between, joined the drawn figure's HTML and showed its markdown raw
+  (`**bold**`), and under a list item it swallowed the next item too. It now renders as a paragraph with its
+  formatting, flat, inside a quote and inside a list item, as the Studio shows it.
