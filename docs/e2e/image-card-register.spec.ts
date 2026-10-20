@@ -102,11 +102,13 @@ for (const tag of ['', ' @webkit-tablet']) {
 	});
 
 	// The opposite photo: a pale one wants near-black words, so the pick is a reading of the photo and
-	// not a constant. A data: URI is same-origin to the canvas, like a Library photo's blob: URL.
+	// not a constant. A data: URI is same-origin to the canvas, like a Library photo's blob: URL. It is a PNG because the engine
+	// leaves a base64 `data:image/svg+xml` bg line as text (main does too), so an SVG here never reaches a slide.
 	test(`slide settings: a pale photo picks dark ink${tag}`, async ({ page }) => {
-		const pale = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNjAwJyBoZWlnaHQ9JzEwMDAnPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbGw9JyNmNGYxZTgnLz48L3N2Zz4=';
+		const pale = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAKCAIAAAAy3EnLAAAAFElEQVR4nGP48vEFSYhhVMPQ1AAAAS3AMBzA3vYAAAAASUVORK5CYII=';
 		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('![bg](sample:photo-wide.svg)', `![bg](${pale})`)}`);
 		await openSlideImageTab(page);
+		await inkReady(page);
 		await slider(page, 'Slide card backing').fill('35');
 		await expect.poll(() => persistedSource(page), { message: 'a pale photo behind a thin card should pick ink-dark' }).toContain('ink-dark');
 		expect(await persistedSource(page)).not.toContain('ink-light');
