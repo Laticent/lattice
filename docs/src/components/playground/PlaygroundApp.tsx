@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Eye, GalleryVerticalEnd, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
-import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
+import { PG_SPLIT_DEFAULTS, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { Frozen, useEverTrue } from '@/components/ui/keep-mounted';
@@ -282,7 +282,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
 	// The split seed's PIXEL CLAMP goes with them (#1589). The grow vars can stay — the library
 	// writes the `flex` SHORTHAND inline, which outranks any stylesheet — but the `min-width` the clamp
 	// rules apply has no inline counterpart to lose to, so left up it would pin a pane the
-	// visitor collapses at its 320px minimum instead of letting it reach the 28px rail.
+	// visitor collapses at its 300px minimum instead of letting it reach the 28px rail.
 	root.removeAttribute('data-pg-split-seed');
 }
 
@@ -1099,7 +1099,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// px collapsed-pane rail width (the always-visible restore edge). Declared in pg-split.ts
 	// because the pre-paint seed needs it too: the library snaps a restored pane to THIS rather
 	// than to `minSize` below the midpoint of the two, and a seed that models only the clamp
-	// paints 320px where the app is about to show 28.
+	// paints 300px where the app is about to show 28.
 	const RAIL_W = PG_SPLIT_RAIL;
 	// Preview reveal choreography (was useSplit.onExpand): a deck change deferred
 	// while collapsed needs a full fresh render; otherwise one re-fit + patch heals
@@ -1124,10 +1124,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const split = useResizableSplit({
 		storageKey: PG_SPLIT_KEY,
 		active: splitActive,
-		defaultRatio: 45,
+		defaultRatio: PG_SPLIT_DEFAULTS.editor,
 		configKey: 'ep', // the Playground group is always just editor|preview
 		// …and those two ids are the storage bucket, so the hook can hand the remembered
-		// widths to the library as its starting layout instead of laying out at 45/55 and
+		// widths to the library as its starting layout instead of laying out at 46/54 and
 		// correcting after. Declared HERE (not derived in the hook) because the only runtime
 		// source of the real ids is the mounted group, which is one mount too late.
 
@@ -3019,7 +3019,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					className="pg-pane editor"
 					panelRef={split.editorRef}
 					minSize={PG_SPLIT_MIN.editor}
-					defaultSize="45"
+					defaultSize={String(PG_SPLIT_DEFAULTS.editor)}
 					collapsible={split.ready}
 					collapsedSize={RAIL_W}
 					onResize={split.onEditorResize}
@@ -3062,7 +3062,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					className="pg-pane preview"
 					panelRef={split.previewRef}
 					minSize={PG_SPLIT_MIN.preview}
-					defaultSize="55"
+					defaultSize={String(PG_SPLIT_DEFAULTS.preview)}
 					collapsible={split.ready}
 					collapsedSize={RAIL_W}
 					onResize={split.onPreviewResize}

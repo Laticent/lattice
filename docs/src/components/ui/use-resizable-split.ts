@@ -325,6 +325,15 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// collapsed pane; we re-collapse it and, during this window, treat pollCollapse's
 	// transient expand/collapse as noise (no persist, no callbacks).
 	const configChangingRef = React.useRef(false)
+	// True from the moment the stored-collapse restore effect re-collapses a pane until the
+	// library's onResize has reported it. A SEPARATE flag from `configChangingRef` on purpose:
+	// `tryRestore`'s `releaseConfigChanging` clears that one two frames after its own setLayout,
+	// which can land before this effect's double-rAF collapse does, and the poll then read the
+	// restore as the person's own collapse (a reload re-showed "Editor collapsed.").
+	const restoringCollapseRef = React.useRef(false)
+	// Which run of the restore effect owns `restoringCollapseRef`. A re-run inside the settle window
+	// must not have its flag cleared by the previous run's pending settle frames.
+	const restoreGenRef = React.useRef(0)
 
 	// The pending-restore latch. `pending` is raised when a restore is WANTED (mount, or a
 	// config change) and lowered the moment the group can answer — layout applied, or
@@ -517,16 +526,30 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		const side = readStoredCollapse(storageKey)
 		if (!side) return
 		configChangingRef.current = true
+		const gen = ++restoreGenRef.current
+		restoringCollapseRef.current = true
 		let inner = 0
+		let collapsedHere = false
 		const outer = requestAnimationFrame(() => {
 			inner = requestAnimationFrame(() => {
 				if (!panelRefOf(side).current?.isCollapsed()) panelRefOf(side).current?.collapse()
+				collapsedHere = true
 				configChangingRef.current = false
+				// Hold the restore flag two more frames so the library's onResize for this collapse is
+				// read as the restore, not as the person's collapse.
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						if (restoreGenRef.current === gen) restoringCollapseRef.current = false
+					})
+				})
 			})
 		})
 		return () => {
 			cancelAnimationFrame(outer)
 			if (inner) cancelAnimationFrame(inner)
+			// Once the collapse has run, its settle frames finish clearing the flag (only if this run
+			// still owns it); before that, nothing else would.
+			if (!collapsedHere && restoreGenRef.current === gen) restoringCollapseRef.current = false
 			configChangingRef.current = false
 		}
 	}, [ready, active, configKey, storageKey, panelRefOf])
@@ -606,7 +629,7 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			if (!now && side === "a") autoFoldRef.current = false
 			// …but during a config-change re-layout, the expand/collapse is the library
 			// churning, not the user — don't persist it or fire callbacks.
-			if (configChangingRef.current) return
+			if (configChangingRef.current || restoringCollapseRef.current) return
 			// A fold we made ourselves is not the person's collapse: no toast, nothing remembered.
 			if (now && autoFoldRef.current) return
 			if (now) {

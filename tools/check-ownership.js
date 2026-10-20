@@ -6164,6 +6164,14 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/studio-dock-sizing.spec.ts', ms: 4000, count: 1,
+    why: 'ONE ABSENCE ASSERTION: a reload that restores the person\'s stored editor collapse must NOT '
+       + 'show the "Editor collapsed." toast (the restore used to be read as a fresh collapse). There '
+       + 'is no signal for a toast that must not appear. 4000ms outlasts the restore\'s two-rAF settle '
+       + 'and the toast\'s ~1.5s life; the same test\'s POSITIVE arm (their own collapse sets the same '
+       + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
+  },
+  {
     file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
     why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log: a player file opened with a declared '
        + 'consent origin must fetch NOTHING before the reader presses "Load pictures", and nothing at all '
