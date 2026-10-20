@@ -82,3 +82,23 @@ The scrim follows the words to the top edge.
 For a bright photo, the title goes dark and the scrim turns light.
 
 ![bg](sample:photo-wide.jpg)
+
+---
+
+<!-- _class: image spotlight compact card-sm at-br -->
+
+## compact tightens the card.
+
+Padding and the edge inset drop to 70%, so a small card hugs its corner.
+
+![bg](sample:photo-wide.jpg)
+
+---
+
+<!-- _class: image statement compact at-bl -->
+
+## A compact statement.
+
+The title settles closer to the corner and the body tightens.
+
+![bg](sample:photo-pano.jpg)

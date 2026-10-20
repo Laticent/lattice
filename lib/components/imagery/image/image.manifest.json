@@ -282,7 +282,7 @@
     },
     {
       "variant": "card-sm",
-      "useWhen": "On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite."
+      "useWhen": "On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite. Add `compact` to tighten the card's padding and pull it closer to the slide edge at any size."
     }
   ],
   "showcase": {

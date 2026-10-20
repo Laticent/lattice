@@ -31,7 +31,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 - **`at-tl`.** On `spotlight` or `statement`, the photo's subject sits where the card would land — move the card to the quiet part of the frame with one of `at-tl` · `at-top` · `at-tr` · `at-center` · `at-bl` · `at-bottom` · `at-br`.
 - **`card-soft`.** On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), or drop it with `card-clear` when the photo is calm where the words land.
 - **`ink-dark`.** On `spotlight` or `statement`, the photo is bright where the words land — `ink-dark` sets dark words on a light backing; `ink-light` sets white words on a dark one.
-- **`card-sm`.** On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite.
+- **`card-sm`.** On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite. Add `compact` to tighten the card's padding and pull it closer to the slide edge at any size.
 
 ### Common mistakes
 

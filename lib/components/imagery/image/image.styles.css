@@ -384,9 +384,9 @@ section.image[data-img-composition="split"][data-orientation="square"] .image-te
 section.image[data-img-composition="spotlight"] .lattice-bg { inset: 0; }
 section.image[data-img-composition="spotlight"] .image-text {
   position: absolute;
-  left: 5cqi; bottom: 6cqh;
+  left: var(--_card-ix); bottom: var(--_card-iy);
   width: min(46cqi, 50%);
-  padding: var(--_card-pad-y, 4.4cqi) 4.6cqi;
+  padding: var(--_card-pad-y) var(--_card-pad-x);
   /* The card's surface and its opacity are the CARD CONTROLS' two levers (below):
    * `ink-*` swaps the surface, `card-*` thins it. Unset, this is the solid `--bg` card. */
   background: color-mix(in oklab, var(--_card-fill, var(--bg)) var(--_card-mix, 100%), transparent);
@@ -397,7 +397,7 @@ section.image[data-img-composition="spotlight"] .image-text {
 section.image[data-img-composition="spotlight"] .image-text::before {
   content: "";
   position: absolute;
-  left: 0; top: var(--_card-pad-y, 4.4cqi); bottom: var(--_card-pad-y, 4.4cqi);
+  left: 0; top: var(--_card-pad-y); bottom: var(--_card-pad-y);
   width: 0.4cqi;
   background: var(--accent);
 }
@@ -412,14 +412,13 @@ section.image[data-img-composition="spotlight"] .image-text p {
   text-shadow: var(--_card-shadow, none);
 }
 section.image[data-img-composition="spotlight"].mirror .image-text,
-section.image[data-img-composition="spotlight"]:has(> .lattice-bg-left) .image-text { left: auto; right: 5cqi; }
+section.image[data-img-composition="spotlight"]:has(> .lattice-bg-left) .image-text { left: auto; right: var(--_card-ix); }
 
 /* Portrait: the card spans the lower width so the tall photo carries the top. */
 section.image[data-img-composition="spotlight"][data-orientation="portrait"] .image-text,
 section.image[data-img-composition="spotlight"][data-orientation="square"] .image-text {
-  left: 5cqi; right: 5cqi; bottom: 5cqh;
+  left: var(--_card-ix); right: var(--_card-ix); bottom: var(--_card-iy);
   width: auto;
-  padding: 6cqi 6cqi;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -513,7 +512,7 @@ section.image[data-img-composition="statement"] .image-scrim {
 }
 section.image[data-img-composition="statement"] .image-text {
   position: absolute;
-  left: 6cqi; bottom: 8cqh; right: 6cqi;
+  left: var(--_card-ix); bottom: var(--_card-iy); right: var(--_card-ix);
   width: min(62cqi, 64%);
   align-items: flex-start;
 }
@@ -536,7 +535,7 @@ section.image[data-img-composition="statement"] .image-text h2 + p { padding-top
 /* Portrait: text sits in the lower third, full width. */
 section.image[data-img-composition="statement"][data-orientation="portrait"] .image-text,
 section.image[data-img-composition="statement"][data-orientation="square"] .image-text {
-  width: auto; right: 6cqi; bottom: 6cqh;
+  width: auto; right: var(--_card-ix); bottom: var(--_card-iy);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -556,6 +555,8 @@ section.image[data-img-composition="statement"][data-orientation="square"] .imag
  *   size       card-sm · card-md · card-lg — the card's width, padding and
  *              type step together; `card-sm` is the discreet one that lets
  *              the photo carry the slide
+ *   density    `compact` (the universal modifier) tightens the card's padding
+ *              and its inset from the slide edge, at any size
  *
  * `at-*` is the universal placement vocabulary the corner and edge tints
  * already use (lib/base/treatments.js), with `at-center` added for the card.
@@ -567,10 +568,21 @@ section.image[data-img-composition="statement"][data-orientation="square"] .imag
  * Portrait and square decks keep the card full width (it already spans the
  * narrow canvas), so placement moves it only up or down there. */
 
-section.image[data-img-composition="spotlight"] { --_card-ix: 5cqi; --_card-iy: 6cqh; }
-section.image[data-img-composition="statement"] { --_card-ix: 6cqi; --_card-iy: 8cqh; }
-section.image[data-img-composition="spotlight"]:is([data-orientation="portrait"], [data-orientation="square"]) { --_card-iy: 5cqh; }
-section.image[data-img-composition="statement"]:is([data-orientation="portrait"], [data-orientation="square"]) { --_card-iy: 6cqh; }
+/* The card's geometry is one formula: a base per composition and orientation
+ * (`-0`), times the size step (`card-sm`/`card-lg`, padding only), times the
+ * density (`compact`). Both factors are 1 when unset, so the default card is
+ * the base itself. The derived values are declared on the section, where all
+ * three inputs live, and read by the card and its accent rule. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) {
+  --_card-ix: calc(var(--_card-ix0) * var(--_card-density, 1));
+  --_card-iy: calc(var(--_card-iy0) * var(--_card-density, 1));
+  --_card-pad-y: calc(var(--_card-pad-y0, 0cqi) * var(--_card-step, 1) * var(--_card-density, 1));
+  --_card-pad-x: calc(var(--_card-pad-x0, 0cqi) * var(--_card-step, 1) * var(--_card-density, 1));
+}
+section.image[data-img-composition="spotlight"] { --_card-ix0: 5cqi; --_card-iy0: 6cqh; --_card-pad-y0: 4.4cqi; --_card-pad-x0: 4.6cqi; }
+section.image[data-img-composition="statement"] { --_card-ix0: 6cqi; --_card-iy0: 8cqh; }
+section.image[data-img-composition="spotlight"]:is([data-orientation="portrait"], [data-orientation="square"]) { --_card-iy0: 5cqh; --_card-pad-y0: 6cqi; --_card-pad-x0: 6cqi; }
+section.image[data-img-composition="statement"]:is([data-orientation="portrait"], [data-orientation="square"]) { --_card-iy0: 6cqh; }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text {
   translate: var(--_card-tx, 0) var(--_card-ty, 0);
 }
@@ -665,12 +677,10 @@ section.image[data-img-composition="spotlight"]:not(.card-soft):not(.card-sheer)
 
 /* ── Size ── `card-md` restates the default. Width steps in landscape only (a
  * portrait card is already full width); padding and type step everywhere. */
-section.image[data-img-composition="spotlight"].card-sm { --_card-pad-y: 2.8cqi; }
-section.image[data-img-composition="spotlight"].card-sm .image-text { padding-inline: 3.2cqi; }
+section.image[data-img-composition="spotlight"].card-sm { --_card-step: 0.66; }
 section.image[data-img-composition="spotlight"].card-sm .image-text h2 { font-size: var(--fs-h4); padding-bottom: var(--sp-xs); }
 section.image[data-img-composition="spotlight"].card-sm .image-text p { max-width: 30ch; }
-section.image[data-img-composition="spotlight"].card-lg { --_card-pad-y: 5.4cqi; }
-section.image[data-img-composition="spotlight"].card-lg .image-text { padding-inline: 5.6cqi; }
+section.image[data-img-composition="spotlight"].card-lg { --_card-step: 1.22; }
 section.image[data-img-composition="spotlight"].card-lg .image-text h2 { font-size: var(--fs-h2); }
 section.image[data-img-composition="spotlight"].card-lg .image-text p { max-width: 44ch; }
 section.image[data-img-composition="spotlight"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-sm .image-text { width: min(32cqi, 40%); }
@@ -682,3 +692,11 @@ section.image[data-img-composition="statement"].card-lg .image-text h2 { font-si
 section.image[data-img-composition="statement"].card-lg .image-text p { max-width: 44ch; }
 section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-sm .image-text { width: min(44cqi, 50%); }
 section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]).card-lg .image-text { width: min(80cqi, 86%); }
+
+/* ── Density ── `compact`, the universal density modifier, already tightens
+ * the shared `--sp-*` scale (lib/shared/shared.styles.css), which reaches the
+ * heading's gap here. The card's own geometry is in `cqi`, out of that scale's
+ * reach, so `compact` scales it directly: padding and the edge inset to 70%,
+ * and the body to the snug line height. Composes with every size step. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).compact { --_card-density: 0.7; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).compact .image-text p { line-height: var(--lh-snug); }
