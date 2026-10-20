@@ -95,6 +95,18 @@ for (const width of [1440, 390]) {
 		});
 		expect(chrome, 'the page number does not reach the card').toBe('none');
 		await page.screenshot({ path: testInfo.outputPath(`studio-bar-desc-${width}.png`) });
+		// The card lives in the page, so a press anywhere outside the preview stage closes it on every
+		// width: the frame's own listeners never hear it. Re-open, press the page header, expect it shut.
+		await page.mouse.move(p.x - 40, p.y - 40);
+		await page.mouse.move(p.x, p.y, { steps: 12 });
+		if (width === 390) await page.mouse.click(p.x, p.y);
+		await expect(card).toBeVisible({ timeout: 10_000 });
+		await page.mouse.click(2, 2);
+		await expect(card).toBeHidden({ timeout: 5_000 });
+		await page.mouse.move(p.x - 40, p.y - 40);
+		await page.mouse.move(p.x, p.y, { steps: 12 });
+		if (width === 390) await page.mouse.click(p.x, p.y);
+		await expect(card).toBeVisible({ timeout: 10_000 });
 		// The card belongs to the preview: leaving it (Source at 390, as the owner did) closes it, so
 		// it never floats over the editor.
 		if (width === 390) {
