@@ -119,7 +119,7 @@ function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?:
 							{r.reasoning && (
 								<details className="group">
 									<summary className="cursor-pointer truncate text-[var(--accent)] hover:underline">
-										Thinking
+										<span>Thinking</span>
 										<span className="font-normal text-muted-foreground"> · {snippet(r.reasoning)}</span>
 									</summary>
 									<Thinking text={r.reasoning} md={md} />
