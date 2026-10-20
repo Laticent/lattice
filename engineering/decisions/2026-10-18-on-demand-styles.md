@@ -439,6 +439,104 @@ over h2, where 68 small requests multiplex, so the throttled rows are a worst ca
 (`astro preview` is HTTP/1.1). A warm reload re-validated every module (68 network hits) on this server; the
 immutable cache headers in `docs/public/_headers` are what production relies on, also UNVERIFIED here.
 
+**Request strategies compared, on HTTP/1.1 and HTTP/2 (2026-10-20).** The loader's first version asked for one file per
+module (about 65 requests for a typical deck). Two alternatives were built and measured against it and against the whole
+sheet, each loader arm with identical scan and render code (`?styles=` picks the arm): **floor** takes the start-up set as
+ONE prebuilt static file (`styles/floor.css`, built at sync time, no server logic) and later modules one by one; **bundle**
+also asks for every later batch of modules as ONE request to a composing endpoint (`styles/bundle?m=ids`, which needs a
+function or origin that can concatenate; `docs/scripts/style-bench-server.mjs` implements it). The server speaks TLS with
+brotli like the production host, in HTTP/1.1 and HTTP/2, with immutable cache headers; `docs/scripts/style-loader-bench.mjs`
+reads Resource Timing per request. Median of 7 runs (5 with cable, 3 with 4g); a fresh browser context per run.
+
+**Chromium h2, no throttle** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1009 ms (1 req, 97 KB) | 959 ms (67 req, 56 KB) | 898 ms (13 req, 47 KB) | 913 ms (3 req, 46 KB) |
+| data-viz-gallery | 1325 ms (1 req, 97 KB) | 1423 ms (90 req, 80 KB) | 1343 ms (36 req, 71 KB) | 1296 ms (3 req, 63 KB) |
+| gallery (120 slides) | 1710 ms (1 req, 97 KB) | 1980 ms (57 req, 148 KB) | 1950 ms (3 req, 140 KB) | 1906 ms (3 req, 140 KB) |
+
+**Chromium h1, no throttle** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1048 ms (1 req, 97 KB) | 974 ms (67 req, 56 KB) | 963 ms (13 req, 47 KB) | 936 ms (3 req, 46 KB) |
+| data-viz-gallery | 1286 ms (1 req, 97 KB) | 1416 ms (90 req, 80 KB) | 1366 ms (36 req, 71 KB) | 1330 ms (3 req, 63 KB) |
+| gallery (120 slides) | 1792 ms (1 req, 97 KB) | 1980 ms (57 req, 148 KB) | 1967 ms (3 req, 140 KB) | 1901 ms (3 req, 140 KB) |
+
+**Chromium h2, cable** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 3831 ms (1 req, 97 KB) | 3725 ms (67 req, 56 KB) | 3631 ms (13 req, 47 KB) | 3594 ms (3 req, 46 KB) |
+| data-viz-gallery | 4239 ms (1 req, 97 KB) | 4290 ms (90 req, 80 KB) | 4223 ms (36 req, 71 KB) | 4190 ms (3 req, 63 KB) |
+| gallery (120 slides) | 4710 ms (1 req, 97 KB) | 5082 ms (57 req, 148 KB) | 5078 ms (3 req, 140 KB) | 5047 ms (3 req, 140 KB) |
+
+**Chromium h1, cable** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 3705 ms (1 req, 97 KB) | 3562 ms (67 req, 56 KB) | 3529 ms (13 req, 47 KB) | 3526 ms (3 req, 46 KB) |
+| data-viz-gallery | 4042 ms (1 req, 97 KB) | 4181 ms (90 req, 80 KB) | 4117 ms (36 req, 71 KB) | 4062 ms (3 req, 63 KB) |
+| gallery (120 slides) | 4662 ms (1 req, 97 KB) | 5062 ms (57 req, 148 KB) | 4959 ms (3 req, 140 KB) | 4929 ms (3 req, 140 KB) |
+
+**Chromium h2, 4g** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 10950 ms (1 req, 97 KB) | 11002 ms (67 req, 56 KB) | 10506 ms (13 req, 47 KB) | 10655 ms (3 req, 46 KB) |
+| data-viz-gallery | 11327 ms (1 req, 97 KB) | 11739 ms (90 req, 80 KB) | 11474 ms (36 req, 71 KB) | 11756 ms (3 req, 63 KB) |
+| gallery (120 slides) | 12814 ms (1 req, 97 KB) | 13721 ms (57 req, 148 KB) | 13254 ms (3 req, 140 KB) | 13172 ms (3 req, 140 KB) |
+
+**Chromium h1, 4g** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 10777 ms (1 req, 97 KB) | 11521 ms (67 req, 56 KB) | 10460 ms (13 req, 47 KB) | 10482 ms (3 req, 46 KB) |
+| data-viz-gallery | 11420 ms (1 req, 97 KB) | 13201 ms (90 req, 80 KB) | 11989 ms (36 req, 71 KB) | 11377 ms (3 req, 63 KB) |
+| gallery (120 slides) | 12764 ms (1 req, 97 KB) | 14288 ms (57 req, 148 KB) | 13203 ms (3 req, 140 KB) | 13278 ms (3 req, 140 KB) |
+
+**WebKit h2, no throttle** (cold first styled slide, ms; requests; wire KB) — WebKit wire bytes are not reported, so omitted
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1615 ms (1 req) | 1477 ms (67 req) | 1446 ms (13 req) | 1298 ms (3 req) |
+| data-viz-gallery | 1777 ms (1 req) | 1984 ms (90 req) | 1909 ms (36 req) | 1878 ms (3 req) |
+| gallery (120 slides) | 2499 ms (1 req) | 2773 ms (57 req) | 2688 ms (3 req) | 2660 ms (3 req) |
+
+**WebKit http/1.1, no throttle** (cold first styled slide, ms; requests; wire KB) — WebKit wire bytes are not reported, so omitted
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1550 ms (1 req) | 1518 ms (67 req) | 1368 ms (13 req) | 1288 ms (3 req) |
+| data-viz-gallery | 1860 ms (1 req) | 2101 ms (90 req) | 2047 ms (36 req) | 1948 ms (3 req) |
+| gallery (120 slides) | 2626 ms (1 req) | 2894 ms (57 req) | 2850 ms (3 req) | 2865 ms (3 req) |
+
+**What the numbers say.**
+- **Bundling does what it claims on requests and bytes:** 67 to 3 requests on a typical deck, 90 to 3 on `data-viz-gallery`, and on
+  the wire 56 to 46 KB and 80 to 63 KB, against 97 KB brotli for the whole sheet (116 KB gzip; the table is brotli throughout).
+- **It buys little time.** Against one request per module, bundle is faster in 17 of 18 Chromium cells, by 1 to 14% (the
+  most: 13201 to 11377 ms, `data-viz-gallery` on 4g over HTTP/1.1). Against the prebuilt floor file the difference is
+  -2.5% to +5.1%, mean 1.0%, which is inside the run-to-run spread. The static floor file captures nearly all of the gain
+  without any server logic, so the dynamic endpoint's extra value is small (36 to 3 requests on `data-viz-gallery`) against
+  its costs: a function to run, and a cache keyed by every module combination a deck can ask for (a CDN would hit far less
+  often than for a fixed file).
+- **Request count was never the main cost. The loader's serial chain is:** the floor loads, the engine renders, the scan runs,
+  the missing modules are fetched, the engine renders again. That chain is about 250 to 300 ms unthrottled whatever the arm, and
+  none of the strategies shortens it.
+- **Against the whole sheet, the loader wins on a typical deck and loses on a heavy one.** `focus`: bundle is 3 to 11% faster
+  cold in all six network and protocol settings (HTTP/2: 913 vs 1009 ms unthrottled, 3594 vs 3831 on cable, 10655 vs 10950 on
+  4g) and about 13% faster warm (717 vs 824 ms), since it parses 356 KB of CSS instead of 931 KB. `data-viz-gallery`: level
+  (-2% to +4%). `gallery`: 3 to 11% slower, because it needs more bytes than the whole sheet (140 vs 97 KB) and renders twice.
+- **HTTP/2 helps the per-module arm on slow links but does not change the ranking.** On 4g, `data-viz-gallery` per-module is
+  13201 ms over HTTP/1.1 and 11739 over HTTP/2; bundle is 11377 and 11756. Unthrottled, the protocols are within noise.
+- WebKit (Playwright's Linux build, unthrottled) ranks the arms the same way; it does not report compressed bytes and re-validated
+  its cached modules in this setup, so only its cold times are used.
+- **Recommendation:** if the loader is ever the default, ship the static floor file (`?styles=floor`) and keep per-module requests
+  for the rest. Do not build the composing endpoint for this. The next experiment worth running is a few precomputed category
+  bundles (charts, diagrams, finishes) fetched with the floor, which would cut the serial chain's second fetch without
+  any server logic. Raw files: the benchmark prints a table, `--json` keeps the samples.
+
 **What the reviews found (HARD RULE #25), and what changed.**
 
 1. *The runtime-token list was hand-kept and wrong.* The runtime toggles `.overflow` on a slide that
