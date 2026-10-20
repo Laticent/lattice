@@ -704,6 +704,20 @@ three-eighths as thick on its slanted sides as a circle's; the knockout now grow
 shape's inset, held at 0.8 (`KNOCKOUT_INSET_MIN`), which brings it to five-eighths. The full correction
 cost three of six shapes their spot on the densest grid, measured, so the compromise is deliberate.
 
+**The owner's look (2026-10-20): edges too thick, digits too small.** Read at 400 dpi, the owner was
+right on both. (1) The marker's edge was the plate's fixed one-unit stroke: a tenth of a lane marker and
+nearly a fifth of a shape on a crowded grid, and in dark mode a pale rim around a jewel fill, so the
+marker read as a sticker. The edge now scales with the marker, 7% of its numeral size with a floor of
+0.4 units (`MARKER_EDGE`, `MARKER_EDGE_MIN`, carried per marker as `--legend-marker-edge`). (2) The
+triangle's and star's digits were small and sat low, because those shapes shrank to the circle's width
+around a digit sized for a thin star. A plumper star (inner radius 0.62, outer radius 1.0 of the
+numeral) and a smaller triangle radius (0.95) let both hold a larger digit within the same width. (3)
+The thinner edge exposed one more fault: a shape with no digit wore the pale pill fill, and on a light
+cell it all but vanished. It now fills solid in its slot's strong tone, `mark` in light and `fill` in
+dark (`light-dark()`, legend.styles.css), the same jewel the lane's marker wears in dark mode. Every
+shape still places on the densest grid. The triangle's digit sits at the triangle's true middle, which
+reads a little low because the top is a point; moving it up would put it on the slanted sides.
+
 `test/unit/components/legend-anchored.test.js` pins the six shapes on the densest grid that prints
 its values (each shape on its cell and in the lane, no numeral under the floor) and the cap (a seventh
 callout not drawn, in the description, its detail in the cell's card); each fails when its rule is

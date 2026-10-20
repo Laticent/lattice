@@ -61,6 +61,11 @@ text.legend-number {
   stroke-width: 1;
 }
 
+/* A callout marker's edge scales with the marker (legend-svg.js `MARKER_EDGE`), set per marker. */
+.legend-plate[data-shape] {
+  stroke-width: var(--legend-marker-edge, 1);
+}
+
 .legend-plate--tag-bordered {
   stroke-width: 1.2;
 }
@@ -77,6 +82,24 @@ text.legend-number {
 .legend-plate[data-c='c10'] { fill: var(--cat-10-fill); stroke: var(--cat-10-mark); }
 .legend-plate[data-c='c11'] { fill: var(--cat-11-fill); stroke: var(--cat-11-mark); }
 .legend-plate[data-c='c12'] { fill: var(--cat-12-fill); stroke: var(--cat-12-mark); }
+
+/* A marker with no digit (legend-svg.js `markerSvg`, `data-bare`) is a small solid shape in its slot's
+ * STRONG tone: with no numeral to keep readable it needs no pale fill, and a pale one vanished on a
+ * light cell. The strong tone flips with the mode (base.tokens.css: `fill` is pale in light and jewel
+ * in dark, `mark` the reverse), so light takes the mark and dark the fill, the same jewel the lane's
+ * marker wears there. */
+.legend-plate[data-bare][data-c='c1']  { fill: light-dark(var(--cat-1-mark), var(--cat-1-fill)); }
+.legend-plate[data-bare][data-c='c2']  { fill: light-dark(var(--cat-2-mark), var(--cat-2-fill)); }
+.legend-plate[data-bare][data-c='c3']  { fill: light-dark(var(--cat-3-mark), var(--cat-3-fill)); }
+.legend-plate[data-bare][data-c='c4']  { fill: light-dark(var(--cat-4-mark), var(--cat-4-fill)); }
+.legend-plate[data-bare][data-c='c5']  { fill: light-dark(var(--cat-5-mark), var(--cat-5-fill)); }
+.legend-plate[data-bare][data-c='c6']  { fill: light-dark(var(--cat-6-mark), var(--cat-6-fill)); }
+.legend-plate[data-bare][data-c='c7']  { fill: light-dark(var(--cat-7-mark), var(--cat-7-fill)); }
+.legend-plate[data-bare][data-c='c8']  { fill: light-dark(var(--cat-8-mark), var(--cat-8-fill)); }
+.legend-plate[data-bare][data-c='c9']  { fill: light-dark(var(--cat-9-mark), var(--cat-9-fill)); }
+.legend-plate[data-bare][data-c='c10'] { fill: light-dark(var(--cat-10-mark), var(--cat-10-fill)); }
+.legend-plate[data-bare][data-c='c11'] { fill: light-dark(var(--cat-11-mark), var(--cat-11-fill)); }
+.legend-plate[data-bare][data-c='c12'] { fill: light-dark(var(--cat-12-mark), var(--cat-12-fill)); }
 
 /* The named mark's ring: drawn inside the mark's own box, in body ink, so the cell a callout names
  * reads at a glance in a field of near-identical cells. Not a color: an edge. */
