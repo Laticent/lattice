@@ -32,12 +32,18 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				setSource: (s) => depsRef.current.setSource(s),
 				goToSlide: (i) => depsRef.current.goToSlide(i),
 				openSharedDeck: (o) => depsRef.current.openSharedDeck(o),
+				followDoing: (d) => depsRef.current.followDoing?.(d),
+				canFollowDoing: () => depsRef.current.canFollowDoing?.() ?? false,
+				openRoomPresent: () => depsRef.current.openRoomPresent?.(),
+				closeRoomPresent: () => depsRef.current.closeRoomPresent?.(),
+				startTour: (id) => depsRef.current.startTour?.(id),
+				applyComments: (deck, set, del, me) => depsRef.current.applyComments?.(deck, set, del, me),
 				notify: (m) => notify(m),
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,
 			};
-			const { source, deckId, deckTitle, slideCount, theme, activeSlide } = depsRef.current;
-			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, activeSlide });
+			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking, comments } = depsRef.current;
+			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking, comments });
 			setCtl(c);
 			return c;
 		});
@@ -68,7 +74,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	// Feed the controller this render's Studio state (it diffs against the last one).
 	React.useEffect(() => {
-		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, activeSlide: deps.activeSlide });
+		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme, panel: deps.panel, view: deps.view, presenting: deps.presenting, asking: deps.asking, comments: deps.comments });
 	});
 
 	// Hosting others: ask before the tab goes.
@@ -93,6 +99,19 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	const actions: LiveActions = ctl?.actions ?? {
 		start: (name) => void ensure().then((c) => c.actions.start(name), NOOP),
+		shareRecord: NOOP,
+		presentToEveryone: NOOP,
+		joinPresent: NOOP,
+		presentTransport: NOOP,
+		mixIntoCall: NOOP,
+		tourForEveryone: () => 'solo',
+		noteAiEdit: NOOP,
+		shareAiTurn: NOOP,
+		commentAdded: NOOP,
+		commentResolved: NOOP,
+		commentDeleted: NOOP,
+		mayDeleteComment: () => true,
+		shareComments: NOOP,
 		copyLink: () => Promise.resolve(false),
 		setLinkRole: NOOP,
 		setAutoAdmit: NOOP,
@@ -124,5 +143,5 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 	const noteEditorWrite = React.useCallback((next: string) => ctl?.noteEditorWrite(next), [ctl]);
 	const mayLeaveDeck = React.useCallback(() => ctl?.mayLeaveDeck() ?? true, [ctl]);
 	const collab: LiveCollab | null = ctl?.collab() ?? null;
-	return { view: ctl?.view() ?? IDLE_VIEW, actions, lobby: ctl?.lobby() ?? null, lobbyActions, now: ctl?.now ?? Date.now(), collab, noteEditorWrite, mayLeaveDeck };
+	return { pointers: ctl?.pointerSource ?? null, view: ctl?.view() ?? IDLE_VIEW, actions, lobby: ctl?.lobby() ?? null, lobbyActions, now: ctl?.now ?? Date.now(), collab, noteEditorWrite, mayLeaveDeck };
 }

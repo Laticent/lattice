@@ -138,7 +138,8 @@ after audio. Tracked by `followups.d/2547-p4-screen-share.md`.
 | A test relay so CI runs real two-browser tests | `2547-p3-own-signaling-relay.md` |
 | "Who changed this?" in version history | `2547-p3-live-edit-attribution.md` |
 | Slide locking | `2547-p3-live-slide-lock.md` |
-| Presenting live with the audience following | `2547-p3-live-present-with-audience.md` |
+| Presenting live with the audience following | `2810-p2-live-present-together-with-narration.md` |
 | Screen share | `2547-p4-screen-share.md` |
 | Clock and chat limits (NTP steps, 500-line cap) | `2547-p3-live-clock-and-chat-limits.md` |
 | Same-name members | `2547-p3-live-presence-keyed-by-name.md` |
+| Panels, Coach, AI chat, Present and the deck's look in sync for every member | Built in #2810 (`2026-10-20-live-uniform-experience.md`); narration off the call and captions in step remain, `2810-p2-live-present-together-with-narration.md` |

@@ -24,6 +24,11 @@ export type SlideComment = {
 	/** ms epoch. */
 	createdAt: number;
 	resolved: boolean;
+	/** Set on a comment a live session shared: who shared it, when that was not its writer (slice 6). */
+	sharedBy?: string;
+	/** Set on a comment that came from a live session: its owner's id there. Only that owner's word may
+	 *  change or remove this copy later, so nobody can take a comment over by reusing its id. */
+	owner?: string;
 };
 
 const PREFIX = 'lattice-studio-comments-'; // + deckId → SlideComment[]
@@ -33,6 +38,37 @@ const PREFIX = 'lattice-studio-comments-'; // + deckId → SlideComment[]
 export { PREFIX as COMMENTS_KEY_PREFIX };
 /** Fired (window event) whenever a deck's comments change, so open views refresh. */
 export const COMMENTS_EVENT = 'lattice-studio-comments-changed';
+
+/**
+ * A live session's hold on one deck's comments (2026-10-20 live note, slice 6). While a session is bound to
+ * `deckId`, the person's own adds, resolves and deletes are reported to it, and it decides who may delete a
+ * shared comment. Comments arriving from the session come in through `mergeSessionComments`, which reports
+ * nothing back.
+ */
+export type CommentRelay = {
+	deckId: string;
+	added: (c: SlideComment) => void;
+	resolved: (id: string, resolved: boolean) => void;
+	deleted: (id: string) => void;
+	mayDelete: (id: string) => boolean;
+};
+let relay: CommentRelay | null = null;
+/** Set (or clear) the session's relay. Open views refresh, since who may delete has changed. */
+export function setCommentRelay(next: CommentRelay | null): void {
+	if (relay === next) return;
+	const was = relay;
+	relay = next;
+	try {
+		for (const d of new Set([was?.deckId, next?.deckId])) if (d) window.dispatchEvent(new CustomEvent(COMMENTS_EVENT, { detail: { deckId: d } }));
+	} catch {
+		/* no window: nothing to refresh */
+	}
+}
+const relayFor = (deckId: string): CommentRelay | null => (relay && relay.deckId === deckId ? relay : null);
+/** Whether this person may delete a comment: always outside a session; in one, its writer or the host. */
+export function mayDeleteComment(deckId: string, id: string): boolean {
+	return relayFor(deckId)?.mayDelete(id) ?? true;
+}
 
 function key(deckId: string): string {
 	return PREFIX + deckId;
@@ -66,7 +102,9 @@ function isComment(c: unknown): c is SlideComment {
 		typeof o.author === 'string' &&
 		typeof o.createdAt === 'number' &&
 		Number.isFinite(o.createdAt) &&
-		typeof o.resolved === 'boolean'
+		typeof o.resolved === 'boolean' &&
+		(o.sharedBy === undefined || typeof o.sharedBy === 'string') &&
+		(o.owner === undefined || typeof o.owner === 'string')
 	);
 }
 
@@ -108,12 +146,14 @@ export function addComment(deckId: string, slide: number, body: string, author =
 	if (!text) return null;
 	const comment: SlideComment = { id: uid(), slide, author: author.trim() || 'You', body: text, createdAt: Date.now(), resolved: false };
 	writeAll(deckId, [...readAll(deckId), comment]);
+	relayFor(deckId)?.added(comment);
 	return comment;
 }
 
 /** Toggle (or set) a comment's resolved flag. */
 export function setResolved(deckId: string, id: string, resolved: boolean): void {
 	writeAll(deckId, readAll(deckId).map((c) => (c.id === id ? { ...c, resolved } : c)));
+	relayFor(deckId)?.resolved(id, resolved);
 }
 
 /** Edit a comment's body (empty body deletes it). */
@@ -128,7 +168,42 @@ export function editComment(deckId: string, id: string, body: string): void {
 
 /** Delete a comment. */
 export function deleteComment(deckId: string, id: string): void {
+	const r = relayFor(deckId);
+	// In a session, someone else's shared comment is not this person's to delete.
+	if (r && !r.mayDelete(id)) return;
 	writeAll(deckId, readAll(deckId).filter((c) => c.id !== id));
+	r?.deleted(id);
+}
+
+/**
+ * Put comments a live session shared onto this browser's copy of the deck, and take deleted ones off. Each
+ * is checked like any stored comment. Nothing is reported back to the session: this is the session's
+ * own word arriving.
+ *
+ * A copy this browser already holds changes only under the owner it came with (checker, slice 6: a member
+ * re-adding a known id would otherwise rewrite, then delete, someone else's comment on every copy). A
+ * comment this browser wrote and never shared has no owner yet: only this browser's own share (`me`) may
+ * claim it.
+ */
+export function mergeSessionComments(deckId: string, set: unknown[], del: Array<{ id: string; owner: string }>, me: string | null): void {
+	const incoming = set.filter((c): c is SlideComment & { owner: string } => isComment(c) && typeof (c as SlideComment).owner === 'string');
+	if (!incoming.length && !del.length) return;
+	const byId = new Map(readAll(deckId).map((c) => [c.id, c]));
+	const mayTouch = (held: SlideComment | undefined, owner: string) => !held || (held.owner !== undefined ? held.owner === owner : owner === me);
+	let changed = false;
+	for (const c of incoming) {
+		if (!mayTouch(byId.get(c.id), c.owner)) continue;
+		byId.set(c.id, { id: c.id, slide: c.slide, author: c.author, body: c.body, createdAt: c.createdAt, resolved: c.resolved, owner: c.owner, ...(c.sharedBy ? { sharedBy: c.sharedBy } : {}) });
+		changed = true;
+	}
+	for (const d of del) {
+		const held = byId.get(d.id);
+		if (held && mayTouch(held, d.owner)) {
+			byId.delete(d.id);
+			changed = true;
+		}
+	}
+	if (changed) writeAll(deckId, [...byId.values()]);
 }
 
 /** Drop every comment for a deck (e.g. on deck delete). Removes the storage key

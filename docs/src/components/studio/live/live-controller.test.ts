@@ -2,8 +2,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryNetwork, type MemoryNetwork } from '@/lib/tavola/memory';
 import type { Transport } from '@/lib/tavola/types';
-import type { LiveDeps, LiveHost } from './live-store';
-import { takeLiveIntent } from './live-store';
+import type { LiveDeps, LiveFinish, LiveHost, LiveTheme } from './live-store';
+import { NO_RECORDS, takeLiveIntent } from './live-store';
 
 // The Studio's controller over the in-memory network: the real controller, Tavola and Yjs, with
 // only the Trystero transport swapped. These pin the second-round trio findings that live in the
@@ -30,7 +30,7 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
-const deps = (deckId: string): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', activeSlide: 0 });
+const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, asking: false, comments: [], ...over });
 const shell = () => {
 	const notes: string[] = [];
 	const host: LiveHost = { setSource: () => {}, goToSlide: () => {}, openSharedDeck: () => 'shared-deck', notify: (m) => notes.push(m), notifyAction: (m) => notes.push(m), rerender: () => {} };
@@ -51,17 +51,17 @@ const until = async (ok: () => boolean, ...ctls: Ctl[]) => {
 	expect(ok()).toBe(true);
 };
 
-async function hostSession() {
+async function hostSession(over: Partial<LiveDeps> = {}) {
 	const sh = shell();
 	// Each controller is its own browser tab: no chat-id prefixes inherited (jsdom shares storage).
 	sessionStorage.removeItem('lattice-live-sids');
 	sessionStorage.removeItem('lattice-live-share');
-	const h = new LiveController(sh.host, deps('host-deck'));
+	const h = new LiveController(sh.host, deps('host-deck', over));
 	h.actions.start('Sharmarke');
 	await until(() => h.view().status === 'live', h);
 	return { h, notes: sh.notes };
 }
-async function guestOf(h: Ctl, name: string) {
+async function guestOf(h: Ctl, name: string, over: Partial<LiveDeps> = {}) {
 	const sh = shell();
 	// Each guest is its own browser: no rejoin token left by the one before (jsdom shares storage).
 	localStorage.removeItem('lattice-live-links');
@@ -69,7 +69,7 @@ async function guestOf(h: Ctl, name: string) {
 	sessionStorage.removeItem('lattice-live-share');
 	location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 	takeLiveIntent();
-	const g = new LiveController(sh.host, deps(`${name}-deck`));
+	const g = new LiveController(sh.host, deps(`${name}-deck`, over));
 	await g.resume();
 	await until(() => g.lobby()?.stage === 'ready', h, g);
 	g.lobbyActions.setName(name);
@@ -642,7 +642,7 @@ describe('what you share (2026-10-12)', () => {
 		const reloaded = new LiveController(shell().host, deps('host-deck'));
 		reloaded.actions.start('Sharmarke');
 		await until(() => reloaded.view().status === 'live', reloaded);
-		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true });
+		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true, doing: true, pointer: true });
 		expect(awOf(reloaded).getLocalState()).toHaveProperty('slideHidden', true);
 		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('slide');
 		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('cursor');
@@ -650,8 +650,967 @@ describe('what you share (2026-10-12)', () => {
 
 	it('what you share is in your view, all on to begin with', async () => {
 		const { h } = await hostSession();
-		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true });
+		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true, doing: true, pointer: true });
 		h.actions.setShare({ slide: false });
-		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true });
+		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true, doing: true, pointer: true });
 	});
 });
+
+// The session's look (2026-10-20-live-uniform-experience.md §5.1): an un-themed deck renders in the look the
+// host froze when the session started, for every member, whatever their own site palette and mode.
+describe('LiveController: the session look', () => {
+	// biome-ignore lint/suspicious/noExplicitAny: the look a member holds, read where the Studio reads it.
+	const lookOf = (c: Ctl) => (c as any).look as { palette: string | null; mode: string } | null;
+
+	it('every member takes the host\'s frozen look, not its own palette and mode', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(h)).toEqual({ palette: 'indaco', mode: 'dark' });
+		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
+		expect(h.collab()?.look).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('the look is frozen: the host changing its own palette later does not change it', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		h.update(deps('host-deck', { theme: 'onyx', mode: 'light' }));
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('a host whose palette is a saved theme shares no name: everyone gets the default, and the host is told', async () => {
+		const { h, notes } = await hostSession({ theme: 'Acme Brand', mode: 'light' });
+		const { g } = await guestOf(h, 'Amina', { theme: 'onyx', mode: 'dark' });
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(h)).toEqual({ palette: null, mode: 'light' });
+		expect(lookOf(g)).toEqual({ palette: null, mode: 'light' });
+		expect(notes.some((n) => n.includes("saved theme isn't shared"))).toBe(true);
+	});
+
+	it('a look from a member who is not the host is ignored, and so is a name that is not a built-in', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		await until(() => lookOf(a) !== null && lookOf(b) !== null, h, a, b);
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a forged tip to everyone.
+		(a as any).post({ k: 'tip', seq: 0, startedAt: 0, look: { palette: 'onyx', mode: 'light' } });
+		// biome-ignore lint/suspicious/noExplicitAny: the host itself sending a name no built-in carries.
+		(h as any).post({ k: 'tip', seq: 0, startedAt: 0, look: { palette: 'evil</style>', mode: 'light' } });
+		await settle(h, a, b);
+		expect(lookOf(b)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('the heir keeps the look when the host drops, and a newcomer gets the same one from the heir', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g: a } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
+		const { g: c } = await guestOf(h, 'Chen', { theme: 'onyx', mode: 'light' });
+		await until(() => h.view().heir === 'Amina' && a.view().heir === 'you' && lookOf(a) !== null && lookOf(c) !== null, h, a, c);
+		// biome-ignore lint/suspicious/noExplicitAny: the test drops the host's transport like a sleeping phone.
+		net.current?.drop((h as any).rt.session.getState().selfId);
+		await until(() => a.view().isHost && !c.view().hostAway, a, c);
+		expect(lookOf(a)).toEqual({ palette: 'indaco', mode: 'dark' });
+		expect(lookOf(c)).toEqual({ palette: 'indaco', mode: 'dark' });
+		const { g: d } = await guestOf(a, 'Dee', { theme: 'cuoio', mode: 'light' });
+		await until(() => lookOf(d) !== null, a, c, d);
+		expect(lookOf(d)).toEqual({ palette: 'indaco', mode: 'dark' });
+		a.dispose();
+		c.dispose();
+		d.dispose();
+	});
+
+	it('a host that reloads keeps the look it froze, not its palette now', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
+		await (h as any).saveHost();
+		h.dispose();
+		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
+		await reloaded.resume();
+		await until(() => reloaded.view().status === 'live', reloaded);
+		expect(lookOf(reloaded)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('the saved-theme note is not shown when the deck names a theme of its own', async () => {
+		const { notes } = await hostSession({ theme: 'Acme Brand', source: '---\ntheme: onyx\n---\n\n# Q3\n' });
+		expect(notes.some((n) => n.includes("saved theme isn't shared"))).toBe(false);
+	});
+
+	it('the lobby names the frozen look, never the host\'s palette now or a saved theme', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		h.update(deps('host-deck', { theme: 'onyx' }));
+		// biome-ignore lint/suspicious/noExplicitAny: the invite the lobby reads, from the host's session.
+		expect((h as any).rt.session.getState().invite?.theme).toBe('indaco');
+		const { h: saved } = await hostSession({ theme: 'Acme Brand' });
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		expect((saved as any).rt.session.getState().invite?.theme).toBe('');
+	});
+
+	it('a host holding no look keeps none across a reload, instead of freezing its palette now', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		// biome-ignore lint/suspicious/noExplicitAny: an heir that took over before its tip arrived holds no look.
+		(h as any).look = null;
+		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
+		await (h as any).saveHost();
+		h.dispose();
+		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
+		await reloaded.resume();
+		await until(() => reloaded.view().status === 'live', reloaded);
+		expect(lookOf(reloaded)).toBeNull();
+	});
+
+	it('a member that missed the tip gets the look with the lines it asks for', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
+		await until(() => lookOf(g) !== null, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: forget the look, then ask the host for lines as a returning member does.
+		(g as any).look = null;
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		(g as any).post({ k: 'since', seq: 0 }, (h as any).rt.session.getState().selfId);
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+});
+
+// The host's Library records (2026-10-20-live-uniform-experience.md §5.2, §6 rules 5, 6, 8): a member renders the
+// saved theme and finish the deck uses; nothing the host did not share leaves its Library; a member takes them
+// only from the host, through the import gate, and holds them in memory.
+describe('LiveController: Library records', () => {
+	const acme = { name: 'acme-brand', css: ':root{--accent:#123456}' };
+	const linen = { name: 'linen', label: 'Linen', recipe: { grain: { type: 'paper', strength: 0.3 } } };
+	const recordsOf = (c: Ctl) => c.collab()?.records ?? NO_RECORDS;
+	const withRecords = (themes: LiveTheme[] = [acme], finishes: LiveFinish[] = [linen], components: string[] = []) => ({ records: { themes, finishes, components } });
+
+	it('a member gets the saved theme and finish the deck used when sharing started', async () => {
+		const { h } = await hostSession(withRecords());
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => recordsOf(g).themes.length === 1 && recordsOf(g).finishes.length === 1, h, g);
+		expect(recordsOf(g).themes[0]).toEqual(acme);
+		expect(recordsOf(g).finishes[0]).toMatchObject({ name: 'linen', label: 'Linen' });
+	});
+
+	it('a record the deck names later is not sent until the host agrees', async () => {
+		const sh = shell();
+		const actions: Array<{ m: string; go: () => void }> = [];
+		sh.host.notifyAction = (m, o) => actions.push({ m, go: o.onClick });
+		sessionStorage.removeItem('lattice-live-sids');
+		const h = new LiveController(sh.host, deps('host-deck'));
+		h.actions.start('Sharmarke');
+		await until(() => h.view().status === 'live', h);
+		const { g } = await guestOf(h, 'Amina');
+		// An editor writes a private theme's name into the deck: the host's deck now resolves it.
+		h.update(deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{--accent:#000}' }], [])));
+		await settle(h, g);
+		expect(recordsOf(g).themes).toEqual([]);
+		const ask = actions.find((a) => a.m.includes('private-brand'));
+		expect(ask).toBeDefined();
+		ask?.go();
+		await until(() => recordsOf(g).themes.some((t) => t.name === 'private-brand'), h, g);
+	});
+
+	it('records from a member who is not the host are ignored, and so are shipped names and oversized CSS', async () => {
+		const { h } = await hostSession(withRecords([], []));
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting records to everyone.
+		(a as any).post({ k: 'records', themes: [acme], finishes: [linen], components: [] });
+		// biome-ignore lint/suspicious/noExplicitAny: the host itself sending a shipped name and a huge sheet.
+		(h as any).post({ k: 'records', themes: [{ name: 'indaco', css: ':root{}' }, { name: 'huge', css: 'x'.repeat(200 * 1024) }], finishes: [{ name: 'Bad Name!', recipe: {} }], components: ['ok-name', '<img>'] });
+		await settle(h, a, b);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(recordsOf(b).themes).toEqual([]);
+		expect(recordsOf(b).finishes).toEqual([]);
+		expect(recordsOf(b).components).toEqual(['ok-name']);
+	});
+
+	it('a theme that fetches off the device is refused by the import gate, with a note', async () => {
+		const beacon = { name: 'beacon', css: "@font-face{font-family:x;src:url(https://evil.example/f.woff2)} :root{--accent:#111}" };
+		const { h } = await hostSession(withRecords([beacon], []));
+		const { g, notes } = await guestOf(h, 'Amina');
+		await until(() => notes.some((n) => n.includes('"beacon"')), h, g);
+		expect(recordsOf(g).themes).toEqual([]);
+	});
+
+	it('a finish travels as a recipe, coerced into the generator\'s vocabulary', async () => {
+		const evil = { name: 'gloss', label: 'Gloss', recipe: { grain: { type: 'url(https://evil.example/x)' }, extra: '</style><script>' } };
+		const { h } = await hostSession(withRecords([], [evil]));
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => recordsOf(g).finishes.length === 1, h, g);
+		expect(JSON.stringify(recordsOf(g).finishes[0].recipe)).not.toMatch(/evil|script/);
+	});
+
+	it('a deck with a custom component says so once, by name', async () => {
+		const { h } = await hostSession(withRecords([], [], ['org-chart']));
+		const { g, notes } = await guestOf(h, 'Amina');
+		await until(() => notes.some((n) => n.includes('org-chart')), h, g);
+		expect(notes.filter((n) => n.includes('org-chart'))).toHaveLength(1);
+	});
+
+	it('a host whose site palette is a saved theme can share it as the session look', async () => {
+		const sh = shell();
+		const actions: Array<{ m: string; go: () => void }> = [];
+		sh.host.notifyAction = (m, o) => actions.push({ m, go: o.onClick });
+		sessionStorage.removeItem('lattice-live-sids');
+		const h = new LiveController(sh.host, deps('host-deck', { theme: 'acme-brand', mode: 'dark', siteTheme: acme }));
+		h.actions.start('Sharmarke');
+		await until(() => h.view().status === 'live', h);
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
+		// biome-ignore lint/suspicious/noExplicitAny: the look the member holds.
+		const lookOf = (c: Ctl) => (c as any).look;
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(g)).toEqual({ palette: null, mode: 'dark' });
+		actions.find((a) => a.m.includes('acme-brand'))?.go();
+		await until(() => lookOf(g)?.palette === 'acme-brand', h, g);
+		expect(recordsOf(g).themes).toEqual([acme]);
+	});
+
+	it('an heir relays the records it holds, but none of its own Library without asking', async () => {
+		const { h } = await hostSession(withRecords());
+		const { g: a } = await guestOf(h, 'Amina', withRecords([{ name: 'amina-private', css: ':root{--accent:#222}' }], []));
+		const { g: c } = await guestOf(h, 'Chen');
+		await until(() => h.view().heir === 'Amina' && a.view().heir === 'you' && recordsOf(a).themes.length === 1 && recordsOf(c).themes.length === 1, h, a, c);
+		// biome-ignore lint/suspicious/noExplicitAny: the test drops the host's transport like a sleeping phone.
+		net.current?.drop((h as any).rt.session.getState().selfId);
+		await until(() => a.view().isHost && !c.view().hostAway, a, c);
+		const { g: d } = await guestOf(a, 'Dee');
+		await until(() => recordsOf(d).themes.length > 0, a, c, d);
+		expect(recordsOf(d).themes.map((t) => t.name)).toEqual(['acme-brand']);
+		a.dispose();
+		c.dispose();
+		d.dispose();
+	});
+
+	it('a component the deck names later is not named to anyone until the host shares it', async () => {
+		const { h } = await hostSession(withRecords([], []));
+		const { g } = await guestOf(h, 'Amina');
+		h.update(deps('host-deck', withRecords([], [], ['acme-merger-org-chart'])));
+		await settle(h, g);
+		expect(recordsOf(g).components).toEqual([]);
+		expect(h.view().unshared).toEqual([{ key: 'c:acme-merger-org-chart', kind: 'component', name: 'acme-merger-org-chart' }]);
+		h.actions.shareRecord('c:acme-merger-org-chart');
+		await until(() => recordsOf(g).components.includes('acme-merger-org-chart'), h, g);
+		expect(h.view().unshared).toEqual([]);
+	});
+
+	it('an unshared record stays listed in the panel after its prompt is gone, and asks once', async () => {
+		const sh = shell();
+		const asks: string[] = [];
+		sh.host.notifyAction = (m) => asks.push(m);
+		sessionStorage.removeItem('lattice-live-sids');
+		const h = new LiveController(sh.host, deps('host-deck'));
+		h.actions.start('Sharmarke');
+		await until(() => h.view().status === 'live', h);
+		const both = deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{}' }], [linen]));
+		h.update(both);
+		h.update(deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{}' }], [linen])));
+		expect(h.view().unshared.map((u) => u.key)).toEqual(['t:private-brand', 'f:linen']);
+		expect(asks.filter((a) => a.includes('private-brand'))).toHaveLength(1);
+		expect(asks[0]).toMatch(/^Someone in the session changed the deck/);
+	});
+
+	it('a shared site theme stays the look and stays sent after the host changes its site palette', async () => {
+		const { h } = await hostSession({ theme: 'acme-brand', mode: 'dark', siteTheme: acme });
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
+		// biome-ignore lint/suspicious/noExplicitAny: the look the member holds.
+		const lookOf = (c: Ctl) => (c as any).look;
+		await until(() => lookOf(g) !== null, h, g);
+		expect(h.view().unshared).toEqual([{ key: 'look', kind: 'look', name: 'acme-brand' }]);
+		h.actions.shareRecord('look');
+		await until(() => lookOf(g)?.palette === 'acme-brand', h, g);
+		h.update(deps('host-deck', { theme: 'indaco', siteTheme: null, source: '# changed\n' }));
+		await settle(h, g);
+		expect(recordsOf(g).themes).toEqual([acme]);
+		const { g: late } = await guestOf(h, 'Bo', { theme: 'onyx' });
+		await until(() => lookOf(late)?.palette === 'acme-brand', h, g, late);
+		expect(recordsOf(late).themes).toEqual([acme]);
+	});
+
+	it('a host that reloads keeps a shared site theme as the look, whatever its Library holds yet', async () => {
+		const { h } = await hostSession({ theme: 'acme-brand', mode: 'dark', siteTheme: acme });
+		h.actions.shareRecord('look');
+		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
+		await (h as any).saveHost();
+		h.dispose();
+		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', siteTheme: null }));
+		await reloaded.resume();
+		await until(() => reloaded.view().status === 'live', reloaded);
+		// biome-ignore lint/suspicious/noExplicitAny: the look and the record the reloaded host holds.
+		expect((reloaded as any).look).toEqual({ palette: 'acme-brand', mode: 'dark' });
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		expect((reloaded as any).outgoing().themes).toEqual([acme]);
+	});
+
+	it('a shipped finish name is refused, and a refused theme is checked once however often it is sent', async () => {
+		const gate = await import('../import-gate');
+		const spy = vi.spyOn(gate, 'refuseImportedTheme');
+		const { h } = await hostSession(withRecords([], []));
+		const { g } = await guestOf(h, 'Amina');
+		const beacon = { name: 'beacon', css: '@import url(https://evil.example/x.css); :root{}' };
+		for (let i = 0; i < 4; i++) {
+			// biome-ignore lint/suspicious/noExplicitAny: a hostile host sending the same heavy sheet again and again.
+			(h as any).post({ k: 'records', themes: [beacon], finishes: [{ name: 'boardroom', recipe: {} }, { name: 'none', recipe: {} }], components: [] });
+			await settle(h, g);
+		}
+		expect(recordsOf(g).finishes).toEqual([]);
+		expect(recordsOf(g).themes).toEqual([]);
+		expect(spy.mock.calls.filter((c) => c[1] === 'beacon')).toHaveLength(1);
+		spy.mockRestore();
+	});
+});
+
+// Activity, wide Follow and pointers (2026-10-20-live-uniform-experience.md §5.4, §6, §7.6).
+describe('LiveController: activity, Follow and pointers', () => {
+	it('everyone sees what a member is doing, and never their AI chat; a member can hide it', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.update(deps('shared-deck', { panel: 'coach', view: 'compose' }));
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing?.panel === 'coach', h, g);
+		g.update(deps('shared-deck', { panel: null, view: 'article', presenting: true }));
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing?.presenting === true, h, g);
+		g.actions.setShare({ doing: false });
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing === undefined, h, g);
+	});
+
+	it('a forged activity is dropped: a panel or view outside the lists never arrives', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client writing straight into its presence.
+		(g as any).rt.aw.setLocalStateField('doing', { panel: 'chat', view: 'compose', presenting: false });
+		await settle(h, g);
+		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		(g as any).rt.aw.setLocalStateField('doing', { panel: '<img src=x>', view: 'settings', presenting: 'yes' });
+		await settle(h, g);
+		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
+	});
+
+	it('following someone opens their panel and view; opening another of your own stops following', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: Array<{ panel: string | null; view: string }> = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => true;
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		g.actions.follow(hostId);
+		h.update(deps('host-deck', { panel: 'library', view: 'compose' }));
+		await until(() => moves.some((m) => m.panel === 'library'), h, g);
+		// The follow move arrives: this browser now has Library open, and still follows.
+		g.update(deps('shared-deck', { panel: 'library', view: 'compose' }));
+		expect(g.view().following).toBe(hostId);
+		// Opening Coach yourself stops it.
+		g.update(deps('shared-deck', { panel: 'coach', view: 'compose' }));
+		expect(g.view().following).toBeNull();
+	});
+
+	it('pointers: a member\'s pointer reaches the others in slide coordinates, never from a hidden one, and a flood is dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		const seen: Array<Array<{ name: string; x: number; y: number; slide: number }>> = [];
+		const off = h.pointerSource.subscribe((p) => seen.push(p));
+		g.pointerSource.send({ slide: 0, x: 0.25, y: 0.5 });
+		await until(() => seen.at(-1)?.some((p) => p.name === 'Amina' && p.x === 0.25) ?? false, h, g);
+		// Out of the slide or malformed: dropped (sent well past the flood gate, so only the range check can drop it).
+		await new Promise((r) => setTimeout(r, 60));
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a pointer off the slide.
+		(g as any).post({ k: 'ptr', s: 0, x: 4, y: -1 });
+		await settle(h, g);
+		expect(seen.at(-1)?.find((p) => p.name === 'Amina')?.x).toBe(0.25);
+		g.pointerSource.send(null);
+		await until(() => (seen.at(-1)?.length ?? 1) === 0, h, g);
+		g.actions.setShare({ pointer: false });
+		// Past the send throttle, so a pointer that went out would have arrived.
+		await new Promise((r) => setTimeout(r, 150));
+		g.pointerSource.send({ slide: 0, x: 0.75, y: 0.5 });
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		expect(seen.at(-1)).toEqual([]);
+		off();
+	});
+
+	it('pointers leave with the member', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let last: unknown[] = [];
+		const off = h.pointerSource.subscribe((p) => {
+			last = p;
+		});
+		g.pointerSource.send({ slide: 0, x: 0.5, y: 0.5 });
+		await until(() => last.length === 1, h, g);
+		g.actions.leave();
+		await until(() => last.length === 0, h, g);
+		off();
+	});
+
+	it('Follow never moves anyone into Fabricate, and asks instead of moving someone who is typing', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: Array<{ panel: string | null; view: string }> = [];
+		const asks: string[] = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => true;
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		g.actions.follow(g.view().people.find((p) => p.role === 'host')?.id as string);
+		h.update(deps('host-deck', { panel: null, view: 'fabricate' }));
+		await settle(h, g);
+		expect(moves.some((m) => m.view === 'fabricate')).toBe(false);
+		// Typing now (a local edit to the shared text), then the host opens Coach: a Go, not a move.
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		const before = moves.length;
+		h.update(deps('host-deck', { panel: 'coach', view: 'compose' }));
+		await until(() => asks.some((a) => a.includes('opened Coach')), h, g);
+		expect(moves.length).toBe(before);
+	});
+
+	it('a phone or tablet follows the slide only: it is never moved and never offered a Go it cannot use', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: unknown[] = [];
+		const asks: string[] = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => false;
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		g.actions.follow(g.view().people.find((p) => p.role === 'host')?.id as string);
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.update(deps('host-deck', { panel: 'coach', view: 'compose' }));
+		await settle(h, g);
+		expect(moves).toEqual([]);
+		expect(asks.filter((a) => a.includes('opened'))).toEqual([]);
+	});
+
+	it('a flood of pointer clicks is dropped like a flood of moves', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let calls = 0;
+		const off = h.pointerSource.subscribe(() => calls++);
+		const before = calls;
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting clicks in a tight loop.
+		for (let i = 0; i < 200; i++) (g as any).post({ k: 'ptr', s: 0, x: 0.5, y: 0.5, c: 1 });
+		await settle(h, g);
+		expect(calls - before).toBeLessThan(5);
+		off();
+	});
+
+	it('activity is published when the session starts, and again when the switch is turned back on', async () => {
+		const { h } = await hostSession({ panel: 'coach' });
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => g.view().people.find((p) => p.role === 'host')?.doing?.panel === 'coach', h, g);
+		h.actions.setShare({ doing: false });
+		await until(() => g.view().people.find((p) => p.role === 'host')?.doing === undefined, h, g);
+		h.actions.setShare({ doing: true });
+		await until(() => g.view().people.find((p) => p.role === 'host')?.doing?.panel === 'coach', h, g);
+		expect(h.view().people.find((p) => p.me)?.doing).toBeUndefined();
+	});
+
+	it('hiding your slide sends no pointer, since a pointer names its slide', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let last: unknown[] = [];
+		const off = h.pointerSource.subscribe((p) => {
+			last = p;
+		});
+		g.actions.setShare({ slide: false });
+		await new Promise((r) => setTimeout(r, 150));
+		g.pointerSource.send({ slide: 0, x: 0.5, y: 0.5 });
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		expect(last).toEqual([]);
+		off();
+	});
+
+	it('pointers go out at most about ten a second, the last position winning', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		const xs: number[] = [];
+		const off = h.pointerSource.subscribe((p) => {
+			const a = p.find((q) => q.name === 'Amina');
+			if (a) xs.push(a.x);
+		});
+		for (let i = 1; i <= 20; i++) g.pointerSource.send({ slide: 0, x: i / 100, y: 0.5 });
+		// The in-memory network delivers on settle: deliver the first now, the throttled last one later.
+		await settle(h, g);
+		await new Promise((r) => setTimeout(r, 200));
+		await settle(h, g);
+		expect(xs.length).toBeLessThanOrEqual(3);
+		expect(xs.at(-1)).toBe(0.2);
+		off();
+	});
+
+	it('moves arriving faster than the flood gate are dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		let calls = 0;
+		const off = h.pointerSource.subscribe(() => calls++);
+		const before = calls;
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting moves in a tight loop.
+		for (let i = 0; i < 200; i++) (g as any).post({ k: 'ptr', s: 0, x: i / 400, y: 0.5 });
+		await settle(h, g);
+		expect(calls - before).toBeLessThan(5);
+		off();
+	});
+});
+
+// Present together (2026-10-20-live-uniform-experience.md §5.5, §7.2).
+describe('LiveController: present together', () => {
+	async function member(h: Ctl, name: string) {
+		const sh = shell();
+		const opened: string[] = [];
+		const asks: string[] = [];
+		sh.host.openRoomPresent = () => opened.push('open');
+		sh.host.closeRoomPresent = () => opened.push('close');
+		sh.host.startTour = (id) => opened.push(`tour ${id}`);
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps(`${name}-deck`));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName(name);
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		return { g, opened, asks };
+	}
+
+	it('the host presents to everyone: an idle member opens Present where the host is, follows it, and closes with it', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
+		h.actions.presentToEveryone(true);
+		await until(() => opened.includes('open') && g.view().present?.idx === 2, h, g);
+		expect(g.view().present).toEqual({ idx: 2, page: 0, lens: 'full', by: 'Sharmarke' });
+		h.actions.presentTransport({ idx: 3, page: 1, lens: 'full' });
+		await until(() => g.view().present?.idx === 3 && g.view().present?.page === 1, h, g);
+		h.actions.presentToEveryone(false);
+		await until(() => opened.includes('close') && g.view().present === null, h, g);
+	});
+
+	it('a member who is typing is asked to join instead of being moved', async () => {
+		const { h } = await hostSession();
+		const { g, opened, asks } = await member(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.actions.presentToEveryone(true);
+		await until(() => asks.some((a) => a.includes('presenting to everyone')), h, g);
+		expect(opened).toEqual([]);
+	});
+
+	it('a member cannot present to everyone, and a forged present from a member moves nobody', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await member(h, 'Amina');
+		const { g: b, opened } = await member(h, 'Bo');
+		a.actions.presentToEveryone(true);
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a room event.
+		(a as any).post({ k: 'present', on: true, i: 0, p: 0, l: 'full' });
+		await settle(h, a, b);
+		expect(opened).toEqual([]);
+		expect(b.view().present).toBeNull();
+	});
+
+	it('someone who joins during a presentation joins it where it is', async () => {
+		const { h } = await hostSession();
+		h.actions.presentTransport({ idx: 4, page: 0, lens: 'full' });
+		h.actions.presentToEveryone(true);
+		const { g, opened } = await member(h, 'Amina');
+		await until(() => opened.includes('open') && g.view().present?.idx === 4, h, g);
+	});
+
+	it("a start carries where the host's Present is now, not where the last presentation ended", async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		const sent: number[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: watching what the host posts.
+		const hh = h as any;
+		const post = hh.post.bind(hh);
+		hh.post = (m: { k: string; on?: boolean; i?: number }, to?: string) => {
+			if (m.k === 'present' && m.on) sent.push(m.i as number);
+			return post(m, to);
+		};
+		h.actions.presentTransport({ idx: 5, page: 0, lens: 'full' });
+		h.actions.presentToEveryone(true);
+		// The host's Present opens and reports: that is the start.
+		h.actions.presentTransport({ idx: 1, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 1, h, g);
+		expect(sent[0]).toBe(1);
+		expect(sent).not.toContain(5);
+	});
+
+	it('a fast run of steps goes out as a few posts, ending where the host stopped', async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 0, page: 0, lens: 'full' });
+		await until(() => g.view().present !== null, h, g);
+		let posts = 0;
+		// biome-ignore lint/suspicious/noExplicitAny: watching what the host posts.
+		const hh = h as any;
+		const post = hh.post.bind(hh);
+		hh.post = (m: { k: string }, to?: string) => {
+			if (m.k === 'present') posts++;
+			return post(m, to);
+		};
+		for (let i = 1; i <= 30; i++) h.actions.presentTransport({ idx: i, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 30, h, g);
+		expect(posts).toBeLessThanOrEqual(3);
+	});
+
+	it('a host who stops and starts again within the restart window still brings members back', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		// Past the newcomer's welcome (a beat after admission), which would otherwise carry the start again.
+		await new Promise((r) => setTimeout(r, 3000));
+		await settle(h, g);
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 2, h, g);
+		// Stop and start back to back: the start reaches the member well inside its window from the first one.
+		h.actions.presentToEveryone(false);
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
+		await until(() => g.view().present === null, h, g);
+		// The first start lands inside the member's 2 s window and is dropped; the repeat, just past it, is not.
+		await new Promise((r) => setTimeout(r, 2500));
+		await until(() => g.view().present?.idx === 2, h, g);
+		expect(opened.filter((o) => o === 'open').length).toBe(2);
+	}, 20000);
+
+	it('a transport outside any deck, by slide or by page, is dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 1, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 1, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the host sending positions no deck has.
+		const hh = h as any;
+		hh.post({ k: 'present', on: true, i: 1e9, p: 0, l: 'full' });
+		hh.post({ k: 'present', on: true, i: 2, p: -1, l: 'full' });
+		hh.post({ k: 'present', on: true, i: 2.5, p: 0, l: 'full' });
+		await settle(h, g);
+		expect(g.view().present?.idx).toBe(1);
+	});
+
+	it('mixing into the call reaches the call audio, and a new stream takes the old one out', async () => {
+		const { h } = await hostSession();
+		const calls: string[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: a stand-in for the call's audio.
+		(h as any).audio = { mixIntoSend: (s: { id: string }) => calls.push(`mix ${s.id}`), unmix: (s: { id: string }) => calls.push(`unmix ${s.id}`) };
+		h.actions.mixIntoCall({ id: 'a' } as unknown as MediaStream);
+		h.actions.mixIntoCall({ id: 'b' } as unknown as MediaStream);
+		h.actions.mixIntoCall(null);
+		expect(calls).toEqual(['mix a', 'unmix a', 'mix b', 'unmix b']);
+	});
+
+	it('a malformed transport is dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentToEveryone(true);
+		await until(() => g.view().present !== null, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the host sending a slide past any deck and a lens with markup.
+		(h as any).post({ k: 'present', on: true, i: 1e9, p: 0, l: '<img>' });
+		await settle(h, g);
+		expect(g.view().present?.idx).toBe(0);
+	});
+
+	// Show me together (§7.5).
+	const hostTours = (h: Ctl) => {
+		const started: string[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: the host's own shell callback.
+		(h as any).host.startTour = (id: string) => started.push(id);
+		return started;
+	};
+
+	it('the host plays a shipped tour for everyone: the host and an idle member both start it', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		const started = hostTours(h);
+		expect(h.actions.tourForEveryone('first-look')).toBe('sent');
+		await until(() => opened.includes('tour first-look') && started.includes('first-look'), h, g);
+	});
+
+	it('alone in a session, or as a member, a tour plays here only', async () => {
+		const { h } = await hostSession();
+		expect(h.actions.tourForEveryone('first-look')).toBe('solo');
+		const { g } = await member(h, 'Amina');
+		expect(g.actions.tourForEveryone('first-look')).toBe('solo');
+		expect(h.actions.tourForEveryone('not-a-tour')).toBe('solo');
+	});
+
+	it('a member typing is asked to watch instead of having a tour start under their cursor', async () => {
+		const { h } = await hostSession();
+		const { g, opened, asks } = await member(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.actions.tourForEveryone('first-look');
+		await until(() => asks.some((a) => a.includes('is showing')), h, g);
+		await settle(h, g);
+		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+	});
+
+	it('a tour waits while the host presents to everyone, and a member watching a presentation is asked', async () => {
+		const { h } = await hostSession();
+		const { g, opened, asks } = await member(h, 'Amina');
+		hostTours(h);
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 1, page: 0, lens: 'full' });
+		await until(() => g.view().present !== null, h, g);
+		expect(h.actions.tourForEveryone('first-look')).toBe('presenting');
+		// A tour that reaches someone watching a presentation (an older host) does not start under Present.
+		// biome-ignore lint/suspicious/noExplicitAny: the host posting the tour as an older build would.
+		(h as any).post({ k: 'tour', id: 'first-look', at: 0 });
+		await until(() => asks.some((a) => a.includes('is showing')), h, g);
+		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+	});
+
+	it('the host keeps the same restart window as its members, so it never plays a tour the room dropped', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		const started = hostTours(h);
+		expect(h.actions.tourForEveryone('first-look')).toBe('sent');
+		await until(() => opened.includes('tour first-look') && started.length === 1, h, g);
+		expect(h.actions.tourForEveryone('first-look')).toBe('wait');
+		await new Promise((r) => setTimeout(r, 900));
+		expect(started.length).toBe(1);
+	});
+
+	it('only the host starts a tour, only a shipped one, and not twice in quick succession', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await member(h, 'Amina');
+		const { g: b, opened } = await member(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a room event.
+		(a as any).post({ k: 'tour', id: 'first-look', at: 0 });
+		// biome-ignore lint/suspicious/noExplicitAny: the host sending an id that is not a shipped tour.
+		(h as any).post({ k: 'tour', id: 'javascript:alert(1)', at: 0 });
+		await settle(h, a, b);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+		h.actions.tourForEveryone('first-look');
+		h.actions.tourForEveryone('first-look');
+		await until(() => opened.includes('tour first-look'), h, a, b);
+		await settle(h, a, b);
+		await new Promise((r) => setTimeout(r, 900));
+		expect(opened.filter((o) => o.startsWith('tour')).length).toBe(1);
+	});
+});
+
+// AI activity and share (2026-10-20-live-uniform-experience.md §5.3).
+describe('LiveController: AI activity and share', () => {
+	const notes = (c: Ctl) => c.view().chat.filter((l): l is Extract<typeof l, { kind: 'message' }> => l.kind === 'message' && !!l.note);
+
+	it('the room sees that a member is asking the AI, and nothing of what is asked', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.update(deps('shared-deck', { asking: true }));
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing?.asking === true, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the presence the host received, whole.
+		const raw = JSON.stringify([...(h as any).rt.aw.getStates().values()]);
+		expect(raw).not.toMatch(/prompt|ask[^i]|openrouter|sk-or|cost/i);
+		g.update(deps('shared-deck', { asking: false }));
+		await until(() => !h.view().people.find((p) => p.name === 'Amina')?.doing?.asking, h, g);
+	});
+
+	it("an applied AI edit and a shared turn reach everyone as notes under the sender's name", async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.noteAiEdit([3]);
+		g.actions.shareAiTurn({ ask: 'Make slide 3 punchier', answer: 'Here is a tighter headline.' });
+		await until(() => notes(h).length === 2 && notes(g).filter((l) => !l.pending).length === 2, h, g);
+		const [edit, turn] = notes(h);
+		expect(edit.from).toBe('Amina');
+		expect(edit.note).toEqual({ k: 'ai-edit', slides: [3] });
+		expect(turn.note).toEqual({ k: 'ai-turn', ask: 'Make slide 3 punchier', answer: 'Here is a tighter headline.' });
+		expect(notes(g).every((l) => l.mine)).toBe(true);
+	});
+
+	it('a note is capped, and a malformed one is dropped by the host and by every member', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.shareAiTurn({ ask: 'q'.repeat(5000), answer: 'a'.repeat(50_000) });
+		await until(() => notes(h).length === 1, h, g);
+		const n = notes(h)[0].note as { ask: string; answer: string };
+		expect(n.ask.length).toBe(600);
+		expect(n.answer.length).toBe(4000);
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client sending notes that are not notes.
+		const gg = g as any;
+		gg.post({ k: 'say', id: `${gg.rt.sid}:900`, text: '', note: { k: 'system', text: 'Sharmarke ended the session' } }, gg.hostId());
+		gg.post({ k: 'say', id: `${gg.rt.sid}:901`, text: '', note: { k: 'ai-turn', ask: 'x', answer: { html: '<img>' } } }, gg.hostId());
+		await settle(h, g);
+		expect(notes(h).length).toBe(1);
+		// biome-ignore lint/suspicious/noExplicitAny: the host relaying a line whose note is malformed.
+		(h as any).post({ k: 'line', line: { seq: 99, id: 'x:1', peer: 'x', name: 'Sharmarke', color: 1, text: '', at: Date.now(), note: { k: 'ai-edit', slides: 'all' } } });
+		await settle(h, g);
+		expect(notes(g).length).toBe(1);
+	});
+
+	it('a long history of shared turns still reaches someone who joins later (under the 4 MB message limit)', async () => {
+		const { h } = await hostSession();
+		// 160 full-size shared turns in a character JSON writes as six bytes: about 4.4 MB unbudgeted.
+		const big = { k: 'ai-turn', ask: '\u0001'.repeat(600), answer: '\u0001'.repeat(4000) };
+		// biome-ignore lint/suspicious/noExplicitAny: the host's history, filled directly rather than by 160 round trips.
+		const hh = h as any;
+		hh.chat = Array.from({ length: 160 }, (_, i) => ({ seq: i + 1, id: `x:${i + 1}`, peer: 'p', name: 'Amina', color: 1, text: '', at: Date.now(), note: big }));
+		hh.seq = 160;
+		const { g: late } = await guestOf(h, 'Bo');
+		await until(() => notes(late).length > 0, h, late);
+		expect(notes(late).length).toBeLessThan(160);
+		// The newest are the ones kept.
+		expect(notes(late).at(-1)?.id).toBe('c160');
+	}, 30000);
+
+	it('slide numbers in an AI edit note are whole slides that exist, at most twelve', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.noteAiEdit([0, 2, 2, 2.5, -1, 1e9, ...Array.from({ length: 20 }, (_, i) => i + 3)]);
+		await until(() => notes(h).length === 1, h, g);
+		const slides = (notes(h)[0].note as { slides: number[] }).slides;
+		expect(slides.slice(0, 2)).toEqual([2, 3]);
+		expect(slides.length).toBe(12);
+		expect(slides.every((n) => Number.isInteger(n) && n >= 1)).toBe(true);
+	});
+});
+
+// Comments (2026-10-20-live-uniform-experience.md slice 6; the owner's rules: anyone resolves, the writer
+// or the host deletes, comments from before the session are shared on request).
+describe('LiveController: comments', () => {
+	type Applied = { deck: string; set: Array<{ id: string; author: string; resolved: boolean }>; del: string[] };
+	const watch = (c: Ctl) => {
+		const got: Applied[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: the shell's callback.
+		(c as any).host.applyComments = (deck: string, set: Applied['set'], del: string[]) => got.push({ deck, set, del });
+		return got;
+	};
+	// biome-ignore lint/suspicious/noExplicitAny: what this browser's session holds.
+	const held = (c: Ctl) => [...((c as any).cmts as Map<string, { id: string; author: string; resolved: boolean; owner: string }>).values()];
+	const add = (c: Ctl, id: string, body = 'Check this number') => c.actions.commentAdded({ id, slide: 2, body, createdAt: Date.now() });
+
+	it("a comment written in the session reaches everyone under the writer's name, and is 'You' on the writer's copy", async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		const gotA = watch(a);
+		const gotB = watch(b);
+		add(a, 'c1');
+		await until(() => held(h).length === 1 && held(b).length === 1 && held(a).length === 1, h, a, b);
+		expect(held(h)[0].author).toBe('Amina');
+		expect(gotB.at(-1)?.set[0].author).toBe('Amina');
+		expect(gotB.at(-1)?.deck).toBe('shared-deck');
+		expect(gotA.at(-1)?.set[0].author).toBe('You');
+	});
+
+	it('anyone resolves; only the writer or the host deletes', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		add(a, 'c1');
+		add(b, 'c2');
+		await until(() => held(h).length === 2 && held(a).length === 2 && held(b).length === 2, h, a, b);
+		b.actions.commentResolved('c1', true);
+		await until(() => held(a).find((c) => c.id === 'c1')?.resolved === true, h, a, b);
+		expect(b.actions.mayDeleteComment('c1')).toBe(false);
+		expect(a.actions.mayDeleteComment('c1')).toBe(true);
+		expect(h.actions.mayDeleteComment('c1')).toBe(true);
+		// A modified client deletes anyway: the host refuses it.
+		b.actions.commentDeleted('c1');
+		await settle(h, a, b);
+		expect(held(a).some((c) => c.id === 'c1')).toBe(true);
+		a.actions.commentDeleted('c1');
+		await until(() => !held(b).some((c) => c.id === 'c1'), h, a, b);
+		h.actions.commentDeleted('c2');
+		await until(() => held(a).length === 0 && held(b).length === 0, h, a, b);
+	});
+
+	it("only the host's word changes comments, and a malformed one is dropped", async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting the host's messages.
+		const aa = a as any;
+		aa.post({ k: 'cmtset', c: { id: 'x1', slide: 1, author: 'Sharmarke', body: 'Approved', createdAt: Date.now(), resolved: false, owner: 'o' } });
+		aa.post({ k: 'cmts', list: [{ id: 'x2', slide: 1, author: 'Sharmarke', body: 'Approved', createdAt: Date.now(), resolved: false, owner: 'o' }] });
+		add(a, 'bad id with spaces');
+		add(a, 'c0', '   ');
+		a.actions.commentAdded({ id: 'c9', slide: 0, body: 'x', createdAt: Date.now() });
+		add(a, 'c8', 'y'.repeat(9000));
+		await until(() => held(h).length === 1, h, a, b);
+		await settle(h, a, b);
+		expect(held(b).map((c) => c.id)).toEqual(['c8']);
+		// biome-ignore lint/suspicious/noExplicitAny: the body as the session holds it.
+		expect(((b as any).cmts.get('c8').body as string).length).toBe(2000);
+	});
+
+	it('comments from before the session wait until their writer shares them; someone else\'s keeps its name', async () => {
+		const { h } = await hostSession({ comments: [{ id: 'old1', slide: 1, body: 'Mine from yesterday', createdAt: 1, author: 'You' }, { id: 'old2', slide: 3, body: 'Amina said this last week', createdAt: 2, author: 'Amina' }] });
+		const { g: a } = await guestOf(h, 'Bo');
+		h.update(deps('host-deck', { comments: [{ id: 'old1', slide: 1, body: 'Mine from yesterday', createdAt: 1, author: 'You' }, { id: 'old2', slide: 3, body: 'Amina said this last week', createdAt: 2, author: 'Amina' }] }));
+		expect(h.view().unsharedComments).toBe(2);
+		await settle(h, a);
+		expect(held(a)).toEqual([]);
+		h.actions.shareComments();
+		await until(() => held(a).length === 2, h, a);
+		expect(held(a).find((c) => c.id === 'old1')?.author).toBe('Sharmarke');
+		// The writer and the sharer are two names, so a long one cannot cut the other off.
+		expect(held(a).find((c) => c.id === 'old2')).toMatchObject({ author: 'Amina', sharedBy: 'Sharmarke' });
+		expect(h.view().unsharedComments).toBe(0);
+	});
+
+	it("a long writer's name cannot cut off who shared the comment", async () => {
+		const long = 'Sharmarke Aden, Chief Executive Officer';
+		const kept = [{ id: 'old9', slide: 1, body: 'Signed off', createdAt: 1, author: long }];
+		const { h } = await hostSession();
+		const { g: m } = await guestOf(h, 'Mallory', { comments: kept });
+		const { g: b } = await guestOf(h, 'Bo');
+		m.update(deps('shared-deck', { comments: kept }));
+		m.actions.shareComments();
+		await until(() => held(b).length === 1, h, m, b);
+		expect(held(b)[0]).toMatchObject({ author: long, sharedBy: 'Mallory' });
+	});
+
+	it('someone who joins later gets every shared comment', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		add(a, 'c1');
+		add(a, 'c2');
+		await until(() => held(h).length === 2, h, a);
+		const { g: b } = await guestOf(h, 'Bo');
+		await until(() => held(b).length === 2, h, a, b);
+	});
+});
+

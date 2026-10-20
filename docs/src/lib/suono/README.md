@@ -23,6 +23,10 @@ The caller mutes its own element for that stream so it is not heard twice.
 `stage.gainStream(stream, gain)` is the send side: it routes a live stream through a gain and returns a NEW
 stream (`{ stream, setGain(g), stop() }`), so a call can turn its own microphone up or down before it is
 sent. Null where Web Audio is missing; the caller then sends the original.
+`gainStream(…).mix(other)` mixes another live stream into the sent one, past the gain, and returns the
+way to take it out again. `stage.tapPlayback()` is a live copy of what the stage PLAYS, as a stream
+(`{ stream, stop() }`): every clip played after it is taken also goes to the tap. Together they send a
+narration on a call: tap the stage that speaks it, and mix the tap into the call's microphone send.
 
 ## Install
 

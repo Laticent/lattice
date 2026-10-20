@@ -1,0 +1,1 @@
+- **See AI work in a live session.** The people list shows when someone is asking the AI (never what they ask), and the chat says when someone applies an AI edit, with a link to each slide it changed. A finished AI reply has "Share with the session", which posts that question and answer to everyone as a card.

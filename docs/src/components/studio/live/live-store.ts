@@ -16,8 +16,40 @@ export type LiveDeps = {
 	deckTitle: string;
 	slideCount: number;
 	theme: string;
+	/** The site's light or dark mode, frozen with the palette into the session's look. */
+	mode: 'light' | 'dark';
 	activeSlide: number;
+	/** This browser's own Library records the open deck uses now. A host shares only the ones the deck
+	 *  used when sharing started, and asks before any other (2026-10-20 note §6, rule 6). */
+	records: LiveRecords;
+	/** This browser's site palette as a saved theme, when it is one: what a host may offer to share
+	 *  as the session's look (§5.1). */
+	siteTheme: LiveTheme | null;
+	/** What this browser is doing, as presence carries it: the open panel (the AI Chat panel never
+	 *  shows), the view, and whether it is presenting (§7.6). */
+	panel: 'coach' | 'lenses' | 'library' | 'live' | null;
+	view: 'compose' | 'fabricate' | 'article';
+	presenting: boolean;
+	/** An AI chat turn is in flight here (shown as "asking the AI"; never what is asked). */
+	asking: boolean;
+	/** The comments on the open deck (slice 6): what is not shared yet is offered to share. */
+	comments: Array<{ id: string; slide: number; body: string; createdAt: number; author: string }>;
 };
+
+/** A saved theme as a session carries it: its name and its CSS. */
+export type LiveTheme = { name: string; css: string };
+/** A saved finish as a session carries it: its recipe, never its CSS (each browser regenerates it). */
+export type LiveFinish = { name: string; label: string; recipe: unknown };
+/** The Library records a deck uses: themes and finishes travel; custom components travel by name
+ *  only, so a member can say why those slides fall back. */
+export type LiveRecords = { themes: LiveTheme[]; finishes: LiveFinish[]; components: string[] };
+export const NO_RECORDS: LiveRecords = { themes: [], finishes: [], components: [] };
+
+/** The look every member's preview gives a deck that names no `theme:`. The host freezes it when the
+ *  session starts and it does not change after that, through a host drop or a takeover
+ *  (engineering/decisions/2026-10-20-live-uniform-experience.md §5.1). `palette` is a built-in name, or
+ *  null when the host's own palette is a saved theme, which is not shared: members then use the default. */
+export type LiveLook = { palette: string | null; mode: 'light' | 'dark' };
 
 /** What the session code calls back into the shell for. */
 export type LiveHost = {
@@ -29,10 +61,22 @@ export type LiveHost = {
 	notify: (message: string) => void;
 	notifyAction: (message: string, opts: { label: string; onClick: () => void }) => void;
 	rerender: () => void;
+	/** Follow: open the panel and view of the person followed. The shell decides what fits its width
+	 *  (a phone follows the slide only). Optional: a shell without panels follows slides alone. */
+	followDoing?: (d: { panel: 'coach' | 'lenses' | 'library' | 'live' | null; view: 'compose' | 'fabricate' | 'article' }) => void;
+	/** Whether this shell mirrors a panel and view at its current width (a phone or tablet does not). */
+	canFollowDoing?: () => boolean;
+	/** Present together (§7.2): open Present following the presenter, or close a Present the room opened. */
+	openRoomPresent?: () => void;
+	closeRoomPresent?: () => void;
+	/** Show me together (§7.5): start this shipped tour now, on a practice deck. */
+	startTour?: (tourId: string) => void;
+	/** Comments (slice 6): put shared comments on this browser's copy of `deckId`, and take deleted ones off. */
+	applyComments?: (deckId: string, set: Array<{ id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean; owner: string; sharedBy?: string }>, del: Array<{ id: string; owner: string }>, me: string | null) => void;
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
-export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string };
+export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null; records: LiveRecords };
 
 const read = (s: Storage, k: string): string | null => {
 	try {
