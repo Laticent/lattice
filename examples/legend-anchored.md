@@ -105,7 +105,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 <!-- _class: heatmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress · seven by twelve. A marker goes only where it covers no value: here, on a corner." -->
+<!-- _footer: "Stress · seven by twelve. No room inside a cell, so every marker takes the same badge spot." -->
 
 `Usage · hour by weekday`
 

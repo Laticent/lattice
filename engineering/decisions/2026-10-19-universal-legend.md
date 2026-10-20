@@ -672,7 +672,7 @@ making more points than that should be split.
 | The cap, one constant read by the render, the narrator and the linter | `lib/core/legend.js` `MAX_ANCHORED` |
 | Shapes, assignment, the digit-optional marker | `legend-svg.js` `MARKER_SHAPES`, `markerShapes`, `markerSvg` |
 | Placement: digit at full size, digit at the floor, shape alone at the floor, shape alone at its own floor | `legend-svg.js` `laneSvg` |
-| The shape's floor | `heatmap.transform.js` `SHAPE_MIN`, 0.4 of the label size |
+| The shape's floor | `heatmap.transform.js` `SHAPE_MIN` at the time, 0.4 of the label size; replaced by the cell-based height below |
 | Capped callouts: not drawn, in the description, detail kept in the cell's card | `heatmap.transform.js` `resolveCallouts`, `describeCallouts`, `cellMarks` |
 | Narration stops at six | `chart-narration.js` `gridCalloutSentences` |
 | The lint warning, counted across every span on the slide | `lint-core.js` `pastTheCap` |
@@ -708,7 +708,7 @@ cost three of six shapes their spot on the densest grid, measured, so the compro
 right on both. (1) The marker's edge was the plate's fixed one-unit stroke: a tenth of a lane marker and
 nearly a fifth of a shape on a crowded grid, and in dark mode a pale rim around a jewel fill, so the
 marker read as a sticker. The edge now scales with the marker, 7% of its numeral size with a floor of
-0.4 units (`MARKER_EDGE`, `MARKER_EDGE_MIN`, carried per marker as `--legend-marker-edge`). (2) The
+0.4 units (`MARKER_EDGE` and `MARKER_EDGE_MIN` at the time; the edge was later dropped, below). (2) The
 triangle's and star's digits were small and sat low, because those shapes shrank to the circle's width
 around a digit sized for a thin star. A plumper star (inner radius 0.62, outer radius 1.0 of the
 numeral) and a smaller triangle radius (0.95) let both hold a larger digit within the same width. (3)
@@ -723,3 +723,60 @@ its values (each shape on its cell and in the lane, no numeral under the floor) 
 callout not drawn, in the description, its detail in the cell's card); each fails when its rule is
 broken (shape floor back at 0.75; the cap removed). `test/unit/authoring/legend-span-lint.test.js`
 pins the warning.
+
+**The owner's audit (2026-10-20): size, centering, edges and placement, settled in one round.** This
+supersedes the sizing, the placement and the edge rules above; the six shapes and the cap stand. A test
+sheet rendered every option with the real stylesheet and fonts, light and dark, before the choice.
+
+| Question | Measured | Ruling (owner) |
+|---|---|---|
+| Lane marker size | The lane digit was 0.82 of the label (6.15 against 7.5), and the triangle and star shrank further to stay as narrow as the circle | The digit is as large as the label, and every shape is padded like the diamond, so the digit's cap height is a little under two-fifths of the shape's height (`DIGIT_OF_HEIGHT`, `SHAPE_HEIGHT`) |
+| Why the diamond read best | It is symmetric top to bottom; its widest point is where the digit sits, and its slanted sides never run parallel to the digit's edges; and it had the most room, the digit filling about 35% of its height against 49% of the circle's | That padding became the rule for all six |
+| Digit centering | `dominant-baseline: middle` centers on half the lowercase height; digits stand as tall as capitals, so they sat about a tenth of their size high, measured in the render | `central`, which leaves Outfit's digits 0.02 em off; a triangle's and a star's digit sit halfway between the shape's middle and its box's |
+| Font | Outfit and JetBrains Mono both center well under `central`; JetBrains Mono ships only up to weight 600, so its digit reads thin beside the bold label; Playfair's digits descend below the baseline | Outfit |
+| Callout vs the key | With a band key the key's labels were 8.1 and the callout 7.5 | A callout is never smaller than the key's labels (`calloutLane`) |
+| Edges | The fixed one-unit edge was heavy; on a solid shape the edge is its own color, so the outline seen is the knockout | 4% of the digit size on a marker with its digit; none on a solid shape |
+| Size on a cell | — | Height 0.42 of the cell's shorter side, never larger than the lane marker; the digit only at 0.5 of the label size or more |
+| Placement | — | Only two places, and no border collisions: whole inside the cell's top-left corner, or a badge offset up and left of it |
+
+**One setup per chart (`pinMarkers`).** Every marker on a chart shares one height, one place and one
+choice of digit, so none jumps or shrinks against its neighbors. In this order: digit inside the
+corner, digit on a badge two-thirds on the cell, digit on a badge centered where the gutters cross,
+then the shape alone in the same three places; failing all six, the height steps down a tenth at a
+time to the floor. The gutter-crossing badge is still "offset top-left": on a crowded grid the only
+clear space is the band between one row's values and the next, which is centered on the gutter, not
+on the cell's edge. The heatmap's avoid list now leaves free the strip between the grid and its row
+and column names, which is the only room a badge on the top row or left column has.
+
+**What the two-place rule costs, measured.** With six callouts on four-digit grids, every shape places
+at 4, 6, 8 and 10 rows, with digits through 6 rows. On the densest grid, a callout in the top row has
+only the strip under the column names, and every marker on that chart shrinks with it to the floor,
+3.8 units (`MARKER_MIN_HEIGHT`). The mid-edge spots the earlier build used allowed about 5.5 there.
+The shapes are small on that grid, but all six are there, the same size, in the same place.
+
+**One color per callout, measured (owner, 2026-10-20).** The owner found a cell's marker and its
+label's marker the same shape and different colors. The cause: the solid shapes on the cells took a
+slot's `mark` tier and the lane's markers its `fill` tier, and a theme's two tiers of one slot need
+not share a hue (indaco's slot 3 is pale pink `#E7BEBE` against olive `#7B772D`). Now every marker, on
+a cell or in the lane, with or without its digit, is one solid shape in ONE tier per mode, the strong
+one (`mark` in light, `fill` in dark), and its digit takes that tier's paired ink (`--cat-on-mark`,
+`--cat-on-fill`), the pairs the theme's contrast gate already holds. With a solid fill an edge is
+either invisible or a rim, so no marker has one; the knockout parts every shape from the cell. In
+Chrome, every cell marker on the demo deck computes to exactly its lane marker's fill, in light and
+in dark, with no stroke. The digits' ink first came out dark in light mode, 1.7:1 on the deep fills:
+the Mermaid plugin's stylesheet paints every `text` and `tspan` under any `.legend` group with
+`--cat-on-fill !important`, and the lane is a `.legend` group. The marker digit's rule now carries its
+own `!important` on the text and its tspan; measured after, every digit is at least 4.55:1 against its
+shape in light and 6.19:1 in dark. Scoping Mermaid's rules is logged as
+`followups.d/2816-p2-mermaid-legend-rules-leak.md`. `legend-anchored.test.js` reads the stylesheet and fails if a slot's markers
+are painted by more than one rule or tier.
+
+**The checker on this round, three fixes.** (1) A solid shape's `stroke: none` lost to the slot rules
+that came later at equal specificity, so it drew a one-unit edge past its knockout; the marker rules
+now carry the higher specificity. (2) Growing the callout to the key's size broke labels: a portrait
+figure's key is 13.5, and three-line labels in a lane capped at a quarter of the width were cut. The
+callout now grows toward the key's size only while every label still sets whole at the lane width it
+produces: with the demo deck's short label it reaches the key's 8.1; with long labels it stops at
+7.85 in landscape and 8 in portrait (the key there is 13.5). (3) A top-row badge could touch a column
+name's descenders; it now avoids each column name's own box, descenders included, with half a unit
+to spare, and the row names with half a unit too. Every shape still places on every test grid.

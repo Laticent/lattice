@@ -89,14 +89,19 @@ when no earlier callout has it, and a color word (`c4`) picks the color; the wor
 plain ink. With no words, a callout takes the next free shape and the color slot of its number (1 is
 `c1`, 2 is `c2`). Every marker sits on a ring of the canvas color so it reads on any cell.
 
-The marker on a cell is sized from the cell, so a dense grid gets small markers and a roomy one
-larger, within a legible floor; the one in the lane is sized from the words beside it, as a pill is
-from its text. The marker on a cell goes in the first spot that covers nothing: inside one of the
-cell's corners, else on a corner, else on the middle of its top or bottom edge. It never covers a
-printed value, a row or column name, or another marker. It tries its digit first, at full size and
-then at its smallest; where the digit has no room, as on a grid whose four-digit values fill their
-cells, the shape goes alone, smaller, because an outline reads at a size a numeral does not. Only
-where even the shape finds no clear spot does the cell keep its ring alone (design note § 18).
+The marker on a cell is sized from the cell: its height is a share of the cell's shorter side, so a
+dense grid gets small markers and a roomy one larger, never larger than the marker in the lane. The
+marker in the lane carries a digit as large as the label beside it, centered on the digit's own
+height. A callout's words are never smaller than the band key's labels when the chart has one.
+
+Every marker on one chart shares **one size and one place**, so no marker jumps or shrinks against
+its neighbors: whole inside its cell's top-left corner, or, where that would cover a value, a badge
+up and to the left of that corner, or centered where the gutters cross there. A marker never sits on
+another corner or along an edge. It carries its digit where the digit stays readable; where it would
+not, as on a grid whose four-digit values fill their cells, every marker on the chart is the shape
+alone, filled solid in its color. It never covers a printed value, a row or column name, or another
+marker. Only where even the smallest shape finds no clear spot does a cell keep its ring alone
+(design note § 18).
 
 **Six callouts at most on one chart.** Six shapes are about as many as a reader tells apart at a
 glance, and a chart with more callouts than that is making more points than one slide should. The
