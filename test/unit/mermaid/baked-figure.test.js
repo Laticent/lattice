@@ -62,13 +62,8 @@ test('every path takes these pieces from the one module', () => {
 });
 
 test('the export stage starts from a bare page\'s text styles, and keeps its own box (followups.d/2739-p9)', () => {
-  const decls = STAGE_TEXT_RESET.split(';').filter(Boolean);
-  assert.ok(decls.every((d) => /^[-a-z]+:initial$/.test(d)), 'every entry resets one property to initial');
-  for (const p of ['font', 'line-height', 'letter-spacing', 'word-spacing', 'text-transform', 'white-space', 'color', 'direction']) {
-    assert.ok(decls.includes(`${p}:initial`), `${p} is reset`);
-  }
-  // The stage's own box and its hiding are not text styles: resetting them would draw it, or in the wrong box.
-  for (const p of ['all', 'display', 'position', 'width', 'visibility']) assert.ok(!decls.some((d) => d.startsWith(`${p}:`)), `${p} is not reset`);
+  // `all` leaves `direction` out by spec, so it is named; `display` goes back to the stage's block box.
+  assert.equal(STAGE_TEXT_RESET, 'all:initial;direction:ltr;display:block;');
   const hydrate = fs.readFileSync(path.join(ROOT, 'lib/plugins/mermaid/mermaid.hydrate.js'), 'utf8');
-  assert.match(hydrate, /visibility:hidden;pointer-events:none;\$\{STAGE_TEXT_RESET\}/, 'the reset comes after the stage\'s own declarations');
+  assert.match(hydrate, /cssText = `\$\{STAGE_TEXT_RESET\}position:absolute;left:0;top:0;width:\$\{DIAGRAM_STAGE_WIDTH\}px;visibility:hidden;pointer-events:none;`/, 'the reset comes first, so the stage\'s own box and hiding win');
 });

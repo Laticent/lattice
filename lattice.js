@@ -2117,8 +2117,8 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').sp
 // `:root` arms written onto the slides too, where the flat deck sheet declares the palette's tokens;
 // otherwise a `style: ":root{--accent:…}"` override lands on <html> alone and every slide shadows it.
 
-// `![bg …]` half-canvas image handling — the engine path uses liftImageBgImages
-// (class-aware markdown pre-pass: `image` slides only; any other slide's `![bg]` is the engine's own section background) + wrapImageText (HTML post-pass) to reproduce the
+// `![bg …]` half-canvas image handling — the engine draws an `image` slide's `![bg]` as the panel itself
+// (lib/engine/background-image.js; any other slide's `![bg]` is the section background) + wrapImageText (HTML post-pass) to reproduce the
 // lattice-bg/image-text panel, since lib/engine matches marp WEB mode (which
 // collapses bg left/right to a full-bleed background). See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
@@ -2204,9 +2204,8 @@ function engineSlides(deckSource = rawMd) {
     cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
     ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
   ]);
-  // Rewrite `![bg side](url)` on `image` slides to the lattice-bg div (CSS background) BEFORE render
-  // so the engine's basic-mode background ruler never collapses the split (lib/engine
-  // matches marp WEB mode; the emulator's PDF path wants the half-canvas panel).
+  // The engine draws `![bg side](url)` on `image` slides as the lattice-bg panel (CSS background), on its own
+  // tokens (lib/engine/background-image.js); it resolves deck-relative URLs against `baseUrl` below.
   // The deck's directory (as a file:// URL with a trailing slash) resolves
   // deck-relative asset URLs to absolute file:// URLs so they render regardless of
   // the output directory (the path-bug fix —
@@ -2220,7 +2219,7 @@ function engineSlides(deckSource = rawMd) {
   const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
   for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
   const assetUrls = deckAssets.urls;
-  const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl, assetUrls);
+  const deckMd = deckSource;
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).

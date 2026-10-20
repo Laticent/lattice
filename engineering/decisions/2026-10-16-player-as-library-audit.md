@@ -813,6 +813,44 @@ A plain `![bg]` is not flagged: it works. Both rules fire on the repros, stay si
 committed deck (`lint:deck --all`: no new findings), and `test/unit/authoring/bg-keyword-lint.test.js`
 pins them and the running-class lift. Demo deck: `examples/bg-on-any-slide.md`.
 
+**The lift moved onto the engine's own tokens (2026-10-20, followups `2739-p10` and `2739-p13`).** The class-aware
+line walk above decided which slide a `![bg]` is on by itself, and the engine disagreed on several shapes: a setext
+heading (`Title` over `---`), and under the default `split: headings` a setext `h2` that is itself a slide boundary,
+`***` rules, a `---` inside `$$`, a directive indented as code, text after a directive's `-->`. #2776 tried a better
+walk (three checker rounds kept finding shapes) and a second markdown-it parse per render (exact, but about 1.6 KB gz
+on the engine, and `getting-started` was ~100 bytes under its ceiling). Neither shipped.
+
+Now the engine's `lattice_background_image` rule (lib/engine/background-image.js) does the lift. It already ran after
+`lattice_directives_apply` to turn a `![bg]` into the section's background; on a slide whose resolved class has
+`image` it writes the `.lattice-bg` panel (`bgPanel` in lib/core/bg-image.js) where the picture stood instead: one
+HTML block when the paragraph holds only pictures, inline HTML inside prose. The engine's own boundaries and
+directives decide, with one parse and no source offsets. A pane split into pages (a 9:16 deck) is an ordinary
+`image` slide by then, so its picture lifts too, which no source lift could see (`2739-p13`); a 16:9 deck that lays
+the same panes out side by side renders byte-identical to before. The source pre-pass is gone from every render
+path (the engine's body and pane renders, `_tokens`, the CLI). The Marp bundle ships Markdown, so its two exports
+keep the line walk, moved to lib/core/bg-image-lift.js so the engine, the playground bundle and the viewer runtime
+no longer carry it.
+
+| Measure | `main` | Now |
+|---|---|---|
+| Differential fuzz (`.scratch` harness: every `![bg]` against the class of the section its text marker lands in), seed 1 | 476 of 1,463 disagree | 0 of 1,463 |
+| The same, seeds 2 and 3 | | 0 of 1,398; 0 of 1,377 |
+| Committed decks using `![bg`, engine HTML | | 0 of 69 change |
+| `getting-started` engine closure (`engineJsGz`, chunk hashes fixed) | 317,118 B | 317,099 B |
+
+The fuzz leaves out a picture markdown-it never parses (in a fence, a comment, or raw text inside an HTML block):
+it is text in both renders. Shapes whose bytes change, each now following the engine: a picture inside prose on an
+`image` slide (it was the section's background, because the walk lifted only at line start), the boundary cases
+above, and two the walk got right by accident and the engine reads otherwise. A `![bg]` inside a raw HTML block
+(`<div>` then the picture on the next line) is text, as any markdown there is; the walk lifted it, no committed deck
+has the shape, and keeping it cost 73 bytes the engine budget does not have (`getting-started` sat 27 bytes under its
+ceiling). A URL markdown-it does not parse as a link (`![bg](my photo.jpg)`, with a space) is text too, as on any
+other slide; `<my photo.jpg>` is the CommonMark spelling. The Marp bundle's walk loads only for that export, as its
+own module (`esm/bg-image-lift.js`): an entry of the split ESM build shared bg-image.js with the engine and cost it
+about 2 KB, and a CommonJS module with requires cannot be imported from the Studio's source on the dev server.
+`test/unit/engine/bg-image-panel.test.js` carries #2776's 34 checker cases
+against the engine.
+
 ### 11.7 A relative section background reached the player un-inlined (P7)
 
 **Reproduced.** `![bg left:40%](a.jpg)` on an `image` slide: the lift reads only `left` / `right`
@@ -1011,7 +1049,7 @@ Studio's file carries, and the nightly spec covers three decks. Two changes:
 
 | Change | What it guards |
 |---|---|
-| The Mermaid export stage resets every inherited text property to `initial` (`STAGE_TEXT_RESET`, lib/plugins/mermaid/shared/baked-figure.js) | The stage hangs off the frame's `body` and inherited its font, line height, spacing and case, where the CLI worker's `#container` sits in mermaid-cli's bare page. Mermaid's own sheet sets the font on its svg, so nothing differed yet; a frame style added later could have moved a label in one host only |
+| The Mermaid export stage starts from `all: initial` plus `direction: ltr` (which `all` leaves out), then sets its own box (`STAGE_TEXT_RESET`, lib/plugins/mermaid/shared/baked-figure.js). The first cut named all 32 inherited text properties; the shorthand computes the same in Chromium and saves about 250 bytes gzipped in the viewer runtime, which the engine's byte budget counts | The stage hangs off the frame's `body` and inherited its font, line height, spacing and case, where the CLI worker's `#container` sits in mermaid-cli's bare page. Mermaid's own sheet sets the font on its svg, so nothing differed yet; a frame style added later could have moved a label in one host only |
 | `PARITY_CORPUS=1` runs `docs/e2e/player-host-parity.spec.ts` over the 25 decks this section measured (`PARITY_DECKS=a,b` for a named list) | A change to the bake or to a runtime pass the bake frame runs is checked against the whole corpus before it ships, not against three decks |
 
 Measured after the reset: **25 of 25 decks byte-identical** (`PARITY_CORPUS=1`, Chromium 141, 10.1 min).
