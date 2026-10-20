@@ -51,7 +51,10 @@ async function importZip(page: Parameters<typeof gotoStudio>[0], buffer: Buffer)
 
 const DECK = (body: string) => `---\nplugins: [${PLUGIN}]\n---\n\n## Plan\n\n\`\`\`gantt\n${body}\n\`\`\`\n`;
 
-test(`a plugin's returned values: consent names them, clean ones land on the slide, a bad one disables it @smoke`, async ({ page }) => {
+// All three engines, as code-packages.spec.ts runs them: `@gecko` runs on the desktop (Chromium) project and the gecko
+// one; the `@webkit-tablet` twin runs on WebKit (the desktop project skips a title naming @webkit).
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+test(`a plugin's returned values: consent names them, clean ones land on the slide, a bad one disables it @smoke${tag}`, async ({ page }) => {
 	const evidence = process.env.LATTICE_EVIDENCE_DIR;
 	const shot = async (name: string) => {
 		if (evidence) await page.screenshot({ path: `${evidence}/plugin-returns-${name}-${test.info().project.name}.png` });
@@ -73,10 +76,11 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 	// The Studio ships at three widths: the detail, which now carries the returns line, fits each one.
 	for (const [width, height] of [[820, 1180], [390, 844]]) {
 		await page.setViewportSize({ width, height });
-		// The phone layout mounts the strip afresh, closed.
-		if (!(await detail.count())) await notice.getByRole('button', { name: 'What it is' }).click();
-		await expect(detail).toContainText('status (one of ok, late)');
-		const box = await detail.boundingBox();
+		// A narrower layout can mount its own strip, closed, while the wider one's stays in the DOM, hidden.
+		const shown = page.locator('[data-slot="code-packages-detail"]:visible');
+		if (!(await shown.count())) await page.locator('[data-slot="code-packages"]:visible').getByRole('button', { name: 'What it is' }).click();
+		await expect(shown).toContainText('status (one of ok, late)');
+		const box = await shown.boundingBox();
 		expect(box && box.x >= 0 && box.x + box.width <= width + 1, `the consent detail fits ${width}px`).toBe(true);
 		if (evidence) await page.screenshot({ path: `${evidence}/plugin-returns-consent-${width}.png` });
 	}
@@ -112,3 +116,4 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 	await expect(preview.locator(`section[data-returned-${PLUGIN}--status]`)).toHaveCount(0);
 	await shot('reconsent');
 });
+}
