@@ -430,8 +430,9 @@ Studio's own modules bundled into Chromium. That covers the packer.
 the CLI's `--player` write identical bytes for one deck, apart from three things the owner ruled out:
 the record's `generatedAt`, its `host` field (`cli` or `studio`), and the policy's script hashes.
 `docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, in its own
-`player-parity` job in `studio-e2e-nightly.yml`, which also runs on every dispatch), on a plain deck, a Mermaid deck and a portrait split; 25 example decks were measured identical
-when it landed. **The claim is per browser build:** both hosts read computed styles, and two Chromium
+`player-parity` job in `studio-e2e-nightly.yml`, which also runs on every dispatch), on a plain deck, a Mermaid deck and a portrait split. `PARITY_CORPUS=1` runs it over the 25 example decks §11.9
+measured (all byte-identical on 2026-10-20), and `PARITY_DECKS=a,b` over a named list: run the corpus before shipping a change to the
+Studio's bake or to a runtime pass its bake frame runs, because a new runtime stamp is a byte only the Studio's file carries. **The claim is per browser build:** both hosts read computed styles, and two Chromium
 versions spell some computed colors differently, so the spec runs the CLI on the Chromium the suite
 uses, and a Studio export made in Safari or Firefox will differ. **It is also per font
 configuration:** a hosted runner's Playwright headless shell hints glyph advances to whole pixels

@@ -1003,6 +1003,28 @@ in this sandbox is Chrome 131, and two Chromium versions spell some computed col
 claim is per browser build. A Studio export made in Safari or Firefox will differ from the CLI's
 wherever the bake reads a computed style.
 
+**Fifth round: keeping the files equal as the runtime grows (followup `2739-p9`, 2026-10-20).** The
+Studio reaches parity by running the live runtime in its bake frame and then undoing what the runtime
+wrote: each slide's `style` restored, the card-tag equalizer re-run, `data-lattice-image-text` removed,
+diagrams drawn in a 784 px stage. So any NEW runtime stamp on a slide or inside one is a byte only the
+Studio's file carries, and the nightly spec covers three decks. Two changes:
+
+| Change | What it guards |
+|---|---|
+| The Mermaid export stage resets every inherited text property to `initial` (`STAGE_TEXT_RESET`, lib/plugins/mermaid/shared/baked-figure.js) | The stage hangs off the frame's `body` and inherited its font, line height, spacing and case, where the CLI worker's `#container` sits in mermaid-cli's bare page. Mermaid's own sheet sets the font on its svg, so nothing differed yet; a frame style added later could have moved a label in one host only |
+| `PARITY_CORPUS=1` runs `docs/e2e/player-host-parity.spec.ts` over the 25 decks this section measured (`PARITY_DECKS=a,b` for a named list) | A change to the bake or to a runtime pass the bake frame runs is checked against the whole corpus before it ships, not against three decks |
+
+Measured after the reset: **25 of 25 decks byte-identical** (`PARITY_CORPUS=1`, Chromium 141, 10.1 min).
+
+**The structural alternative, not taken here.** Subtraction is the weak point: every stamp the runtime
+learns is a stamp the bake has to know to remove. The other design gives the Webpage export a bake
+frame that runs the CLI's own export page, the runtime-free document `lattice.js` builds for
+`--player`, with the same overflow watcher, card-tag kernel and diagram worker contract, and no live
+runtime at all. Then parity holds by construction, and the restore list in `finishBake` goes away.
+It costs a second frame type in the Studio and moves the Mermaid draw out of the live preview's
+renderer, so it is a design change, not a fix; it is recorded here as the move to make when the
+subtraction list next grows.
+
 **The default mode is a UI choice, not a pipeline gap.** With the Studio preview in light, every
 deck above opens in the same mode from both hosts. With the preview in dark, a deck with no
 `color-mode:` exports dark from the Studio by default. The export panel deliberately defaults to

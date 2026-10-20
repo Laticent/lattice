@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  mermaidKindLabel, labelDiagramSvg, collapseSankeyText, DIAGRAM_STAGE_WIDTH,
+  mermaidKindLabel, labelDiagramSvg, collapseSankeyText, DIAGRAM_STAGE_WIDTH, STAGE_TEXT_RESET,
 } = require('../../../lib/plugins/mermaid/shared/baked-figure.js');
 const { bakedFigureOpenTag, stampFigureIndex } = require('../../../lib/plugins/mermaid/shared/baked-figure-tag.js');
 
@@ -59,4 +59,16 @@ test('every path takes these pieces from the one module', () => {
   assert.match(read('lib/plugins/mermaid/shared/render-worker.js'), /#container\{width:\$\{DIAGRAM_STAGE_WIDTH\}px\}/);
   assert.match(read('docs/src/components/studio/export/deck-export.js'), /bakedFigureOpenTag\(\{ name: 'mermaid'/);
   assert.equal(DIAGRAM_STAGE_WIDTH, 784, 'the box the CLI has always drawn in: 800 px viewport less 8 px margins');
+});
+
+test('the export stage starts from a bare page\'s text styles, and keeps its own box (followups.d/2739-p9)', () => {
+  const decls = STAGE_TEXT_RESET.split(';').filter(Boolean);
+  assert.ok(decls.every((d) => /^[-a-z]+:initial$/.test(d)), 'every entry resets one property to initial');
+  for (const p of ['font', 'line-height', 'letter-spacing', 'word-spacing', 'text-transform', 'white-space', 'color', 'direction']) {
+    assert.ok(decls.includes(`${p}:initial`), `${p} is reset`);
+  }
+  // The stage's own box and its hiding are not text styles: resetting them would draw it, or in the wrong box.
+  for (const p of ['all', 'display', 'position', 'width', 'visibility']) assert.ok(!decls.some((d) => d.startsWith(`${p}:`)), `${p} is not reset`);
+  const hydrate = fs.readFileSync(path.join(ROOT, 'lib/plugins/mermaid/mermaid.hydrate.js'), 'utf8');
+  assert.match(hydrate, /visibility:hidden;pointer-events:none;\$\{STAGE_TEXT_RESET\}/, 'the reset comes after the stage\'s own declarations');
 });
