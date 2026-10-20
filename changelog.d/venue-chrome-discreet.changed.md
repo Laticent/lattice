@@ -1,0 +1,1 @@
+- Running header, footer and page number are smaller at `venue: conference` and `venue: hall`: they follow the venue's type step (1.3x, 1.5x) but no longer take the label lift (was about 1.5x and 1.95x). Eyebrows, captions and card tags keep the lift.

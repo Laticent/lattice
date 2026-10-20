@@ -660,14 +660,14 @@ section img.emoji {
 section header {
   z-index: var(--z-chrome);
   position:absolute; top:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-inset-x);
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
+  font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
   letter-spacing:0.10em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
   z-index: var(--z-chrome);
   position:absolute; bottom:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-page-reserve);
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
+  font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
   line-height:1; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
 }

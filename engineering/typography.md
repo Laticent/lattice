@@ -424,6 +424,9 @@ message suggests a statement, big-number or divider slide at `hall`.
 
 - the type step (the rung above);
 - the label lift (`--venue-meta-lift`, a factor on the meta and h6 roles; 1 elsewhere);
+  The running header, footer and page number opt out: they read `--chrome-fs`, which is
+  `--fs-meta` with the lift divided back out (`lib/typography/emit.js`). They are wayfinding,
+  not something the back row reads, so they keep the laptop's 0.70 ratio to body text;
 - the code lift (`--venue-compact-lift`, a factor on the body-compact role; 1 elsewhere);
 - `capacity-scale` warns on a slide past its budget for the room;
 - the fixed-size rule below applies, as it does to any scale.
