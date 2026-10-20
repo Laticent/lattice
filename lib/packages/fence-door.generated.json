@@ -307,12 +307,6 @@
     {
       "pass": "inline-run",
       "classes": [
-        "list-tabular"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
         "matrix-2x2"
       ]
     },

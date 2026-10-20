@@ -35,7 +35,9 @@ const puppeteer = require('puppeteer');
 
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 const CATALOG = require('../../../lib/core/inline-run-catalog.generated.js');
-const { DEFAULT_SLOTS } = require('../../../lib/core/inline-run.js');
+// Written out here on purpose, and not imported: a probe that borrows the kernel's slot list goes blind
+// with it. The unit test pins that the kernel agrees (test/unit/core/inline-run.test.js).
+const DEFAULT_SLOTS = ['code', '.lat-pill'];
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const GALLERY = path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md');
@@ -92,6 +94,28 @@ function findSplitHosts(slotsByComponent, defaults) {
   return out;
 }
 
+/**
+ * Runs in the page: every `.lat-run` that swallowed a slot at either end, as `component | html`.
+ * The split probe above cannot see this: a transformer that wrapped everything, a trailing `code` or
+ * pill included, would leave one run per item and report no split. It is the agenda-column regression
+ * (a trailing `code` pulled into the label, collapsing the layout), and only a real render shows it.
+ */
+function findSwallowedSlots(slotsByComponent, defaults) {
+  const out = [];
+  for (const run of document.querySelectorAll('.lat-run')) {
+    const sec = run.closest('section');
+    const tokens = (sec?.getAttribute('class') || '').split(/\s+/);
+    const component = Object.keys(slotsByComponent).find((n) => tokens.includes(n));
+    const slots = component ? slotsByComponent[component] : defaults;
+    const isSlot = (n) => n.nodeType === 1 && slots.some((s) => n.matches(s));
+    const kids = [...run.childNodes].filter((n) => !(n.nodeType === 3 && !n.nodeValue.trim()) && n.nodeType !== 8);
+    const first = kids[0];
+    const last = kids[kids.length - 1];
+    if (isSlot(first) || isSlot(last)) out.push(`${component || '?'} | ${run.outerHTML.slice(0, 140).replace(/\s+/g, ' ')}`);
+  }
+  return out;
+}
+
 describe('inline objects never split a list item\'s label', { skip: skipWithoutChrome(resolveChrome()) }, () => {
   const chrome = resolveChrome();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-inline-run-'));
@@ -114,6 +138,18 @@ describe('inline objects never split a list item\'s label', { skip: skipWithoutC
     });
     assert.equal(r.status, 0, `render failed: ${r.stderr || r.stdout}`);
     return html;
+  }
+
+  async function inPage(html, fn) {
+    const page = await browser.newPage();
+    try {
+      await page.setViewport({ width: 1280, height: 720 });
+      await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+      await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+      return await page.evaluate(fn, SLOTS, DEFAULT_SLOTS);
+    } finally {
+      await page.close();
+    }
   }
 
   async function splitsIn(html) {
@@ -139,6 +175,13 @@ describe('inline objects never split a list item\'s label', { skip: skipWithoutC
   test('with the transformer: no flex or grid host holds a label next to an inline object', { timeout: TIMEOUT }, async () => {
     const found = await splitsIn(render('with', { withoutTransformer: false }));
     assert.deepEqual(found.slice(0, 8), [], `${found.length} flex or grid host(s) split a label; a component that makes its list items flex or grid containers must declare \`inlineRun\` in its manifest (lib/components/manifest.schema.json)`);
+  });
+
+  test('with the transformer: no run swallowed a slot, and the transformer did wrap something', { timeout: TIMEOUT }, async () => {
+    const html = render('swallow', { withoutTransformer: false });
+    assert.deepEqual((await inPage(html, findSwallowedSlots)).slice(0, 8), [], 'a trailing code or pill, or a leading slot, ended up inside a .lat-run');
+    const wrapped = await inPage(html, () => document.querySelectorAll('.lat-run').length);
+    assert.ok(wrapped >= 20, `only ${wrapped} runs were wrapped on a deck with a pill in every list item; the swallow probe has nothing to check`);
   });
 
   test('without the transformer: the same probe finds the splits (the arm that proves it can fail)', { timeout: TIMEOUT }, async () => {

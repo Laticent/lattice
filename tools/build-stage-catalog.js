@@ -198,23 +198,6 @@ function buildCards() {
 
 
 /**
- * The LABEL SET every component DECLARES — its `labelSet` manifest field: the members
- * it draws a key for, the default word for each, and the markers it deliberately leaves
- * unkeyed. Only components that declare one appear here; an absent entry means the
- * component has no closed set, so nothing reads a label set for it and `lint:deck` says
- * so rather than guessing a vocabulary.
- *
- * Baked for the same reason the four catalogs above are: `lib/core/label-set.js` and
- * `lib/authoring/lint-core.js` both run inside browser bundles that cannot fs-load a
- * manifest — and lint-core is fs-free by HARD RULE #7.
- *
- * ONE SOURCE, BOTH CONSUMERS. The transform takes its derived default from this catalog
- * and the lint checks an authored override's keys against the same rows, so a key
- * vocabulary that disagrees with what the component renders is not expressible. That is
- * the property `coda.claims` bought when it replaced two hand-maintained lists that were
- * wrong for 8 of 61 layouts.
- */
-/**
  * The INLINE RUN every component declares — its `inlineRun` manifest field: the list depths whose
  * items the component lays out as a flex or grid container, so a pill or bold span inside an item's
  * label would otherwise split the label into separate flex items (lib/core/inline-run.js).
@@ -246,6 +229,23 @@ function buildInlineRuns() {
   return { source, count: Object.keys(sorted).length };
 }
 
+/**
+ * The LABEL SET every component DECLARES — its `labelSet` manifest field: the members
+ * it draws a key for, the default word for each, and the markers it deliberately leaves
+ * unkeyed. Only components that declare one appear here; an absent entry means the
+ * component has no closed set, so nothing reads a label set for it and `lint:deck` says
+ * so rather than guessing a vocabulary.
+ *
+ * Baked for the same reason the four catalogs above are: `lib/core/label-set.js` and
+ * `lib/authoring/lint-core.js` both run inside browser bundles that cannot fs-load a
+ * manifest — and lint-core is fs-free by HARD RULE #7.
+ *
+ * ONE SOURCE, BOTH CONSUMERS. The transform takes its derived default from this catalog
+ * and the lint checks an authored override's keys against the same rows, so a key
+ * vocabulary that disagrees with what the component renders is not expressible. That is
+ * the property `coda.claims` bought when it replaced two hand-maintained lists that were
+ * wrong for 8 of 61 layouts.
+ */
 function buildLabelSets() {
   const catalog = {};
   for (const m of loadAll()) {

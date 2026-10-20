@@ -73,6 +73,17 @@ What it leaves alone, because layouts read it as structure:
 The first version read only `li > X` selectors for slots and swallowed `agenda`'s trailing `code` columns, which the render
 diff showed. Slots are therefore read from the layout as well as the selectors, and the diff is the check.
 
+The independent checker then found, and this change fixes: an HTML comment holding a tag-shaped word (a speaker note that
+mentions `<p>`) broke the string tokenizer, so comments are masked before scanning; a section carrying two served component
+names was wrapped under both on the DOM path and one on the HTML path, so both now take the first in catalog order; and raw
+HTML with uppercase tags, single-quoted `class` or a missing `</li>` is read the same as the DOM would read it.
+
+`list-tabular` is not served. Its grid columns follow the order of an item's children, so wrapping a mid-text `code` would move
+the next one into a different column. A pill or bold word mid-label there still splits as it did.
+
+A slot in the MIDDLE of a label joins the run (`kpi` rows such as `Revenue {On plan} vs target {Q3}` lose the sibling rule that
+tints a second pill, because the first pill is no longer a sibling). Only the leading and trailing positions are protected.
+
 Measured:
 
 - Split flex or grid hosts on the pill-injected gallery: 69 before, 0 after (`test/integration/invariants/inline-objects-no-split.test.js`,

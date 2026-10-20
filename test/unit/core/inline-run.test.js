@@ -105,10 +105,59 @@ describe('inline-run — wrapping, on both substrates', () => {
   });
 });
 
+describe('inline-run — raw HTML the tokenizer must survive', () => {
+  test('a tag-shaped word inside an HTML comment is not markup', () => {
+    // A speaker note that mentions `<p>` or `<ul>` used to end the run inside the comment, close the
+    // wrapper there, and make every later item read as nested one level deeper.
+    const note = '<ul><li>Pilot <b>in</b> the EU <!-- check the <p> copy --> now</li><li>next <b>x</b> y</li></ul>';
+    const out = run.wrapHtml(note, [1], []);
+    assert.equal(out, '<ul><li><span class="lat-run">Pilot <b>in</b> the EU <!-- check the <p> copy --> now</span></li><li><span class="lat-run">next <b>x</b> y</span></li></ul>');
+    assert.equal(viaDom(note, [1], []), out, 'the DOM path wraps the same range');
+    const list = '<ul><li>a <b>b</b> c <!-- <ul> note --> d</li><li>e <b>f</b> g</li></ul>';
+    assert.equal((run.wrapHtml(list, [1], []).match(/lat-run/g) || []).length, 2, 'the item after a comment holding <ul> is still depth 1');
+  });
+
+  test('a comment before the run is not text, on either substrate', () => {
+    const html = '<ul><li><!-- c --><b>A</b><b>B</b></li></ul>';
+    assert.equal(run.wrapHtml(html, [1], []), html);
+    assert.equal(viaDom(html, [1], []), html);
+  });
+
+  test('class quoting and tag case do not hide a slot or an item', () => {
+    const single = "<ul><li>a <b>b</b> c <span class='lat-pill'>X</span></li></ul>";
+    assert.equal(run.wrapHtml(single, [1], []), "<ul><li><span class=\"lat-run\">a <b>b</b> c </span><span class='lat-pill'>X</span></li></ul>");
+    const upper = '<UL><LI>a <B>b</B> c</LI></UL>';
+    assert.match(run.wrapHtml(upper, [1], []), /lat-run/);
+  });
+
+  test('a missing </li> ends the run at the next item', () => {
+    const out = run.wrapHtml('<ul><li>a <b>b</b> c<li>d <b>e</b> f</ul>', [1], []);
+    assert.equal(out, '<ul><li><span class="lat-run">a <b>b</b> c</span><li><span class="lat-run">d <b>e</b> f</span></ul>');
+  });
+
+  test('an item whose first node is already a wrapper is left alone, with text after it too', () => {
+    const html = '<ul><li><span class="lat-run">a <b>b</b></span> tail <i>x</i></li></ul>';
+    assert.equal(run.wrapHtml(html, [1], []), html);
+    assert.equal(viaDom(html, [1], []), html);
+  });
+});
+
 describe('inline-run — the manifest-driven transformer', () => {
   test('it serves exactly the components whose manifests declare inlineRun', () => {
-    assert.ok(Object.keys(catalog).length >= 10);
-    assert.ok(catalog['list-steps'] && catalog.pricing && catalog.checklist);
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const declared = {};
+    (function walk(dir) {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith('.manifest.json')) {
+          const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+          if (m.inlineRun) declared[m.name] = m.inlineRun.depths;
+        }
+      }
+    })(path.join(__dirname, '../../../lib/components'));
+    assert.deepEqual(Object.fromEntries(Object.entries(catalog).map(([n, r]) => [n, r.depths])), declared);
     for (const [name, row] of Object.entries(catalog)) {
       assert.ok(Array.isArray(row.depths) && row.depths.length, `${name} has depths`);
       assert.ok(row.depths.every((d) => Number.isInteger(d) && d >= 1), `${name} depths are positive integers`);
@@ -128,6 +177,17 @@ describe('inline-run — the manifest-driven transformer', () => {
     const dom = new JSDOM(`<body>${html}</body>`);
     transformer.applyToDom(dom.window.document.body);
     assert.equal(dom.window.document.body.innerHTML, transformer.applyToHtml(html));
+  });
+
+  test('a section carrying two served names is wrapped under ONE of them, the same one on both paths', () => {
+    // `cards-grid` declares `strong` a slot; `list` does not. Wrapping once per name on the DOM path
+    // would take the title out from under cards-grid's `li > strong` rules.
+    const html = `<section class="cards-grid list form"><ul><li><strong>T</strong> body <b>x</b> more</li></ul></section>`;
+    const viaHtml = transformer.applyToHtml(html);
+    const dom = new JSDOM(`<body>${html}</body>`);
+    transformer.applyToDom(dom.window.document.body);
+    assert.equal(dom.window.document.body.innerHTML, viaHtml);
+    assert.doesNotMatch(viaHtml, /lat-run/, 'cards-grid is first in catalog order and treats a leading strong as a slot');
   });
 
   test('the data-class trap: the RESOLVED class decides, not the raw _class payload', () => {
