@@ -407,14 +407,14 @@ describe('front-matter registers — keys and values', () => {
 
 	it('image-card: completes its first word, then keeps going on the same line, one word per axis', () => {
 		const first = done('---\nimage-card: ');
-		for (const w of ['top-right', 'soft', 'light', 'sm', 'compact']) expect(first).toContain(w);
+		for (const w of ['top-right', 'soft', 'light', 'sm', 'compact', 'band']) expect(first).toContain(w);
 		const next = done('---\nimage-card: top-right ');
 		expect(next).not.toContain('top-right');
 		expect(next).not.toContain('bottom-left'); // the placement axis is filled
 		expect(next).toContain('soft');
 		const later = done('---\nimage-card: top-right soft sm co');
-		expect(later).toEqual(['light', 'dark', 'regular', 'compact']);
-		expect(done('---\nimage-card: top-right soft dark sm compact ')).toEqual([]);
+		expect(later).toEqual(['light', 'dark', 'regular', 'compact', 'float', 'band']);
+		expect(done('---\nimage-card: top-right soft dark sm compact band ')).toEqual([]);
 	});
 
 	it('tag: keeps completing after its first word too', () => {

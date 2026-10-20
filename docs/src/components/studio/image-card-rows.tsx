@@ -28,11 +28,11 @@ export const IMAGE_CARD_ROWS: readonly ImageCardRow[] = [
 	{
 		axis: 'backing',
 		label: 'Card backing',
-		desc: 'How much the card hides the photo.',
+		desc: 'How opaque the card is, 0–100%.',
 		find: 'image photo card backing opacity transparent solid soft sheer clear scrim',
 		help: (
 			<>
-				The card's panel on a spotlight slide, the scrim on a statement slide. <strong>Soft</strong> is 80%, <strong>Sheer</strong> 55%, <strong>Clear</strong> none at all. Written as <code>image-card: soft</code>.
+				The card's panel on a spotlight slide, the scrim on a statement slide. Drag for any 5% step, or tap a name: <strong>Solid</strong> is 100%, <strong>Soft</strong> 80%, <strong>Sheer</strong> 55%, <strong>Clear</strong> none at all. Under 60% the photo shows through, so a spotlight card needs a matching ink: on this slide, dragging below 60% picks one from the photo for you. A deck can set one in the Card ink row. Written as <code>image-card: soft</code> or <code>image-card: 65%</code>.
 			</>
 		),
 	},
@@ -69,6 +69,17 @@ export const IMAGE_CARD_ROWS: readonly ImageCardRow[] = [
 			</>
 		),
 	},
+	{
+		axis: 'shape',
+		label: 'Card shape',
+		desc: 'A floating card or a full-width strip.',
+		find: 'image photo card shape band strip full width stretch banner caption top bottom',
+		help: (
+			<>
+				<strong>Band</strong> stretches the card across the slide, heading left and text right, so it sits flush along the top or bottom and leaves the middle of the photo clear. It needs a top or bottom placement. Written as <code>image-card: bottom band</code>.
+			</>
+		),
+	},
 ];
 
 const OPTION_LABEL: Record<string, string> = {
@@ -90,6 +101,8 @@ const OPTION_LABEL: Record<string, string> = {
 	lg: 'Large',
 	regular: 'Regular',
 	compact: 'Compact',
+	float: 'Floating card',
+	band: 'Full-width band',
 };
 
 export function imageCardOptionLabel(word: string): string {
@@ -103,4 +116,5 @@ export const IMAGE_CARD_DEFAULT_LABEL: Record<ImageCardAxis, string> = {
 	ink: "Layout's own",
 	size: 'Medium',
 	density: 'Regular',
+	shape: 'Floating card',
 };

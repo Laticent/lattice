@@ -92,6 +92,7 @@ import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
+import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
@@ -5468,6 +5469,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<TabNote>The text card on every photo slide that floats its words over the picture (<code>image spotlight</code>, <code>image statement</code>). A slide can change any one of these in its own Image tab.</TabNote>
 				{IMAGE_CARD_ROWS.map((row) => (
 					<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
+						{row.axis === 'backing' ? (
+							<CardBackingControl
+								ariaLabel={row.label}
+								word={deckImage.backing}
+								inheritedWord={undefined}
+								autoLabel={`Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
+								onChange={(w) => setDeckImage('backing', w ?? '__auto__')}
+							/>
+						) : (
 						<CatalogSelect
 							ariaLabel={row.label}
 							value={deckImage[row.axis] && (row.axis === 'ink' || deckImage[row.axis] !== imageCardWords(row.axis)[0]) ? (deckImage[row.axis] as string) : '__auto__'}
@@ -5475,6 +5485,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							className="w-full"
 							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)` }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w) }))] }]}
 						/>
+						)}
 					</Field>
 				))}
 			</div>
