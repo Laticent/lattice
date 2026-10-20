@@ -4,7 +4,8 @@
 // callback URL to this tab and closes. The full-page redirect is the fallback for when a
 // popup cannot be opened.
 //
-// Plain JavaScript, so Node-run tests can import it.
+// Plain JavaScript, so Node-run tests can import it. It loads on the click; the popup itself
+// opens from sign-in-window.js, which must run before that import's `await`.
 
 // The channel the callback page and this tab talk on. Both are same-origin, so nothing
 // outside the site can post on it. `window.opener` is the second route, but it is not
@@ -14,7 +15,6 @@ export const SIGN_IN_CHANNEL = 'lattice-sign-in';
 // Where the callback page sends itself when no tab answers it (this tab was reloaded or
 // closed mid-sign-in): the page the sign-in started from, which finishes it on load.
 export const SIGN_IN_RETURN_LS = 'lattice-sign-in-return';
-export const SIGN_IN_WINDOW = 'lattice-sign-in';
 // How long a tab keeps listening after the popup reads as closed. A severed popup (above)
 // reads as closed while the user is still signing in, so "closed" resets the button but the
 // code is still accepted when it comes.
@@ -24,30 +24,6 @@ const POLL_MS = 500;
 /** The callback page's address on this site. */
 export function webSignInCallback() {
 	return new URL('/sign-in/callback/', location.origin).toString();
-}
-
-/**
- * Open the sign-in popup. Call it synchronously inside the click, before any `await`, or a
- * popup blocker refuses it. Returns null where a popup is not the right tool: blocked, or
- * an iOS home-screen app, whose popups open in a browser with its own storage and no way
- * back to the app.
- *
- * @returns {Window | null}
- */
-export function openSignInWindow() {
-	if (typeof window === 'undefined' || typeof window.open !== 'function') return null;
-	if (/** @type {any} */ (navigator).standalone === true) return null;
-	const w = 500;
-	const h = 720;
-	const left = Math.max(0, Math.round((window.screenX ?? 0) + ((window.outerWidth || w) - w) / 2));
-	const top = Math.max(0, Math.round((window.screenY ?? 0) + ((window.outerHeight || h) - h) / 2));
-	try {
-		// An empty URL, not about:blank: opening a window that already exists by name with a URL
-		// navigates it, which blanked an open sign-in on a second Connect.
-		return window.open('', SIGN_IN_WINDOW, `popup,width=${w},height=${h},left=${left},top=${top}`) || null;
-	} catch {
-		return null;
-	}
 }
 
 // The sign-in in flight: { promise, settled, cancel }. Kept through the late window too, so a

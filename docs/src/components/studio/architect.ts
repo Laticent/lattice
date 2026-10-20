@@ -13,7 +13,7 @@ import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js'
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { notify } from '@/lib/notify';
-import { openSignInWindow, signIn } from '@/lib/sign-in';
+import { openSignInWindow } from '@/lib/sign-in-window';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -2020,6 +2020,9 @@ export async function architectAccount(): Promise<ORAccount | null> {
 	}
 }
 
+// The code exchange of the last sign-in, shared by every caller that joined it.
+let lastExchange: { back: string; done: Promise<void> } | null = null;
+
 /**
  * Start the OpenRouter one-click OAuth (PKCE). OpenRouter's page opens in a popup and the
  * code is exchanged here, so the Studio never leaves the screen (lib/sign-in.js). Resolves
@@ -2030,8 +2033,6 @@ export async function architectAccount(): Promise<ORAccount | null> {
  * Callers must call this synchronously from the click: the popup opens before the first
  * `await`, or the browser blocks it.
  */
-let lastExchange: { back: string; done: Promise<void> } | null = null;
-
 export async function connectOpenRouter(): Promise<boolean> {
 	const popup = openSignInWindow();
 	const m = await architectModel();
@@ -2056,6 +2057,8 @@ export async function connectOpenRouter(): Promise<boolean> {
 		lastExchange = { back, done };
 		return done;
 	};
+	// Loaded on click: the rest of the seam stays out of the Studio's startup bundle.
+	const { signIn } = await import('@/lib/sign-in');
 	const back = await signIn((callback) => m.beginOpenRouterAuth(callback), location.href.split('?')[0], {
 		popup,
 		onLate: (url) => { finish(url).catch((e) => notify(`Connect failed: ${(e as Error)?.message || 'try again'}`)); },

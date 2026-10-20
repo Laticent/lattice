@@ -17,9 +17,10 @@ sending the user to a separate page and back. PR #2354 already does this for the
 ## What happens on Connect
 
 1. `connectOpenRouter()` (`docs/src/components/studio/architect.ts`) calls
-   `openSignInWindow()` **before its first `await`**. A popup opened after an `await` has
-   lost the click's user activation, and popup blockers refuse it. Every caller already calls
-   `connectOpenRouter()` straight from a click handler.
+   `openSignInWindow()` (`docs/src/lib/sign-in-window.js`, the one eager piece) **before its
+   first `await`**. A popup opened after an `await` has lost the click's user activation, and
+   popup blockers refuse it. Every caller already calls `connectOpenRouter()` straight from a
+   click handler. The rest of the seam, `sign-in.js`, loads after that, on the click.
 2. `signIn()` (`docs/src/lib/sign-in.js`) builds the PKCE URL with the callback
    `<origin>/sign-in/callback/`, points the popup at it, and records the page the sign-in
    started from in `localStorage['lattice-sign-in-return']`.

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { _resetSignIn, openSignInWindow, SIGN_IN_CHANNEL, SIGN_IN_RETURN_LS, SIGN_IN_WINDOW, signIn, webSignInCallback } from './sign-in.js';
+import { _resetSignIn, SIGN_IN_CHANNEL, SIGN_IN_RETURN_LS, signIn, webSignInCallback } from './sign-in.js';
+import { openSignInWindow, SIGN_IN_WINDOW } from './sign-in-window.js';
 
 // The popup sign-in, against jsdom's real BroadcastChannel and postMessage. The popup is a
 // stand-in object, because jsdom has no second window; what this pins is the tab's half.
