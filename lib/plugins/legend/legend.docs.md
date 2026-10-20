@@ -88,7 +88,8 @@ lane is sized from the words beside it, as a pill is from its text. The marker o
 nothing: inside one of the cell's corners, else on a corner, at full size and then at its smallest.
 It never covers a printed value, a row or column name, or another marker. On a grid whose values
 fill their cells there may be no such spot; then the cell keeps its ring alone, and its label still
-sits level with its row. Numbers run row by row, then left to right,
+sits level with its row. That happens from about 8 rows of four-digit values; a marker small enough
+to fit there would print below the type floor (design note § 18). Numbers run row by row, then left to right,
 and the lane lists the labels in that order; one the lane cannot hold is dropped rather than drawn
 over another, with its marker, and the chart's description lists it as not drawn. A heatmap draws only
 `anchored` legends today: a `key` legend on one is not drawn, and is reported the same way.

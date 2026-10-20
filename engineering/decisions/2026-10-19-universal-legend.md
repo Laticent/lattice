@@ -13,7 +13,7 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. Facts in
+**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. § 18 records the dense-grid callout measurement. Facts in
 §§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
 marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
 how and why.
@@ -634,3 +634,35 @@ portrait. No tracked deck reaches line's key fallback or a keyed chart in a pane
 covered those (line's fallback, a pie and a radar in panes, and the same deck at 9:16); it too
 rendered identically before and after. `test/unit/transformers/svg-legend.test.js` keeps every arm,
 including the frozen landscape golden, now pointed at `keySvg`.
+
+## 18. Dense-grid callouts: ring alone, or a smaller marker (2026-10-20)
+
+**The question.** On a heatmap whose values fill their cells, a callout's cell gets its ring and no
+number (§ 15, Departure 1b), so the reader matches the ring to its label by row alone. The owner asked
+for a ruling: keep the ring alone, or go to a smaller value so the number fits.
+
+**What was measured.** A 10-row, 12-column grid of four-digit values, the densest the heatmap allows
+(`MAX_ROWS`, `MAX_COLS`), has cells of 17.5 by 14.9 units with the value set at 7. Three callouts were
+lowered through the marker's floor (`MARKER_MIN` in `heatmap.transform.js`, today 0.75 of the 7.5-unit
+label) until a marker found a clear spot:
+
+| Floor (of the label size) | Markers on the grid | Numeral |
+|---|---|---|
+| 0.75 (today) down to 0.45 | 0 of 3 | none |
+| 0.4 | 3 of 3, on the cell's corner, overhanging the gutter | 3 units |
+| 0.3 | 3 of 3 | 2.25 units |
+
+At 0.4 the CLI's own type check refuses the result: it prints `TYPE FLOOR — … page 1 at 5.2pt`,
+under its 5.4pt legibility floor, and at slide size the markers read as dots, in light and in dark.
+Moving the ringed cell's value to the cell's bottom edge to free its top corner was tried too: it
+pins a full-size marker only at 8 rows by 8 columns, and on every denser grid it fails at the same
+floors as above, so it does not earn its code. A sweep of 4 to 8 rows by 8, 10 and 12 columns of
+four-digit values shows where the ring stands alone today: 8 rows or more. Up to 7 rows, every marker
+fits at full size.
+
+**Default: the ring alone (no change).** The smaller marker exists only below the legibility floor
+the CLI enforces, so it would trade an unnumbered ring for a number nobody can read. The owner's pick
+is still open; the PR's decision card carries both renders. A test in
+`test/unit/components/legend-anchored.test.js` pins the current rule: on the densest four-digit
+grid, no marker is drawn below the floor, every callout keeps its ring, and every label stays in the
+lane.

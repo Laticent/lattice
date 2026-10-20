@@ -269,6 +269,20 @@ describe('heatmap: authored callouts', () => {
     }
   });
 
+  test('on the densest four-digit grid a callout keeps its ring and label, and no marker drops below the floor', () => {
+    // The ruling in engineering/decisions/2026-10-19-universal-legend.md § 18: where no spot is clear at
+    // the floor size, the cell keeps its ring alone; a smaller marker would print below the type floor.
+    const cols = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const rowsMd = Array.from({ length: 10 }, (_, r) => `| R${r} | ${cols.map((_, c) => 1000 + ((r * 7919 + c * 104729) % 8999)).join(' | ')} |`).join('\n');
+    const table = `| | ${cols.join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${rowsMd}`;
+    const out = transformSection(md.render(`## R\n\n${table}\n\n\`@legend{[{A, row=R2, col=Mar}, {B, row=R8, col=Aug}, {C, row=R9, col=Dec}]}\``), {});
+    const d = doc(out);
+    assert.equal(d.querySelectorAll('rect.legend-target').length, 3, 'every callout rings its cell');
+    assert.equal(d.querySelectorAll('text.legend-text--bare').length, 3, 'every label sits in the lane');
+    const sizes = [...d.querySelectorAll('text.legend-number')].map((t) => Number(t.getAttribute('font-size')));
+    assert.ok(sizes.every((s) => s >= 7.5 * 0.75 - 0.01), `no marker below the floor: ${sizes}`);
+  });
+
   test('callouts and the band key share the figure: the key starts past the lane', () => {
     const out = transformSection(md.render(`## R\n\n${TABLE}\n\n\`@legend{{Drop-off, for=5}}\``), { classTokens: ['scale'] });
     const d = doc(out);
