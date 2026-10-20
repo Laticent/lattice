@@ -493,15 +493,13 @@ function cleanRelPos(x: unknown): Record<string, unknown> | null {
 		const o = v as { client?: unknown; clock?: unknown } | null;
 		return o && typeof o === 'object' && Number.isSafeInteger(o.client) && Number.isSafeInteger(o.clock) ? { client: o.client as number, clock: o.clock as number } : null;
 	};
-	const out: Record<string, unknown> = {};
 	const item = id(p.item);
 	const type = id(p.type);
-	if (item) out.item = item;
-	if (type) out.type = type;
-	if (typeof p.tname === 'string') out.tname = p.tname.slice(0, 64);
-	if (!item && !type && out.tname === undefined) return null;
-	if (Number.isInteger(p.assoc)) out.assoc = p.assoc;
-	return out;
+	const tname = typeof p.tname === 'string' ? p.tname.slice(0, 64) : null;
+	if (!item && !type && tname === null) return null;
+	// Yjs reads an absent id as `null` and throws on `undefined`: a caret at the end of the document has
+	// `item: null`, and a viewer that dropped the key lost every remote caret to the thrown TypeError.
+	return { type, tname, item, assoc: Number.isInteger(p.assoc) ? p.assoc : 0 };
 }
 
 /** The client ids in an awareness update (one this file encoded, so it decodes). */

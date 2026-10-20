@@ -58,10 +58,26 @@ describe('sanitizeAwareness', () => {
 	it('keeps a well-formed caret and drops one CodeMirror would choke on', () => {
 		const good = { anchor: { type: { client: 1, clock: 0 }, tname: null, item: { client: 7, clock: 3 }, assoc: 0 }, head: { item: { client: 7, clock: 4 }, assoc: 0 } };
 		const kept = states(sanitizeAwareness(updateFrom({ cursor: good }).u, 'a', boundTo('a'), amina) as Uint8Array)[0].state.cursor;
-		expect(kept).toEqual({ anchor: { type: { client: 1, clock: 0 }, item: { client: 7, clock: 3 }, assoc: 0 }, head: { item: { client: 7, clock: 4 }, assoc: 0 } });
+		expect(kept).toEqual({ anchor: { type: { client: 1, clock: 0 }, tname: null, item: { client: 7, clock: 3 }, assoc: 0 }, head: { type: null, tname: null, item: { client: 7, clock: 4 }, assoc: 0 } });
 		for (const bad of [{ anchor: {}, head: {} }, { anchor: { item: { client: 'x', clock: 1 } }, head: good.head }, 'nope']) {
 			const s = states(sanitizeAwareness(updateFrom({ cursor: bad }).u, 'a', boundTo('a'), amina) as Uint8Array)[0].state;
 			expect(s.cursor).toBeUndefined();
+		}
+	});
+
+	it('a caret at the end or start of the text survives the sanitizer in the form Yjs reads (no remote caret turns off)', () => {
+		const doc = new Y.Doc();
+		const text = doc.getText('source');
+		text.insert(0, 'hello world');
+		// Index 11 with assoc 0 and index 0 with assoc -1 are the two positions whose `item` is null.
+		for (const [index, assoc] of [[11, 0], [0, -1], [5, 0]] as const) {
+			const rel = JSON.parse(JSON.stringify(Y.createRelativePositionFromTypeIndex(text, index, assoc)));
+			const kept = states(sanitizeAwareness(updateFrom({ cursor: { anchor: rel, head: rel } }).u, 'a', boundTo('a'), amina) as Uint8Array)[0].state.cursor as { anchor: unknown; head: unknown };
+			expect(kept).toBeDefined();
+			for (const end of [kept.anchor, kept.head]) {
+				const abs = Y.createAbsolutePositionFromRelativePosition(end as Y.RelativePosition, doc);
+				expect(abs?.index).toBe(index);
+			}
 		}
 	});
 
