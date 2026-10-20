@@ -2030,6 +2030,8 @@ export async function architectAccount(): Promise<ORAccount | null> {
  * Callers must call this synchronously from the click: the popup opens before the first
  * `await`, or the browser blocks it.
  */
+let lastExchange: { back: string; done: Promise<void> } | null = null;
+
 export async function connectOpenRouter(): Promise<boolean> {
 	const popup = openSignInWindow();
 	const m = await architectModel();
@@ -2037,11 +2039,22 @@ export async function connectOpenRouter(): Promise<boolean> {
 		popup?.close();
 		throw new Error('AI model unavailable in this environment.');
 	}
-	const finish = async (back: string) => {
-		const code = new URL(back).searchParams.get('code');
-		if (!code) throw new Error('OpenRouter did not return a sign-in code.');
-		await m.resumeOpenRouterAuth(code);
-		notify('OpenRouter connected — the Architect can now edit your deck.');
+	// One exchange per code: callers that joined one sign-in get the same URL back, and the
+	// code is single-use, so a second exchange would fail after the first succeeded.
+	const finish = (back: string): Promise<void> => {
+		if (lastExchange?.back === back) return lastExchange.done;
+		const done = (async () => {
+			const code = new URL(back).searchParams.get('code');
+			if (!code) throw new Error('OpenRouter did not return a sign-in code.');
+			// The callback page's own fallback (a Studio it opened in the popup) can get there
+			// first: the key is stored and no verifier is left to exchange with.
+			// Announce it here, since this tab's status read the key before it existed.
+			if (!m.hasPendingOpenRouterAuth() && m.availability().openRouterReady) window.dispatchEvent(new Event('db-model-changed'));
+			else await m.resumeOpenRouterAuth(code);
+			notify('OpenRouter connected — the Architect can now edit your deck.');
+		})();
+		lastExchange = { back, done };
+		return done;
 	};
 	const back = await signIn((callback) => m.beginOpenRouterAuth(callback), location.href.split('?')[0], {
 		popup,

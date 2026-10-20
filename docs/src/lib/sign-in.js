@@ -42,14 +42,20 @@ export function openSignInWindow() {
 	const left = Math.max(0, Math.round((window.screenX ?? 0) + ((window.outerWidth || w) - w) / 2));
 	const top = Math.max(0, Math.round((window.screenY ?? 0) + ((window.outerHeight || h) - h) / 2));
 	try {
-		return window.open('about:blank', SIGN_IN_WINDOW, `popup,width=${w},height=${h},left=${left},top=${top}`) || null;
+		// An empty URL, not about:blank: opening a window that already exists by name with a URL
+		// navigates it, which blanked an open sign-in on a second Connect.
+		return window.open('', SIGN_IN_WINDOW, `popup,width=${w},height=${h},left=${left},top=${top}`) || null;
 	} catch {
 		return null;
 	}
 }
 
 // The sign-in in flight: { promise, settled, cancel }. Kept through the late window too, so a
-// new sign-in can cancel a late listener whose code would no longer match the PKCE verifier.
+// new sign-in can stop the old listener. That does not stop the new listener from taking a
+// code the OLD popup sends (nothing in the callback names the sign-in it belongs to), and
+// that code fails the exchange against the new PKCE verifier. The user sees "Connect
+// failed" and connects again; a nonce in the callback would need OpenRouter to keep a query
+// on `callback_url`, which is unverified.
 let pending = null;
 
 /**

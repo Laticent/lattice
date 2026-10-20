@@ -45,13 +45,16 @@
 		try { to = localStorage.getItem('lattice-sign-in-return'); } catch (e) {}
 		var target = null;
 		try { target = to ? new URL(to, location.origin) : null; } catch (e) {}
-		if (target && target.origin === location.origin && back.indexOf('?') !== -1) {
+		var next = null;
+		// Rebuilt on this origin and re-checked: a path starting `//` would otherwise leave it.
+		try { next = target ? new URL(target.pathname + back.slice(back.indexOf('?')), location.origin) : null; } catch (e) {}
+		if (next && target.origin === location.origin && next.origin === location.origin && back.indexOf('?') !== -1) {
 			try { localStorage.removeItem('lattice-sign-in-return'); } catch (e) {}
-			location.replace(target.pathname + back.slice(back.indexOf('?')));
+			location.replace(next.href);
 		} else {
 			status.textContent = 'Sign-in could not reach Lattice. Close this window and try again.';
 		}
-	}, 2000);
+	}, 4000);
 })();
 </script>
 </body>

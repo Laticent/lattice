@@ -42,8 +42,14 @@ user is still signing in**. So:
 - **"Closed" resets the button, not the sign-in.** `signIn()` resolves `null`, so the
   Workspace's Connect button comes back. The tab keeps listening for 10 minutes, and a code
   that arrives in that time still connects, with the same toast (`onLate`).
-- **A new Connect cancels the old listener**, because its code would no longer match the new
-  PKCE verifier.
+- **A new Connect cancels the old listener**, so one tab never holds two. It does not stop
+  the new listener from taking a code the old popup sends: nothing in the callback names the
+  sign-in it belongs to, and that code fails the exchange against the new PKCE verifier. The
+  user sees "Connect failed" and connects again. A nonce in the callback URL would close
+  this, but it needs OpenRouter to keep a query on `callback_url`, which is unverified.
+- **The code is exchanged once.** Callers that join one sign-in share one exchange, and an
+  exchange is skipped when the key is already stored and no verifier is pending (the
+  callback page's own fallback got there first).
 
 ## The fallbacks
 
@@ -51,7 +57,7 @@ user is still signing in**. So:
 |---|---|
 | The popup is blocked (`window.open` returns null) | The page goes to OpenRouter and comes back with `?code=`, as before. `resumePendingAuth` finishes it on load. |
 | An iOS home-screen app (`navigator.standalone`) | Same redirect. Its popups open in a browser with separate storage and no way back to the app. |
-| No tab answers the callback page within 2 s (the Studio tab was reloaded or closed) | The callback page sends itself to the recorded start page with the same query, and that Studio finishes the sign-in on load. |
+| No tab answers the callback page within 4 s (the Studio tab was reloaded or closed) | The callback page sends itself to the recorded start page with the same query, and that Studio finishes the sign-in on load. |
 
 ## Relation to PR #2354 (the desktop app)
 

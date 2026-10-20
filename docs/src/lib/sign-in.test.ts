@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { _resetSignIn, SIGN_IN_CHANNEL, SIGN_IN_RETURN_LS, signIn, webSignInCallback } from './sign-in.js';
+import { _resetSignIn, openSignInWindow, SIGN_IN_CHANNEL, SIGN_IN_RETURN_LS, SIGN_IN_WINDOW, signIn, webSignInCallback } from './sign-in.js';
 
 // The popup sign-in, against jsdom's real BroadcastChannel and postMessage. The popup is a
 // stand-in object, because jsdom has no second window; what this pins is the tab's half.
@@ -122,6 +122,15 @@ describe('signIn with a popup', () => {
 		const failing = vi.fn(async () => { throw new Error('no crypto'); });
 		await expect(signIn(failing, '/studio/', { popup: popup as unknown as Window })).rejects.toThrow('no crypto');
 		expect(popup.close).toHaveBeenCalled();
+	});
+});
+
+describe('openSignInWindow', () => {
+	it('opens the named window with an empty URL, so a second Connect does not blank an open sign-in', () => {
+		const open = vi.spyOn(window, 'open').mockReturnValue(null);
+		openSignInWindow();
+		expect(open).toHaveBeenCalledWith('', SIGN_IN_WINDOW, expect.stringContaining('popup'));
+		open.mockRestore();
 	});
 });
 

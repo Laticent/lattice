@@ -333,14 +333,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// on-device model isn't trusted for accessibility text). When no cloud model is
 	// connected, offer a one-tap Connect right here — the same affordance Fabricate
 	// gives — instead of a dead-end "go to the Architect" message. `connectOpenRouter`
-	// opens OpenRouter's sign-in in a popup; the cloud tier is live once it closes.
+	// opens OpenRouter's sign-in in a popup; the cloud tier is live once the code exchange succeeds.
 	const cloudReady = useArchitectStatus().openRouterReady;
 	const connectCloud = async () => {
 		setDescMsg('');
 		try {
 			await connectOpenRouter();
 		} catch {
-			setDescMsg('Couldn’t start the connect flow — open Workspace to connect a cloud model.');
+			setDescMsg('Couldn’t connect OpenRouter — open Workspace to connect a cloud model.');
 		}
 	};
 
