@@ -27,6 +27,10 @@ type Alt = [string[], string[], string[], string[]];
 type IndexEntry = { id: string; always: boolean; alts: Alt[]; requires: number[]; defines?: string[]; sel?: (string[] | null)[] };
 type Needs = {
 	version: number;
+	/** The floor modules as ONE file (`/*@lat-module N*\/` before each), built at sync time. Optional. */
+	floorFile?: string;
+	/** `bundle?m=` : an endpoint that returns the listed module indexes as one such file. Needs a function or origin to compose it. Optional. */
+	bundleBase?: string;
 	verified: boolean;
 	/** Module indexes to load at start besides the always-needed ones: the modules most decks end up needing, so they load in parallel with the engine instead of after the first render (tools/style-needs-common.js). Optional. */
 	floor?: number[];
@@ -55,8 +59,26 @@ export type StyleLoaderStats = {
 	lastScanMs: number;
 };
 
-export function createStyleLoader(stylesBase: string, opts: { indexName?: string; shell?: ScanShell | (() => ScanShell | undefined); wholeAbove?: number } = {}) {
+/**
+ * How the loader asks for modules. `modules`: one request per module (what shipped first). `floor`: the start-up set as
+ * one prebuilt static file, later modules one request each (needs no server logic). `bundle`: the start-up set as one file
+ * AND every later batch of modules as one request to a composing endpoint (needs a function or origin that can concatenate).
+ */
+export type FetchMode = 'modules' | 'floor' | 'bundle';
+
+const MODULE_MARK = /\/\*@lat-module (\d+)\*\/\n/;
+
+/** Split a bundle body into `[module index, css]` pairs. */
+function splitBundle(text: string): [number, string][] {
+	const parts = text.split(MODULE_MARK);
+	const out: [number, string][] = [];
+	for (let k = 1; k + 1 < parts.length; k += 2) out.push([Number(parts[k]), parts[k + 1]]);
+	return out;
+}
+
+export function createStyleLoader(stylesBase: string, opts: { indexName?: string; shell?: ScanShell | (() => ScanShell | undefined); wholeAbove?: number; fetchMode?: FetchMode } = {}) {
 	const indexName = opts.indexName || 'needs.json';
+	const fetchMode: FetchMode = opts.fetchMode || 'modules';
 	// Past this share of the sheet's bytes, modules cost more than the one file: each is a request, and
 	// small files gzip worse (the 120-slide gallery needs 75% of the sheet and measured 130 KB on the wire
 	// in 105 requests, against 116 KB in one). The loader then says so and the host loads the whole sheet.
@@ -128,12 +150,43 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 		return p;
 	}
 
+	function markIncluded(n: Needs, add: number[]) {
+		for (const i of add) included[i] = true;
+		signature = n.index.reduce((h, _m, i) => (included[i] ? (Math.imul(h ^ (i + 1), 16777619) >>> 0) : h), 2166136261).toString(36);
+	}
+
+	/** One request for several modules: the body is split, each part sanitized, and each module's promise settles from it. */
+	function fetchBundle(n: Needs, ids: number[]): void {
+		const url = stylesBase + (n.bundleBase || 'bundle?m=') + ids.join(',');
+		const body = fetch(url).then((r) => {
+			if (!r.ok) throw new Error('style bundle (' + r.status + ')');
+			return r.text();
+		});
+		for (const i of ids) {
+			const p = body
+				.then((text) => {
+					const hit = splitBundle(text).find(([k]) => k === i);
+					if (!hit) throw new Error('style bundle lacks module ' + n.modules[i].id);
+					const safe = sanitizeStyleText(hit[1]); // HARD RULE #22, per module, on arrival
+					resolved.set(i, safe);
+					return safe;
+				})
+				.catch((e) => {
+					texts.delete(i);
+					throw e;
+				});
+			texts.set(i, p);
+		}
+	}
+
 	function include(n: Needs, wanted: number[]): Promise<boolean> {
 		const add = wanted.filter((i) => !included[i]);
 		if (!add.length) return Promise.resolve(false);
+		// Several modules the loader does not have yet, and an endpoint to compose them: ONE request.
+		const fresh = add.filter((i) => !texts.has(i) && n.modules[i].bytes > 0);
+		if (fetchMode === 'bundle' && n.bundleBase && fresh.length > 1) fetchBundle(n, fresh);
 		return Promise.all(add.map((i) => moduleText(n, i))).then(() => {
-			for (const i of add) included[i] = true;
-			signature = n.index.reduce((h, _m, i) => (included[i] ? (Math.imul(h ^ (i + 1), 16777619) >>> 0) : h), 2166136261).toString(36);
+			markIncluded(n, add);
 			return true;
 		});
 	}
@@ -148,7 +201,37 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 			if (m.always) want.add(i);
 		});
 		for (const i of want) for (const j of n.index[i].requires) want.add(j);
-		await include(n, [...want].sort((a, b) => a - b));
+		const ids = [...want].sort((a, b) => a - b);
+		// The whole floor as one prebuilt file (`floor` and `bundle` modes). A missing or failed file falls through to
+		// one request per module, so the floor never depends on it.
+		if (fetchMode !== 'modules' && n.floorFile && !ids.every((i) => texts.has(i))) {
+			const body = fetch(stylesBase + n.floorFile).then((r) => {
+				if (!r.ok) throw new Error('style floor (' + r.status + ')');
+				return r.text();
+			});
+			for (const i of ids) {
+				const p = body
+					.then((text) => {
+						const hit = splitBundle(text).find(([k]) => k === i);
+						if (!hit) throw new Error('style floor lacks module ' + n.modules[i].id);
+						const safe = sanitizeStyleText(hit[1]);
+						resolved.set(i, safe);
+						return safe;
+					})
+					.catch((e) => {
+						texts.delete(i);
+						throw e;
+					});
+				p.catch(() => {}); // a failed floor file is retried per module below
+				texts.set(i, p);
+			}
+			const ok = await body.then(
+				() => true,
+				() => false,
+			);
+			if (!ok) for (const i of ids) texts.delete(i);
+		}
+		await include(n, ids);
 	}
 
 	/**
@@ -196,6 +279,7 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	 * of the base until a scan of the rendered HTML asks for it. Never throws.
 	 */
 	function warm(markdown: string): void {
+		if (fetchMode === 'bundle') return; // a prefetched single module would never be part of a later bundle request
 		void loadIndex()
 			.then((n) => {
 				const words = new Set<string>();

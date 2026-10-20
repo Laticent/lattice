@@ -170,6 +170,83 @@ describe('createStyleLoader', () => {
 		expect(fetched, 'a word after --!> is not a class').not.toContain('1-card.css');
 	});
 
+	describe('fetch modes: how many requests a session makes', () => {
+		const mark = (i: number, css: string) => `/*@lat-module ${i}*/\n${css}`;
+		const withFiles = { ...NEEDS, floor: [1], floorFile: 'floor.css', bundleBase: 'bundle?m=' };
+		const stub = () =>
+			vi.stubGlobal('fetch', (url: string) => {
+				const file = url.split('/').pop() as string;
+				fetched.push(file);
+				let body: string | undefined;
+				if (file === 'needs.json') body = JSON.stringify(withFiles);
+				else if (file === 'floor.css') body = [0, 1, 3].map((i) => mark(i, FILES[Object.keys(FILES)[i]])).join('');
+				else if (file.startsWith('bundle?m=')) body = file.slice(9).split(',').map((i) => mark(Number(i), FILES[Object.keys(FILES)[Number(i)]])).join('');
+				else body = FILES[file];
+				return Promise.resolve({ ok: body != null, status: body != null ? 200 : 404, text: () => Promise.resolve(body ?? '') } as Response);
+			});
+
+		it('`floor` fetches the start-up set as one file and later modules one by one', async () => {
+			stub();
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, fetchMode: 'floor' });
+			await s.ready();
+			expect(fetched).toEqual(['needs.json', 'floor.css']); // base, card and the fx card requires: one request
+			expect(s.css()).toContain('.card');
+			expect(await s.ensureFor('<section class="chart"><svg></svg></section>')).toBe('grew');
+			expect(fetched.slice(2)).toEqual(['2-chart.css']);
+		});
+
+		it('`bundle` fetches several new modules as one request, sanitized per module', async () => {
+			stub();
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, fetchMode: 'bundle' });
+			await s.ready();
+			expect(fetched).toEqual(['needs.json', 'floor.css']);
+			// chart and the empty module's neighbors: two modules the floor lacks, asked for together
+			await s.ensureFor('<section class="chart"><svg></svg></section><section class="never"></section>');
+			expect(fetched.filter((f) => f.startsWith('bundle?m=')).length).toBeLessThanOrEqual(1);
+			expect(s.css()).toContain('.chart svg');
+			expect(s.css()).not.toContain('</style');
+		});
+
+		it('`bundle` asks for two missing modules in a SINGLE request', async () => {
+			const two = { ...withFiles, floor: [] as number[] };
+			vi.stubGlobal('fetch', (url: string) => {
+				const file = url.split('/').pop() as string;
+				fetched.push(file);
+				const keys = Object.keys(FILES);
+				const body =
+					file === 'needs.json'
+						? JSON.stringify(two)
+						: file === 'floor.css'
+							? mark(0, FILES['0-base.css'])
+							: file.startsWith('bundle?m=')
+								? file.slice(9).split(',').map((i) => mark(Number(i), FILES[keys[Number(i)]])).join('')
+								: FILES[file];
+				return Promise.resolve({ ok: body != null, status: 200, text: () => Promise.resolve(body ?? '') } as Response);
+			});
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, fetchMode: 'bundle' });
+			await s.ready();
+			await s.ensureFor('<section class="card"><div class="chart"><svg></svg></div></section>');
+			const bundles = fetched.filter((f) => f.startsWith('bundle?m='));
+			expect(bundles, 'one request for every module the scan added').toHaveLength(1);
+			expect(bundles[0].slice(9).split(',').length).toBeGreaterThan(1);
+			expect(fetched.filter((f) => /^\d-/.test(f)), 'no per-module request').toEqual([]);
+		});
+
+		it('a failed floor file falls back to one request per module', async () => {
+			vi.stubGlobal('fetch', (url: string) => {
+				const file = url.split('/').pop() as string;
+				fetched.push(file);
+				const body = file === 'needs.json' ? JSON.stringify(withFiles) : file === 'floor.css' ? undefined : FILES[file];
+				return Promise.resolve({ ok: body != null, status: body != null ? 200 : 404, text: () => Promise.resolve(body ?? '') } as Response);
+			});
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, fetchMode: 'floor' });
+			await s.ready();
+			expect(fetched).toContain('0-base.css');
+			expect(fetched).toContain('1-card.css');
+			expect(s.css()).toContain('.card');
+		});
+	});
+
 	it('retries the index after a transient failure instead of caching it', async () => {
 		let calls = 0;
 		vi.stubGlobal('fetch', (url: string) => {

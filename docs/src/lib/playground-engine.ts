@@ -16,7 +16,7 @@ import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
 import type { RenderedIndex } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
-import { createStyleLoader, type StyleLoader } from './style-loader';
+import { createStyleLoader, type FetchMode, type StyleLoader } from './style-loader';
 import { createThemeFetcher } from './theme-fetch';
 
 type PreviewState = { frameSig: string; lastSections: unknown };
@@ -71,13 +71,16 @@ export function createEngineBridge(
 	const partCounts = new Map<string, number>();
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
-	const loaderOn = typeof location !== 'undefined' && /[?&]styles=modules(?:&|$)/.test(location.search);
+	// `?styles=modules` (one request per module), `?styles=floor` (the start-up set as one file) or `?styles=bundle` (that, and every
+	// later batch of modules as one request to a composing endpoint). All three are opt-in experiments (followup 2794-p3).
+	const stylesParam = typeof location !== 'undefined' ? /[?&]styles=(modules|floor|bundle)(?:&|$)/.exec(location.search)?.[1] : undefined;
+	const loaderOn = !!stylesParam;
 	let styles: StyleLoader | undefined;
 	if (options.stylesBase && loaderOn) {
 		// What the frame document holds that the engine's HTML does not (the host's own `<html>`
 		// attributes, the texture <defs>, the classes and attributes its agents add later) is declared
 		// by the preview module, which loads after this bridge is built: so it is read per scan.
-styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex, shell: () => window.LatticeDeckPreview?.scanShell });
+styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex, shell: () => window.LatticeDeckPreview?.scanShell, fetchMode: stylesParam as FetchMode });
 	}
 	const themes = createThemeFetcher(themeBase, { styles });
 	// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts), and a

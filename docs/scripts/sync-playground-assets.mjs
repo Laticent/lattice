@@ -291,7 +291,22 @@ const generated = loadAll().map((m) => [
 // selector text of every alternative, which makes the index 77 KB gzipped against 14 KB and loads 20% fewer
 // bytes. Measured on the Playground, the extra index costs more than the bytes it saves
 // (engineering/decisions/2026-10-18-on-demand-styles.md §11).
-generated.push(['styles/needs.json', JSON.stringify(buildLatticeIndex({ verified: false }))]);
+const styleIndex = buildLatticeIndex({ verified: false });
+// The start-up set as ONE file, so a cold session asks for it in one request instead of about 60: the always-needed and
+// floor modules closed over `requires` (the same closure style-loader.ts computes), each behind a `/*@lat-module N*/` line.
+// `bundleBase` names the endpoint a host WITH server logic can offer to compose any set of modules the same way; a static
+// host leaves it unused (the `floor` fetch mode) and the loader never calls it unless asked for `bundle` mode.
+const floorIds = new Set(styleIndex.floor);
+styleIndex.index.forEach((m, i) => {
+  if (m.always) floorIds.add(i);
+});
+for (const i of floorIds) for (const j of styleIndex.index[i].requires) floorIds.add(j);
+const floorCss = [...floorIds]
+  .sort((a, b) => a - b)
+  .map((i) => `/*@lat-module ${i}*/\n${readFileSync(join(stylesMinDir, styleIndex.modules[i].file), 'utf8')}`)
+  .join('');
+generated.push(['styles/floor.css', floorCss]);
+generated.push(['styles/needs.json', JSON.stringify({ ...styleIndex, floorFile: 'floor.css', bundleBase: 'bundle?m=' })]);
 
 // The Galleries sheet's "All examples" list: one static deck per examples/*.md plus a
 // small index of slug, title and slide count. Fetched on demand (the index when the sheet
