@@ -29,6 +29,11 @@ describe('Show work', () => {
 		await userEvent.click(screen.getByText('Thinking'));
 		// Thinking goes through the host's markdown renderer, not a bare <pre>.
 		expect(screen.getAllByTestId('md').some((n) => n.textContent === 'The deck has three slides.')).toBe(true);
+		// One click shows the exact characters, and another puts the formatting back.
+		await userEvent.click(screen.getByRole('button', { name: 'Raw' }));
+		expect(screen.getByText('The deck has three slides.').tagName).toBe('PRE');
+		await userEvent.click(screen.getByRole('button', { name: 'Formatted' }));
+		expect(screen.getAllByTestId('md').some((n) => n.textContent === 'The deck has three slides.')).toBe(true);
 		expect(screen.getByText(/30 thinking tokens/)).toBeTruthy();
 	});
 });

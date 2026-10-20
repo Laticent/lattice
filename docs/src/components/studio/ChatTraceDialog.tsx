@@ -1,4 +1,4 @@
-import type * as React from 'react';
+import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { fmtTok } from './ChatCost';
@@ -72,7 +72,7 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 							{r.reasoning && (
 								<details className="group">
 									<summary className="cursor-pointer text-[var(--accent)] hover:underline">Thinking</summary>
-									<div className="mt-1 rounded-md bg-muted/50 p-2 text-[11.5px] leading-snug text-muted-foreground">{md(r.reasoning)}</div>
+									<Thinking text={r.reasoning} md={md} />
 								</details>
 							)}
 							{r.text && <div className="text-[11.5px] leading-snug">{md(r.text)}</div>}
@@ -95,6 +95,26 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 				)}
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+/** The model's thinking, formatted, with a button in its corner to read the exact characters instead. Formatted is the default
+ *  because providers often send markdown headings and lists; raw is one click away for anyone checking what the model wrote. */
+function Thinking({ text, md }: { text: string; md: (t: string) => React.ReactNode }) {
+	const [raw, setRaw] = React.useState(false);
+	return (
+		<div className="mt-1 rounded-md bg-muted/50 p-2 text-[11.5px] leading-snug text-muted-foreground">
+			<button
+				type="button"
+				onClick={() => setRaw((v) => !v)}
+				aria-pressed={raw}
+				title={raw ? 'Show formatted' : 'Show the exact text'}
+				className="float-right mb-1 ml-2 rounded border border-border bg-background px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:border-[var(--accent)] hover:text-foreground aria-pressed:border-[var(--accent)] aria-pressed:text-foreground"
+			>
+				{raw ? 'Formatted' : 'Raw'}
+			</button>
+			{raw ? <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-snug">{text}</pre> : md(text)}
+		</div>
 	);
 }
 

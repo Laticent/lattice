@@ -97,6 +97,11 @@ for (const [w, h] of [
 		await expect(dialog.locator('strong', { hasText: 'Plan' })).toBeVisible();
 		await expect(dialog.locator('li', { hasText: 'I should read the' })).toBeVisible();
 		await expect(dialog.getByText('**Plan**')).toHaveCount(0);
+		// Raw shows the exact characters the model sent; Formatted brings the markdown back.
+		await dialog.getByRole('button', { name: 'Raw' }).click();
+		await expect(dialog.locator('pre', { hasText: '**Plan**' })).toBeVisible();
+		await dialog.getByRole('button', { name: 'Formatted' }).click();
+		await expect(dialog.locator('strong', { hasText: 'Plan' })).toBeVisible();
 		await dialog.getByText('Read component', { exact: true }).click();
 		await expect(dialog.getByText('{"name":"big-number"}')).toBeVisible();
 		const dbox = await dialog.boundingBox();
