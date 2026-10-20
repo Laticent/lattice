@@ -50,7 +50,7 @@ async function seedOneOfEach(page: Parameters<typeof gotoStudio>[0]) {
 
 // THE VIEWPORT IS NOT THE WIDTH THAT MATTERS FOR THE DOCKED PANEL, and the first version
 // of this spec only checked viewports. The docked Library is a DRAGGABLE column between
-// `LIB_MIN = 240` and `PANEL_MAX = 420` (StudioShell.tsx), so its cards are narrowest at a
+// `DOCK.min = 280` and `DOCK.max = 480` (dock-layout.ts; it was 240–420 when the 31px overflow below was measured), so its cards are narrowest at a
 // width no viewport size can produce — and that is exactly where the four-control row
 // broke: 31px of overflow at the 240px minimum, on all three kinds, invisible to a spec
 // that only resized the window. A spec whose stated invariant is "at every width" has to
@@ -132,9 +132,9 @@ test('@smoke the docked Library card rows fit at BOTH ends of the panel drag ran
 		}
 	}
 	// The two ends must actually differ, or the loop above measured one width twice and
-	// the "both ends" in this test's name is a lie. `LIB_MIN = 240`, `PANEL_MAX = 420`.
+	// the "both ends" in this test's name is a lie. `DOCK.min = 280`, `DOCK.max = 480`.
 	expect(widths.max - widths.min, `drag range collapsed: min=${widths.min}px max=${widths.max}px`).toBeGreaterThan(100);
-	expect(widths.min, `min drag width ${widths.min}px should be near LIB_MIN (240)`).toBeLessThan(280);
+	expect(widths.min, `min drag width ${widths.min}px should be near DOCK.min (280)`).toBeLessThan(300);
 });
 
 // THE ARMED DELETE IS THE STATE THAT MATTERS, and the two tests above cannot see it.

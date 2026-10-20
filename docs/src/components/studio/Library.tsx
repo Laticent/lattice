@@ -356,7 +356,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// 496px, above the panel's own drag ceiling (`DOCK.max` is 480 now; the point stands). Right outcome (one
 	// column, always) reached by a branch that can never be true, describing a
 	// two-column docked state that cannot occur. Two 236px cards plus the 12px gap need
-	// 484px and the panel tops out at 420, so the honest statement is the one below: no
+	// 484px and the panel tops out at 480, so the honest statement is the one below: no
 	// query, because there is no width at which the answer changes.
 	//
 	// The Sheet keeps the viewport breakpoint — it really is viewport-wide.
@@ -378,8 +378,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// 18rem (288px), not the 20rem the Import button uses, and the number is measured
 	// rather than borrowed: the binding case is the 240px MINIMUM, where the card is
 	// 185px and the row with the label is 216px. The label therefore has to be gone
-	// below roughly a 268px container — and the panel's 380px default resolves to a
-	// ~295px container, where a 216px row fits inside a 263px card with room to spare.
+	// below roughly a 268px container — and the panel's 320px default resolves to a
+	// ~270px container, where a 216px row fits inside a 263px card with room to spare.
 	// A 20rem threshold cleared the minimum but also hid the label at the DEFAULT width,
 	// which is where the panel actually sits. 18rem is the same idiom the status
 	// breakdown below already uses, at the width the measurement asks for.

@@ -1532,8 +1532,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Settings + Assistant are Panels with px min/max/default — the library enforces
 	// the min constraints itself, so the old narrow-fold budget math (#721: the
 	// panelBudget / archEff / setEff clamps) is retired. The Assistant slot holds ONE
-	// of Architect / Lenses / Library (mutually exclusive); Library docks wider
-	// (asset cards) so it carries its own default + min.
+	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
 	
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
@@ -3127,6 +3126,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		defaultRatio: 100 - PREVIEW_CHROME.defaultPreviewFrac * 100,
 		configKey: splitConfigKey,
 		clientOnlyPanelIds: splitPanelIds,
+		// The editor is folded because the docks leave it no room; opening it means giving one up.
+		onFoldedExpand: () => {
+			if (assistantOpen) setActiveAssistant(null);
+			else setInspectorOpen(false);
+		},
 		// A panel set the person never dragged starts at the ideal layout for this group width,
 		// not at whatever the library makes of mixed px + % defaults (dock-layout.ts).
 		freshLayout: (ids) => {
@@ -6771,10 +6775,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    2026-07-19 migration adds. */}
 						{desktop && effectiveStop === 'craft' && assistantOpen && (
 							<>
-								{/* Library gets its own panel id (+ wider default) so switching the
-								    assistant slot Coach→Library is a fresh panel identity — the library
-								    applies Library's 380px default instead of caching Coach's ~232px width
-								    (each keeps its own persisted width via the per-panel-id bucket). */}
+								{/* Library keeps its own panel id so switching the assistant slot
+								    Coach→Library is a fresh panel identity, and each keeps its own
+								    persisted width via the per-panel-id bucket. */}
 								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
 									{coachOpen && (
 										<>

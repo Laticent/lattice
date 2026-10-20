@@ -41,16 +41,20 @@ shrink toward 280 first; if that is not enough the editor folds to its 46px rail
 
 - **280 min:** composer floor 196, Settings rows stop wrapping at 220; 280 leaves chat about
   32 characters per line. A judgment on top of those floors, not a measured minimum.
-- **320 default:** Settings' natural width; Library's Import label shows from 320.
+- **320 default:** Settings' natural width; Library header fits Import at 320 once the search field shrinks.
 - **46%:** the existing `defaultPreviewFrac` complement, now held at every width.
 - **Fold, not squeeze:** reuses the collapse-to-rail the split already has.
 
 ## Mechanics
 
-`useResizableSplit({ freshLayout })` applies the ideal layout to any panel set with no saved
-layout, once the group holds the panel set the shell is rendering. A dragged layout still
-wins and persists per panel set. The fold is not persisted as the person's collapse and
-reverses on the next panel toggle that leaves room. It does not react to window resizes alone.
+`useResizableSplit({ freshLayout, onFoldedExpand })` applies the ideal layout to any panel set
+with no saved layout, once the group holds the panel set the shell is rendering. A dragged
+layout still wins on widths and persists per panel set, but a saved layout never outranks the
+group's width: if the panels leave the pair no room, the fold applies and the saved widths stay
+saved. The fold is not persisted or toasted as the person's collapse, and it reverses on the
+next panel toggle or settled window resize that leaves room. Clicking "Expand editor" on a
+folded editor closes the assistant panel (or the tablet Inspector) to make room, because the
+library would otherwise refuse and the button would do nothing.
 
 Not changed: the Playground split (280/320 at 45:55), and the pre-paint shell, which models
 only the dock-free pair.

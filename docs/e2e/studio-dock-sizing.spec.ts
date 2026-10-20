@@ -43,3 +43,44 @@ test('desktop 1100: both docks open folds the editor to its rail, silently, and 
 	await page.getByRole('button', { name: CHROME.chat, exact: true }).first().click();
 	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
 });
+
+test('desktop 1100: a returning visitor with an old saved layout still folds silently and can unfold', async ({ page }) => {
+	await page.addInitScript(() => {
+		const g = 1048 - 3;
+		localStorage.setItem('lattice-docs-split-studio', JSON.stringify({ 'studio-assistant,studio-editor,studio-preview,studio-settings': { 'studio-settings': (260 / g) * 100, 'studio-assistant': (200 / g) * 100, 'studio-editor': (296 / g) * 100, 'studio-preview': (296 / g) * 100 } }));
+	});
+	await page.setViewportSize({ width: 1100, height: 800 });
+	await gotoStudio(page);
+	await openInspector(page);
+	await openChat(page);
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	await expect(page.getByText('Editor collapsed.')).toHaveCount(0);
+	expect(await page.evaluate(() => sessionStorage.getItem('lattice-docs-split-studio-collapsed'))).toBeNull();
+	await page.getByRole('button', { name: CHROME.chat, exact: true }).first().click();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
+});
+
+test('desktop 1100: expanding a folded editor makes room by closing the assistant panel', async ({ page }) => {
+	await page.setViewportSize({ width: 1100, height: 800 });
+	await gotoStudio(page);
+	await openInspector(page);
+	await openChat(page);
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	await page.getByRole('button', { name: /Expand editor/ }).first().click();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
+	expect((await widths(page))['studio-assistant']).toBeUndefined();
+});
+
+test('desktop: narrowing the window with both docks open folds the editor instead of squeezing panels', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await openInspector(page);
+	await openChat(page);
+	await page.setViewportSize({ width: 1180, height: 900 });
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	const s = await widths(page);
+	expect(s['studio-settings']).toBeGreaterThanOrEqual(279);
+	expect(s['studio-assistant']).toBeGreaterThanOrEqual(279);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
+});

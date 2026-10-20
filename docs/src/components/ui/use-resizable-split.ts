@@ -198,6 +198,12 @@ export interface UseResizableSplitOptions {
 	 * stand, which is only right when they are all one unit (mixed px + % is normalized by the
 	 * library, so a px dock never opens at its px default).
 	 */
+	/**
+	 * The person asked to expand a pane that `freshLayout` folded because the group cannot hold
+	 * it. The library would refuse (no room), so the consumer makes room — it closes a dock — and
+	 * the fold lifts itself on that panel-set change.
+	 */
+	onFoldedExpand?: (side: SplitSide) => void
 	freshLayout?: (ids: string[]) => { layout: Record<string, number>; foldEditor: boolean } | undefined
 	/** The ids of the panels the consumer is about to render, in any order —
 	 *  **only from an island that NEVER server-renders** (`client:only`). The name carries the
@@ -385,6 +391,21 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		// Bucket by the ACTUAL present ids (see bucketOf), so a saved layout is only ever
 		// applied to the exact panel set it was saved for.
 		const saved = readLayoutStore(storageKey)[bucketOf(current)]
+		// A saved layout cannot outrank the group's width: when the panels it holds leave the pair
+		// no room, the fold applies whatever was saved (the saved widths stay saved).
+		const expectedIds = optsRef.current.clientOnlyPanelIds
+		if (saved && (!expectedIds || bucketFor(expectedIds) === bucketOf(current))) {
+			const foldNow = optsRef.current.freshLayout?.(ids)
+			if (foldNow?.foldEditor) {
+				if (state.attempts++ >= RESTORE_MAX_ATTEMPTS) return done()
+				configChangingRef.current = true
+				g.setLayout(foldNow.layout)
+				autoFoldRef.current = true
+				if (!editorRef.current?.isCollapsed()) editorRef.current?.collapse()
+				releaseConfigChanging()
+				return editorRef.current?.isCollapsed() ? done() : false
+			}
+		}
 		if (!saved) {
 			// The group registers a toggled-in panel a beat after this runs. Laying out the panel
 			// set it HAD would call the toggle settled and leave the new dock at the library's
@@ -401,7 +422,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 				autoFoldRef.current = true
 				if (!editorRef.current?.isCollapsed()) editorRef.current?.collapse()
 				releaseConfigChanging()
-				return done()
+				// Done only once the editor is really collapsed: a setLayout during the library's
+				// init window is dropped, so ask again until it reports back (bounded above).
+				return editorRef.current?.isCollapsed() ? done() : false
 			}
 			releaseConfigChanging()
 			return false
@@ -508,6 +531,48 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		}
 	}, [ready, active, configKey, storageKey, panelRefOf])
 
+	// A WINDOW resize can leave the panel set it already has too wide for the group (or give the
+	// room back), and neither is a config change. Re-ask the same fold question on a settled
+	// resize; it only folds or unfolds — it never re-applies widths, so a dragged layout stays.
+	React.useEffect(() => {
+		if (!ready || !active || !optsRef.current.freshLayout) return
+		let timer = 0
+		const sync = () => {
+			const g = groupRef.current
+			const editor = editorRef.current
+			if (!g || !editor) return
+			const layout = g.getLayout() as LayoutMap
+			const ids = Object.keys(layout)
+			const expected = optsRef.current.clientOnlyPanelIds
+			if (!ids.length || (expected && bucketFor(expected) !== bucketOf(layout))) return
+			const fresh = optsRef.current.freshLayout?.(ids)
+			if (!fresh) return
+			if (fresh.foldEditor && !editor.isCollapsed() && !previewRef.current?.isCollapsed()) {
+				configChangingRef.current = true
+				autoFoldRef.current = true
+				// collapse() alone is a no-op on a group the library has already squeezed; lay the
+				// folded widths out first, as the toggle path does.
+				g.setLayout(fresh.layout)
+				if (!editor.isCollapsed()) editor.collapse()
+				releaseConfigChanging()
+			} else if (!fresh.foldEditor && autoFoldRef.current && editor.isCollapsed()) {
+				autoFoldRef.current = false
+				configChangingRef.current = true
+				editor.expand()
+				releaseConfigChanging()
+			}
+		}
+		const onResize = () => {
+			window.clearTimeout(timer)
+			timer = window.setTimeout(sync, 150)
+		}
+		window.addEventListener("resize", onResize)
+		return () => {
+			window.clearTimeout(timer)
+			window.removeEventListener("resize", onResize)
+		}
+	}, [ready, active, groupRef, editorRef, previewRef, releaseConfigChanging])
+
 	// Track collapse via the panel's authoritative isCollapsed() (the library has
 	// no onCollapse event; onResize is our poll). Per-side prev guards the edge so
 	// the callbacks + collapse persistence fire once per transition, not per frame.
@@ -525,8 +590,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			if (now && side === "a" && !autoFoldRef.current) {
 				const layout = groupRef.current?.getLayout() as LayoutMap | undefined
 				const ids = layout ? Object.keys(layout) : []
-				if (layout && ids.length && !readLayoutStore(storageKey)[bucketOf(layout)] && optsRef.current.freshLayout?.(ids)?.foldEditor) autoFoldRef.current = true
+				if (ids.length && optsRef.current.freshLayout?.(ids)?.foldEditor) autoFoldRef.current = true
 			}
+			if (!now && side === "a") autoFoldRef.current = false
 			// …but during a config-change re-layout, the expand/collapse is the library
 			// churning, not the user — don't persist it or fire callbacks.
 			if (configChangingRef.current) return
@@ -546,7 +612,13 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	const onPreviewResize = React.useCallback(() => pollCollapse("b"), [pollCollapse])
 
 	const collapse = React.useCallback((side: SplitSide) => panelRefOf(side).current?.collapse(), [panelRefOf])
-	const expand = React.useCallback((side: SplitSide) => panelRefOf(side).current?.expand(), [panelRefOf])
+	const expand = React.useCallback(
+		(side: SplitSide) => {
+			if (side === "a" && autoFoldRef.current && editorRef.current?.isCollapsed()) return optsRef.current.onFoldedExpand?.(side)
+			panelRefOf(side).current?.expand()
+		},
+		[panelRefOf, editorRef],
+	)
 	// Reset (⌘K "Reset split"): expand any collapsed pane, clear this config's saved
 	// layout + collapse, and restore the DEFAULT editor share of the PAIR — keeping
 	// any docked Studio side panels where they are.
