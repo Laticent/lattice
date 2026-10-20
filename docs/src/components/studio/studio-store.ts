@@ -34,11 +34,13 @@ function read<T>(key: string): T | null {
 		return null;
 	}
 }
-function write(key: string, value: unknown): void {
+function write(key: string, value: unknown): boolean {
 	try {
 		localStorage.setItem(key, JSON.stringify(value));
+		return true;
 	} catch {
 		/* storage full / unavailable — non-fatal */
+		return false;
 	}
 }
 function remove(key: string): void {
@@ -750,8 +752,32 @@ export type ChatMessage = {
 export function loadChat(deckId: string): ChatMessage[] {
 	return read<ChatMessage[]>(CHAT_PREFIX + deckId) ?? [];
 }
+/** Only this many of a thread's newest replies keep their Show-work trace. A trace is up to ~8 KB (chat-trace.ts), so 60 of them would be
+ *  ~480 KB of an origin's ~5 MB. Older replies keep their text, usage and activity line. */
+export const CHAT_TRACE_KEEP = 20;
+
+/** `messages` with `trace` dropped from every reply except the newest `keep`. */
+export function withoutOldTraces(messages: ChatMessage[], keep: number): ChatMessage[] {
+	let seen = 0;
+	const out = messages.slice();
+	for (let i = out.length - 1; i >= 0; i--) {
+		if (!out[i].trace) continue;
+		if (seen++ >= keep) {
+			const { trace: _drop, ...rest } = out[i];
+			out[i] = rest;
+		}
+	}
+	return out;
+}
+
+/** Save a deck's chat. A full storage must never cost the author a REPLY, so when the write is refused the traces go first: all but the
+ *  newest three, then all of them. The words, the proposals and the usage are never what gets dropped. */
 export function saveChat(deckId: string, messages: ChatMessage[]): void {
-	write(CHAT_PREFIX + deckId, messages.slice(-CHAT_CAP));
+	const kept = messages.slice(-CHAT_CAP);
+	const key = CHAT_PREFIX + deckId;
+	if (write(key, withoutOldTraces(kept, CHAT_TRACE_KEEP))) return;
+	if (write(key, withoutOldTraces(kept, 3))) return;
+	write(key, withoutOldTraces(kept, 0));
 }
 
 // The unsent chat draft, per deck — so a closed (or unmounted) Architect panel
