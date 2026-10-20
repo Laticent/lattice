@@ -291,6 +291,12 @@ test('text between elements is untouched when nothing is baked', () => {
   assert.equal(bake(doc).html, doc);
 });
 
+test('an address with no local path is tried once and listed once, however often a srcset repeats it', () => {
+  // `file://host/…` has no local path on any platform (on Windows, neither does a path with no drive letter).
+  const r = bake(`<img srcset="${'file://share.example/a.png 1x,'.repeat(2000)}">`);
+  assert.deepEqual(r.missing, ['file://share.example/a.png']);
+});
+
 // A hostile deck must not stall the export. The parse is jsdom's, which the assembler pays anyway; the readers add
 // a pass over the attribute and style text. Each of these took seconds to minutes with the regex tokenizer.
 const HOSTILE = {
@@ -307,24 +313,10 @@ const HOSTILE = {
   'a long srcset of commas and candidates': `<img srcset="${'a.png 1x,'.repeat(120000)}">`,
   'repeated --background-image strings': `<div style='${'--background-image:"url(\\"file://'.repeat(30000)}'></div>`,
 };
-// THE BUDGET IS 3 s OR FOUR TIMES A BENIGN DECK OF THE SAME SIZE ON THIS MACHINE, whichever is larger. What these
-// cases catch is a tokenizer gone quadratic (seconds to minutes); jsdom's own parse of a 1 MB deck is linear and took
-// about 0.45 s here but near 3 s on a windows-latest runner, where `a long srcset` failed at 3.37 s twice while a benign
-// deck of its size cost the same (measured 2026-10-20). A fixed 3 s measured the runner, not the code.
-const timeBake = (html) => {
-  const t0 = Date.now();
-  bake(html, { baseUrl: 'file:///tmp/deck/' });
-  return Date.now() - t0;
-};
-let benignMs = null;
-const budgetMs = () => {
-  benignMs ??= Math.min(...[0, 1].map(() => timeBake(`<p>${'a.png 1x, '.repeat(108000)}</p>`)));
-  return Math.max(3000, 4 * benignMs);
-};
 for (const [name, html] of Object.entries(HOSTILE)) {
-  test(`1 MB hostile deck under 3 s (or 4x a benign deck here), parse included: ${name}`, () => {
-    const budget = budgetMs();
-    const ms = timeBake(html);
-    assert.ok(ms < budget, `${name} took ${ms} ms; the budget here is ${budget} ms (a benign deck of its size took ${benignMs} ms)`);
+  test(`1 MB hostile deck under 3 s, parse included: ${name}`, () => {
+    const t0 = Date.now();
+    bake(html, { baseUrl: 'file:///tmp/deck/' });
+    assert.ok(Date.now() - t0 < 3000, `${name} took ${Date.now() - t0} ms`);
   });
 }
