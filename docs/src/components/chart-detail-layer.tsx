@@ -244,7 +244,7 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
   // DeckPreview host appends `iframe.live` IMPERATIVELY after the first paint — so a mount-once effect
   // would find no frame and never bind. Constructing on the first rebind() (which the host calls after
   // every paint) covers both.
-  const ci = React.useRef<{ rebind(): void; onSlide(i: number): void; handleKey(e: KeyboardEvent): boolean; destroy(): void } | null>(null);
+  const ci = React.useRef<{ rebind(): void; onSlide(i: number): void; handleKey(e: KeyboardEvent): boolean; clear(): void; destroy(): void } | null>(null);
   // Set once the component unmounts, so a late imperative call (a host firing rebind/onSlide/handleKey
   // after React tore us down) can't lazily re-create a controller with no effect left to free it.
   const disposed = React.useRef(false);
@@ -312,19 +312,67 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
     }
   }, [enabled, ensureMounted]);
 
-  // The card belongs to the preview it came from. It lives in the page, not the frame, so when the
-  // preview is hidden (the Studio's Source or Compose tab, a closed pane) it would stay on top of
-  // whatever replaced it (the owner's phone test). Close it the moment the frame leaves the screen.
+  // ONE dismiss path. `clear()` resets the open mark's lift/dim in the frame and reports `null` back
+  // through `onDetail`; `setDetail(null)` covers a layer with no controller yet.
+  const dismiss = React.useCallback(() => {
+    ci.current?.clear();
+    setDetail(null);
+  }, []);
+
+  // The card belongs to the preview it came from, and it lives in the PAGE, not the frame. The hit
+  // layer only hears events inside the frame, so a tap anywhere else (the Edit tab, a toolbar, another
+  // pane) never reached it and the card stayed on top of whatever replaced the preview (the owner's
+  // phone test). Close it whenever attention leaves the stage:
+  //   - the frame leaves the screen (a hidden tab panel, a closed pane),
+  //   - a press or a focus lands outside the stage,
+  //   - the page is backgrounded (an app switch, a hidden browser tab),
+  //   - Escape, on the hover path only: Present routes Escape through `handleKey` and exits when it
+  //     returns false, so a listener here would eat the press that should only close the card.
+  // NOT window `blur`: tapping a mark focuses the iframe, which blurs the parent window, and that
+  // would close the card the same gesture opened.
   React.useEffect(() => {
-    if (!detail || typeof IntersectionObserver === 'undefined') return;
+    if (!detail) return;
+    const outside = (t: EventTarget | null) => {
+      const stage = cfg.current.getStage();
+      return !(t instanceof Node && stage?.contains(t));
+    };
+    const onPress = (e: Event) => {
+      if (outside(e.target)) dismiss();
+    };
+    // A press on a non-focusable part of the stage focuses its nearest focusable ANCESTOR (the app's
+    // `<main tabindex=-1>`); that is the gesture that opened the card, not focus leaving it.
+    const onFocus = (e: Event) => {
+      const stage = cfg.current.getStage();
+      if (outside(e.target) && !(e.target instanceof Node && e.target.contains(stage))) dismiss();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss();
+    };
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') dismiss();
+    };
+    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('focusin', onFocus, true);
+    if (cfg.current.hoverAny) document.addEventListener('keydown', onKey, true);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', dismiss);
+    let io: IntersectionObserver | undefined;
     const target = cfg.current.getFrame() ?? cfg.current.getStage();
-    if (!target) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => !e.isIntersecting)) setDetail(null);
-    });
-    io.observe(target);
-    return () => io.disconnect();
-  }, [detail]);
+    if (target && typeof IntersectionObserver !== 'undefined') {
+      io = new IntersectionObserver((entries) => {
+        if (entries.some((e) => !e.isIntersecting)) dismiss();
+      });
+      io.observe(target);
+    }
+    return () => {
+      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('focusin', onFocus, true);
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', dismiss);
+      io?.disconnect();
+    };
+  }, [detail, dismiss]);
 
   if (!enabled) return null;
   // READABLE-FIRST sizing. This is a detail TOOLTIP — an on-demand readout whose whole job is to be
