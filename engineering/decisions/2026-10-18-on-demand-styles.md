@@ -402,13 +402,16 @@ benchmark died on it twice; the loader loads the whole sheet there by design, an
 each frame built, and compares every element's computed style plus `::before` and `::after` in screen, print
 and dark, whole vs loader, on the static page and on the LIVE frame (the slides after the host's split and the
 runtime, read until two fingerprints in a row agree, with a second whole-sheet session as the noise floor).
-**Final build, 296 decks (295 examples plus the gallery), run on the rebased tree.** Static page, screen, print and
-dark: **0 differing elements on every deck, on both engines.** Live frame: Chromium 293 of 296 identical, WebKit
-291 of 296; every live difference is 1 to 8 elements on an animated or load-sensitive deck and none survives
-every re-run: `anima-scene` is an animated control whose opacity reads 0.9216 in one session and 0.9136 in the
-other (one pulse caught at two phases; the rule sets of the two frames are identical), and the gallery's 23 on one
-Chromium run was the machine running a second gate, and read 0 on two quiet re-runs. The gate now pauses every
-animation through the Web Animations API before it reads; `anima-scene` still flakes on roughly one run in four.
+**Final build, 296 decks (295 examples plus the gallery), on the rebased tree, after the last independent check.**
+Offline audit (`style-needs-audit`, CLI renders): 296 of 296 identical, 0 false negatives. Real Playground, static
+page, screen, print and dark: **0 differing elements on every deck, on both engines.** Live frame: Chromium 294 of
+296 identical, WebKit 291 of 296; every live difference is 1 to 35 elements on an animated or load-sensitive deck
+and each reads 0 on a re-run or traces to an animation phase: `motion-asset` and `anima-scene` are a scene control
+whose `.scene-controls-shown` opacity fade is caught at 0.9216 in one session and 0.9136 in the other (the two
+frames' rule sets are identical; the loader session is a frame later), `image-set-export` read 35 once during web
+image loading and 0 twice after, and the gallery's 23 on an earlier Chromium run was a second gate sharing the
+machine. The gate pauses every animation through the Web Animations API and compares which animations exist
+before it reads, yet an in-flight fade can still land a frame apart.
 Real bugs the gate found along the way, each now pinned by a test that fails without the fix: the progress rail and
 other markup the runtime writes from HTML strings (`dark-canvas-ownership.md`: 9 diffs), function-plot's
 browser-built classes (`plugin-system-phase-b.md`: 149 diffs), and a font face only a `lattice.css` module
