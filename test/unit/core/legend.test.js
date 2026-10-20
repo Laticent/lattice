@@ -11,7 +11,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { readLegend, readEntry, gridTarget, targetText, LEGEND_READERS } = require('../../../lib/core/legend');
+const { readLegend, readEntry, gridTarget, targetText, LEGEND_READERS, spanKind, calloutsOff, legendOff } = require('../../../lib/core/legend');
 const { legendHtml } = require('../../../lib/core/legend-html');
 const { colorAttr } = require('../../../lib/core/legend-key');
 const { MARKS, markHtml, markSvg } = require('../../../lib/core/legend-mark');
@@ -84,6 +84,55 @@ describe('readLegend', () => {
   });
   test('a span that is not a record is a syntax diagnostic, never a throw', () => {
     for (const bad of ['@legend{', '@legend{{a}', '', null]) assert.equal(readLegend(bad).ok, false);
+  });
+});
+
+describe('the split: @callout is a callout, @legend is the key (2026-10-20-callout-placement.md § 2)', () => {
+  test('spanKind names the prefix the author wrote, and nothing else', () => {
+    assert.equal(spanKind('@callout{{A, for=1}}'), 'callout');
+    assert.equal(spanKind(' @legend{[{A, c1}], key}'), 'legend');
+    assert.equal(spanKind('@legends{x}'), null);
+    assert.equal(spanKind('{A}'), null);
+    assert.equal(spanKind(null), null);
+  });
+  test('a @callout span is always anchored, with or without a target, and carries its kind', () => {
+    const r = readLegend('@callout{{Dip, row=Feb, col=M2}}');
+    assert.equal(r.legend.layout, 'anchored');
+    assert.equal(r.kind, 'callout');
+    assert.equal(readLegend('@callout{[{A}, {B}]}').legend.layout, 'anchored');
+    assert.equal(readLegend('@callout{[{A}]}').diagnostics[0].code, 'legend/no-target');
+  });
+  test('a layout word in a @callout span is reported and ignored', () => {
+    const r = readLegend('@callout{{A, for=1}, key}');
+    assert.equal(r.legend.layout, 'anchored');
+    assert.deepEqual(r.diagnostics.map((d) => d.code), ['callout/layout']);
+    assert.deepEqual(readLegend('@callout{{A, for=1}, anchored}').diagnostics, []);
+  });
+  test('a pinned @legend span still reads as a callout: the pre-split spelling', () => {
+    const r = readLegend('@legend{{Dip, row=Feb, col=M2}}');
+    assert.equal(r.legend.layout, 'anchored');
+    assert.equal(r.kind, 'legend');
+  });
+  test('callouts are off by the new switches and by the pre-split ones', () => {
+    assert.equal(calloutsOff(), false);
+    for (const tokens of [['callout-off'], ['legend-off']]) assert.equal(calloutsOff({ tokens }), true, tokens[0]);
+    // The off list comes from admission, which puts `callout` in it whenever the host switches `legend`
+    // off (`alsoDisables`). `legend` alone there means callout was loaded without it: callouts stay on.
+    assert.equal(calloutsOff({ pluginsOff: ['callout'] }), true);
+    assert.equal(calloutsOff({ pluginsOff: ['legend'] }), false);
+    assert.equal(calloutsOff({ pluginsOff: ['math'] }), false);
+    assert.equal(calloutsOff({ frontMatter: 'callout: off' }), true);
+    assert.equal(calloutsOff({ frontMatter: 'legend: off' }), true);
+    assert.equal(calloutsOff({ frontMatter: 'callout: on' }), false);
+    assert.equal(calloutsOff({ tokens: ['callout-on'], frontMatter: 'callout: off' }), false);
+    assert.equal(calloutsOff({ tokens: ['legend-on'], frontMatter: 'legend: off' }), false);
+    // Mixed spellings: the slide's word wins over the deck's, whichever spelling each uses.
+    assert.equal(calloutsOff({ tokens: ['callout-on'], frontMatter: 'legend: off' }), false);
+    assert.equal(calloutsOff({ tokens: ['legend-on'], frontMatter: 'callout: off' }), false);
+    assert.equal(calloutsOff({ tokens: ['legend-off'], frontMatter: 'callout: on' }), true);
+    // Rendered, the deck's word arrives as a stamped `callout-*` class, and the slide's pre-split word wins.
+    assert.equal(calloutsOff({ tokens: ['legend-on', 'callout-off'] }), false);
+    assert.equal(legendOff, calloutsOff);
   });
 });
 
@@ -187,10 +236,11 @@ test('LEGEND_READERS names only real slide classes', () => {
 describe('legend-messages: every code the reader emits has words', () => {
   const cases = [
     ['@legend{{1, lg}}', 'legend/ambiguous-pair', /reads as the label "1" with the style word `lg`/],
-    ['@legend{', 'legend/syntax', /is not a legend: write/],
+    ['@legend{', 'legend/syntax', /is not a callout or a legend: write/],
+    ['@callout{{Peak, for=1}, key}', 'callout/layout', /`key` is not a callout layout: a callout is always anchored/],
     ['@legend{{A}, layout=sideways}', 'legend/layout', /`sideways` is not a legend layout/],
     ['@legend{x}', 'legend/item', /`x` is not a legend entry/],
-    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is an anchored label with nothing to anchor to: add `row=` and `col=`/],
+    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is a callout with nothing to point at: add `row=` and `col=`/],
     ['@legend{{Peak, row=Jan}}', 'legend/half-target', /"Peak" names only its row: add `col=` too/],
     ['@legend{{Peak, col=M2}}', 'legend/half-target', /"Peak" names only its column: add `row=` too/],
     ['@legend{{Peak, row=Jan, col=M2, for=3}}', 'legend/two-targets', /"Peak" names its cell twice.*pair is the one drawn/],

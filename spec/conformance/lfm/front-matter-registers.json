@@ -1008,6 +1008,20 @@
    }
   },
   {
+   "name": "callout: on",
+   "source": "---\ncallout: on\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "callout: off",
+   "source": "---\ncallout: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
    "name": "legend: on",
    "source": "---\nlegend: on\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {

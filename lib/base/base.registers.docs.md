@@ -48,7 +48,7 @@ model, see `design/concepts.md`.
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
-| [`legend:`](#the-legend-front-matter-register-chart-callouts) | Whether the legend plugin's callouts are drawn | `on` |
+| [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn (`legend:` is the pre-split spelling) | `on` |
 | [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
 
 ## The `plugins:` front-matter import list
@@ -1150,32 +1150,38 @@ square rather than 3:2. The table slide above drops the
 frame and keeps the deck's etching and rounded words for any spark that asks for a frame back.
 `lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
 
-## The `legend:` front-matter register (chart callouts)
+## The `callout:` front-matter register (chart callouts)
 
-The **legend plugin** draws the labels an author writes on a chart, such as a heatmap callout
-(`` `@legend{{Onboarding change, for="Feb 2026 · M2"}}` ``,
-[`legend.docs.md`](../plugins/legend/legend.docs.md)). It is on by default. `legend:` turns it
-off for the whole deck; the legend plugin declares it in `legend.manifest.json`, and
+The **callout plugin** draws the notes an author pins to a mark on a chart, such as a heatmap
+callout (`` `@callout{{Onboarding change, row="Feb 2026", col=M2}}` ``,
+[`callout.docs.md`](../plugins/callout/callout.docs.md)). It is on by default. `callout:` turns it
+off for the whole deck; the callout plugin declares it in `callout.manifest.json`, and
 `lib/core/register-factory.js` builds it.
 
 | Deck value | Per-slide class | Effect |
 |---|---|---|
-| `on` | `legend-on` | Callouts are drawn and narrated. **The default** (omit the key) |
-| `off` | `legend-off` | Callouts are hidden: not drawn, not described, not read aloud |
+| `on` | `callout-on` | Callouts are drawn and narrated. **The default** (omit the key) |
+| `off` | `callout-off` | Callouts are hidden: not drawn, not described, not read aloud |
 
 ```markdown
 ---
-legend: off
+callout: off
 ---
 
-<!-- _class: heatmap legend-on -->
+<!-- _class: heatmap callout-on -->
 ```
 
 **The slide wins over the deck**, so the heatmap above shows its callouts in a deck that hides
 them everywhere else. A hidden callout's `detail` still joins its cell's hover card and the
 speaker note, so the words the author wrote reach the PDF. `lint:deck` notes each hidden callout
 (`legend-off`, info) so a callout that vanished is never a mystery. A host turns the plugin off
-outright with `--disable-plugin legend`, with the same result.
+outright with `--disable-plugin callout`, with the same result.
+
+**The pre-split spelling.** Before callouts had a plugin of their own they were the legend
+plugin's, and `legend:` switched them. It still does: `legend: off`, the `legend-off` and
+`legend-on` classes and `--disable-plugin legend` work as `callout:` does
+(`engineering/decisions/2026-10-20-callout-placement.md` § 2). The legend plugin declares `legend:`
+in `legend.manifest.json`.
 
 ## The slide's corner — `corners:`
 

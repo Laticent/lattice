@@ -366,6 +366,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
       `    name: ${JSON.stringify(m.name)},`,
       `    title: ${JSON.stringify(m.title)},`,
       `    requires: Object.freeze(${JSON.stringify(m.requires || [])}),`,
+      `    alsoDisables: Object.freeze(${JSON.stringify(m.alsoDisables || [])}),`,
       `    embedded: ${m.embedded === true},`,
       `    optional: Object.freeze(${JSON.stringify(m.optional || [])}),`,
       `    degradesTo: ${JSON.stringify(m.render?.degradesTo || 'source')},`,
@@ -655,7 +656,9 @@ module.exports = { SERVICES };
  */
 function renderRegisters(ordered) {
   const lines = ordered.flatMap((p) => Object.entries(p.manifest.contributes.registers || {}).map(([key, decl]) => {
-    const axes = Object.entries(decl.axes).map(([axis, words]) => `Object.freeze({ axis: ${JSON.stringify(axis)}, names: Object.freeze(${JSON.stringify(words)}) })`);
+    // An alias register stamps the classes of the register it spells (`aliasOf`): the factory's axis `prefix`.
+    const prefix = decl.aliasOf ? `, prefix: ${JSON.stringify(`${decl.aliasOf}-`)}` : '';
+    const axes = Object.entries(decl.axes).map(([axis, words]) => `Object.freeze({ axis: ${JSON.stringify(axis)}, names: Object.freeze(${JSON.stringify(words)})${prefix} })`);
     return `  Object.freeze({ key: ${JSON.stringify(key)}, plugin: ${JSON.stringify(p.manifest.name)}, axes: Object.freeze([${axes.join(', ')}]) }),`;
   }));
   return `${HEADER('The plugins\' front-matter REGISTERS, as data: key (= class prefix) and axes, each axis\'s default first.')}

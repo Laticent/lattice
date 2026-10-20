@@ -7,29 +7,11 @@ bullet is an assertion about that render:
 - `renders` — the HTML contains the quoted text
 - `omits` — the HTML does not contain it
 
-## a heatmap draws an anchored label at the cell it names
+The key's authoring lands one adopter at a time (engineering/decisions/2026-10-20-callout-placement.md
+§ 6). Until a component reads `@legend{…}` as its key, the case below pins what happens today: the
+heatmap does not draw it and says so.
 
-```markdown
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 | M2 |
-| ------ | --: | -: | -: |
-| Jan    | 100 | 62 | 48 |
-| Feb    | 100 | 58 | 31 |
-
-`@legend{{Drop-off, tag, c4, row=Feb, col=M2}}`
-```
-
-- renders `class="legend legend--anchored"`
-- renders `data-mark-for="5"`
-- renders `class="legend-plate" data-c="c4" data-shape="square"`
-- renders `legend-number`
-- renders `>Drop-off</tspan>`
-- omits `<code>@legend`
-
-## with no style words, the marker is a circle and the words are bare
+## a heatmap reports a key legend it does not draw
 
 ```markdown
 <!-- _class: heatmap -->
@@ -40,99 +22,9 @@ bullet is an assertion about that render:
 | ------ | --: | -: |
 | Jan    | 100 | 62 |
 
-`@legend{{Peak, for=0}}`
+`@legend{[{Poor, c1}, {Good, c3}], key}`
 ```
 
-- renders `legend-text legend-text--bare`
-- renders `data-shape="circle"`
-- renders `legend-knockout`
-- omits `chart-leader`
-
-## a seventh callout is not drawn, and the description says so
-
-```markdown
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 | M2 |
-| ------ | --: | -: | -: |
-| Jan    | 100 | 62 | 48 |
-| Feb    | 100 | 58 | 31 |
-
-`@legend{[{A, for=0}, {B, for=1}, {C, for=2}, {D, for=3}, {E, for=4}, {F, for=5}, {G, for=0}]}`
-```
-
-- renders `data-shape="star"`
-- renders `"G" (past the 6-callout limit)`
-- omits `>G</tspan>`
-
-## a label's detail reaches the speaker note
-
-```markdown
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 |
-| ------ | --: | -: |
-| Jan    | 100 | 62 |
-
-`@legend{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
-```
-
-- renders `Dip: Pricing change`
-
-## a label that names no cell is reported, not drawn
-
-```markdown
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 |
-| ------ | --: | -: |
-| Jan    | 100 | 62 |
-
-`@legend{{Lost, row=Mar, col=M9}}`
-```
-
-- renders `which names no cell`
-- omits `legend--anchored`
-
-## a heatmap with no legend is untouched
-
-```markdown
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 |
-| ------ | --: | -: |
-| Jan    | 100 | 62 |
-```
-
-- omits `legend`
-
-## legend: off hides a callout and keeps its detail
-
-```markdown
----
-legend: off
----
-
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 |
-| ------ | --: | -: |
-| Jan    | 100 | 62 |
-
-`@legend{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
-```
-
-- renders `legend-off`
-- renders `Dip: Pricing change`
+- renders `"Poor" (a key legend, which a heatmap does not draw yet)`
 - omits `legend--anchored`
 - omits `<code>@legend`
