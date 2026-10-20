@@ -1,4 +1,4 @@
-studio: +20
-playground: +8
-home: +8
-The Studio hands each plugin's stylesheet to its door (`StudioShell.tsx` passes `css`, `door.ts` adds it to the stamp), which is the +12 in `StudioIsland`. The +8 in `theme-fetch` on all three routes is in code this PR does not touch and does not reproduce in a local build (see `engineering/gotchas/ci.md`, "A PR that changes only markdown fails the route budget by a few bytes"); the cause was not found.
+studio: +254
+playground: +225
+home: +225
+The Studio hands each plugin's stylesheet to its door (`StudioShell.tsx` passes `css`, `door.ts` adds it to the stamp), which is the +29 in `StudioIsland`. The rest is in `theme-fetch`, which the startup bundle shares with the preview draw host's stub (`preview-draw-host.ts`: one property definition on `window` plus the warm-up call that `render-engine.ts` makes for a deck holding a plot); that is +225 on all three routes. The host itself (`preview-draw-host-impl.ts`, the frame code and the library pins) loads on first use and is not in any route's startup bundle. A first cut that kept the loading logic in the stub cost +393 on three routes, which is why it is split.
