@@ -150,10 +150,13 @@ style: |
 | `<!-- _paginate: false -->` | This slide only   | Hide page number     |
 | `<!-- _header: '' -->`      | This slide only   | Hide header          |
 | `<!-- _footer: '' -->`      | This slide only   | Hide footer          |
-| `<!-- header: 'New' -->`    | This slide onward | Change header        |
-| `<!-- footer: 'New' -->`    | This slide onward | Change footer        |
+| `<!-- header: 'New' -->`    | This slide only   | Change header        |
+| `<!-- footer: 'New' -->`    | This slide only   | Change footer        |
+| `<!-- _class: no-header -->` | This slide only  | Hide the deck header |
 
-Underscore prefix = this slide only. No underscore = this slide and all following.
+Header, footer and page numbers are set for every slide in front matter only. A slide comment sets its own slide, with
+or without the underscore: Lattice is not Marp, where the plain form carries onto every later slide. Every other
+directive keeps Marp's rule: underscore prefix = this slide only, no underscore = this slide and all following.
 
 Title, divider, and closing slides should suppress header, footer, and pagination:
 

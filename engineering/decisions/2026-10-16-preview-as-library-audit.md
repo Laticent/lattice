@@ -1044,7 +1044,7 @@ engine renders.
 
 The 2789 follow-up asked the owner to rule whether a plain `<!-- header: H -->` on a slide carries onto later slides (Marp's
 rule, and the engine's) or scopes to its slide. The owner was away, so the session took the reversible default and pinned
-it; reversing it is an owner call, kept open in `followups.d/2789-p4-header-carries-forward-past-its-slide.md` and on the
+it; reversing it is an owner call, kept open in the 2789-p4 follow-up (ruled and closed in §11r) and on the
 PR's decision card.
 
 - **The default: keep the carry for the comment form.** Front matter sets every slide; `_header`, `_footer` and
@@ -1196,6 +1196,41 @@ API is built here; the Safari device number is still owed.
   or CPU, and a 94 to 130 ms worst case of wall time could hold a long task above a frame budget even while the rail is
   still; a Long Animation Frames reading is what would say. **UNVERIFIED** until measured on a device
   (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to that).
+
+## 11r. Ruled and built on 2026-10-20: a slide's header, footer and page number stay on that slide
+
+**The owner's ruling, final:** "Make it stay on its own slide. We are not Marp. If someone wants to set header, footer
+and pagination for every slide they can set it in the front matter and use no-header, no-footer, no-pagination on
+specific slides using `_class:`. If someone wants a specific `_header` and `_footer` they can." This reverses the
+default §11n pinned.
+
+- **The rule.** Front matter sets `header`, `footer` and `paginate` for every slide. A slide comment sets that slide
+  only, in either spelling: `<!-- header: H -->` now behaves as `<!-- _header: H -->`. A slide drops the deck's chrome
+  with `_class: no-header`, `no-footer` or `no-paginate` (the classes the ruling calls "no-pagination" are spelled
+  `no-paginate`; they already existed, `lib/base/base.variants.css`). Every other plain directive (`class:`,
+  `backgroundColor:`) keeps Marp's carry; the ruling names these three.
+- **One declaration.** The three keys are `scope: "slide"` in `lib/plugins/meta/meta.manifest.json` (the schema now
+  allows `slide` beside `deck`), derived as `SLIDE_ONLY_KEYS` in `lib/core/meta-keys.mjs`. Every reader of the carry
+  asks that set: the engine (`lib/engine/slides.js` `lattice_directives`, and `parseCommentDirectives`), the meta
+  record's walk (`lib/core/meta-record.mjs`), the slice-equivalence prelude (`synthesizePrelude`, through its injected
+  vocabulary), and the split strip (`lib/core/auto-split.js` `deckChromeFrom`, which used to read the last plain
+  comment as the deck band and now reads front matter only: with no carry, stripping it would delete a slide's text).
+- **The export to Marp.** Marp would carry the plain spelling, so each producer of a bundle writes it as `_header:` /
+  `_footer:` / `_paginate:` (`lib/core/marp-slide-only.mjs`) on the deck it hands `withRuntimeScriptsReport`: the CLI
+  directly, the Studio through a dynamic import. It first lived inside `withRuntimeScriptsReport`, which ships in the
+  browser engine every route loads, and the merge queue measured it there: on current `main` the getting-started
+  engine read 321,405 gzip bytes against a 321,241 ceiling (main alone: 320,970). Moved out, the same build reads
+  320,999. A census test pins both producers (`test/unit/core/marp-slide-only.test.js`). Comments in fenced
+  or inline code, prose comments, and front matter are untouched, and a deck with nothing to rewrite is byte-identical.
+  LFM 1.1 §2.3 now states the rule and the export obligation.
+- **What changes for a deck.** None of the 309 example and baseline decks has a plain `header:`, `footer:` or
+  `paginate:` comment (§11n), so no shipped render moves. An author's deck that relied on the carry now shows the
+  header on its own slide only; the changelog leads with **Breaking:**.
+- **Evidence.** `test/unit/engine/directive-scope.test.js`, flipped: a plain header on slide 2 of five reads
+  `-, H, -, L, -`; footers and pagination follow; front matter sets every slide and a slide overrides it for itself
+  only; `backgroundColor:` still carries; the meta record resolves the same way. With the engine's check removed, five
+  of its eight go red (run, not reasoned). `test/unit/core/marp-slide-only.test.js` pins the export rewrite and its
+  exclusions, and the bundled deck rendered by real `marp-cli` is in the PR's export sign-off, in dark and light.
 
 ## 12. Next step
 

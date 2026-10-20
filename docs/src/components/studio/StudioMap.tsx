@@ -74,9 +74,10 @@ const STAGE = { cost: 1 };
 const POSTER_TILES = 24;
 const POSTER_BYTES = 8 * 1024 * 1024;
 
-/** A plain (non-underscore) directive comment carries onto every later slide (audit §11n), so it is part of what a
- *  slide looks like even though it is not in the slide's text. */
-const CARRIED = /<!--\s*(?!_)[A-Za-z][\w-]*\s*:[\s\S]*?-->/g;
+/** A plain (non-underscore) directive comment carries onto every later slide, Marp's rule, so it is part of what a
+ *  slide looks like even though it is not in the slide's text. `header`, `footer` and `paginate` set their own slide
+ *  only (audit §11r), so they are not carried. */
+const CARRIED = /<!--\s*(?!_|(?:header|footer|paginate)\s*:)[A-Za-z][\w-]*\s*:[\s\S]*?-->/g;
 
 /**
  * A DIAGNOSTIC CEILING for the map's frame pool, read once from `localStorage['lattice-studio-map-slots']` (an

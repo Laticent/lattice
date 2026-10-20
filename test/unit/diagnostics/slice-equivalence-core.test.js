@@ -36,11 +36,17 @@ test('frontMatterOf returns the block verbatim, or empty', () => {
 });
 
 // ── synthesizePrelude ────────────────────────────────────────────────────────
-const VOCAB = { known: new Set(['header', 'footer']), flags: new Set(['build']) };
+const VOCAB = { known: new Set(['header', 'footer', 'class']), flags: new Set(['build']), slide: new Set(['header', 'footer']) };
 
 test('synthesizePrelude carries a running global forward', () => {
-  const slides = ['<!-- header: Q3 -->\n# One', '# Two'];
-  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- header: Q3 -->');
+  const slides = ['<!-- class: dense -->\n# One', '# Two'];
+  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- class: dense -->');
+});
+
+test('synthesizePrelude does not carry a slide-only key, in either spelling', () => {
+  // `header`, `footer` and `paginate` set their own slide only (audit §11r), so a later slice inherits none of them.
+  const slides = ['<!-- header: Q3 -->\n<!-- _footer: F -->\n# One', '# Two'];
+  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
 });
 
 test('synthesizePrelude ignores a spot directive — it applies to its own slide only', () => {
@@ -63,8 +69,8 @@ test('synthesizePrelude carries a BARE flag directive', () => {
 });
 
 test('synthesizePrelude keeps the LAST value of a re-set global', () => {
-  const slides = ['<!-- header: A -->', '<!-- header: B -->', '# Three'];
-  assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- header: B -->');
+  const slides = ['<!-- class: a -->', '<!-- class: b -->', '# Three'];
+  assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- class: b -->');
 });
 
 test('synthesizePrelude THROWS without a vocabulary — the one failure that must be loud', () => {
@@ -73,6 +79,8 @@ test('synthesizePrelude THROWS without a vocabulary — the one failure that mus
   // would catch a caller that dropped the argument, so the only detectable failure is a throw.
   assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1), TypeError);
   assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1, { known: new Set() }), TypeError);
+  // Without the slide-only set, the prelude would carry `header:` again, silently: that must throw too.
+  assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1, { known: new Set(['header']), flags: new Set() }), TypeError);
 });
 
 test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {

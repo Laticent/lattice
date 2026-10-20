@@ -1,22 +1,23 @@
 /**
  * Unit: how far a slide's header, footer and pagination reach — the rule pinned.
  *
- * Front matter sets them for every slide. On a slide, the underscore form (`_header:`) is a SPOT
- * directive and applies to that slide only; the plain form (`header:`) is a GLOBAL directive and
- * carries onto every later slide until another one replaces it. That second half is Marp's rule,
- * and the engine keeps it for the bridge: the @meta record decision maps a plain directive to an
- * explicit `carry` record and makes a record scope to its own slide by default
- * (engineering/decisions/2026-10-17-meta-record.md §4.3), so the carry is the legacy form's
- * meaning, kept on purpose, and the new form is where scoping lives.
+ * The owner's ruling (2026-10-20, audit §11r): Lattice is not Marp. Front matter sets the header,
+ * footer and pagination for every slide. On a slide, BOTH spellings set that slide only: the
+ * underscore form (`<!-- _header: L -->`) and the plain form (`<!-- header: H -->`). A plain comment
+ * no longer carries onto later slides, Marp's rule. A slide that should drop the deck's chrome uses
+ * `_class: no-header`, `no-footer` or `no-paginate` (lib/base/base.variants.css).
+ *
+ * The keys are declared once, as `scope: "slide"` in lib/plugins/meta/meta.manifest.json, and read
+ * through `SLIDE_ONLY_KEYS` (lib/core/meta-keys.mjs) by the engine, the meta record's walk and the
+ * slice prelude. Every other plain directive (`class:`, `backgroundColor:`) still carries forward.
  *
  * Measured: the 309 example and baseline decks hold no plain `header:`, `footer:` or `paginate:`
- * comment, so this rule decides nothing in a deck we ship; it decides what an author's deck
- * renders. Whether to change it is the owner's call (followups.d/2789-p4); this pins today's
- * answer so a change is deliberate.
+ * comment, so the change moves no deck we ship; it changes what an author's deck renders.
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { render } = require('../../../lib/engine');
+const { scanMetaSource } = require('../../../lib/core/meta-record.mjs');
 
 /** `data-<name>` of each top-level section, '-' where it is absent. */
 function attrs(markdown, name) {
@@ -26,23 +27,36 @@ function attrs(markdown, name) {
 
 const five = (slide2, slide4) => `# One\n\n---\n\n${slide2}\n\n# Two\n\n---\n\n# Three\n\n---\n\n${slide4}\n\n# Four\n\n---\n\n# Five\n`;
 
-test('a plain header on slide 2 carries onto every later slide; an underscore header stays on its own', () => {
-  assert.deepEqual(attrs(five('<!-- header: H -->', '<!-- _header: L -->'), 'header'), ['-', 'H', 'H', 'L', 'H']);
+test('a plain header on slide 2 stays on slide 2, as an underscore header does', () => {
+  assert.deepEqual(attrs(five('<!-- header: H -->', '<!-- _header: L -->'), 'header'), ['-', 'H', '-', 'L', '-']);
 });
 
 test('an underscore header alone reaches no other slide', () => {
   assert.deepEqual(attrs(five('<!-- _header: L -->', ''), 'header'), ['-', 'L', '-', '-', '-']);
 });
 
-test('a later plain header replaces the carried one from its slide on', () => {
-  assert.deepEqual(attrs(five('<!-- header: H -->', '<!-- header: K -->'), 'header'), ['-', 'H', 'H', 'K', 'K']);
+test('two plain headers each set their own slide', () => {
+  assert.deepEqual(attrs(five('<!-- header: H -->', '<!-- header: K -->'), 'header'), ['-', 'H', '-', 'K', '-']);
 });
 
 test('footers follow the same rule', () => {
-  assert.deepEqual(attrs(five('<!-- footer: F -->', '<!-- _footer: G -->'), 'footer'), ['-', 'F', 'F', 'G', 'F']);
+  assert.deepEqual(attrs(five('<!-- footer: F -->', '<!-- _footer: G -->'), 'footer'), ['-', 'F', '-', 'G', '-']);
 });
 
-test('front matter sets every slide, and a slide overrides it the same two ways', () => {
+test('pagination follows the same rule', () => {
+  assert.deepEqual(attrs(five('<!-- paginate: true -->', ''), 'paginate'), ['-', 'true', '-', '-', '-']);
+});
+
+test('front matter sets every slide, and a slide overrides it for itself only, in either spelling', () => {
   const md = `---\nheader: D\n---\n\n${five('<!-- _header: L -->', '<!-- header: K -->')}`;
-  assert.deepEqual(attrs(md, 'header'), ['D', 'L', 'D', 'K', 'K']);
+  assert.deepEqual(attrs(md, 'header'), ['D', 'L', 'D', 'K', 'D']);
+});
+
+test('a plain directive that is not slide-only still carries forward (Marp\'s rule, kept)', () => {
+  assert.deepEqual(attrs(five('<!-- backgroundColor: red -->', ''), 'background-color'), ['-', 'red', 'red', 'red', 'red']);
+});
+
+test('the meta record resolves a plain header to its own slide, as the engine does', () => {
+  const { slides } = scanMetaSource(five('<!-- header: H -->', ''));
+  assert.deepEqual(slides.map((s) => s.resolved.get('header')?.value ?? '-'), ['-', 'H', '-', '-', '-']);
 });

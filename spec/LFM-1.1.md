@@ -81,6 +81,12 @@ heading) belongs to the heading's slide, not the one before.
 A leading YAML front-matter block carries deck-wide directives. Besides Marpit's own
 (`theme`, `paginate`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
 
+**`header`, `footer` and `paginate` are set for every slide only in front matter.** In a slide comment, in either
+spelling (`<!-- header: H -->` or `<!-- _header: H -->`), they apply to that slide only. This differs from Marpit,
+where the plain spelling carries onto every later slide. A slide drops the deck's chrome with `_class: no-header`,
+`no-footer` or `no-paginate`. A renderer that exports to Marpit MUST write such a comment in the underscore spelling,
+so the exported deck renders the same.
+
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
 slide. A single-word register whose value is not in the list MUST NOT change the render. A
@@ -567,6 +573,7 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-10-08 | §2.3 lists every front-matter register the reference implementation reads, each with its values and its `unknown-<key>` diagnostic, plus the settings (`logo:`, `plugins:`) and the delivery keys (`pace:`, `delivery:`, `greeting:`, `closing:`). §2.2 specifies the heading split. §2.4 adds the `_lens` tag. §3.6 adds the inline notation: pills, marks, sparks and icons. Each has shared test cases in `spec/conformance/lfm/`. Additive (a minor version, §7). Waits on the owner's sign-off. |
 | 1.1-draft | 2026-10-14 | §3.6 rule 4: a span in a declared data slot belongs to that slot and never renders as a pill, mark, spark or icon; `grammar.json` publishes the slots as `dataSlots` (§4). This writes down what the reference implementation already does for flowchart, hub-spoke and state-chart rows, and it keeps `` `{4.2}` `` on a chart row from becoming a pill once a chart declares its rows. A change to a normative meaning, landed before ratification (§7). Shared case: `spec/conformance/lfm/data-slots.json`. Record: `engineering/decisions/2026-10-14-chart-authoring-uniform-model.md` §3 decision 12, §6. |
 | 1.1-draft | 2026-10-16 | §2.3 adds the four registers the reference implementation read but the table omitted: `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and the avatars plugin's `avatar:`. An L2 tool SHOULD report an unknown top-level key as `unknown-key`. Additive. The table is now checked against `lib/core/deck-settings.js`, so a register the engine reads cannot go missing from it again. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-15-conformance-harness.md` §9 phase 1. |
+| 1.1-draft | 2026-10-20 | §2.3: `header`, `footer` and `paginate` in a slide comment apply to that slide only, in either spelling; only front matter sets them for every slide. A change to a normative meaning that departs from Marpit, landed before ratification (§7); the engine's changelog carries the `Breaking:` line. Owner ruling: `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r. |
 
 ## Appendix A — A worked example (informative)
 
