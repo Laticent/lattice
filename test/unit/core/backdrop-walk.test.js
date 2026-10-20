@@ -91,3 +91,21 @@ test('an author section left unclosed ends the walk: nothing after it is wrapped
 	const doc = '<section class="a finish"><section class="note"><p>1</p></section><section class="b finish"><p>2</p></section>';
 	assert.equal(applyBackdropToHtml(doc), doc);
 });
+
+describe('backdrop injector: a tinted deck logo is stepped over', () => {
+	// `applyDeckLogoToHtml` puts `<svg class="deck-logo-tint">` right after the logo img. The splitter
+	// re-runs this pass over a document the engine already processed; LEAD_RE stopped at the img, so the
+	// svg hid the existing wrapper and every finish slide grew a second one (found by the checker).
+	const LOGO = '<img class="deck-logo" src="x" alt="" aria-hidden="true">';
+	const TINT = '<svg class="deck-logo-tint" width="0" height="0" aria-hidden="true" focusable="false"><filter id="deck-logo-tint-0"><feFlood flood-color="currentColor"/><feComposite in2="SourceAlpha" operator="in"/></filter></svg>';
+	test('img + tint svg + wrapper is already done: the pass adds nothing', () => {
+		const done = `<section class="content finish">${LOGO}${TINT}${BACKDROP}<p>x</p></section>`;
+		assert.equal(applyBackdropToHtml(done), done);
+	});
+	test('a fresh finish slide with the tinted logo gets exactly one wrapper, after the svg', () => {
+		const out = applyBackdropToHtml(`<section class="content finish">${LOGO}${TINT}<p>x</p></section>`);
+		assert.equal(count(out), 1);
+		assert.ok(out.indexOf('class="backdrop"') > out.indexOf('</svg>'), 'the wrapper sits after the logo and its filter');
+		assert.equal(applyBackdropToHtml(out), out, 'idempotent');
+	});
+});

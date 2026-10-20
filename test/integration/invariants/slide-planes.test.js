@@ -92,7 +92,6 @@ paginate: true
 header: "Running Header"
 footer: "Footer Text"
 logo: sample:logo-acme-mark.svg
-logo-on: all
 finish: atrium
 ---
 
@@ -256,7 +255,7 @@ describe('every direct section child is on a named plane or in the flow (real re
     //
     // WHY CONTENT AND NOT CHROME, since the logo is plainly frame furniture: a plane says
     // what may COVER what, not what a thing IS. On `--z-chrome` an off-corner
-    // `logo-style: brand` plate erased four words of a pull-quote; on `--z-atmosphere` the
+    // `logo-finish: brand` plate erased four words of a pull-quote; on `--z-atmosphere` the
     // mark vanished under a split panel. `--z-content` is the only value that renders 0 px
     // against the merge-base on both, because a positioned element at `z-index: 0` paints at
     // step 8 — above plain in-flow content, below anything claiming the local 0–9 band —

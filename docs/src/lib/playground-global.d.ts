@@ -78,6 +78,8 @@ export interface LatticePlaygroundEngine {
  *  the virtual list has none, and the host then runs fully mounted. */
 type VirtualState = { lastSections: unknown } | null | undefined;
 export interface LatticeDeckPreviewController {
+	/** The frame's host markup and runtime tokens, for the on-demand style loader's scan (deck-preview.js). */
+	scanShell?: import('./style-loader').ScanShell;
 	attachVirtual?: (frame: HTMLIFrameElement, getState: () => VirtualState, onChange?: () => void) => void;
 	mountAround?: (frame: HTMLIFrameElement, state: VirtualState, index: number) => boolean;
 	syncVirtual?: (frame: HTMLIFrameElement, state: VirtualState) => boolean;

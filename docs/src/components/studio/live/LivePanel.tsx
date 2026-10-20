@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Presentation, Server, Share2, Sparkles, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { cleanName } from '@/lib/tavola';
 import { cn } from '@/lib/utils';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS } from '../panel-shells';
 import { LiveAvatar } from './LiveAvatar';
-import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, qualityLine, SLIDE_REF } from './live-model';
+import { elapsed, type LiveActions, type LiveChatLine, type LiveNote, type LivePerson, type LiveView, liveColor, qualityLine, SLIDE_REF } from './live-model';
 
 // The Live panel — the collaboration PORTAL, not the workspace (§5.2 of
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
@@ -30,11 +30,24 @@ const TOUCH = 'pointer-coarse:size-10';
 const LINK_LABEL = { local: 'On the same network', direct: 'Direct across networks', relay: 'Through a relay server' } as const;
 const LINK_ICON = { local: Wifi, direct: ArrowLeftRight, relay: Server } as const;
 
+/** What someone is doing, in a few words: presenting, then their view, then their panel (§7.6). */
+function doingLabel(p: LivePerson): string | null {
+	const d = p.doing;
+	if (!d) return null;
+	if (d.presenting) return 'presenting';
+	if (d.asking) return 'asking the AI';
+	if (d.view === 'article') return 'reading';
+	if (d.view === 'fabricate') return 'in Fabricate';
+	return d.panel === 'coach' ? 'in Coach' : d.panel === 'lenses' ? 'in Views' : d.panel === 'library' ? 'in Library' : null;
+}
+
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
-	if (p.slideHidden) return p.editing ? 'Slide hidden · editing' : 'Slide hidden';
-	if (p.slide === null) return 'Arriving…';
-	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
+	const doing = doingLabel(p);
+	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}`;
+	if (p.slideHidden) return `Slide hidden${tail}`;
+	if (p.slide === null) return doing ? `Arriving… · ${doing}` : 'Arriving…';
+	return `Slide ${p.slide + 1}${tail}`;
 }
 
 
@@ -269,6 +282,8 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor. That shows roughly where you are working even when your slide is hidden." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
 					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
 					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
+					<ShareRow id="live-share-doing" label="Show what I'm doing" note="Others see the panel or view you have open, whether you are presenting, and when you are asking the AI. What you ask never shows unless you share it. On a desktop, someone following you opens the same panel and view (never Fabricate, and never while they type)." checked={sh.doing} onChange={(on) => actions.setShare({ doing: on })} />
+					<ShareRow id="live-share-pointer" label="Show my pointer" note="Others on your slide see your mouse pointer over it, and where you click. It can never click anything of theirs. Hiding your slide hides it too." checked={sh.pointer} onChange={(on) => actions.setShare({ pointer: on })} />
 				</div>
 				<div className="mt-3 flex flex-col gap-3 border-t border-border pt-3" data-live-connection>
 					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Connection</div>
@@ -540,6 +555,7 @@ function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActi
 				<DropdownMenuContent align="end" className="w-52">
 					<DropdownMenuItem onSelect={() => void actions.copyLink()}><Link2 className="size-4" /> Copy invite link</DropdownMenuItem>
 					{view.isHost && <DropdownMenuItem onSelect={actions.bringEveryone}><Eye className="size-4" /> Bring everyone to my slide</DropdownMenuItem>}
+					{view.isHost && <DropdownMenuItem onSelect={() => actions.presentToEveryone(!view.presentingToAll)} data-live-present-all><Presentation className="size-4" /> {view.presentingToAll ? 'Stop presenting to everyone' : 'Present to everyone'}</DropdownMenuItem>}
 					<DropdownMenuSeparator />
 					<DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
 						<LogOut className="size-4" /> {ending ? 'End session for everyone…' : 'Leave session…'}
@@ -604,9 +620,54 @@ function ChatText({ text, onSlide }: { text: string; onSlide: (i: number) => voi
 /** A session time in the viewer's own zone and format ("2:05 PM", "14:05"). */
 const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 
+/** A slide number as a chip that goes to it (the same chip a typed "slide 3" becomes). */
+function SlideChip({ n, onSlide }: { n: number; onSlide: (i: number) => void }) {
+	return (
+		<button type="button" onClick={() => onSlide(n - 1)} className="mx-0.5 inline-flex items-center rounded-md border border-border bg-background px-1.5 py-px text-[11px] font-semibold text-foreground hover:bg-accent">
+			Slide {n}
+		</button>
+	);
+}
+
+/**
+ * A note in the people chat (2026-10-20 note §5.3): an AI edit someone applied, or an AI chat turn its
+ * owner shared. The words around the note's strings are written here, never taken from the sender, and
+ * the strings render as text.
+ */
+function NoteLine({ line, onSlide }: { line: Extract<LiveChatLine, { kind: 'message' }> & { note: LiveNote }; onSlide: (i: number) => void }) {
+	const who = line.mine ? 'You' : line.from;
+	const name = <span className="font-semibold" style={line.mine ? undefined : { color: liveColor(line.color) }}>{who}</span>;
+	const note = line.note;
+	if (note.k === 'ai-edit') {
+		return (
+			<li className={cn('py-1 text-center text-[11px] leading-relaxed text-muted-foreground', line.pending && 'opacity-60')} data-live-note="ai-edit">
+				<Sparkles className="mr-1 inline size-3 align-[-1px] text-[var(--accent)]" aria-hidden />
+				{name} applied an AI edit {note.slides.length === 0 ? 'to the deck settings' : note.slides.length === 1 ? 'to' : 'to slides'}
+				{note.slides.map((n) => (
+					<SlideChip key={n} n={n} onSlide={onSlide} />
+				))}
+			</li>
+		);
+	}
+	return (
+		<li className={cn('flex flex-col pt-1.5', line.mine ? 'items-end' : 'items-start', line.pending && 'opacity-60')} data-live-note="ai-turn">
+			<div className="w-[92%] rounded-xl border border-border bg-background px-3 py-2 text-[12px] leading-relaxed">
+				<p className="pb-1.5 text-[11px] text-muted-foreground">
+					<Sparkles className="mr-1 inline size-3 align-[-1px] text-[var(--accent)]" aria-hidden />
+					{name} shared from the AI chat
+				</p>
+				{note.ask.trim() && <p className="mb-1.5 line-clamp-3 whitespace-pre-wrap break-words border-l-2 border-border pl-2 text-muted-foreground">{note.ask}</p>}
+				<div className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words text-foreground">{note.answer}</div>
+			</div>
+			{line.pending && <span className="px-1 pt-0.5 text-[10.5px] text-muted-foreground">Sending…</span>}
+		</li>
+	);
+}
+
 function ChatLine({ line, prev, onSlide }: { line: LiveChatLine; prev: LiveChatLine | undefined; onSlide: (i: number) => void }) {
 	if (line.kind === 'system') return <li className="py-0.5 text-center text-[11px] text-muted-foreground">{line.text}</li>;
-	const run = prev?.kind === 'message' && prev.from === line.from && prev.mine === line.mine && line.at - prev.at < 120_000;
+	if (line.note) return <NoteLine line={{ ...line, note: line.note }} onSlide={onSlide} />;
+	const run = prev?.kind === 'message' && !prev.note && prev.from === line.from && prev.mine === line.mine && line.at - prev.at < 120_000;
 	const time = <time className="font-normal tabular-nums text-muted-foreground" dateTime={new Date(line.at).toISOString()}>{clock.format(line.at)}</time>;
 	if (line.mine) {
 		return (
@@ -869,6 +930,52 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 									))}
 								</ul>
 							</>
+						)}
+						{view.present && (
+							<div className="mx-1.5 mt-2 flex items-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-1.5" data-live-present-join>
+								<Presentation className="size-4 shrink-0 text-[var(--accent)]" />
+								<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{view.present.by} is presenting</span>
+								<Button size="xs" onClick={actions.joinPresent}>Join</Button>
+							</div>
+						)}
+						{view.isHost && view.unshared.length > 0 && (
+							<>
+								<div className={SECTION}>Not shared yet ({view.unshared.length})</div>
+								<p className="px-3.5 pb-1.5 text-[11px] leading-snug text-muted-foreground">
+									The deck uses these from your Library. Until you share them, the others see a fallback.
+									{view.unshared.some((u) => u.kind === 'component') && " A component's code isn't shared yet; sharing its name stops their editor flagging it."}
+								</p>
+								<ul className="flex flex-col gap-1 px-1.5" data-live-unshared>
+									{view.unshared.map((u) => (
+										<li key={u.key} className="flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
+											<span className="flex min-w-0 flex-1 flex-col">
+												<span className="text-[10.5px] text-muted-foreground">{u.kind === 'look' ? 'Session look' : u.kind === 'theme' ? 'Theme' : u.kind === 'finish' ? 'Finish' : 'Component'}</span>
+												<span className="truncate text-[12.5px] font-semibold text-foreground">{u.name}</span>
+											</span>
+											{u.tooLarge ? (
+												<span className="shrink-0 text-[11px] text-muted-foreground">Too large to share</span>
+											) : (
+												<Button size="xs" variant="outline" className="shrink-0" onClick={() => actions.shareRecord(u.key)} aria-label={`Share ${u.name}`}>
+													<Share2 /> {u.kind === 'component' ? 'Share name' : 'Share'}
+												</Button>
+											)}
+										</li>
+									))}
+								</ul>
+							</>
+						)}
+						{view.unsharedComments > 0 && (
+							<div className="mx-1.5 mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5" data-live-unshared-comments>
+								<span className="flex min-w-0 flex-1 flex-col">
+									<span className="text-[10.5px] text-muted-foreground">Comments written before the session</span>
+									<span className="truncate text-[12.5px] font-semibold text-foreground">
+										{view.unsharedComments === 1 ? '1 comment only you see' : `${view.unsharedComments} comments only you see`}
+									</span>
+								</span>
+								<Button size="xs" variant="outline" className="shrink-0" onClick={actions.shareComments} aria-label={view.unsharedComments === 1 ? 'Share 1 comment' : `Share ${view.unsharedComments} comments`}>
+									<Share2 /> Share
+								</Button>
+							</div>
 						)}
 						<div className={SECTION}>
 							In this session ({view.people.length}/{view.cap})

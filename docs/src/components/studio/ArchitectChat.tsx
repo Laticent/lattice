@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
+import { ArrowUp, Check, Lock, RotateCcw, Share2, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
+import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
@@ -16,7 +17,7 @@ import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigu
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { ChatTraceDialog } from './ChatTraceDialog';
-import { activitySentence } from './chat-activity';
+import { thoughtTail } from './chat-activity';
 import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
@@ -188,9 +189,9 @@ function LiveReply({ store, thoughts, deck, activity, onGrow }: { store: ReturnT
 			)}
 			{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
 			{thought && (
-				<p className="truncate text-[11px] italic leading-snug text-muted-foreground" data-testid="chat-live-thought">
-					{thought}
-				</p>
+				<div className="flex max-h-8 flex-col-reverse overflow-hidden text-[11.5px] leading-4 text-muted-foreground" data-testid="chat-live-thought">
+					<p className="m-0">{thoughtTail(thought)}</p>
+				</div>
 			)}
 			<ChatLiveStatus label={activity ?? (text === '' ? THINKING : 'Writing…')} progress={`${activity ?? ''}|${text.length}`} />
 		</div>
@@ -294,10 +295,23 @@ export function __clearPendingNotices() {
 	publishNotices();
 }
 
-export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void }) {
+export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, onBusyChange, onShareTurn }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
+	// Live (2026-10-20 note §5.3): only that a turn is in flight leaves this panel, and only when the shell asks.
+	const onBusyRef = React.useRef(onBusyChange);
+	onBusyRef.current = onBusyChange;
+	React.useEffect(() => {
+		onBusyRef.current?.(busy);
+	}, [busy]);
+	React.useEffect(() => () => onBusyRef.current?.(false), []);
+	// Turns this person shared with the session, by what they say (a turn is shared once). Not by position:
+	// Regenerate puts a new reply where the shared one was.
+	const [sharedTurns, setSharedTurns] = React.useState<ReadonlySet<string>>(() => new Set());
+	const turnKey = (ask: string, answer: string) => `${ask}\u0000${answer}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: another deck is another transcript.
+	React.useEffect(() => setSharedTurns(new Set()), [deckId]);
 	// "Facts locked" — a tone/clarity-only turn: the model may improve wording but must not
 	// change any number/date/name/claim (threaded to chatComplete as constrainFacts). Off by
 	// default; a deliberate opt-in for a "polish, don't touch the numbers" pass.
@@ -891,12 +905,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
-							{m.activity?.length ? <p className="text-[11.5px] leading-snug text-muted-foreground">{activitySentence(m.activity)}</p> : null}
-							{m.trace ? (
-								<button type="button" onClick={() => setTraceIdx(i)} className="self-start text-[11px] font-medium text-[var(--accent)] hover:underline">
-									Show work
-								</button>
-							) : null}
+							<ChatActivityRow activity={m.activity} hasTrace={!!m.trace} onOpen={() => setTraceIdx(i)} />
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
@@ -904,6 +913,26 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 									{m.refused ? `Applied ${m.appliedCount} of ${(m.appliedCount ?? 0) + m.refused}` : 'Applied'}
 								</span>
 							)}
+							{/* Live: a turn reaches the session only when its owner shares it (§5.3). */}
+							{onShareTurn && m.content.trim() && messages[i - 1]?.role === 'user' ? (
+								sharedTurns.has(turnKey(messages[i - 1].content, m.content)) ? (
+									<span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground" data-live-shared-turn>
+										<Check className="size-3" /> Shared with the session
+									</span>
+								) : (
+									<button
+										type="button"
+										onClick={() => {
+											onShareTurn({ ask: messages[i - 1].content, answer: m.content });
+											setSharedTurns((was) => new Set(was).add(turnKey(messages[i - 1].content, m.content)));
+										}}
+										className="inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-[var(--accent)]"
+										data-live-share-turn
+									>
+										<Share2 className="size-3" /> Share with the session
+									</button>
+								)
+							) : null}
 						</div>
 					)}
 					</React.Fragment>

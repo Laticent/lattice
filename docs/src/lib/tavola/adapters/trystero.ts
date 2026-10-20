@@ -9,6 +9,10 @@
 import { joinRoom, selfId } from 'trystero/nostr';
 import type { AudioStats, LinkEvent, LinkPath, Transport } from '../types.js';
 
+/** What Trystero may reassemble before Tavola sees it: two of Tavola's 4 MB MAX_MESSAGE, which drops
+ *  anything larger anyway. Trystero's own default is 256 MiB. */
+const MAX_RECEIVE_BYTES = 8 * 1024 * 1024;
+
 /** Namespaces every Tavola room on the relays, so it never meets another app's room. */
 export const TAVOLA_APP_ID = 'laticent-tavola-v1';
 
@@ -169,7 +173,8 @@ export function audioStatsFrom(reports: Iterable<Rtp>, prev: AudioCounters | und
 }
 
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
-	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
+	// Cap what Trystero buffers for a message (red team, 2026-10-20 live-uniform-experience note §6 rule 8).
+	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, maxReceiveBytes: MAX_RECEIVE_BYTES, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
 	const counters = new Map<string, AudioCounters>();
 	const wire = r.makeAction<Uint8Array>('tavola');
 	const started = Date.now();

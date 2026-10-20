@@ -418,9 +418,16 @@ the export, and the file before the reader consents, make no request.
 
 **The CLI draws a Mermaid fence in a quote or a list item.** `lib/core/mermaid-fences.js` (shared with the narrator) opens a
 fence only at 0-3 spaces, so `mermaid.bake.js` also asks `lib/plugins/mermaid/shared/nested-fences.js`, which reads the fence
-tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. The Studio's export flags a
-quoted or list-nested diagram as overflowing on some runs and the CLI's never does (`followups.d/2739-p11`), so the parity
-spec carries neither shape yet.
+tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. A fence indented one to three
+spaces under a list item is found by both walkers; the nested entry wins, so the figure keeps the item's indent and stays in
+the list, as the Studio draws it. In the Studio a quoted or list-nested figure sizes as the CLI's baked one does: the
+container's width and the height its viewBox gives (`mermaid.styles.css`, followups.d/2739-p11). Before, it kept the 1152×480
+box meant for hosts that are not slides, filled the stage and flagged the slide as overflowing. The parity spec carries both
+shapes (`examples/mermaid-nested-fences.md`, `examples/mermaid-quoted-fence.md`). On a `diagram` slide a bulleted fence keeps the
+slide-level splice, so the figure fills the stage. The bake ends each figure with a blank line (quoted for a quote) when
+the next line would otherwise join its HTML block, so a caption under the fence renders as markdown (followups.d/2739-p12). In a tight list that blank line makes the list
+loose (each item's text in a `<p>`), where the Studio, which never bakes, keeps it tight: only a blank line ends that HTML
+block, so this is the price of the caption rendering at all, and `section p` carries no spacing of its own.
 
 **The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
 fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
@@ -430,8 +437,9 @@ Studio's own modules bundled into Chromium. That covers the packer.
 the CLI's `--player` write identical bytes for one deck, apart from three things the owner ruled out:
 the record's `generatedAt`, its `host` field (`cli` or `studio`), and the policy's script hashes.
 `docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, in its own
-`player-parity` job in `studio-e2e-nightly.yml`, which also runs on every dispatch), on a plain deck, a Mermaid deck and a portrait split; 25 example decks were measured identical
-when it landed. **The claim is per browser build:** both hosts read computed styles, and two Chromium
+`player-parity` job in `studio-e2e-nightly.yml`, which also runs on every dispatch), on a plain deck, a Mermaid deck and a portrait split. `PARITY_CORPUS=1` runs it over the 25 example decks §11.9
+measured (all byte-identical on 2026-10-20), and `PARITY_DECKS=a,b` over a named list: run the corpus before shipping a change to the
+Studio's bake or to a runtime pass its bake frame runs, because a new runtime stamp is a byte only the Studio's file carries. **The claim is per browser build:** both hosts read computed styles, and two Chromium
 versions spell some computed colors differently, so the spec runs the CLI on the Chromium the suite
 uses, and a Studio export made in Safari or Firefox will differ. **It is also per font
 configuration:** a hosted runner's Playwright headless shell hints glyph advances to whole pixels

@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "list",
+  "inlineRun": { "depths": [1] },
   "focusAxes": [
     "item"
   ],

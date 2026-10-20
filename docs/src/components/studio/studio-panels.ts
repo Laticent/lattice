@@ -23,6 +23,7 @@ export const liveLobbyPanel = lazyPanel('Live lobby', () => import('./live/LiveL
 /** The header pill and the preview corner: drawn only while a session is live. */
 export const livePillPanel = lazyPanel('Live presence', () => import('./live/LivePill').then((m) => m.LivePill));
 export const liveCornerPanel = lazyPanel('Live presence', () => import('./live/LivePill').then((m) => m.LiveCorner));
+export const livePointersPanel = lazyPanel('Live pointers', () => import('./live/LivePointers').then((m) => m.LivePointers));
 /** In warm-up order: Share first, as the panel most likely wanted offline. */
 export const STUDIO_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, chatPanel, libraryPanel, lensesPanel];
 

@@ -424,6 +424,11 @@ message suggests a statement, big-number or divider slide at `hall`.
 
 - the type step (the rung above);
 - the label lift (`--venue-meta-lift`, a factor on the meta and h6 roles; 1 elsewhere);
+  The running header, footer and page number opt out: they read `--chrome-fs`, which is
+  `--fs-meta` with the lift divided back out, then cut by `--venue-chrome-cut` (0.85 at
+  conference and hall; `lib/typography/emit.js`). They are wayfinding, not something the
+  back row reads, so they sit at 0.60 of body text (laptop: 0.70). At hall that is 19.1px on a
+  1280px slide, 5.7 arcminutes of x-height at 8 screen-heights, above the ~5 floor;
 - the code lift (`--venue-compact-lift`, a factor on the body-compact role; 1 elsewhere);
 - `capacity-scale` warns on a slide past its budget for the room;
 - the fixed-size rule below applies, as it does to any scale.

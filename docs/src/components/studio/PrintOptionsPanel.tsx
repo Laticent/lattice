@@ -41,6 +41,7 @@ import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections
 import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
+import { OffFencesNotice } from './OffFencesNotice';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { buildDeckRender, type DeckRender, type ExtraTheme, withExportMarker } from './share-export';
 import { hasDrawnFence } from './slide-thumb';
@@ -208,6 +209,7 @@ export function PrintOptionsPanel({
 	resetKey = 0,
 	active = true,
 	onBack,
+	onWrite,
 }: {
 	options: SingleSlideOptions;
 	source: string;
@@ -223,6 +225,8 @@ export function PrintOptionsPanel({
 	/** False while the Share sheet hides this panel (closed, or on another view). A print or an
 	 *  opened PDF tab that lands then is dropped; the built PDF stays cached for the next show. */
 	active?: boolean;
+	/** Edits the deck (the off-fence notice's "Turn on"). */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 	onBack: () => void;
 }) {
 	const [opts, setOpts] = React.useState<Opts>(DEFAULT_OPTS);
@@ -619,6 +623,8 @@ export function PrintOptionsPanel({
 				<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Print deck</h3>
 				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is built when you print or download.</p>
 			</section>
+
+			<OffFencesNotice source={source} onWrite={onWrite} />
 
 			{/* Preview — the theme's inverse-surface stage + white sheet + dashed safe margin, compact.
 			    N-up frames one slide per grid cell; the handout adds a notes panel below. */}

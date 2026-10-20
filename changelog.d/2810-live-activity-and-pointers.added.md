@@ -1,0 +1,4 @@
+- **See what the others in a live session are doing.** Each person's row in the Live panel now says whether they are in Coach, Views, Library, Fabricate, reading, or presenting, next to their slide. What someone asks the AI never shows.
+- **Follow goes wider.** Following someone on a desktop also opens the panel and view they have open, except Fabricate. If you are typing, you get a Go button instead of being moved. Opening another panel or view yourself stops following, as moving to another slide already did.
+- **See each other's pointers.** When people are on the same slide, each one's mouse pointer shows over it, with their name and a ring where they click. It is only drawn: it can never click, type or scroll anything of yours. Hiding your slide hides your pointer too, and a finger on a touch screen sends none.
+- **Two new switches in Your settings:** "Show what I'm doing" and "Show my pointer", both on by default.

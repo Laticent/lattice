@@ -13,7 +13,7 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: in progress. Waves 0 and 1 are built (§§ 15, 16); Waves 2 to 5 are not. Facts in
+**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. § 18 records the owner's ruling on callout markers: shape and color, at most six. Facts in
 §§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
 marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
 how and why.
@@ -589,3 +589,202 @@ byte for byte; they carry 19 roadmap keys, 20 matrix-grid keys and 22 obligation
 `test/unit/core/legend-key-html.test.js` keeps every arm of the old builder's test, including the
 one transcribed from roadmap's original `buildStatusLegend`.
 
+## 17. Wave 2, as built (2026-10-20)
+
+The nine SVG keys of the chart family (bar, stacked-bar, tower, piechart, map, quadrant, radar, the
+heatmap key and the line fallback) draw through `keySvg`, the legend's SVG emitter for the `key`
+layout. It lives in `lib/components/chart/_chart-family/legend-svg-key.js`, and `legend-svg.js`, home
+of the `anchored` lane Wave 0 built, re-exports it, so the emitter has one front door. `buildSvgLegend`
+is gone from `svg-legend.js`.
+
+**The port is a move, not a wrapper.** § 10 said the SVG emitter "wraps it first". A wrapper would
+leave two names for one builder and the key's code in a file the legend does not own, so the builder
+moved whole: `keySvg` is the old `buildSvgLegend` with its row emitter, portrait column, band packer,
+mark-contract stamp and `<desc>`, under the same signature and the same row shape. `svg-legend.js`
+keeps what the key shares with the rest of the family: the font ratio and the spine's metrics,
+`buildSpine` (scatter and word-cloud use it too), `wrapLabelToLines`, and `fitKeyToPane`, which takes
+the caller's `keySvg` call as a callback and so never imported the builder. The dependency runs one
+way, `legend-svg.js` to `legend-svg-key.js` to `svg-legend.js`, with no cycle. The row shape is
+unchanged on purpose: translating rows into the legend model's entries is the step that would move
+bytes, and it belongs to the wave that first needs a model field the rows lack.
+
+**Why the key has a file of its own: the docs site ships each chart as its own kernel.** The first
+build put `keySvg` inside `legend-svg.js`. The checker on this wave bundled each transform (esbuild,
+minified, gzip -6) and found eight kernels about 2.2KB larger each, because the lane, plate and
+marker code now rode into charts that draw only a key; `chart-map` is the kernel `chartKernelGz`
+watches. Split out, as `lib/core/legend-key.js` is for the HTML key, the kernels move by tens of
+bytes: map 96,820 to 96,889, bar 35,098 to 35,172, piechart 34,532 to 34,592, radar 57,928 to
+57,989, line 36,818 to 36,903, heatmap 46,295 to 46,470. The key's own metrics (row gap, swatch
+edge, column widths) moved with it rather than being exported from `svg-legend.js`, because the
+minifier cannot inline a constant read across modules. The preview runtime
+(`dist/lattice-runtime-min.js`) gzips to 425,943 bytes against 425,957 at `main`.
+
+**One commit, not nine.** § 10 says one adopter per commit. The owner's brief for this session asked
+for one commit per priority, and a move cannot land one caller at a time without a second copy of
+the builder for the commits in between, so the nine callers moved in one commit.
+
+**The byte-identical claim is a diff.** Every tracked Markdown file in the repository (3,707 of
+them, which includes every deck under `lib/`, `examples/`, the baseline decks, `design/` and the docs
+content) was rendered through `createEngine().render()` at `main` (2a8091b) and after the port, and
+the two trees were compared with `diff -r`. The only differences are the prose of
+`chart-family.docs.md` and of this record, whose text this commit edits. (One file, a math fixture,
+throws the same KaTeX error on both sides.) The rendered decks carry 141 keyed sections:
+44 piechart, 33 radar, 31 map, 13 tower, 7 quadrant, 6 bar, 6 heatmap and 1 stacked-bar, 5 of them
+portrait. No tracked deck reaches line's key fallback or a keyed chart in a pane, so a synthetic deck
+covered those (line's fallback, a pie and a radar in panes, and the same deck at 9:16); it too
+rendered identically before and after. `test/unit/transformers/svg-legend.test.js` keeps every arm,
+including the frozen landscape golden, now pointed at `keySvg`.
+
+## 18. Callout markers: shape and color, at most six (owner, 2026-10-20)
+
+**The question.** On a heatmap whose values fill their cells, a callout's numbered marker found no
+clear spot and the cell kept its ring alone (§ 15, Departure 1b), so a reader matched ring to label by
+row position only. The owner asked for a ruling: keep the ring alone, or go to a smaller value.
+
+**What was measured first.** A 10-row, 12-column grid of four-digit values, the densest the heatmap
+allows (`MAX_ROWS`, `MAX_COLS`), has cells of 17.5 by 14.9 units with the value set at 7. Lowering the
+numbered marker's floor (`MARKER_MIN` in `heatmap.transform.js`, 0.75 of the 7.5-unit label) placed no
+marker down to 0.45 and all three only at 0.4, a 3-unit numeral that the CLI's type check flags
+(`TYPE FLOOR — … 5.2pt`, under its 5.4pt floor). Moving the ringed cell's value to its bottom edge to
+free a corner helped only at 8 by 8. A sweep of 4 to 8 rows by 8, 10 and 12 columns of four-digit
+values put the ring alone at 8 rows and up.
+
+**The ruling (owner, on #2816).** Ring alone is not acceptable: with two callouts on one row, position
+cannot tell them apart, which fails WCAG 1.4.1's requirement that information not rest on one channel.
+A smaller numeral is not readable. So a marker is a **shape and a color**, with the digit inside only
+when the mark has room, and a chart draws **at most six** callouts, one shape each. Three choices, all
+the owner's pick of the recommended option:
+
+| Choice | Ruling |
+|---|---|
+| When a marker uses shape and color | Always; the digit rides inside when it fits, and always in the lane |
+| The cap | Six; the first six as written draw, the rest are listed as not drawn and `lint:deck` warns (never an error: decks are coached, not refused) |
+| The six shapes | circle, square, triangle, diamond, hexagon, star. The owner's first list had a rectangle, which reads as the square at marker size; the star replaced it |
+
+Six is a perception limit, not a space one: measured, the lane holds 10 short labels beside a 10-row
+grid before it drops one. About six shapes are told apart at a glance at marker size, and a chart
+making more points than that should be split.
+
+**As built.**
+
+| Part | Where |
+|---|---|
+| The cap, one constant read by the render, the narrator and the linter | `lib/core/legend.js` `MAX_ANCHORED` |
+| Shapes, assignment, the digit-optional marker | `legend-svg.js` `MARKER_SHAPES`, `markerShapes`, `markerSvg` |
+| Placement: digit at full size, digit at the floor, shape alone at the floor, shape alone at its own floor | `legend-svg.js` `laneSvg` |
+| The shape's floor | `heatmap.transform.js` `SHAPE_MIN` at the time, 0.4 of the label size; replaced by the cell-based height below |
+| Capped callouts: not drawn, in the description, detail kept in the cell's card | `heatmap.transform.js` `resolveCallouts`, `describeCallouts`, `cellMarks` |
+| Narration stops at six | `chart-narration.js` `gridCalloutSentences` |
+| The lint warning, counted across every span on the slide | `lint-core.js` `pastTheCap` |
+
+**What it took to fit the densest grid.** Three measured steps, on a 10-row grid of four-digit values
+that print (9 columns: at 12, six callout labels widen the lane until four-digit values no longer fit
+their cells, before and after this change alike). With the shape floor at 0.5, one of six shapes
+placed; the clear space on such a grid is a band about 6.5 units tall between one row's values and
+the next, and a corner spot crosses a neighbor's value. Two changes made all six place: a shape
+without its digit is sized to the circle's height rather than enlarged to hold a numeral, and a marker
+may sit on the middle of its cell's top or bottom edge, in that band. At a floor of 0.4 all six shapes
+place on that grid; at 8 rows, four of six keep their digit. A shape there is about 5.5 units
+across. At 200 dpi the six outlines read as six; at slide size on a laptop screen they are small, and
+that is the cost of putting a callout on a grid this dense.
+
+**One width rule.** A triangle or a star drawn large enough to hold its digit is wider than the
+circle, and the lane reserves its widest marker. So a marker with its digit is no wider than the
+circle, and a wider shape scales down, digit included: the lane is as wide as it was, and the star's
+numeral in the lane is about 3.9 units (about 6.7pt), above the type floor.
+
+**The checker's findings (maker-checker on this change).** Three, all fixed or settled. (1) The lint
+counted a `@legend` span written inside a sentence, which the chart does not lift and so does not draw,
+so it could warn that the sixth drawn callout was a seventh; the lint now counts only a span that is a
+paragraph of its own, the narrator's test (`lint-core.js` `liftedAlone`). (2) Two tests could not
+fail; they now compare a shape at its floor with one at the digit's floor, and check every drawn
+outline against the box `markerSvg` reports. The check also showed the try "shape alone at the digit's
+floor" placed nothing the digit try did not, so it is gone. (3) A triangle's knockout edge was
+three-eighths as thick on its slanted sides as a circle's; the knockout now grows by its width over the
+shape's inset, held at 0.8 (`KNOCKOUT_INSET_MIN`), which brings it to five-eighths. The full correction
+cost three of six shapes their spot on the densest grid, measured, so the compromise is deliberate.
+
+**The owner's look (2026-10-20): edges too thick, digits too small.** Read at 400 dpi, the owner was
+right on both. (1) The marker's edge was the plate's fixed one-unit stroke: a tenth of a lane marker and
+nearly a fifth of a shape on a crowded grid, and in dark mode a pale rim around a jewel fill, so the
+marker read as a sticker. The edge now scales with the marker, 7% of its numeral size with a floor of
+0.4 units (`MARKER_EDGE` and `MARKER_EDGE_MIN` at the time; the edge was later dropped, below). (2) The
+triangle's and star's digits were small and sat low, because those shapes shrank to the circle's width
+around a digit sized for a thin star. A plumper star (inner radius 0.62, outer radius 1.0 of the
+numeral) and a smaller triangle radius (0.95) let both hold a larger digit within the same width. (3)
+The thinner edge exposed one more fault: a shape with no digit wore the pale pill fill, and on a light
+cell it all but vanished. It now fills solid in its slot's strong tone, `mark` in light and `fill` in
+dark (`light-dark()`, legend.styles.css), the same jewel the lane's marker wears in dark mode. Every
+shape still places on the densest grid. The triangle's digit sits at the triangle's true middle, which
+reads a little low because the top is a point; moving it up would put it on the slanted sides.
+
+`test/unit/components/legend-anchored.test.js` pins the six shapes on the densest grid that prints
+its values (each shape on its cell and in the lane, no numeral under the floor) and the cap (a seventh
+callout not drawn, in the description, its detail in the cell's card); each fails when its rule is
+broken (shape floor back at 0.75; the cap removed). `test/unit/authoring/legend-span-lint.test.js`
+pins the warning.
+
+**The owner's audit (2026-10-20): size, centering, edges and placement, settled in one round.** This
+supersedes the sizing, the placement and the edge rules above; the six shapes and the cap stand. A test
+sheet rendered every option with the real stylesheet and fonts, light and dark, before the choice.
+
+| Question | Measured | Ruling (owner) |
+|---|---|---|
+| Lane marker size | The lane digit was 0.82 of the label (6.15 against 7.5), and the triangle and star shrank further to stay as narrow as the circle | The digit is as large as the label, and every shape is padded like the diamond, so the digit's cap height is a little under two-fifths of the shape's height (`DIGIT_OF_HEIGHT`, `SHAPE_HEIGHT`) |
+| Why the diamond read best | It is symmetric top to bottom; its widest point is where the digit sits, and its slanted sides never run parallel to the digit's edges; and it had the most room, the digit filling about 35% of its height against 49% of the circle's | That padding became the rule for all six |
+| Digit centering | `dominant-baseline: middle` centers on half the lowercase height; digits stand as tall as capitals, so they sat about a tenth of their size high, measured in the render | `central`, which leaves Outfit's digits 0.02 em off; a triangle's and a star's digit sit halfway between the shape's middle and its box's |
+| Font | Outfit and JetBrains Mono both center well under `central`; JetBrains Mono ships only up to weight 600, so its digit reads thin beside the bold label; Playfair's digits descend below the baseline | Outfit |
+| Callout vs the key | With a band key the key's labels were 8.1 and the callout 7.5 | A callout is never smaller than the key's labels (`calloutLane`) |
+| Edges | The fixed one-unit edge was heavy; on a solid shape the edge is its own color, so the outline seen is the knockout | 4% of the digit size on a marker with its digit; none on a solid shape |
+| Size on a cell | — | Height 0.42 of the cell's shorter side, never larger than the lane marker; the digit only at 0.5 of the label size or more |
+| Placement | — | Only two places, and no border collisions: whole inside the cell's top-left corner, or a badge offset up and left of it |
+
+**One setup per chart (`pinMarkers`).** Every marker on a chart shares one height, one place and one
+choice of digit, so none jumps or shrinks against its neighbors. In this order: digit inside the
+corner, digit on a badge two-thirds on the cell, digit on a badge centered where the gutters cross,
+then the shape alone in the same three places; failing all six, the height steps down a tenth at a
+time to the floor. The gutter-crossing badge is still "offset top-left": on a crowded grid the only
+clear space is the band between one row's values and the next, which is centered on the gutter, not
+on the cell's edge. The heatmap's avoid list now leaves free the strip between the grid and its row
+and column names, which is the only room a badge on the top row or left column has.
+
+**What the two-place rule costs, measured.** With six callouts on four-digit grids, every shape places
+at 4, 6, 8 and 10 rows, with digits through 6 rows. On the densest grid, a callout in the top row has
+only the strip under the column names, and every marker on that chart shrinks with it to the floor,
+3.8 units (`MARKER_MIN_HEIGHT`). The mid-edge spots the earlier build used allowed about 5.5 there.
+The shapes are small on that grid, but all six are there, the same size, in the same place.
+
+**One color per callout, measured (owner, 2026-10-20).** The owner found a cell's marker and its
+label's marker the same shape and different colors. The cause: the solid shapes on the cells took a
+slot's `mark` tier and the lane's markers its `fill` tier, and a theme's two tiers of one slot need
+not share a hue (indaco's slot 3 is pale pink `#E7BEBE` against olive `#7B772D`). Now every marker, on
+a cell or in the lane, with or without its digit, is one solid shape in ONE tier per mode, the strong
+one (`mark` in light, `fill` in dark), and its digit takes that tier's paired ink (`--cat-on-mark`,
+`--cat-on-fill`), the pairs the theme's contrast gate already holds. With a solid fill an edge is
+either invisible or a rim, so no marker has one; the knockout parts every shape from the cell. In
+Chrome, every cell marker on the demo deck computes to exactly its lane marker's fill, in light and
+in dark, with no stroke. The digits' ink first came out dark in light mode, 1.7:1 on the deep fills:
+the Mermaid plugin's stylesheet paints every `text` and `tspan` under any `.legend` group with
+`--cat-on-fill !important`, and the lane is a `.legend` group. The marker digit's rule now carries its
+own `!important` on the text and its tspan; measured after, every digit is at least 4.55:1 against its
+shape in light and 6.19:1 in dark. Scoping Mermaid's rules is logged as
+`followups.d/2816-p2-mermaid-legend-rules-leak.md`. `legend-anchored.test.js` reads the stylesheet and fails if a slot's markers
+are painted by more than one rule or tier.
+
+**The checker on this round, three fixes.** (1) A solid shape's `stroke: none` lost to the slot rules
+that came later at equal specificity, so it drew a one-unit edge past its knockout; the marker rules
+now carry the higher specificity. (2) Growing the callout to the key's size broke labels: a portrait
+figure's key is 13.5, and three-line labels in a lane capped at a quarter of the width were cut. The
+callout now grows toward the key's size only while every label still sets whole at the lane width it
+produces: with the demo deck's short label it reaches the key's 8.1; with long labels it stops at
+7.85 in landscape and 8 in portrait (the key there is 13.5). (3) A top-row badge could touch a column
+name's descenders; it now avoids each column name's own box, descenders included, with half a unit
+to spare, and the row names with half a unit too. Every shape still places on every test grid.
+
+**The ring takes the callout's color (owner, 2026-10-20).** After the color fix the owner asked whether
+the ring around a called-out cell should match its marker. A prototype rendered both, light and dark;
+the owner chose the colored ring over a canvas-color halo (`.legend-target-halo`, 2.6 units wide,
+under a one-unit ring in the slot's strong tone). The halo is what keeps a slot-1 ring, whose blue is
+the heatmap ramp's own hue, from vanishing into a blue cell; in light mode it shows as a thin white
+frame. The alternatives were a colored ring with no halo, and the old body-ink ring, which always
+contrasted but carried no link to its marker.

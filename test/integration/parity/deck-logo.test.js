@@ -1,6 +1,6 @@
 /**
  * Integration: convenience `logo:` directive injects `<img class="deck-logo">`
- * as the first child of every section selected by the `logo-on` rule.
+ * as the first child of every section selected by the `logo-finish` scope word and `no-logo`.
  *
  * Three render paths must agree:
  *   1. the engine's `applyDeckLogoToHtml` (HTML path)

@@ -6,7 +6,8 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildSvgLegend, wrapLabelToLines } = require('../../../lib/components/chart/_chart-family/svg-legend');
+const { keySvg } = require('../../../lib/components/chart/_chart-family/legend-svg-key');
+const { wrapLabelToLines } = require('../../../lib/components/chart/_chart-family/svg-legend');
 
 test('wrapLabelToLines: short label stays one line', () => {
   assert.deepEqual(wrapLabelToLines('hello world', 20), ['hello world']);
@@ -28,8 +29,8 @@ test('wrapLabelToLines: empty input yields a single empty line', () => {
   assert.deepEqual(wrapLabelToLines('   ', 10), ['']);
 });
 
-test('buildSvgLegend: returns geometry + a11y desc; emits swatch/label/value', () => {
-  const key = buildSvgLegend({
+test('keySvg: returns geometry + a11y desc; emits swatch/label/value', () => {
+  const key = keySvg({
     rows: [{ swatchFill: 'red', swatchStroke: 'darkred', label: 'Alpha', value: '46%' }],
     diagramRight: 180, diagramHeight: 200, hasValues: true,
   });
@@ -43,29 +44,29 @@ test('buildSvgLegend: returns geometry + a11y desc; emits swatch/label/value', (
   assert.match(key.desc, /<desc>Key — Alpha 46%<\/desc>/);
 });
 
-test('buildSvgLegend: no-value (radar) reclaims the value column for the label', () => {
+test('keySvg: no-value (radar) reclaims the value column for the label', () => {
   // Regression guard for the dead-reclaim bug: a label (18 chars) that wraps to
   // two lines WITH a value column (budget 15) must fit on ONE line without it
   // (budget 20 — the reclaimed value-column width).
   const rows = [{ swatchFill: 'blue', label: 'Net promoter score' }];
-  const withVal = buildSvgLegend({ rows: rows.map((r) => ({ ...r, value: '9' })), diagramRight: 300, diagramHeight: 300, hasValues: true });
-  const noVal = buildSvgLegend({ rows, diagramRight: 300, diagramHeight: 300, hasValues: false });
+  const withVal = keySvg({ rows: rows.map((r) => ({ ...r, value: '9' })), diagramRight: 300, diagramHeight: 300, hasValues: true });
+  const noVal = keySvg({ rows, diagramRight: 300, diagramHeight: 300, hasValues: false });
   const linesWith = (withVal.body.match(/<tspan /g) || []).length;
   const linesNo = (noVal.body.match(/<tspan /g) || []).length;
   assert.ok(linesNo < linesWith, `no-value column should wrap fewer lines (got no=${linesNo}, with=${linesWith})`);
   assert.doesNotMatch(noVal.body, /chart-key-value/, 'no value text when hasValues is false');
 });
 
-test('buildSvgLegend: a long-tail key grows the viewBox HEIGHT, not the font', () => {
+test('keySvg: a long-tail key grows the viewBox HEIGHT, not the font', () => {
   const rows = Array.from({ length: 14 }, (_, i) => ({ swatchFill: 'red', label: `Row ${i}`, value: `${i}%` }));
-  const key = buildSvgLegend({ rows, diagramRight: 180, diagramHeight: 200, hasValues: true });
+  const key = keySvg({ rows, diagramRight: 180, diagramHeight: 200, hasValues: true });
   assert.ok(key.viewH > 200, 'tall key grows viewH');
   // font is a fixed ratio of diagramHeight (200), never re-shrunk per chart
   assert.match(key.body, /font-size="9.00"/);
 });
 
-test('buildSvgLegend: head rows render a heading with no swatch; desc prefixes them', () => {
-  const key = buildSvgLegend({
+test('keySvg: head rows render a heading with no swatch; desc prefixes them', () => {
+  const key = keySvg({
     rows: [
       { head: true, label: 'Asia' },
       { swatchFill: 'red', label: 'India', value: '48' },
@@ -77,8 +78,8 @@ test('buildSvgLegend: head rows render a heading with no swatch; desc prefixes t
   assert.match(key.desc, /Key — Asia:, India 48/);
 });
 
-test('buildSvgLegend: escapes & and < in both body and desc', () => {
-  const key = buildSvgLegend({
+test('keySvg: escapes & and < in both body and desc', () => {
+  const key = keySvg({
     rows: [{ swatchFill: 'red', label: 'R&D', value: '<6' }],
     diagramRight: 180, diagramHeight: 200, hasValues: true,
   });
@@ -86,8 +87,8 @@ test('buildSvgLegend: escapes & and < in both body and desc', () => {
   assert.match(key.desc, /R&amp;D &lt;6/);
 });
 
-test('buildSvgLegend: strips inline HTML tags before wrapping/emitting', () => {
-  const key = buildSvgLegend({
+test('keySvg: strips inline HTML tags before wrapping/emitting', () => {
+  const key = keySvg({
     rows: [{ swatchFill: 'red', label: 'Net<sup>2</sup>', value: '1' }],
     diagramRight: 180, diagramHeight: 200, hasValues: true,
   });
@@ -105,11 +106,11 @@ const PIE = { rows: [
   { swatchFill: 'green', swatchStroke: 'darkgreen', label: 'SMB', value: '23%' },
 ], diagramRight: 180, diagramHeight: 200, hasValues: true };
 
-test('buildSvgLegend: landscape (default) returns diagramDx 0 — the diagram sits at the left', () => {
-  assert.equal(buildSvgLegend(PIE).diagramDx, 0);
+test('keySvg: landscape (default) returns diagramDx 0 — the diagram sits at the left', () => {
+  assert.equal(keySvg(PIE).diagramDx, 0);
 });
 
-test('buildSvgLegend: landscape output is FROZEN to a pre-§9 golden (byte-identity tripwire)', () => {
+test('keySvg: landscape output is FROZEN to a pre-§9 golden (byte-identity tripwire)', () => {
   // The across-orientations test below proves the three landscape aliases agree
   // with EACH OTHER; this pins them to the ACTUAL pre-§9 bytes so a refactor that
   // shifted landscape equally for all orientations can't slip through. Captured
@@ -125,7 +126,7 @@ test('buildSvgLegend: landscape output is FROZEN to a pre-§9 golden (byte-ident
   // repaints the key with its marks. Verified: removing those two attributes gives the
   // previous golden byte-for-byte, so the geometry did not move.
   const GOLDEN = '{"viewW":377,"viewH":200,"diagramDx":0,"diagramDy":0,"fs":9,"defs":"<linearGradient id=\\"chart-spine-N\\" x1=\\"0\\" y1=\\"0\\" x2=\\"0\\" y2=\\"1\\"><stop offset=\\"0%\\" style=\\"stop-color:transparent\\"/><stop offset=\\"14%\\" style=\\"stop-color:color-mix(in oklab, var(--accent) 32%, transparent)\\"/><stop offset=\\"50%\\" style=\\"stop-color:color-mix(in oklab, var(--accent) 60%, transparent)\\"/><stop offset=\\"86%\\" style=\\"stop-color:color-mix(in oklab, var(--accent) 32%, transparent)\\"/><stop offset=\\"100%\\" style=\\"stop-color:transparent\\"/></linearGradient>","body":"<rect class=\\"chart-key-swatch\\" data-hue=\\"1\\" data-encodes=\\"hue\\" data-paint=\\"fill\\" x=\\"244.00\\" y=\\"83.62\\" width=\\"9.36\\" height=\\"9.36\\" rx=\\"2.06\\" fill=\\"F1\\" stroke=\\"S1\\" stroke-width=\\"0.84\\"/><text class=\\"chart-key-label\\" font-size=\\"9.00\\"><tspan x=\\"258.36\\" y=\\"91.36\\">Alpha</tspan></text><text class=\\"chart-key-value\\" font-size=\\"9.00\\" x=\\"368.16\\" y=\\"91.36\\" text-anchor=\\"end\\">60%</text><rect class=\\"chart-key-swatch\\" x=\\"244.00\\" y=\\"99.46\\" width=\\"9.36\\" height=\\"9.36\\" rx=\\"2.06\\" fill=\\"F2\\"/><text class=\\"chart-key-label\\" font-size=\\"9.00\\"><tspan x=\\"258.36\\" y=\\"107.20\\">Beta beta beta</tspan><tspan x=\\"258.36\\" y=\\"117.64\\">beta</tspan></text><text class=\\"chart-key-value\\" font-size=\\"9.00\\" x=\\"368.16\\" y=\\"107.20\\" text-anchor=\\"end\\">40%</text><rect x=\\"211.20\\" y=\\"22.00\\" width=\\"1.60\\" height=\\"156.00\\" rx=\\"0.80\\" fill=\\"url(#chart-spine-N)\\"/>","desc":"<desc>Key — Alpha 60%, Beta beta beta beta 40%</desc>"}';
-  const key = buildSvgLegend({ rows: [
+  const key = keySvg({ rows: [
     { swatchFill: 'F1', swatchStroke: 'S1', label: 'Alpha', value: '60%', cat: 0 },
     { swatchFill: 'F2', label: 'Beta beta beta beta', value: '40%' },
   ], diagramRight: 180, diagramHeight: 200, hasValues: true });
@@ -136,18 +137,18 @@ test('buildSvgLegend: landscape output is FROZEN to a pre-§9 golden (byte-ident
   assert.equal(got, GOLDEN);
 });
 
-test('buildSvgLegend: orientation undefined/landscape/square are byte-identical (only the spine id varies)', () => {
-  const base = normSpine(JSON.stringify(buildSvgLegend(PIE)));
+test('keySvg: orientation undefined/landscape/square are byte-identical (only the spine id varies)', () => {
+  const base = normSpine(JSON.stringify(keySvg(PIE)));
   for (const orientation of [undefined, 'landscape', 'square']) {
     assert.equal(
-      normSpine(JSON.stringify(buildSvgLegend({ ...PIE, orientation }))), base,
+      normSpine(JSON.stringify(keySvg({ ...PIE, orientation }))), base,
       `orientation=${orientation} stays the landscape right-rail layout`);
   }
 });
 
-test('buildSvgLegend: portrait stacks the key BELOW the diagram and centers it', () => {
-  const land = buildSvgLegend(PIE);
-  const port = buildSvgLegend({ ...PIE, orientation: 'portrait' });
+test('keySvg: portrait stacks the key BELOW the diagram and centers it', () => {
+  const land = keySvg(PIE);
+  const port = keySvg({ ...PIE, orientation: 'portrait' });
   // The portrait unit is taller than wide (fills a tall box); landscape is wider.
   assert.ok(port.viewH > port.viewW, `portrait is tall (got ${port.viewW}×${port.viewH})`);
   assert.ok(land.viewW > land.viewH, `landscape is wide (got ${land.viewW}×${land.viewH})`);
@@ -158,16 +159,16 @@ test('buildSvgLegend: portrait stacks the key BELOW the diagram and centers it',
   assert.ok(firstRowY > 200, `first key row sits under the diagram (y=${firstRowY})`);
 });
 
-test('buildSvgLegend: portrait spine is a HORIZONTAL rule (x-axis gradient)', () => {
-  const port = buildSvgLegend({ ...PIE, orientation: 'portrait' });
+test('keySvg: portrait spine is a HORIZONTAL rule (x-axis gradient)', () => {
+  const port = keySvg({ ...PIE, orientation: 'portrait' });
   assert.match(port.defs, /x1="0" y1="0" x2="1" y2="0"/, 'portrait spine fades along x');
-  assert.match(buildSvgLegend(PIE).defs, /x1="0" y1="0" x2="0" y2="1"/, 'landscape spine fades along y');
+  assert.match(keySvg(PIE).defs, /x1="0" y1="0" x2="0" y2="1"/, 'landscape spine fades along y');
 });
 
-test('buildSvgLegend: portrait widens the wrap budget — a label wraps to fewer lines', () => {
+test('keySvg: portrait widens the wrap budget — a label wraps to fewer lines', () => {
   const rows = [{ swatchFill: 'red', label: 'Mid-market segment', value: '31%' }];
-  const land = buildSvgLegend({ rows, diagramRight: 180, diagramHeight: 200, hasValues: true });
-  const port = buildSvgLegend({ rows, diagramRight: 180, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  const land = keySvg({ rows, diagramRight: 180, diagramHeight: 200, hasValues: true });
+  const port = keySvg({ rows, diagramRight: 180, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
   const lines = (s) => (s.body.match(/<tspan /g) || []).length;
   assert.ok(lines(port) <= lines(land),
     `portrait's wider column wraps no more than landscape (portrait=${lines(port)}, landscape=${lines(land)})`);
@@ -177,7 +178,7 @@ test('buildSvgLegend: portrait widens the wrap budget — a label wraps to fewer
 // (map highlight's `Caribbean / Central America`) ran left across its own row's name.
 // Read through a DOM parser, not regexes over the markup.
 const { JSDOM } = require('jsdom');
-const keyOf = (values) => buildSvgLegend({
+const keyOf = (values) => keySvg({
   rows: values.map((v, i) => ({ swatchFill: 'red', label: `Global South — Region ${i}`, value: v })),
   diagramRight: 180, diagramHeight: 200, hasValues: true,
 });
@@ -192,13 +193,13 @@ const valuesOf = (key) => [...new JSDOM(`<svg xmlns="http://www.w3.org/2000/svg"
   };
 });
 
-test('buildSvgLegend: a key of short values keeps the old column, byte for byte', () => {
+test('keySvg: a key of short values keeps the old column, byte for byte', () => {
   const short = keyOf(['46%', '100%', '$1.2M']);
   assert.ok(valuesOf(short).every((v) => !v.wrapped), 'five characters or fewer: one plain <text>');
   assert.equal(short.viewW, keyOf(['46%']).viewW, 'the rail is as wide as a one-value key');
 });
 
-test('buildSvgLegend: a text value widens its column and never reaches the label', () => {
+test('keySvg: a text value widens its column and never reaches the label', () => {
   const [short] = valuesOf(keyOf(['46%']));
   const text = valuesOf(keyOf(['Tier 1', 'Latin America']));
   assert.ok(text[0].x > short.x, 'the value anchor moves right to make room');
@@ -207,7 +208,7 @@ test('buildSvgLegend: a text value widens its column and never reaches the label
   assert.deepEqual(text[1].lines, ['Latin America']);
 });
 
-test('buildSvgLegend: a value past 13 characters wraps inside its column', () => {
+test('keySvg: a value past 13 characters wraps inside its column', () => {
   const [value] = valuesOf(keyOf(['Caribbean / Central America']));
   assert.ok(value.lines.length >= 2, `wrapped to ${value.lines.length} lines`);
   for (const l of value.lines) assert.ok(l.length <= 13, `"${l}" fits 13 characters`);

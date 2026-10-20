@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "verdict-grid",
+  "inlineRun": { "depths": [1], "slots": ["strong"] },
   "families": [
     "state-markers"
   ],

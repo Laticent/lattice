@@ -1,0 +1,1 @@
+- Studio chat: what the Architect did on a reply is now one tappable line under it instead of a paragraph plus a "Show work" link, and the full trace opens as a bottom sheet on a phone (a centered dialog on wider screens). The streaming thought wraps over two lines at its latest words instead of scrolling as a clipped one-line ticker.

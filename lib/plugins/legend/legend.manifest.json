@@ -75,6 +75,7 @@
     "--cat-9-fill",
     "--cat-9-mark",
     "--cat-on-fill",
+    "--cat-on-mark",
     "--font-body",
     "--legend-mark-ink",
     "--text-body"

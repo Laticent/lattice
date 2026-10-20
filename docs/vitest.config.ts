@@ -14,6 +14,8 @@ export default defineConfig({
 			{ find: /^\.\/lint-core-source\.js$/, replacement: fileURLToPath(new URL('./src/playground/lint-core-source.vitest.js', import.meta.url)) },
 			// The code record's writer: esm/code-record.js in the browser, the source here.
 			{ find: /^@\/playground\/code-record-source\.js$/, replacement: fileURLToPath(new URL('./src/playground/code-record-source.vitest.js', import.meta.url)) },
+			// The Marp export's `![bg]` lift: esm/bg-image-lift.js in the browser, the source here.
+			{ find: /^.*\/playground\/bg-image-lift-source\.js$/, replacement: fileURLToPath(new URL('./src/playground/bg-image-lift-source.vitest.js', import.meta.url)) },
 			{ find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
 			// Cadenza imports the LTT format by its package name (its one dependency, and the name
 			// its npm consumers resolve). The docs read every library as SOURCE, so the name maps to

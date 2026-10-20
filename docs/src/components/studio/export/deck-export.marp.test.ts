@@ -36,7 +36,6 @@ beforeEach(() => {
 			bakeSplits: (s: string) => s,
 			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
-			liftImageBgImages: (s: string) => s,
 			sampleAssetNames,
 			withSampleAssets,
 			withRuntimeScriptsReport: (s: string) => ({ markdown: s, removed: { scripts: 0, handlers: 0, urls: 0 } }),

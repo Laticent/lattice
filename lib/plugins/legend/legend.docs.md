@@ -77,20 +77,42 @@ label "1" in size lg. `lint:deck` warns on it; quote the word to keep the pair, 
 | `heatmap` | `anchored` | A cell, by its row and column labels as the chart prints them, `row="Feb 2026", col=M2` (case and extra spaces do not matter); or the short form `for=`, its index counted row by row from 0 (`for=14`) or `Row/Column` (`for=Feb 2026/M2`) |
 
 On a heatmap an anchored label sits in a lane to the right of the grid, level with its cell, and a
-**number** ties the two: the cell is ringed and carries a numbered marker in its top-left corner, and
-the same marker leads the label's words in the lane. No line crosses the grid, so no value is
-covered and two labels on one row stay apart. The label's pill words shape and color its marker
-while the words stay in plain ink. With none, the marker is a `circle` in the color slot of its
-number (1 is `c1`, 2 is `c2`), so the markers differ by color as well as by digit. Every marker sits
-on a ring of the canvas color so it reads on any cell. The marker on a cell is sized from the cell,
-so a dense grid gets small markers and a roomy one larger, within a legible floor; the one in the
-lane is sized from the words beside it, as a pill is from its text. The marker on a cell goes in the first spot that covers
-nothing: inside one of the cell's corners, else on a corner, at full size and then at its smallest.
-It never covers a printed value, a row or column name, or another marker. On a grid whose values
-fill their cells there may be no such spot; then the cell keeps its ring alone, and its label still
-sits level with its row. Numbers run row by row, then left to right,
-and the lane lists the labels in that order; one the lane cannot hold is dropped rather than drawn
-over another, with its marker, and the chart's description lists it as not drawn. A heatmap draws only
+**marker** ties the two: the cell is ringed and carries a marker on its corner, and the same marker
+leads the label's words in the lane. A marker is a **shape and a color**: callouts take six shapes in
+reading order, one each (circle, square, triangle, diamond, hexagon, star), and a color slot each, so
+a reader matches a cell to its label by shape as well as by color, never by color or position alone.
+The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
+the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
+
+The label's pill words choose its marker: `circle`, `tag` (the square) and `diamond` pick that shape
+when no earlier callout has it, and a color word (`c4`) picks the color; the words themselves stay in
+plain ink. With no words, a callout takes the next free shape and the color slot of its number (1 is
+`c1`, 2 is `c2`). Every marker sits on a ring of the canvas color so it reads on any cell.
+
+The marker on a cell is sized from the cell: its height is a share of the cell's shorter side, so a
+dense grid gets small markers and a roomy one larger, never larger than the marker in the lane. The
+marker in the lane carries a digit as large as the label beside it, centered on the digit's own
+height. A callout's words are never smaller than the band key's labels when the chart has one.
+
+The cell's ring takes its callout's color too, over a thin halo of the canvas color, so the ring, its
+marker and the label's marker read as one color on any cell.
+
+Every marker on one chart shares **one size and one place**, so no marker jumps or shrinks against
+its neighbors: whole inside its cell's top-left corner, or, where that would cover a value, a badge
+up and to the left of that corner, or centered where the gutters cross there. A marker never sits on
+another corner or along an edge. It carries its digit where the digit stays readable; where it would
+not, as on a grid whose four-digit values fill their cells, every marker on the chart is the shape
+alone, filled solid in its color. It never covers a printed value, a row or column name, or another
+marker. Only where even the smallest shape finds no clear spot does a cell keep its ring alone
+(design note § 18).
+
+**Six callouts at most on one chart.** Six shapes are about as many as a reader tells apart at a
+glance, and a chart with more callouts than that is making more points than one slide should. The
+chart draws the first six as written; the rest are not drawn, its description lists them as not
+drawn, their details still reach the cell's hover card and the speaker note, and `lint:deck` warns on
+each one. Numbers run row by row, then left to right, and the lane lists the labels in that order; one
+the lane cannot hold is dropped rather than drawn over another, with its marker, and the chart's
+description lists it as not drawn. A heatmap draws only
 `anchored` legends today: a `key` legend on one is not drawn, and is reported the same way.
 
 A row or column whose name holds `/` cannot be named by the `for=Row/Column` short form, because the
@@ -104,7 +126,7 @@ on the slide reads it. The other charts' keys move onto this plugin one at a tim
 ## Narration, the PDF and screen readers
 
 - Narration reads each anchored label after the rows: "Callout at Feb 2026, M2: Onboarding change."
-  A `detail` is read after it.
+  A `detail` is read after it. Past six callouts it stops, as the chart does.
 - The `detail` joins the named mark's card (hover and tap) and the slide's speaker note, so the PDF
   carries it.
 - An SVG label sits inside the chart's hidden marks, so a screen reader gets it from the chart's
@@ -122,12 +144,13 @@ on the slide reads it. The other charts' keys move onto this plugin one at a tim
 - on a heatmap, a target that names no cell of the slide's table (the message lists the rows and
   columns it can use), and a `key` legend, which it does not draw yet;
 - the `{1, lg}` shape above;
+- a seventh callout on one chart, and each one after it, which the chart does not draw;
 - a legend on a slide where no component reads one yet.
 
 It also notes, as info, a callout the author switched off (rule `legend-off`).
 
 Whatever a heatmap does not draw — a target that names no cell, a `key` legend, a label the lane
-cannot hold — its description lists under "Not drawn".
+cannot hold, a callout past the sixth — its description lists under "Not drawn".
 
 ## For components
 

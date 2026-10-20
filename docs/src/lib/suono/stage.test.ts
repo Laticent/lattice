@@ -520,6 +520,17 @@ describe('createStage — gainStream (a live stream shaped before it is sent)', 
 		g?.setGain(3);
 		expect(gain.value).toBe(2);
 	});
+	it('mixes another stream into the shaped one, unshaped, and takes it out again', () => {
+		const { dest, calls } = install();
+		const g = createStage({ keepAlive: false }).gainStream({} as MediaStream, 1);
+		const before = calls.sourceTo.length;
+		const undo = g?.mix({} as MediaStream);
+		expect(typeof undo).toBe('function');
+		expect(calls.sourceTo.slice(before)).toEqual([dest]); // straight into the sent stream, past the gain
+		undo?.();
+		g?.stop();
+		expect(g?.mix({} as MediaStream)).toBeNull(); // a stopped shaping takes nothing more
+	});
 	it('returns null where Web Audio or a stream destination is missing', () => {
 		install(false);
 		expect(createStage().gainStream({} as MediaStream, 1)).toBeNull();
@@ -571,3 +582,39 @@ describe('createStage — output device', () => {
 		expect(await safari.setSink('x')).toBe(false);
 	});
 });
+
+describe('createStage — tapPlayback (a live copy of what the stage plays)', () => {
+	it('connects every clip it plays to each tap, not only the speakers, and stops cleanly', async () => {
+		const connected: unknown[] = [];
+		const stopped: boolean[] = [];
+		const tapStream = { getTracks: () => [{ stop: () => stopped.push(true) }] } as unknown as MediaStream;
+		const tapDest = { stream: tapStream };
+		const speakers = {};
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			currentTime = 0;
+			sampleRate = 24000;
+			destination = speakers;
+			createMediaStreamDestination = () => tapDest;
+			createGain = () => ({ gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect: (n: unknown) => connected.push(n), disconnect() {} });
+			createBufferSource = () => ({ buffer: null, connect: (n: unknown) => connected.push(n), start() {}, stop() {}, disconnect() {}, onended: null });
+			createBuffer = () => ({ duration: 1, getChannelData: () => new Float32Array(1) });
+			decodeAudioData = (_ab: unknown, ok: (b: unknown) => void) => ok({ duration: 1, sampleRate: 24000, length: 24000, numberOfChannels: 1 });
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		const tap = stage.tapPlayback();
+		expect(tap?.stream).toBe(tapStream);
+		const clip = await stage.decode({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as unknown as Blob);
+		stage.play(clip);
+		expect(connected).toContain(speakers);
+		expect(connected).toContain(tapDest);
+		tap?.stop();
+		tap?.stop();
+		expect(stopped).toEqual([true]);
+		connected.length = 0;
+		stage.play(clip);
+		expect(connected).not.toContain(tapDest);
+	});
+});
+

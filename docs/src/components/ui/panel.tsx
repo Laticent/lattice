@@ -365,7 +365,7 @@ export function useKeyboardInset(active: boolean): void {
  * `flex-wrap` + `basis-[45%]`: two 45% columns and a gap fit one line, so the row only
  * wraps when a control's own min-content cannot fit its half — at which point it drops to
  * its own full-width line instead of overflowing the panel. The docked Inspector is
- * 260–420px wide (SET_MIN … PANEL_MAX in StudioShell), so the narrowest column is ~108px.
+ * 280–480px wide (DOCK in dock-layout.ts), so the narrowest column is ~108px.
  */
 export const SETTING_ROW =
 	'flex flex-wrap items-center gap-x-3 gap-y-1.5 ' +
@@ -375,7 +375,7 @@ export const SETTING_ROW =
 	// the control takes the full width back.
 	//
 	// A CONTAINER query, not a media query, and that is the whole point: the docked
-	// Inspector is resizable between SET_MIN (260px) and PANEL_MAX (420px) at ANY viewport,
+	// Inspector is resizable between DOCK.min (280px) and DOCK.max (480px) at ANY viewport,
 	// so the viewport's width says nothing about the panel's. The container is declared by
 	// `SETTING_SCOPE` on the panel body.
 	'@max-[320px]/settings:flex-col @max-[320px]/settings:items-stretch @max-[320px]/settings:gap-y-1';
@@ -654,6 +654,7 @@ export function PanelHeader({
 	title,
 	srDescription,
 	actions,
+	fluidActions = false,
 	onClose,
 	showClose = true,
 	closeLabel = 'Close',
@@ -670,6 +671,10 @@ export function PanelHeader({
 	srDescription?: string;
 	/** Trailing controls placed before the close (import, add, …). */
 	actions?: React.ReactNode;
+	/** Let the actions give up width instead of holding it (`shrink-0`). For a header whose
+	 *  action is a search field — it has to fit a docked column's minimum, not push the
+	 *  trailing button out of the panel. */
+	fluidActions?: boolean;
 	/** Docked-column close handler (ignored inside a Sheet — SheetClose owns it). */
 	onClose?: () => void;
 	showClose?: boolean;
@@ -720,7 +725,7 @@ export function PanelHeader({
 			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
 			    independent checker. */}
 			{actions ? (
-				<span className={cn('flex shrink-0 items-center gap-1', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
 			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}

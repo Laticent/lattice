@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
-const { laneSvg, laneIndent, plateSvg, PLATE_CLASS } = require('../../../lib/components/chart/_chart-family/legend-svg');
+const { laneSvg, laneIndent, laneHeight, plateSvg, markerSvg, markerShapes, MARKER_SHAPES, DIGIT_OF_HEIGHT, PLATE_CLASS } = require('../../../lib/components/chart/_chart-family/legend-svg');
 const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
 const { transformSection } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 const { narrateDataSeries, narrateChart } = require('../../../lib/core/chart-narration');
@@ -16,6 +16,13 @@ const { PLATE_SHAPES } = require('../../../lib/core/segno-slots');
 
 const md = new MarkdownIt({ html: true });
 const doc = (svg) => new JSDOM(`<!doctype html><body>${svg}</body>`).window.document;
+/** An SVG shape's bounding box, whichever element draws it. */
+const outline = (el) => {
+  if (el.tagName === 'rect') return { l: +el.getAttribute('x'), r: +el.getAttribute('x') + +el.getAttribute('width'), t: +el.getAttribute('y'), b: +el.getAttribute('y') + +el.getAttribute('height') };
+  if (el.tagName === 'circle') { const [cx, cy, r] = ['cx', 'cy', 'r'].map((a) => +el.getAttribute(a)); return { l: cx - r, r: cx + r, t: cy - r, b: cy + r }; }
+  const p = el.getAttribute('points').split(' ').map((q) => q.split(',').map(Number));
+  return { l: Math.min(...p.map((q) => q[0])), r: Math.max(...p.map((q) => q[0])), t: Math.min(...p.map((q) => q[1])), b: Math.max(...p.map((q) => q[1])) };
+};
 
 const TABLE = `|  | M0 | M1 | M2 |
 | --- | --: | --: | --: |
@@ -44,9 +51,9 @@ describe('laneSvg', () => {
     // One on the mark (left of the lane), one in the lane.
     const xs = numbers.map((t) => Number(t.querySelector('tspan').getAttribute('x')));
     assert.ok(Math.min(...xs) < opts.x && Math.max(...xs) >= opts.x);
-    // Each sits on a knockout, a circle by default.
-    assert.equal(d.querySelectorAll('rect.legend-knockout').length, 2);
-    assert.equal(d.querySelectorAll('rect.legend-plate--circle').length, 2);
+    // Each sits on a knockout; the first callout's shape is the circle.
+    assert.equal(d.querySelectorAll('.legend-knockout').length, 2);
+    assert.equal(d.querySelectorAll('circle.legend-plate[data-shape="circle"]').length, 2);
     assert.equal(d.querySelectorAll('polyline').length, 0);
   });
 
@@ -61,10 +68,10 @@ describe('laneSvg', () => {
     assert.deepEqual(used, ['c2', 'c1']);
   });
 
-  test('the marker on a mark takes the caller\'s size; the one in the lane is sized from its label', () => {
-    const { svg } = laneSvg([entry('A', 20, 0)], { ...opts, markerSize: 9 });
+  test('the marker on a mark takes the caller\'s height; the one in the lane carries a digit as large as its label', () => {
+    const { svg } = laneSvg([{ text: 'A', target: { cx: 30, cy: 30, w: 60, h: 60, mark: 0 } }], { ...opts, markerHeight: 14 });
     const sizes = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number')].map((t) => Number(t.getAttribute('font-size')));
-    assert.deepEqual(sizes, [9, Math.round(opts.fontSize * 0.82 * 100) / 100]);
+    assert.deepEqual(sizes, [Math.round(14 * DIGIT_OF_HEIGHT * 100) / 100, opts.fontSize]);
   });
 
   test('numbers run in reading order: row by row, then left to right', () => {
@@ -73,44 +80,52 @@ describe('laneSvg', () => {
     assert.deepEqual(placed.map((p) => p.n), [2, 3, 1]);
   });
 
-  test('the marker on a mark sits in the first spot clear of everything it must avoid, or is left off', () => {
-    const t = { cx: 30, cy: 30, w: 40, h: 40, mark: 0 };
-    const pinX = (avoid) => {
-      const { svg, placed } = laneSvg([{ text: 'A', target: t }], { ...opts, avoid });
-      const nums = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number tspan')].map((n) => Number(n.getAttribute('x')));
-      return { xs: nums, pinned: placed[0].pinned };
+  test('a marker sits inside its mark\'s top-left corner, else on a badge there, else at the gutter crossing, or is left off', () => {
+    const t = { cx: 30, cy: 30, w: 40, h: 40, mark: 0, gutter: 2 };
+    const pin = (avoid) => {
+      const { svg, placed } = laneSvg([{ text: 'A', target: t }], { ...opts, markerHeight: 10, avoid });
+      const k = [...doc(`<svg>${svg}</svg>`).querySelectorAll('.legend-knockout')].map(outline).filter((b) => b.l < opts.x);
+      return { box: k[0], pinned: placed[0].pinned };
     };
-    // Nothing to avoid: inside the top-left corner.
-    const free = pinX([]);
-    assert.ok(free.pinned && free.xs[0] > 10 && free.xs[0] < 30);
-    // The top-left quarter taken: the next corner, top right.
-    const tr = pinX([{ left: 0, right: 30, top: 0, bottom: 30 }]);
-    assert.ok(tr.pinned && tr.xs[0] > 30);
-    // The whole mark and its surroundings taken: no marker on the mark, the lane's marker kept.
-    const none = pinX([{ left: -1e9, right: 1e9, top: -1e9, bottom: 1e9 }]);
+    // Nothing to avoid: whole inside the top-left corner.
+    const inside = pin([]);
+    assert.ok(inside.pinned && inside.box.l >= 10 && inside.box.t >= 10);
+    // The corner's inside taken: a badge, partly off the mark, up and to the left.
+    const badge = pin([{ left: 19, right: 50, top: 19, bottom: 50 }]);
+    assert.ok(badge.pinned && badge.box.l < 10 && badge.box.t < 10);
+    // Everything around the mark taken: no marker on the mark; never a different corner.
+    const none = pin([{ left: -1e9, right: 1e9, top: -1e9, bottom: 1e9 }]);
     assert.equal(none.pinned, false);
-    assert.equal(none.xs.length, 1);
-    assert.ok(none.xs[0] >= opts.x);
+    assert.equal(none.box, undefined);
   });
 
   test('two markers never sit on each other', () => {
-    const at = (cx, mark) => ({ text: `L${mark}`, target: { cx, cy: 30, w: 12, h: 12, mark } });
-    const { svg } = laneSvg([at(10, 0), at(22, 1)], { ...opts, markerSize: 7 });
-    const xs = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number tspan')].map((n) => Number(n.getAttribute('x'))).filter((v) => v < opts.x);
-    assert.equal(xs.length, 2);
-    assert.ok(Math.abs(xs[0] - xs[1]) > 5, `${xs}`);
+    const at = (cx, mark) => ({ text: `L${mark}`, target: { cx, cy: 30, w: 12, h: 12, mark, gutter: 1 } });
+    const { svg } = laneSvg([at(10, 0), at(23, 1)], { ...opts, markerHeight: 8, minMarkerHeight: 4 });
+    const boxes = [...doc(`<svg>${svg}</svg>`).querySelectorAll('.legend-knockout')].map(outline).filter((b) => b.l < opts.x);
+    assert.equal(boxes.length, 2);
+    assert.ok(boxes[0].r <= boxes[1].l || boxes[1].r <= boxes[0].l || boxes[0].b <= boxes[1].t || boxes[1].b <= boxes[0].t, JSON.stringify(boxes));
   });
 
-  test('the lane indents its words by its widest marker, shape and digits alike', () => {
-    const plain = laneIndent([{ text: 'A' }], 7.5);
-    assert.ok(laneIndent([{ text: 'A', plate: 'diamond' }], 7.5) > plain);
-    assert.ok(laneIndent(Array.from({ length: 10 }, () => ({ text: 'A' })), 7.5) > plain);
-    const { svg } = laneSvg([{ text: 'A', plate: 'diamond', target: { cx: 10, cy: 20, w: 10, h: 10, mark: 0 } }], opts);
+  test('every marker on a figure shares one height, one spot and one choice of digit', () => {
+    // A roomy mark and a tight one: the tight one decides for both.
+    const roomy = { text: 'A', target: { cx: 30, cy: 30, w: 40, h: 40, mark: 0, gutter: 1 } };
+    const tight = { text: 'B', target: { cx: 30, cy: 80, w: 40, h: 9, mark: 1, gutter: 1 } };
+    const { placed } = laneSvg([roomy, tight], { ...opts, bottom: 200, markerHeight: 12, minMarkerHeight: 4 });
+    assert.ok(placed.every((p) => p.pinned));
+    assert.equal(placed[0].digit, placed[1].digit);
+  });
+
+  test('the lane indents its words past its widest marker, whichever shape it draws', () => {
+    const six = MARKER_SHAPES.map((_, i) => ({ text: `L${i}`, target: { cx: 10, cy: 10 + i * 12, w: 10, h: 10, mark: i } }));
+    const { svg } = laneSvg(six, { ...opts, bottom: 200 });
     const d = doc(`<svg>${svg}</svg>`);
-    const knock = [...d.querySelectorAll('polygon.legend-knockout')].pop().getAttribute('points').split(' ').map((p) => Number(p.split(',')[0]));
     const textX = Number(d.querySelector('text.legend-text--bare tspan').getAttribute('x'));
-    assert.ok(Math.max(...knock) < textX, `${Math.max(...knock)} < ${textX}`);
-    assert.ok(Math.min(...knock) >= opts.x - 0.01);
+    const inLane = [...d.querySelectorAll('.legend-knockout')].map(outline).filter((k) => k.l >= opts.x - 0.01);
+    assert.equal(inLane.length, 6);
+    for (const k of inLane) assert.ok(k.r < textX, `${k.r} < ${textX}`);
+    // The indent is the same however many callouts there are: the lane reserves the widest shape.
+    assert.equal(laneIndent([{ text: 'A' }], 7.5), laneIndent(six, 7.5));
   });
 
   test('labels stack in the order their marks sit, never overlapping', () => {
@@ -130,12 +145,13 @@ describe('laneSvg', () => {
     assert.equal(drops.length, 3 - kept.length);
     assert.equal(drops[0].reason, 'overlap');
     // The ring is drawn for a dropped label too: the mark is still the one the author named.
-    assert.equal((value.svg.match(/legend-target/g) || []).length, 3);
+    assert.equal((value.svg.match(/class="legend-target"/g) || []).length, 3);
   });
 
   test('the label\'s pill words shape and color its marker; the words stay bare', () => {
     const { svg } = laneSvg([entry('LIVE', 20, 0, { plate: 'tag', color: 4 })], opts);
-    assert.equal((svg.match(/<rect class="legend-plate legend-plate--tag" data-c="c4"[^>]*\/><text class="legend-text legend-text--plated legend-number"/g) || []).length, 2);
+    // `tag` reads as the square.
+    assert.equal((svg.match(/<rect class="legend-plate" data-c="c4" data-shape="square"[^>]*\/><text class="legend-text legend-text--plated legend-number"/g) || []).length, 2);
     assert.match(svg, /<text class="legend-text legend-text--bare"[^>]*><tspan[^>]*>LIVE</);
   });
 
@@ -143,6 +159,77 @@ describe('laneSvg', () => {
     assert.deepEqual(Object.keys(PLATE_CLASS), PLATE_SHAPES);
     const box = { left: 0, right: 20, top: 0, bottom: 8 };
     for (const shape of PLATE_SHAPES) assert.match(plateSvg(shape, box, 7), /legend-plate/);
+  });
+
+  test('callouts take the six shapes in number order, one each', () => {
+    assert.deepEqual(markerShapes(Array.from({ length: 6 }, () => ({}))), ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'star']);
+    // A pill word claims its shape; a second claim on it takes the next free shape instead.
+    assert.deepEqual(markerShapes([{}, { plate: 'diamond' }, { plate: 'diamond' }]), ['circle', 'diamond', 'square']);
+    assert.deepEqual(markerShapes([{ plate: 'chevron-right' }, { plate: 'tag' }]), ['circle', 'square']);
+  });
+
+  test('every shape is drawn about as tall as asked, and the lane digit is as large as the label', () => {
+    for (const shape of MARKER_SHAPES) {
+      const body = outline(doc(`<svg>${markerSvg(1, 0, 0, shape, 10, 0, 1).svg}</svg>`).querySelector('.legend-plate'));
+      const h = body.b - body.t;
+      assert.ok(h > 8.5 && h < 11, `${shape}: ${h}`);
+    }
+    assert.equal(laneHeight(7.5) * DIGIT_OF_HEIGHT, 7.5);
+    // With or without its digit, a marker is the same shape element with the same slot: no attribute
+    // may tell the stylesheet to paint the two copies of one callout differently.
+    const plate = (svg) => /<\w+ class="legend-plate"[^>]*>/.exec(svg)[0].replace(/ (cx|cy|r|x|y|width|height|points)="[^"]*"/g, '');
+    assert.equal(plate(markerSvg(1, 0, 0, 'star', 10, 0, 3, false).svg), plate(markerSvg(1, 5, 5, 'star', 14, 0, 3).svg));
+  });
+
+  test('every shape is drawn inside the box it reports, centered on its point, knockout around the shape', () => {
+    for (const shape of MARKER_SHAPES) {
+      for (const digit of [true, false]) {
+        const m = markerSvg(1, 50, 40, shape, 6, 0, 1, digit);
+        const d = doc(`<svg>${m.svg}</svg>`);
+        const knock = outline(d.querySelector('.legend-knockout'));
+        const body = outline(d.querySelector('.legend-plate'));
+        const at = `${shape}${digit ? '' : ' (bare)'}`;
+        assert.ok(Math.abs(knock.r - knock.l - m.width) < 0.05 && Math.abs(knock.b - knock.t - m.height) < 0.05, `${at}: box`);
+        assert.ok(Math.abs((knock.l + knock.r) / 2 - 50) < 0.05 && Math.abs((knock.t + knock.b) / 2 - 40) < 0.05, `${at}: centered`);
+        assert.ok(body.l > knock.l && body.r < knock.r && body.t > knock.t && body.b < knock.b, `${at}: knockout encloses`);
+      }
+    }
+  });
+
+  test('where a digit would be too small to read, the shape alone marks the mark, and its label keeps the digit', () => {
+    const t = { cx: 30, cy: 30, w: 20, h: 20, mark: 0, gutter: 1 };
+    const { svg, placed } = laneSvg([{ text: 'A', target: t }], { ...opts, markerHeight: 6, minDigit: 3.75 });
+    assert.equal(placed[0].pinned, true);
+    assert.equal(placed[0].digit, false);
+    const d = doc(`<svg>${svg}</svg>`);
+    assert.equal(d.querySelectorAll('.legend-plate[data-shape="circle"]').length, 2, 'on the mark and in the lane');
+    assert.equal(d.querySelectorAll('text.legend-number').length, 1, 'the digit only in the lane');
+  });
+
+  test('the stylesheet paints every marker in one tone per mode, so a cell\'s marker matches its label\'s', () => {
+    // The bug this pins: shapes on the cells took one tier (`mark`) and the lane's markers the other
+    // (`fill`), and a theme's two tiers of one slot need not even share a hue (indaco: pale pink and olive).
+    const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/plugins/legend/legend.styles.css'), 'utf8');
+    for (let i = 1; i <= 12; i++) {
+      const rules = [...css.matchAll(new RegExp(`([^{}]*\\[data-c='c${i}'\\][^{}]*)\\{([^}]*)\\}`, 'g'))].filter((m) => /data-shape/.test(m[1]));
+      assert.equal(rules.length, 1, `c${i}: one marker rule`);
+      assert.match(rules[0][2], new RegExp(`fill: light-dark\\(var\\(--cat-${i}-mark\\), var\\(--cat-${i}-fill\\)\\)`));
+    }
+    assert.doesNotMatch(css, /data-bare/);
+    // The digit's ink, on the text AND its tspan, and `!important`: Mermaid's stylesheet paints every
+    // text and tspan under any `.legend` group `!important` (followups.d/2816-p2-mermaid-legend-rules-leak.md).
+    assert.match(css, /text\.legend-text\.legend-number\[data-c\],\s*text\.legend-text\.legend-number\[data-c\] tspan \{\s*fill: light-dark\(var\(--cat-on-mark\), var\(--cat-on-fill\)\) !important;/);
+  });
+
+  test('the ring around a mark takes its callout\'s color, over a canvas-color halo', () => {
+    const at = (text, cy, mark, more = {}) => ({ text, ...more, target: { cx: 10, cy, w: 10, h: 10, mark } });
+    const { svg } = laneSvg([at('A', 20, 0), at('B', 40, 1, { color: 7 })], opts);
+    const d = doc(`<svg>${svg}</svg>`);
+    const ringSlot = (m) => d.querySelector(`rect.legend-target[data-mark-for="${m}"]`).getAttribute('data-c');
+    const markerSlot = (m) => d.querySelector(`.legend-plate[data-mark-for="${m}"]`).getAttribute('data-c');
+    assert.equal(ringSlot(0), markerSlot(0));
+    assert.equal(ringSlot(1), 'c7');
+    assert.equal(d.querySelectorAll('rect.legend-target-halo').length, 2);
   });
 
   test('no entries, nothing drawn', () => {
@@ -218,27 +305,28 @@ describe('heatmap: authored callouts', () => {
     assert.ok(!/no room/.test(shown));
   });
 
-  test('a chevron or diamond marker in the lane stays inside the figure and off the grid', () => {
-    for (const shape of ['chevron-left', 'diamond', 'chevron-right']) {
-      const d = doc(render(`\`@legend{{Onboarding change after the pricing move, ${shape}, for=4}}\``));
-      // The lane's marker is the second: the first is pinned to the cell.
-      const xs = d.querySelectorAll('polygon.legend-knockout')[1].getAttribute('points').split(' ').map((p) => Number(p.split(',')[0]));
-      const cellRight = Math.max(...[...d.querySelectorAll('rect.heatmap-cell')].map((r) => Number(r.getAttribute('x')) + Number(r.getAttribute('width'))));
-      assert.ok(Math.min(...xs) > cellRight, `${shape}: ${Math.min(...xs)} > ${cellRight}`);
-      assert.ok(Math.max(...xs) <= 320, `${shape}: ${Math.max(...xs)} <= 320`);
-    }
+  test('every marker shape in the lane stays inside the figure and off the grid', () => {
+    const six = Array.from({ length: 6 }, (_, i) => `{Onboarding change ${i}, for=${i}}`).join(', ');
+    const d = doc(render(`\`@legend{[${six}]}\``));
+    const cellRight = Math.max(...[...d.querySelectorAll('rect.heatmap-cell')].map((r) => Number(r.getAttribute('x')) + Number(r.getAttribute('width'))));
+    const lane = [...d.querySelectorAll('.legend-knockout')].map(outline).filter((k) => k.l > cellRight);
+    assert.equal(lane.length, 6);
+    for (const k of lane) assert.ok(k.r <= 320, `${k.r} <= 320`);
   });
 
   test('a span that does not read stays on the slide as the author wrote it', () => {
     assert.match(render('`@legend{x}`'), /<code>@legend\{x\}<\/code>/);
   });
 
-  test('the marker on a cell grows with the cell, within a floor and a ceiling', () => {
-    const size = (table) => Number(doc(transformSection(md.render(`## R\n\n${table}\n\n\`@legend{{X, for=0}}\``), {})).querySelector('text.legend-number').getAttribute('font-size'));
-    const roomy = size('| | A |\n|---|--:|\n| r | 1 |');
-    const dense = size(`| | ${Array.from({ length: 12 }, (_, i) => `C${i}`).join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${Array.from({ length: 7 }, (_, r) => `| R${r} | ${Array.from({ length: 12 }, () => '5').join(' | ')} |`).join('\n')}`);
+  test('the marker on a cell grows with the cell, never past the lane\'s own marker', () => {
+    const height = (table) => {
+      const d = doc(transformSection(md.render(`## R\n\n${table}\n\n\`@legend{{X, for=0}}\``), {}));
+      const k = [...d.querySelectorAll('.legend-knockout')].map(outline);
+      return Math.min(...k.map((b) => b.b - b.t)); // the cell's marker: the lane's is the larger or equal
+    };
+    const roomy = height('| | A |\n|---|--:|\n| r | 1 |');
+    const dense = height(`| | ${Array.from({ length: 12 }, (_, i) => `C${i}`).join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${Array.from({ length: 7 }, (_, r) => `| R${r} | ${Array.from({ length: 12 }, () => '5').join(' | ')} |`).join('\n')}`);
     assert.ok(roomy > dense, `${roomy} > ${dense}`);
-    assert.ok(dense >= 7.5 * 0.75 - 0.01 && roomy <= 7.5 * 1.1 + 0.01);
   });
 
   test('on a dense grid with long values, no marker covers a printed value or a column name', () => {
@@ -247,11 +335,7 @@ describe('heatmap: authored callouts', () => {
     const table = `| | ${cols.join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${rowsMd}`;
     const out = transformSection(md.render(`## R\n\n${table}\n\n\`@legend{[{Corner, row=Region 0, col=January0}, {Next, row=Region 0, col=January1}, {Mid, row=Region 5, col=January5}]}\``), {});
     const d = doc(out);
-    const box = (el) => {
-      if (el.tagName === 'rect') return { l: +el.getAttribute('x'), r: +el.getAttribute('x') + +el.getAttribute('width'), t: +el.getAttribute('y'), b: +el.getAttribute('y') + +el.getAttribute('height') };
-      const p = el.getAttribute('points').split(' ').map((q) => q.split(',').map(Number));
-      return { l: Math.min(...p.map((q) => q[0])), r: Math.max(...p.map((q) => q[0])), t: Math.min(...p.map((q) => q[1])), b: Math.max(...p.map((q) => q[1])) };
-    };
+    const box = outline;
     const cells = [...d.querySelectorAll('rect.heatmap-cell')].map(box);
     const gridTop = Math.min(...cells.map((c) => c.t));
     const gridLeft = Math.min(...cells.map((c) => c.l));
@@ -264,9 +348,36 @@ describe('heatmap: authored callouts', () => {
     });
     const onGrid = [...d.querySelectorAll('.legend-knockout')].map(box).filter((k) => k.r <= gridRight + 0.01);
     for (const k of onGrid) {
-      assert.ok(k.t >= gridTop - 0.01 && k.l >= gridLeft - 0.01, 'inside the grid, clear of the column and row names');
+      // A badge may reach into the strip between the grid and its names, never onto the names.
+      assert.ok(k.t >= gridTop - 3 - 0.01 && k.l >= gridLeft - 5 - 0.01, 'clear of the column and row names');
       for (const v of values) assert.ok(!(k.l < v.r && v.l < k.r && k.t < v.b && v.t < k.b), `marker ${JSON.stringify(k)} covers value ${JSON.stringify(v)}`);
     }
+  });
+
+  test('on the densest four-digit grid every callout keeps its shape, and no numeral drops below the floor', () => {
+    // engineering/decisions/2026-10-19-universal-legend.md § 18: where the digit has no room, the shape
+    // alone marks the cell, so the link is shape and color, never position alone (WCAG 1.4.1).
+    const cols = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
+    const rowsMd = Array.from({ length: 10 }, (_, r) => `| R${r} | ${cols.map((_, c) => 1000 + ((r * 7919 + c * 104729) % 8999)).join(' | ')} |`).join('\n');
+    const table = `| | ${cols.join(' | ')} |\n|---|${'--:|'.repeat(9)}\n${rowsMd}`;
+    const six = '{A, row=R0, col=Jan}, {B, row=R1, col=Jun}, {C, row=R2, col=Mar}, {D, row=R4, col=Jul}, {E, row=R8, col=Aug}, {F, row=R9, col=Sep}';
+    const out = transformSection(md.render(`## R\n\n${table}\n\n\`@legend{[${six}]}\``), {});
+    const d = doc(out);
+    assert.ok(d.querySelectorAll('text.heatmap-value').length > 80, 'the grid prints its values');
+    assert.equal(d.querySelectorAll('rect.legend-target').length, 6, 'every callout rings its cell');
+    const shapes = [...d.querySelectorAll('.legend-plate[data-shape]')].map((p) => p.getAttribute('data-shape'));
+    for (const shape of MARKER_SHAPES) assert.equal(shapes.filter((x) => x === shape).length, 2, `${shape}: on the cell and in the lane`);
+    const sizes = [...d.querySelectorAll('text.legend-number')].map((t) => Number(t.getAttribute('font-size')));
+    assert.ok(sizes.every((x) => x >= 7.5 * 0.4), `no numeral below the type floor: ${sizes}`);
+  });
+
+  test('past six callouts the rest are not drawn; their words reach the description and the cell', () => {
+    const seven = Array.from({ length: 7 }, (_, i) => `{C${i + 1}, for=${i % 6}${i === 6 ? ', detail="Late note"' : ''}}`).join(', ');
+    const out = render(`\`@legend{[${seven}]}\``);
+    const d = doc(out);
+    assert.equal(d.querySelectorAll('text.legend-text--bare').length, 6);
+    assert.match(d.querySelector('desc').textContent, /Not drawn: "C7" \(past the 6-callout limit\)\./);
+    assert.match(out, /C7: Late note/);
   });
 
   test('callouts and the band key share the figure: the key starts past the lane', () => {
@@ -330,4 +441,11 @@ test('narration reads a callout after the rows, then its detail', () => {
   const spoken = String(narrateDataSeries(slide));
   assert.match(spoken, /Callout at Feb 2026, M2: Dip\. Pricing change\.$/);
   assert.doesNotMatch(spoken, /legend/);
+});
+
+test('narration says the six callouts the chart draws, and not a seventh', () => {
+  const seven = Array.from({ length: 7 }, (_, i) => `{C${i + 1}, for=${i % 6}}`).join(', ');
+  const said = String(narrateDataSeries(`<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n\`@legend{[${seven}]}\``));
+  assert.match(said, /Callout at [^:]*: C6\./);
+  assert.doesNotMatch(said, /C7/);
 });

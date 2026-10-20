@@ -19,6 +19,8 @@ export type LivePerson = {
 	slide: number | null;
 	/** Typed in the last couple of seconds. */
 	editing: boolean;
+	/** What they are doing in the Studio, when they share it (not for this browser's own row). */
+	doing?: LiveDoing;
 	/** `off`: not on the call (no mic shown). `muted`: on the call, muted. */
 	mic: 'off' | 'muted' | 'on' | 'speaking';
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that
@@ -48,7 +50,25 @@ export function qualityLine(q: NonNullable<LivePerson['quality']>): string {
  *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once
  *  permission is given). */
 /** What this person lets the others see of them. All on by default. */
-export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean };
+export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean; doing: boolean; pointer: boolean };
+
+/** The Studio panels and views a member can be in, as presence carries them (2026-10-20-live-uniform-experience.md
+ *  §7.6). The AI Chat panel is never one: what someone asks the AI is theirs. */
+export type LivePanelId = 'coach' | 'lenses' | 'library' | 'live';
+export type LiveViewId = 'compose' | 'fabricate' | 'article';
+/** What a member is doing in the Studio: activity, shown to everyone, followed by whoever follows them. */
+/** `asking`: an AI chat turn is in flight. What is asked never leaves the browser (§5.3). */
+export type LiveDoing = { panel: LivePanelId | null; view: LiveViewId; presenting: boolean; asking?: boolean };
+/** What a chat line can carry besides text (§5.3): an AI edit someone applied, by slide (1-based, empty
+ *  for the front matter), or one AI chat turn its owner shared. The receiver writes the words. */
+export type LiveNote = { k: 'ai-edit'; slides: number[] } | { k: 'ai-turn'; ask: string; answer: string };
+/** A remote pointer over the slide, in the slide's own coordinates (0..1 each way). */
+export type LivePointer = { id: string; name: string; color: LiveColor; slide: number; x: number; y: number; clickAt: number };
+/** What the pointer overlay reads: the others' pointers, and this browser's own to send. */
+export type LivePointerSource = {
+	subscribe: (cb: (pointers: LivePointer[]) => void) => () => void;
+	send: (p: { slide: number; x: number; y: number; click?: boolean } | null) => void;
+};
 
 export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null; highFidelity: boolean;
 	/** How loud this browser sends, 0–2 (1 = as captured). */
@@ -69,7 +89,7 @@ export type LiveKnock = { id: string; name: string; at: number };
 
 export type LiveChatLine =
 	/** `at` is session time (the host's clock, Tavola `now()`), shown in the viewer's own zone. */
-	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean; pending?: boolean }
+	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean; pending?: boolean; note?: LiveNote }
 	| { kind: 'system'; id: string; text: string; at: number };
 
 export type LiveView = {
@@ -103,10 +123,55 @@ export type LiveView = {
 	canChat: boolean;
 	/** Names of the people typing a chat message right now (never this browser). */
 	typing: string[];
+	/** Host: its own Library records the deck uses that the session does not have yet, each with a
+	 *  Share button (2026-10-20-live-uniform-experience.md §6 rule 6). It stays until shared, so a
+	 *  missed prompt is never a silent difference between screens. */
+	unshared: LiveUnshared[];
+	/** How many of this person's comments on the deck the session does not have yet (slice 6). */
+	unsharedComments: number;
+	/** Host: it is presenting to everyone. Member: who presents to everyone and where they are, or null. */
+	presentingToAll: boolean;
+	present: LivePresent | null;
 };
+
+/** Where the presenter is in Present (§7.2): the rendered slide in their lens, the page of a split slide,
+ *  and the lens. Every member renders the same deck, so the same index is the same slide. */
+export type LiveTransport = { idx: number; page: number; lens: string; hash?: string };
+export type LivePresent = LiveTransport & { by: string };
+
+/** One of the host's records the others do not have: a theme, a finish, a custom component, or the
+ *  host's saved site palette offered as the session's look. `tooLarge` cannot be shared. */
+export type LiveUnshared = { key: string; kind: 'theme' | 'finish' | 'component' | 'look'; name: string; tooLarge?: boolean };
 
 export type LiveActions = {
 	start: (name: string) => void;
+	/** Host: share one of its records (a `LiveUnshared` key) with the session. */
+	shareRecord: (key: string) => void;
+	/** Member: join (or rejoin) the presentation that is running. */
+	joinPresent: () => void;
+	/** Host: start or stop presenting to everyone. */
+	presentToEveryone: (on: boolean) => void;
+	/** Host, presenting to everyone: where its Present is now. */
+	presentTransport: (t: LiveTransport) => void;
+	/** Mix a live stream into what this browser sends on the call (the presenter's narration), or take
+	 *  the last one out (null). It waits for the call if there is none yet. */
+	mixIntoCall: (stream: MediaStream | null) => void;
+	/** Host: play a shipped tour on every member's screen at once (§7.5). `sent` when it went to the room;
+	 *  `solo` when there is no room to send it to (play it here only); `presenting` while presenting to
+	 *  everyone, and `wait` right after another tour started, when nothing plays. */
+	tourForEveryone: (tourId: string) => 'sent' | 'solo' | 'presenting' | 'wait';
+	/** Tell the session this browser applied an AI edit, by the slides it changed (§5.3). */
+	noteAiEdit: (slides: number[]) => void;
+	/** Share one AI chat turn with the session, as a card in the people chat (§5.3). */
+	shareAiTurn: (turn: { ask: string; answer: string }) => void;
+	/** Comments (slice 6): this person added, resolved or deleted one on the bound deck. */
+	commentAdded: (c: { id: string; slide: number; body: string; createdAt: number }) => void;
+	commentResolved: (id: string, resolved: boolean) => void;
+	commentDeleted: (id: string) => void;
+	/** Whether this person may delete a comment: its writer or the host, for a shared one. */
+	mayDeleteComment: (id: string) => boolean;
+	/** Share this person's comments the session does not have yet (written before it started). */
+	shareComments: () => void;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;
@@ -179,10 +244,14 @@ export const IDLE_VIEW: LiveView = {
 	hostAway: false,
 	heir: null,
 	audio: false,
-	share: { cursor: true, slide: true, typing: true },
+	share: { cursor: true, slide: true, typing: true, doing: true, pointer: true },
 	call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false, micLevel: 1, canShapeMic: false, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: false },
 	canChat: true,
 	typing: [],
+	unshared: [],
+	unsharedComments: 0,
+	presentingToAll: false,
+	present: null,
 };
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a

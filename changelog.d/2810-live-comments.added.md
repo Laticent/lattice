@@ -1,0 +1,1 @@
+- **Comments sync in a live session.** A comment you write on a slide appears for everyone in the session under your name, and stays on everyone's copy of the deck afterward. Anyone can resolve a comment; only its writer, or the host, can delete it. Comments you wrote before the session stay yours until you press Share in the Live panel.
