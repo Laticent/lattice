@@ -331,6 +331,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// which can land before this effect's double-rAF collapse does, and the poll then read the
 	// restore as the person's own collapse (a reload re-showed "Editor collapsed.").
 	const restoringCollapseRef = React.useRef(false)
+	// Which run of the restore effect owns `restoringCollapseRef`. A re-run inside the settle window
+	// must not have its flag cleared by the previous run's pending settle frames.
+	const restoreGenRef = React.useRef(0)
 
 	// The pending-restore latch. `pending` is raised when a restore is WANTED (mount, or a
 	// config change) and lowered the moment the group can answer — layout applied, or
@@ -523,9 +526,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		const side = readStoredCollapse(storageKey)
 		if (!side) return
 		configChangingRef.current = true
+		const gen = ++restoreGenRef.current
 		restoringCollapseRef.current = true
 		let inner = 0
-		let settle = 0
 		let collapsedHere = false
 		const outer = requestAnimationFrame(() => {
 			inner = requestAnimationFrame(() => {
@@ -534,9 +537,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 				configChangingRef.current = false
 				// Hold the restore flag two more frames so the library's onResize for this collapse is
 				// read as the restore, not as the person's collapse.
-				settle = requestAnimationFrame(() => {
-					settle = requestAnimationFrame(() => {
-						restoringCollapseRef.current = false
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						if (restoreGenRef.current === gen) restoringCollapseRef.current = false
 					})
 				})
 			})
@@ -544,12 +547,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		return () => {
 			cancelAnimationFrame(outer)
 			if (inner) cancelAnimationFrame(inner)
-			// Once the collapse has run, let `settle` finish clearing the flag; before that, nothing
-			// else would.
-			if (!collapsedHere) {
-				restoringCollapseRef.current = false
-				if (settle) cancelAnimationFrame(settle)
-			}
+			// Once the collapse has run, its settle frames finish clearing the flag (only if this run
+			// still owns it); before that, nothing else would.
+			if (!collapsedHere && restoreGenRef.current === gen) restoringCollapseRef.current = false
 			configChangingRef.current = false
 		}
 	}, [ready, active, configKey, storageKey, panelRefOf])

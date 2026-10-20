@@ -79,7 +79,7 @@
 /* Editor | preview split — react-resizable-panels Group (2026-07-19 splitter
    migration; supersedes the CSS-Grid split of the 2026-07-02 decision). The
    library renders .pg-split as a locked display:flex row and sizes the two
-   .pg-pane Panels inline from px minimums (editor 280 / preview 320) + a
+   .pg-pane Panels inline from px minimums (editor 300 / preview 300) + a
    persisted ratio; the 1px Separator between them IS the divider line. We style
    the seam (resizable.tsx), the collapsed-pane rail, and the drag shield. Below
    820px the group is `disabled` and body[data-pane] tabs own layout (the mobile
