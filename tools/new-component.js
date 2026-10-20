@@ -105,6 +105,8 @@ const optInFamilies = OPT_IN_FAMILY_NAMES.map((f) => `"${f}"`).join(', ') || '(n
 process.stdout.write(
 	`new-component: scaffolded ${rel}/\n` +
 		`  ${name}.manifest.json   ${name}.styles.css\n\n` +
+		`Track what this component still owes (conformance): npm run conformance -- component ${name} --before,\n` +
+		`then --after when you think you are done. (The manifest must parse first, so fill in tags before running it.)\n\n` +
 		`The empty tags[] block the build until filled — finish these before committing:\n` +
 		`  1. description — replace the TODO with one real sentence.\n` +
 		`  2. tags — 3–5 from the controlled vocabulary (idiom / occasion / material /\n` +

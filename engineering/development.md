@@ -1459,6 +1459,11 @@ class; a `variantAxes` member that is not a variant; a `capacity` that is out of
 `dir="rtl"`); and a component with no entry in `test/conformance/card-row-corpus.json`. A component the
 corpus marks as having a card row must declare `cards` in its manifest.
 
+While you work, ask the contract about one component instead of the whole repo: `npm run conformance -- component <name> --before`
+saves a baseline (use `--new` before the folder exists), `--after` lists what you fixed, what still fails and what newly fails.
+It checks the static clauses only and says so; `--tier=render` adds the rendered ones for that component. A stale debt entry
+or a count over its ceiling fails there as it does in `npm test`.
+
 Known failures are in `test/conformance/debt.json`, each with a reason. A new component cannot carry
 debt: it conforms or it does not merge. A debt entry for a count (the physical declarations) carries a
 `ceiling`; when your change lowers the count, lower the ceiling in the same commit.
