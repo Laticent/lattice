@@ -113,7 +113,7 @@ specify them, and `split:` and `preset:` have none.
 | `lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-lift` |
 | `cards:` | `center` · `stretch` · `top` · `spread` | Where a row of cards puts the height it does not need. | `unknown-cards` |
 | `tag:` | up to one word per axis: color (`color` `plain` `none`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
-| `image-card:` | up to one word per axis: placement (`top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right`), backing (`solid` `soft` `sheer` `clear`), ink (`light` `dark`), size (`sm` `md` `lg`), density (`regular` `compact`) | The text card on an `image` slide that floats its words over the photo (`spotlight`, `statement`). Image slides only. | `unknown-image-card` |
+| `image-card:` | up to one word per axis: placement (`top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right`), backing (`solid` `soft` `sheer` `clear`), ink (`light` `dark`), size (`sm` `md` `lg`), density (`regular` `compact`), shape (`float` `band`) | The text card on an `image` slide that floats its words over the photo (`spotlight`, `statement`). Image slides only. | `unknown-image-card` |
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
 | `chart-finish:` | `off` · `pigment` · `etching` · `tone` | How every chart spends its color. | `unknown-chart-finish` |
 | `legend:` | `on` · `off` | Whether the legend plugin draws the callouts an author writes on a chart (`@legend{…}`); `off` hides them. | `unknown-legend` |

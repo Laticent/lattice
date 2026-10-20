@@ -556,7 +556,7 @@ export function setCardTag(chunk: string, axis: CardTagAxis, name: string | null
 
 // ── image card (the `image-card:` register) ─────────────────────────────────────────────────
 // Mirrors lib/core/resolve-image-card.js, which the docs build cannot import (CJS); a unit test
-// pins the maps to it. Five axes on ONE deck line (`image-card: top-right soft sm`). Unlike
+// pins the maps to it. Six axes on ONE deck line (`image-card: top-right soft sm`). Unlike
 // `tag:`, the deck WORD and the slide CLASS differ (`top-right` ↔ `at-tr`), so each axis maps
 // word → class. A slide class evicts the deck's word on its axis only, on image slides only.
 export const IMAGE_CARD_AXES = {
@@ -568,9 +568,10 @@ export const IMAGE_CARD_AXES = {
 	ink: { light: 'ink-light', dark: 'ink-dark' },
 	size: { md: 'card-md', sm: 'card-sm', lg: 'card-lg' },
 	density: { regular: 'card-regular', compact: 'compact' },
+	shape: { float: 'card-float', band: 'band' },
 } as const;
 export type ImageCardAxis = keyof typeof IMAGE_CARD_AXES;
-export const IMAGE_CARD_AXIS_ORDER: readonly ImageCardAxis[] = ['placement', 'backing', 'ink', 'size', 'density'];
+export const IMAGE_CARD_AXIS_ORDER: readonly ImageCardAxis[] = ['placement', 'backing', 'ink', 'size', 'density', 'shape'];
 /** The words of one axis, in the kernel's order (the first is the default). */
 export const imageCardWords = (axis: ImageCardAxis): string[] => Object.keys(IMAGE_CARD_AXES[axis]);
 const imageCardClass = (axis: ImageCardAxis, word: string): string | undefined =>

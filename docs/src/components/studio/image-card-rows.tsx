@@ -69,6 +69,17 @@ export const IMAGE_CARD_ROWS: readonly ImageCardRow[] = [
 			</>
 		),
 	},
+	{
+		axis: 'shape',
+		label: 'Card shape',
+		desc: 'A floating card or a full-width strip.',
+		find: 'image photo card shape band strip full width stretch banner caption top bottom',
+		help: (
+			<>
+				<strong>Band</strong> stretches the card across the slide, heading left and text right, so it sits flush along the top or bottom and leaves the middle of the photo clear. It needs a top or bottom placement. Written as <code>image-card: bottom band</code>.
+			</>
+		),
+	},
 ];
 
 const OPTION_LABEL: Record<string, string> = {
@@ -90,6 +101,8 @@ const OPTION_LABEL: Record<string, string> = {
 	lg: 'Large',
 	regular: 'Regular',
 	compact: 'Compact',
+	float: 'Floating card',
+	band: 'Full-width band',
 };
 
 export function imageCardOptionLabel(word: string): string {
@@ -103,4 +116,5 @@ export const IMAGE_CARD_DEFAULT_LABEL: Record<ImageCardAxis, string> = {
 	ink: "Layout's own",
 	size: 'Medium',
 	density: 'Regular',
+	shape: 'Floating card',
 };

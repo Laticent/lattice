@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
-Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
+Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`), shape (`band` stretches the card across the top or bottom edge) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
 
 ## Agent contract
 
@@ -32,6 +32,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 - **`card-soft`.** On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), or drop it with `card-clear` when the photo is calm where the words land.
 - **`ink-dark`.** On `spotlight` or `statement`, the photo is bright where the words land — `ink-dark` sets dark words on a light backing; `ink-light` sets white words on a dark one.
 - **`card-sm`.** On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite. Add `compact` to tighten the card's padding and pull it closer to the slide edge at any size.
+- **`band`.** On `spotlight` or `statement`, the card covers something you want to see above or below it — add `band` to `at-top` or `at-bottom` to stretch the card across the slide in one short strip (heading left, text right) and leave the middle of the photo clear. On a corner or center placement `band` does nothing; `card-float` steps one slide out of a deck-wide `band`.
 
 ### Common mistakes
 
@@ -399,6 +400,34 @@ The default card spacing, so one slide can step out of a deck-wide compact.
 ## card-regular keeps the default spacing.
 
 In a deck that sets `image-card: compact`, this slide keeps the roomier card.
+
+![bg](sample:photo-wide.svg)
+```
+
+### `band` — Full-width band
+
+Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear.
+
+```markdown
+<!-- _class: image spotlight at-bottom band -->
+
+## band keeps the middle of the photo clear.
+
+The heading takes the left column and the text the right, in one short strip along the edge.
+
+![bg](sample:photo-wide.svg)
+```
+
+### `card-float` — Floating card
+
+The default floating card, so one slide can step out of a deck-wide band.
+
+```markdown
+<!-- _class: image spotlight at-bottom card-float -->
+
+## card-float keeps the card a card.
+
+In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
 
 ![bg](sample:photo-wide.svg)
 ```

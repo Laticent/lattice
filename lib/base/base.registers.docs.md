@@ -45,7 +45,7 @@ model, see `design/concepts.md`.
 | [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etching or tone | `off` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
-| [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density | *(bottom-left, solid, md)* |
+| [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 | [`legend:`](#the-legend-front-matter-register-chart-callouts) | Whether the legend plugin's callouts are drawn | `on` |
@@ -1078,7 +1078,7 @@ An unknown word, or a second word on one axis, is `unknown-tag`. Kernel:
 The `spotlight` and `statement` compositions of the `image` component float the slide's words
 over a full-bleed photo: spotlight in a card, statement on a scrim. `image-card:` sets how that
 card looks on every image slide, so a deck of photos keeps one treatment without a class on
-each slide. It takes up to five words, one per axis, in any order:
+each slide. It takes up to six words, one per axis, in any order:
 
 ```yaml
 image-card: top-right soft sm compact
@@ -1091,6 +1091,7 @@ image-card: top-right soft sm compact
 | Ink | `light` `dark` | `ink-light` `ink-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
 | Size | `sm` `md` `lg` | `card-sm` `card-md` `card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
 | Density | `regular` `compact` | `card-regular` `compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
+| Shape | `float` `band` | `card-float` `band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
 
 **Image slides only.** Two of these classes mean something on other layouts too: `at-*` places
 the corner and edge tints, and `compact` tightens any slide. So the deck's words ride only a
@@ -1103,7 +1104,7 @@ tint the slide carries (`tint-corner`, `tint-edge`).
 **A slide overrides one axis at a time.** A slide's own class on an axis replaces the deck's word
 on that axis and keeps the rest: in a deck with `image-card: top-right soft`, a slide with
 `_class: image spotlight at-bl` gets a soft card in the bottom-left corner. `card-regular` is the
-slide-side way out of a deck-wide `compact`; the deck value `regular` stamps nothing, because
+slide-side way out of a deck-wide `compact`, and `card-float` the way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
 leaving the axis out already means it.
 
 Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.

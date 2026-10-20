@@ -1,7 +1,7 @@
 /**
  * The `image-card:` register — the text card on every image slide (lib/core/resolve-image-card.js).
  *
- *   1. the kernel sorts words onto five axes, maps each to the class image.styles.css paints,
+ *   1. the kernel sorts words onto six axes, maps each to the class image.styles.css paints,
  *      and drops what it does not know;
  *   2. BOTH render paths (the engine here, the real runtime bundle below) stamp the classes on
  *      IMAGE slides only, and a slide's class evicts the deck's word on its own axis only;
@@ -32,10 +32,12 @@ test('kernel: words map to the classes the image CSS paints; order and case do n
   assert.deepEqual(imageCardClasses('Compact, LG center'), ['at-center', 'card-lg', 'compact']);
   assert.deepEqual(imageCardClasses('bottom dark clear'), ['at-bottom', 'card-clear', 'ink-dark']);
   assert.deepEqual(imageCardClasses('top'), ['at-top']);
+  assert.deepEqual(imageCardClasses('bottom band soft'), ['at-bottom', 'card-soft', 'band']);
 });
 
 test('kernel: a deck `regular` stamps nothing; unknown and doubled words are reported, not stamped', () => {
   assert.deepEqual(imageCardClasses('regular'), [], 'no deck-wide compact is the same as regular');
+  assert.deepEqual(imageCardClasses('float'), [], 'a deck `float` is the default shape, so it stamps nothing');
   const p = parseImageCard('top-left top sm huge soft solid');
   assert.equal(p.placement, 'top-left');
   assert.equal(p.size, 'sm');
@@ -63,6 +65,8 @@ test('kernel: deck classes ride image slides only, and never an axis the slide f
   assert.deepEqual(imageCardDeckTokens(['image', 'spotlight'], deckTokens), deckTokens);
   assert.deepEqual(imageCardDeckTokens(['image', 'at-bl'], deckTokens), ['card-soft', 'compact']);
   assert.deepEqual(imageCardDeckTokens(['image', 'card-regular'], deckTokens), ['at-tr', 'card-soft'], 'card-regular opts out of compact');
+  assert.deepEqual(imageCardDeckTokens(['image', 'card-float'], ['at-bottom', 'band']), ['at-bottom'], 'card-float opts out of a deck-wide band');
+  assert.deepEqual(imageCardDeckTokens(['content', 'tint-corner'], ['at-bottom', 'band']), [], 'a band never rides a non-image slide');
   assert.deepEqual(imageCardDeckTokens(['image', 'at-tr', 'card-soft', 'compact'], deckTokens), [], 'idempotent');
 });
 
