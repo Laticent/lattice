@@ -77,6 +77,7 @@ import { useDeckFileDrop } from './deck-drop';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
+import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorHandle } from './Editor';
 import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
@@ -326,13 +327,8 @@ function timeAgo(ts: number): string {
 // The library enforces each panel's px min itself, so the old narrow-fold budget
 // math (BAR_W/HANDLE_W/PAIR_MIN/FOLD_SAFETY/panelBudget → the #721 zero-void
 // invariant) is retired — v4's pixel min/max express the same constraint directly.
-const ARCH_MIN = 200; // Assistant (Coach/Chat/Lenses) min width — cards stay legible
-const ARCH_DEFAULT = 232; // Assistant default (matches the old fixed column)
-const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
-const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
-const PANEL_MAX = 420; // drag ceiling for a docked panel
-const LIB_MIN = 240; // Library min — fits its header floor (title + a usable search field + the icon-only Import button); tabs scroll below this
-const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
+// Every docked side panel shares ONE contract (DOCK in dock-layout.ts): Settings, the
+// Assistant slot (Coach / Chat / Live / Lenses), Library and the tablet Inspector.
 // Editor/preview pane MINIMUMS — the width at which the pane's HEADER toolbar stops
 // clipping, so "drag to the minimum" never cuts an icon off (it collapses to the rail
 // instead). Measured on the real surface (a width sweep reading header.scrollWidth vs
@@ -1612,12 +1608,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Settings + Assistant are Panels with px min/max/default — the library enforces
 	// the min constraints itself, so the old narrow-fold budget math (#721: the
 	// panelBudget / archEff / setEff clamps) is retired. The Assistant slot holds ONE
-	// of Architect / Lenses / Library (mutually exclusive); Library docks wider
-	// (asset cards) so it carries its own default + min.
+	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
-	const assistantMin = libraryOpen ? LIB_MIN : ARCH_MIN;
-	const assistantDefault = libraryOpen ? LIB_DEFAULT : ARCH_DEFAULT;
-
+	
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
@@ -3250,6 +3243,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		defaultRatio: 100 - PREVIEW_CHROME.defaultPreviewFrac * 100,
 		configKey: splitConfigKey,
 		clientOnlyPanelIds: splitPanelIds,
+		// The editor is folded because the docks leave it no room; opening it means giving one up.
+		onFoldedExpand: () => {
+			if (desktop && assistantOpen) setActiveAssistant(null);
+			else setInspectorOpen(false);
+		},
+		// A panel set the person never dragged starts at the ideal layout for this group width,
+		// not at whatever the library makes of mixed px + % defaults (dock-layout.ts).
+		freshLayout: (ids) => {
+			const w = mainEl?.getBoundingClientRect().width ?? 0;
+			return idealDockLayout(w, ids, STUDIO_SPLIT_PANEL_IDS[0], STUDIO_SPLIT_PANEL_IDS[1]);
+		},
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
 		// authoritative refit of every live host on release covers any host that was
@@ -5664,8 +5668,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the badge went (it was the title again), title and sentence merged, and the
 				    find toolbar came up off a 40px row of its own.
 				    THE ROW ALWAYS CARRIES WORDS. A first cut hid the line below a 320px
-				    container, which is every DOCKED desktop width — SET_DEFAULT is 296 and
-				    296 − 28px of padding = 268 — so the banner rendered as icons and a tint at
+				    container, which is every DOCKED desktop width — the dock default is 320 (was 296) and
+				    320 − 28px of padding = 292 — so the banner rendered as icons and a tint at
 				    the default, and the scope was legible only by drag-resizing the panel past
 				    348px. Two phrasings that swap on the container instead: the sentence where
 				    it fits, an abbreviation where it does not. */}
@@ -7114,7 +7118,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    simply not rendered (the activity-bar icon reopens it). */}
 						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
-								<ResizablePanel id="studio-settings" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={SET_DEFAULT} className="overflow-hidden border-r border-border bg-background">
+								<ResizablePanel id="studio-settings" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
 									{/* Empty: the settings are drawn over this box by `settingsDock`, which outlives it. */}
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
@@ -7127,11 +7131,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    2026-07-19 migration adds. */}
 						{desktop && effectiveStop === 'craft' && assistantOpen && (
 							<>
-								{/* Library gets its own panel id (+ wider default) so switching the
-								    assistant slot Coach→Library is a fresh panel identity — the library
-								    applies Library's 380px default instead of caching Coach's ~232px width
-								    (each keeps its own persisted width via the per-panel-id bucket). */}
-								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={assistantMin} maxSize={PANEL_MAX} defaultSize={assistantDefault} className="overflow-hidden border-r border-border bg-card">
+								{/* Library keeps its own panel id so switching the assistant slot
+								    Coach→Library is a fresh panel identity, and each keeps its own
+								    persisted width via the per-panel-id bucket. */}
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
 									{coachOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
@@ -7177,7 +7180,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{bp === 'tablet' && effectiveStop === 'craft' && inspectorOpen && (
 							<>
 								<ResizableHandle aria-label="Resize inspector panel" />
-								<ResizablePanel id="studio-tablet-inspector" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={296} className="overflow-hidden border-l border-border bg-background">
+								<ResizablePanel id="studio-tablet-inspector" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-l border-border bg-background">
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
 							</>

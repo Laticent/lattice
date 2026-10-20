@@ -247,7 +247,7 @@ export function LensesPanel({
 			    control with one option. */}
 			{lenses.length > 0 && (
 				<div className="mt-2.5 rounded-lg border border-border bg-background px-2.5 py-2">
-					{/* WRAPS rather than clips. This panel docks into the ~200px Architect column (ARCH_MIN),
+					{/* WRAPS rather than clips. This panel docks into the 280px-minimum dock column (DOCK.min),
 					    where the label and a fixed-width select do not fit on one line — the same squeeze
 					    that made every LensRow header two lines. `flex-wrap` + `max-w-full` lets the select
 					    drop to its own line there and stay inline in the wider sheet. */}
