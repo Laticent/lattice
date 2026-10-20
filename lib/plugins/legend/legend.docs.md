@@ -84,8 +84,11 @@ while the words stay in plain ink. With none, the marker is a `circle` in the co
 number (1 is `c1`, 2 is `c2`), so the markers differ by color as well as by digit. Every marker sits
 on a ring of the canvas color so it reads on any cell. The marker on a cell is sized from the cell,
 so a dense grid gets small markers and a roomy one larger, within a legible floor; the one in the
-lane is sized from the words beside it, as a pill is from its text. A marker sits inside the corner when the cell has room beside
-its value, and on the corner itself when it does not. Numbers run row by row, then left to right,
+lane is sized from the words beside it, as a pill is from its text. The marker on a cell goes in the first spot that covers
+nothing: inside one of the cell's corners, else on a corner, at full size and then at its smallest.
+It never covers a printed value, a row or column name, or another marker. On a grid whose values
+fill their cells there may be no such spot; then the cell keeps its ring alone, and its label still
+sits level with its row. Numbers run row by row, then left to right,
 and the lane lists the labels in that order; one the lane cannot hold is dropped rather than drawn
 over another, with its marker, and the chart's description lists it as not drawn. A heatmap draws only
 `anchored` legends today: a `key` legend on one is not drawn, and is reported the same way.

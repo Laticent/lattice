@@ -500,8 +500,11 @@ owner chose numbers: the cell is ringed and carries a numbered marker in its top
 the same marker leads the label in the lane. The marker IS the label's plate, so the pill words
 (`circle` by default, `tag`, `c4`, …) style it and nothing new is added to the vocabulary; it sits
 on a knockout of the canvas color, a filled shape the PDF writer keeps, so it reads on any cell.
-It sits inside the corner when the cell has room beside its value, and on the corner when it does
-not. Numbers run row by row, then left to right. On the owner's second look, two more: with no
+It goes in the first spot that covers nothing (inside a corner, else on one, at full size and then
+at the floor size), tested against every printed value, the row and column names and the markers
+already placed; where no spot is clear, as on a grid whose four-digit values fill their cells, the
+marker is left off and the ring alone marks the cell (the checker on #2798 found the first rule,
+"on the corner when the cell is small", covered neighbors' values and the column names). Numbers run row by row, then left to right. On the owner's second look, two more: with no
 color word a marker takes the slot of its number, so the numbers differ by color too; and the marker
 on a cell is sized from the cell (a quarter of its shorter side, held between 0.75 and 1.1 of the
 label size), while the lane's copy is sized from its label, as a pill is from its text. Making the

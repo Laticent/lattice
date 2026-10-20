@@ -23,6 +23,7 @@ describe('readEntry: entry first, keyed pair on refusal (§ 13 spike 2)', () => 
     ['{Cold, c1}', { text: 'Cold', color: 1 }],
     ['{LIVE, tag, c4}', { text: 'LIVE', plate: 'tag', color: 4 }],
     ['{Dip, row="Feb 2026", col=M2}', { text: 'Dip', for: { row: 'Feb 2026', col: 'M2' } }],
+    ['{Dip, col=M2, for=3}', { text: 'Dip', for: '3' }],
     ['{1, Cold}', { key: '1', text: 'Cold' }],
     ['{"=>", Happy path}', { key: '=>', text: 'Happy path' }],
     ['{dashed, Sent back}', { key: 'dashed', text: 'Sent back' }],
@@ -192,7 +193,8 @@ describe('legend-messages: every code the reader emits has words', () => {
     ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is an anchored label with nothing to anchor to: add `row=` and `col=`/],
     ['@legend{{Peak, row=Jan}}', 'legend/half-target', /"Peak" names only its row: add `col=` too/],
     ['@legend{{Peak, col=M2}}', 'legend/half-target', /"Peak" names only its column: add `row=` too/],
-    ['@legend{{Peak, row=Jan, col=M2, for=3}}', 'legend/two-targets', /"Peak" names its cell twice/],
+    ['@legend{{Peak, row=Jan, col=M2, for=3}}', 'legend/two-targets', /"Peak" names its cell twice.*pair is the one drawn/],
+    ['@legend{{Peak, col=M2, for=3}}', 'legend/two-targets', /half a `row=`\/`col=` pair: keep one\. `for=` is the one drawn/],
   ];
   for (const [src, code, words] of cases) {
     test(code, () => {

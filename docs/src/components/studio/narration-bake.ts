@@ -40,7 +40,7 @@ import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
-import { applyChartNarration, narrationDeck, resolveNarration } from './narration-resolve';
+import { applyChartNarration, type NarrationDeck, narrationDeck, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getSayLine } from './slide-say';
 import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
@@ -408,14 +408,17 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	// length mismatch still stands the projection down, exactly as Present's guard does.
 	const projected = withoutAutoGlossary(rawProjected, slides.length, source);
 	const projectedEmphasis = withoutAutoGlossary(rawEmphasis, slides.length, source);
-	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected, undefined, narrationDeck(source, deckPluginsOff(source))) : null;
+	// The deck's legend switch and the host's off-list, for every chart narration below: a slide is
+	// narrated split from the deck, so it cannot see the front matter itself.
+	const chartDeck = narrationDeck(source, deckPluginsOff(source));
+	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected, undefined, chartDeck) : null;
 	const texts = slides.map((md, i) =>
 		resolveNarration({
 			say: getInlineSay(md),
 			fmSay: fmSayMap.get(i + 1),
 			// NO NOTE RUNG — see narration-resolve.ts. What gets BAKED is what the deck says,
 			// not what its author planned to say over it.
-			chart: aligned ? null : narrateChartSafe(md), // already substituted into `aligned`
+			chart: aligned ? null : narrateChartSafe(md, chartDeck), // already substituted into `aligned`
 			projected: aligned ? (aligned[i] ?? '') : null,
 			// The SAME last rung Present supplies under the same condition, and it has to be here
 			// for the same reason the ladder is shared at all. When the projection does not line
@@ -470,6 +473,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 		perSlide,
 		slideCount: slides.length,
 		bookendKeys,
+		chartDeck,
 		projectionUsed: Array.isArray(projected),
 		inputs: {
 			...(lang ? { lang } : {}),
@@ -488,9 +492,9 @@ function getInlineSay(md: string): string | null {
 		return null;
 	}
 }
-function narrateChartSafe(md: string): string | null {
+function narrateChartSafe(md: string, deck: NarrationDeck): string | null {
 	try {
-		return narrateChart(md);
+		return narrateChart(md, deck);
 	} catch {
 		return null;
 	}
@@ -663,7 +667,7 @@ export async function bakeNarration(
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { slides: slideMds, tracks, texts, emphases, perSlide, inputs, slideCount, bookendKeys } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { slides: slideMds, tracks, texts, emphases, perSlide, inputs, slideCount, bookendKeys, chartDeck } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
 	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs). Only the
 	// SLIDE rows: the bookend rows after them are split out below. The chart narrator's BINDING
@@ -672,7 +676,7 @@ export async function bakeNarration(
 	// sentence's scene from them (engineering/decisions/2026-09-27-guide-storyboards.md).
 	const refsOf = (i: number): { refs?: unknown[] } => {
 		try {
-			const script = narrateChartScript(slideMds[i] ?? '');
+			const script = narrateChartScript(slideMds[i] ?? '', chartDeck);
 			if (script?.refs.length && script.text === texts[i]) return { refs: script.refs };
 		} catch {
 			// an unreadable chart falls to the projection's binding below

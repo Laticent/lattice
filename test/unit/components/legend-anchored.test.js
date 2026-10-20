@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
-const { laneSvg, plateSvg, PLATE_CLASS } = require('../../../lib/components/chart/_chart-family/legend-svg');
+const { laneSvg, laneIndent, plateSvg, PLATE_CLASS } = require('../../../lib/components/chart/_chart-family/legend-svg');
 const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
 const { transformSection } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 const { narrateDataSeries, narrateChart } = require('../../../lib/core/chart-narration');
@@ -50,11 +50,15 @@ describe('laneSvg', () => {
     assert.equal(d.querySelectorAll('polyline').length, 0);
   });
 
-  test('with no color word, a marker takes the slot of its number; the author\'s word wins', () => {
+  test('with no color word, a marker takes the next slot no author word has used; the author\'s word wins', () => {
     const at = (text, cy, mark, more = {}) => ({ text, ...more, target: { cx: 10, cy, w: 10, h: 10, mark } });
     const { svg } = laneSvg([at('A', 20, 0), at('B', 40, 1, { color: 7 }), at('C', 60, 2)], opts);
     const slots = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number')].map((t) => `${t.textContent}:${t.getAttribute('data-c')}`);
-    assert.deepEqual(slots, ['1:c1', '1:c1', '2:c7', '2:c7', '3:c3', '3:c3']);
+    assert.deepEqual([...new Set(slots)], ['1:c1', '2:c7', '3:c2']);
+    // An author's c2 is not handed out again to the label after it.
+    const { svg: two } = laneSvg([at('A', 20, 0, { color: 'c2' }), at('B', 40, 1)], opts);
+    const used = [...new Set([...doc(`<svg>${two}</svg>`).querySelectorAll('text.legend-number')].map((t) => t.getAttribute('data-c')))];
+    assert.deepEqual(used, ['c2', 'c1']);
   });
 
   test('the marker on a mark takes the caller\'s size; the one in the lane is sized from its label', () => {
@@ -69,14 +73,44 @@ describe('laneSvg', () => {
     assert.deepEqual(placed.map((p) => p.n), [2, 3, 1]);
   });
 
-  test('the marker keeps clear of a value printed at the mark\'s center', () => {
-    const at = (clear) => {
-      const { svg } = laneSvg([{ text: 'A', target: { cx: 30, cy: 30, w: 40, h: 40, mark: 0, clear } }], opts);
-      return Number(doc(`<svg>${svg}</svg>`).querySelector('text.legend-number tspan').getAttribute('x'));
+  test('the marker on a mark sits in the first spot clear of everything it must avoid, or is left off', () => {
+    const t = { cx: 30, cy: 30, w: 40, h: 40, mark: 0 };
+    const pinX = (avoid) => {
+      const { svg, placed } = laneSvg([{ text: 'A', target: t }], { ...opts, avoid });
+      const nums = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number tspan')].map((n) => Number(n.getAttribute('x')));
+      return { xs: nums, pinned: placed[0].pinned };
     };
-    // Room in the corner: inside the mark. A value that fills the mark: centered on its corner.
-    assert.ok(at({ w: 8, h: 7 }) > 10);
-    assert.equal(at({ w: 40, h: 40 }), 10);
+    // Nothing to avoid: inside the top-left corner.
+    const free = pinX([]);
+    assert.ok(free.pinned && free.xs[0] > 10 && free.xs[0] < 30);
+    // The top-left quarter taken: the next corner, top right.
+    const tr = pinX([{ left: 0, right: 30, top: 0, bottom: 30 }]);
+    assert.ok(tr.pinned && tr.xs[0] > 30);
+    // The whole mark and its surroundings taken: no marker on the mark, the lane's marker kept.
+    const none = pinX([{ left: -1e9, right: 1e9, top: -1e9, bottom: 1e9 }]);
+    assert.equal(none.pinned, false);
+    assert.equal(none.xs.length, 1);
+    assert.ok(none.xs[0] >= opts.x);
+  });
+
+  test('two markers never sit on each other', () => {
+    const at = (cx, mark) => ({ text: `L${mark}`, target: { cx, cy: 30, w: 12, h: 12, mark } });
+    const { svg } = laneSvg([at(10, 0), at(22, 1)], { ...opts, markerSize: 7 });
+    const xs = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number tspan')].map((n) => Number(n.getAttribute('x'))).filter((v) => v < opts.x);
+    assert.equal(xs.length, 2);
+    assert.ok(Math.abs(xs[0] - xs[1]) > 5, `${xs}`);
+  });
+
+  test('the lane indents its words by its widest marker, shape and digits alike', () => {
+    const plain = laneIndent([{ text: 'A' }], 7.5);
+    assert.ok(laneIndent([{ text: 'A', plate: 'diamond' }], 7.5) > plain);
+    assert.ok(laneIndent(Array.from({ length: 10 }, () => ({ text: 'A' })), 7.5) > plain);
+    const { svg } = laneSvg([{ text: 'A', plate: 'diamond', target: { cx: 10, cy: 20, w: 10, h: 10, mark: 0 } }], opts);
+    const d = doc(`<svg>${svg}</svg>`);
+    const knock = [...d.querySelectorAll('polygon.legend-knockout')].pop().getAttribute('points').split(' ').map((p) => Number(p.split(',')[0]));
+    const textX = Number(d.querySelector('text.legend-text--bare tspan').getAttribute('x'));
+    assert.ok(Math.max(...knock) < textX, `${Math.max(...knock)} < ${textX}`);
+    assert.ok(Math.min(...knock) >= opts.x - 0.01);
   });
 
   test('labels stack in the order their marks sit, never overlapping', () => {
@@ -205,6 +239,34 @@ describe('heatmap: authored callouts', () => {
     const dense = size(`| | ${Array.from({ length: 12 }, (_, i) => `C${i}`).join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${Array.from({ length: 7 }, (_, r) => `| R${r} | ${Array.from({ length: 12 }, () => '5').join(' | ')} |`).join('\n')}`);
     assert.ok(roomy > dense, `${roomy} > ${dense}`);
     assert.ok(dense >= 7.5 * 0.75 - 0.01 && roomy <= 7.5 * 1.1 + 0.01);
+  });
+
+  test('on a dense grid with long values, no marker covers a printed value or a column name', () => {
+    const cols = Array.from({ length: 12 }, (_, i) => `January${i}`);
+    const rowsMd = Array.from({ length: 6 }, (_, r) => `| Region ${r} | ${cols.map((_, c) => 1000 + r * 40 + c).join(' | ')} |`).join('\n');
+    const table = `| | ${cols.join(' | ')} |\n|---|${'--:|'.repeat(12)}\n${rowsMd}`;
+    const out = transformSection(md.render(`## R\n\n${table}\n\n\`@legend{[{Corner, row=Region 0, col=January0}, {Next, row=Region 0, col=January1}, {Mid, row=Region 5, col=January5}]}\``), {});
+    const d = doc(out);
+    const box = (el) => {
+      if (el.tagName === 'rect') return { l: +el.getAttribute('x'), r: +el.getAttribute('x') + +el.getAttribute('width'), t: +el.getAttribute('y'), b: +el.getAttribute('y') + +el.getAttribute('height') };
+      const p = el.getAttribute('points').split(' ').map((q) => q.split(',').map(Number));
+      return { l: Math.min(...p.map((q) => q[0])), r: Math.max(...p.map((q) => q[0])), t: Math.min(...p.map((q) => q[1])), b: Math.max(...p.map((q) => q[1])) };
+    };
+    const cells = [...d.querySelectorAll('rect.heatmap-cell')].map(box);
+    const gridTop = Math.min(...cells.map((c) => c.t));
+    const gridLeft = Math.min(...cells.map((c) => c.l));
+    const gridRight = Math.max(...cells.map((c) => c.r));
+    const values = [...d.querySelectorAll('text.heatmap-value')].map((v) => {
+      const cx = +v.querySelector('tspan').getAttribute('x');
+      const cy = +v.querySelector('tspan').getAttribute('y');
+      const half = (v.textContent.length * 7 * 0.6) / 2;
+      return { l: cx - half, r: cx + half, t: cy - 3, b: cy + 3 };
+    });
+    const onGrid = [...d.querySelectorAll('.legend-knockout')].map(box).filter((k) => k.r <= gridRight + 0.01);
+    for (const k of onGrid) {
+      assert.ok(k.t >= gridTop - 0.01 && k.l >= gridLeft - 0.01, 'inside the grid, clear of the column and row names');
+      for (const v of values) assert.ok(!(k.l < v.r && v.l < k.r && k.t < v.b && v.t < k.b), `marker ${JSON.stringify(k)} covers value ${JSON.stringify(v)}`);
+    }
   });
 
   test('callouts and the band key share the figure: the key starts past the lane', () => {
