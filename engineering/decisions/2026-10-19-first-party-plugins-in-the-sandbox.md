@@ -164,3 +164,24 @@ So the owner's pick includes `'unsafe-eval'` in the function-plot frame's policy
 
 **Slices.** (1) draw host and frames, no consumer; (2) function-plot; (3) Mermaid; (4) math; (5) the preview stops loading libraries, then the trio on what ships. Each slice leaves every preview working.
 
+
+### Slice 3 built: Mermaid through the draw frame (2026-10-20)
+
+**Shape.** The runtime's Mermaid pass is untouched. `lib/plugins/mermaid/shared/draw-shim.mjs` is an object with the library global's shape (`initialize`, `render`, `mermaidAPI.getDiagramFromText`), installed by the plugin host's loader (`ensureLibrary`) where the library would have landed, when the embedding page offers a draw host. `lib/plugins/draw-shims.mjs` names the stand-ins by plugin, so `lib/runtime` names no plugin (`runtimePluginNames` stays at its budget). This kept the render queue, the per-palette `initialize`, the SVG cache, the gantt turn and the settle cap exactly as they were.
+
+**The diagram profile** (`lib/core/sanitize-diagram-svg.mjs`, HARD RULE #22 both channels): the slide profile with `<style>` and `<foreignObject>` admitted; each surviving sheet passes `sanitizeStyleText` and loses any `@import`. **It changes none of the 48 diagrams** in the corpus (the 32-diagram system-design deck, the plugin fixtures, the diagram gallery), compared as parsed-and-serialized DOM in real Chromium (`test/integration/export/draw-frame-mermaid.test.js`). The test is not vacuous: it requires the figures to hold both a `<foreignObject>` and a `<style>`, and a second arm shows a script, a handler, an `@import`, a `</style` terminator, an iframe in a label and a `javascript:` link all removed. So the provenance-census fallback was not needed.
+
+**What did not cross the boundary, and what replaced it.** `bindFunctions` is a closure and cannot cross `postMessage`. Tooltips are text in the SVG (`title` on `g.clickable`), so a plain hover binder replaces the library's. A gantt's links are read in the frame (`db.getLinks()`) and sent with the drawing. A click callback is not offered; at `securityLevel: 'strict'` the library's callback path returned early anyway. The deck's fonts are not in the frame, so the host fetches the faces named in the config's `fontFamily` from the engine's own font directories only, and sends them as `data:` URLs (`font-src data:` was already the policy).
+
+**Also fixed on the way:** the preview's frame builders no longer `<link rel="preload">` the library when the page has a draw host (the library was still being requested by the preview frame, which the e2e caught), and the Studio's Webpage bake frame is now excluded from the draw host (`playerBake`), so a bake takes the in-page path and its bytes stay the CLI's.
+
+**Measured cost (headless Chromium, real Studio, `docs/e2e/draw-frame-preview.spec.ts`, two runs each).**
+
+| | before (in page) | after (draw frame) |
+|---|---|---|
+| a diagram's first draw in a fresh page | 2341 / 2362 ms | 3366 / 3351 ms |
+| a later edit | 733 / 684 ms | 827 / 728 ms |
+
+**This is a regression, and it is disclosed, not hidden.** A Mermaid frame costs about 0.8 s to start (the 3 MB script runs on the page's own main thread; a `blob:` script inside the frame measured the same, so streaming parse is not the lever). The page warms the frame when a deck holds a fence, which overlaps it with the preview's own start, and the font fetch now runs while the frame opens, but the first diagram of a fresh page still waits about 1.0 s longer. The owner decides whether that is the price of keeping Mermaid out of the deck's page. Levers not taken: an anticipatory warm at Studio start (a 3 MB fetch and 0.8 s of main-thread work in every session, diagrams or not), and serving the frame from a different site so it runs out of process.
+
+**One visible difference:** the hover tooltip takes the diagram's own palette (its sheet's `div.mermaidTooltip` rule) where the library's tooltip showed a pale yellow. Screenshots at 1440, 820 and 390 px differ only inside the tooltip's box.

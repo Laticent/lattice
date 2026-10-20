@@ -93,7 +93,7 @@ describe('the previews\' draw host', () => {
 		const { installPreviewDrawHost, warmPreviewDrawHost } = await import('./preview-draw-host');
 		installPreviewDrawHost(win);
 		warmPreviewDrawHost('function-plot', win);
-		warmPreviewDrawHost('mermaid', win);
+		warmPreviewDrawHost('math', win);
 		await new Promise((r) => setTimeout(r, 50));
 		expect(calls.warm).toBe(1);
 		// No host on the page (an export, or a surface that offers none): warming does nothing and throws nothing.
@@ -103,6 +103,6 @@ describe('the previews\' draw host', () => {
 	it('refuses a kind it does not draw yet', async () => {
 		const { installPreviewDrawHost } = await import('./preview-draw-host');
 		installPreviewDrawHost(win);
-		await expect((win.__latticeDrawHost as { draw: (j: object) => Promise<string> }).draw({ kind: 'mermaid' })).rejects.toThrow(/does not draw mermaid yet/);
+		await expect((win.__latticeDrawHost as { draw: (j: object) => Promise<string> }).draw({ kind: 'math' })).rejects.toThrow(/does not draw math yet/);
 	});
 });

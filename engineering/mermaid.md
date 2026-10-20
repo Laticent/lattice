@@ -651,6 +651,41 @@ the global one, and it is joined by mermaid's separate TOP-LEVEL `fontFamily` an
 (§5.3e). A sketch deck therefore speaks in one voice everywhere and draws by hand wherever
 Mermaid can (#1674).
 
+## 5.3f Where the preview draws a diagram (the sandboxed draw frame)
+
+A live preview in the Studio or the Playground does not run Mermaid in the page that holds your deck. The preview frame
+holds a **stand-in for `window.mermaid`** (`lib/plugins/mermaid/shared/draw-shim.mjs`) and the runtime's Mermaid pass
+(`mermaid.hydrate.js`) runs unchanged on top of it: same render queue, same per-palette `initialize`, same SVG cache, same
+gantt turn, same settle cap. The stand-in answers the three calls the pass makes (`initialize`, `render`,
+`mermaidAPI.getDiagramFromText`) by sending the definition, the config for its palette and the page width to the embedding
+page's draw host (`docs/src/lib/preview-draw-host.ts`), which hands them to a **sandboxed frame** that holds the pinned
+library (`lib/packages/draw-frame-core.mjs`; `sandbox="allow-scripts"`, an opaque origin, `connect-src 'none'`, the one script
+allowed by hash).
+
+What comes back is text from a frame that ran a library over an author's definition, so it is untrusted. The host sanitizes
+it with the **diagram profile** (`lib/core/sanitize-diagram-svg.mjs`): the slide profile's rules, but `<style>` and
+`<foreignObject>` admitted, because every Mermaid figure is made of them. Each `<style>` that survives passes
+`sanitizeStyleText` and loses any `@import`. `test/integration/export/draw-frame-mermaid.test.js` draws 48 diagrams
+(the system-design deck, the plugin fixtures and the diagram gallery) and requires the sanitizer to change none of them.
+
+**What the stand-in replaces.**
+
+| In the page, the library did | In a preview with a draw host, the stand-in does |
+|---|---|
+| measure text in the deck's fonts | the host fetches the font faces named in the config's `fontFamily` from the engine's own font directories (and nowhere else), sends them as `data:` URLs, and the frame loads them before it draws |
+| bind a flowchart's or class diagram's tooltip | a plain hover binder over the `title` the library puts on each `g.clickable`; the tooltip takes the diagram's own palette rule |
+| bind a gantt's `click` link | the frame sends the chart's links with its drawing (`db.getLinks()`), the host keeps `http(s)`, `mailto:`, `#`, `/` and `.` targets, and the binder opens one in place |
+| run a click CALLBACK | nothing: at `securityLevel: 'strict'` the library's own callback path returned early |
+
+**What does not change.** The CLI export, the plain `.html`, the player, `--fluid` and Export-to-Marp have no host page, so
+they load the library as always. The Studio's Webpage bake frame draws in-page as well (`playerBake`), so its bytes stay the
+CLI's.
+
+**What it costs.** A frame is a document of its own and costs about 0.8 s to start (a 3 MB script). The page warms it when a
+deck holds a fence, so it overlaps the preview's own start, but a diagram's first draw in a fresh page still runs about 1.0 s
+longer than the in-page path (2.3 s to 3.4 s, headless Chromium, `docs/e2e/draw-frame-preview.spec.ts`). A later edit is
+within noise of the old path (about 0.7 s to 0.8 s), because the frame stays open.
+
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
 **Do not hand-copy theme variables into your diagram.** The engine already hands

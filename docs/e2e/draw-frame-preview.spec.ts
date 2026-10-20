@@ -91,3 +91,125 @@ test(`function-plot draws in the preview through a sandboxed draw frame, and its
 	}
 });
 }
+
+// ── MERMAID: the same wall. The preview frame holds a stand-in for `window.mermaid` that sends each definition to a
+//    sandboxed draw frame; the library is never loaded into the deck's page. A flowchart's tooltip and a gantt's link
+//    still work, and the diagram fits the three widths.
+// The preview shows one slide at a time, so each diagram has its own deck.
+const FLOW_DECK = `---
+theme: indaco
+---
+
+## A flow
+
+\`\`\`mermaid
+flowchart LR
+  A[Draft] --> B{Review}
+  B -->|ok| C[Ship]
+  click A "https://example.com/draft" "Where it starts"
+\`\`\`
+`;
+const GANTT_DECK = `---
+theme: indaco
+---
+
+## A schedule
+
+\`\`\`mermaid
+gantt
+  dateFormat YYYY-MM-DD
+  section Build
+  Design :d1, 2026-01-01, 5d
+  Ship :d2, after d1, 3d
+  click d1 href "https://example.com/design"
+\`\`\`
+`;
+
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`mermaid draws in the preview through a sandboxed draw frame, with its tooltip and its gantt link, and its library never loads into the deck page @smoke${tag}`, async ({ page, browserName }) => {
+		const evidence = process.env.LATTICE_EVIDENCE_DIR;
+		if (baseline) await page.addInitScript(() => Object.defineProperty(window, '__latticeDrawHost', { value: null, writable: false, configurable: false }));
+		const loaded: string[] = [];
+		page.on('request', (r) => {
+			if (/mermaid(\.min)?\.js/.test(r.url())) loaded.push(`${r.frame()?.url() || ''} → ${r.url()}`);
+		});
+		await gotoStudio(page);
+		const preview = livePreview(page);
+		const started = Date.now();
+		await setEditorContent(page, FLOW_DECK);
+
+		const flow = preview.locator('svg[id^="lattice-mmd-"]').first();
+		await expect(flow).toBeAttached({ timeout: 90_000 });
+		await expect(preview.locator('[data-lattice-settle="rendered"]').first()).toBeAttached({ timeout: 90_000 });
+		const firstDrawMs = Date.now() - started;
+		await expect(flow.locator('.node').first()).toBeAttached();
+
+		if (!baseline) {
+			// NOT IN PAGE; ONE SANDBOXED FRAME; the library was fetched by the Studio page, not by the preview frame.
+			expect(await preview.locator('html').evaluate(() => typeof (window as unknown as { mermaid?: { render?: unknown } }).mermaid?.render)).toBe('function');
+			await expect(preview.locator('script[src*="mermaid"]')).toHaveCount(0);
+			const frames = page.locator('iframe[data-lattice-draw-frame="mermaid"]');
+			await expect(frames).toHaveCount(1);
+			expect(await frames.first().getAttribute('sandbox')).toBe('allow-scripts');
+			expect(loaded.filter((l) => l.startsWith('about:srcdoc')), `the preview frame requested the library: ${loaded.join(' | ')}`).toEqual([]);
+		}
+
+		// A LATER EDIT redraws: the time from the edit to the new label, through the open frame (or the loaded library).
+		const again = Date.now();
+		await setEditorContent(page, FLOW_DECK.replace('Draft', 'Drafted'));
+		await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toContainText('Drafted', { timeout: 60_000 });
+		const redrawMs = Date.now() - again;
+		await setEditorContent(page, FLOW_DECK);
+		await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).not.toContainText('Drafted', { timeout: 60_000 });
+
+		// THE TOOLTIP: hovering the clickable node shows its text.
+		const node = preview.locator('g.node.clickable').first();
+		await expect(node).toBeAttached();
+		if (!baseline) await expect(node).toHaveAttribute('data-lattice-tip', 'Where it starts');
+		// A real pointer reaches the node only through the Studio's own stage, which the preview owns; the binder is the subject here.
+		await node.dispatchEvent('mouseover');
+		await expect(preview.locator('body > .mermaidTooltip').first()).toHaveText('Where it starts');
+
+		// THE GANTT LINK: the bar of a task with a `click` opens the link; the frame sent the chart's links with its drawing.
+		await setEditorContent(page, GANTT_DECK);
+		const bar = preview.locator('svg[id^="lattice-mmd-"] rect[id$="-d1"]').first();
+		await expect(bar).toBeAttached({ timeout: 60_000 });
+		await preview.locator('html').evaluate(() => {
+			const opened: string[] = [];
+			(window as unknown as { __opened: string[] }).__opened = opened;
+			window.open = ((u: string) => {
+				opened.push(String(u));
+				return null;
+			}) as typeof window.open;
+		});
+		await bar.dispatchEvent('click');
+		expect(await preview.locator('html').evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual(['https://example.com/design']);
+
+		test.info().annotations.push({ type: 'latency', description: `mermaid first draw ${firstDrawMs} ms, redraw ${redrawMs} ms` });
+		const marks = await page.evaluate(() => performance.getEntriesByType('mark').filter((m) => m.name.startsWith('lattice-draw:')).map((m) => `${m.name.slice(13)}@${Math.round(m.startTime)}`));
+		test.info().annotations.push({ type: 'phases', description: marks.join(' ') });
+		if (evidence) {
+			for (const [width, height] of [
+				[1440, 900],
+				[820, 1180],
+				[390, 844],
+			]) {
+				await page.setViewportSize({ width, height });
+				await expect(flow).toBeVisible();
+				let previous = '';
+				await expect
+					.poll(
+						async () => {
+							const current = (await page.screenshot()).toString('base64');
+							const same = current === previous;
+							previous = current;
+							return same;
+						},
+						{ timeout: 15_000, intervals: [300] },
+					)
+					.toBe(true);
+				await page.screenshot({ path: `${evidence}/draw-frame-mermaid${baseline ? '-baseline' : ''}-${browserName}-${width}.png` });
+			}
+		}
+	});
+}

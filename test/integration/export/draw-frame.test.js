@@ -108,8 +108,12 @@ test('DRAW: Mermaid and function-plot come back as SVG; the plot is the CLI lock
       { kind: 'mermaid', svgId: 'dg-1', definition: 'this is not a diagram ->>', config: { startOnLoad: false } },
     ]);
     assert.equal(mer.ready, true);
-    assert.match(mer.replies[0].out, /^<svg [^>]*id="dg-0"/);
-    assert.match(mer.replies[0].out, /Draft/);
+    // A Mermaid draw answers a JSON figure: the library's own svg text, its diagram type, and (a gantt's) its links.
+    const fig = JSON.parse(mer.replies[0].out);
+    assert.match(fig.svg, /^<svg [^>]*id="dg-0"/);
+    assert.match(fig.svg, /Draft/);
+    assert.equal(fig.type, 'flowchart-v2');
+    assert.deepEqual(fig.links, []);
     assert.ok(mer.replies[1].error, 'a definition Mermaid refuses is an error, not an empty drawing');
 
     const plot = await inPage(browser, await frameHtml('function-plot'), [
@@ -160,5 +164,5 @@ test('REPLY: the host accepts a drawing and nothing else', async () => {
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 7 }).error, /not text/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: null }).error, /null/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 'x'.repeat(MAX_DRAW_CHARS + 1) }).error, /past the/);
-  assert.equal(checkDrawReply({ t: 'result', id: 1, error: 'e'.repeat(1000) }).error.length, 300);
+  assert.equal(checkDrawReply({ t: 'result', id: 1, error: 'e'.repeat(1000) }).error.length, 600);
 });

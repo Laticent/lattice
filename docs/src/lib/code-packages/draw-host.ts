@@ -15,7 +15,7 @@ import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/draw-frame-librari
 
 export type DrawKind = keyof typeof DRAW_KINDS;
 export type DrawJob =
-	| { kind: 'mermaid'; definition: string; svgId: string; config: Record<string, unknown> }
+	| { kind: 'mermaid'; definition: string; svgId: string; config: Record<string, unknown>; stage?: number; fonts?: Array<{ family: string; weight: string; style: string; data: string }> }
 	| { kind: 'function-plot'; configB64: string; configText: string; width: number; height: number; index: number };
 export type DrawHost = {
 	/** Draw one figure, answering its SVG as text, or rejecting with why it did not draw. */
