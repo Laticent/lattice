@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
-Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
+Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
 
 ## Agent contract
 
@@ -385,6 +385,20 @@ A wider card with larger type, for a message that leads.
 ## card-lg lets the message lead.
 
 Wider card, bigger heading, room for a longer line.
+
+![bg](sample:photo-wide.svg)
+```
+
+### `card-regular` — Regular density
+
+The default card spacing, so one slide can step out of a deck-wide compact.
+
+```markdown
+<!-- _class: image spotlight card-regular -->
+
+## card-regular keeps the default spacing.
+
+In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
 ![bg](sample:photo-wide.svg)
 ```

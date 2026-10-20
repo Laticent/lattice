@@ -1,0 +1,113 @@
+import type { Page } from '@playwright/test';
+import { CHROME, expect, gotoStudio, openInspectorTab, openSection, persistedSource, setEditorContent, test } from './studio-fixture';
+
+// The `image-card:` register's two Studio surfaces: the deck Image tab in deck settings, and the
+// per-slide Image tab in Slide settings on an image slide. Asserted on the persisted source,
+// which is what the engine reads. Modeled on card-tag-register.spec.ts.
+
+const SLIDE = '<!-- _class: image spotlight -->\n\n## A photo.\n\nThe words.\n\n![bg](sample:photo-wide.svg)\n';
+const DECK = `---\ntitle: Photos\n---\n\n${SLIDE}`;
+
+test.beforeEach(async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+});
+
+async function choose(page: Page, label: string, option: string): Promise<void> {
+	await page.getByRole('combobox', { name: label }).filter({ visible: true }).first().click();
+	await page.getByRole('option', { name: option, exact: true }).click();
+}
+
+async function openSlideImageTab(page: Page): Promise<void> {
+	// At 390px the bottom bar's Settings opens both scopes behind a Slide | Deck switch.
+	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
+	if (await slideButton.count()) await slideButton.first().click();
+	else {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
+	}
+	await openSection(page, CHROME.slideTab.image);
+}
+
+for (const tag of ['', ' @webkit-tablet']) {
+	test(`deck settings: the Image tab writes one \`image-card:\` line from five selects${tag}`, async ({ page }) => {
+		await openInspectorTab(page, 'image');
+		await choose(page, 'Card placement', 'Top right');
+		await expect.poll(() => persistedSource(page)).toContain('\\nimage-card: top-right\\n');
+		await choose(page, 'Card backing', 'Soft — 80%');
+		await choose(page, 'Card size', 'Small');
+		await choose(page, 'Card density', 'Compact');
+		// The Studio writer may quote a value with a space; the engine unquotes it.
+		await expect.poll(() => persistedSource(page)).toMatch(/\\nimage-card: (\\"top-right soft sm compact\\"|top-right soft sm compact)\\n/);
+		// Every axis back to its default removes the key rather than writing an empty value.
+		for (const [label, head] of [['Card placement', 'Bottom left (default)'], ['Card backing', 'Solid (default)'], ['Card size', 'Medium (default)'], ['Card density', 'Regular (default)']]) {
+			await choose(page, label, head);
+		}
+		await expect.poll(() => persistedSource(page)).not.toContain('image-card:');
+	});
+
+	test(`slide settings: the Image tab writes the card classes, and Auto follows the deck${tag}`, async ({ page }) => {
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE}`);
+		await openSlideImageTab(page);
+		await expect(page.getByRole('combobox', { name: 'Slide card placement' }).filter({ visible: true }).first()).toContainText('Top right');
+		await choose(page, 'Slide card placement', 'Bottom center');
+		await expect.poll(() => persistedSource(page)).toContain('image spotlight at-bottom');
+		await choose(page, 'Slide card ink', 'Light words');
+		await expect.poll(() => persistedSource(page)).toContain('ink-light');
+		await choose(page, 'Slide card placement', 'Auto — Top right');
+		await expect.poll(() => persistedSource(page)).not.toContain('at-bottom');
+	});
+
+	test(`slide settings: no Image tab on a slide that is not an image slide${tag}`, async ({ page }) => {
+		await setEditorContent(page, '---\ntitle: Plain\n---\n\n<!-- _class: content -->\n\n## Prose\n\nBody.\n');
+		await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
+		await expect(page.getByRole('combobox', { name: 'Slide card placement' }).filter({ visible: true })).toHaveCount(0);
+		await expect(page.getByRole('tab', { name: 'Image', exact: true })).toHaveCount(0);
+	});
+}
+
+// Screenshot evidence at the three shipped widths (QUALITY BAR). Not a golden diff: the shots
+// land in test-results for a human to look at.
+async function openDeckSettingsAt(page: Page, width: number): Promise<void> {
+	if (width >= 1200) {
+		await openInspectorTab(page, 'image');
+		return;
+	}
+	if (width > 500) {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.tabletMenu }).first().click();
+		await page.locator('[role=menuitem],[role=menuitemradio],button,[role=button]').filter({ hasText: CHROME.deckSettingsAt.tabletItem }).first().click();
+	} else {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+	}
+	await openSection(page, CHROME.deckTab.image);
+}
+
+for (const [label, width, height] of [
+	['desktop', 1440, 900],
+	['tablet', 820, 1180],
+	['mobile', 390, 844],
+] as const) {
+	test(`@crosswidth the deck Image tab at ${label} (${width}px)`, async ({ page }, info) => {
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft sm\n---\n\n${SLIDE}`);
+		await page.setViewportSize({ width, height });
+		await openDeckSettingsAt(page, width);
+		const placement = page.getByRole('combobox', { name: 'Card placement' }).filter({ visible: true }).first();
+		await placement.scrollIntoViewIfNeeded();
+		await expect(placement).toContainText('Top right');
+		await expect(page.getByRole('combobox', { name: 'Card backing' }).filter({ visible: true }).first()).toContainText('Soft');
+		await expect(page.getByRole('combobox', { name: 'Card size' }).filter({ visible: true }).first()).toContainText('Small');
+		await page.screenshot({ path: info.outputPath(`image-card-deck-${label}.png`) });
+	});
+
+	test(`@crosswidth the slide Image tab at ${label} (${width}px)`, async ({ page }, info) => {
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight card-sm')}`);
+		await page.setViewportSize({ width, height });
+		await openSlideImageTab(page);
+		const size = page.getByRole('combobox', { name: 'Slide card size' }).filter({ visible: true }).first();
+		await size.scrollIntoViewIfNeeded();
+		await expect(size).toContainText('Small');
+		await expect(page.getByRole('combobox', { name: 'Slide card placement' }).filter({ visible: true }).first()).toContainText('Top right');
+		await page.screenshot({ path: info.outputPath(`image-card-slide-${label}.png`) });
+	});
+}

@@ -556,7 +556,11 @@ section.image[data-img-composition="statement"][data-orientation="square"] .imag
  *              type step together; `card-sm` is the discreet one that lets
  *              the photo carry the slide
  *   density    `compact` (the universal modifier) tightens the card's padding
- *              and its inset from the slide edge, at any size
+ *              and its inset from the slide edge, at any size; `card-regular`
+ *              restates the default, to step out of a deck-wide compact
+ *
+ * The deck front-matter `image-card:` register writes these same classes on every
+ * image slide, one word per axis (lib/core/resolve-image-card.js).
  *
  * `at-*` is the universal placement vocabulary the corner and edge tints
  * already use (lib/base/treatments.js), with `at-center` added for the card.
@@ -699,4 +703,8 @@ section.image[data-img-composition="statement"]:not([data-orientation="portrait"
  * reach, so `compact` scales it directly: padding and the edge inset to 70%,
  * and the body to the snug line height. Composes with every size step. */
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).compact { --_card-density: 0.7; }
-section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).compact .image-text p { line-height: var(--lh-snug); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).compact:not(.card-regular) .image-text p { line-height: var(--lh-snug); }
+/* `card-regular` restates the default density, so one slide can step out of a deck-wide
+ * `image-card: compact` (lib/core/resolve-image-card.js). Written after `.compact` at the same
+ * specificity, so it wins when a slide carries both. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-regular { --_card-density: 1; }

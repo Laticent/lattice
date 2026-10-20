@@ -32,6 +32,7 @@ import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
+import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -39,7 +40,7 @@ import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setChartFinish, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setChartFinish, setEyebrow, setFinish, setHeadline, setImageCard, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -420,6 +421,15 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		[chunk, source],
 	);
 	const onCardTag = (axis: CardTagAxis, v: string) => onMutate((c) => setCardTag(c, axis, v === '__inherit__' ? null : v));
+	// Image card — the deck `image-card:` register's per-slide override (lib/core/resolve-image-card.js),
+	// on image slides only. Five axes, each Auto = follow the deck, then the layout's default.
+	// `includes`, not `component`: the engine stamps the deck's words on any slide naming `image`.
+	const showsImageCard = tokens.includes('image');
+	const imageCard = React.useMemo(
+		() => Object.fromEntries(IMAGE_CARD_ROWS.map((r) => [r.axis, imageCardProvenance(chunk, source, r.axis)])) as Record<ImageCardAxis, ReturnType<typeof imageCardProvenance>>,
+		[chunk, source],
+	);
+	const onImageCard = (axis: ImageCardAxis, v: string) => onMutate((c) => setImageCard(c, axis, v === '__inherit__' ? null : v));
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
@@ -739,6 +749,39 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								</Row>
 							)}
 							{accepts('accent') && <Row label="Accent" desc="Emphasize this layout's key element." help={<>Picks out whatever this layout treats as its focal element and paints it in the theme accent.</>}><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+						</div>
+			),
+		}] : []),
+		// IMAGE — the text card on a photo slide; only on `image` slides, and next to Look because
+		// on one of those it is the setting an author reaches for first.
+		...(editable && showsImageCard ? [{
+			value: 'image',
+			label: 'Image',
+			keywords: 'image photo picture spotlight statement card text placement opacity ink size compact',
+			body: () => (
+						<div className="py-1">
+							<TabIntro>The text card over the photo. It moves on <code>spotlight</code> and <code>statement</code>, the two layouts that float the words over the picture. Auto follows the deck's Image settings.</TabIntro>
+							{IMAGE_CARD_ROWS.map((row) => {
+								const p = imageCard[row.axis];
+								return (
+									<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
+										<CatalogSelect
+											ariaLabel={`Slide ${row.label.toLowerCase()}`}
+											value={p.state === 'on' ? (p.value ?? '__inherit__') : '__inherit__'}
+											onValueChange={(v) => onImageCard(row.axis, v)}
+											className="w-full"
+											groups={[
+												{
+													options: [
+														{ value: '__inherit__', label: autoHead(p.deckValue ? imageCardOptionLabel(p.deckValue) : IMAGE_CARD_DEFAULT_LABEL[row.axis]) },
+														...imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w) })),
+													],
+												},
+											]}
+										/>
+									</Row>
+								);
+							})}
 						</div>
 			),
 		}] : []),

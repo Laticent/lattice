@@ -291,6 +291,18 @@ Wider card, bigger heading, room for a longer line.
 
 ---
 
+<!-- _class: image spotlight card-regular -->
+<!-- _footer: "Regular density · image card-regular — The default card spacing, so one slide can step out of a deck-wide compact." -->
+
+## card-regular keeps the default spacing.
+
+In a deck that sets `image-card: compact`, this slide keeps the roomier card.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
 <!-- _class: image dark -->
 <!-- _footer: "Composition: dark · image dark" -->
 

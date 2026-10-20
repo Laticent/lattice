@@ -553,3 +553,63 @@ export function setCardTag(chunk: string, axis: CardTagAxis, name: string | null
 	return setClassTokens(chunk, kept);
 }
 
+
+// ── image card (the `image-card:` register) ─────────────────────────────────────────────────
+// Mirrors lib/core/resolve-image-card.js, which the docs build cannot import (CJS); a unit test
+// pins the maps to it. Five axes on ONE deck line (`image-card: top-right soft sm`). Unlike
+// `tag:`, the deck WORD and the slide CLASS differ (`top-right` ↔ `at-tr`), so each axis maps
+// word → class. A slide class evicts the deck's word on its axis only, on image slides only.
+export const IMAGE_CARD_AXES = {
+	placement: {
+		'bottom-left': 'at-bl', bottom: 'at-bottom', 'bottom-right': 'at-br', center: 'at-center',
+		'top-left': 'at-tl', top: 'at-top', 'top-right': 'at-tr',
+	},
+	backing: { solid: 'card-solid', soft: 'card-soft', sheer: 'card-sheer', clear: 'card-clear' },
+	ink: { light: 'ink-light', dark: 'ink-dark' },
+	size: { md: 'card-md', sm: 'card-sm', lg: 'card-lg' },
+	density: { regular: 'card-regular', compact: 'compact' },
+} as const;
+export type ImageCardAxis = keyof typeof IMAGE_CARD_AXES;
+export const IMAGE_CARD_AXIS_ORDER: readonly ImageCardAxis[] = ['placement', 'backing', 'ink', 'size', 'density'];
+/** The words of one axis, in the kernel's order (the first is the default). */
+export const imageCardWords = (axis: ImageCardAxis): string[] => Object.keys(IMAGE_CARD_AXES[axis]);
+const imageCardClass = (axis: ImageCardAxis, word: string): string | undefined =>
+	(IMAGE_CARD_AXES[axis] as Record<string, string>)[word];
+const imageCardWordOf = (axis: ImageCardAxis, cls: string): string | undefined =>
+	imageCardWords(axis).find((w) => imageCardClass(axis, w) === cls);
+
+/** The deck's `image-card:` value split onto its five axes (first recognized word per axis). */
+export function deckImageCard(source: string): Partial<Record<ImageCardAxis, string>> {
+	const raw = (getFrontMatter(source, 'image-card') || '').replace(/\s#.*$/, '').trim().toLowerCase();
+	const out: Partial<Record<ImageCardAxis, string>> = {};
+	for (const word of raw.split(/[\s,]+/).filter(Boolean)) {
+		const axis = IMAGE_CARD_AXIS_ORDER.find((a) => imageCardWords(a).includes(word));
+		if (axis && !out[axis]) out[axis] = word;
+	}
+	return out;
+}
+
+/** Write the deck line from its axes, in axis order; all empty removes the key. */
+export function imageCardDeckValue(parts: Partial<Record<ImageCardAxis, string | null | undefined>>): string | null {
+	const v = IMAGE_CARD_AXIS_ORDER.map((a) => parts[a]).filter(Boolean).join(' ');
+	return v || null;
+}
+
+/** Where a slide's value on one axis comes from: its own class, the deck's word, or neither. */
+export function imageCardProvenance(chunk: string, source: string, axis: ImageCardAxis): Provenance {
+	const own = getClassTokens(chunk).map((t) => imageCardWordOf(axis, t)).find(Boolean);
+	const deckValue = deckImageCard(source)[axis];
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own, deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set one axis on the slide by its deck word; `null` clears it so the slide follows the deck. */
+export function setImageCard(chunk: string, axis: ImageCardAxis, word: string | null): string {
+	const classes = new Set(Object.values(IMAGE_CARD_AXES[axis]) as string[]);
+	const kept = getClassTokens(chunk).filter((t) => !classes.has(t));
+	const cls = word ? imageCardClass(axis, word) : undefined;
+	if (cls) kept.push(cls);
+	return setClassTokens(chunk, kept);
+}
