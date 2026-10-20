@@ -168,7 +168,6 @@ describe('replaceFences writes the values on the slide’s own <section>', () =>
 
 describe('host slots: `${field}` in a drawing takes the checked value, in visible text only (owner, 2026-10-20)', () => {
   const { fillReturnSlots, slotFills, slotMarkdownHtml } = require('../../../lib/packages/plugin-returns.mjs');
-  const { scopePluginCss } = require('../../../lib/packages/code-door-fence.mjs');
   const fill = (html, data) => {
     const r = check(data);
     assert.ok(r.values, JSON.stringify(r));
