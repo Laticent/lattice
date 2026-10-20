@@ -144,9 +144,22 @@ describe('slide-comments in a live session', () => {
 	it('takes what the session sends without reporting it back, and drops a malformed one', () => {
 		const mine = addComment(DECK, 1, 'Mine');
 		const log = relay();
-		mergeSessionComments(DECK, [{ id: 's1', slide: 2, author: 'Amina', body: 'Shared', createdAt: 5, resolved: false }, { id: 's2', slide: 0, author: 'x', body: 'bad slide', createdAt: 5, resolved: false }], [String(mine?.id)]);
-		expect(listComments(DECK).map((c) => c.id)).toEqual(['s1']);
+		mergeSessionComments(DECK, [{ id: 'mine-shared', slide: 1, author: 'You', body: 'x', createdAt: 5, resolved: false, owner: 'me' }], [], 'me');
+		mergeSessionComments(DECK, [{ id: 's1', slide: 2, author: 'Amina', body: 'Shared', createdAt: 5, resolved: false, owner: 'amina' }, { id: 's2', slide: 0, author: 'x', body: 'bad slide', createdAt: 5, resolved: false, owner: 'x' }], [{ id: String(mine?.id), owner: 'me' }], 'me');
+		expect(listComments(DECK).map((c) => c.id)).toEqual(['mine-shared', 's1']);
 		expect(log).toEqual([]);
 	});
-});
 
+	it("never lets someone else's word take over a comment this copy holds under another owner, or one never shared", () => {
+		const own = addComment(DECK, 1, 'My private note');
+		mergeSessionComments(DECK, [{ id: 'old1', slide: 2, author: 'Amina', body: 'Check the number', createdAt: 5, resolved: false, owner: 'amina' }], [], 'me');
+		// Mallory re-adds both ids under her own ownership, then deletes them.
+		mergeSessionComments(DECK, [{ id: 'old1', slide: 2, author: 'Mallory', body: 'FORGED', createdAt: 6, resolved: false, owner: 'mallory' }, { id: String(own?.id), slide: 1, author: 'Mallory', body: 'FORGED', createdAt: 6, resolved: false, owner: 'mallory' }], [], 'me');
+		mergeSessionComments(DECK, [], [{ id: 'old1', owner: 'mallory' }, { id: String(own?.id), owner: 'mallory' }], 'me');
+		const held = listComments(DECK);
+		expect(held.map((c) => c.body).sort()).toEqual(['Check the number', 'My private note']);
+		// Amina's own word still reaches her comment.
+		mergeSessionComments(DECK, [], [{ id: 'old1', owner: 'amina' }], 'me');
+		expect(listComments(DECK).map((c) => c.id)).toEqual([own?.id]);
+	});
+});

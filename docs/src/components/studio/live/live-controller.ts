@@ -231,7 +231,8 @@ const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 ||
 // carrying history is held under a byte budget, newest kept; the sealed save, which a browser's
 // sessionStorage holds beside everything else, under a smaller one.
 const HISTORY_BYTES = 3_000_000;
-const SAVED_BYTES = 1_200_000;
+/** Chat and comments each get this much of the sealed save (about 2.1M characters together, sealed). */
+const SAVED_BYTES = 800_000;
 const bytesOf = (v: unknown): number => new TextEncoder().encode(JSON.stringify(v)).length;
 /** The newest items that fit `budget` bytes, in their order. */
 function newestWithin<T>(items: T[], budget: number): T[] {
@@ -267,7 +268,7 @@ function chunksWithin<T>(items: T[], budget: number): T[][] {
 // ── Comments (slice 6, 2026-10-20 note §4 tier 5) ─────────────────────────────────────────────────────
 /** A slide comment as a session holds it. `owner` is the writer's rejoin-token id (a one-way hash of a
  *  secret, so it identifies without letting anyone rejoin as them): who may delete it. */
-export type SessionComment = { id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean; owner: string };
+export type SessionComment = { id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean; owner: string; sharedBy?: string };
 /** The same limits a comment has anywhere, and how many one session holds. */
 const COMMENT_BODY_MAX = 2000;
 const COMMENTS_MAX = 500;
@@ -277,7 +278,8 @@ const cleanComment = (x: unknown): SessionComment | null => {
 	const c = x as Partial<SessionComment> | null;
 	if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !COMMENT_ID.test(c.id) || !Number.isInteger(c.slide) || (c.slide as number) < 1 || (c.slide as number) > POINTER_MAX_SLIDE) return null;
 	if (typeof c.body !== 'string' || !c.body.trim() || typeof c.author !== 'string' || typeof c.owner !== 'string' || c.owner.length > 128 || typeof c.resolved !== 'boolean' || typeof c.createdAt !== 'number' || !Number.isFinite(c.createdAt) || Math.abs(c.createdAt) > 1e14) return null;
-	return { id: c.id, slide: c.slide as number, author: cleanName(c.author), body: c.body.slice(0, COMMENT_BODY_MAX), createdAt: c.createdAt, resolved: c.resolved, owner: c.owner };
+	if (c.sharedBy !== undefined && typeof c.sharedBy !== 'string') return null;
+	return { id: c.id, slide: c.slide as number, author: cleanName(c.author), body: c.body.slice(0, COMMENT_BODY_MAX), createdAt: c.createdAt, resolved: c.resolved, owner: c.owner, ...(c.sharedBy ? { sharedBy: cleanName(c.sharedBy) } : {}) };
 };
 
 /** An AI turn shared into the chat is capped like a long message: the question short, the answer longer. */
@@ -571,6 +573,8 @@ export class LiveController {
 	private roomPresentAt = 0;
 	/** Comments shared in this session (slice 6), by id. Every member holds them all, so an heir has them. */
 	private cmts = new Map<string, SessionComment>();
+	/** Comment actions taken while the host was away, sent when it is back. */
+	private cmtQueue: Array<Extract<Post, { k: 'cmt' }>> = [];
 	/** Show me together: when the last tour reached this browser, and the start waiting for its moment. */
 	private tourAt = 0;
 	private tourLater: ReturnType<typeof setTimeout> | null = null;
@@ -1111,6 +1115,7 @@ export class LiveController {
 		this.fromY.clear();
 		this.chat = [];
 		this.cmts.clear();
+		this.cmtQueue = [];
 		this.lastSealed = null;
 		for (const a of this.away.values()) clearTimeout(a.timer);
 		this.away.clear();
@@ -1771,6 +1776,9 @@ export class LiveController {
 		const next = kept.map((p) => ({ ...p, tries: (p.tries ?? 0) + 1 }));
 		this.setPending(next);
 		for (const p of next) this.post({ k: 'say', id: p.id, text: p.text, have: this.seq, ...(p.note ? { note: p.note } : {}) }, host);
+		const ops = this.cmtQueue;
+		this.cmtQueue = [];
+		for (const op of ops) this.post(op, host);
 	}
 
 	/** Host: a member holding a number past ours means our save was older than the session (a reload),
@@ -2106,9 +2114,11 @@ export class LiveController {
 			const createdAt = typeof p.at === 'number' && Number.isFinite(p.at) && p.at <= now && p.at > now - 10 * 365 * 86_400_000 ? p.at : now;
 			// Someone else's comment kept from an earlier session is shown as theirs, shared by this person: the
 			// host never takes a sender's word for whose name a comment carries.
+			// The writer's name and the sharer's travel as two fields, each a name of its own, so neither can be
+			// cut to look like the other (checker, slice 6: one joined label lost its "shared by" at 40 characters).
 			const by = typeof p.by === 'string' ? cleanName(p.by) : '';
-			const author = by && by !== 'You' && by !== cleanName(sender.name) ? `${by} · shared by ${cleanName(sender.name)}` : cleanName(sender.name);
-			const c: SessionComment = { id: p.id, slide: p.slide, author, body, createdAt, resolved: false, owner };
+			const shared = !!by && by !== 'You' && by !== cleanName(sender.name);
+			const c: SessionComment = { id: p.id, slide: p.slide, author: shared ? by : cleanName(sender.name), body, createdAt, resolved: false, owner, ...(shared ? { sharedBy: cleanName(sender.name) } : {}) };
 			this.putComments([c], []);
 			this.post({ k: 'cmtset', c });
 		} else if (p.op === 'resolve' && had && typeof p.resolved === 'boolean') {
@@ -2128,10 +2138,17 @@ export class LiveController {
 			if (!this.cmts.has(c.id) && this.cmts.size >= COMMENTS_MAX) continue;
 			this.cmts.set(c.id, c);
 		}
-		for (const id of del) this.cmts.delete(id);
+		// A deletion names the owner the session knew, so a copy held under another owner stays.
+		const gone = del.flatMap((id) => {
+			const c = this.cmts.get(id);
+			this.cmts.delete(id);
+			return c ? [{ id, owner: c.owner }] : [];
+		});
 		const deck = this.boundDeck;
 		const mine = this.myOwner();
-		if (deck) this.host.applyComments?.(deck, set.filter((c) => this.cmts.has(c.id)).map((c) => ({ ...c, author: c.owner === mine ? 'You' : c.author })), del);
+		// "You" where this person wrote it, or shared it; never over someone else's name.
+		const local = (c: SessionComment) => (c.owner !== mine ? c : c.sharedBy ? { ...c, sharedBy: 'You' } : { ...c, author: 'You' });
+		if (deck) this.host.applyComments?.(deck, set.filter((c) => this.cmts.has(c.id)).map(local), gone, mine);
 		if (this.rt?.session.getState().isHost) this.saveHostSoon();
 		this.host.rerender();
 	}
@@ -2149,7 +2166,9 @@ export class LiveController {
 		if (s.isHost) this.hostComment(op, s.selfId, s.me, r);
 		else {
 			const host = this.hostId();
+			// While the host is away, it waits and goes when the host is back (`catchUp`).
 			if (host && !s.hostAway) this.post(op, host);
+			else this.cmtQueue = [...this.cmtQueue, op].slice(-200);
 		}
 	}
 

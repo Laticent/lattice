@@ -3893,7 +3893,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		presenting: presentOpen,
 		asking: aiAsking,
 		comments: practice ? [] : deckComments,
-		applyComments: (deckId, set, del) => mergeSessionComments(deckId, set, del),
+		applyComments: (deckId, set, del, me) => mergeSessionComments(deckId, set, del, me),
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
 		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson

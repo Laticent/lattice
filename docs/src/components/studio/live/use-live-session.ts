@@ -37,7 +37,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				openRoomPresent: () => depsRef.current.openRoomPresent?.(),
 				closeRoomPresent: () => depsRef.current.closeRoomPresent?.(),
 				startTour: (id) => depsRef.current.startTour?.(id),
-				applyComments: (deck, set, del) => depsRef.current.applyComments?.(deck, set, del),
+				applyComments: (deck, set, del, me) => depsRef.current.applyComments?.(deck, set, del, me),
 				notify: (m) => notify(m),
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,

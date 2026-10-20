@@ -24,6 +24,11 @@ export type SlideComment = {
 	/** ms epoch. */
 	createdAt: number;
 	resolved: boolean;
+	/** Set on a comment a live session shared: who shared it, when that was not its writer (slice 6). */
+	sharedBy?: string;
+	/** Set on a comment that came from a live session: its owner's id there. Only that owner's word may
+	 *  change or remove this copy later, so nobody can take a comment over by reusing its id. */
+	owner?: string;
 };
 
 const PREFIX = 'lattice-studio-comments-'; // + deckId → SlideComment[]
@@ -97,7 +102,9 @@ function isComment(c: unknown): c is SlideComment {
 		typeof o.author === 'string' &&
 		typeof o.createdAt === 'number' &&
 		Number.isFinite(o.createdAt) &&
-		typeof o.resolved === 'boolean'
+		typeof o.resolved === 'boolean' &&
+		(o.sharedBy === undefined || typeof o.sharedBy === 'string') &&
+		(o.owner === undefined || typeof o.owner === 'string')
 	);
 }
 
@@ -172,14 +179,31 @@ export function deleteComment(deckId: string, id: string): void {
  * Put comments a live session shared onto this browser's copy of the deck, and take deleted ones off. Each
  * is checked like any stored comment. Nothing is reported back to the session: this is the session's
  * own word arriving.
+ *
+ * A copy this browser already holds changes only under the owner it came with (checker, slice 6: a member
+ * re-adding a known id would otherwise rewrite, then delete, someone else's comment on every copy). A
+ * comment this browser wrote and never shared has no owner yet: only this browser's own share (`me`) may
+ * claim it.
  */
-export function mergeSessionComments(deckId: string, set: unknown[], del: string[]): void {
-	const incoming = set.filter(isComment);
+export function mergeSessionComments(deckId: string, set: unknown[], del: Array<{ id: string; owner: string }>, me: string | null): void {
+	const incoming = set.filter((c): c is SlideComment & { owner: string } => isComment(c) && typeof (c as SlideComment).owner === 'string');
 	if (!incoming.length && !del.length) return;
 	const byId = new Map(readAll(deckId).map((c) => [c.id, c]));
-	for (const c of incoming) byId.set(c.id, { id: c.id, slide: c.slide, author: c.author, body: c.body, createdAt: c.createdAt, resolved: c.resolved });
-	for (const id of del) byId.delete(id);
-	writeAll(deckId, [...byId.values()]);
+	const mayTouch = (held: SlideComment | undefined, owner: string) => !held || (held.owner !== undefined ? held.owner === owner : owner === me);
+	let changed = false;
+	for (const c of incoming) {
+		if (!mayTouch(byId.get(c.id), c.owner)) continue;
+		byId.set(c.id, { id: c.id, slide: c.slide, author: c.author, body: c.body, createdAt: c.createdAt, resolved: c.resolved, owner: c.owner, ...(c.sharedBy ? { sharedBy: c.sharedBy } : {}) });
+		changed = true;
+	}
+	for (const d of del) {
+		const held = byId.get(d.id);
+		if (held && mayTouch(held, d.owner)) {
+			byId.delete(d.id);
+			changed = true;
+		}
+	}
+	if (changed) writeAll(deckId, [...byId.values()]);
 }
 
 /** Drop every comment for a deck (e.g. on deck delete). Removes the storage key

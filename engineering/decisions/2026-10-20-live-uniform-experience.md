@@ -552,6 +552,30 @@ Measured on two real headless Chromium browsers (`.scratch/live-repro/slice6.mjs
 - the guest resolving the host's comment showed resolved on the host;
 - the host deleting the guest's comment removed it from the guest's copy.
 
+**Slice 6 hardened by its checker (2026-10-20).** The host's checks held against forged posts, and the
+owner id survived a host reload, a takeover and an old host rejoining. The checker confirmed three defects
+on members' own copies, each fixed with a test:
+- **Taking over a comment by reusing its id.** A member re-adding the id of a comment everyone held from an
+  earlier session could rewrite it on every copy, then delete it as its new owner. Each copy now
+  stores the owner it came with. `mergeSessionComments` changes or removes a held comment only under that
+  owner, and a comment never shared only under this browser's own share. A deletion names the owner the
+  session knew.
+- **"Shared by" cut off.** The host joined the writer's and the sharer's names into one label, and
+  receivers cut it at 40 characters, dropping the sharer. They are two fields now (`author`, `sharedBy`),
+  each a name of its own.
+- **"You" over someone else's name.** Sharing another person's old comment relabeled it "You" on the
+  sharer's copy. Only a comment this person wrote reads "You".
+
+Also fixed:
+- A comment action taken while the host is away is kept and sent when the host is back.
+- The sealed save's two budgets (chat, comments) are 800 KB each.
+
+Left as is:
+- Sharing someone's old comment makes the sharer its owner in this session, so the sharer, not the
+  writer, may delete it.
+- A viewer's Resolve stays on the viewer's own copy.
+- Once a session holds 500 comments, more are dropped without a word.
+
 **Slices 4 and 5 hardened by their checkers (2026-10-20).** One checker per slice, at the owner's word.
 
 Slice 4. The checker found no path from the practice deck into the shared text or the saved deck. It
@@ -654,5 +678,6 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 - A shared AI turn stays in the session's chat like any line: it is kept in the host's sealed save
   and handed to people who join later. Sharing it cannot be undone.
 - Show me together (slice 4) has not run on a real phone, only at phone width in Chromium.
-- Comments (slice 6) have no checker; §8 asks for one.
+- The away-queue for comment actions is read from code, not run: the harness has no way to make the host
+  briefly absent.
 - Custom components still fall back (their code is not shared); a member is told once, by name.

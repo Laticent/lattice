@@ -72,7 +72,7 @@ export type LiveHost = {
 	/** Show me together (§7.5): start this shipped tour now, on a practice deck. */
 	startTour?: (tourId: string) => void;
 	/** Comments (slice 6): put shared comments on this browser's copy of `deckId`, and take deleted ones off. */
-	applyComments?: (deckId: string, set: Array<{ id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean }>, del: string[]) => void;
+	applyComments?: (deckId: string, set: Array<{ id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean; owner: string; sharedBy?: string }>, del: Array<{ id: string; owner: string }>, me: string | null) => void;
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */

@@ -90,7 +90,7 @@ function CommentRow({
 	onResolve,
 	onDelete,
 }: {
-	c: { id: string; author: string; body: string; createdAt: number };
+	c: { id: string; author: string; body: string; createdAt: number; sharedBy?: string };
 	now: number;
 	resolved?: boolean;
 	onResolve: () => void;
@@ -100,7 +100,10 @@ function CommentRow({
 	return (
 		<div className={`group my-1.5 rounded-lg border border-border px-2.5 py-2 ${resolved ? 'opacity-60' : ''}`}>
 			<div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-				<span className="font-semibold text-foreground">{c.author}</span>
+				<span className="min-w-0 truncate">
+					<span className="font-semibold text-foreground">{c.author}</span>
+					{c.sharedBy && <span> · shared by {c.sharedBy}</span>}
+				</span>
 				<span>·</span>
 				<span>{timeAgo(c.createdAt, now)}</span>
 				<span className="flex-1" />

@@ -1586,8 +1586,21 @@ describe('LiveController: comments', () => {
 		h.actions.shareComments();
 		await until(() => held(a).length === 2, h, a);
 		expect(held(a).find((c) => c.id === 'old1')?.author).toBe('Sharmarke');
-		expect(held(a).find((c) => c.id === 'old2')?.author).toBe('Amina · shared by Sharmarke');
+		// The writer and the sharer are two names, so a long one cannot cut the other off.
+		expect(held(a).find((c) => c.id === 'old2')).toMatchObject({ author: 'Amina', sharedBy: 'Sharmarke' });
 		expect(h.view().unsharedComments).toBe(0);
+	});
+
+	it("a long writer's name cannot cut off who shared the comment", async () => {
+		const long = 'Sharmarke Aden, Chief Executive Officer';
+		const kept = [{ id: 'old9', slide: 1, body: 'Signed off', createdAt: 1, author: long }];
+		const { h } = await hostSession();
+		const { g: m } = await guestOf(h, 'Mallory', { comments: kept });
+		const { g: b } = await guestOf(h, 'Bo');
+		m.update(deps('shared-deck', { comments: kept }));
+		m.actions.shareComments();
+		await until(() => held(b).length === 1, h, m, b);
+		expect(held(b)[0]).toMatchObject({ author: long, sharedBy: 'Mallory' });
 	});
 
 	it('someone who joins later gets every shared comment', async () => {
