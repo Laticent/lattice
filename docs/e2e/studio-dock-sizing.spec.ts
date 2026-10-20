@@ -25,7 +25,7 @@ for (const w of [1280, 1440, 1920, 2560]) {
 		expect(s['studio-preview']).toBeGreaterThanOrEqual(299);
 		if (w >= 1440) {
 			expect(s['studio-settings']).toBeCloseTo(320, -1);
-			expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 1);
+			expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 2);
 		}
 	});
 }
@@ -108,5 +108,5 @@ test('desktop: a fold and unfold from resizing returns both docks to the contrac
 	await expect.poll(async () => Math.round((await widths(page))['studio-settings'])).toBe(320);
 	const s = await widths(page);
 	expect(Math.round(s['studio-assistant'])).toBe(320);
-	expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 1);
+	expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 2);
 });

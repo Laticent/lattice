@@ -42,7 +42,7 @@ shrink toward 280 first; if that is not enough the editor folds to its 46px rail
 - **280 min:** composer floor 196, Settings rows stop wrapping at 220; 280 leaves chat about
   32 characters per line. A judgment on top of those floors, not a measured minimum.
 - **320 default:** Settings' natural width; Library header fits Import at 320 once the search field shrinks.
-- **46%:** the existing `defaultPreviewFrac` complement, applied each time a panel set opens. Dragging, or resizing the window without a fold, scales the panels in percentages from there, so the share and the dock widths drift with the window until the next panel toggle.
+- **46%:** the existing `defaultPreviewFrac` complement, applied each time a panel set opens. Dragging, or resizing the window without a fold, scales the panels in percentages from there, so the share and the dock widths drift with the window. A resize that folds and then unfolds the editor restores the contract widths. Closing a dock to unfold after a toggle does not re-apply them: the library brings back the widths it remembered for that panel set.
 - **Fold, not squeeze:** reuses the collapse-to-rail the split already has.
 
 ## Mechanics
@@ -53,8 +53,11 @@ layout still wins on widths and persists per panel set, but a saved layout never
 group's width: if the panels leave the pair no room, the fold applies and the saved widths stay
 saved. The fold is not persisted or toasted as the person's collapse, and it reverses on the
 next panel toggle or settled window resize that leaves room. Clicking "Expand editor" on a
-folded editor closes the assistant panel (or the tablet Inspector) to make room, because the
-library would otherwise swap the panes (collapsing the preview) instead of opening the editor.
+folded editor, or on one the person collapsed in a group with no room for it, closes the
+assistant panel (or the tablet Inspector) to make room and then opens the editor about 300ms
+later, because the library would otherwise swap the panes (collapsing the preview) instead of
+opening the editor. Someone who collapsed the editor and then opened Chat therefore loses Chat
+when they press Expand.
 
 Not changed: the Playground split (280/320 at 45:55), and the pre-paint shell, which models
 only the dock-free pair.
