@@ -107,7 +107,28 @@ for (const tag of ['', ' @webkit-tablet']) {
 		expect(await persistedSource(page)).not.toContain('ink-light');
 	});
 
-	test(`slide settings: an ink the slide or deck already names is left alone${tag}`, async ({ page }) => {
+	// The drag path: thin, then thick again. An ink the Studio picked for a thin card is taken back out
+	// when the card is no longer thin, because an ink class also swaps the card's fill.
+	test(`slide settings: dragging thin then thick again takes the picked ink back out${tag}`, async ({ page }) => {
+		await openSlideImageTab(page);
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page), { message: 'thin: an ink should be picked' }).toContain('ink-light');
+		await slider(page, 'Slide card backing').fill('70');
+		await expect.poll(() => persistedSource(page), { message: 'thick again: the picked ink should go' }).toContain('card-o70');
+		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+	});
+
+	test(`slide settings: an ink the deck line names is left alone${tag}`, async ({ page }) => {
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: dark\n---\n\n${SLIDE}`);
+		await openSlideImageTab(page);
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		// No wait needed: with a deck ink named, `slideNeedsInk` is false, so no ink is ever decided and
+		// the source the backing write just produced is the final one.
+		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+	});
+
+	test(`slide settings: an ink the slide names is left alone${tag}`, async ({ page }) => {
 		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight ink-dark')}`);
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');

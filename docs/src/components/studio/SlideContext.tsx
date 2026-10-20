@@ -430,21 +430,79 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		() => Object.fromEntries(IMAGE_CARD_ROWS.map((r) => [r.axis, imageCardProvenance(chunk, source, r.axis)])) as Record<ImageCardAxis, ReturnType<typeof imageCardProvenance>>,
 		[chunk, source],
 	);
-	const onImageCard = (axis: ImageCardAxis, v: string) => onMutate((c) => setImageCard(c, axis, v === '__inherit__' ? null : v));
-	// The backing slider takes a spotlight card thin: with no ink on the slide or the deck line, the
-	// theme's own ink would be read against the photo, so pick `ink-light` or `ink-dark` from the
-	// pixels behind the card (lib/core/card-ink.mjs). The photo read is async, so the write is
-	// guarded twice: the slide must still have no ink, and still be the slide on screen.
+	// A thin spotlight card needs an ink or the theme's own ink is read against the photo. The photo
+	// is read AHEAD, when an image slide opens or its card moves (the effect below), so that each
+	// step of the Card backing slider decides the ink synchronously and writes it WITH the backing in
+	// one edit: one Undo step, and an ink only for the opacity the card has at that step
+	// (lib/core/card-ink.mjs, card-ink-pick.ts). `autoInkRef` is the ink this session wrote for the
+	// slide, so it can be taken back out when the card is no longer thin; an ink the author sets is
+	// never touched.
 	const slideRef = React.useRef(slideNumber);
 	slideRef.current = slideNumber;
-	const onBacking = (word: string | null) => {
-		onImageCard('backing', word ?? '__inherit__');
+	const chunkRef = React.useRef(chunk);
+	chunkRef.current = chunk;
+	const pickRef = React.useRef<typeof import('./card-ink-pick') | null>(null);
+	const behindRef = React.useRef<{ slide: number; rgb: number[] } | null>(null);
+	const autoInkRef = React.useRef<{ slide: number; ink: 'light' | 'dark' } | null>(null);
+	// What the card's box and photo depend on: where it sits, how big, and which photo.
+	const cardKey = `${tokens.filter((t) => /^(at-|card-(sm|md|lg)$|band$|compact$|mirror$)/.test(t)).join(' ')}|${/!\[bg[^\]]*\]\([^)]*\)/.exec(chunk)?.[0] ?? ''}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-read when the slide or its card geometry changes, not on every keystroke.
+	React.useEffect(() => {
+		behindRef.current = null;
+		if (!showsImageCard) return;
+		let live = true;
 		const at = slideNumber;
 		void import('./card-ink-pick').then(async (pick) => {
-			const ink = await pick.thinCardInk(chunk, source, word, at);
-			if (!ink || slideRef.current !== at) return;
-			onMutate((c) => pick.withInkIfNone(c, ink));
+			pickRef.current = pick;
+			// The preview lags a slide switch; try again once if it still shows the other slide.
+			for (const wait of [0, 700]) {
+				if (wait) await new Promise((r) => setTimeout(r, wait));
+				if (!live) return;
+				const rgb = await pick.readBehindCard(chunkRef.current, at);
+				if (!live) return;
+				if (rgb) {
+					behindRef.current = { slide: at, rgb };
+					return;
+				}
+			}
 		});
+		return () => {
+			live = false;
+		};
+	}, [slideNumber, showsImageCard, cardKey]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: forget the session's pick when the slide changes.
+	React.useEffect(() => {
+		autoInkRef.current = null;
+	}, [slideNumber]);
+	const onImageCard = (axis: ImageCardAxis, v: string) => {
+		if (axis === 'ink') autoInkRef.current = null; // the author chose: it is theirs now
+		onMutate((c) => setImageCard(c, axis, v === '__inherit__' ? null : v));
+	};
+	const onBacking = (word: string | null) => {
+		const at = slideNumber;
+		const pick = pickRef.current;
+		const behind = behindRef.current?.slide === at ? behindRef.current.rgb : null;
+		const auto = autoInkRef.current?.slide === at ? autoInkRef.current.ink : null;
+		if (pick && behind) {
+			// The usual path: one edit carries the backing and the ink.
+			const edit = pick.applyBacking(chunk, source, word, behind, auto);
+			if (edit.picked) autoInkRef.current = { slide: at, ink: edit.picked };
+			else if (edit.removed) autoInkRef.current = null;
+			onMutate((c) => pick.applyBacking(c, source, word, behind, auto).chunk);
+			return;
+		}
+		// The photo has not been read yet (the first moments on a slide): write the backing now and the
+		// ink when the read lands, if the card is still thin and still names no ink by then.
+		onMutate((c) => setImageCard(c, 'backing', word));
+		void (async () => {
+			const mod = pick ?? (await import('./card-ink-pick'));
+			const rgb = behind ?? (await mod.readBehindCard(chunk, at));
+			if (!rgb || slideRef.current !== at) return;
+			behindRef.current = { slide: at, rgb };
+			const late = mod.applyLateRead(chunkRef.current, source, rgb);
+			if (late.picked) autoInkRef.current = { slide: at, ink: late.picked };
+			onMutate((c) => mod.applyLateRead(c, source, rgb).chunk);
+		})();
 	};
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the

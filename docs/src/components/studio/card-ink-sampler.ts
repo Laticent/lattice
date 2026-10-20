@@ -1,20 +1,20 @@
-import { coverSourceRect, meanRgb, pickCardInk } from '../../../../lib/core/card-ink.mjs';
+import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 
-// Which ink a thin spotlight card needs, read from the photo the live preview is showing.
+// The colour of the photo behind a spotlight card, read from the live preview.
 //
-// The Card backing slider calls this when it takes a spotlight card below the thin line with
-// no ink set (`needsInk`, lib/core/card-ink.mjs). It finds the slide in the preview frame, reads
-// where the card actually sits on that slide, maps that box onto the photo, averages the pixels
-// there, and asks the kernel which of `ink-light` / `ink-dark` reads better. Every step can come
-// back empty (no preview, a photo that will not load, a cross-origin photo the canvas refuses to
-// read), and an empty answer is `null`: the caller then leaves the ink alone and the lint rule
-// `thin-card-no-ink` is what tells the author.
+// card-ink-pick.ts reads this when an image slide opens, and the Card backing slider then asks the
+// kernel (lib/core/card-ink.mjs) which of `ink-light` / `ink-dark` reads better on it. This finds
+// the slide in the preview frame, reads where the card actually sits on that slide, maps that box
+// onto the photo and averages the pixels there. Every step can come back empty (no preview, a
+// preview still showing another slide, a photo that will not load, a cross-origin photo the canvas
+// refuses to read), and an empty answer is `null`: the caller then leaves the ink alone and the
+// lint rule `thin-card-no-ink` is what tells the author.
 
 /** The canvas the region is averaged on; small, because only the mean colour is used. */
 const SAMPLE_PX = 24;
 const LOAD_MS = 4000;
 
-export type InkChoice = { ink: 'light' | 'dark'; light: number; dark: number };
+export type Rgb = number[];
 
 function previewDocument(): Document | null {
 	try {
@@ -42,18 +42,36 @@ function loadPhoto(url: string): Promise<HTMLImageElement | null> {
 	});
 }
 
+const squash = (text: string | null | undefined): string => (text ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
 /**
- * The better ink for the spotlight card on slide `slideNumber` (1-based) at `percent` opacity,
- * or null when it cannot be read. The preview frame holds either the whole deck or just the
- * slide on screen, so the section is taken by position and falls back to the first.
+ * Whether the preview's section is the slide being edited. The frame holds one slide at a time and
+ * lags a slide switch, so the first section can still be the PREVIOUS slide; the heading is the
+ * cheap tell. The comparison drops everything but letters and digits (the source has markdown, the
+ * page has typographer quotes) and accepts a shared 12-character start. No heading on either side
+ * proves nothing, so it passes.
  */
-export async function pickInkFromPreview(slideNumber: number, percent: number): Promise<InkChoice | null> {
+export function sameSlide(sourceHeading: string | null, renderedHeading: string | null): boolean {
+	const a = squash(sourceHeading);
+	const b = squash(renderedHeading);
+	if (!a || !b) return true;
+	const n = Math.min(12, a.length, b.length);
+	return a.slice(0, n) === b.slice(0, n);
+}
+
+/**
+ * The mean colour of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
+ * when it cannot be read. The preview frame holds either the whole deck or just the slide on
+ * screen, so the section is taken by position, falls back to the first, and must show `heading`.
+ */
+export async function sampleBehindCard(slideNumber: number, heading: string | null): Promise<Rgb | null> {
 	try {
 		const doc = previewDocument();
 		if (!doc) return null;
 		const sections = doc.querySelectorAll<HTMLElement>('section');
 		const section = sections[slideNumber - 1] ?? sections[0];
 		if (!section || section.getAttribute('data-img-composition') !== 'spotlight') return null;
+		if (!sameSlide(heading, section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
 		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
@@ -100,8 +118,7 @@ export async function pickInkFromPreview(slideNumber: number, percent: number): 
 			fctx.drawImage(photo, 0, 0, full.width, full.height);
 			ctx.drawImage(full, box.x * k, box.y * k, Math.max(1, box.w * k), Math.max(1, box.h * k), 0, 0, SAMPLE_PX, SAMPLE_PX);
 		}
-		const rgb = meanRgb(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
-		return rgb ? pickCardInk(rgb, percent) : null;
+		return meanRgb(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
 	} catch {
 		// A cross-origin photo taints the canvas and `getImageData` throws a SecurityError.
 		return null;

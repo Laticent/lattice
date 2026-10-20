@@ -25,6 +25,7 @@ test('class readers: the last word wins, and a level is a percent', async () => 
   assert.equal(k.backingPercent(['card-clear']), 0);
   assert.equal(k.backingPercent(['card-o35']), 35);
   assert.equal(k.backingPercent(['card-soft', 'card-o35']), 35);
+  assert.equal(k.backingPercent(['card-o30', 'card-soft']), 30, 'a level sits after the names in the CSS, so it wins whatever the class order');
   assert.equal(k.inkOf(['ink-dark']), 'dark');
   assert.equal(k.inkOf(['image']), null);
 });
@@ -112,4 +113,6 @@ test('lint: thin-card-no-ink warns on a thin spotlight card with no ink, and onl
   assert.equal(hits(deck('image-card: 35%\n', 'image spotlight')).length, 1, 'a thin deck backing counts');
   assert.equal(hits(deck('image-card: 35% light\n', 'image spotlight')).length, 0, 'a deck ink answers it');
   assert.equal(hits(deck('image-card: 35%\n', 'image spotlight card-solid')).length, 0, 'the slide overrides the deck');
+  assert.equal(hits(deck('', 'image statement spotlight card-o30')).length, 0, 'the first composition word wins, as in the engine: this renders a statement');
+  assert.equal(hits(deck('', 'image spotlight statement card-o30')).length, 1, '...and here it renders a spotlight');
 });
