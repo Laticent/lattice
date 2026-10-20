@@ -2254,6 +2254,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setLogoOn = (value: string) => settingsWrite(`Logo on → ${value}`, (s) => writeFrontMatterLine(s, 'logo-on', value === 'all' ? null : value));
 	const logoStyle = getFrontMatter(source, 'logo-style') || 'auto';
 	const setLogoStyle = (value: string) => settingsWrite(`Logo style → ${value}`, (s) => writeFrontMatterLine(s, 'logo-style', value === 'auto' ? null : value));
+	// The six berths (`logo-at:`). Choosing one hides the chrome in that band — the Field's
+	// description says which, so the author is never surprised by a vanished footer.
+	const logoAt = getFrontMatter(source, 'logo-at') || 'default';
+	const setLogoAt = (value: string) => settingsWrite(`Logo position → ${value}`, (s) => writeFrontMatterLine(s, 'logo-at', value === 'default' ? null : value));
+	const logoAtHides: Record<string, string> = {
+		default: 'Top right, beside the header.',
+		'top-left': 'Hides the running header.',
+		'top-center': 'Hides the running header.',
+		'top-right': 'Hides the running header.',
+		'bottom-left': 'Hides the footer text.',
+		'bottom-center': 'Hides the footer text.',
+		'bottom-right': 'Hides the page number and the section rail.',
+	};
+	// `logo-color:` — a mix of palette roles, so it follows light and dark. The select offers the
+	// common mixes; the text row beneath takes any mix and is the source of truth.
+	const logoColor = getFrontMatter(source, 'logo-color') || '';
+	const LOGO_COLOR_PRESETS = ['accent', 'ink', 'muted', 'brand', 'accent 60%, ink'];
+	const setLogoColor = (v: string) => settingsWrite('Logo color', (s) => writeFrontMatterLine(s, 'logo-color', v.trim() || null));
+	const setLogoColorPreset = (value: string) => setLogoColor(value === 'auto' || value === 'custom' ? (value === 'custom' ? logoColor : '') : value);
 	// Placement + size ride as free numbers (the engine clamps: x/y 0–100 as the logo
 	// CENTER in %, scale 0.2–3). A blank field clears the key back to the default spot.
 	const logoX = getFrontMatter(source, 'logo-x') || '';
@@ -4945,8 +4964,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{pageNumbersField}
 				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{logoField}
-				{/* The five logo modifiers mean nothing without a logo, so they stay hidden
-				    until one is set — otherwise the tab opens with five dead rows. */}
+				{/* The logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with dead rows. */}
 				{logo.trim() !== '' && (
 					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
 					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
@@ -4957,6 +4976,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<Field label="Show on" desc="Every slide, or just the cover.">
 							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
 						</Field>
+						<Field label="Position" desc={logoAtHides[logoAt] ?? logoAtHides.default} help={<>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. <strong>Across</strong> and <strong>Down</strong> below still place it freely.</>}>
+							<CatalogSelect ariaLabel="Choose logo position" value={logoAt} onValueChange={setLogoAt} className="w-full" groups={[{ options: [{ value: 'default', label: 'Default (top right)' }, { value: 'top-left', label: 'Top left' }, { value: 'top-center', label: 'Top center' }, { value: 'top-right', label: 'Top right' }, { value: 'bottom-left', label: 'Bottom left' }, { value: 'bottom-center', label: 'Bottom center' }, { value: 'bottom-right', label: 'Bottom right' }] }] } />
+						</Field>
+						<Field label="Color" desc="Auto, or a palette mix." help={<><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme, and follows light and dark on its own. Use the mix row for your own blend, such as <code>accent 60%, ink</code>.</>}>
+							<CatalogSelect ariaLabel="Choose logo color" value={logoColor === '' ? 'auto' : LOGO_COLOR_PRESETS.includes(logoColor) ? logoColor : 'custom'} onValueChange={setLogoColorPreset} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'accent', label: 'Accent' }, { value: 'ink', label: 'Ink' }, { value: 'muted', label: 'Muted' }, { value: 'brand', label: 'Brand' }, { value: 'accent 60%, ink', label: 'Accent + ink' }, ...(logoColor !== '' && !LOGO_COLOR_PRESETS.includes(logoColor) ? [{ value: 'custom', label: 'Custom mix' }] : [])] }] } />
+						</Field>
+						<TextRow label="Color mix" desc="Roles and percents. Blank is Auto." help={<>One to four stops from <code>accent</code>, <code>ink</code>, <code>muted</code>, <code>canvas</code>, <code>inverse</code>, <code>brand</code> or a <code>#hex</code>, each with an optional percent: <code>accent 60%, ink</code>. An unrecognized stop leaves the default treatment. The <strong>Brand mark</strong> treatment ignores color.</>} value={logoColor} placeholder="e.g. accent 60%, ink" onCommit={setLogoColor} />
 						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
 							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
 						</Field>

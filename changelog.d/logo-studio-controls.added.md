@@ -1,0 +1,1 @@
+- Studio → Chrome → Logo gains Position (the six berths, with a note on what hides), Color (a palette preset or a custom mix) and a Color mix field, one for each of `logo-at:` and `logo-color:`.
