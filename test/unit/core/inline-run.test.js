@@ -142,6 +142,66 @@ describe('inline-run — raw HTML the tokenizer must survive', () => {
   });
 });
 
+describe('inline-run — what the second review found', () => {
+  test('an unclosed inline element never lets the wrapper cross </li>', () => {
+    const html = '<section><ul><li><em>x</em> a <b>b c</li><li>d <b>e</b> f</li></ul></section>';
+    const out = run.wrapHtml(html, [1], []);
+    // The open <b> is dropped from the run, and so is everything after it; the second item is whole.
+    assert.equal((out.match(/<span class="lat-run">/g) || []).length, (out.match(/<\/span>/g) || []).length, 'every wrapper is closed');
+    assert.ok(out.indexOf('</span>') < out.indexOf('</li>'), 'the first wrapper closes before its item ends');
+    assert.match(out, /<li><span class="lat-run">d <b>e<\/b> f<\/span><\/li>/);
+  });
+
+  test('a <script> body that looks like a tag is not markup', () => {
+    const html = '<ul><li>a <i>z</i> <script>if(a<b){}</script> c</li><li>d <b>e</b> f</li></ul>';
+    assert.equal((run.wrapHtml(html, [1], []).match(/lat-run/g) || []).length, 2);
+    assert.equal(viaDom(html, [1], []), run.wrapHtml(html, [1], []));
+  });
+
+  test('`<!-->` and `<!--->` are complete comments, so a later `-->` cannot swallow real items', () => {
+    const html = '<ul><li>a <!--> <b>b</b> c</li><li>d <b>e</b> f</li><li>g <b>h</b> i <!-- note --></li></ul>';
+    assert.equal((run.wrapHtml(html, [1], []).match(/<span class="lat-run">/g) || []).length, 3);
+    const dash = '<ul><li>a <!---> <b>b</b> c</li><li>d <b>e</b> f</li></ul><p><!-- x --></p>';
+    assert.equal((run.wrapHtml(dash, [1], []).match(/<span class="lat-run">/g) || []).length, 2);
+  });
+
+  test('a `<!--` inside an attribute value is not a comment', () => {
+    const html = '<ul><li>a <b title="<!--">x</b> c</li><li>d <b>e</b> f</li></ul><ul><li>g <b>h</b> i --></li></ul>';
+    assert.equal((run.wrapHtml(html, [1], []).match(/<span class="lat-run">/g) || []).length, 3);
+  });
+
+  test('a comment at the edge of a run is outside the wrapper on both substrates', () => {
+    for (const html of [
+      '<ul><li>a<b>x</b>a<!-- c --></li></ul>',
+      '<ul><li><!-- c --> a<b>x</b>a</li></ul>',
+      '<ul><li>a <!-- c --><b>x</b> a <!-- d --></li></ul>',
+    ]) {
+      assert.equal(run.wrapHtml(html, [1], []), viaDom(html, [1], []), html);
+    }
+    assert.equal(run.wrapHtml('<ul><li>a<b>x</b>a<!-- c --></li></ul>', [1], []), '<ul><li><span class="lat-run">a<b>x</b>a</span><!-- c --></li></ul>');
+  });
+
+  test('differential fuzz: the string path and the DOM path agree on 600 generated items', () => {
+    // A seeded generator over the pieces authors and engines produce. Every mismatch the review found
+    // involved a comment; this keeps the two substrates from drifting on any of them again.
+    let seed = 20261020;
+    const rnd = (n) => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed % n; };
+    const pieces = ['word ', ' more', 'x', '<b>b</b>', '<i>i</i>', `${PILL}`, '<code>c</code>', '<strong>s</strong>', '<!-- note -->', '<!-->', '<br>', ' ', '<em>e</em>'];
+    const items = ['<ul>', '<li>', '</li>', '</ul>'];
+    for (let i = 0; i < 600; i++) {
+      let body = '';
+      for (let n = 1 + rnd(7); n > 0; n--) body += pieces[rnd(pieces.length)];
+      const nested = rnd(4) === 0 ? `${items[0]}<li>k <b>q</b> r</li>${items[3]}` : '';
+      const html = `<ul><li>${body}${nested}</li><li>tail <b>t</b> end</li></ul>`;
+      // A DOM serializes the empty comments `<!-->` and `<!--->` as `<!---->`; that is spelling, not structure.
+      const spell = (h) => h.replace(/<!--->|<!-->/g, '<!---->');
+      for (const slots of [[], ['strong']]) {
+        assert.equal(spell(run.wrapHtml(html, [1, 2], slots)), spell(viaDom(html, [1, 2], slots)), `${JSON.stringify(slots)} ${html}`);
+      }
+    }
+  });
+});
+
 describe('inline-run — the manifest-driven transformer', () => {
   test('it serves exactly the components whose manifests declare inlineRun', () => {
     const fs = require('node:fs');

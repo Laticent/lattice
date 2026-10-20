@@ -78,6 +78,12 @@ mentions `<p>`) broke the string tokenizer, so comments are masked before scanni
 names was wrapped under both on the DOM path and one on the HTML path, so both now take the first in catalog order; and raw
 HTML with uppercase tags, single-quoted `class` or a missing `</li>` is read the same as the DOM would read it.
 
+A second review of those fixes found three more, fixed the same way: an unclosed inline element let the wrapper cross `</li>`
+and close after `</section>`; the comment mask did not follow HTML's rules (`<!-->` and `<!--->` are complete, a `<!--` inside an
+attribute value is not a comment, a `<script>` body is not markup); and a comment at the edge of a run landed inside the wrapper
+on the string path and outside on the DOM path. A seeded differential fuzz (600 generated items, two slot sets) now pins the two
+substrates to each other, and each repro is a test that fails on the previous code.
+
 `list-tabular` is not served. Its grid columns follow the order of an item's children, so wrapping a mid-text `code` would move
 the next one into a different column. A pill or bold word mid-label there still splits as it did.
 
