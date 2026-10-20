@@ -42,9 +42,10 @@ text.legend-text--plated[data-c] {
   fill: var(--cat-on-fill);
 }
 
-/* A callout's numbered marker (legend-svg.js `markerSvg`): the numeral is bold so a single digit
- * reads at marker size, and it sits on a KNOCKOUT, its plate's shape a little larger in the canvas
- * color, which parts it from whatever cell fill lies under it in either mode. */
+/* A callout's marker (legend-svg.js `markerSvg`): one of six shapes in a color slot, painted by the
+ * `.legend-plate` rules below, with its digit inside when the mark has room. The numeral is bold so a
+ * single digit reads at marker size, and the shape sits on a KNOCKOUT, the same shape a little larger
+ * in the canvas color, which parts it from whatever cell fill lies under it in either mode. */
 text.legend-number {
   font-weight: 700;
 }

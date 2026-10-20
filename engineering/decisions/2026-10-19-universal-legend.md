@@ -13,7 +13,7 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. § 18 records the dense-grid callout measurement. Facts in
+**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. § 18 records the owner's ruling on callout markers: shape and color, at most six. Facts in
 §§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
 marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
 how and why.
@@ -635,34 +635,77 @@ covered those (line's fallback, a pie and a radar in panes, and the same deck at
 rendered identically before and after. `test/unit/transformers/svg-legend.test.js` keeps every arm,
 including the frozen landscape golden, now pointed at `keySvg`.
 
-## 18. Dense-grid callouts: ring alone, or a smaller marker (2026-10-20)
+## 18. Callout markers: shape and color, at most six (owner, 2026-10-20)
 
-**The question.** On a heatmap whose values fill their cells, a callout's cell gets its ring and no
-number (§ 15, Departure 1b), so the reader matches the ring to its label by row alone. The owner asked
-for a ruling: keep the ring alone, or go to a smaller value so the number fits.
+**The question.** On a heatmap whose values fill their cells, a callout's numbered marker found no
+clear spot and the cell kept its ring alone (§ 15, Departure 1b), so a reader matched ring to label by
+row position only. The owner asked for a ruling: keep the ring alone, or go to a smaller value.
 
-**What was measured.** A 10-row, 12-column grid of four-digit values, the densest the heatmap allows
-(`MAX_ROWS`, `MAX_COLS`), has cells of 17.5 by 14.9 units with the value set at 7. Three callouts were
-lowered through the marker's floor (`MARKER_MIN` in `heatmap.transform.js`, today 0.75 of the 7.5-unit
-label) until a marker found a clear spot:
+**What was measured first.** A 10-row, 12-column grid of four-digit values, the densest the heatmap
+allows (`MAX_ROWS`, `MAX_COLS`), has cells of 17.5 by 14.9 units with the value set at 7. Lowering the
+numbered marker's floor (`MARKER_MIN` in `heatmap.transform.js`, 0.75 of the 7.5-unit label) placed no
+marker down to 0.45 and all three only at 0.4, a 3-unit numeral that the CLI's type check flags
+(`TYPE FLOOR — … 5.2pt`, under its 5.4pt floor). Moving the ringed cell's value to its bottom edge to
+free a corner helped only at 8 by 8. A sweep of 4 to 8 rows by 8, 10 and 12 columns of four-digit
+values put the ring alone at 8 rows and up.
 
-| Floor (of the label size) | Markers on the grid | Numeral |
-|---|---|---|
-| 0.75 (today) down to 0.45 | 0 of 3 | none |
-| 0.4 | 3 of 3, on the cell's corner, overhanging the gutter | 3 units |
-| 0.3 | 3 of 3 | 2.25 units |
+**The ruling (owner, on #2816).** Ring alone is not acceptable: with two callouts on one row, position
+cannot tell them apart, which fails WCAG 1.4.1's requirement that information not rest on one channel.
+A smaller numeral is not readable. So a marker is a **shape and a color**, with the digit inside only
+when the mark has room, and a chart draws **at most six** callouts, one shape each. Three choices, all
+the owner's pick of the recommended option:
 
-At 0.4 the CLI's own type check refuses the result: it prints `TYPE FLOOR — … page 1 at 5.2pt`,
-under its 5.4pt legibility floor, and at slide size the markers read as dots, in light and in dark.
-Moving the ringed cell's value to the cell's bottom edge to free its top corner was tried too: it
-pins a full-size marker only at 8 rows by 8 columns, and on every denser grid it fails at the same
-floors as above, so it does not earn its code. A sweep of 4 to 8 rows by 8, 10 and 12 columns of
-four-digit values shows where the ring stands alone today: 8 rows or more. Up to 7 rows, every marker
-fits at full size.
+| Choice | Ruling |
+|---|---|
+| When a marker uses shape and color | Always; the digit rides inside when it fits, and always in the lane |
+| The cap | Six; the first six as written draw, the rest are listed as not drawn and `lint:deck` warns (never an error: decks are coached, not refused) |
+| The six shapes | circle, square, triangle, diamond, hexagon, star. The owner's first list had a rectangle, which reads as the square at marker size; the star replaced it |
 
-**Default: the ring alone (no change).** The smaller marker exists only below the legibility floor
-the CLI enforces, so it would trade an unnumbered ring for a number nobody can read. The owner's pick
-is still open; the PR's decision card carries both renders. A test in
-`test/unit/components/legend-anchored.test.js` pins the current rule: on the densest four-digit
-grid, no marker is drawn below the floor, every callout keeps its ring, and every label stays in the
-lane.
+Six is a perception limit, not a space one: measured, the lane holds 10 short labels beside a 10-row
+grid before it drops one. About six shapes are told apart at a glance at marker size, and a chart
+making more points than that should be split.
+
+**As built.**
+
+| Part | Where |
+|---|---|
+| The cap, one constant read by the render, the narrator and the linter | `lib/core/legend.js` `MAX_ANCHORED` |
+| Shapes, assignment, the digit-optional marker | `legend-svg.js` `MARKER_SHAPES`, `markerShapes`, `markerSvg` |
+| Placement: digit at full size, digit at the floor, shape alone at the floor, shape alone at its own floor | `legend-svg.js` `laneSvg` |
+| The shape's floor | `heatmap.transform.js` `SHAPE_MIN`, 0.4 of the label size |
+| Capped callouts: not drawn, in the description, detail kept in the cell's card | `heatmap.transform.js` `resolveCallouts`, `describeCallouts`, `cellMarks` |
+| Narration stops at six | `chart-narration.js` `gridCalloutSentences` |
+| The lint warning, counted across every span on the slide | `lint-core.js` `pastTheCap` |
+
+**What it took to fit the densest grid.** Three measured steps, on a 10-row grid of four-digit values
+that print (9 columns: at 12, six callout labels widen the lane until four-digit values no longer fit
+their cells, before and after this change alike). With the shape floor at 0.5, one of six shapes
+placed; the clear space on such a grid is a band about 6.5 units tall between one row's values and
+the next, and a corner spot crosses a neighbor's value. Two changes made all six place: a shape
+without its digit is sized to the circle's height rather than enlarged to hold a numeral, and a marker
+may sit on the middle of its cell's top or bottom edge, in that band. At a floor of 0.4 all six shapes
+place on that grid; at 8 rows, four of six keep their digit. A shape there is about 5.5 units
+across. At 200 dpi the six outlines read as six; at slide size on a laptop screen they are small, and
+that is the cost of putting a callout on a grid this dense.
+
+**One width rule.** A triangle or a star drawn large enough to hold its digit is wider than the
+circle, and the lane reserves its widest marker. So a marker with its digit is no wider than the
+circle, and a wider shape scales down, digit included: the lane is as wide as it was, and the star's
+numeral in the lane is about 3.9 units (about 6.7pt), above the type floor.
+
+**The checker's findings (maker-checker on this change).** Three, all fixed or settled. (1) The lint
+counted a `@legend` span written inside a sentence, which the chart does not lift and so does not draw,
+so it could warn that the sixth drawn callout was a seventh; the lint now counts only a span that is a
+paragraph of its own, the narrator's test (`lint-core.js` `liftedAlone`). (2) Two tests could not
+fail; they now compare a shape at its floor with one at the digit's floor, and check every drawn
+outline against the box `markerSvg` reports. The check also showed the try "shape alone at the digit's
+floor" placed nothing the digit try did not, so it is gone. (3) A triangle's knockout edge was
+three-eighths as thick on its slanted sides as a circle's; the knockout now grows by its width over the
+shape's inset, held at 0.8 (`KNOCKOUT_INSET_MIN`), which brings it to five-eighths. The full correction
+cost three of six shapes their spot on the densest grid, measured, so the compromise is deliberate.
+
+`test/unit/components/legend-anchored.test.js` pins the six shapes on the densest grid that prints
+its values (each shape on its cell and in the lane, no numeral under the floor) and the cap (a seventh
+callout not drawn, in the description, its detail in the cell's card); each fails when its rule is
+broken (shape floor back at 0.75; the cap removed). `test/unit/authoring/legend-span-lint.test.js`
+pins the warning.
