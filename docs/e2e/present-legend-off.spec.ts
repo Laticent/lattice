@@ -36,25 +36,29 @@ async function present(page: import('@playwright/test').Page, source: string) {
 	return dialog;
 }
 
-test('with the legend on, Present draws the callout and reads it aloud', async ({ page }, testInfo) => {
-	const dialog = await present(page, deck(''));
-	await expect(dialog.locator('.latt-cc-track')).toContainText('Callout at Feb 2026, M2: Onboarding change', { timeout: 15000 });
-	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
-	await expect(slide.locator('svg .legend--anchored').first()).toBeAttached();
-	await expect(slide.locator('svg text.legend-number').first()).toBeAttached();
-	await page.screenshot({ path: testInfo.outputPath('present-legend-on.png') });
-});
+// Run twice, as card-tag-register.spec.ts does: untagged for the Chromium desktop project, and tagged
+// for WebKit (the tablet project, where the editor is on screen) and Firefox (playwright.config.ts).
+for (const tag of ['', ' @webkit-tablet @gecko']) {
+	test(`with the legend on, Present draws the callout and reads it aloud${tag}`, async ({ page }, testInfo) => {
+		const dialog = await present(page, deck(''));
+		await expect(dialog.locator('.latt-cc-track')).toContainText('Callout at Feb 2026, M2: Onboarding change', { timeout: 15000 });
+		const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
+		await expect(slide.locator('svg .legend--anchored').first()).toBeAttached();
+		await expect(slide.locator('svg text.legend-number').first()).toBeAttached();
+		await page.screenshot({ path: testInfo.outputPath('present-legend-on.png') });
+	});
 
-test('with `legend: off` in the front matter, Present neither draws the callout nor reads it', async ({ page }, testInfo) => {
-	const dialog = await present(page, deck('\nlegend: off'));
-	const band = dialog.locator('.latt-cc-track');
-	// The rows are read, so the band is live; the callout sentence is not among them.
-	await expect(band).toContainText('Feb 2026', { timeout: 15000 });
-	await expect(band).not.toContainText('Callout');
-	await expect(band).not.toContainText('Onboarding change');
-	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
-	await expect(slide.locator('svg.heatmap-svg').first()).toBeAttached();
-	await expect(slide.locator('svg .legend--anchored')).toHaveCount(0);
-	await expect(slide.locator('code', { hasText: '@legend' })).toHaveCount(0);
-	await page.screenshot({ path: testInfo.outputPath('present-legend-off.png') });
-});
+	test(`with legend: off in the front matter, Present neither draws the callout nor reads it${tag}`, async ({ page }, testInfo) => {
+		const dialog = await present(page, deck('\nlegend: off'));
+		const band = dialog.locator('.latt-cc-track');
+		// The rows are read, so the band is live; the callout sentence is not among them.
+		await expect(band).toContainText('Feb 2026', { timeout: 15000 });
+		await expect(band).not.toContainText('Callout');
+		await expect(band).not.toContainText('Onboarding change');
+		const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
+		await expect(slide.locator('svg.heatmap-svg').first()).toBeAttached();
+		await expect(slide.locator('svg .legend--anchored')).toHaveCount(0);
+		await expect(slide.locator('code', { hasText: '@legend' })).toHaveCount(0);
+		await page.screenshot({ path: testInfo.outputPath('present-legend-off.png') });
+	});
+}
