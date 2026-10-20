@@ -660,11 +660,33 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 
 ## 10. What is not verified
 
+**Cross-engine run (2026-10-20).** Every slice's two-browser script was run again with both members in
+Firefox, and again with both in WebKit (Playwright's builds; `.scratch/live-repro/matrix.sh`). All five
+scripts pass in both engines, with the same results as Chromium:
+- the frozen look;
+- Present together: follow, inert keys, detach and rejoin, a second presentation, a quick restart;
+- Show me: the tour started 256 ms apart in Firefox and 399 ms apart in WebKit, and the shared deck came back
+  byte-identical at 1,696 characters;
+- AI activity, at 1440, 820 and 390 px;
+- comments: names, delete rules, resolve and delete.
+
+Narration on the call was measured with a Firefox presenter and a Chromium guest. With the presenter
+muted, the guest received 0.0000/s without narration, 0.2994/s with it, and 0.0000/s after. Two things
+had to be set up first:
+- Firefox needed a sound device; the sandbox got a PulseAudio null sink.
+- Firefox refuses to connect audio contexts that run at different sample rates ("not supported"). The
+  call and the narration stage both open at the device's rate, so they match; they would differ only if
+  the output device changed between the two opening. A failed mix then sends no narration and says
+  nothing.
+
+Still unverified:
+- WebKit call audio: Playwright's WebKit cannot grant a microphone ("Unknown permission: microphone").
+- Safari itself and a real iPhone.
+
 - §3 item 1 is reproduced on two real Chromium browsers (§3). Items 2 and 3 are read from code
   only; slice 1b's test reproduces them with a saved theme.
 - The call mix (§7.3), the iPhone tap (§7.2), and a Present opened by a room event on a phone have
-  not run on a real device. Firefox may refuse to mix the narration stage's stream into the call's audio
-  graph when the two run at different sample rates; not run.
+  not run on a real device.
 - The slice 3 browser runs used scratch scripts and a test tone on the narration stage, not narration
   synthesized from a deck. The scripts are not committed, so a reviewer cannot rerun them from the tree.
 - The red team's findings on keys (§7.2), theme fetches (§5.2) and scrolling (§7.6) are reasoned
