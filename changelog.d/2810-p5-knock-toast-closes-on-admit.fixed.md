@@ -1,0 +1,1 @@
+- The Studio's "wants to join" toast now closes the moment the knock is resolved by any path (the Live panel's Admit or Deny, auto-admit, or the guest leaving), instead of lingering and offering to admit someone already in. It withdraws only its own pill, so a newer Undo toast sharing the slot is left alone (`dismissActionNotice` in `docs/src/lib/notify.ts`).

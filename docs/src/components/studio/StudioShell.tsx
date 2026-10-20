@@ -38,7 +38,7 @@ import { unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
-import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
@@ -4085,14 +4085,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [live.view.people]);
 
 	// The knock (§4.3): a toast with Admit that never steals focus from the editor; Deny lives on
-	// the panel row. One toast per new knock.
+	// the panel row. One toast per new knock, withdrawn the moment that knock resolves by any
+	// path (the panel's Admit or Deny, auto-admit, or the guest giving up), so it never offers
+	// to admit someone already in.
 	const knocksSeen = React.useRef(new Set<string>());
+	const knockToasts = React.useRef(new Map<string, { handle: string | number; raise: number }>());
 	React.useEffect(() => {
 		if (!live.view.isHost) return;
+		const waiting = new Set(live.view.waiting.map((k) => k.id));
+		for (const [id, t] of knockToasts.current) {
+			if (waiting.has(id)) continue;
+			dismissActionNotice(t.handle, t.raise);
+			knockToasts.current.delete(id);
+		}
 		for (const k of live.view.waiting) {
 			if (knocksSeen.current.has(k.id)) continue;
 			knocksSeen.current.add(k.id);
-			notifyAction(`${k.name} wants to join`, { label: 'Admit', description: 'Deny from the Live panel.', onClick: () => live.actions.admit(k.id) });
+			const handle = notifyAction(`${k.name} wants to join`, { label: 'Admit', description: 'Deny from the Live panel.', onClick: () => live.actions.admit(k.id) });
+			knockToasts.current.set(k.id, { handle, raise: actionRaise() });
 		}
 	}, [live.view.waiting, live.view.isHost, live.actions]);
 
