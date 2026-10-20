@@ -124,13 +124,13 @@ row puts its spare height.
 
 `header:`, `footer:` and `paginate:` add a running header, a running footer and
 page numbers. `meta:` fills the small status line in the masthead, such as a
-date or a review stage. `logo:` draws your logo. `logo-on: title` keeps it to
-the title slide, and `logo-scale:`, `logo-x:` and `logo-y:` size and place it.
-`logo-at:` picks one of six berths (`top-left`, `top-center`, `top-right`,
-`bottom-left`, `bottom-center`, `bottom-right`), and the header, footer or page
-number in that band stands down for it. `logo-color: accent 60%, ink` recolors
-the mark from the theme palette and follows light and dark. The Studio's Chrome
-tab has a control for each.
+date or a review stage. `logo:` draws your logo, and one line styles it:
+`logo-style: bottom-center accent-ink lg title` takes up to one word each for
+the placement, the color, the size and the scope, and the editor completes them.
+A placement word hides the header, footer or page number in that band, because
+the brand wins; a color word recolors the mark from the theme and follows light
+and dark. Any slide can hide the logo with `_class: no-logo`. The Studio's
+Chrome tab has a control for each word.
 
 ### Accent — the small decorations
 

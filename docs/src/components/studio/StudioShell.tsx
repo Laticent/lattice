@@ -106,6 +106,7 @@ import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserv
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
 import { liveColor } from './live/live-model';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
+import { LOGO_PLACEMENT_HIDES, type LogoStyleAxis, logoStyleLabel, logoStyleOptions, logoStyleValue, logoStyleWords, parseLogoStyle } from './logo-style';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -2250,36 +2251,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// mean anything once it is set, so the Inspector hides them until then.
 	const logo = getFrontMatter(source, 'logo') || '';
 	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
-	const logoOn = getFrontMatter(source, 'logo-on') || 'all';
-	const setLogoOn = (value: string) => settingsWrite(`Logo on → ${value}`, (s) => writeFrontMatterLine(s, 'logo-on', value === 'all' ? null : value));
-	const logoStyle = getFrontMatter(source, 'logo-style') || 'auto';
-	const setLogoStyle = (value: string) => settingsWrite(`Logo style → ${value}`, (s) => writeFrontMatterLine(s, 'logo-style', value === 'auto' ? null : value));
-	// The six berths (`logo-at:`). Choosing one hides the chrome in that band — the Field's
-	// description says which, so the author is never surprised by a vanished footer.
-	const logoAt = getFrontMatter(source, 'logo-at') || 'default';
-	const setLogoAt = (value: string) => settingsWrite(`Logo position → ${value}`, (s) => writeFrontMatterLine(s, 'logo-at', value === 'default' ? null : value));
-	const logoAtHides: Record<string, string> = {
-		default: 'Top right, beside the header.',
-		'top-left': 'Hides the running header.',
-		'top-center': 'Hides the running header.',
-		'top-right': 'Hides the running header.',
-		'bottom-left': 'Hides the footer text.',
-		'bottom-center': 'Hides the footer text.',
-		'bottom-right': 'Hides the page number and the section rail.',
-	};
-	// `logo-color:` — a mix of palette roles, so it follows light and dark. The select offers the
-	// common mixes; the text row beneath takes any mix and is the source of truth.
-	const logoColor = getFrontMatter(source, 'logo-color') || '';
-	const LOGO_COLOR_PRESETS = ['accent', 'ink', 'muted', 'brand', 'accent 60%, ink'];
-	const setLogoColor = (v: string) => settingsWrite('Logo color', (s) => writeFrontMatterLine(s, 'logo-color', v.trim() || null));
-	const setLogoColorPreset = (value: string) => setLogoColor(value === 'auto' || value === 'custom' ? (value === 'custom' ? logoColor : '') : value);
-	// Placement + size ride as free numbers (the engine clamps: x/y 0–100 as the logo
-	// CENTER in %, scale 0.2–3). A blank field clears the key back to the default spot.
-	const logoX = getFrontMatter(source, 'logo-x') || '';
-	const logoY = getFrontMatter(source, 'logo-y') || '';
-	const logoScale = getFrontMatter(source, 'logo-scale') || '';
-	const setLogoNum = (key: 'logo-x' | 'logo-y' | 'logo-scale', label: string) => (v: string) =>
-		settingsWrite(label, (s) => writeFrontMatterLine(s, key, v.trim() || null));
+	// ONE line styles it (`logo-style:`, lib/core/resolve-logo-style.js): placement, color, size, scope.
+	// A default word is left out and the key goes once every axis is default, like `image-card:`.
+	const logoWords = parseLogoStyle(getFrontMatter(source, 'logo-style') || '');
+	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
+	const setLogoWord = (axis: LogoStyleAxis, v: string) =>
+		settingsWrite('Logo style', (s) => {
+			const next = { ...parseLogoStyle(getFrontMatter(s, 'logo-style') || ''), [axis]: v === '__default__' ? undefined : v };
+			return writeFrontMatterLine(s, 'logo-style', logoStyleValue(next) || null);
+		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
 	const metaLine = getFrontMatter(source, 'meta') || '';
 	const setMetaLine = (v: string) => settingsWrite('Meta line', (s) => writeFrontMatterLine(s, 'meta', v.trim() || null));
@@ -4967,28 +4947,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The logo modifiers mean nothing without a logo, so they stay hidden
 				    until one is set — otherwise the tab opens with dead rows. */}
 				{logo.trim() !== '' && (
-					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
-					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
-					// this was a scope, searching the word that is the entire reason they exist
-					// hid all five and left the path field standing alone. A scope also takes the
-					// indent rule with them when they do filter out, which the marked div did.
+					// A SCOPE, not a bare marked div: these rows are `Position`, `Color`, `Size` and
+					// `Show on`, and not one of them says "logo" — so searching the word that is the
+					// entire reason they exist must keep all four.
 					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-						<Field label="Show on" desc="Every slide, or just the cover.">
-							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
-						</Field>
-						<Field label="Position" desc={logoAtHides[logoAt] ?? logoAtHides.default} help={<>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. <strong>Across</strong> and <strong>Down</strong> below still place it freely.</>}>
-							<CatalogSelect ariaLabel="Choose logo position" value={logoAt} onValueChange={setLogoAt} className="w-full" groups={[{ options: [{ value: 'default', label: 'Default (top right)' }, { value: 'top-left', label: 'Top left' }, { value: 'top-center', label: 'Top center' }, { value: 'top-right', label: 'Top right' }, { value: 'bottom-left', label: 'Bottom left' }, { value: 'bottom-center', label: 'Bottom center' }, { value: 'bottom-right', label: 'Bottom right' }] }] } />
-						</Field>
-						<Field label="Color" desc="Auto, or a palette mix." help={<><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme, and follows light and dark on its own. Use the mix row for your own blend, such as <code>accent 60%, ink</code>.</>}>
-							<CatalogSelect ariaLabel="Choose logo color" value={logoColor === '' ? 'auto' : LOGO_COLOR_PRESETS.includes(logoColor) ? logoColor : 'custom'} onValueChange={setLogoColorPreset} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'accent', label: 'Accent' }, { value: 'ink', label: 'Ink' }, { value: 'muted', label: 'Muted' }, { value: 'brand', label: 'Brand' }, { value: 'accent 60%, ink', label: 'Accent + ink' }, ...(logoColor !== '' && !LOGO_COLOR_PRESETS.includes(logoColor) ? [{ value: 'custom', label: 'Custom mix' }] : [])] }] } />
-						</Field>
-						<TextRow label="Color mix" desc="Roles and percents. Blank is Auto." help={<>One to four stops from <code>accent</code>, <code>ink</code>, <code>muted</code>, <code>canvas</code>, <code>inverse</code>, <code>brand</code> or a <code>#hex</code>, each with an optional percent: <code>accent 60%, ink</code>. An unrecognized stop leaves the default treatment. The <strong>Brand mark</strong> treatment ignores color.</>} value={logoColor} placeholder="e.g. accent 60%, ink" onCommit={setLogoColor} />
-						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
-							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
-						</Field>
-						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. A value outside 0.2–3 is clamped to the nearest end.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
-						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
-						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
+						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
+							const meta = {
+								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-style:</code> line.</> },
+								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors on a soft plate.</> },
+								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
+								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
+							}[axis];
+							return (
+								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
+									<CatalogSelect
+										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoStyleWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
+										onValueChange={(v) => setLogoWord(axis, v)}
+										className="w-full"
+										groups={[{ options: [{ value: '__default__', label: `${logoStyleLabel(logoStyleWords(axis)[0])} (default)` }, ...logoStyleOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoStyleLabel(w) }))] }]}
+									/>
+								</Field>
+							);
+						})}
 					</SettingsScope>
 				)}
 				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />

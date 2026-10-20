@@ -1,38 +1,42 @@
 import { expect, test } from '@playwright/test';
 import { gotoStudio, openInspectorTab, setEditorContent, waitForStudioPaint } from './studio-fixture';
 
-// Studio → Chrome → Logo: Position writes `logo-at:`, Color writes `logo-color:`, and the
+// Studio → Chrome → Logo: Position, Color, Size and Show on all write ONE `logo-style:` line, and the
 // Position row says which chrome the berth hides. The engine side is covered in
 // test/unit/parsing/markdown-it-plugins.test.js; this pins the Inspector's writes.
 
 const DECK = '---\nmarp: true\ntheme: indaco\nlogo: lattice\n---\n\n# Logo controls\n\nBody\n';
 
-test('Logo position and color write front matter', async ({ page }, testInfo) => {
+test('Logo controls write one logo-style line', async ({ page }, testInfo) => {
 	await gotoStudio(page);
 	await waitForStudioPaint(page);
 	await setEditorContent(page, DECK);
 	await openInspectorTab(page, 'chrome');
 
+	const source = page.getByLabel('Deck source');
 	const position = page.getByRole('combobox', { name: 'Choose logo position' });
-	await expect(position).toContainText('Default');
+	await expect(position).toContainText('Top right');
 	await position.click();
 	await page.getByRole('option', { name: 'Bottom center' }).click();
-	await expect(page.getByLabel('Deck source')).toContainText('logo-at: bottom-center');
+	await expect(source).toContainText('logo-style: bottom-center');
 	await expect(page.getByText('Hides the footer text.')).toBeVisible();
 
-	const color = page.getByRole('combobox', { name: 'Choose logo color' });
-	await color.click();
+	await page.getByRole('combobox', { name: 'Choose logo color' }).click();
 	await page.getByRole('option', { name: 'Accent + ink' }).click();
-	await expect(page.getByLabel('Deck source')).toContainText('logo-color: "accent 60%, ink"');
+	await expect(source).toContainText('logo-style: "bottom-center accent-ink"');
 
-	await page.getByRole('textbox', { name: /Color mix/ }).fill('muted');
-	await page.keyboard.press('Enter');
-	await expect(page.getByLabel('Deck source')).toContainText('logo-color: muted');
-	await expect(color).toContainText('Muted');
+	await page.getByRole('combobox', { name: 'Choose logo size' }).click();
+	await page.getByRole('option', { name: 'Large' }).click();
+	await expect(source).toContainText('logo-style: "bottom-center accent-ink lg"');
 
-	await position.click();
-	await page.getByRole('option', { name: 'Default (top right)' }).click();
-	await expect(page.getByLabel('Deck source')).not.toContainText('logo-at:');
+	// Back to defaults: the key goes, so a default deck stays one line shorter.
+	await page.getByRole('combobox', { name: 'Choose logo position' }).click();
+	await page.getByRole('option', { name: /Top right \(default\)/ }).click();
+	await page.getByRole('combobox', { name: 'Choose logo color' }).click();
+	await page.getByRole('option', { name: /Auto \(default\)/ }).click();
+	await page.getByRole('combobox', { name: 'Choose logo size' }).click();
+	await page.getByRole('option', { name: /Medium \(default\)/ }).click();
+	await expect(source).not.toContainText('logo-style');
 
 	await page.screenshot({ path: testInfo.outputPath('logo-controls.png') });
 });

@@ -3,10 +3,7 @@ marp: true
 theme: indaco
 color-mode: dark
 logo: sample:logo-acme-mark.svg
-logo-on: title
-logo-x: 50
-logo-y: 82
-logo-scale: 1.0
+logo-style: bottom-center title
 meta: Export fidelity · Marp bundle
 finish: atrium
 ---

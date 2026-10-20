@@ -1,1 +1,0 @@
-- `logo-color:` recolors the deck logo from the theme palette: `accent`, `ink`, `muted`, `canvas`, `inverse`, `brand` or a `#hex`, mixed with percents (`accent 60%, ink`). The mix follows light and dark mode with no per-mode setting. Changes the bytes of a PDF/HTML export only for decks that set it.

@@ -71,15 +71,8 @@ describe('notes-core: isLatticePragma', () => {
     'logo-style: brand',
     'logo-style: BRAND', // the producer lowercases the VALUE
     'logo-style: "brand"', // frontMatterScalar strips a wrapping quote pair
-    'logo-on: all',
-    'logo-on: title',
-    'logo-x: 12',
-    'logo-y: 88.5',
-    'logo-x: -3',
-    'logo-x: .5',
-    'logo-x: 1.', // Number('1.') is 1, so the producer reads it
-    'logo-scale: 1.5',
-    "logo-scale: '2'",
+    'logo-style: bottom-center accent-ink', // one word per axis, on one line
+    'logo-style: lg title # cover only',
     'finish-override:', // a BLOCK key: the header carries no value
   ]) {
     test(`pragma excluded: "${pragma}"`, () => {
@@ -165,55 +158,19 @@ describe('notes-core: isLatticePragma', () => {
   // color-mode test above gives: a test that greps a comment for names it already knows
   // cannot see drift in the direction that matters.
 
-  test('logo-x / logo-y / logo-scale accept exactly what readDeckLogoFrontMatter accepts', () => {
-    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
-    // BOTH DIRECTIONS over one corpus. Looser than the producer suppresses a marker that
-    // configured nothing; stricter leaks it into the notes channel. Neither is visible from
-    // one direction alone, which is why this compares booleans rather than asserting a list.
-    const VALUES = [
-      '0', '1', '12', '1.5', '88.5', '-3', '-0.5', '.5', '-.5', '1.',
-      '1.2.3', '.', '-', '..', 'abc', '1e3', '12px', '50%', '', ' ',
-      '"1.5"', "'2'", 'we should move it left', 'TBD',
-    ];
-    for (const axis of ['logo-x', 'logo-y', 'logo-scale']) {
-      const field = axis === 'logo-scale' ? 'scale' : axis.slice(-1);
-      for (const v of VALUES) {
-        const line = `${axis}: ${v}`;
-        const cfg = readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
-        const producerReads = cfg != null && cfg[field] != null;
-        assert.equal(
-          core.isLatticePragma(line), producerReads,
-          producerReads
-            ? `plugins.js reads "${line}" as ${cfg[field]}, but the pragma matcher does not — `
-              + `so <!-- ${line} --> ships as a speaker note (#1350's shape)`
-            : `plugins.js ignores "${line}", but the pragma matcher suppresses it — a marker `
-              + 'that configured nothing disappears instead of staying visible as a note',
-        );
-      }
+  test('the retired logo keys are no longer pragmas — they stay visible as notes', () => {
+    for (const line of ['logo-on: title', 'logo-x: 12', 'logo-y: 88.5', 'logo-scale: 1.5']) {
+      assert.equal(core.isLatticePragma(line), false, `${line}: nothing reads it, so it must not be hidden`);
     }
   });
 
-  test('logo-style / logo-on cover every value the producer acts on', () => {
-    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
-    const read = (line) => readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
-    // These two COLLAPSE rather than validate — the producer asks one question of the
-    // lowercased value and everything else means the default — so there is no register to
-    // iterate. What IS checkable, and is the leak direction: every value the producer acts
-    // on must be matched here.
-    for (const v of ['brand', 'BRAND', 'Brand', '"brand"', "'brand'"]) {
-      assert.equal(read(`logo-style: ${v}`).brand, true, `guard: the producer reads ${v} as brand`);
+  test('logo-style words are pinned to the register, and the matcher takes a whole line of them', () => {
+    const { LOGO_STYLE_REGISTER } = require('../../../lib/core/resolve-logo-style.js');
+    assert.deepEqual([...core.LOGO_STYLE_WORDS].sort(), [...LOGO_STYLE_REGISTER.NAMES].sort(), 'the matcher\'s word list drifted from the register');
+    for (const v of ['brand', 'BRAND', '"brand"', "'brand'", 'auto', 'bottom-center accent-ink lg', 'title, bottom-left', 'top-right # corner']) {
       assert.equal(core.isLatticePragma(`logo-style: ${v}`), true, `logo-style: ${v}`);
     }
-    for (const v of ['title', 'TITLE', '"title"']) {
-      assert.equal(read(`logo-on: ${v}`).on, 'title', `guard: the producer reads ${v} as title`);
-      assert.equal(core.isLatticePragma(`logo-on: ${v}`), true, `logo-on: ${v}`);
-    }
-    // The default word is in the domain too — an author writing it out is configuring, not
-    // narrating — and the producer's own docs name the two.
-    assert.equal(core.isLatticePragma('logo-style: auto'), true);
-    assert.equal(core.isLatticePragma('logo-on: all'), true);
     // KEY case: the producer does not read it, so neither does this.
-    assert.equal(read('LOGO-STYLE: brand').brand, false, 'guard: the producer ignores an upper-case key');
     assert.equal(core.isLatticePragma('LOGO-STYLE: brand'), false);
   });
 
@@ -263,20 +220,20 @@ describe('notes-core: isLatticePragma', () => {
   // existed all six shipped as the slide's note.
   test('#1986: the six hyphenated registers are not LIFTED as notes, and a real note beside them is', () => {
     const html = sec(
-      '<!-- logo-style: brand --><!-- logo-on: title --><!-- logo-x: 12 --><!-- logo-y: 88.5 -->'
-      + '<!-- logo-scale: 1.5 --><!-- finish-override: --><h1>Q3</h1>'
+      '<!-- logo-style: brand --><!-- logo-style: bottom-center lg -->'
+      + '<!-- finish-override: --><h1>Q3</h1>'
     );
     assert.equal(core.notesFromHtml(html), null, 'a slide of nothing but logo/finish registers has no note');
     assert.deepEqual(
-      core.noteBodiesFromHtml(sec('<!-- logo-x: 12 --><h1>Q3</h1><!-- Pause here. -->')),
+      core.noteBodiesFromHtml(sec('<!-- logo-style: sm --><h1>Q3</h1><!-- Pause here. -->')),
       ['Pause here.'],
       'the author\'s own note still comes through'
     );
     // The over-strip direction, at the extraction level: a prose value is a NOTE, and eating
     // it would be silent — the author has no way to tell what removed it.
     assert.equal(
-      core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-on: the second half -->')),
-      'logo-on: the second half'
+      core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-style: the second half -->')),
+      'logo-style: the second half'
     );
   });
 });
@@ -1442,22 +1399,14 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
   test('the word registers mirror frontMatterScalar, comment and quoted-span included (#1986 checker)', () => {
     // `frontMatterScalar` strips a WHITESPACE-preceded `#` comment, and for a quoted value
     // returns the quoted span and discards what trails it. An anchored `["']?word["']?$` matched
-    // neither, so both of these were read as `brand` by the producer AND shipped as the slide's
-    // speaker note — the #1350 shape in a form an author plausibly writes.
-    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
-    const read = (line) => readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
-    for (const v of ['brand # our brand mark', '"brand" only on the cover', 'BRAND # x', "'brand'"]) {
-      assert.equal(read(`logo-style: ${v}`).brand, true, `guard: the producer reads "${v}" as brand`);
+    // neither, so both of these were read by the producer AND shipped as the slide's speaker
+    // note — the #1350 shape in a form an author plausibly writes.
+    for (const v of ['brand # our brand mark', 'BRAND # x', "'brand'", 'bottom-center accent # corner']) {
       assert.equal(core.isLatticePragma(`logo-style: ${v}`), true, `logo-style: ${v}`);
-    }
-    for (const v of ['title # cover only', '"title" for now']) {
-      assert.equal(read(`logo-on: ${v}`).on, 'title', `guard: the producer reads "${v}" as title`);
-      assert.equal(core.isLatticePragma(`logo-on: ${v}`), true, `logo-on: ${v}`);
     }
     // And what the producer does NOT read stays a note. `#` needs whitespace before it to open
     // a comment, so `brand#nospace` is the whole value; unquoted trailing words likewise.
     for (const v of ['brand extra words', 'brand#nospace', 'neon']) {
-      assert.equal(read(`logo-style: ${v}`).brand, false, `guard: the producer ignores "${v}"`);
       assert.equal(core.isLatticePragma(`logo-style: ${v}`), false, `logo-style: ${v} must stay a note`);
     }
   });

@@ -1514,11 +1514,13 @@ One canvas is genuinely unanswerable, and one is not:
 ```yaml
 ---
 logo: lattice                     # a built-in name, or a path / URL of your own
-logo-style: auto | brand          # optional, default `auto`
-logo-on: all | title              # optional, default `all`
-logo-at: top-left | top-center | top-right | bottom-left | bottom-center | bottom-right   # optional; the chrome in that band stands down
+logo-style: bottom-center accent-ink lg   # optional: placement color size scope, one word each
 ---
 ```
+
+The logo shows on every slide while `logo:` is set; `_class: no-logo` hides it on one slide. The words
+of `logo-style:` and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
+placement hides the header, footer or page number in that band, because the brand wins.
 
 **A name, or a path — and the difference decides where your deck works.**
 `logo: lattice` is a BUILT-IN: the engine inlines Lattice's own mark, so it
@@ -1564,11 +1566,10 @@ gracefully no-ops in the vscode-webview sandbox (fetch can't reach
 workspace files). Same constraint `class: dark` has — see
 `engineering/gotchas.md`.
 
-**Brand style.** `logo-style: brand` adds `deck-logo-brand` to the
-injected img. The silhouette mask is removed; the logo's original
-colors render directly on a soft `--bg-alt` plate. Use when the
-brand's colors carry meaning (government insignia, university
-crests); reach for `auto` otherwise.
+**Brand colors.** The `brand` color word (`logo-style: brand`) puts `logo-brand` on the section.
+The silhouette filter is removed; the logo's original colors render directly on a soft `--bg-alt`
+plate. Use when the brand's colors carry meaning (government insignia, university crests); reach for
+`auto` or a palette color otherwise.
 
 ---
 

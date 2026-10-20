@@ -706,49 +706,26 @@ describe('markdown-it-plugins', () => {
     assert.equal(pathedSrc[1], '../brand/mark.svg');
   });
 
-  test('applyDeckLogoToHtml: `logo-at` stamps the section attribute and moves the mark by frame inset', () => {
-    const html = logoFixture('<section id="1" data-lattice-slide="1"></section>');
-    const at = (v) => plugins.applyDeckLogoToHtml(html, `---\nlogo: ./acme.svg\nlogo-at: ${v}\n---\n`);
-    const bl = at('bottom-left');
-    assert.match(bl, /data-logo-at="bottom-left"/);
-    assert.match(bl, /--logo-bottom:var\(--frame-inset-y\)/);
-    assert.match(bl, /--logo-x:var\(--frame-inset-x\)/);
-    assert.match(at('top-center'), /--logo-nudge:translateX\(-50%\)/);
-    // the default berth moves nothing but still stamps the attribute (chrome stands down)
-    const tr = at('top-right');
-    assert.match(tr, /data-logo-at="top-right"/);
-    assert.doesNotMatch(tr, /--logo-x/);
-    // an unknown value is dropped, never interpolated
-    assert.doesNotMatch(at('"><script>'), /data-logo-at/);
-    // a free x/y pair still wins the position; the anchor only decides what stands down
-    const both = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-at: bottom-right\nlogo-x: 30\nlogo-y: 40\n---\n');
-    assert.ok(both.indexOf('--logo-y:40%') > both.indexOf('--logo-y:auto'), 'free y must come after the anchor');
-    assert.match(both, /--logo-bottom:auto;--logo-nudge/);
-  });
-
-  test('parseLogoColor: role words and #hex mix; anything else is refused', () => {
-    assert.equal(plugins.parseLogoColor('accent'), 'var(--accent)');
-    assert.equal(plugins.parseLogoColor('accent 60%, ink'), 'color-mix(in srgb, var(--accent) 60%, var(--text-heading))');
-    assert.equal(plugins.parseLogoColor('accent, ink'), 'color-mix(in srgb, var(--accent) 50%, var(--text-heading))');
-    assert.equal(plugins.parseLogoColor('#c8a040'), '#c8a040');
-    assert.match(plugins.parseLogoColor('accent 50%, ink 30%, muted'), /^color-mix\(in srgb, color-mix\(/);
-    for (const bad of ['red', 'url(x)', 'accent;color:red', 'accent 50%, ', 'a, b, c, d, e', '', 'var(--x)']) {
-      assert.equal(plugins.parseLogoColor(bad), null, bad);
-    }
-  });
-
-  test('applyDeckLogoToHtml: `logo-color` gives each slide its own tint filter and sets the filter token inline', () => {
-    const html = logoFixture('<section id="1" data-lattice-slide="1"></section><section id="2" data-lattice-slide="2"></section>');
-    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-color: accent 60%, ink\n---\n');
-    assert.match(out, /--deck-logo-filter:url\(#deck-logo-tint-0\)/);
-    assert.match(out, /--deck-logo-filter:url\(#deck-logo-tint-1\)/);
-    assert.equal([...out.matchAll(/<filter id="deck-logo-tint-\d"/g)].length, 2);
-    assert.match(out, /style="position:absolute;color:color-mix\(in srgb, var\(--accent\) 60%, var\(--text-heading\)\)"/);
+  test('applyDeckLogoToHtml: a `logo-<color>` class gives the slide its own tint filter and points the mark at it', () => {
+    const html = logoFixture('<section id="1" class="logo-accent-ink" data-lattice-slide="1"></section><section id="2" data-lattice-slide="2"></section><section id="3" class="logo-ink" data-lattice-slide="3"></section>');
+    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\n---\n');
+    const sections = out.split(/(?=<section)/);
+    assert.match(sections[0], /style="--deck-logo-filter:url\(#deck-logo-tint-0\);--deck-logo-opacity:1;"/);
+    assert.match(sections[0], /<filter id="deck-logo-tint-0"/);
+    assert.doesNotMatch(sections[1], /deck-logo-tint/, 'an untinted slide carries no filter');
+    assert.match(sections[2], /deck-logo-tint-2/, 'the id is the slide position, unique per slide');
     // a slice render of slide 2 (deck offset 1) names the same filter the whole-deck render does
-    const slice = plugins.applyDeckLogoToHtml(logoFixture('<section id="1" data-lattice-slide="1"></section>'), '---\nlogo: ./a.svg\nlogo-color: accent\n---\n', 1);
+    const slice = plugins.applyDeckLogoToHtml(logoFixture('<section id="1" class="logo-ink"></section>'), '---\nlogo: ./a.svg\n---\n', 1);
     assert.match(slice, /deck-logo-tint-1/);
-    const none = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-color: javascript\n---\n');
-    assert.doesNotMatch(none, /deck-logo-tint/, 'an unparseable color leaves the default treatment');
+  });
+
+  test('applyDeckLogoToHtml: `no-logo` removes the mark on that slide only', () => {
+    const html = logoFixture('<section id="1"></section><section id="2" class="no-logo"></section><section id="3"></section>');
+    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\n---\n');
+    const sections = out.split(/(?=<section)/);
+    assert.match(sections[0], /deck-logo/);
+    assert.doesNotMatch(sections[1], /deck-logo/);
+    assert.match(sections[2], /deck-logo/);
   });
 
   test('applyDeckLogoToHtml: `logo:` with default `logo-on: all` injects <img class="deck-logo"> into every section', () => {
@@ -782,28 +759,25 @@ describe('markdown-it-plugins', () => {
     assert.match(out, /<section [^>]*data-lattice-slide="1"[^>]*><img[^>]*class="deck-logo[^>]*><h1>Title<\/h1><\/section>/);
   });
 
-  test('applyDeckLogoToHtml: the --logo-* props land on the SECTION, not on the img', () => {
-    // Custom properties inherit downward only. While these sat in the img's own style
-    // attribute, no sibling and no section-level rule could read them (#1404). The img
-    // still reads them by inheritance, so placement is unchanged.
-    const html = '<section id="1" data-lattice-slide="1"></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-scale: 1.5\n---\n';
-    const out = plugins.applyDeckLogoToHtml(html, md);
+  test('applyDeckLogoToHtml: the tint props land on the SECTION, not on the img', () => {
+    // Custom properties inherit downward only; the img reads them by inheritance, and a sibling
+    // or section-level rule can read them where they sit (#1404).
+    const html = '<section id="1" class="logo-accent" data-lattice-slide="1"></section>';
+    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\n---\n');
     const sectionTag = out.match(/<section [^>]*>/)[0];
     const imgTag = out.match(/<img [^>]*>/)[0];
-    assert.match(sectionTag, /--logo-scale:1\.5/, 'the section carries the placement vars');
-    assert.doesNotMatch(imgTag, /--logo-/, 'the img must NOT carry them — a sibling could not read them there');
+    assert.match(sectionTag, /--deck-logo-filter:url\(#deck-logo-tint-0\)/, 'the section carries the tint vars');
+    assert.doesNotMatch(imgTag, /--deck-logo-/, 'the img must NOT carry them — a sibling could not read them there');
   });
 
   test('applyDeckLogoToHtml: an existing section style is PRESERVED, not overwritten', () => {
     // Every Lattice section from a deck with a `class:` directive carries `style="--class:…"`,
     // and Marp background directives write one too. `setAttr` replaces, so merging is the
     // whole point; prepending also leaves a later author declaration winning.
-    const html = '<section id="1" data-lattice-slide="1" style="--class:content;"></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-scale: 1.5\n---\n';
-    const out = plugins.applyDeckLogoToHtml(html, md);
+    const html = '<section id="1" class="logo-accent" data-lattice-slide="1" style="--class:content;"></section>';
+    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\n---\n');
     assert.match(out, /--class:content;/, 'REGRESSION: the section lost its own inline style');
-    assert.match(out, /--logo-scale:1\.5/);
+    assert.match(out, /--deck-logo-filter:/);
     assert.equal((out.match(/style="/g) || []).length, 1, 'exactly one style attribute — a duplicate is silently dropped');
   });
 
@@ -879,13 +853,13 @@ describe('markdown-it-plugins', () => {
       '</article>',
     ].join('\n');
     for (const src of ['https://lattice.style/lattice-mark.svg', '/lattice-mark.svg', 'data:image/svg+xml,%3Csvg/%3E']) {
-      const out = plugins.applyDeckLogoToHtml(engineHtml, `---\nlogo: ${src}\nlogo-on: all\n---\n`);
+      const out = plugins.applyDeckLogoToHtml(engineHtml, `---\nlogo: ${src}\n---\n`);
       assert.equal((out.match(/class="deck-logo"/g) || []).length, 2, `both slides get a logo for ${src}`);
       assert.match(out, /<section[^>]*><img class="deck-logo"/, 'the logo is the FIRST child, as the CSS corner rules require');
     }
     // The author's existing inline style survives — it is prepended to, not replaced.
-    const moved = plugins.applyDeckLogoToHtml(engineHtml, '---\nlogo: ./a.svg\nlogo-scale: 2\n---\n');
-    assert.match(moved, /style="--logo-scale:2;--theme: indaco;"/, 'logo vars prepend onto the engine\'s own style');
+    const tinted = plugins.applyDeckLogoToHtml(engineHtml.replace('class="content form" style', 'class="content form logo-accent" style'), '---\nlogo: ./a.svg\n---\n');
+    assert.match(tinted, /style="--deck-logo-filter:url\(#deck-logo-tint-0\);--deck-logo-opacity:1;--theme: indaco;"/, 'tint vars prepend onto the engine\'s own style');
   });
 
   // ── `logo-on: title` under a SLICE render ──────────────────────────────
@@ -896,39 +870,39 @@ describe('markdown-it-plugins', () => {
   // slice-equivalence sweep's 27 unattributed residuals (#1442) — a real defect that had been
   // sitting inside a bucket named `unclassified`.
 
-  test('applyDeckLogoToHtml: `logo-on: title` on a whole-deck render still selects the first slide', () => {
+  test('applyDeckLogoToHtml: `logo-title` on a whole-deck render still selects the first slide', () => {
     const html = [
-      '<section id="1" class="title"></section>',
-      '<section id="2"></section>',
+      '<section id="1" class="title logo-title"></section>',
+      '<section id="2" class="logo-title"></section>',
     ].join('');
-    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    const md = '---\nlogo: ./acme.svg\n---\n';
     // No offset supplied — a whole-deck render, and the reading is unchanged.
     assert.equal((plugins.applyDeckLogoToHtml(html, md).match(/class="deck-logo/g) || []).length, 1);
     // An explicit 0 is the same statement said out loud, and must not change it.
     assert.equal((plugins.applyDeckLogoToHtml(html, md, 0).match(/class="deck-logo/g) || []).length, 1);
   });
 
-  test('applyDeckLogoToHtml: `logo-on: title` paints NOTHING on a slice taken from past the deck start', () => {
+  test('applyDeckLogoToHtml: `logo-title` paints NOTHING on a slice taken from past the deck start', () => {
     // The section below is the document's first and the DECK's eighth. Firstness has to come from
     // the supplied offset, or a slice of any non-title slide shows a mark the deck does not carry.
-    const html = '<section id="1"><p>body</p></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    const html = '<section id="1" class="logo-title"><p>body</p></section>';
+    const md = '---\nlogo: ./acme.svg\n---\n';
     assert.match(plugins.applyDeckLogoToHtml(html, md), /class="deck-logo/, 'with no offset it is read as the deck start');
     assert.doesNotMatch(plugins.applyDeckLogoToHtml(html, md, 7), /class="deck-logo/, 'slide 8 of the deck is not the title slide');
-    // And the placement custom properties go with it — they are what made the residual show up as a
+    // And the tint custom properties go with it — they are what made the residual show up as a
     // `style` difference rather than only as stray markup.
-    assert.doesNotMatch(plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-on: title\nlogo-scale: 2\n---\n', 7), /--logo-scale/);
+    assert.doesNotMatch(plugins.applyDeckLogoToHtml('<section id="1" class="logo-title logo-accent"></section>', '---\nlogo: ./a.svg\n---\n', 7), /--deck-logo-filter/);
   });
 
   test('applyDeckLogoToHtml: a slice of a `.title` slide still gets the logo, wherever it sits', () => {
     // The offset narrows FIRSTNESS, not the `title` class. A deck whose title slide is not slide 1
     // (a cover after a legal notice, say) must still paint there when that slide is sliced.
-    const html = '<section id="1" class="title"><h1>Cover</h1></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    const html = '<section id="1" class="title logo-title"><h1>Cover</h1></section>';
+    const md = '---\nlogo: ./acme.svg\n---\n';
     assert.match(plugins.applyDeckLogoToHtml(html, md, 3), /class="deck-logo/);
   });
 
-  test('applyDeckLogoToHtml: an offset never narrows `logo-on: all`', () => {
+  test('applyDeckLogoToHtml: an offset never narrows the default scope (every slide)', () => {
     // `all` does not consult firstness at all, so a slice must look exactly like its deck row.
     const html = '<section id="1"><p>body</p></section>';
     const md = '---\nlogo: ./acme.svg\n---\n';
@@ -947,26 +921,19 @@ describe('markdown-it-plugins', () => {
     assert.equal((twice.match(/class="deck-logo/g) || []).length, 1, 'exactly one logo');
   });
 
-  test('applyDeckLogoToHtml: `logo-on: title` injects only on the first slide and on `title`-classed slides', () => {
+  test('applyDeckLogoToHtml: `logo-title` injects only on the first slide and on `title`-classed slides', () => {
     const html = [
-      '<section id="1" class="title" data-lattice-slide="1"></section>',
-      '<section id="2" data-lattice-slide="2"></section>',
-      '<section id="3" class="title" data-lattice-slide="3"></section>',
+      '<section id="1" class="title logo-title" data-lattice-slide="1"></section>',
+      '<section id="2" class="logo-title" data-lattice-slide="2"></section>',
+      '<section id="3" class="title logo-title" data-lattice-slide="3"></section>',
     ].join('');
-    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    const md = '---\nlogo: ./acme.svg\n---\n';
     const out = plugins.applyDeckLogoToHtml(html, md);
     const sections = out.split(/(?=<section)/);
     assert.equal(sections.length, 3);
     assert.match(sections[0], /<img[^>]*class="deck-logo/,    `cover should have logo: ${sections[0]}`);
     assert.doesNotMatch(sections[1], /<img[^>]*class="deck-logo/, `body should NOT have logo: ${sections[1]}`);
     assert.match(sections[2], /<img[^>]*class="deck-logo/,    `second cover should have logo: ${sections[2]}`);
-  });
-
-  test('applyDeckLogoToHtml: `logo-style: brand` adds `deck-logo-brand` class', () => {
-    const html = '<section id="1" data-lattice-slide="1"></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-style: brand\n---\n';
-    const out = plugins.applyDeckLogoToHtml(html, md);
-    assert.match(out, /<img[^>]*class="deck-logo deck-logo-brand"/);
   });
 
   test('applyDeckLogoToHtml: no-op when front matter has no `logo:` directive', () => {
@@ -992,51 +959,11 @@ describe('markdown-it-plugins', () => {
     assert.match(out, /&quot;|&lt;|&gt;/);
   });
 
-  test('applyDeckLogoToHtml: `logo-x`/`logo-y`/`logo-scale` emit clamped inline --logo-* props', () => {
-    const html = '<section id="1" data-lattice-slide="1"></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-x: 50\nlogo-y: 84\nlogo-scale: 2.4\n---\n';
-    const out = plugins.applyDeckLogoToHtml(html, md);
-    assert.match(out, /style="[^"]*--logo-scale:2\.4/);
-    assert.match(out, /--logo-x:50%/);
-    assert.match(out, /--logo-y:84%/);
-    // Positioning flips the corner anchor + re-centers on the point.
-    assert.match(out, /--logo-anchor-right:auto/);
-    assert.match(out, /--logo-nudge:translate\(-50%, -50%\)/);
-  });
-
   test('applyDeckLogoToHtml: no inline style when placement/size are absent (default corner unchanged)', () => {
     const html = '<section id="1" data-lattice-slide="1"></section>';
     const md = '---\nlogo: ./acme.svg\n---\n';
     const out = plugins.applyDeckLogoToHtml(html, md);
     assert.doesNotMatch(out, /style="[^"]*--logo-/);
-  });
-
-  test('applyDeckLogoToHtml: scale-only emits --logo-scale but no positioning props', () => {
-    const html = '<section id="1" data-lattice-slide="1"></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-scale: 1.5\n---\n';
-    const out = plugins.applyDeckLogoToHtml(html, md);
-    assert.match(out, /--logo-scale:1\.5/);
-    assert.doesNotMatch(out, /--logo-x:/);
-  });
-
-  test('applyDeckLogoToHtml: a lone axis (x without y) does NOT position (avoids a half-shift off the corner)', () => {
-    const html = '<section id="1" data-lattice-slide="1"></section>';
-    const md = '---\nlogo: ./acme.svg\nlogo-x: 30\n---\n';
-    const out = plugins.applyDeckLogoToHtml(html, md);
-    assert.doesNotMatch(out, /--logo-x:/);
-    assert.doesNotMatch(out, /--logo-nudge:/);
-  });
-
-  test('applyDeckLogoToHtml: out-of-range values clamp (x→0..100, scale→0.2..3); non-numbers are ignored', () => {
-    const html = '<section id="1" data-lattice-slide="1"></section>';
-    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\nlogo-x: 999\nlogo-y: -20\nlogo-scale: 99\n---\n');
-    assert.match(out, /--logo-x:100%/);
-    assert.match(out, /--logo-y:0%/);
-    assert.match(out, /--logo-scale:3/);
-    // A non-numeric value can't inject anything into the style.
-    const out2 = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\nlogo-scale: "}; evil"\n---\n');
-    assert.doesNotMatch(out2, /--logo-scale/);
-    assert.doesNotMatch(out2, /evil/);
   });
 
   // ── verdictGridBadges ──────────────────────────────────────────────────

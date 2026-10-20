@@ -92,7 +92,6 @@ paginate: true
 header: "Running Header"
 footer: "Footer Text"
 logo: sample:logo-acme-mark.svg
-logo-on: all
 finish: atrium
 ---
 
