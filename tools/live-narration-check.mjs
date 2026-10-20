@@ -91,6 +91,32 @@ const seed = (isHost) => {
 	} catch {
 		/* no clipboard in this engine: the link is read from the panel instead */
 	}
+	// What reaches the speakers: every connection to a context's destination is also tapped by an analyser, and
+	// the loudest sample seen since the page loaded is kept. "Decoded" is not "audible"; this is the output.
+	window.__outPeak = 0;
+	try {
+		const connect = AudioNode.prototype.connect;
+		const taps = new WeakMap();
+		AudioNode.prototype.connect = function (dest, ...rest) {
+			if (typeof AudioDestinationNode !== 'undefined' && dest instanceof AudioDestinationNode) {
+				let an = taps.get(this.context);
+				if (!an) {
+					an = this.context.createAnalyser();
+					an.fftSize = 2048;
+					taps.set(this.context, an);
+					const buf = new Float32Array(an.fftSize);
+					setInterval(() => {
+						an.getFloatTimeDomainData(buf);
+						for (let i = 0; i < buf.length; i++) window.__outPeak = Math.max(window.__outPeak, Math.abs(buf[i]));
+					}, 30);
+				}
+				connect.call(this, an);
+			}
+			return connect.call(this, dest, ...rest);
+		};
+	} catch {
+		/* an engine without these nodes: the decode figures still hold */
+	}
 	// What the page's audio actually decodes and starts, so "it played" is measured, not assumed.
 	window.__decoded = [];
 	window.__starts = 0;
@@ -190,6 +216,9 @@ const heard = await guest
 const decoded = await guest.evaluate(() => window.__decoded);
 log(`guest decoded ${decoded.length} clip(s): ${JSON.stringify(decoded.slice(0, 4))}; sources started: ${await guest.evaluate(() => window.__starts)}`);
 expectTrue(heard, 'the guest decoded non-silent audio from the presenter and started playing it');
+const audible = await guest.waitForFunction(() => window.__outPeak > 0.02, null, { timeout: 15000 }).then(() => true, () => false);
+log(`guest output peak at the speakers: ${(await guest.evaluate(() => window.__outPeak)).toFixed(3)}`);
+expectTrue(audible, 'sound reaches the guest\'s audio output (analyser on the destination, peak above 0.02)');
 log(`guest voice button: ${JSON.stringify(((await guest.getByRole('button', { name: /^Voice on/ }).textContent()) ?? '').trim())}`);
 await guest.screenshot({ path: `${OUT}${ENGINE}-guest-listening.png` });
 

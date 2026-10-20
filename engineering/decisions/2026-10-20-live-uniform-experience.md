@@ -727,7 +727,9 @@ Still unverified:
   the call is run by `tools/live-narration-check.mjs`, which is committed: two real browsers over the public
   relays (Chromium, Firefox and WebKit, plus a 390 px guest in Chromium), the voice endpoint answered by a
   generated tone, narration synthesized from the shipped sample deck. The guest decoded non-silent audio from the
-  presenter, followed to slide 2 and decoded its clips, and made no call to the voice endpoint. It does not hear:
+  presenter, followed to slide 2 and decoded its clips, and made no call to the voice endpoint. An analyser on the
+  guest's audio destination read a peak of about 0.28 at the speakers in all three engines (the tone's own peak is
+  0.277); Firefox needs a sound device, so the sandbox ran a PulseAudio null sink. It does not hear:
   echo, the call mix and a real iPhone stay open (`followups.d/2810-p2-live-present-together-with-narration.md`).
 - Known limits of the clip path, from the 2026-10-20 trio: it follows the presenter's position, not their
   playback, so a presenter who pauses does not pause a member, a replay of the same slide is not replayed, and
