@@ -151,7 +151,8 @@ test/unit/components/   component-manifest, journey, roadmap,
                         word-cloud, quadrant, radar
 test/unit/cli/          cli
 test/unit/conformance/  static (every conformance contract's static clauses, fixtures,
-                        debt ledger; lib/conformance/)
+                        debt ledger; lib/conformance/), cli (`npm run conformance`:
+                        `-- <kind> <name> --before` before you start, `--after` when done)
 test/integration/parity/      color-parity, deck-class/finish/logo-fm,   [PR]
                               speaker-notes, chart-family
 test/integration/export/      export-formats, html-player, present-mode, [PR]

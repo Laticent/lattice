@@ -1,0 +1,1 @@
+- `npm run conformance -- <kind> [<name>] [--before|--after]` shows what one kind or one instance owes: run `--before` to save a baseline, `--after` to see what got fixed and what still fails. A name that does not exist yet prints the checklist it will owe.
