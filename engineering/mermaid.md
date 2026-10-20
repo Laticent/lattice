@@ -655,7 +655,7 @@ Mermaid can (#1674).
 
 **Status: built, tested and NOT offered.** A preview in the Studio or the Playground still draws Mermaid in the page, because the
 frame costs a fresh page's first diagram about 1.0 s (below). The host offers a kind only if it lists it in `KINDS`
-(`docs/src/lib/preview-draw-host.ts`); add `'mermaid'` there to turn the path below on.
+(`docs/src/lib/preview-draw-host.ts`); to turn the path below on, add `'mermaid'` there and make the two preview builders (`single-slide-render.ts`, `deck-preview.js`) skip `drawnLibraryPreload` when the host offers it (they carry no such check today, to keep the startup bytes).
 
 With it on, a live preview does not run Mermaid in the page that holds your deck. The preview frame
 holds a **stand-in for `window.mermaid`** (`lib/plugins/mermaid/shared/draw-shim.mjs`) and the runtime's Mermaid pass

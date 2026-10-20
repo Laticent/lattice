@@ -21,7 +21,9 @@ const impl = () => import('./preview-draw-host-impl');
 
 // WHAT THE HOST DRAWS FOR A PAGE. Mermaid's frame is built and tested (lib/plugins/mermaid/shared/draw-shim.mjs) but NOT offered: a
 // fresh page's first diagram took about 1.0 s longer through it (2341 ms in page, 3366 ms through the frame, headless Chromium), which
-// is a worse product than the wall is worth until the frame's start cost is cut (engineering/mermaid.md §5.3f). Add 'mermaid' here to offer it.
+// is a worse product than the wall is worth until the frame's start cost is cut (engineering/mermaid.md §5.3f). To offer it: add 'mermaid'
+// here AND skip `drawnLibraryPreload` in the preview builders (single-slide-render.ts, deck-preview.js) when `window.__latticeDrawHost?.kinds`
+// includes it; the builders carry no such check today, to keep the startup bytes (docs/route-budget.json).
 const KINDS = Object.freeze(['function-plot']);
 
 /** Install the host on `win`, once. Idempotent; never replaces a host something else defined. */
