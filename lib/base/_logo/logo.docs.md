@@ -23,7 +23,7 @@
 
 ## Authoring
 
-Seven front-matter directives — one required, six optional:
+Eight front-matter directives — one required, seven optional:
 
 ```yaml
 ---
@@ -35,6 +35,7 @@ logo-on: all | title             # optional, default `all`
 logo-at: bottom-center            # optional — top-left | top-center | top-right | bottom-left | bottom-center | bottom-right
 logo-x: 50                       # optional — 0–100, the mark's CENTER as a % of the slide
 logo-y: 82                       # optional — 0–100, ditto, vertically
+logo-color: accent 60%, ink       # optional — recolor from the theme palette, mixed; follows light and dark
 logo-scale: 1.0                  # optional — size multiplier, default 1
 ---
 ```
@@ -45,6 +46,7 @@ logo-scale: 1.0                  # optional — size multiplier, default 1
 | `logo-style:` | `auto` (default), `brand` | `auto` → faint grayscale watermark, brightness-inverted on dark canvases. `brand` → original colors on a soft surface plate. Use `brand` only for marks whose colors carry meaning (government insignia, university crests). |
 | `logo-on:` | `all` (default), `title` | `all` → logo on every slide. `title` → only on the title slide — meaning the deck's first slide, or any slide carrying the `title` class. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first and the mark is painted on a slide the export does not carry it on; see the note below the table. |
 | `logo-at:` | `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right` | Names the berth. The mark sits at the frame inset in that spot, and **the chrome in that band stands down**: a top berth hides the running header and the meta tile, `bottom-left` and `bottom-center` hide the footer text, and `bottom-right` hides the page number and the progress rail. The brand wins every collision, so there is nothing to de-collide. Only an explicit `logo-at` hides anything: a deck without it keeps the top-right mark and its header exactly as before. `logo-x` and `logo-y` together still override the position, and the anchor then only decides what hides. |
+| `logo-color:` | one to four stops: `accent`, `ink`, `muted`, `canvas`, `inverse`, `brand` or a `#hex`, each with an optional `NN%` | Recolors the mark with the mix. The stops are theme tokens, so one line reads right in light and dark and under every finish that changes the canvas; an unrecognized stop is dropped and the mark keeps its default treatment. A stop without a percent shares what the others leave. The engine paints it with a per-slide SVG filter (flood the mix, keep the mark's own alpha) and sets `--deck-logo-filter` inline on the section, so it beats the dark-canvas flip. A tinted mark is fully opaque. `logo-style: brand` keeps the original colors and ignores `logo-color`. |
 | `logo-x:` | `0`–`100` | The mark's **center**, as a percentage of the slide width. Unset → the mark hugs the top-right corner at the frame inset. Setting either axis switches the mark from corner-hugging to centered-on-its-point. |
 | `logo-y:` | `0`–`100` | The same, vertically. `logo-y: 82` puts the mark's center 82% of the way down the slide — a common placement for a title-slide watermark under the lede. |
 | `logo-scale:` | multiplier, default `1` | Scales the mark. The base size is `6.25cqi × 4cqi`, so the mark stays resolution-independent at any scale. |

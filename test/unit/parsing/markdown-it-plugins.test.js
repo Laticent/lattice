@@ -726,6 +726,31 @@ describe('markdown-it-plugins', () => {
     assert.match(both, /--logo-bottom:auto;--logo-nudge/);
   });
 
+  test('parseLogoColor: role words and #hex mix; anything else is refused', () => {
+    assert.equal(plugins.parseLogoColor('accent'), 'var(--accent)');
+    assert.equal(plugins.parseLogoColor('accent 60%, ink'), 'color-mix(in srgb, var(--accent) 60%, var(--text-heading))');
+    assert.equal(plugins.parseLogoColor('accent, ink'), 'color-mix(in srgb, var(--accent) 50%, var(--text-heading))');
+    assert.equal(plugins.parseLogoColor('#c8a040'), '#c8a040');
+    assert.match(plugins.parseLogoColor('accent 50%, ink 30%, muted'), /^color-mix\(in srgb, color-mix\(/);
+    for (const bad of ['red', 'url(x)', 'accent;color:red', 'accent 50%, ', 'a, b, c, d, e', '', 'var(--x)']) {
+      assert.equal(plugins.parseLogoColor(bad), null, bad);
+    }
+  });
+
+  test('applyDeckLogoToHtml: `logo-color` gives each slide its own tint filter and sets the filter token inline', () => {
+    const html = logoFixture('<section id="1" data-lattice-slide="1"></section><section id="2" data-lattice-slide="2"></section>');
+    const out = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-color: accent 60%, ink\n---\n');
+    assert.match(out, /--deck-logo-filter:url\(#deck-logo-tint-0\)/);
+    assert.match(out, /--deck-logo-filter:url\(#deck-logo-tint-1\)/);
+    assert.equal([...out.matchAll(/<filter id="deck-logo-tint-\d"/g)].length, 2);
+    assert.match(out, /style="position:absolute;color:color-mix\(in srgb, var\(--accent\) 60%, var\(--text-heading\)\)"/);
+    // a slice render of slide 2 (deck offset 1) names the same filter the whole-deck render does
+    const slice = plugins.applyDeckLogoToHtml(logoFixture('<section id="1" data-lattice-slide="1"></section>'), '---\nlogo: ./a.svg\nlogo-color: accent\n---\n', 1);
+    assert.match(slice, /deck-logo-tint-1/);
+    const none = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-color: javascript\n---\n');
+    assert.doesNotMatch(none, /deck-logo-tint/, 'an unparseable color leaves the default treatment');
+  });
+
   test('applyDeckLogoToHtml: `logo:` with default `logo-on: all` injects <img class="deck-logo"> into every section', () => {
     const html = logoFixture([
       '<section id="1" data-lattice-slide="1"></section>',
