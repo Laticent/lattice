@@ -1,7 +1,6 @@
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
-import { ITEM } from './PillEditor';
 
 // The card's backing as a LEVEL, 0–100%. One control for the deck's Image tab and the slide's:
 // a slider for any 5% step, and chips for the four steps that carry a name, so a person can
@@ -31,6 +30,11 @@ export function backingWord(pct: number): string {
 }
 
 const AUTO = '__auto__';
+
+// The chip look the pill editor's rows use, written out here: importing it from PillEditor would
+// pull that whole editor into the shared Studio chunk for one class string.
+const ITEM =
+	'border border-border text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] data-[state=on]:border-[var(--accent)] data-[state=on]:bg-[var(--accent-soft)] data-[state=on]:text-[var(--accent)]';
 
 type Props = {
 	/** The word set here (on the slide, or on the deck line); undefined when the control follows its parent. */
