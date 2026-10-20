@@ -1,0 +1,1 @@
+- The web-reference scan of a stylesheet (`remoteCssRefs`) jumps to the next quote, escape, comment or `url(` instead of walking every character: 122 ms to 10 ms cold on the 966 KB sheet, same references.

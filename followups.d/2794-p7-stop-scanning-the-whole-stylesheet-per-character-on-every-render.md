@@ -22,3 +22,5 @@ where     — lib/core/remote-ref.js (`remoteCssRefs`, `webRefsInCss`), its call
 done when — `renderDeck` for `examples/focus.md` on the whole sheet drops by at least 100 ms in the same-machine measurement used in the decision note §11, and a test pins that the fast path returns exactly the references the tokenizer does on the sheet and on adversarial inputs (escaped `u\72l(`, a comment inside a string, a `)` inside a string).
 evidence  — before and after timings; the equivalence test.
 verify    — tier 2 (a security-adjacent scanner: the adversarial trio, HARD RULE #25).
+
+status    — scan fast path built (122 to 10 ms cold, 73 to 2-8 ms warm); equivalence + linear-time test test/unit/core/remote-css-refs-equivalence.test.js; the adversarial trio found a quadratic digit-run cliff, fixed. Sheet composition (112 ms) not touched.
