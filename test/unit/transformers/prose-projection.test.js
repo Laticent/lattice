@@ -2012,19 +2012,20 @@ test('stats: a paragraph after the stat list reaches the article and narration o
 	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
 });
 
-test('every layout\'s spoken state words equal the check registry\'s', () => {
-	// prose-projection imports no kernel, so WORD_MAPS is a copy; the registry
-	// (lib/core/state-marks.js CHECKS) is the source. A divergence narrates a different
-	// answer than the registry says the layout speaks.
-	const { CHECKS } = require('../../../lib/core/state-marks.js');
+test('every layout\'s spoken state words are keyed by the check registry\'s ids', () => {
+	// prose-projection imports no kernel, so WORD_MAPS is the one home of the per-layout words;
+	// the registry (lib/core/state-marks.js CHECKS) owns the answers. A layout that misses an
+	// answer, or invents one, narrates a different set than the registry draws.
+	const { CHECKS, MARKER_LABELS } = require('../../../lib/core/state-marks.js');
 	const fs = require('node:fs');
 	const src = fs.readFileSync(require('node:path').join(__dirname, '../../../lib/transformers/prose-projection.mjs'), 'utf8');
-	for (const layout of ['checklist', 'verdict-grid', 'pricing', 'obligation-matrix']) {
+	const ids = CHECKS.map((c) => c.id).sort();
+	for (const layout of ['checklist', 'verdict-grid', 'pricing', 'obligation-matrix', 'state-cells']) {
 		const m = new RegExp(`(?:'${layout}'|${layout}):\\s*\\{([^}]*)\\}`).exec(src.slice(src.indexOf('const WORD_MAPS')));
 		assert.ok(m, `no WORD_MAPS row for ${layout}`);
 		const got = Object.fromEntries([...m[1].matchAll(/(\w+):\s*'([^']*)'/g)].map((x) => [x[1], x[2]]));
-		const want = Object.fromEntries(CHECKS.map((c) => [c.id, c.words[layout]]));
-		assert.deepEqual(got, want, layout);
+		assert.deepEqual(Object.keys(got).sort(), ids, layout);
+		if (layout === 'state-cells') assert.deepEqual(got, Object.fromEntries(CHECKS.map((c) => [c.id, MARKER_LABELS[c.marker]])));
 	}
 });
 

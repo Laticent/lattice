@@ -290,7 +290,7 @@ describe('state-marks — the check registry is the one table of six rows', () =
     assert.equal(marks.CHECKS.length, 6);
     assert.deepEqual(marks.MARKERS, marks.CHECKS.map((c) => c.marker));
     for (const c of marks.CHECKS) {
-      for (const k of ['id', 'marker', 'shape', 'label', 'tone', 'words']) assert.ok(c[k] !== undefined, `${c.id} lacks ${k}`);
+      for (const k of ['id', 'marker', 'shape', 'label', 'tone']) assert.ok(c[k] !== undefined, `${c.id} lacks ${k}`);
       assert.deepEqual(marks.stateClassesFor(c.marker), { sem: c.id, shape: c.shape });
       assert.equal(marks.MARKER_LABELS[c.marker], c.label);
     }
@@ -298,9 +298,9 @@ describe('state-marks — the check registry is the one table of six rows', () =
     assert.equal(new Set(marks.CHECKS.map((c) => c.shape)).size, 6, 'shapes are unique');
   });
 
-  test('the registry is frozen, rows and words included', () => {
+  test('the registry is frozen, rows included', () => {
     assert.ok(Object.isFrozen(marks.CHECKS));
-    for (const c of marks.CHECKS) assert.ok(Object.isFrozen(c) && Object.isFrozen(c.words));
+    for (const c of marks.CHECKS) assert.ok(Object.isFrozen(c));
   });
 
   test('each row\'s mask token is the one the stylesheet maps its shape to, and it is defined', () => {
