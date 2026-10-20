@@ -56,6 +56,10 @@ test('SANITIZE: WRITE sanitizes each drawing as it inserts it; a clean one lands
     assert.match(hostile, /<svg class="function-plot"/);
     assert.equal(kept, clean);
     assert.deepEqual(globals, ['undefined', 'undefined', 'function']);
+    // A page where something else defined the name first is refused, not trusted.
+    const planted = await browser.newPage();
+    await planted.evaluate(() => { window.__latticeSanitizeDrawing = (html) => html; });
+    await assert.rejects(planted.evaluate(SANITIZER()), /already defined by something other than Lattice/);
   } finally {
     await browser.close();
   }

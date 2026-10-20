@@ -69,7 +69,7 @@ capture page with `window.functionPlot` undefined while the kept `.html` still h
 changed. Still open: function-plot in the previews (decision 15), and math.
 
 math in the CLI and the library API, moved 2026-10-20: KaTeX runs behind a wall, QuickJS compiled to WebAssembly
-in the same process (`lib/core/katex-wall.js`), with a 64 MB memory, a 5 s time and a 1 MB stack limit, and each
+in the same process (`lib/core/katex-wall.js`), with a 128 MB memory, a 5 s time and a 256 KB stack limit, and each
 result is checked against what KaTeX emits before it leaves. It replaced the 2026-10-19 cut (KaTeX in the locked
 browser page, +1.3 s per math deck) after the owner ruled out starting a browser for it. The wall is synchronous, so
 D-A closed: there is no in-process fallback. Evidence: 91 formulas × 3 output modes byte-identical

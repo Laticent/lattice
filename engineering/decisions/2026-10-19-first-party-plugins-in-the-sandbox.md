@@ -19,7 +19,7 @@ sanitized before it reaches an export:
 
 | Plugin | Before | CLI now | The wall |
 |---|---|---|---|
-| math | KaTeX inside the CLI's own Node process | KaTeX in QuickJS, compiled to WebAssembly, in the same process (`lib/core/katex-wall.js`) | WebAssembly: nothing but its own memory; 64 MB, 5 s, 1 MB of stack |
+| math | KaTeX inside the CLI's own Node process | KaTeX in QuickJS, compiled to WebAssembly, in the same process (`lib/core/katex-wall.js`) | WebAssembly: nothing but its own memory; 128 MB, 5 s, 256 KB of stack |
 | function-plot | `function-plot.js` inside the page that holds the whole deck, for the PDF, PNG, PPTX, `--player` and `--read` | a locked page in a fresh context of the export's own browser (`lib/export/locked-figures.js`); the capture page loads no copy. The plain `.html` keeps the library and its zoom (decision 16) | a synthetic origin, every other request refused, a strict CSP, no network |
 | Mermaid | `mermaid.min.js` on a `file:` page with `--no-sandbox` | the locked page (`lib/plugins/mermaid/shared/render-worker.js`), in the bake's own browser, which `main` starts too (no added launch; `followups.d/2800-p3-mermaid-bake-one-browser.md`) | the same, plus Chromium's OS sandbox where the machine allows it |
 
@@ -50,18 +50,30 @@ changed. The wall loads synchronously (`new WebAssembly.Module` and `Instance` h
 `instantiateWasm`; quickjs-emscripten 0.31.0, the last release whose factory can finish without an `await`), so the
 library API's `render()` stays synchronous and needs no fallback. Three limits:
 
-- **memory:** the build imports its WebAssembly memory, so the instance gets one with a hard 64 MB maximum. QuickJS's
+- **memory:** the build imports its WebAssembly memory, so the instance gets one with a hard 128 MB maximum. QuickJS's
   own `setMemoryLimit` cannot be the limit: this build has no `malloc_usable_size`, so it counts nothing (2 GB of
-  strings went through a 64 MB setting).
-- **time:** QuickJS's interrupt handler stops a formula after 5 s.
-- **stack:** 1 MB.
+  strings went through a 64 MB setting). Memory bombs stop in under 0.6 s; a 70×70 matrix still typesets.
+- **time:** QuickJS's interrupt handler stops a formula after 5 s, and the result is read under the same deadline, by
+  `getString` and `getProp` only: `dump` would run getters and `toJSON` inside the wall with no deadline.
+- **stack:** QuickJS's own, 256 KB, so runaway recursion fails inside. Node's own stack is the tighter bound for a
+  formula: one nested about 100 deep overflows it at 1 MB as at 256 KB, surfaces as a `RangeError` from the
+  WebAssembly, and is caught like any failure.
 
-A formula that hits one shows its source, and the whole WebAssembly instance is dropped and rebuilt (~125 ms) before the
-next, because QuickJS asserts when a runtime that hit a limit is freed piece by piece.
+A formula that hits one, or fails inside in any other way, shows its source, and the whole WebAssembly instance is
+dropped and rebuilt (~125 ms) before the next, because QuickJS asserts when a runtime that hit a limit is freed piece by
+piece.
+
+**Where the wall differs from KaTeX in Node.** Only past those limits: a formula nested ~100 deep, or one that takes
+more than 5 s inside the wall (a 100×100 matrix; the wall typesets ~10× slower than Node on heavy formulas, so a
+50×50 matrix takes ~2.4 s). KaTeX in Node typesets those; the wall shows their source.
 
 **The output check, not a re-spelling.** parse5 (the spec parser a browser's parse agrees with) reads each result, and
 every node must be on `KATEX_VOCABULARY`: the tags, attributes and style properties KaTeX's own source emits with
-`trust` off. `href`, `src` and the elements that carry them are not on it. A result that passes keeps its bytes, so
+`trust` off. KaTeX nests MathML inside `<mi>` and `<mo>` (`\bmod`, `\coloneqq`, `\stackrel`), which the HTML parser
+files in the HTML namespace, so those MathML names are accepted there too, as the inert unknown elements they are;
+refusing them sent such a formula to the full sanitizer, which deleted its accessible copy (the checker found it).
+A sweep of every command name in KaTeX's source, in seven argument shapes, both display modes and all three output
+modes (43,170 typesets) is refused nowhere. `href`, `src` and the elements that carry them are not on it. A result that passes keeps its bytes, so
 exports do not move; one that does not goes through the full slide sanitizer (DOMPurify on jsdom), loaded only then,
 because jsdom alone costs ~0.75 s.
 
