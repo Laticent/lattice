@@ -8,11 +8,11 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 ### 2026-10-20 — measured on the image card band (#2824) rebased onto main
 
-Raises the lint core's ceiling by 900 bytes (109500 → 110400), soft target unchanged; the owner chose this on 2026-10-20 (#2824). The PR adds the `thin-card-no-ink` rule and the class-reading policy it shares with the Studio (`lib/core/card-ink-policy.mjs`) to the lint core, and the image-card register gains the `shape` axis and 17 backing levels. Measured at 110,100 bytes with the rebased tree, about 600 over the old ceiling. Before asking, it gave back what it could: the policy is split from the photo-sampling maths so the lint core takes only the class reading (about 750 bytes), the composition reader is restated in the policy instead of pulling in `image-aspect` (about 1,000 bytes), the level lists are formulas, and the finding's text is shorter. The one remaining option, dropping the rule, would leave hand-written decks without a warning for the thin cards the Studio fixes automatically. The 300 bytes above the measurement cover the drift between local and CI builds.
+Raises the lint core's ceiling by 2,500 bytes (109500 → 112000), soft target unchanged; the owner chose this on 2026-10-20 (#2824). The PR adds the `thin-card-no-ink` rule and the class-reading policy it shares with the Studio (`lib/core/card-ink-policy.mjs`) to the lint core, and the image-card register gains the `shape` axis and 17 backing levels. Measured at 110,100 bytes with the rebased tree, about 600 over the old ceiling. Before asking, it gave back what it could: the policy is split from the photo-sampling maths so the lint core takes only the class reading (about 750 bytes), the composition reader is restated in the policy instead of pulling in `image-aspect` (about 1,000 bytes), the level lists are formulas, and the finding's text is shorter. The one remaining option, dropping the rule, would leave hand-written decks without a warning for the thin cards the Studio fixes automatically. The owner then asked for more room than the measurement needs (112000, about 1.9KB of headroom), so the next lint rule does not trip it at once.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | lintCoreGz | 92465 | 92465 | +0 | 110400 |
+| studio | lintCoreGz | 92465 | 92465 | +0 | 112000 |
 
 ### 2026-10-19 — measured on the legend plugin (#2798) built on top of main at b9cb419
 
