@@ -1,9 +1,10 @@
 ---
 status: in-progress
 summary: >
-  Math, Mermaid and function-plot now draw in the LOCKED page for every CLI export, with byte-identical output.
-  Two choices remain the owner's: whether the library API keeps in-process KaTeX as its fallback (D-A), and how the
-  live previews sandbox the three libraries (D-B).
+  Math, Mermaid and function-plot draw behind a wall for every CLI export, with byte-identical output and no extra
+  browser: KaTeX in QuickJS-in-WebAssembly in the CLI's own process, function-plot in an isolated context of the
+  export's own browser, Mermaid in the locked page. D-A closed itself (the wall is synchronous, so the library API uses
+  it too); how the live previews sandbox the three libraries (D-B) is still the owner's.
 ---
 
 # First-party plugins in the sandbox: math, Mermaid and function-plot (2026-10-19)
@@ -11,78 +12,94 @@ summary: >
 ## 1. The answer
 
 The owner's rule is that a plugin renders in the sandbox and the host sanitizes what it returns, with no first-party
-exception. This comes from the threat-model note `2026-10-16-npm-plugin-threat-model.md` §6: rows 3 and 4, and decisions 14 to 16. For
-the CLI the rule now holds. Every first-party library that draws from an author's text runs in a **locked page**:
+exception. This comes from the threat-model note `2026-10-16-npm-plugin-threat-model.md` §6: rows 3 and 4, and decisions 14 to 16. The
+owner's second rule (2026-10-20) is speed: **starting a browser to get there is not allowed.** For the CLI both now
+hold. Every first-party library that draws from an author's text runs behind a wall, and what it returns is checked or
+sanitized before it reaches an export:
 
-- the code sandbox's browser (`launchCodeSandbox`), with Chromium's OS sandbox wherever the machine allows it;
-- no network;
-- a synthetic origin, or the code door's own locked page, serving Lattice's files and nothing else;
-- a strict CSP.
+| Plugin | Before | CLI now | The wall |
+|---|---|---|---|
+| math | KaTeX inside the CLI's own Node process | KaTeX in QuickJS, compiled to WebAssembly, in the same process (`lib/core/katex-wall.js`) | WebAssembly: nothing but its own memory; 64 MB, 5 s, 1 MB of stack |
+| function-plot | `function-plot.js` inside the page that holds the whole deck, for the PDF, PNG, PPTX, `--player` and `--read` | a locked page in a fresh context of the export's own browser (`lib/export/locked-figures.js`); the capture page loads no copy. The plain `.html` keeps the library and its zoom (decision 16) | a synthetic origin, every other request refused, a strict CSP, no network |
+| Mermaid | `mermaid.min.js` on a `file:` page with `--no-sandbox` | the locked page (`lib/plugins/mermaid/shared/render-worker.js`), in the bake's own browser, which `main` starts too (no added launch; `followups.d/2800-p3-mermaid-bake-one-browser.md`) | the same, plus Chromium's OS sandbox where the machine allows it |
 
-What the page returns is sanitized before it reaches an export. Every export the change touches is
-byte-identical to the one before it, so there was nothing for the owner to sign off.
+Every export the change touches is byte-identical to the one before it, so there was nothing for the owner to sign
+off. The live previews (decision 15) are not moved yet; that is §5.
 
-The live previews (decision 15) are not moved yet, and the library API without a browser has one choice left open.
-Both are in §5.
+## 2. Why the first cut was replaced
 
-## 2. Where each library ran, and where it runs now
+The first cut (2026-10-19) ran KaTeX and function-plot in the code sandbox's own browser, launched for the purpose. It
+was secure and byte-identical, and it cost a browser: +1.3 s on every math deck and +0.8 s on every export with a plot
+(`math-form-frame.md` went from 3.1 s to 4.4 s). The owner's answer was that a browser start is not an acceptable price
+(2026-10-20), so the question became whether Node could be fast and secure on its own. Measured, for 80 formulas:
 
-| Plugin | Before | CLI now |
+| How KaTeX runs | Time | A wall? |
 |---|---|---|
-| Mermaid | `mermaid.min.js` on a `file:` page with `--no-sandbox` | the locked page (`lib/plugins/mermaid/shared/render-worker.js`) |
-| function-plot | `function-plot.js` inside the page that holds the whole deck, for the PDF, PNG, PPTX, `--player` and `--read` | the locked page (`lib/export/locked-figures.js`); the capture page loads no copy. The plain `.html` keeps the library and its zoom (decision 16) |
-| math | KaTeX inside the CLI's own Node process | the locked page (`lib/export/math-typeset.js`, `math-typeset-worker.js`); KaTeX never loads in the CLI process |
+| in-process (`main`) | 75–140 ms | none |
+| a Node worker thread | 150–220 ms | no: it can be killed on a timeout, and reaches what Node reaches |
+| **QuickJS in WebAssembly** | **~250–300 ms**, ~125 ms of it loading once per process | **yes** |
+| the locked browser page | ~1,300 ms | yes |
 
-## 3. How each one moved
+Mermaid and function-plot need a real layout engine to measure text, so they stay in a browser, but no longer one of
+their own: the export already starts one to take its picture.
 
-**Mermaid.** The render worker launches through `launchCodeSandbox`, serves its page from
-`https://mermaid.lattice.invalid`, and sends a CSP that admits only that origin. A flowchart image node names a `file:`
-picture, which a web origin cannot load. The worker therefore re-addresses each picture onto the origin as base64url,
-answers it through the same file confiner the old page used. The old page's Mermaid dropped a `file:` `href` from the drawn `<image>`, so the worker removes the re-addressed one as well: an export never carries the author's local path, and an image node's SVG is byte-identical to the old one (a deck in a folder named `Board (final)` was checked against the pre-move worker).
+## 3. How each one works
+
+**math.** `math.render.js` requires `lib/core/katex-wall.js` where it required KaTeX, and nothing else in the engine
+changed. The wall loads synchronously (`new WebAssembly.Module` and `Instance` handed to emscripten's
+`instantiateWasm`; quickjs-emscripten 0.31.0, the last release whose factory can finish without an `await`), so the
+library API's `render()` stays synchronous and needs no fallback. Three limits:
+
+- **memory:** the build imports its WebAssembly memory, so the instance gets one with a hard 64 MB maximum. QuickJS's
+  own `setMemoryLimit` cannot be the limit: this build has no `malloc_usable_size`, so it counts nothing (2 GB of
+  strings went through a 64 MB setting).
+- **time:** QuickJS's interrupt handler stops a formula after 5 s.
+- **stack:** 1 MB.
+
+A formula that hits one shows its source, and the whole WebAssembly instance is dropped and rebuilt (~125 ms) before the
+next, because QuickJS asserts when a runtime that hit a limit is freed piece by piece.
+
+**The output check, not a re-spelling.** parse5 (the spec parser a browser's parse agrees with) reads each result, and
+every node must be on `KATEX_VOCABULARY`: the tags, attributes and style properties KaTeX's own source emits with
+`trust` off. `href`, `src` and the elements that carry them are not on it. A result that passes keeps its bytes, so
+exports do not move; one that does not goes through the full slide sanitizer (DOMPurify on jsdom), loaded only then,
+because jsdom alone costs ~0.75 s.
 
 **function-plot.** `lattice.js` serves the capture page a copy of the export without the library (`capturePageOf`), and
-the plugin's hydrator is marked `drawnByHost`, so its placeholders wait. `awaitPluginFigures` then:
+the plugin's hydrator is marked `drawnByHost`, so its placeholders wait. The export opens a plotter in a fresh context of
+its own browser while the capture page loads (`openPlotter`), so the setup is off the critical path. `awaitPluginFigures`
+then:
 
 1. reads each placeholder's config and drawn size;
 2. draws every plot in the locked page by running the plugin's own `hydrate` on placeholders rebuilt in the same order,
-   so the seeded ids come out the same;
-3. sanitizes each drawing with the slide sanitizer in a separate page;
-4. writes the drawing back and settles it.
+   at the capture page's pixel ratio, so the seeded ids and d3's half-pixel offsets come out the same;
+3. writes each drawing back through `WRITE`, which sanitizes it with the slide sanitizer as it inserts it. The sanitizer
+   runs in the capture page (`SANITIZER`: DOMPurify in a closure, one global function), where DOMPurify parses into an
+   inert document of its own; a separate sanitizer page cost a renderer process and ~150 ms.
 
-**math.** `math.render.js` gained a seam, `setTypesetter`. Before a deck's real render, the CLI renders it once to
-collect its formulas, and one worker typesets them all. The worker runs KaTeX as a fence renderer in `openPackageSandbox`,
-with the same options as the Node path. Every render then reads the results. A formula seen for the first time later
-(a display formula reflowed only after its first typeset) is typeset on its own.
+What the one-browser rule gave up: the capture browser launches with `--no-sandbox` on every platform, so the plots'
+locked page no longer has Chromium's OS sandbox under it, where the first cut's own browser did on macOS, Windows and
+an unprivileged Linux. It keeps every other wall, and it is more confined than `main`, where function-plot drew inside
+the capture page itself. `followups.d/2800-p2-capture-browser-os-sandbox.md` gives the whole capture browser that layer.
 
-**The sanitizer, kept byte-exact.** A serializer re-spells what it keeps: `&#x27;` becomes `'`, and `<path/>` becomes
-`<path></path>`. For 11 of the 80 shipped formulas, that alone changed the bytes. `sanitizeKeeping`
-(`lib/packages/code-door-worker.js`) keeps the drawing's own bytes only when the same markup, parsed in that page,
-serializes to exactly what the sanitizer returned. That means the sanitizer removed nothing. Otherwise the
-sanitized markup is used.
+**The sanitizer, kept byte-exact.** For Mermaid, `sanitizeKeeping` (`lib/packages/code-door-worker.js`) keeps the
+drawing's own bytes only when the same markup, parsed in that page, serializes to exactly what the sanitizer returned.
 
 ## 4. Evidence
 
 | What | Result |
 |---|---|
+| math, every shipped formula | 91 formulas × 3 output modes, byte-identical to KaTeX in Node, and every one passes the output check as it is (`test/unit/core/katex-wall.test.js`) |
+| math, the wall | inside it `require`, `process`, `fetch`, timers and `WebAssembly` are undefined; a loop stops at 5 s, 1 MB buffers, strings and one 512 MB string each stop in under 0.4 s, recursion stops at once, and the next formula typesets |
+| math, the CLI | `math-walled.test.js`: the `.html` holds KaTeX's own typeset, `KATEX_IN_PROCESS=false`, one browser (the layout check's) |
 | Mermaid, every gallery and fixture diagram | 32 / 32 SVGs byte-identical; PDFs of `examples/mermaid-diagram-surface.md`, `dark-diagram-fills.md`, `mermaid-init-merge.md` identical |
-| function-plot | PNG, PPTX (but its timestamp), PDF and `--player` files of `examples/plugin-system-phase-b.md`, `math-form-frame.md`, `marp-export-fidelity.md` identical to `main`'s, after the locked page took the capture page's pixel density (d3's axis offsets its lines by half a pixel only at 1x, so a 2x PNG first came out a pixel off); a debug run read `window.functionPlot` as undefined in the capture page |
-| math | every shipped formula identical (`math-sandbox-parity.test.js`); `.html` of `math.fixtures.md`, the gallery and `math-form-frame.md` identical; their PDFs identical except the gallery's, which differs run to run on `main` as well |
-| KaTeX out of the CLI process | `math-locked.test.js` loads a `require.cache` probe: `KATEX_IN_PROCESS=false` |
-| Cost | Mermaid: no measurable change. Math: +1.3 s on `math-form-frame.md` (3.1 s to 4.4 s), the locked page's launch, plus one extra engine render per `engineSlides` call for any deck holding a `$` or a math fence (the collect render; a `$` in prose is enough to trigger it, and it starts no second worker once the formulas are known). function-plot: about 0.8 s per export that captures a page |
+| function-plot | PDF, PNG and `--player` of `examples/plugin-system-phase-b.md`, `math-form-frame.md`, `marp-export-fidelity.md` identical to `main`'s; PPTX but its timestamp; the plain `.html` differs only by the runtime's `if (h.drawnByHost) continue;` and its comment |
+| one browser | `function-plot-locked.test.js`: the PDF export launches one browser; `--player` two, the second being the player prune pass's own, as on `main` |
 
 ## 5. Open for the owner
 
-**D-A. The library API with no browser.** `createEngine().render()` is synchronous, and thousands of tests and every
-library caller use it. With no typesetter set, it typesets in its own process, as before. The CLI also falls back to
-that, with a warning, when the locked page cannot start.
-
-- **A1 (built, recommended):** keep that fallback for the library API and for a CLI with no browser.
-  - Plus: nothing breaks.
-  - Minus: it is the one recorded exception.
-- **A2:** no fallback. With no typesetter, math renders as its source with a diagnostic.
-  - Plus: no exception.
-  - Minus: every library caller that renders math breaks, including the docs site's build, and a CLI with no
-    browser shows TeX source.
+**D-A. The library API with no browser.** Closed by §3: the wall is synchronous, so the library API, the docs build
+and the CLI all typeset behind it. There is no in-process fallback and no exception.
 
 **D-B. The previews (decision 15).** The Studio and the Playground still run KaTeX, Mermaid and function-plot in the
 page that holds the deck. Both options below make the preview's draw asynchronous where it is synchronous today.

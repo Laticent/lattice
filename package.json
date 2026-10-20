@@ -341,6 +341,7 @@
     "tavola-lib:build": "node tools/build-tavola-lib.js"
   },
   "dependencies": {
+    "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
     "@laticent/cadenza": "^0.1.0",
     "@laticent/calco": "^0.1.0",
     "@laticent/ltt": "^0.1.0",
@@ -363,6 +364,7 @@
     "pptxgenjs": "^3.12.0",
     "puppeteer": "^23.0.0",
     "qrcode": "^1.5.4",
+    "quickjs-emscripten-core": "0.31.0",
     "roughjs": "^4.6.6",
     "woff2-encoder": "^2.0.0"
   },

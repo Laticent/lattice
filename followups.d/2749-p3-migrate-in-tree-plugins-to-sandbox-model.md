@@ -42,7 +42,7 @@ Mermaid cost, measured 2026-10-18 on this container with the current bake path (
 Math feasibility, measured 2026-10-19 (the npm-plugin-safety PR): the vendored `katex.min.js` (272 KB, under the door's
 1 MB cap) runs as a fence renderer in the LOCKED sandbox page (`openPackageSandbox`, `runPackage`) and renders all 80
 formulas in the math docs, fixtures, gallery and examples, plus a malformed one, **byte-identical** to `renderTex` in
-Node (81 in all). `test/integration/parity/math-sandbox-parity.test.js` pins it, and goes red when one option differs (6 of 81).
+Node (81 in all). That parity is now pinned by `test/unit/core/katex-wall.test.js` (below).
 Cost: 447 ms to open the sandbox once, then about 4.4 ms per formula against 0.9 ms in Node (the memo would cut repeats
 in both). So moving math changes no export bytes. Dark and light renders of `examples/math-form-frame.md` went to the
 owner for sign-off; **math moves after that sign-off, not before.** Mermaid and function-plot are not measured yet.
@@ -60,20 +60,18 @@ links (owner decision 15, previews), function-plot, and math.
 function-plot in the CLI captures, moved 2026-10-19: every export that captures a page (PDF, PNG, PPTX, `--player`,
 `--read`) loads a copy of the page without the library. The plugin's hydrator is marked `drawnByHost`
 (`hydrateScript`'s `hostDrawn`), so its placeholders wait. `lattice.js` then draws them in the locked page
-(`lib/export/locked-figures.js`) by running the plugin's own `hydrate` there, sanitizes each
-drawing with the slide sanitizer in a separate page, and writes it back. The plain `.html` keeps the library and its
+(`lib/export/locked-figures.js`) by running the plugin's own `hydrate` there, and writes each drawing back
+through the slide sanitizer. Since 2026-10-20 that locked page is a fresh context of the export's own browser,
+started while the capture page loads, and the sanitizer runs in the capture page: no browser of its own. The plain `.html` keeps the library and its
 zoom (decision 16). Evidence: the PDF and `--player` files of `examples/plugin-system-phase-b.md`,
 `math-form-frame.md` and `marp-export-fidelity.md` are byte-identical before and after, and a debug run showed the
 capture page with `window.functionPlot` undefined while the kept `.html` still holds the library. No export bytes
 changed. Still open: function-plot in the previews (decision 15), and math.
 
-math in the CLI, moved 2026-10-19: before a deck's real render, the CLI collects its formulas with one render and
-typesets them all in the locked page (`lib/export/math-typeset.js` and `math-typeset-worker.js`: KaTeX as a fence
-renderer in `openPackageSandbox`). Each result is sanitized, and KaTeX's own bytes are kept when the sanitizer
-removed nothing. Every render then reads the results through `math.render.js`'s `setTypesetter`; KaTeX is never
-loaded into the CLI's process (pinned by a `require.cache` probe in `math-locked.test.js`). If the locked page
-cannot start, the formulas are typeset in-process with one warning (the owner's D-A). Evidence: the HTML of
-`math.fixtures.md`, the gallery and `math-form-frame.md` is byte-identical, and so are the PDFs of the first and
-last. The gallery's PDF differs run to run on `main` too: two old runs differed on page 33, where the new run matches
-one of them. Cost: +1.3 s on `math-form-frame.md` (3.1 s to 4.4 s), the locked page's launch. Still open: the
-previews (decision 15) and the library API (D-A).
+math in the CLI and the library API, moved 2026-10-20: KaTeX runs behind a wall, QuickJS compiled to WebAssembly
+in the same process (`lib/core/katex-wall.js`), with a 64 MB memory, a 5 s time and a 1 MB stack limit, and each
+result is checked against what KaTeX emits before it leaves. It replaced the 2026-10-19 cut (KaTeX in the locked
+browser page, +1.3 s per math deck) after the owner ruled out starting a browser for it. The wall is synchronous, so
+D-A closed: there is no in-process fallback. Evidence: 91 formulas × 3 output modes byte-identical
+(`test/unit/core/katex-wall.test.js`), and the CLI never `require`s KaTeX (`test/integration/export/math-walled.test.js`).
+Still open: the previews (decision 15).

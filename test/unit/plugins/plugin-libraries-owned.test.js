@@ -91,7 +91,9 @@ test('every surface reads the plugin\'s copy', () => {
   assert.match(read('lib/plugins/hydrate-script.js'), /const abs = libraryPath\(h\.name\);/);
   assert.equal(require('../../../lib/plugins/hydrate-script.js').payloadPath({ name: 'function-plot', payload: {} }), payloadPath('function-plot'));
   // KaTeX: the engine's renderer, the docs provider bundle, the stylesheet and fonts every export reads.
-  assert.match(read('lib/plugins/math/math.render.js'), /katex = require\('\.\/vendor\/katex\/katex\.min\.js'\);/);
+  // The renderer requires the wall, and the wall runs the plugin's own copy inside it.
+  assert.match(read('lib/plugins/math/math.render.js'), /katex = require\('\.\.\/\.\.\/core\/katex-wall\.js'\);/);
+  assert.match(read('lib/core/katex-wall.js'), /const KATEX_SOURCE = require\.resolve\('\.\.\/plugins\/math\/vendor\/katex\/katex\.min\.js'\);/);
   assert.match(read('lib/playground/katex-provider.js'), /import katex from '\.\.\/plugins\/math\/vendor\/katex\/katex\.min\.js';/);
   assert.match(read('tools/build-css.js'), /const KATEX_CSS = vendorPath\('math', 'katex-css'\);/);
   assert.match(read('lattice.js'), /vendorPath\('math', 'katex-css'\)/);

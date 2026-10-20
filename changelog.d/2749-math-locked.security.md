@@ -1,1 +1,0 @@
-- The CLI now typesets math with KaTeX in a locked browser page instead of its own process. Before the render, it typesets every formula in a deck at once, then sanitizes the result. Exports are byte-identical. A deck with math takes about a second longer to render. If the browser cannot start, the CLI typesets in its own process as before and says so.

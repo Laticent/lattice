@@ -2197,8 +2197,6 @@ function topLevelSectionStrings(latticeHtml) {
 let webImagesReported = false;
 // Every web reference the render swapped for a placeholder, for --player-consent's report.
 const webBlockedAtRender = [];
-/** The CLI's math typesetter (lib/export/math-typeset.js), made on the first deck that holds math and kept for the run. */
-let MATH_TYPESETTER = null;
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2258,13 +2256,6 @@ function engineSlides(deckSource = rawMd) {
   for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
   const assetUrls = deckAssets.urls;
   const deckMd = bgImage.liftImageBgImages(deckSource, deckBaseUrl, samplesUrl, assetUrls);
-  // MATH IN THE LOCKED PAGE (owner decision 14; lib/export/math-typeset.js): the deck's formulas are typeset by KaTeX in
-  // the code sandbox's page before the real render, which reads them; KaTeX never runs in this process. A cheap test
-  // first: a deck with no `$` and no math fence has nothing to typeset.
-  if (/\$|(?:```|~~~)\s*math/.test(deckMd)) {
-    MATH_TYPESETTER ??= require('./lib/export/math-typeset.js').createMathTypesetter({ chromePath: CHROME_EXEC, warn: (l) => { if (!QUIET) console.error(l); } });
-    MATH_TYPESETTER.prepare(() => engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl }));
-  }
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
@@ -3317,6 +3308,12 @@ async function renderExport({ hardened }) {
 }
 
 async function renderBody(browser, g, closeBrowser) {
+  // function-plot's locked page and its sanitizer, made ready WHILE the capture page loads (lib/export/locked-figures.js
+  // `openPlotter`), so the draw below pays almost nothing for its setup. Settled into `{ plotter }` or `{ error }`, never
+  // left to reject unobserved.
+  const plotterReady = HOST_DRAWN.includes('function-plot')
+    ? require('./lib/export/locked-figures.js').openPlotter(browser).then((plotter) => ({ plotter }), (error) => ({ error }))
+    : null;
   const page = await g(() => browser.newPage(), 'new page');
   // LOCAL FILES stay inside the deck. The page loads the deck's pictures as `file://` addresses, and Chromium
   // follows a symlink or a typed `file:///etc/x` wherever it points. Each `file:` request is checked by REAL
@@ -3467,9 +3464,10 @@ async function renderBody(browser, g, closeBrowser) {
   // TIMING: function-plot's inflater was synchronous and ran before `load`, so the navigation wait
   // covered it — true of that one library, and of nothing the plugin contract promises. A plugin
   // that stays pending past the budget is closed with its source shown, and said so.
-  // The figures the HOST draws (HOST_DRAWN): read from this page, drawn in the locked page, sanitized, written back and
-  // settled, before the barrier below waits on what is left. Remembered by the page's whole list of plots, so a
-  // re-navigation that shows the same ones (auto-split, rails) starts no second browser.
+  // The figures the HOST draws (HOST_DRAWN): read from this page, drawn in a locked page in a fresh context of THIS
+  // browser (no second browser: one per export), sanitized, written back and settled, before the barrier below waits on
+  // what is left. Remembered by the page's whole list of plots, so a re-navigation that shows the same ones (auto-split,
+  // rails) draws them once.
   const hostDrawnMemo = new Map();
   const drawHostFigures = async (label) => {
     if (!HOST_DRAWN.includes('function-plot')) return;
@@ -3481,7 +3479,11 @@ async function renderBody(browser, g, closeBrowser) {
     let drawn = hostDrawnMemo.get(key);
     if (!drawn) {
       try {
-        drawn = await fpLocked.drawLocked(puppeteer, plots, { executablePath: CHROME_EXEC, deviceScaleFactor });
+        drawn = await g(async () => {
+          const ready = await plotterReady;
+          if (ready.error) throw ready.error;
+          return ready.plotter.draw(plots, { deviceScaleFactor });
+        }, `draw function plots${label}`);
         hostDrawnMemo.set(key, drawn);
       } catch (e) {
         // Released at once with their source showing, as the in-page host releases a plot whose library is missing,
@@ -3494,6 +3496,7 @@ async function renderBody(browser, g, closeBrowser) {
         return;
       }
     }
+    await g(() => page.evaluate(fpLocked.SANITIZER()), `sanitizer for function plots${label}`);
     await g(() => page.evaluate(fpLocked.WRITE, drawn), `write function plots${label}`);
   };
   const awaitPluginFigures = async (label) => {
