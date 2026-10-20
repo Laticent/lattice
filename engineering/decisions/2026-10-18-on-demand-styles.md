@@ -537,6 +537,36 @@ reads Resource Timing per request. Median of 7 runs (5 with cable, 3 with 4g); a
   bundles (charts, diagrams, finishes) fetched with the floor, which would cut the serial chain's second fetch without
   any server logic. Raw files: the benchmark prints a table, `--json` keeps the samples.
 
+**Where the first slide's time goes, and what a source scan buys (2026-10-20).** `focus.md`, Chromium, loopback, whole sheet.
+Warm, the engine is cheap: it renders the 14-slide deck in 8 to 14 ms. The 1.0 to 1.5 s to the first styled slide is cold-start work
+and waiting:
+
+| when | what |
+|---|---|
+| 0 to 260 ms | the page's own scripts: Astro islands, the editor, the 1.18 MB `lattice-runtime.js` (411 KB gzipped, the largest single download, bigger than the engine at 309 KB gz and the whole sheet at 116 KB gz) |
+| 470 to 780 ms | two long tasks (119 and 83 ms): hydration and editor setup |
+| 635 ms | the engine bundle is first REQUESTED: `PlaygroundApp.tsx` starts it from `requestIdleCallback`, so it waits for the page's own work to go idle |
+| 850 to 1030 ms | the first `engine.render`, 178 to 191 ms cold: markdown parse 52, **stylesheet composition 112**, transforms 15, assemble 11 |
+| 1030 to 1300 ms | `renderDeck`, 250 to 278 ms: sanitizer, frame build, and a per-character tokenizer over the stylesheet (`remoteCssRefs`, 127 ms self time on the 931 KB sheet) |
+| 1390 to 1470 ms | the first slide is styled |
+
+On a slow link the order is the same but the gap grows: the engine request starts at 2.0 s on cable and 6.5 s on 4g, because the
+runtime script holds the connection first (it ends at 2.6 s and 8.2 s). The loader's saving, about 50 KB on the wire, is about
+5% of the roughly 900 KB the first slide waits for. With the loader, stylesheet composition falls from 112 to 34 ms and `renderDeck` from
+250 to 110 ms (both scale with the sheet), and it pays a second render (47 to 51 ms warm) and the grow fetch (about 100 ms).
+
+**Guessing the modules from the Markdown, to skip the second render.** `scanMarkdown` (`lib/core/style-needs-scan.mjs`) reads class
+directives, front matter, raw HTML classes and the elements Markdown becomes; `tools/style-predict-eval.mjs` scores it against the
+rendered HTML on all 295 decks, counting modules beyond the floor. Markdown alone is perfect on 28 decks (median 2 modules missed,
+9 KB). Adding what each component's class word implies (rendering each component's own exemplar slides once, `impliesFor`) raises
+that to 145 decks (49%), with a median of 0 KB missed and 0 KB wasted, and costs about 14 s of build time to compute. The loader has
+an opt-in `&predict=source` (and `&predict=3,9,12`, an explicit list, as an oracle). **The ceiling is small:** with a PERFECT guess
+(`+oracle`, the true modules handed over before the first render) the first styled slide moves by -5% to +3% across five decks on cable,
+-4% to 0% on 4g (`claim` 10697 vs 11074 ms, `data-viz-gallery` 11323 vs 11755), and unthrottled by -10% to +1% (the -10% is one deck,
+`data-viz-gallery`), while the loader's own fetch span falls by half or more. The grow fetch and the second render are not on the critical path of the first styled
+slide; the engine start and the page's downloads are. The `implies` table is therefore NOT built into the site (it would add 14 s to
+every docs build for a 1 to 4% gain); the evaluator and the opt-in hook stay so the number can be re-measured.
+
 **What the reviews found (HARD RULE #25), and what changed.**
 
 1. *The runtime-token list was hand-kept and wrong.* The runtime toggles `.overflow` on a slide that

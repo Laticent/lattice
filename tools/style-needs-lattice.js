@@ -109,6 +109,57 @@ function derivedRuntimeTokens(index, root = ROOT) {
   return { c: [...c].filter((x) => vocab.c.has(x)).sort(), a: [...a].filter((x) => vocab.a.has(x)).sort() };
 }
 
+/**
+ * What each class word IMPLIES: the modules (beyond the start-up floor) the engine's HTML needs when a deck uses that word.
+ * Reading a deck's Markdown finds a component's class (`kpi`) but not what the engine builds from it (a chart family's
+ * `.fc-*` markup, a pill from inline code), so the guess misses those modules and the loader renders twice. Each component's
+ * own exemplar slides (the gallery plan: its sample and every variant) are rendered once, here, and every class word on a slide
+ * gets the modules that slide needs; a word seen on several slides keeps the INTERSECTION, so a word that rides along with
+ * another does not inherit that word's modules. Shipped in the index as `implies` (`word -> module indexes`).
+ *
+ * @param {{index: object[], modules: {id: string}[], floor: number[]}} built  a `buildLatticeIndex` result
+ * @returns {Promise<Record<string, number[]>>}
+ */
+async function impliesFor(built, root = ROOT) {
+  const { JSDOM } = require('jsdom');
+  const latticeEngine = require(path.join(root, 'lib/engine'));
+  const { loadAll } = require(path.join(root, 'lib/components'));
+  const { galleryPlan } = require(path.join(root, 'tools/build-component-docs.js'));
+  const { neededModules, scanDocument, scanMarkdown } = await import(path.join(root, 'lib/core/style-needs-scan.mjs'));
+  const engine = latticeEngine.createEngine({});
+  engine.addThemes([
+    { name: 'lattice', css: fs.readFileSync(path.join(root, 'dist/lattice-min.css'), 'utf8') },
+    { name: 'indaco', css: fs.readFileSync(path.join(root, 'dist/themes/indaco-min.css'), 'utf8') },
+  ]);
+  const floor = new Set(built.floor);
+  built.index.forEach((m, i) => {
+    if (m.always) floor.add(i);
+  });
+  for (const i of floor) for (const j of built.index[i].requires) floor.add(j);
+  const runtime = runtimeTokensFor(built.index, root);
+  const byWord = new Map();
+  for (const m of loadAll()) {
+    for (const slide of galleryPlan(m)) {
+      if (slide.kind === 'title') continue;
+      let html;
+      try {
+        html = engine.render(slide.md, 'indaco').html;
+      } catch {
+        continue;
+      }
+      const flags = neededModules(built.index, scanDocument(new JSDOM(html).window.document.documentElement), undefined, runtime);
+      const ids = new Set(flags.flatMap((f, i) => (f && !floor.has(i) ? [i] : [])));
+      for (const w of scanMarkdown(slide.md).c) {
+        const prev = byWord.get(w);
+        byWord.set(w, prev ? new Set([...prev].filter((i) => ids.has(i))) : ids);
+      }
+    }
+  }
+  const out = {};
+  for (const [w, ids] of byWord) if (ids.size) out[w] = [...ids].sort((a, b) => a - b);
+  return out;
+}
+
 /** The static player-prune list plus what the runtime and host source write, for one index. */
 function runtimeTokensFor(index, root = ROOT) {
   const derived = derivedRuntimeTokens(index, root);
@@ -161,4 +212,5 @@ function buildLatticeIndex({ verified = true, root = ROOT, commonList } = {}) {
   };
 }
 
-module.exports = { RUNTIME_TOKENS, runtimeTokensFor, derivedRuntimeTokens, readModules, buildLatticeIndex };
+module.exports = {
+  impliesFor, RUNTIME_TOKENS, runtimeTokensFor, derivedRuntimeTokens, readModules, buildLatticeIndex };

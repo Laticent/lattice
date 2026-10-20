@@ -31,6 +31,7 @@
  * Linux engines only; real iOS is not measured (HARD RULE #23).
  */
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, webkit } from '@playwright/test';
@@ -62,10 +63,39 @@ const STYLE_ASSET = /\/playground\/v\/[^/]+\/(?:styles\/|themes\/lattice\.css)/;
 
 const med = (a) => [...a].sort((x, y) => x - y)[a.length >> 1];
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
-const query = (mode) => (mode === 'full' ? '' : `?styles=${mode}`);
+// A mode is a fetch mode, optionally `+source` (guess the first render's modules from the Markdown) or `+oracle` (hand the loader
+// the modules the rendered HTML really needs, an upper bound on what any guess can buy). e.g. `bundle+oracle`.
+const query = (mode, oracle) => {
+  if (mode === 'full') return '';
+  const [fetchMode, guess] = mode.split('+');
+  const predict = guess === 'source' ? '&predict=source' : guess === 'oracle' && oracle?.length ? `&predict=${oracle.join(',')}` : '';
+  return `?styles=${fetchMode}${predict}`;
+};
 
-async function visit(page, mode) {
-  await page.goto(`${base}/playground/${query(mode)}`, { waitUntil: 'domcontentloaded' });
+/** The module indexes beyond the start-up floor that a deck's rendered HTML needs (what a perfect guess would name). */
+async function oracleIds(md) {
+  const require = createRequire(import.meta.url);
+  const { JSDOM } = require(path.join(ROOT, 'node_modules/jsdom'));
+  const engine = require(path.join(ROOT, 'lib/engine')).createEngine({});
+  const { neededModules, scanDocument } = await import(path.join(ROOT, 'lib/core/style-needs-scan.mjs'));
+  const { buildLatticeIndex, runtimeTokensFor } = require(path.join(ROOT, 'tools/style-needs-lattice.js'));
+  const built = buildLatticeIndex({ verified: false });
+  engine.addThemes([
+    { name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice-min.css'), 'utf8') },
+    { name: 'indaco', css: fs.readFileSync(path.join(ROOT, 'dist/themes/indaco-min.css'), 'utf8') },
+  ]);
+  const html = engine.render(md, 'indaco').html;
+  const flags = neededModules(built.index, scanDocument(new JSDOM(html).window.document.documentElement), undefined, runtimeTokensFor(built.index));
+  const floor = new Set(built.floor);
+  built.index.forEach((m, i) => {
+    if (m.always) floor.add(i);
+  });
+  for (const i of floor) for (const j of built.index[i].requires) floor.add(j);
+  return flags.flatMap((f, i) => (f && !floor.has(i) ? [i] : []));
+}
+
+async function visit(page, mode, oracle) {
+  await page.goto(`${base}/playground/${query(mode, oracle)}`, { waitUntil: 'domcontentloaded' });
   const at = await page.waitForFunction(
     () => {
       for (const f of document.querySelectorAll('iframe')) {
@@ -102,7 +132,7 @@ async function visit(page, mode) {
   };
 }
 
-async function oneRun(browser, md, mode) {
+async function oneRun(browser, md, mode, oracle) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block', ignoreHTTPSErrors: engineName !== 'chromium' || !spki });
   await ctx.addInitScript(([k, s]) => localStorage.setItem(k, s), [SOURCE_KEY, md]);
   const page = await ctx.newPage();
@@ -111,8 +141,8 @@ async function oneRun(browser, md, mode) {
     await cdp.send('Network.enable');
     await cdp.send('Network.emulateNetworkConditions', { offline: false, ...PROFILES[throttle] });
   }
-  const cold = await visit(page, mode);
-  const warm = await visit(page, mode);
+  const cold = await visit(page, mode, oracle);
+  const warm = await visit(page, mode, oracle);
   await ctx.close();
   return { cold, warm };
 }
@@ -122,9 +152,10 @@ const out = [];
 for (const deck of decks) {
   const md = fs.readFileSync(path.join(ROOT, deck), 'utf8');
   const row = { deck, engine: engineName, throttle: throttle || 'none', label, modes: {} };
+  const oracle = modes.some((m) => m.endsWith('+oracle')) ? await oracleIds(md) : [];
   for (const mode of modes) {
     const samples = [];
-    for (let i = 0; i < runs; i++) samples.push(await oneRun(browser, md, mode));
+    for (let i = 0; i < runs; i++) samples.push(await oneRun(browser, md, mode, oracle));
     const pick = (f) => med(samples.map(f));
     row.modes[mode] = {
       proto: samples[0].cold.proto,
@@ -141,11 +172,11 @@ for (const deck of decks) {
   }
   out.push(row);
   console.log(`\n${engineName}${throttle ? ` (${throttle})` : ''}${label ? ` [${label}]` : ''}  ${deck}  (median of ${runs})`);
-  console.log('  arm      proto  reqs   raw      wire    fetch span  ttfb med/max   first slide styled: cold   warm');
+  console.log('  arm            proto  reqs   raw      wire    fetch span  ttfb med/max   first slide styled: cold   warm');
   for (const mode of modes) {
     const m = row.modes[mode];
     console.log(
-      `  ${mode.padEnd(8)} ${String(m.proto).padEnd(5)} ${String(m.requests).padStart(4)}  ${kb(m.raw).padStart(7)}  ${kb(m.wire).padStart(6)}  ${String(Math.round(m.spanMs)).padStart(6)} ms  ${String(Math.round(m.ttfbMedMs)).padStart(4)}/${String(Math.round(m.ttfbMaxMs)).padEnd(4)} ms ${String(Math.round(m.coldMs)).padStart(18)} ms ${String(Math.round(m.warmMs)).padStart(5)} ms  (warm: ${m.warmNetwork} hit the network)`,
+      `  ${mode.padEnd(14)} ${String(m.proto).padEnd(5)} ${String(m.requests).padStart(4)}  ${kb(m.raw).padStart(7)}  ${kb(m.wire).padStart(6)}  ${String(Math.round(m.spanMs)).padStart(6)} ms  ${String(Math.round(m.ttfbMedMs)).padStart(4)}/${String(Math.round(m.ttfbMaxMs)).padEnd(4)} ms ${String(Math.round(m.coldMs)).padStart(18)} ms ${String(Math.round(m.warmMs)).padStart(5)} ms  (warm: ${m.warmNetwork} hit the network)`,
     );
   }
 }

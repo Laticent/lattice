@@ -21,7 +21,7 @@
 // selectors cannot be asked about that document: the scan falls back to the token filter for them.
 
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
-import { neededModules, scanDocument } from '../../../lib/core/style-needs-scan.mjs';
+import { neededModules, scanDocument, scanMarkdown } from '../../../lib/core/style-needs-scan.mjs';
 
 type Alt = [string[], string[], string[], string[]];
 type IndexEntry = { id: string; always: boolean; alts: Alt[]; requires: number[]; defines?: string[]; sel?: (string[] | null)[] };
@@ -76,7 +76,7 @@ function splitBundle(text: string): [number, string][] {
 	return out;
 }
 
-export function createStyleLoader(stylesBase: string, opts: { indexName?: string; shell?: ScanShell | (() => ScanShell | undefined); wholeAbove?: number; fetchMode?: FetchMode } = {}) {
+export function createStyleLoader(stylesBase: string, opts: { indexName?: string; shell?: ScanShell | (() => ScanShell | undefined); wholeAbove?: number; fetchMode?: FetchMode; predict?: 'source' | number[] } = {}) {
 	const indexName = opts.indexName || 'needs.json';
 	const fetchMode: FetchMode = opts.fetchMode || 'modules';
 	// Past this share of the sheet's bytes, modules cost more than the one file: each is a request, and
@@ -97,6 +97,15 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	/** The slides the last COMPLETED scan read; a scan that threw leaves it unset so the next render retries. */
 	let lastScanned = '';
 	let lastSheetLength = -1;
+	/** The Markdown the first render will draw, set by `hint` before `ready` runs; read once, to guess the modules it needs. */
+	let hintSource: string | null = null;
+
+	/** The modules the Markdown seems to need: its tokens against the index. */
+	function guessFromSource(n: Needs, markdown: string): number[] {
+		const tokens = scanMarkdown(markdown);
+		const flags = neededModules(n.index, tokens, undefined, { c: n.runtime.c, a: n.runtime.a, t: [], i: [], text: markdown }) as boolean[];
+		return flags.flatMap((f, i) => (f ? [i] : []));
+	}
 
 	function loadIndex(): Promise<Needs> {
 		if (!indexPromise) {
@@ -200,16 +209,37 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 		n.index.forEach((m, i) => {
 			if (m.always) want.add(i);
 		});
+		// A guess at what the first render will need, so those modules join the start-up set and the first render is the only
+		// one: `predict: 'source'` reads the Markdown (`scanMarkdown`), a list of indexes is taken as given (an experiment's
+		// oracle). A miss costs nothing but the scan-and-render-again the loader does anyway; a deck whose guess is most of the
+		// sheet is left to that scan, like `ensureFor`'s whole-sheet line.
+		if (opts.predict) {
+			const guess = Array.isArray(opts.predict)
+				? opts.predict
+				: hintSource == null
+					? []
+					: guessFromSource(n, hintSource);
+			const total = n.modules.reduce((a, m) => a + m.bytes, 0);
+			const held = n.modules.reduce((a, m, i) => a + (want.has(i) || guess.includes(i) ? m.bytes : 0), 0);
+			if (total > 0 && held / total <= wholeAbove) for (const i of guess) want.add(i);
+		}
 		for (const i of want) for (const j of n.index[i].requires) want.add(j);
 		const ids = [...want].sort((a, b) => a - b);
+		// What the prebuilt floor file holds: the floor alone, never a guessed module.
+		const floorOnly = new Set<number>(n.floor || []);
+		n.index.forEach((m, i) => {
+			if (m.always) floorOnly.add(i);
+		});
+		for (const i of floorOnly) for (const j of n.index[i].requires) floorOnly.add(j);
+		const floorIds = [...floorOnly].sort((a, b) => a - b);
 		// The whole floor as one prebuilt file (`floor` and `bundle` modes). A missing or failed file falls through to
 		// one request per module, so the floor never depends on it.
-		if (fetchMode !== 'modules' && n.floorFile && !ids.every((i) => texts.has(i))) {
+		if (fetchMode !== 'modules' && n.floorFile && !floorIds.every((i) => texts.has(i))) {
 			const body = fetch(stylesBase + n.floorFile).then((r) => {
 				if (!r.ok) throw new Error('style floor (' + r.status + ')');
 				return r.text();
 			});
-			for (const i of ids) {
+			for (const i of floorIds) {
 				const p = body
 					.then((text) => {
 						const hit = splitBundle(text).find(([k]) => k === i);
@@ -229,7 +259,7 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 				() => true,
 				() => false,
 			);
-			if (!ok) for (const i of ids) texts.delete(i);
+			if (!ok) for (const i of floorIds) texts.delete(i);
 		}
 		await include(n, ids);
 	}
@@ -321,6 +351,10 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 		ready,
 		ensureFor,
 		warm,
+		/** Tell the loader what the first render will draw, before the first `ready()`; ignored later and when `predict` is off. */
+		hint(markdown: string): void {
+			if (hintSource == null) hintSource = markdown;
+		},
 		css,
 		/** Changes whenever the included set does; fold it into the host's render signature. */
 		signature: () => signature,

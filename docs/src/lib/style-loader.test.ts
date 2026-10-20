@@ -247,6 +247,40 @@ describe('createStyleLoader', () => {
 		});
 	});
 
+	describe('predict: guess the first render\'s modules before it runs', () => {
+		it('`source` puts the modules a deck\'s Markdown names into the start-up set, so the first scan finds nothing new', async () => {
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, predict: 'source' });
+			s.hint('<!-- _class: card -->\n# hi');
+			await s.ready();
+			expect(s.css()).toContain('.card');
+			expect(await s.ensureFor('<article class="lattice"><section class="card">x</section></article>')).toBe('same');
+		});
+
+		it('a miss falls back to the scan: the module is fetched after the first render, as without a guess', async () => {
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, predict: 'source' });
+			s.hint('# plain');
+			await s.ready();
+			expect(s.css()).not.toContain('.card');
+			expect(await s.ensureFor('<section class="card">x</section>')).toBe('grew');
+		});
+
+		it('a list of indexes is taken as given (the experiment\'s oracle), and a guess of most of the sheet is left to the scan', async () => {
+			const s = createStyleLoader('/styles/', { wholeAbove: 1, predict: [2] });
+			await s.ready();
+			expect(s.css()).toContain('.chart svg');
+			const big = createStyleLoader('/styles/', { wholeAbove: 0.01, predict: [1, 2, 3] });
+			await big.ready();
+			expect(big.css()).not.toContain('.chart svg');
+		});
+
+		it('without `predict`, `hint` changes nothing', async () => {
+			const s = createStyleLoader('/styles/', { wholeAbove: 1 });
+			s.hint('<!-- _class: card -->');
+			await s.ready();
+			expect(s.css()).not.toContain('.card');
+		});
+	});
+
 	it('retries the index after a transient failure instead of caching it', async () => {
 		let calls = 0;
 		vi.stubGlobal('fetch', (url: string) => {

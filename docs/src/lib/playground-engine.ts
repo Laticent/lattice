@@ -75,12 +75,15 @@ export function createEngineBridge(
 	// later batch of modules as one request to a composing endpoint). All three are opt-in experiments (followup 2794-p3).
 	const stylesParam = typeof location !== 'undefined' ? /[?&]styles=(modules|floor|bundle)(?:&|$)/.exec(location.search)?.[1] : undefined;
 	const loaderOn = !!stylesParam;
+	// `&predict=source` guesses the first render's modules from the Markdown; `&predict=3,9,12` supplies them (an experiment's oracle).
+	const predictParam = typeof location !== 'undefined' ? /[?&]predict=([\w,]+)(?:&|$)/.exec(location.search)?.[1] : undefined;
+	const predict = predictParam === 'source' ? 'source' : predictParam ? predictParam.split(',').map(Number).filter(Number.isInteger) : undefined;
 	let styles: StyleLoader | undefined;
 	if (options.stylesBase && loaderOn) {
 		// What the frame document holds that the engine's HTML does not (the host's own `<html>`
 		// attributes, the texture <defs>, the classes and attributes its agents add later) is declared
 		// by the preview module, which loads after this bridge is built: so it is read per scan.
-styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex, shell: () => window.LatticeDeckPreview?.scanShell, fetchMode: stylesParam as FetchMode });
+styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex, shell: () => window.LatticeDeckPreview?.scanShell, fetchMode: stylesParam as FetchMode, predict });
 	}
 	const themes = createThemeFetcher(themeBase, { styles });
 	// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts), and a
@@ -129,6 +132,7 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 		// With the style loader the whole sheet is not what the first render needs: fetch the index and
 		// the always-needed modules instead (the floor), which is what `ensureBase` registers.
 		if (styles) {
+			if (source) styles.hint(source);
 			void themes.prefetchFloor?.()?.catch(() => {});
 			// The source the first render will take is already known, and its class words name most of
 			// the modules the slides will need: start those fetches now, in parallel with the engine
