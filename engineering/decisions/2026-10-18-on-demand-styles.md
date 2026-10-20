@@ -223,11 +223,19 @@ today (for example `component:flowchart` needs `tail:chart-family.styles`). 13 m
 
 The Chromium run was interrupted twice by sandbox restarts and finished in chunks (`107 + 186` decks); the
 WebKit run in eight chunks. A harness bug found on the way: the baseline render went through the default
-pipeline while the subset went through `-c <file>`, which skips the pagination content mask and the
-minifier. `claim.md`, `adaptive-image.md` and `chart-hue-collapse*.md` differed with no module missing. The
-baseline now renders through `-c` with a copy of `dist/lattice.css`, and all three are identical. This is a
-product fact too, not only a harness one: a style subset must reach the engine through the default render
-path (followup P8). iOS Safari is still UNVERIFIED.
+pipeline while the subset went through `-c <file>`, and `claim.md`, `adaptive-image.md` and
+`chart-hue-collapse*.md` differed with no module missing. The first fix rendered the baseline through a `-c` copy
+of `dist/lattice.css` too. **That hid the cause instead of removing it, and the second fix does** (2026-10-19,
+followup P8): the engine masks a slide-own `::after { content }` (`isPaginationTarget`, `lib/engine/css.js`)
+by reading the selector's SPELLING. On the minified text the default render ships, `:is(.chart-frame,.big-number)`
+has no space and the mask fires. On the source spelling, `:is(.chart-frame, .big-number)` has one, the regex
+for "a slide's own pseudo" reads it as a descendant, and `content: none` stays live. So `-c <any unminified
+file>` was never the default path, and `-c <copy of dist/lattice-min.css>` is: its render is byte-identical to the
+default one (pinned by `test/unit/tools/style-subset-default-path.test.js`). The audit now renders the baseline
+with no `-c` at all and feeds each subset as the **minified** modules (`dist/styles-min/`), which the harness
+checks join back into `dist/lattice-min.css` before it starts. All three decks are identical, in Chromium, on the
+real default path. The spelling-sensitive mask is a defect of its own, off this path, logged as a followup.
+iOS Safari is still UNVERIFIED.
 
 - **Two scanners were compared, as the brief asked.** The HTML scan above, and a Markdown-only scan (the
   `_class` / `class` directives, granted every attribute, tag and id for free, which is its best case). The
@@ -304,17 +312,17 @@ unconditional). Three moves would remove most of it, each a source change with i
 
 - **Owner decision, package size.** Ship `dist/styles/` and `dist/styles-min/` in the tarball (about 0.94 MB
   gzipped together, measured by `tar czf`) or generate them on install.
-- **Owner decision, index shape.** Ship the verified index (71 KB gzipped, 21% fewer bytes loaded) or the
-  token-only index (29 KB gzipped). The harness measures both on any deck.
+- **Index shape: decided by measurement (2026-10-19), §11.** The token-only index ships (14 KB gzipped after
+  dropping subsumed alternatives); the verified index (77 KB gzipped) costs more than the bytes it saves.
 - **Unify the state-pseudo lists.** `tools/style-needs.js` and `lib/export/player-prune.js` each keep one;
   the core must not import the export pipeline, so the shared piece belongs in a generic kernel (E4).
 - **WebKit** now runs in full (293 decks, 0 misses); only iOS Safari on a real device is open (followup P7).
-- **Not built:** E3 (the loader), E4 (the generic core and a second domain), E5 (integrations and export
-  bytes, which need the owner's dark and light sign-off).
+- **Built, opt-in:** E3, the Playground loader (§11). **Not built:** E4 (the generic core and a second
+  domain), E5 (integrations and export bytes, which need the owner's dark and light sign-off).
 
 ## 9. Next
 
-E3 (the Playground loader prototype: first-slide bytes and time against the §2 baseline, cold and warm,
+*(Superseded by §11 for E3, which is built.)* E3 (the Playground loader prototype: first-slide bytes and time against the §2 baseline, cold and warm,
 Chromium and WebKit, no flash of unstyled content, and a late-appearing unit loading its modules before it
 shows) and the three regrouping moves in §7, in that order of value. Both wait for the owner's review of E1
 and E2. E3 is a style sink (HARD RULE #22) and gets the adversarial trio on its final shape.
@@ -345,3 +353,247 @@ not a committed benchmark; re-derive them with the method below before acting on
 - **Audit time.** `node tools/style-needs-audit.mjs --all --jobs 3` took about 95 minutes for 281 decks in
   Chromium on a 4-core sandbox, with the computed-style gate on. The WebKit run of 293 decks took about 90
   minutes in chunks of 40 decks.
+
+## 11. E3: the Playground loader (2026-10-19)
+
+**Status: built, gated, opt-in.** `/playground/?styles=modules` loads only the style modules a deck uses.
+Without the parameter the Playground registers the whole `lattice.css`, as it always did. The default stays
+whole on the evidence below; flipping it is one line (`loaderOn` in `docs/src/lib/playground-engine.ts`).
+
+**How it works.** `docs/src/lib/style-loader.ts` fetches `styles/needs.json` (the index) and a **floor**
+(the 13 always-needed modules plus the 47 that at least 70% of the 295 example decks need,
+`tools/style-needs-common.json`), starting in parallel with the engine bundle. The bridge
+(`playground-engine.ts renderInto`) renders, scans the rendered HTML (`lib/core/style-needs-scan.mjs`, one
+copy shared with the audit), fetches the modules still missing, re-registers the `lattice` base, and takes the
+new sheet by rendering again (the second render costs 200 to 500 ms on a heavy deck). An engine hook that
+recomposed the sheet alone (`render().restyle()`, 30 to 70 ms, about 70 bytes of engine JS) was built and
+measured, then removed: `getting-started` sits within 20 bytes of its `engineJsGz` ceiling, and raising a ceiling is
+the owner's call (followup 2794-p5).
+Past 55% of the sheet's bytes the loader answers "whole" and the host loads the whole file. Every module passes
+`sanitizeStyleText` on arrival (HARD RULE #22), and the composed sheet reaches the frame only through
+`docStyleText`, which sanitizes it again. Four **fallbacks never raise an error**: a failed index, a failed
+module, and a failed whole-sheet fetch all keep drawing with what is loaded; an idle backstop (4 s after the
+first render) fetches the whole sheet and makes it the base, so a module no scan could name heals, and a tab
+that outlives a deploy has a complete sheet in memory.
+
+**The shared slot.** The engine has ONE `lattice` slot and every consumer on the page renders against whatever
+is in it. `theme-fetch.ts` therefore tracks `baseMode` (`none | subset | full`) and a `baseVersion`: a consumer
+with no loader always gets the whole sheet; a whole sheet is never replaced by a subset; and a render hands
+`growBase` the version it began under, which answers true when the base moved while it waited (the independent
+checker found the case where it did not: a whole sheet landing mid-fetch left the frame painted with the
+floor's sheet; two regression tests pin it).
+
+**Measured (production build, Chromium 131, loopback, 5 runs, medians, idle machine).**
+`docs/scripts/style-loader-bench.mjs`; "styled" means the first slide's computed `container-type` is `size`.
+
+| Deck | Style bytes on the wire | Cold, first styled slide | Warm |
+|---|---|---|---|
+| `focus.md` (14 slides) | 116 KB in 1 request, then **62 KB in 57** | 1835 → **1590 ms** | 1543 → **1140 ms** |
+| `claim.md` | 116 KB, then **65 KB in 57** | 1681 → **1629 ms** | 1437 → **1231 ms** |
+| `system-design-foundations.md` | 116 KB, then **93 KB in 78** | 2741 → 2843 ms (noise) | 2449 → 2348 ms |
+
+Bytes fall 45% on a typical deck and 20% on a heavy one; time is flat to 25% better, and on loopback bytes are
+nearly free, so the unthrottled column understates the win on a slow link. **Not measured:** a throttled run
+(`--throttle cable|4g` exists and was not run before the review), WebKit timing, the gallery deck (the
+benchmark died on it twice; the loader loads the whole sheet there by design, and a loaded-machine run read
+209 to 230 KB on the wire against 116), a real phone.
+
+**Gate.** `tools/style-loader-gate.mjs` loads the real Playground twice (whole sheet, loader), reads the sheet
+each frame built, and compares every element's computed style plus `::before` and `::after` in screen, print
+and dark, whole vs loader, on the static page and on the LIVE frame (the slides after the host's split and the
+runtime, read until two fingerprints in a row agree, with a second whole-sheet session as the noise floor).
+**Final build, 296 decks (295 examples plus the gallery), on the rebased tree, after the last independent check.**
+Offline audit (`style-needs-audit`, CLI renders): 296 of 296 identical, 0 false negatives. Real Playground, static
+page, screen, print and dark: **0 differing elements on every deck, on both engines.** Live frame: Chromium 294 of
+296 identical, WebKit 291 of 296; every live difference is 1 to 35 elements on an animated or load-sensitive deck
+and each reads 0 on a re-run or traces to an animation phase: `motion-asset` and `anima-scene` are a scene control
+whose `.scene-controls-shown` opacity fade is caught at 0.9216 in one session and 0.9136 in the other (the two
+frames' rule sets are identical; the loader session is a frame later), `image-set-export` read 35 once during web
+image loading and 0 twice after, and the gallery's 23 on an earlier Chromium run was a second gate sharing the
+machine. The gate pauses every animation through the Web Animations API and compares which animations exist
+before it reads, yet an in-flight fade can still land a frame apart.
+Real bugs the gate found along the way, each now pinned by a test that fails without the fix: the progress rail and
+other markup the runtime writes from HTML strings (`dark-canvas-ownership.md`: 9 diffs), function-plot's
+browser-built classes (`plugin-system-phase-b.md`: 149 diffs), and a font face only a `lattice.css` module
+defines that a palette names (`accent-on-accent.md`). A rebuilt-from-stale harness also showed up as 3 static
+diffs (the browser's engine bundle was older than `main`'s `.lat-pill`); `npm run build` before `build:e2e` fixes it.
+
+**Timing and bytes, `docs/scripts/style-loader-bench.mjs`, median of 3, first slide styled** (the local server
+is HTTP/1.1, so the 68 requests queue six at a time):
+
+| engine, network | deck | whole sheet | loader |
+|---|---|---|---|
+| Chromium, none | focus (14 slides) | 116 KB wire, 1204 ms | 69 KB wire in 67 requests, 1199 ms |
+| Chromium, cable | focus | 4018 ms | 3772 ms |
+| Chromium, 4g | focus | 11529 ms | 12147 ms |
+| Chromium, none | gallery (120 slides) | 116 KB, 2037 ms | 180 KB in 58 requests, 2336 ms |
+| WebKit, none | focus | 116 KB, 1601 ms | 70 KB, 1631 ms |
+| WebKit, none | gallery | 116 KB, 2860 ms | 181 KB, 3113 ms |
+
+**Read this honestly.** The loader cuts first-slide bytes by about 40% on a typical deck and is level on time on a
+fast link (the second render that a grown base costs is paid in full now that the engine has no `restyle()`); on a throttled link it is slightly slower, because round trips cost more than the bytes saved. A deck
+that needs most of the sheet (the gallery) loads the floor, then the whole sheet, and pays for both (181 KB
+against 116). The 4 s backstop also fetches the whole sheet after the first render, so a session that stays
+longer than that has downloaded both; the saving is on the critical path, not in total bytes. Production serves
+over h2, where 68 small requests multiplex, so the throttled rows are a worst case; that is UNVERIFIED here
+(`astro preview` is HTTP/1.1). A warm reload re-validated every module (68 network hits) on this server; the
+immutable cache headers in `docs/public/_headers` are what production relies on, also UNVERIFIED here.
+
+**Request strategies compared, on HTTP/1.1 and HTTP/2 (2026-10-20).** The loader's first version asked for one file per
+module (about 65 requests for a typical deck). Two alternatives were built and measured against it and against the whole
+sheet, each loader arm with identical scan and render code (`?styles=` picks the arm): **floor** takes the start-up set as
+ONE prebuilt static file (`styles/floor.css`, built at sync time, no server logic) and later modules one by one; **bundle**
+also asks for every later batch of modules as ONE request to a composing endpoint (`styles/bundle?m=ids`, which needs a
+function or origin that can concatenate; `docs/scripts/style-bench-server.mjs` implements it). The server speaks TLS with
+brotli like the production host, in HTTP/1.1 and HTTP/2, with immutable cache headers; `docs/scripts/style-loader-bench.mjs`
+reads Resource Timing per request. Median of 7 runs (5 with cable, 3 with 4g); a fresh browser context per run.
+
+**Chromium h2, no throttle** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1009 ms (1 req, 97 KB) | 959 ms (67 req, 56 KB) | 898 ms (13 req, 47 KB) | 913 ms (3 req, 46 KB) |
+| data-viz-gallery | 1325 ms (1 req, 97 KB) | 1423 ms (90 req, 80 KB) | 1343 ms (36 req, 71 KB) | 1296 ms (3 req, 63 KB) |
+| gallery (120 slides) | 1710 ms (1 req, 97 KB) | 1980 ms (57 req, 148 KB) | 1950 ms (3 req, 140 KB) | 1906 ms (3 req, 140 KB) |
+
+**Chromium h1, no throttle** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1048 ms (1 req, 97 KB) | 974 ms (67 req, 56 KB) | 963 ms (13 req, 47 KB) | 936 ms (3 req, 46 KB) |
+| data-viz-gallery | 1286 ms (1 req, 97 KB) | 1416 ms (90 req, 80 KB) | 1366 ms (36 req, 71 KB) | 1330 ms (3 req, 63 KB) |
+| gallery (120 slides) | 1792 ms (1 req, 97 KB) | 1980 ms (57 req, 148 KB) | 1967 ms (3 req, 140 KB) | 1901 ms (3 req, 140 KB) |
+
+**Chromium h2, cable** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 3831 ms (1 req, 97 KB) | 3725 ms (67 req, 56 KB) | 3631 ms (13 req, 47 KB) | 3594 ms (3 req, 46 KB) |
+| data-viz-gallery | 4239 ms (1 req, 97 KB) | 4290 ms (90 req, 80 KB) | 4223 ms (36 req, 71 KB) | 4190 ms (3 req, 63 KB) |
+| gallery (120 slides) | 4710 ms (1 req, 97 KB) | 5082 ms (57 req, 148 KB) | 5078 ms (3 req, 140 KB) | 5047 ms (3 req, 140 KB) |
+
+**Chromium h1, cable** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 3705 ms (1 req, 97 KB) | 3562 ms (67 req, 56 KB) | 3529 ms (13 req, 47 KB) | 3526 ms (3 req, 46 KB) |
+| data-viz-gallery | 4042 ms (1 req, 97 KB) | 4181 ms (90 req, 80 KB) | 4117 ms (36 req, 71 KB) | 4062 ms (3 req, 63 KB) |
+| gallery (120 slides) | 4662 ms (1 req, 97 KB) | 5062 ms (57 req, 148 KB) | 4959 ms (3 req, 140 KB) | 4929 ms (3 req, 140 KB) |
+
+**Chromium h2, 4g** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 10950 ms (1 req, 97 KB) | 11002 ms (67 req, 56 KB) | 10506 ms (13 req, 47 KB) | 10655 ms (3 req, 46 KB) |
+| data-viz-gallery | 11327 ms (1 req, 97 KB) | 11739 ms (90 req, 80 KB) | 11474 ms (36 req, 71 KB) | 11756 ms (3 req, 63 KB) |
+| gallery (120 slides) | 12814 ms (1 req, 97 KB) | 13721 ms (57 req, 148 KB) | 13254 ms (3 req, 140 KB) | 13172 ms (3 req, 140 KB) |
+
+**Chromium h1, 4g** (cold first styled slide, ms; requests; wire KB)
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 10777 ms (1 req, 97 KB) | 11521 ms (67 req, 56 KB) | 10460 ms (13 req, 47 KB) | 10482 ms (3 req, 46 KB) |
+| data-viz-gallery | 11420 ms (1 req, 97 KB) | 13201 ms (90 req, 80 KB) | 11989 ms (36 req, 71 KB) | 11377 ms (3 req, 63 KB) |
+| gallery (120 slides) | 12764 ms (1 req, 97 KB) | 14288 ms (57 req, 148 KB) | 13203 ms (3 req, 140 KB) | 13278 ms (3 req, 140 KB) |
+
+**WebKit h2, no throttle** (cold first styled slide, ms; requests; wire KB) — WebKit wire bytes are not reported, so omitted
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1615 ms (1 req) | 1477 ms (67 req) | 1446 ms (13 req) | 1298 ms (3 req) |
+| data-viz-gallery | 1777 ms (1 req) | 1984 ms (90 req) | 1909 ms (36 req) | 1878 ms (3 req) |
+| gallery (120 slides) | 2499 ms (1 req) | 2773 ms (57 req) | 2688 ms (3 req) | 2660 ms (3 req) |
+
+**WebKit http/1.1, no throttle** (cold first styled slide, ms; requests; wire KB) — WebKit wire bytes are not reported, so omitted
+
+| deck | full | modules | floor | bundle |
+|---|---|---|---|---|
+| focus (14 slides) | 1550 ms (1 req) | 1518 ms (67 req) | 1368 ms (13 req) | 1288 ms (3 req) |
+| data-viz-gallery | 1860 ms (1 req) | 2101 ms (90 req) | 2047 ms (36 req) | 1948 ms (3 req) |
+| gallery (120 slides) | 2626 ms (1 req) | 2894 ms (57 req) | 2850 ms (3 req) | 2865 ms (3 req) |
+
+**What the numbers say.**
+- **Bundling does what it claims on requests and bytes:** 67 to 3 requests on a typical deck, 90 to 3 on `data-viz-gallery`, and on
+  the wire 56 to 46 KB and 80 to 63 KB, against 97 KB brotli for the whole sheet (116 KB gzip; the table is brotli throughout).
+- **It buys little time.** Against one request per module, bundle is faster in 17 of 18 Chromium cells, by 1 to 14% (the
+  most: 13201 to 11377 ms, `data-viz-gallery` on 4g over HTTP/1.1). Against the prebuilt floor file the difference is
+  -2.5% to +5.1%, mean 1.0%, which is inside the run-to-run spread. The static floor file captures nearly all of the gain
+  without any server logic, so the dynamic endpoint's extra value is small (36 to 3 requests on `data-viz-gallery`) against
+  its costs: a function to run, and a cache keyed by every module combination a deck can ask for (a CDN would hit far less
+  often than for a fixed file).
+- **Request count was never the main cost. The loader's serial chain is:** the floor loads, the engine renders, the scan runs,
+  the missing modules are fetched, the engine renders again. That chain is about 250 to 300 ms unthrottled whatever the arm, and
+  none of the strategies shortens it.
+- **Against the whole sheet, the loader wins on a typical deck and loses on a heavy one.** `focus`: bundle is 3 to 11% faster
+  cold in all six network and protocol settings (HTTP/2: 913 vs 1009 ms unthrottled, 3594 vs 3831 on cable, 10655 vs 10950 on
+  4g) and about 13% faster warm (717 vs 824 ms), since it parses 356 KB of CSS instead of 931 KB. `data-viz-gallery`: level
+  (-2% to +4%). `gallery`: 3 to 11% slower, because it needs more bytes than the whole sheet (140 vs 97 KB) and renders twice.
+- **HTTP/2 helps the per-module arm on slow links but does not change the ranking.** On 4g, `data-viz-gallery` per-module is
+  13201 ms over HTTP/1.1 and 11739 over HTTP/2; bundle is 11377 and 11756. Unthrottled, the protocols are within noise.
+- WebKit (Playwright's Linux build, unthrottled) ranks the arms the same way; it does not report compressed bytes and re-validated
+  its cached modules in this setup, so only its cold times are used.
+- **Recommendation:** if the loader is ever the default, ship the static floor file (`?styles=floor`) and keep per-module requests
+  for the rest. Do not build the composing endpoint for this. The next experiment worth running is a few precomputed category
+  bundles (charts, diagrams, finishes) fetched with the floor, which would cut the serial chain's second fetch without
+  any server logic. Raw files: the benchmark prints a table, `--json` keeps the samples.
+
+**Where the first slide's time goes, and what a source scan buys (2026-10-20).** `focus.md`, Chromium, loopback, whole sheet.
+Warm, the engine is cheap: it renders the 14-slide deck in 8 to 14 ms. The 1.0 to 1.5 s to the first styled slide is cold-start work
+and waiting:
+
+| when | what |
+|---|---|
+| 0 to 260 ms | the page's own scripts: Astro islands, the editor, the 1.18 MB `lattice-runtime.js` (411 KB gzipped, the largest single download, bigger than the engine at 309 KB gz and the whole sheet at 116 KB gz) |
+| 470 to 780 ms | two long tasks (119 and 83 ms): hydration and editor setup |
+| 635 ms | the engine bundle is first REQUESTED: `PlaygroundApp.tsx` starts it from `requestIdleCallback`, so it waits for the page's own work to go idle |
+| 850 to 1030 ms | the first `engine.render`, 178 to 191 ms cold: markdown parse 52, **stylesheet composition 112**, transforms 15, assemble 11 |
+| 1030 to 1300 ms | `renderDeck`, 250 to 278 ms: sanitizer, frame build, and a per-character tokenizer over the stylesheet (`remoteCssRefs`, 127 ms self time on the 931 KB sheet) |
+| 1390 to 1470 ms | the first slide is styled |
+
+On a slow link the order is the same but the gap grows: the engine request starts at 2.0 s on cable and 6.5 s on 4g, because the
+runtime script holds the connection first (it ends at 2.6 s and 8.2 s). The loader's saving, about 50 KB on the wire, is about
+5% of the roughly 900 KB the first slide waits for. With the loader, stylesheet composition falls from 112 to 34 ms and `renderDeck` from
+250 to 110 ms (both scale with the sheet), and it pays a second render (47 to 51 ms warm) and the grow fetch (about 100 ms).
+
+**Guessing the modules from the Markdown, to skip the second render.** `scanMarkdown` (`lib/core/style-markdown-scan.mjs`, loaded lazily, never in the eager bundle) reads class
+directives, front matter, raw HTML classes and the elements Markdown becomes; `tools/style-predict-eval.mjs` scores it against the
+rendered HTML on all 295 decks, counting modules beyond the floor. Markdown alone is perfect on 28 decks (median 2 modules missed,
+9 KB). Adding what each component's class word implies (rendering each component's own exemplar slides once, `impliesFor`) raises
+that to 145 decks (49%), with a median of 0 KB missed and 0 KB wasted, and costs about 14 s of build time to compute. The loader has
+an opt-in `&predict=source` (and `&predict=3,9,12`, an explicit list, as an oracle). **The ceiling is small:** with a PERFECT guess
+(`+oracle`, the true modules handed over before the first render) the first styled slide moves by -5% to +3% across five decks on cable,
+-4% to 0% on 4g (`claim` 10697 vs 11074 ms, `data-viz-gallery` 11323 vs 11755), and unthrottled by -10% to +1% (the -10% is one deck,
+`data-viz-gallery`), while the loader's own fetch span falls by half or more. The grow fetch and the second render are not on the critical path of the first styled
+slide; the engine start and the page's downloads are. The `implies` table is therefore NOT built into the site (it would add 14 s to
+every docs build for a 1 to 4% gain); the evaluator and the opt-in hook stay so the number can be re-measured.
+
+**What the reviews found (HARD RULE #25), and what changed.**
+
+1. *The runtime-token list was hand-kept and wrong.* The runtime toggles `.overflow` on a slide that
+   overflows, and the rule that draws the author's red outline lives in an on-demand module; with the loader
+   the outline was gone. The gate could not see it: it compares a static page with no runtime. The list is now
+   **derived from the source** that writes the tokens (`tools/style-needs-lattice.js derivedRuntimeTokens`),
+   kept only where a module keys on the name, and a unit test pins `.overflow`. A token built at run time from
+   a variable stays invisible to it, so the live-frame comparison is still owed (below).
+2. *Default-on was not supported* (inversion): first visitors take the newcomer bake, which carries the whole
+   sheet, so the bytes never help the visitor they matter most for; the gain is a returning visitor's first
+   paint. That is why the loader is opt-in.
+3. *An offline tab or one that outlives a deploy raised a render error on every edit that needed a module.*
+   Now non-fatal, plus the backstop above.
+4. *Measurement flattery:* both harnesses seed `localStorage` (so the newcomer path never runs) and block the
+   service worker. Stated here, not fixed.
+
+**Still owed before the default can flip:** a timing table over h2 (or a bundled floor file, which turns 68
+requests into a few), a real-iPhone check (followup P7, still UNVERIFIED), a measurement of the per-keystroke
+scan on a phone (3.6 ms for 14 slides and 23 ms for 120 on desktop Chromium; 5 and 42 ms on desktop WebKit), and
+a cheaper way to load heavy decks than floor-then-whole. The loader stays opt-in (`?styles=modules`).
+
+**Smaller facts.** The token index is 14 KB gzipped, from 33 KB, by dropping every alternative another
+alternative of the same module is a subset of (exact for "any alternative met"; 5,802 alternatives to 1,735).
+The floor costs no bytes for most decks: over 292 decks the median deck loads 243 KB minified with the floor
+and with the always-needed set alone, and waits for 5 modules after the first render instead of 43. The route
+budget: `playground` eager JS +2,061 bytes (declared +2,200 in `docs/route-budget.d/`). The engine's content
+mask reads selector spelling (`isPaginationTarget`): the minified text the default render ships is masked,
+the source spelling is not, so a `-c` file of unminified CSS differs from the default render; logged as a
+followup.
+
