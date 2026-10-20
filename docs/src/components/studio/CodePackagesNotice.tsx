@@ -119,12 +119,13 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 	}
 	if (status.failed.length) {
 		const f = status.failed[0];
+		// One line, cut to the width: the title carries the whole reason, which the block's own note also shows.
+		const said = `The code of “${f.name}” did not draw slide ${f.slide}${status.failed.length > 1 ? ` and ${status.failed.length - 1} more` : ''}: ${f.why}`;
 		return (
 			<div role="status" data-slot="code-packages" data-state="failed" className={`${row} text-muted-foreground`}>
 				<Code2 className="size-3.5 shrink-0" aria-hidden />
-				<span className="min-w-0 flex-1 truncate">
-					The code of “{f.name}” did not draw slide {f.slide}
-					{status.failed.length > 1 ? ` and ${status.failed.length - 1} more` : ''}: {f.why}
+				<span className="min-w-0 flex-1 truncate" title={said}>
+					{said}
 				</span>
 			</div>
 		);
