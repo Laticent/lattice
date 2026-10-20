@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { adjustSpend, dayKey, LEDGER_NO_DECK, readLedger, readSpend, recordSpend, SPEND_LEDGER_KEY, setSpendDeck } from './spend.js';
+import { adjustSpend, dayKey, getSpendDeck, LEDGER_NO_DECK, readLedger, readSpend, recordSpend, SPEND_LEDGER_KEY, setSpendDeck } from './spend.js';
 
 // The spend ledger answers "this deck" and "today". It books the SAME charges as the session
 // and all-time tally, so the three can never disagree about what a call cost.
@@ -55,6 +55,16 @@ describe('spend ledger', () => {
 		vi.setSystemTime(new Date(2026, 6, 20));
 		recordSpend(4, 0);
 		expect(Object.keys(JSON.parse(localStorage.getItem(SPEND_LEDGER_KEY) ?? '{}'))).toEqual([dayKey(new Date(2026, 6, 20))]);
+	});
+
+	it('keeps a charge with the deck that made it, even after the open deck changes', () => {
+		setSpendDeck('deck-a');
+		const turnDeck = getSpendDeck(); // a turn reads this when it starts
+		setSpendDeck('deck-b'); // the author switches decks mid-turn
+		recordSpend(0.4, 10, turnDeck); // a late round of the turn lands
+		adjustSpend(-0.1, turnDeck); // and so does a Stop's reconciliation
+		expect(readLedger('deck-a').deck).toBeCloseTo(0.3);
+		expect(readLedger('deck-b').deck).toBe(0);
 	});
 
 	it('survives a corrupt ledger instead of throwing mid-turn', () => {

@@ -49,3 +49,6 @@ export function callLabel(name: string): string {
 	const w = name.replace(/_/g, ' ').trim();
 	return w.charAt(0).toUpperCase() + w.slice(1);
 }
+
+/** A finite number, or 0. A saved chat can come from an imported backup, so nothing read back is trusted to be a number. */
+export const num = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) ? x : 0);

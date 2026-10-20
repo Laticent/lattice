@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { fmtTok } from './ChatCost';
-import { callLabel } from './chat-trace';
+import { callLabel, num } from './chat-trace';
 import type { ChatTrace, ChatUsage } from './studio-store';
 
 // "Show work": what the Architect did to produce one reply, past the three dots.
@@ -31,7 +31,9 @@ export type RenderMarkdown = (text: string) => React.ReactNode;
 
 export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdown }: { trace: ChatTrace; usage?: ChatUsage; open: boolean; onOpenChange: (v: boolean) => void; renderMarkdown?: RenderMarkdown }) {
 	const md = (t: string) => renderMarkdown?.(t) ?? <p className="whitespace-pre-wrap">{t}</p>;
-	const total = PARTS.reduce((n, p) => n + (trace.sent[p.key] || 0), 0);
+	const sent = trace.sent ?? ({} as ChatTrace['sent']);
+	const rounds = Array.isArray(trace.rounds) ? trace.rounds : [];
+	const total = PARTS.reduce((n, p) => n + num(sent[p.key]), 0);
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl" data-testid="chat-trace">
@@ -42,31 +44,31 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 
 				<section aria-label="What was sent" className="flex flex-col gap-1.5">
 					<h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sent to the model</h3>
-					{PARTS.filter((p) => trace.sent[p.key] > 0).map((p) => (
+					{PARTS.filter((p) => num(sent[p.key]) > 0).map((p) => (
 						<div key={p.key} title={p.hint} className="grid grid-cols-[8.5rem_1fr_3.5rem] items-center gap-2 text-[12px]">
 							<span className="truncate text-muted-foreground">{p.label}</span>
 							<span className="h-[5px] overflow-hidden rounded-full bg-border" aria-hidden>
-								<span className="block h-full rounded-full bg-primary" style={{ width: `${total ? (trace.sent[p.key] / total) * 100 : 0}%` }} />
+								<span className="block h-full rounded-full bg-primary" style={{ width: `${total ? (num(sent[p.key]) / total) * 100 : 0}%` }} />
 							</span>
-							<span className="text-right font-semibold tabular-nums">{fmtTok(trace.sent[p.key])}</span>
+							<span className="text-right font-semibold tabular-nums">{fmtTok(num(sent[p.key]))}</span>
 						</div>
 					))}
 					<p className="text-[10.5px] leading-snug text-muted-foreground">
-						Estimated from text length, for the first call.{usage ? ` The provider billed ${fmtTok(usage.prompt)} input tokens on the last call.` : ''}
+						Estimated from text length, for the first call.{usage && !usage.estimated ? ` The provider billed ${fmtTok(num(usage.prompt))} input tokens on the last call.` : ''}
 					</p>
 				</section>
 
 				<section aria-label="Steps" className="flex flex-col gap-2">
 					<h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-						{trace.rounds.length} model call{trace.rounds.length === 1 ? '' : 's'}
+						{rounds.length} model call{rounds.length === 1 ? '' : 's'}
 					</h3>
-					{trace.rounds.map((r, i) => (
+					{rounds.map((r, i) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: a saved trace is append-only — index is stable identity.
 						<div key={i} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5 text-[12px]">
 							<div className="flex items-baseline justify-between gap-2 text-muted-foreground">
 								<span className="font-semibold text-foreground">Call {i + 1}</span>
 								<span className="tabular-nums">
-									${r.cost.toFixed(r.cost < 0.1 ? 3 : 2)} · {fmtTok(r.prompt)} in · {fmtTok(r.completion)} out
+									${num(r.cost).toFixed(num(r.cost) < 0.1 ? 3 : 2)} · {fmtTok(num(r.prompt))} in · {fmtTok(num(r.completion))} out
 								</span>
 							</div>
 							{r.reasoning && (
@@ -76,7 +78,7 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 								</details>
 							)}
 							{r.text && <div className="text-[11.5px] leading-snug">{md(r.text)}</div>}
-							{r.calls.map((c, j) => (
+							{(Array.isArray(r.calls) ? r.calls : []).map((c, j) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: a call's position within its round is its identity.
 								<details key={j} className="rounded-md bg-muted/40 px-2 py-1">
 									<summary className="cursor-pointer font-medium text-[var(--accent)] hover:underline">{callLabel(c.name)}</summary>
@@ -89,8 +91,8 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 				</section>
 				{usage && (
 					<p className={cn('text-[11px] text-muted-foreground')}>
-						Total ${usage.cost.toFixed(usage.cost < 0.1 ? 3 : 2)}
-						{usage.reasoning ? ` · ${fmtTok(usage.reasoning)} thinking tokens` : ''}
+						Total ${num(usage.cost).toFixed(num(usage.cost) < 0.1 ? 3 : 2)}
+						{num(usage.reasoning) ? ` · ${fmtTok(num(usage.reasoning))} thinking tokens` : ''}
 					</p>
 				)}
 			</DialogContent>

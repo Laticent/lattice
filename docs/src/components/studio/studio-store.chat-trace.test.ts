@@ -43,3 +43,22 @@ describe('chat traces and storage', () => {
 		expect(back.some((m) => m.trace)).toBe(false);
 	});
 });
+
+describe('a compaction briefing outlives the message cap', () => {
+	it('carries the briefing onto the new first message when the cap trims the one that held it', () => {
+		const t = thread(70);
+		t[2] = { ...t[2], compacted: { summary: 'earlier context', count: 12, saved: 900 } };
+		saveChat('d', t);
+		const back = loadChat('d');
+		expect(back.length).toBe(60);
+		expect(back[0].compacted?.summary).toBe('earlier context');
+		expect(back[0].content).toBe(t[10].content);
+	});
+
+	it('leaves a thread alone when its briefing is still inside the cap', () => {
+		const t = thread(20);
+		t[0] = { ...t[0], compacted: { summary: 'kept', count: 4, saved: 1 } };
+		saveChat('d', t);
+		expect(loadChat('d').filter((m) => m.compacted).length).toBe(1);
+	});
+});

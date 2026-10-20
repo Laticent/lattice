@@ -6,6 +6,7 @@
 // model, the spend gate and the Studio's prompt voice.
 // See engineering/decisions/2026-10-05-studio-chat-agent.md.
 
+import { getSpendDeck } from '@/components/studio/ai/spend.js';
 // ONLY LAZY-ONLY MODULES ARE IMPORTED HERE. Vite writes every chunk a lazily imported
 // module statically needs into the IMPORTER's preload map — and the importer is the eager
 // `architect` chunk. Importing `architect.ts`, `front-matter` or the palettes from here put
@@ -136,6 +137,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// gate waits for the price itself (cloudBudgetBlock), in stop mode with a cap.
 	let catalogOnce: ReturnType<typeof boundedCatalog> | null = null;
 	const catalog = () => (catalogOnce ??= boundedCatalog(model));
+	// Started now, not awaited: the end-of-turn window lookup reads it, and on a turn that never needed the catalog it would otherwise be
+	// the FIRST call and hold the reply for up to its 4 s bound.
+	void catalog().catch(() => {});
+	// This turn's charges book under the deck it was sent from, even if the author switches decks before it ends.
+	const turnDeck = getSpendDeck();
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
 	// captions from that read, instead of one full read per call.
@@ -281,7 +287,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 				opts?.onReasoning?.(t);
 			},
 			onUsage: (u) => {
-				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0));
+				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), turnDeck);
 				tally(u);
 				roundUse = { cost: Number(u?.cost) || 0, prompt: Number(u?.prompt_tokens) || 0, completion: Number(u?.completion_tokens) || 0 };
 			},
@@ -329,13 +335,13 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
 				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
-				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
+				if (est) recordSpend(est, Math.ceil(streamed.length / 4), turnDeck);
 				if (genId && model.openRouterGenerationCost) {
 					void model
 						.openRouterGenerationCost(genId)
 						.then((exact) => {
 							if (exact == null || !Number.isFinite(exact)) return;
-							adjustSpend(exact - est);
+							adjustSpend(exact - est, turnDeck);
 							try {
 								globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
 							} catch {

@@ -774,6 +774,15 @@ export function withoutOldTraces(messages: ChatMessage[], keep: number): ChatMes
  *  newest three, then all of them. The words, the proposals and the usage are never what gets dropped. */
 export function saveChat(deckId: string, messages: ChatMessage[]): void {
 	const kept = messages.slice(-CHAT_CAP);
+	// The briefing of a compaction rides the first message kept. When the cap trims that message off, carry the briefing onto the new first
+	// one: it still stands in for the history the model no longer receives, and dropping it would lose that context with no notice.
+	if (kept.length && !kept[0].compacted) {
+		const carried = messages
+			.slice(0, messages.length - kept.length)
+			.reverse()
+			.find((m) => m.compacted)?.compacted;
+		if (carried) kept[0] = { ...kept[0], compacted: carried };
+	}
 	const key = CHAT_PREFIX + deckId;
 	if (write(key, withoutOldTraces(kept, CHAT_TRACE_KEEP))) return;
 	if (write(key, withoutOldTraces(kept, 3))) return;

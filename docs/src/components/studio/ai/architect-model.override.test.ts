@@ -40,6 +40,15 @@ describe('a call on its own model', () => {
 // "Show work" reads the model's thinking from the stream it already pays for. It must never ask for
 // more: no `reasoning` field rides the body just because a caller listens.
 describe('reasoning stream', () => {
+	it('falls back to reasoning_details when `reasoning` is an empty string', async () => {
+		localStorage.setItem('lattice-db-or-key', JSON.stringify('sk-test'));
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(`data: ${JSON.stringify({ choices: [{ delta: { reasoning: '', reasoning_details: [{ text: 'kept' }] } }] })}\n\ndata: [DONE]\n\n`, { status: 200 })));
+		const m = createArchitectModel({ getSettings: () => ({}) });
+		let thought = '';
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }], onToken: () => {}, onReasoning: (t: string) => (thought += t) });
+		expect(thought).toBe('kept');
+	});
+
 	const sse = (chunks: unknown[]) => new Response(`${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('')}data: [DONE]\n\n`, { status: 200 });
 
 	it('hands the thinking to onReasoning, from either shape, without adding a reasoning request', async () => {

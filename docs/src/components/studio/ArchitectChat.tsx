@@ -324,7 +324,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// Compaction. `undoCompact` holds the thread as it was until the next send, so a briefing that dropped something the author
 	// cared about is one click from undone; it is memory only, because a reload is a decision to keep the result.
 	const [compacting, setCompacting] = React.useState(false);
-	const [undoCompact, setUndoCompact] = React.useState<{ deck: string; messages: ChatMessage[] } | null>(null);
+	const [undoCompact, setUndoCompact] = React.useState<{ deck: string; messages: ChatMessage[]; after: ChatMessage[] } | null>(null);
+	// The thread as the panel holds it right now, for the two places that must compare against it after an await.
+	const messagesRef = React.useRef(messages);
+	messagesRef.current = messages;
 	// What the agent is doing between replies ("Reading a component…"), for the live bubble.
 	// Panel state like `streaming`, cleared with it when the turn ends.
 	const [liveActivity, setLiveActivity] = React.useState<string | null>(null);
@@ -588,12 +591,17 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const out = await summarizeChat(transcript(split.older), deckOutputLang(source));
 			if (out.status === 'blocked') return void notify(out.note);
 			if (out.status !== 'ok') return void notify(out.status === 'offline' ? 'Compacting needs a connected cloud model.' : 'The model returned no summary, so nothing changed.');
+			// The briefing was written from the thread as it stood at the click. If anything touched it since (a send that slipped in, a deck
+			// switch), writing it back would drop that message, so say so and change nothing. The call itself was real and is already in the tally.
+			if (messagesRef.current !== before || deckIdRef.current !== sendDeckId) {
+				setPulse((p) => p + 1);
+				globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+				return void notify(`The conversation changed while compacting, so nothing was changed. The summary cost $${out.cost.toFixed(3)}.`);
+			}
 			const done = applyCompaction(split, out.summary);
 			saveChat(sendDeckId, done.messages);
-			if (mountedRef.current && deckIdRef.current === sendDeckId) {
-				setMessages(done.messages);
-				setUndoCompact({ deck: sendDeckId, messages: before });
-			}
+			setMessages(done.messages);
+			setUndoCompact({ deck: sendDeckId, messages: before, after: done.messages });
 			setPulse((p) => p + 1);
 			globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
 			notify(`Compacted ${done.removed} messages. About ${Math.round(done.saved / 100) / 10}K tokens lighter on every turn; the compaction cost $${out.cost.toFixed(3)}.`);
@@ -603,8 +611,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			if (mountedRef.current) setCompacting(false);
 		}
 	};
+	// Undo is offered only while the thread is exactly what the compaction produced: a regenerate, an applied edit or a new message makes
+	// the saved "before" stale, and restoring it would delete that work.
+	const canUndoCompact = !!undoCompact && undoCompact.deck === deckId && undoCompact.after === messages;
 	const undoCompaction = () => {
-		if (!undoCompact || undoCompact.deck !== deckId) return;
+		if (!undoCompact || !canUndoCompact) return;
 		saveChat(deckId, undoCompact.messages);
 		setMessages(undoCompact.messages);
 		setUndoCompact(null);
@@ -612,6 +623,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	const send = () => {
 		const text = input.trim();
+		if (compacting) return;
 		// A photo alone is a message: the model is told what was attached either way.
 		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos) return;
 		const sendDeckId = deckId;
@@ -778,7 +790,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const stop = () => abortRef.current?.abort();
 
 	const regenerate = () => {
-		if (busy) return;
+		if (busy || compacting) return;
 		// Re-send the thread up to and including the last user turn (drop a trailing
 		// assistant reply so the model answers fresh).
 		let end = messages.length;
@@ -788,6 +800,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	};
 
 	const applyProposal = (idx: number) => {
+		if (compacting) return;
 		const m = messages[idx];
 		if (!m?.proposed?.length) return;
 		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
@@ -812,11 +825,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);
 		} else notify('Edit applied — restore from History to undo.');
 	};
-	const discardProposal = (idx: number) => setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
+	const discardProposal = (idx: number) => !compacting && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} compact={{ run: compact, busy: compacting || busy, undo: undoCompact?.deck === deckId ? undoCompaction : null }} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} compact={{ run: compact, busy: compacting || busy, undo: canUndoCompact ? undoCompaction : null }} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of

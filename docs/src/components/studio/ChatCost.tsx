@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
 import { approxTokens, modelText, SUMMARY_MAX_TOKENS, shouldSuggestCompaction, splitForCompaction } from './chat-compact';
+import { num } from './chat-trace';
 import { ModelList, useModelCatalog } from './ModelPicker';
 import { assetChoices, onAssetUrlsChanged } from './media-urls';
 import { type ReferenceDoc, refDocsTokens } from './reference-doc';
@@ -92,7 +93,7 @@ export type CompactControls = { run: () => void; busy: boolean; undo: (() => voi
 export function lastUsage(messages: ChatMessage[] | undefined): ChatUsage | null {
 	for (let i = (messages?.length ?? 0) - 1; i >= 0; i--) {
 		const u = messages?.[i]?.usage;
-		if (messages?.[i]?.role === 'assistant' && u) return u;
+		if (messages?.[i]?.role === 'assistant' && u && typeof u === 'object') return { ...u, cost: num(u.cost), prompt: num(u.prompt), completion: num(u.completion), cached: num(u.cached), reasoning: num(u.reasoning), rounds: num(u.rounds), window: num(u.window) || null };
 	}
 	return null;
 }

@@ -11,7 +11,7 @@ import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
-import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -1445,6 +1445,8 @@ export const FACT_GUARD =
 	'\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.';
 
 export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: ChatOptions): Promise<ChatResult> {
+	// This turn's charges book under the deck it was sent from, even if the author switches decks before it ends.
+	const turnDeck = getSpendDeck();
 	await loadArchitectAuthoring();
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
@@ -1549,7 +1551,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 			onGenerationId: (id) => { genId = id; },
 			onFinishReason: (r) => { finishReason = r; },
 			signal: opts?.signal,
-			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), turnDeck),
 		});
 	} catch (e) {
 		// An explicit abort (Stop) is not a failure — keep whatever streamed so far. The
@@ -1564,12 +1566,12 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		if ((e as { name?: string })?.name === 'AbortError') {
 			if (generation === 'openrouter' && streamed) {
 				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs) + photoTokens, photoUsd) ?? 0;
-				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
+				if (est) recordSpend(est, Math.ceil(streamed.length / 4), turnDeck);
 				if (genId && model.openRouterGenerationCost) {
 					void model.openRouterGenerationCost(genId)
 						.then((exact) => {
 							if (exact == null || !Number.isFinite(exact)) return;
-							adjustSpend(exact - est);
+							adjustSpend(exact - est, turnDeck);
 							try { globalThis.dispatchEvent?.(new Event('lattice-spend-changed')); } catch { /* no window */ }
 						})
 						.catch(() => {});

@@ -32,6 +32,14 @@ describe('summarizeChat', () => {
 		expect(readSpend().session).toBeCloseTo(0.004);
 	});
 
+	it('refuses a briefing that was cut off at the token ceiling', async () => {
+		complete.mockImplementation(async (o: { onFinishReason: (r: string) => void }) => {
+			o.onFinishReason('length');
+			return 'The author wants a board deck and the revenue is';
+		});
+		expect(await summarizeChat('Author: hi')).toEqual({ status: 'nochange' });
+	});
+
 	it('does not run on a tier that is not the cloud, or past the budget cap', async () => {
 		generation.v = 'floor';
 		expect(await summarizeChat('Author: hi')).toEqual({ status: 'offline' });

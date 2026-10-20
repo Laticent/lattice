@@ -51,7 +51,7 @@ const SPEND_SESSION_TOK_KEY = 'lattice-db-spend-session-tok';
 // and the guards keep these fs-free + crash-free off the browser.
 const addTo = (store, key, n) => { try { if (store) store.setItem(key, String((Number(store.getItem(key)) || 0) + n)); } catch {} };
 const readN = (store, key) => { try { return store ? Number(store.getItem(key)) || 0 : 0; } catch { return 0; } };
-export function recordSpend(cost, tokens = 0) {
+export function recordSpend(cost, tokens = 0, deckId) {
   // Cost and tokens are recorded independently — a free model bills $0 but still
   // burns tokens, so the token tally must not be gated on a positive cost.
   const ls = globalThis.localStorage;
@@ -60,7 +60,7 @@ export function recordSpend(cost, tokens = 0) {
   if (Number.isFinite(c) && c > 0) { addTo(ls, SPEND_TOTAL_KEY, c); addTo(ss, SPEND_SESSION_KEY, c); }
   const t = Number(tokens);
   if (Number.isFinite(t) && t > 0) { addTo(ls, SPEND_TOTAL_TOK_KEY, t); addTo(ss, SPEND_SESSION_TOK_KEY, t); }
-  bookLedger(c > 0 ? c : 0, t > 0 ? t : 0);
+  bookLedger(c > 0 ? c : 0, t > 0 ? t : 0, deckId);
 }
 
 // A SIGNED correction to the running cost tally. Unlike recordSpend (which only ever
@@ -68,13 +68,13 @@ export function recordSpend(cost, tokens = 0) {
 // turn's estimate to its authoritative cost, which is often LOWER than the estimate
 // (prompt caching), so the gauge must be able to true DOWN, not only up. Each store is
 // floored at 0 so a correction can never drive the tally negative.
-export function adjustSpend(costDelta) {
+export function adjustSpend(costDelta, deckId) {
   const d = Number(costDelta);
   if (!Number.isFinite(d) || d === 0) return;
   const bump = (store, key) => { try { if (store) store.setItem(key, String(Math.max(0, (Number(store.getItem(key)) || 0) + d))); } catch {} };
   bump(globalThis.localStorage, SPEND_TOTAL_KEY);
   bump(globalThis.sessionStorage, SPEND_SESSION_KEY);
-  bookLedger(d, 0);
+  bookLedger(d, 0, deckId);
 }
 
 // The ledger: the same charges as the tally above, bucketed by LOCAL day and deck, so the chat
@@ -87,6 +87,9 @@ export const LEDGER_NO_DECK = '_';
 const LEDGER_KEEP_DAYS = 120;
 let ledgerDeck = LEDGER_NO_DECK;
 export function setSpendDeck(deckId) { ledgerDeck = deckId ? String(deckId) : LEDGER_NO_DECK; }
+/** The deck charges book under right now. A call that outlives a deck switch (a turn keeps running; a Stop reconciles later) reads this
+ *  when it STARTS and passes it to recordSpend/adjustSpend, so its charges stay with the deck that made them. */
+export const getSpendDeck = () => ledgerDeck;
 /** A local calendar day as YYYY-MM-DD. "Today" is the author's today, not UTC's. */
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function readLedgerRaw() {
@@ -95,14 +98,14 @@ function readLedgerRaw() {
     return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
   } catch { return {}; }
 }
-function bookLedger(cost, tokens) {
+function bookLedger(cost, tokens, deckId) {
   if (!cost && !tokens) return;
   const ls = globalThis.localStorage;
   if (!ls) return;
   try {
     const led = readLedgerRaw();
     const day = (led[dayKey()] ||= {});
-    const cell = (day[ledgerDeck] ||= [0, 0]);
+    const cell = (day[deckId ? String(deckId) : ledgerDeck] ||= [0, 0]);
     cell[0] = Math.max(0, (Number(cell[0]) || 0) + cost);
     cell[1] = Math.max(0, (Number(cell[1]) || 0) + tokens);
     const cutoff = dayKey(new Date(Date.now() - LEDGER_KEEP_DAYS * 86400000));

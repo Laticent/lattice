@@ -10,7 +10,7 @@ const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(
 const USAGE_1 = { prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011, prompt_tokens_details: { cached_tokens: 16000 }, completion_tokens_details: { reasoning_tokens: 50 } };
 const USAGE_2 = { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 18460, cost: 0.006, prompt_tokens_details: { cached_tokens: 16500 }, completion_tokens_details: { reasoning_tokens: 20 } };
 
-async function mockModel(page: import('@playwright/test').Page, onSummary?: () => void) {
+async function mockModel(page: import('@playwright/test').Page, onSummary?: () => void, summaryDelayMs = 0) {
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -30,6 +30,7 @@ async function mockModel(page: import('@playwright/test').Page, onSummary?: () =
 		const body = JSON.parse(route.request().postData() ?? '{}');
 		if (!body.stream) {
 			onSummary?.();
+			if (summaryDelayMs) await new Promise((r) => setTimeout(r, summaryDelayMs));
 			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: 'The author is building a board deck on Q3 results. Revenue is $4.2M. Slide 2 uses the big-number layout; edits so far were applied.' } }], usage: { prompt_tokens: 3000, completion_tokens: 70, total_tokens: 3070, cost: 0.004 } }) });
 			return;
 		}
@@ -152,6 +153,37 @@ for (const [w, h] of [
 		await expect(page.getByText('Earlier question 1:', { exact: false })).toBeVisible();
 	});
 }
+
+test('sending is held while a compaction runs, so the new message is never dropped and Undo cannot delete it', async ({ page }) => {
+	test.setTimeout(120_000);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await mockModel(page, undefined, 2500);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	await ask(page, 'does slide 2 work as a single number?');
+	await page.evaluate(() => {
+		const key = Object.keys(localStorage).find((k) => k.startsWith('lattice-studio-chat-') && Array.isArray(JSON.parse(localStorage.getItem(k) || 'null')));
+		if (!key) throw new Error('no saved chat');
+		const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+		const filler = Array.from({ length: 22 }, (_, i) => (i % 2 === 0 ? { role: 'user', content: `Earlier question ${i / 2 + 1}` } : { role: 'assistant', content: `Earlier answer ${(i - 1) / 2 + 1}` }));
+		localStorage.setItem(key, JSON.stringify([...filler, ...msgs]));
+	});
+	await page.reload();
+	await gotoStudioReady(page, 1440);
+	await page.getByRole('button', { name: /^Chat metrics:/ }).click();
+	await page.getByTestId('chat-metrics').getByRole('button', { name: 'Compact conversation' }).click();
+	// While the summary is in flight, try to send: it must be refused.
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('a message typed mid-compaction');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	await expect(page.getByTestId('chat-compacted')).toBeVisible({ timeout: 20_000 });
+	// Nothing was sent: the text is still in the composer and no such message is in the thread.
+	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toHaveValue('a message typed mid-compaction');
+	const saved = await page.evaluate(() => {
+		const key = Object.keys(localStorage).find((k) => k.startsWith('lattice-studio-chat-') && Array.isArray(JSON.parse(localStorage.getItem(k) || 'null')));
+		return JSON.parse(localStorage.getItem(key ?? '') || '[]') as { content: string }[];
+	});
+	expect(saved.some((m) => m.content === 'a message typed mid-compaction')).toBe(false);
+});
 
 async function gotoStudioReady(page: import('@playwright/test').Page, w: number) {
 	// After a reload the posture is re-seeded by gotoStudio's init script; only the panel needs reopening.

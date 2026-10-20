@@ -1,4 +1,4 @@
-import { recordSpend } from '@/components/studio/ai/spend.js';
+import { getSpendDeck, recordSpend } from '@/components/studio/ai/spend.js';
 import { architectModel, cloudBudgetBlock, estTokens, withStudioVoice } from './architect';
 import { SUMMARY_MAX_TOKENS, SUMMARY_SYSTEM } from './chat-compact';
 
@@ -18,21 +18,28 @@ export async function summarizeChat(transcript: string, deckLang?: string): Prom
 	if (!model || model.availability().generation !== 'openrouter') return { status: 'offline' };
 	const blk = await cloudBudgetBlock(model, transcript, estTokens(SUMMARY_SYSTEM), SUMMARY_MAX_TOKENS);
 	if (blk) return { status: 'blocked', note: blk };
+	const deck = getSpendDeck();
 	let cost = 0;
 	let out = '';
+	let finish: string | null = null;
 	try {
 		out = await model.complete({
 			messages: withStudioVoice([{ role: 'system', content: SUMMARY_SYSTEM }, { role: 'user', content: `Conversation to compress:\n\n${transcript}` }], 'openrouter', deckLang),
 			fallback: '',
 			maxTokens: SUMMARY_MAX_TOKENS,
+			onFinishReason: (r) => {
+				finish = r;
+			},
 			onUsage: (u) => {
 				cost += Number(u?.cost) || 0;
-				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0));
+				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), deck);
 			},
 		});
 	} catch {
 		return { status: 'offline' };
 	}
 	const summary = String(out).trim();
+	// A briefing cut off at the token ceiling (a thinking model spends it on thinking) would replace real messages with half a sentence.
+	if (finish === 'length') return { status: 'nochange' };
 	return summary ? { status: 'ok', summary, cost } : { status: 'nochange' };
 }

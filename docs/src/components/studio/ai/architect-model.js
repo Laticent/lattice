@@ -555,7 +555,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             // surfacing it asks for nothing more: we never send a `reasoning` setting to get it.
             if (onReasoning) {
               const dl = obj.choices?.[0]?.delta;
-              const th = typeof dl?.reasoning === 'string' ? dl.reasoning : Array.isArray(dl?.reasoning_details) ? dl.reasoning_details.map((x) => (typeof x?.text === 'string' ? x.text : typeof x?.summary === 'string' ? x.summary : '')).join('') : '';
+              const th = (typeof dl?.reasoning === 'string' && dl.reasoning) || (Array.isArray(dl?.reasoning_details) ? dl.reasoning_details.map((x) => (typeof x?.text === 'string' ? x.text : typeof x?.summary === 'string' ? x.summary : '')).join('') : '');
               if (th) { try { onReasoning(th); } catch {} }
             }
             for (const d of obj.choices?.[0]?.delta?.tool_calls || []) {

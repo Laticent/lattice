@@ -70,6 +70,18 @@ thinking and a command, opens the dropdown and checks the figures, opens Show wo
 command, then compacts a 24-message thread and undoes it. Unit tests cover the ledger, trace
 bounding, compaction maths, the summarizing call and the reasoning stream parser.
 
+## 6. Independent review (maker-checker)
+
+One checker read the diff and found races and small defects, all fixed before merge: a send, regenerate or applied edit could slip in
+while a compaction ran and be overwritten, with Undo then deleting it (sending is now refused while compacting, a compaction that finds
+the thread changed writes nothing, and Undo shows only while the thread is exactly what the compaction produced; the e2e spec fails
+without the guard); a charge booked to whichever deck was open when it landed rather than the deck that made it (a turn, a Stop's
+reconciliation and a compaction now capture the deck at their start); a briefing cut off at the token ceiling was accepted; the
+message cap could drop the briefing; Show work called an estimate "billed" after compaction; malformed imported `usage`/`trace` could crash
+the header; a stray `reasoning: ""` hid `reasoning_details`; and the end-of-turn catalog lookup could hold a reply for 4 s. A full storage
+used to lose the whole thread: traces now stay on the newest 20 replies and the save retries with fewer traces before it drops anything else.
+Left as known: the meter keeps the previous model's window until the next reply after a model switch.
+
 **UNVERIFIED:** a real reasoning model's stream. The parser reads `delta.reasoning` and
 `reasoning_details` from the OpenRouter documentation; the e2e mock sends both. A real model's
 shape should be captured once, off the per-PR path, with a tiny prompt on the owner's key.

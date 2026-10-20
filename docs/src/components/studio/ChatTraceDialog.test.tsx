@@ -36,4 +36,15 @@ describe('Show work', () => {
 		expect(screen.getAllByTestId('md').some((n) => n.textContent === 'The deck has three slides.')).toBe(true);
 		expect(screen.getByText(/30 thinking tokens/)).toBeTruthy();
 	});
+
+	it('opens on a malformed saved trace (an imported backup) instead of crashing', () => {
+		const bad = { rounds: [{ calls: null, cost: 'x', prompt: null, completion: undefined }] } as unknown as ChatTrace;
+		render(<ChatTraceDialog trace={bad} usage={{ cost: undefined, prompt: 'n' } as unknown as ChatUsage} open onOpenChange={() => {}} />);
+		expect(screen.getByText('1 model call')).toBeTruthy();
+	});
+
+	it('does not claim a billed figure once compaction has made the count an estimate', () => {
+		render(<ChatTraceDialog trace={trace} usage={{ ...usage, estimated: true }} open onOpenChange={() => {}} />);
+		expect(screen.queryByText(/The provider billed/)).toBeNull();
+	});
 });
