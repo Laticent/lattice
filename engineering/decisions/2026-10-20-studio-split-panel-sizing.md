@@ -59,5 +59,13 @@ later, because the library would otherwise swap the panes (collapsing the previe
 opening the editor. Someone who collapsed the editor and then opened Chat therefore loses Chat
 when they press Expand.
 
-Not changed: the Playground split (280/320 at 45:55), and the pre-paint shell, which models
-only the dock-free pair.
+**Follow-up (same day).** The Playground editor|preview split now uses the Studio pair's
+numbers: minimums 300/300 and a 46:54 start (`pg-split.ts` `PG_SPLIT_MIN`, `PG_SPLIT_DEFAULTS`),
+down from 280/320 at 45:55. Measured on the real Playground in Edit mode (Chromium, dev server):
+
+| Window | Before (px) | After (px) |
+|---|---|---|
+| 1280 | 575.5 / 703.5 (45:55) | 588.3 / 690.7 (46:54) |
+| 1440 | 647.5 / 791.5 (45:55) | 661.9 / 777.1 (46:54) |
+
+Not changed: the Studio pre-paint shell, which models only the dock-free pair.

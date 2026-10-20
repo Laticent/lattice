@@ -555,7 +555,7 @@ const pgData = {
 						// size AND in the wrong place — it overflows and clips, where the old centered
 						// shell would merely have been the wrong size. Two real triggers: the visitor
 						// resizing during the ~2s the shell is up, and the split seed writing a share the
-						// library then clamps to its 320px minimum at hydration (measured 238px pre-paint
+						// library then clamps to its pixel minimum at hydration (measured 238px pre-paint
 						// against 320px after). Withdrawing beats correcting: the same reasoning as the
 						// box check above, one moment later.
 						if (wrap && typeof ResizeObserver === 'function') {

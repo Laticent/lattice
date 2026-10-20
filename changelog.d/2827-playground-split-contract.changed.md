@@ -1,0 +1,1 @@
+- The Playground editor|preview split now starts at 46:54 with 300px minimums on both panes, the same pair contract as the Studio (was 45:55 with 280/320).

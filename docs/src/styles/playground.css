@@ -119,11 +119,11 @@
    reservation below, for the window in which only ONE of the two panes has parsed.) */
 .pg-split > #pg-split-editor {
 	flex-basis: 0;
-	flex-grow: var(--pg-split-a, 45);
+	flex-grow: var(--pg-split-a, 46);
 }
 .pg-split > #pg-split-preview {
 	flex-basis: 0;
-	flex-grow: var(--pg-split-b, 55);
+	flex-grow: var(--pg-split-b, 54);
 }
 /* RESERVE THE PANE THAT HAS NOT PARSED YET (#1800). `flex-grow` divides the row between the
    children that ARE there, and the document is STREAMED: for as long as the parser has emitted
@@ -155,7 +155,7 @@
    owns the layout regardless. */
 .pg-split:not(:has(> #pg-split-preview))::after {
 	content: '';
-	flex: var(--pg-split-b, 55) 1 0;
+	flex: var(--pg-split-b, 54) 1 0;
 }
 /* THE PANES' PIXEL MINIMUMS are NOT applied here (#1589) — the seed in playground.astro
    appends them to <head> as a media-query-scoped stylesheet, because which of them applies
@@ -164,7 +164,7 @@
    · Restoring a saved layout is not a clamp. The library resolves an under-minimum size in
      TWO branches: below the MIDPOINT of `collapsedSize` and `minSize` it snaps a collapsible
      pane to the 28px rail; only above it does it clamp to the minimum. A static
-     `min-width: 320px` paints 320 where the app is about to show 28 — measured 292px wrong,
+     `min-width: 300px` paints 300 where the app is about to show 28 — measured 292px wrong,
      held ~1.3s, on the share a divider dragged past its minimum leaves behind.
    · The rules have to name the panel ids and the a→editor / b→preview mapping, which
      `PG_SPLIT_PANEL_IDS` and the seed own. Generating them there keeps that in one place;

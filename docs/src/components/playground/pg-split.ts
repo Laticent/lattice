@@ -38,7 +38,7 @@ export const PG_SPLIT_BUCKET = bucketFor(PG_SPLIT_PANEL_IDS);
  * newcomer's first paint has to match what hydration is about to produce, or the fix for a
  * returning visitor's jump would introduce one for everybody else.
  */
-export const PG_SPLIT_DEFAULTS = { editor: 45, preview: 55 } as const;
+export const PG_SPLIT_DEFAULTS = { editor: 46, preview: 54 } as const;
 
 /**
  * The panels' minimum widths in PIXELS — the `<ResizablePanel minSize>` values, and the
@@ -55,8 +55,12 @@ export const PG_SPLIT_DEFAULTS = { editor: 45, preview: 55 } as const;
  *
  * Declared HERE for the same reason `PG_SPLIT_DEFAULTS` is: one number read by the panel
  * that enforces it and by the seed that has to predict it, so they cannot drift.
+ *
+ * 300/300 and 46:54 are the Studio's pair contract (`PREVIEW_CHROME.splitEditorMin` /
+ * `splitPreviewMin`, `defaultPreviewFrac`), so one editor|preview split reads the same on both
+ * surfaces (2026-10-20-studio-split-panel-sizing.md).
  */
-export const PG_SPLIT_MIN = { editor: 280, preview: 320 } as const;
+export const PG_SPLIT_MIN = { editor: 300, preview: 300 } as const;
 
 /**
  * A collapsed pane's width in pixels — the `<ResizablePanel collapsedSize>` rail.
