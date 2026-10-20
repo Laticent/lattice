@@ -613,6 +613,12 @@ section.image:is([data-img-composition="spotlight"], [data-img-composition="stat
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-center, .at-bottom) .image-text {
   inset-inline-start: 50%; inset-inline-end: auto; --_card-tx: -50%;
 }
+/* The center shift is written from the START edge, so in a right-to-left document (where
+ * `inset-inline-start` is the right) it runs the other way. Lattice renders no RTL deck yet
+ * (conformance harness §12.5); this keeps the centered placements honest the day it does. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-center, .at-bottom) .image-text:dir(rtl) {
+  --_card-tx: 50%;
+}
 /* A statement title on the center line reads as a centered title. */
 section.image[data-img-composition="statement"]:is(.at-top, .at-center, .at-bottom) .image-text {
   align-items: center;

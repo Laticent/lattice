@@ -67,6 +67,37 @@ for (const tag of ['', ' @webkit-tablet']) {
 	});
 }
 
+// The one-line key completes word after word in the real editor, not only in the unit test.
+// After `soft` the backing axis is filled, so of the words starting with `s` only `sm` (size) is
+// offered: `sheer` and `solid` share the prefix, so only the filled-axis skip can hide them.
+test('the editor completes image-card: words after the first, skipping a filled axis', async ({ page }) => {
+	await setEditorContent(page, '---\ntitle: Photos\n---\n');
+	await page.keyboard.press('ArrowUp');
+	await page.keyboard.press('ArrowUp');
+	await page.keyboard.press('End');
+	await page.keyboard.type('\nimage-card: soft s');
+	const menu = page.locator('.cm-tooltip-autocomplete');
+	await expect(menu).toBeVisible();
+	// An option's accessible name carries its detail label too, unspaced (`softimage-card`).
+	const option = (word: string) => menu.getByRole('option', { name: `${word}image-card`, exact: true });
+	await expect(option('sm')).toBeVisible();
+	for (const word of ['sheer', 'solid', 'soft']) await expect(option(word)).toHaveCount(0);
+});
+
+// Dark mode: the Studio's own mode switch (the key its pre-paint script reads), then a reload.
+test('@crosswidth the deck and slide Image tabs in dark mode', async ({ page }, info) => {
+	await page.evaluate(() => localStorage.setItem('lattice-docs-mode', 'dark'));
+	await page.reload();
+	await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
+	await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right sheer light sm\n---\n\n${SLIDE}`);
+	await openInspectorTab(page, 'image');
+	await expect(page.getByRole('combobox', { name: 'Card backing' }).filter({ visible: true }).first()).toContainText('Sheer');
+	await page.screenshot({ path: info.outputPath('image-card-deck-dark.png') });
+	await openSlideImageTab(page);
+	await expect(page.getByRole('combobox', { name: 'Slide card ink' }).filter({ visible: true }).first()).toContainText('Light words');
+	await page.screenshot({ path: info.outputPath('image-card-slide-dark.png') });
+});
+
 // Screenshot evidence at the three shipped widths (QUALITY BAR). Not a golden diff: the shots
 // land in test-results for a human to look at.
 async function openDeckSettingsAt(page: Page, width: number): Promise<void> {
