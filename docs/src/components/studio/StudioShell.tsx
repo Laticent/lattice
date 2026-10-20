@@ -6916,7 +6916,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
 				</PanelLoader>
 			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
