@@ -280,3 +280,52 @@ describe('inline-code-directives — the mirror is a no-op on its own output', (
     assert.match(html, /lat-state/);
   });
 });
+
+describe('state-marks — the check registry is the one table of six rows', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const read = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
+
+  test('six rows, each with every field, and the derived exports follow the rows', () => {
+    assert.equal(marks.CHECKS.length, 6);
+    assert.deepEqual(marks.MARKERS, marks.CHECKS.map((c) => c.marker));
+    for (const c of marks.CHECKS) {
+      for (const k of ['id', 'marker', 'shape', 'label', 'tone', 'words']) assert.ok(c[k] !== undefined, `${c.id} lacks ${k}`);
+      assert.deepEqual(marks.stateClassesFor(c.marker), { sem: c.id, shape: c.shape });
+      assert.equal(marks.MARKER_LABELS[c.marker], c.label);
+    }
+    assert.equal(new Set(marks.CHECKS.map((c) => c.id)).size, 6, 'ids are unique');
+    assert.equal(new Set(marks.CHECKS.map((c) => c.shape)).size, 6, 'shapes are unique');
+  });
+
+  test('the registry is frozen, rows and words included', () => {
+    assert.ok(Object.isFrozen(marks.CHECKS));
+    for (const c of marks.CHECKS) assert.ok(Object.isFrozen(c) && Object.isFrozen(c.words));
+  });
+
+  test('each row\'s mask token is the one the stylesheet maps its shape to, and it is defined', () => {
+    const mods = read('lib/base/base.modifiers.css');
+    const tokens = read('lib/base/base.tokens.css');
+    for (const c of marks.CHECKS) {
+      const m = new RegExp(`section \\.${c.shape}\\s*\\{\\s*--state-mark:\\s*var\\((--[\\w-]+)\\)`).exec(mods);
+      if (c.mask === null) {
+        assert.equal(m, null, `${c.id} is the hollow ring and must have no mask`);
+        continue;
+      }
+      assert.ok(m, `no --state-mark rule for .${c.shape}`);
+      assert.equal(m[1], c.mask, `${c.id}: registry says ${c.mask}, CSS says ${m[1]}`);
+      assert.match(tokens, new RegExp(`${c.mask}:\\s*url\\(`), `${c.mask} is not defined`);
+    }
+  });
+
+  test('each row\'s tone is the color the inline mark takes by default', () => {
+    const mods = read('lib/base/base.modifiers.css');
+    for (const c of marks.CHECKS) {
+      if (c.id === 'todo') continue; // the hollow ring has no tone rule; it falls back to --muted-mark
+      const m = new RegExp(`section \\.lat-state\\.${c.id}\\s*\\{\\s*--state-color:\\s*var\\((--[\\w-]+)\\)`).exec(mods);
+      assert.ok(m, `no tone rule for .lat-state.${c.id}`);
+      assert.equal(m[1], c.tone, `${c.id}: registry says ${c.tone}, CSS says ${m[1]}`);
+    }
+    assert.equal(marks.CHECKS.find((c) => c.id === 'todo').tone, '--muted-mark');
+  });
+});
