@@ -143,7 +143,7 @@ import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryP
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
-import { TOURS } from './tours';
+import { DEFAULT_TOUR, TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -459,6 +459,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setSource: typeof setSourceRaw = React.useCallback((next) => { setSourceEpoch((e) => e + 1); setSourceRaw(next); }, []);
 	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. */
 	const setSourceFromEditor = setSourceRaw;
+	// Live (2026-10-20 note §7.5): a tour in a session plays on a PRACTICE deck. `source` then holds the
+	// practice text, so the editor, preview and lint all show it, while `real` keeps the shared deck's text:
+	// what the session sees, what remote edits update, and what any save writes. The session's records are
+	// held as they were, so the practice deck's empty Library never reads as records withdrawn.
+	const [practice, setPractice] = React.useState<{ real: string; records: LiveRecords } | null>(null);
+	const practiceRef = React.useRef(practice);
+	practiceRef.current = practice;
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
 	// pre-change text for one-click Undo without threading it through every setter.
 	const sourceRef = React.useRef(source);
@@ -1833,6 +1840,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	const saveSourceGuarded = React.useCallback((id: string, src: string) => {
 		if (decksClearedRef.current) return;
+		// A practice deck is never saved: the deck keeps the shared text.
+		if (practiceRef.current) src = practiceRef.current.real;
 		saveSource(id, src);
 		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
 		// rather than passed in: this is the deck's real title as the deck states it —
@@ -1847,7 +1856,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renames the deck in the switcher, the header, ⌘K, Share and the export filename with
 	// no separate rename step. `deck.title` is only the fallback for a deck carrying
 	// neither (it holds the last name the deck was loaded/created under).
-	const deckTitle = React.useMemo(() => titleFromSource(source, deck.title), [source, deck.title]);
+	// A tour's practice deck (live note §7.5) is named as one, so nobody reads its title as the shared deck renamed.
+	const deckTitle = React.useMemo(() => (practice ? 'Practice deck' : titleFromSource(source, deck.title)), [practice, source, deck.title]);
 
 	// Keep the crash record's header current: what was open when it died. LABELS and
 	// SIZES only — a deck's title and its slide count, never a line of its content —
@@ -3011,6 +3021,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			off();
 		};
 	}, []);
+	const livePracticeRef = React.useRef<{ start: () => void; end: () => void } | null>(null);
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
@@ -3049,7 +3060,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setCmdOpen,
 		setMobilePane,
 		mobile,
+		// Read when a tour starts: in a session the tour practices on a throwaway deck (`live` is
+		// declared further down, so the session's state reaches here through a ref).
+		get practice() {
+			return livePracticeRef.current;
+		},
 	});
+	const demoActiveRef = React.useRef(demoActive);
+	demoActiveRef.current = demoActive;
 	// A mobile tour types into the Markdown editor then points at SEL.panePreview
 	// (tour-kit.ts) — if Compose typing had already collapsed the pane bar
 	// (`chromeCollapsed`, fed by ComposeView's onTypingCollapse) and a tour starts
@@ -3087,6 +3105,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		mobile,
 		stopDemo,
 	});
+	const lessonActiveRef = React.useRef(lessonActive);
+	lessonActiveRef.current = lessonActive;
 	// THE DEEP LINK — `/studio/?lesson=<id>`, what the site search's Learn rows open. The param is
 	// read when the timer fires, not when the effect runs, so StrictMode's mount-unmount-mount cannot
 	// strand it; it is removed only as the lesson starts, so a reload does not replay it. There is no
@@ -3804,15 +3824,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const livePublicPanelRef = React.useRef<'coach' | 'lenses' | 'library' | 'live' | null>(null);
 	if (activeAssistant !== 'chat') livePublicPanelRef.current = activeAssistant;
 	const livePublicPanel = livePublicPanelRef.current;
+	const liveSource = practice ? practice.real : source;
 	const live = useLiveSession({
-		source,
-		setSource: setSourceFromEditor,
+		source: liveSource,
+		// Remote edits during a practice run update the shared text kept aside, not the practice deck.
+		setSource: (next: string) => {
+			if (practiceRef.current) setPractice((p) => (p ? { ...p, real: next } : p));
+			else setSourceFromEditor(next);
+		},
 		deckId: deck.id,
-		deckTitle: titleFromSource(source, deck.title),
+		deckTitle: titleFromSource(liveSource, deck.title),
 		slideCount: slides.length,
 		theme: palette,
 		mode: mode === 'dark' ? 'dark' : 'light',
-		records: liveRecords,
+		records: practice ? practice.records : liveRecords,
 		siteTheme: liveSiteTheme,
 		// Activity (§7.6): the AI Chat panel is never reported; what someone asks the AI is theirs. The last
 		// other panel stands in for it, so opening Chat neither shows nor closes anything for a follower.
@@ -3821,6 +3846,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		presenting: presentOpen,
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
+		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
+		// already running is left alone.
+		startTour: (tourId) => {
+			if (demoActiveRef.current || lessonActiveRef.current) return;
+			startDemo(tourId);
+		},
 		openRoomPresent: () => {
 			// A Present this person opened themselves is theirs: the Live panel offers to join instead.
 			if (presentOpenRef.current && !presentByRoomRef.current) return;
@@ -3912,6 +3943,42 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			tap?.stop();
 		};
 	}, [livePresentingToAll, liveInCall, live.actions]);
+	// Show me in a session (§7.5): the tour's new deck is a practice one, and ending the tour puts the
+	// shared deck back as the session now has it. Only while bound to a session; a tour anywhere else is
+	// the solo tour, which keeps its deck.
+	livePracticeRef.current = live.collab
+		? {
+				start: () => {
+					if (practiceRef.current) return;
+					setPractice({ real: sourceRef.current, records: liveRecords });
+					setSource('');
+				},
+				end: () => {
+					const was = practiceRef.current;
+					if (!was) return;
+					setPractice(null);
+					setSource(was.real);
+				},
+			}
+		: null;
+	// A session that ends mid-tour leaves nothing to practice beside: the shared text kept aside comes back.
+	React.useEffect(() => {
+		if (!live.collab && practiceRef.current) {
+			const was = practiceRef.current;
+			// The tour stops first: left running, it would go on typing into the real deck.
+			stopDemo();
+			setPractice(null);
+			setSource(was.real);
+		}
+	}, [live.collab, setSource, stopDemo]);
+	// Pressing a tour as the host of a session with others in it plays it for everyone (§7.5).
+	const showMe = (tourId?: string) => {
+		if (live.actions.tourForEveryone(typeof tourId === 'string' ? tourId : DEFAULT_TOUR)) {
+			notify('Playing the tour for everyone in the session.');
+			return;
+		}
+		startDemo(tourId);
+	};
 	const liveForPresent = React.useMemo(
 		() =>
 			live.view.status === 'live'
@@ -5723,7 +5790,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -6214,7 +6281,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<DropdownMenuSeparator />
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
-								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => startDemo(t.id))} className="flex-col items-start gap-0.5 py-2">
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => showMe(t.id))} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
 								</DropdownMenuItem>
@@ -6365,7 +6432,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		...(effectiveStop === 'read' ? [{ id: 'read-article', group: 'actions', label: 'Read as an article', icon: FileText, run: () => setView('article') } satisfies StudioCommand] : []),
 		{ id: 'library', group: 'actions', label: 'Library — saved themes & components', icon: FileBox, run: () => { revealCraftDock(); setLibraryOpen(true); } },
 		{ id: 'workspace', group: 'actions', label: 'Workspace settings', icon: SettingsCog, run: () => setWorkspaceOpen(true) },
-		{ id: 'watch-demo', group: 'actions', label: 'Watch demo — the Studio drives itself', icon: MonitorPlay, run: () => startDemo() },
+		{ id: 'watch-demo', group: 'actions', label: 'Watch demo — the Studio drives itself', icon: MonitorPlay, run: () => showMe() },
 		{ id: 'feedback', group: 'actions', label: 'Send feedback', icon: FeedbackIcon, run: () => setFeedbackOpen(true) },
 		// New deck — the slim Write header's switcher carries it too, but ⌘K is the header's
 		// stated "reaches every feature" path, so it must be reachable here.
@@ -6691,7 +6758,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<DropdownMenuContent align="end" className="w-64">
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
-								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => showMe(t.id)} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
 								</DropdownMenuItem>
@@ -6767,7 +6834,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onLive={openLive}
 						demoActive={demoActive}
 						tours={TOURS}
-						onStartDemo={startDemo}
+						onStartDemo={showMe}
 						onLibrary={() => setLibraryOpen(true)}
 						onSearch={() => setCmdOpen(true)}
 						onFeedback={() => setFeedbackOpen(true)}

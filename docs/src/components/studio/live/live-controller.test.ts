@@ -1194,6 +1194,7 @@ describe('LiveController: present together', () => {
 		const asks: string[] = [];
 		sh.host.openRoomPresent = () => opened.push('open');
 		sh.host.closeRoomPresent = () => opened.push('close');
+		sh.host.startTour = (id) => opened.push(`tour ${id}`);
 		sh.host.notifyAction = (m) => asks.push(m);
 		localStorage.removeItem('lattice-live-links');
 		sessionStorage.removeItem('lattice-live-sids');
@@ -1348,5 +1349,58 @@ describe('LiveController: present together', () => {
 		await settle(h, g);
 		expect(g.view().present?.idx).toBe(0);
 	});
-});
 
+	// Show me together (§7.5).
+	const hostTours = (h: Ctl) => {
+		const started: string[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: the host's own shell callback.
+		(h as any).host.startTour = (id: string) => started.push(id);
+		return started;
+	};
+
+	it('the host plays a shipped tour for everyone: the host and an idle member both start it', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		const started = hostTours(h);
+		expect(h.actions.tourForEveryone('first-look')).toBe(true);
+		await until(() => opened.includes('tour first-look') && started.includes('first-look'), h, g);
+	});
+
+	it('alone in a session, or as a member, a tour plays here only', async () => {
+		const { h } = await hostSession();
+		expect(h.actions.tourForEveryone('first-look')).toBe(false);
+		const { g } = await member(h, 'Amina');
+		expect(g.actions.tourForEveryone('first-look')).toBe(false);
+		expect(h.actions.tourForEveryone('not-a-tour')).toBe(false);
+	});
+
+	it('a member typing is asked to watch instead of having a tour start under their cursor', async () => {
+		const { h } = await hostSession();
+		const { g, opened, asks } = await member(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.actions.tourForEveryone('first-look');
+		await until(() => asks.some((a) => a.includes('is showing')), h, g);
+		await settle(h, g);
+		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+	});
+
+	it('only the host starts a tour, only a shipped one, and not twice in quick succession', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await member(h, 'Amina');
+		const { g: b, opened } = await member(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a room event.
+		(a as any).post({ k: 'tour', id: 'first-look', at: 0 });
+		// biome-ignore lint/suspicious/noExplicitAny: the host sending an id that is not a shipped tour.
+		(h as any).post({ k: 'tour', id: 'javascript:alert(1)', at: 0 });
+		await settle(h, a, b);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+		h.actions.tourForEveryone('first-look');
+		h.actions.tourForEveryone('first-look');
+		await until(() => opened.includes('tour first-look'), h, a, b);
+		await settle(h, a, b);
+		await new Promise((r) => setTimeout(r, 900));
+		expect(opened.filter((o) => o.startsWith('tour')).length).toBe(1);
+	});
+});

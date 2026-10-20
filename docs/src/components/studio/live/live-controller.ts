@@ -12,6 +12,7 @@ import { coerceRecipe } from '../finish-generate';
 import { RESERVED_FINISH_NAMES } from '../finish-library';
 import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
+import { TOURS } from '../tours';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
@@ -166,6 +167,8 @@ type Post =
 	| { k: 'bye' }
 	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
 	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
+	/** Show me together (§7.5): a shipped tour's id and when to start it, on the session clock. */
+	| { k: 'tour'; id: string; at: number }
 	/** a member's pointer over the slide it is on, in the slide's coordinates; `off` when it left the slide */
 	| { k: 'ptr'; s?: number; x?: number; y?: number; c?: 1; off?: 1 }
 	/** host → member: the Library records the deck uses that the host shares (themes, finish recipes,
@@ -259,6 +262,12 @@ const POINTER_MIN_GAP_MS = 30;
 const POINTER_IDLE_MS = 6000;
 /** A presentation started this soon after the last one is not obeyed: a host toggling fast moves nobody. */
 const PRESENT_RESTART_MS = 2000;
+/** Show me together: everyone starts this long after the host presses, so the start reaches each member
+ *  before its moment; a start further off than the most a link can lag is pulled in to it. */
+const TOUR_LEAD_MS = 700;
+const TOUR_MAX_WAIT_MS = 3000;
+/** A tour started this soon after the last one is not obeyed: a host pressing fast restarts nobody. */
+const TOUR_RESTART_MS = 5000;
 /** The host's Present reports where it is within this long of a start; past it the start goes out as is. */
 const PRESENT_START_WAIT_MS = 600;
 /** A host stepping fast sends its position at most this often (the last one always goes). */
@@ -479,6 +488,9 @@ export class LiveController {
 	private roomPresent: LivePresent | null = null;
 	private roomPresentHost: string | null = null;
 	private roomPresentAt = 0;
+	/** Show me together: when the last tour reached this browser, and the start waiting for its moment. */
+	private tourAt = 0;
+	private tourLater: ReturnType<typeof setTimeout> | null = null;
 	/** Host: a start waiting for its Present's first position, the repeat that reaches a member who dropped
 	 *  the first start inside its restart window, and the trailing send of a fast run of steps. */
 	private presentStartDue = false;
@@ -1056,6 +1068,8 @@ export class LiveController {
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
 		this.clearPresentTimers();
+		if (this.tourLater) clearTimeout(this.tourLater);
+		this.tourLater = null;
 		this.roomPresent = null;
 		this.roomPresentHost = null;
 		this.transport = { idx: 0, page: 0, lens: 'full' };
@@ -1956,6 +1970,27 @@ export class LiveController {
 		this.host.rerender();
 	}
 
+	/** Member: the host started a tour for everyone. Only a shipped tour's id is obeyed: it is code that
+	 *  ships with Lattice and plays on a practice deck, so a peer can start it but cannot write it (§7.5).
+	 *  Someone idle starts at the host's moment; someone typing is asked, as with Present. */
+	private takeTour(p: Extract<Post, { k: 'tour' }>, name: string, r: Runtime) {
+		const tour = TOURS.find((t) => t.id === p.id);
+		if (!tour || typeof p.at !== 'number' || !Number.isFinite(p.at)) return;
+		if (Date.now() - this.tourAt < TOUR_RESTART_MS) return;
+		this.tourAt = Date.now();
+		if (this.tourLater) clearTimeout(this.tourLater);
+		this.tourLater = null;
+		if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+			this.host.notifyAction(`${name} is showing “${tour.label}”`, { label: 'Watch', onClick: () => this.host.startTour?.(tour.id) });
+			return;
+		}
+		const wait = Math.max(0, Math.min(TOUR_MAX_WAIT_MS, p.at - r.session.now()));
+		this.tourLater = setTimeout(() => {
+			this.tourLater = null;
+			if (this.rt === r) this.host.startTour?.(tour.id);
+		}, wait);
+	}
+
 	/** Host: the start, once; then the same again just past a member's restart window, so one who dropped
 	 *  the first (the host stopped and started again quickly) still joins. */
 	private sendPresentStart() {
@@ -2083,6 +2118,8 @@ export class LiveController {
 				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
 			} else if (p.k === 'present' && typeof p.on === 'boolean') {
 				this.takePresent(p, from, sender.name, r);
+			} else if (p.k === 'tour') {
+				this.takeTour(p, sender.name, r);
 			} else if (p.k === 'records') {
 				void this.takeRecords(p, r, sender.name);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
@@ -2212,6 +2249,20 @@ export class LiveController {
 				this.presentTimers.push(setTimeout(() => this.sendPresentStart(), PRESENT_START_WAIT_MS));
 			} else this.post({ k: 'present', on: false });
 			this.host.rerender();
+		},
+		tourForEveryone: (tourId: string) => {
+			const r = this.rt;
+			const s = r?.session.getState();
+			if (!r || !s?.isHost || s.stage !== 'live' || !this.bound || s.members.length < 2 || !TOURS.some((t) => t.id === tourId)) return false;
+			const at = r.session.now() + TOUR_LEAD_MS;
+			this.post({ k: 'tour', id: tourId, at });
+			// The host starts at the same moment its members do.
+			if (this.tourLater) clearTimeout(this.tourLater);
+			this.tourLater = setTimeout(() => {
+				this.tourLater = null;
+				if (this.rt === r) this.host.startTour?.(tourId);
+			}, TOUR_LEAD_MS);
+			return true;
 		},
 		mixIntoCall: (stream: MediaStream | null) => {
 			if (this.callMix && this.callMix !== stream) this.audio?.unmix(this.callMix);

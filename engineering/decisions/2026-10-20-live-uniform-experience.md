@@ -462,6 +462,39 @@ itself, at that moment.
   their own run only (Vetrina's take-over rule), and the others continue. iPhones show captions and
   "Tap to listen".
 
+**Slice 4 as built (2026-10-20).** The host presses a tour in the Show me menu, the palette or the welcome
+banner, and the controller posts one `tour` room event: the tour's id and a start 700 ms ahead on the
+session clock. Members take it only from the host and only for an id in `TOURS`; a second start within 5 s
+is dropped. An idle member starts at that moment (clamped to at most 3 s of waiting); someone typing gets
+"Sharmarke is showing “First look” · Watch" instead. The host starts at the same moment. Alone in a session,
+or as a member, the button plays the tour on this screen only, in the same practice mode.
+
+The practice deck is an overlay, not a deck switch. `startPractice` keeps the shared text aside (`real`) and
+blanks `source`, and the editor drops the session binding, so the tour's typing lands in a local text the
+session never sees. While it runs:
+- the controller is handed `real`, never the practice text, so nothing is pushed into the shared document;
+- remote edits update `real`, not the screen;
+- every save writes `real`, so the practice text is never stored;
+- the records the session shares are held as they were;
+- the header names it "Practice deck";
+- the tour leaves the look, Present, the deck menu, Share and the Architect alone.
+Ending the tour by completing it, by Exit or by a click restores `real` and re-binds the editor, which
+reseeds from the shared text. A session that ends mid-tour stops the tour first. This also fixes a defect
+the solo tour had in a session: it asked "End the live session?", and on No went on typing into the shared
+deck for everyone.
+
+Measured on two real headless Chromium browsers at 1440 px (`.scratch/live-repro/slice4.mjs`):
+- the tour started on both screens 26–131 ms apart across four runs;
+- 30 s in, both screens showed the tour's "Q4 Board Update" practice deck, and no key in the host's
+  storage held the practice text;
+- after the tour, both editors held the shared deck byte-identical to before (1,696 characters), both
+  members were still in the session, and an edit from the guest reached the host.
+- with the guest on a 390 px phone (the controlled typing path), the same held: the tour started 112–146 ms
+  apart, the shared deck came back byte-identical, and an edit from the host reached the phone after it.
+
+The first browser run caught a wiring defect the unit tests could not: `use-live-session.ts` builds the
+controller's host callbacks field by field, and `startTour` was missing.
+
 ### 7.6 Pointers and actions
 
 Pointers are not Vetrina cues: `stage.point()` is an eased glide for choreographed tours, and cues
@@ -528,4 +561,6 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 - Read · Article renders the session's records like every in-app surface, so printing it from the
   browser carries the host's theme, unlike an export. Left as is: it is a reading view, not an
   export, and the exports are what §5.1 keeps to each member's own Library.
+- Show me together (slice 4) has no checker yet: §8 asks for one, and it waits on the owner's agent budget.
+  It has not run on a real phone, only at phone width in Chromium.
 - Custom components still fall back (their code is not shared); a member is told once, by name.

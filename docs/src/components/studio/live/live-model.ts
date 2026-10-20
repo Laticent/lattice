@@ -150,6 +150,9 @@ export type LiveActions = {
 	/** Mix a live stream into what this browser sends on the call (the presenter's narration), or take
 	 *  the last one out (null). It waits for the call if there is none yet. */
 	mixIntoCall: (stream: MediaStream | null) => void;
+	/** Host: play a shipped tour on every member's screen at once (§7.5). True when it went to the room;
+	 *  false when there is no room to send it to, and the tour plays here only. */
+	tourForEveryone: (tourId: string) => boolean;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;

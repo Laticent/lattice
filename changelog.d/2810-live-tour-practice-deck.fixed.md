@@ -1,0 +1,1 @@
+- **A tour started in a live session no longer types into the shared deck.** It used to ask whether to end the session, and if you said no it went on typing into everyone's deck; it now plays on a practice deck and leaves the session alone.

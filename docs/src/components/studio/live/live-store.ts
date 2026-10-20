@@ -65,6 +65,8 @@ export type LiveHost = {
 	/** Present together (§7.2): open Present following the presenter, or close a Present the room opened. */
 	openRoomPresent?: () => void;
 	closeRoomPresent?: () => void;
+	/** Show me together (§7.5): start this shipped tour now, on a practice deck. */
+	startTour?: (tourId: string) => void;
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
