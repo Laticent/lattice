@@ -2026,6 +2026,8 @@ const SANCTIONED_MARGINS = [
   {
     file: 'lib/base/base.modifiers.css',
     value: 'var(--lat-state-gap, 0.22em)',
+    // PARAMETRIC: the value is a custom property, so a stylesheet that sets `--lat-state-gap` sets this
+    // margin. A unit test (inline-pills.test.js) pins every assignment in engine CSS to one, the pill's `0 0.4em`.
     why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
        + 'needs its own entry because this allowlist consumes one declaration per entry. On '
        + 'the disc the case against padding is plainer than on the pill: the box is a fixed '

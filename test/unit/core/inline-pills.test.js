@@ -191,6 +191,13 @@ describe('a pill that holds content a component composed', () => {
     assert.equal(el.textContent, 'Residency', 'one copy of the label, not two');
     assert.equal(el.getAttribute('data-c'), 'c2');
   });
+
+  test('a non-array content is ignored: the label still draws, and no accessible-name role is set', () => {
+    const doc = new JSDOM().window.document;
+    const el = pills.pillElement(doc, '{Residency}', undefined, doc.createElement('i'));
+    assert.equal(el.textContent, 'Residency');
+    assert.equal(el.getAttribute('role'), null);
+  });
 });
 
 describe('the gap after a drawn mark inside a pill', () => {
@@ -200,10 +207,26 @@ describe('the gap after a drawn mark inside a pill', () => {
 
   test('the pill sets the disc\'s gap through its custom property, and adds no margin of its own', () => {
     const css = read('lib/plugins/pills/pills.styles.css');
-    assert.match(css, /\.lat-pill > \.lat-state:first-child \{ --lat-state-gap:0 0\.4em; \}/);
+    assert.match(css, /\.lat-pill > \.lat-state \{ --lat-state-gap:0 0\.4em; \}/);
     assert.match(read('lib/base/base.modifiers.css'), /margin-inline:var\(--lat-state-gap, 0\.22em\);/, 'the disc reads it');
     const margins = css.split('\n').filter((l) => /^\s*margin[\w-]*\s*:/.test(l));
     assert.deepEqual(margins.map((l) => l.trim()), ['margin-inline:0.22em;'], 'the pill\'s one sanctioned margin, and no more');
+  });
+
+  test('--lat-state-gap is assigned exactly once in engine CSS, to the pill\'s `0 0.4em`', () => {
+    // The disc's sanctioned margin reads this property, so every assignment is a margin the
+    // margin gate cannot see. One is sanctioned; a second must come with an owner decision.
+    const hits = [];
+    (function walk(d) {
+      for (const e of fs.readdirSync(path.join(__dirname, '../../..', d), { withFileTypes: true })) {
+        const rel = `${d}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith('.css')) {
+          for (const m of read(rel).matchAll(/--lat-state-gap\s*:\s*([^;}]+)/g)) hits.push(`${rel}: ${m[1].trim()}`);
+        }
+      }
+    })('lib');
+    assert.deepEqual(hits, ['lib/plugins/pills/pills.styles.css: 0 0.4em']);
   });
 
   test('the pill source never names a check', () => {
