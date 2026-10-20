@@ -46,6 +46,14 @@ describe('the previews\' draw host', () => {
 		expect(win.__latticeDrawHost).toBe(first);
 	});
 
+	it('offers function-plot and not Mermaid (its frame cost a first diagram about 1.0 s), and the list cannot be edited', async () => {
+		const { installPreviewDrawHost } = await import('./preview-draw-host');
+		installPreviewDrawHost(win);
+		const kinds = win.__latticeDrawHost?.kinds as string[];
+		expect([...kinds]).toEqual(['function-plot']);
+		expect(() => kinds.push('mermaid')).toThrow();
+	});
+
 	it('does not replace a host something else defined first', async () => {
 		const mine = { draw: async () => 'x' };
 		Object.defineProperty(win, '__latticeDrawHost', { value: mine, configurable: true });

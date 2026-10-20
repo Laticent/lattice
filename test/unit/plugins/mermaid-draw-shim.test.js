@@ -20,13 +20,13 @@ const win = (html = '') => {
   Object.defineProperty(w.document, 'readyState', { value: 'complete' });
   return w;
 };
-const host = (answer) => {
+const host = (answer, kinds = ['mermaid']) => {
   const jobs = [];
   const draw = async (job) => {
     jobs.push(job);
     return typeof answer === 'function' ? answer(job) : answer;
   };
-  return { jobs, draw };
+  return { jobs, draw, kinds };
 };
 const figure = (over = {}) => JSON.stringify({ svg: '<svg id="x"><g class="node clickable" title="tip"/></svg>', type: 'flowchart-v2', links: [], ...over });
 
@@ -140,7 +140,7 @@ describe('the plugin host installs the stand-in where the library would have lan
   });
 
   test('with no draw host, or no shim for the plugin: the library loads as before', () => {
-    for (const extra of [{ drawHost: () => null, drawShim: () => ({}) }, { drawHost: () => host(figure()), drawShim: () => null }, {}]) {
+    for (const extra of [{ drawHost: () => null, drawShim: () => ({}) }, { drawHost: () => host(figure()), drawShim: () => null }, { drawHost: () => host(figure(), ['function-plot']), drawShim: () => ({ render() {}, initialize() {} }) }, { drawHost: () => ({ draw: async () => '' }), drawShim: () => ({}) }, {}]) {
       const w = win();
       const run = installHydrateHost(w, HYDRATORS, opts(extra));
       const state = run.ensureLibrary('mermaid', ready(w), () => {});

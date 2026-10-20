@@ -24,7 +24,6 @@
 // exemption is moot and every remaining call site goes through this module.)
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
-import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
 import { ensureCharts } from './ensure-charts';
@@ -129,11 +128,10 @@ export async function renderMarkdown(
 	// reference-appendix slide live in the Studio exactly as it does in the export (HARD RULE #1).
 	// A no-op unless the deck opts in and defines terms; idempotent (strips its own trigger).
 	const rendered = appendAutoGlossary(source);
-	// A deck with a plot or a diagram warms the previews' draw host NOW, before the render and before the preview frame boots, so the
+	// A deck with a plot warms the previews' draw host NOW, before the render and before the preview frame boots, so the
 	// host's code, the library and the frame's start overlap them instead of following the first draw
 	// (docs/src/lib/preview-draw-host-impl.ts; measured: they were 400 ms of a 520 ms first draw).
 	if (PLOT_FENCE_WORDS.some((w) => rendered.indexOf(w) !== -1)) warmPreviewDrawHost('function-plot');
-	if (sourceHasDrawnFence(rendered)) warmPreviewDrawHost('mermaid');
 	if (sourceHasMath(rendered)) {
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
