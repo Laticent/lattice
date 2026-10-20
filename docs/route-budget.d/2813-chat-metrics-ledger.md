@@ -1,0 +1,2 @@
+studio: +759
+The spend ledger (per-day, per-deck charges in ai/spend.js, read by the chat metrics dropdown), the saved-chat usage/trace/compaction types and the trace-aware `saveChat` in studio-store.ts, and the shell's `setSpendDeck` effect are on the Studio's startup path because the shell and the chat header read them. The dropdown, Show work dialog, compaction code and its prompt are lazy chunks and add nothing here.
