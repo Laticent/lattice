@@ -16,23 +16,19 @@ async function mockOpenRouter(context: import('@playwright/test').BrowserContext
 				await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>OpenRouter</title><p>Sign in</p>' });
 				return;
 			}
-			const back = new URL(url.searchParams.get('callback_url') || '');
-			back.searchParams.set('code', 'e2e-code');
+			// The mock page reads the callback from its own address and redirects in a script, not
+			// with a 302 (Playwright's WebKit cannot fulfill a navigation with a redirect status).
+			// It is a fixed string: nothing from the request is written into it.
+			const approve = (delay: number) =>
+				`<!doctype html><title>Sign in</title><script>setTimeout(() => { const back = new URL(new URL(location.href).searchParams.get('callback_url')); back.searchParams.set('code', 'e2e-code'); location.replace(back.href); }, ${delay})</script>`;
 			if (opts.coop) {
 				// What Google's sign-in page does inside OpenRouter's flow: a COOP header puts the
 				// popup in a new browsing context group, which cuts it off from the Studio for good.
 				// The user then "approves" a moment later.
-				await route.fulfill({
-					status: 200,
-					contentType: 'text/html',
-					headers: { 'Cross-Origin-Opener-Policy': 'same-origin' },
-					body: `<!doctype html><title>Sign in</title><script>setTimeout(() => location.replace(${JSON.stringify(back.toString())}), 1500)</script>`,
-				});
+				await route.fulfill({ status: 200, contentType: 'text/html', headers: { 'Cross-Origin-Opener-Policy': 'same-origin' }, body: approve(1500) });
 				return;
 			}
-			// A page that redirects, not a 302: Playwright's WebKit cannot fulfill a navigation
-			// with a redirect status.
-			await route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><script>location.replace(${JSON.stringify(back.toString())})</script>` });
+			await route.fulfill({ status: 200, contentType: 'text/html', body: approve(0) });
 			return;
 		}
 		if (url.pathname === '/api/v1/auth/keys') {
