@@ -1133,6 +1133,70 @@ The last two pieces of the 2789 follow-up. Both are rulings with a small change 
   `railReady`), so beside the map each typed slide would have waited out Vetrina's 15 s give-up; the wait now reads the
   map's tiles as well (`tour-kit.test.ts`). Screenshots at 1440, 820 and 390 were taken with `tools/screenshot.js` on the e2e build and looked at: beside the map at 1440, stacked with the pills at 820 and 390.
 
+## 11q. Built on 2026-10-20: the poster capture (continuation P2)
+
+Section 11o built the poster cache and tile and left the capture blocked on a pool API and a Safari measurement. The pool
+API is built here; the Safari device number is still owed.
+
+- **The case is still thin, measured again.** The decks have not grown: 12 of the 295 example and baseline decks have more
+  than 12 slides. The session built it because the continuation brief ordered it, and it costs nothing until a tile has
+  been live once. Where it shows: a tile past the live budget (a long deck, or a host that lowers `maxSlots`), and, new
+  here, under a live tile whose pooled frame the pool has not re-pointed to it yet (the 220 ms `APPLY_MS` pass plus the
+  render), which is every tile a fast scroll brings in.
+- **The pool captures** (`preview-pool.tsx`). A `PooledThumbFace` takes `onPicture`. Once a slot's `DeckPreview` has
+  gone `CAPTURE_SETTLE_MS` (400) without another render and still shows its tile's current props, the pool hands the tile
+  a `capture()`. The settle is there because a re-point that lands mid-render is deferred, and the in-flight render's
+  own report would offer a picture of the slide the slot is leaving. At capture time the pool also reads the frame
+  itself (`slotShows`): no capture while a full document write is still loading (`renderInto` returns before the new
+  document commits, so the old one is still in the frame; a checker found the first draft captured it), none when the
+  frame shows another slide index, and none of a frame with no slide. A capture queues,
+  runs one at a time, waits until the scroller the pool sits in has been still for `CAPTURE_QUIET_MS` (300) and for an
+  idle callback where there is one, then rasterizes the slot frame's `.lattice > section` with html-to-image `toCanvas`
+  (the export's route) at the tile's size times the pixel ratio (at most 2), as a JPEG. A slot re-pointed before or
+  during the capture yields null, never another slide's picture. Fonts are not embedded (the export's `fontEmbedCSS`
+  costs a fetch per face): at a tile's size a fallback face is not legible either way, and the live picture replaces
+  the poster when the tile is live again. A pool that unmounts resolves every queued capture with null. The capture and
+  the frame check live in `pool-capture.ts`, a chunk the pool imports on the first capture, because every grid that
+  pools its frames loads `preview-pool.tsx` eagerly and only the slide map captures.
+- **The Studio map stores them** (`StudioMap.tsx`). The key is `posterKey` of the slide's text with a look that carries
+  the theme, palette, mode, finish and theme CSS, front matter, the slide's place and the deck's length (a page number),
+  and every plain directive carried from earlier slides (section 11n). A deck that trips a deck-derived fact
+  (`DECK_DERIVED_FACTS`: a divider's rail and total, a proof run's ordinal, `glossary: auto`, an expander) draws a slide
+  from the whole deck, so its key carries the whole deck and any edit retires its posters. The look is hashed once per
+  look, not per key. Up to 24 tiles show a poster; the cache keeps 8 MB
+  beyond the rail's mounted window, which it pins (`MapRail`'s new `onWindow`, re-keyed when the look changes). A slide
+  edited since the pictures settled shows its sketch, as a live tile does. Evicted posters are revoked, and a capture
+  that finishes after the map unmounts mints no URL.
+- **Evidence.** `e2e/studio-map-posters.spec.ts` lowers the pool to 3 frames, types a 40-slide deck, walks the rail down
+  and jumps back to the top: tiles past the live cap show posters (7 on desktop Chromium, 4 or 5 on Playwright WebKit), and
+  no capture began within 250 ms of a scroll, and every poster on screen is a decoded image. Its arm (the quiet window set
+  to 0) fails that check (run, not reasoned).
+- **The right slide, in a real browser** (added on 2026-10-20 at the owner's request). A second spec gives each of 40
+  slides its own full-bleed background, a hue 9 degrees from its neighbor's, with a Mermaid diagram on every seventh (a
+  second frame shape, so a re-point takes the full write path), walks the rail slowly and then in fast jumps paced in
+  animation frames, and samples every poster's pixels in the page: each must be nearest to its own tile's slide out of
+  all forty. **It failed on desktop Chromium on its first run**, and the failure was real: every Chromium poster was a
+  rainbow. Chromium lists `-webkit-border-image` among a node's computed properties, a shorthand alias with the slice's
+  `fill` implied, so html-to-image copied the spectrum ribbon's border image onto the clone and it painted the whole
+  slide (`engineering/gotchas/export.md`). The capture now passes the export's own ribbon repaint as the clone's style
+  (`ribbonCaptureStyle`, factored out of `withCaptureFixups` into `export/capture-ribbon.js`, with the export's capture
+  tests still green), overrides `webkitBorderImage`, and passes the one shared property list
+  (`captureStyleProperties`), which the first draft also skipped: html-to-image keeps the first list a page gives it, so
+  a poster captured before an export would have left that export's CSS counters at 0. After the fix: 147 posters on
+  Chromium and 191 on Playwright WebKit sampled, none wrong, worst color distance 2 against about 40 between neighbors.
+  The race arm (`slotShows` forced true, the settle at 0) was not run, so the guards against a re-point mid-render are
+  shown by `preview-pool.test.tsx` on stub frames and by this spec passing, not by a red arm. Each capture records a `lattice-poster-capture` performance measure, its
+  WALL time from the clone to the JPEG across awaits (image inlining and the encode can run off the main thread), so it
+  bounds the main-thread cost rather than measuring it; on this
+  sandbox's loaded machine, desktop Chromium (34 captures a run): median 28 to 43 ms, max 72 to 232 ms across four runs;
+  Playwright WebKit (37 to 40 a run): median 48 to 49 ms, max 94 to 130 ms across three. The spread is the sandbox's
+  load (its load average sat near 9 during these runs), so read the medians, not the worst cases. `MapRail.test.tsx`: posters sit under live tiles only with a poster
+  budget, and `onWindow` reports the mounted tiles.
+- **Not verified: Safari on a device, or the long task itself.** Playwright's WebKit is the engine, not an iPhone's memory
+  or CPU, and a 94 to 130 ms worst case of wall time could hold a long task above a frame budget even while the rail is
+  still; a Long Animation Frames reading is what would say. **UNVERIFIED** until measured on a device
+  (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to that).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

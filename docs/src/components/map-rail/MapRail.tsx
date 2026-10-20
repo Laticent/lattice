@@ -39,8 +39,10 @@ export interface MapRailProps {
 	label: (unit: number) => string;
 	/** The picture of a unit, called only for units Veduta asks at `live`. Omit for a sketch-only rail. */
 	live?: (unit: number) => React.ReactNode;
-	/** A still picture of a unit (poster-cache.ts), called only for units Veduta asks at `poster`, which a tile that
-	 *  misses the live budget falls to before the sketch. Return null when there is none yet: the sketch shows. */
+	/** A still picture of a unit (poster-cache.ts), for units Veduta asks at `poster` (a tile that misses the live budget
+	 *  falls to it before the sketch) and, while `posterBudget` is above 0, as the floor under a `live` tile, so a tile
+	 *  whose pooled frame has not been re-pointed to it yet shows its last picture rather than a sketch. Return null
+	 *  when there is none yet: the sketch shows. */
 	poster?: (unit: number) => React.ReactNode | null;
 	/** How many tiles may be posters at once (default 0, so Veduta never asks for one). */
 	posterBudget?: number;
@@ -66,6 +68,8 @@ export interface MapRailProps {
 	/** A small decoration for a tile's top corner (the Studio's Live presence dots), called only for mounted tiles.
 	 *  Decorative: the host lists the same facts in words elsewhere. Return null for none. */
 	mark?: (unit: number) => React.ReactNode | null;
+	/** The units the rail has mounted, each time that set changes, so a host can pin their posters (poster-cache.ts). */
+	onWindow?: (units: readonly number[]) => void;
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
 	className?: string;
@@ -148,7 +152,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -277,6 +281,13 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 		}
 	}, [plan, liveMounted, liveCap]);
 
+	const onWindowRef = React.useRef(onWindow);
+	onWindowRef.current = onWindow;
+	React.useEffect(() => {
+		onWindowRef.current?.(plan.units);
+	}, [plan]);
+	const posterFloor = posterOn && posterBudget > 0;
+
 	// After a key moved the focus, put keyboard focus on the new current tile. A jump (Home, End) lands on a tile
 	// the window has not mounted yet, so the request waits for it, and gives up after a second.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the focus and the plan are the triggers (the tile may not be mounted until the plan lands); the body reads the DOM.
@@ -346,8 +357,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 									<Sketch wire={wire(i)} aspect={aspect} />
 								</span>
 							)}
+							{poster && (tier === 'poster' || (tier === 'live' && posterFloor)) ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
 							{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
-							{tier === 'poster' && poster ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
 							{mark ? <span aria-hidden className="pointer-events-none absolute right-1 top-1 z-10 flex">{mark(i)}</span> : null}
 							<span className="absolute bottom-1 left-1 right-1 z-10 flex min-w-0 items-end gap-1">
 									<span className="shrink-0 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>

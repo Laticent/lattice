@@ -151,9 +151,19 @@ describe('MapRail', () => {
 		rerender(<MapRail {...props({ count: 100, live, poster, posterBudget: 4, wrap })} />);
 		expect(liveTiles()).toBe(3);
 		expect(tiers().filter(([, t]) => t === 'poster').length).toBe(4);
-		expect(document.querySelectorAll('[data-poster]').length).toBe(4);
+		// The 4 poster tiles show theirs, and so do the 3 live tiles, as the floor under a frame not yet re-pointed to them.
+		expect(document.querySelectorAll('[data-poster]').length).toBe(7);
+		for (const b of document.querySelectorAll<HTMLElement>('button[data-tier="live"]')) expect(b.querySelector('[data-poster]'), `live tile ${b.dataset.unit} has no poster floor`).not.toBeNull();
 		// The posters go to the tiles nearest the rail's view after the live ones, never past the budget.
 		expect(tiers().filter(([, t]) => t === 'wireframe').length).toBeGreaterThan(0);
+	});
+
+	it('puts no poster under a live tile without a poster budget, and reports the mounted window', () => {
+		const onWindow = vi.fn();
+		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, poster: (i) => <b data-poster={i} />, onWindow })} />);
+		expect(document.querySelectorAll('[data-poster]').length).toBe(0);
+		const last = onWindow.mock.calls.at(-1)?.[0] as number[];
+		expect(last).toEqual(tiers().map(([u]) => u));
 	});
 
 	it('a host with no pictures gets no live tiles whatever its pool reports', () => {

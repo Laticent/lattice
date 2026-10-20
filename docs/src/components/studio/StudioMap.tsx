@@ -16,21 +16,26 @@
 //   · LIVE PRESENCE. Where the map sits beside the slide the shell hides the pill navigator (the map is the
 //     navigator there), so what the pills carried moves onto the tiles: the dots that say who else is on a slide
 //     (`people`) and, outside the Read stop, the slide's component class as a caption (`classLabels`).
+//   · POSTERS. Once a tile's live picture has rendered and the rail is still, the pool captures it
+//     (preview-pool.tsx `onPicture`) and the picture goes into a content-addressed cache
+//     (map-rail/poster-cache.ts). A tile past the live budget then shows it instead of a sketch, and so does a
+//     live tile while its frame is being re-pointed during a fast scroll. The rail's mounted window is pinned.
 //
 // Loaded only when the map is on (React.lazy in StudioShell): the Studio's eager bundle is budgeted.
 
 import * as React from 'react';
 import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
+import { createPosterCache, posterKey } from '@/components/map-rail/poster-cache';
 import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { deckDerivedFactsFor, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideClass } from './lint';
 import { liveColor } from './live/live-model';
-import { PooledThumbFace, PreviewPool } from './preview-pool';
+import { type CapturePicture, PooledThumbFace, PreviewPool } from './preview-pool';
 import type { RailPerson } from './SlideRail';
 import { hasDrawnFence } from './slide-thumb';
 
@@ -63,6 +68,15 @@ export interface StudioMapProps {
 /** The focused preview beside the rail is one live document on the same page, so Veduta charges it to the same
  *  live budget as the tiles and the rail reports the pool's capacity plus this one frame. */
 const STAGE = { cost: 1 };
+
+/** How many tiles may show a poster at once, and how many bytes of posters the cache keeps beyond the pinned window.
+ *  A poster is a JPEG at tile size, measured at about 6 to 15 KB, so 8 MB holds several hundred slides. */
+const POSTER_TILES = 24;
+const POSTER_BYTES = 8 * 1024 * 1024;
+
+/** A plain (non-underscore) directive comment carries onto every later slide (audit §11n), so it is part of what a
+ *  slide looks like even though it is not in the slide's text. */
+const CARRIED = /<!--\s*(?!_)[A-Za-z][\w-]*\s*:[\s\S]*?-->/g;
 
 /**
  * A DIAGNOSTIC CEILING for the map's frame pool, read once from `localStorage['lattice-studio-map-slots']` (an
@@ -121,6 +135,83 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	// The pictures follow the deck once typing pauses (use-settled.ts); the sketches follow it at once.
 	const input = React.useMemo(() => ({ sample, front, index, items, options, paletteOverride, extraTheme, modeOverride, extraCss }), [sample, front, index, items, options, paletteOverride, extraTheme, modeOverride, extraCss]);
 	const look = useSettled(input);
+	// ── POSTERS ── keyed by the slide's text and everything outside it that changes its picture: the look (theme,
+	// palette, mode, finish CSS, front matter), the slide's place and the deck's length (a page number), and the plain
+	// directives carried from earlier slides. A deck that trips a deck-derived fact (a divider's rail and total, a proof
+	// run's ordinal, `glossary: auto`, an expander: single-slide-render.ts `DECK_DERIVED_FACTS`) draws a slide from the
+	// whole deck, so its key carries the whole deck and any edit retires its posters.
+	// Hashed once per look, so a key is a hash of the slide's text and a short string, not of the theme CSS again.
+	const lookHash = React.useMemo(() => {
+		const whole = deckDerivedFactsFor(look.sample).length > 0 ? look.sample : '';
+		return posterKey(whole, JSON.stringify([look.front, look.paletteOverride ?? '', look.modeOverride ?? '', look.extraTheme?.name ?? '', look.extraTheme?.css ?? '', look.extraCss ?? '', look.options.themeBase, look.items.length]));
+	}, [look]);
+	const carriedAt = React.useMemo(() => {
+		const out: string[] = [];
+		let acc = '';
+		for (const it of look.items) {
+			out.push(acc);
+			const found = partText(look.index, it.unit, it.section).match(CARRIED);
+			if (found) acc += found.join('');
+		}
+		return out;
+	}, [look]);
+	const keyOf = React.useCallback(
+		(i: number) => {
+			const it = look.items[i];
+			return it ? posterKey(partText(look.index, it.unit, it.section), `${lookHash}\u0000${i}\u0000${carriedAt[i]}`) : '';
+		},
+		[look, lookHash, carriedAt],
+	);
+	const [cache] = React.useState(() => createPosterCache<string>({ budget: POSTER_BYTES, release: (url) => URL.revokeObjectURL(url) }));
+	// A capture that finishes after the map unmounts must not mint an object URL nothing will revoke.
+	const mounted = React.useRef(true);
+	React.useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+			cache.clear();
+		};
+	}, [cache]);
+	const [posterRev, setPosterRev] = React.useState(0);
+	const inflight = React.useRef(new Set<string>());
+	const onPicture = React.useCallback(
+		(i: number, capture: CapturePicture) => {
+			const key = keyOf(i);
+			if (!key || cache.has(key) || inflight.current.has(key)) return;
+			inflight.current.add(key);
+			capture().then((blob) => {
+				inflight.current.delete(key);
+				if (!blob || !mounted.current) return;
+				cache.set(key, URL.createObjectURL(blob), blob.size);
+				setPosterRev((r) => r + 1);
+			});
+		},
+		[keyOf, cache],
+	);
+	const onPictureRef = React.useRef(onPicture);
+	onPictureRef.current = onPicture;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `posterRev` is the trigger (a poster arrived); the body reads the cache.
+	const poster = React.useCallback(
+		(i: number) => {
+			// The same rule as a live tile: a slide edited since the pictures settled shows its sketch, never an old poster.
+			const it = look.items[i];
+			if (!it || partText(look.index, it.unit, it.section) !== textOf(i)) return null;
+			const url = cache.get(keyOf(i));
+			return url ? <img src={url} alt="" draggable={false} className="block size-full object-cover" /> : null;
+		},
+		[look, textOf, keyOf, cache, posterRev],
+	);
+	// The pinned window follows the rail's mounted tiles, and is re-keyed when the look changes under them.
+	const windowUnits = React.useRef<readonly number[]>([]);
+	const onWindow = React.useCallback(
+		(units: readonly number[]) => {
+			windowUnits.current = units;
+			cache.pin('map', units.map(keyOf).filter(Boolean));
+		},
+		[cache, keyOf],
+	);
+	React.useEffect(() => cache.pin('map', windowUnits.current.map(keyOf).filter(Boolean)), [cache, keyOf]);
+
 	// One element per tile per look: React then skips a tile whose input did not change, so a keystroke does not
 	// re-point the pool's frames (the pool's props effect runs after every render of a tile).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a new look is what empties the cache.
@@ -134,7 +225,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			if (!it || text !== textOf(i)) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
-			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" />;
+			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;
 			liveCache.set(i, face);
 			return face;
 		},
@@ -188,5 +279,5 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	React.useEffect(() => onReadyRef.current?.(), []);
 
 	const [maxSlots] = React.useState(diagnosticSlots);
-	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
+	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
 }

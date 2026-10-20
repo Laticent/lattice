@@ -51,6 +51,7 @@ import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
+import { ribbonCaptureStyle } from './capture-ribbon.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
@@ -1251,8 +1252,6 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	//     now-blank border transparent. Layout is unchanged (the border keeps its
 	//     width), so this is invisible in the preview and faithful in the export.
 	const cs = getComputedStyle(section);
-	const borderless = parseFloat(cs.borderTopWidth) === 0 || cs.borderTopStyle === 'none';
-	const hasGradientBorder = cs.borderImageSource && cs.borderImageSource !== 'none';
 	const prev = {
 		borderImageSource: section.style.borderImageSource,
 		borderTopColor: section.style.borderTopColor,
@@ -1262,27 +1261,9 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 		backgroundSize: section.style.backgroundSize,
 		backgroundOrigin: section.style.backgroundOrigin,
 	};
-	if (hasGradientBorder && borderless) {
-		section.style.borderImageSource = 'none';
-	} else if (hasGradientBorder) {
-		const grad = cs.borderImageSource;
-		const tw = cs.borderTopWidth;
-		// Layer the ribbon gradient as a top strip OVER the slide's own background
-		// (preserved — a canvas color rides on background-color, untouched here; an
-		// image canvas is kept as the second layer).
-		const baseImg = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
-		section.style.backgroundImage = baseImg ? `${grad}, ${baseImg}` : grad;
-		section.style.backgroundRepeat = baseImg ? `no-repeat, ${cs.backgroundRepeat}` : 'no-repeat';
-		section.style.backgroundPosition = baseImg ? `top left, ${cs.backgroundPosition}` : 'top left';
-		section.style.backgroundSize = baseImg ? `100% ${tw}, ${cs.backgroundSize}` : `100% ${tw}`;
-		// Anchor the strip to the BORDER box, i.e. the band the real ribbon occupies. From the
-		// default padding box it sat just inside the border, under the finish's `.backdrop`
-		// (a padding-box child), so a backdrop mask or veil painted over it: `backdrop: clear`
-		// erased the ribbon wherever the clearance ellipse reached the top edge (#2388).
-		section.style.backgroundOrigin = baseImg ? `border-box, ${cs.backgroundOrigin}` : 'border-box';
-		section.style.borderImageSource = 'none';
-		section.style.borderTopColor = 'transparent';
-	}
+	// The ribbon repaint itself is a pure function of the computed style (capture-ribbon.js), shared with the slide
+	// map's poster capture, which hands it to html-to-image as the clone's style instead of writing the live node.
+	Object.assign(section.style, ribbonCaptureStyle(cs));
 	// Force the finish OPAQUE (export-safe) face for the raster. A finish shows its
 	// RICH screen face by default — directional alpha fades the browser composites
 	// fine, but html-to-image can mis-serialize (color-mix / fade-to-transparent), and
