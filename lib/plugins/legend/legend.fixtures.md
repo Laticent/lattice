@@ -24,7 +24,7 @@ bullet is an assertion about that render:
 
 - renders `class="legend legend--anchored"`
 - renders `data-mark-for="5"`
-- renders `legend-plate legend-plate--tag`
+- renders `class="legend-plate" data-c="c4" data-shape="square"`
 - renders `legend-number`
 - renders `>Drop-off</tspan>`
 - omits `<code>@legend`
@@ -44,9 +44,28 @@ bullet is an assertion about that render:
 ```
 
 - renders `legend-text legend-text--bare`
-- renders `legend-plate legend-plate--circle`
+- renders `data-shape="circle"`
 - renders `legend-knockout`
 - omits `chart-leader`
+
+## a seventh callout is not drawn, and the description says so
+
+```markdown
+<!-- _class: heatmap -->
+
+## Retention
+
+| Cohort | M0  | M1 | M2 |
+| ------ | --: | -: | -: |
+| Jan    | 100 | 62 | 48 |
+| Feb    | 100 | 58 | 31 |
+
+`@legend{[{A, for=0}, {B, for=1}, {C, for=2}, {D, for=3}, {E, for=4}, {F, for=5}, {G, for=0}]}`
+```
+
+- renders `data-shape="star"`
+- renders `"G" (past the 6-callout limit)`
+- omits `>G</tspan>`
 
 ## a label's detail reaches the speaker note
 

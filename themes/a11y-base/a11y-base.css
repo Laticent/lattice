@@ -440,7 +440,7 @@ section.funnel .funnel-band { fill: url(#latt-a11y-chart-tex-1) !important; }
  * palette whose whole job is the non-color channel makes the key unusable. */
 /* WHY scatter AND slope ARE NOT ON THIS LIST. Neither builds a keyed legend, so
  * a `.chart-key-swatch` arm for them matches nothing: scatter never calls
- * buildSvgLegend, and slope's only mention of it is a comment saying it draws
+ * keySvg, and slope's only mention of it is a comment saying it draws
  * its two-entry key in its own coordinate system instead. Both arms were carried
  * here for years, dead. */
 :is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }

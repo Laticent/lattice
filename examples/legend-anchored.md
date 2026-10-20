@@ -32,7 +32,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "The default: a numbered circle on the cell, the same number before the words." -->
+<!-- _footer: "The default: the first callout is a circle with its number, on the cell and again before the words." -->
 
 `Retention · 2026 cohorts`
 
@@ -50,11 +50,11 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "The marker is the pill: {…, tag, c4} puts the number on a tag in color slot 4." -->
+<!-- _footer: "The pill's words pick the marker: {…, tag, c4} is the square in color slot 4." -->
 
 `Retention · 2026 cohorts`
 
-## The marker carries the pill's shape and color.
+## The pill's words pick the marker's shape and color.
 
 |  | M0 | M1 | M2 | M3 |
 | --- | --: | --: | --: | --: |
@@ -68,7 +68,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "A list of records. Two on one row stay apart: a number crosses nothing." -->
+<!-- _footer: "A list of records. Two on one row stay apart: each has its own shape and color, and nothing crosses the grid." -->
 
 `Retention · 2026 cohorts`
 
@@ -105,7 +105,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 <!-- _class: heatmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress · seven by twelve. A marker goes only where it covers no value: here, on a corner." -->
+<!-- _footer: "Stress · seven by twelve. No room inside a cell, so every marker takes the same badge spot." -->
 
 `Usage · hour by weekday`
 
@@ -122,6 +122,31 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Sun | 3 | 5 | 8 | 12 | 15 | 18 | 19 | 18 | 15 | 11 | 8 | 5 |
 
 `@legend{[{All-hands, tag, c4, row=Wed, col=10a}, {Friday fade, row=Fri, col=3p}, {Weekend floor, row=Sun, col=7a}]}`
+
+---
+
+<!-- _class: heatmap -->
+<!-- stress-slide -->
+<!-- _footer: "Stress · ten rows of four-digit values: no room for a digit, so each cell carries its shape alone." -->
+
+`Revenue · region by month, $K`
+
+## On a crowded grid, the shape alone marks each cell.
+
+|  | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| North | 8611 | 8829 | 8602 | 9520 | 4311 | 4225 | 9587 | 8994 | 4250 |
+| South | 2742 | 8516 | 6170 | 3523 | 2685 | 1886 | 7690 | 8621 | 3780 |
+| East | 1445 | 2234 | 2175 | 1784 | 4316 | 5163 | 1692 | 8801 | 6545 |
+| West | 8417 | 4400 | 9705 | 5028 | 6019 | 9388 | 1275 | 2592 | 8692 |
+| Central | 5757 | 7864 | 2563 | 5361 | 6365 | 4962 | 9603 | 5935 | 1687 |
+| Coastal | 2350 | 2968 | 7760 | 2966 | 5966 | 7532 | 2294 | 1476 | 1208 |
+| Alpine | 4698 | 4636 | 2057 | 8900 | 7351 | 7711 | 8077 | 2396 | 4452 |
+| Delta | 5620 | 6719 | 2627 | 6298 | 6649 | 1448 | 7918 | 3133 | 3405 |
+| Metro | 5236 | 2855 | 1379 | 2181 | 8817 | 9176 | 4111 | 4286 | 8530 |
+| Rural | 9537 | 4324 | 3345 | 8068 | 7487 | 3108 | 7669 | 8093 | 4687 |
+
+`@legend{[{Audit, row=North, col=Jan}, {Price change, row=South, col=Jun}, {Launch, row=East, col=Mar}, {Promo, row=Central, col=Jul}, {Outage, row=Metro, col=Aug}, {Recovery, row=Rural, col=Sep}]}`
 
 ---
 

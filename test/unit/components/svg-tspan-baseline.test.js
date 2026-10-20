@@ -92,7 +92,7 @@ const TSPAN_BUILDERS = [
       'lines, centred with `central`, so every line carries it',
   },
   {
-    file: 'lib/components/chart/_chart-family/svg-legend.js',
+    file: 'lib/components/chart/_chart-family/legend-svg-key.js',
     owes: 'none',
     why: 'declares no dominant-baseline anywhere — every line is positioned by an ' +
       'explicit baseline y, so there is nothing to carry down and WebKit and ' +

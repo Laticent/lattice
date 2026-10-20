@@ -5531,7 +5531,7 @@ function writesClass(src, cls) {
 //   `lib/core/matrix-grid-cells.js`, through the `matrixGridCells` plugin — the
 //   transform's own header says so and then does not emit them.
 //
-//   `chart-key-swatch` comes from the shared `_chart-family/svg-legend.js` and is
+//   `chart-key-swatch` comes from the shared `_chart-family/legend-svg-key.js` and is
 //   emitted inside six different members' sections, and `chart-status` is a
 //   family class two members reuse. (An earlier revision named
 //   `gantt-legend-swatch` as the second example. That was wrong — gantt writes it

@@ -1306,7 +1306,7 @@ section.chart-frame .chart-caption::before {
  * KEY: piechart (wedge ↔ category), radar (polygon ↔ series), map (region ↔
  * value) and quadrant·cohort (hull ↔ cohort). The diagram, the gradient SPINE,
  * and the key now share ONE <svg> viewBox, emitted by the kernels via the shared
- * builder (svg-legend.js):
+ * builder (legend-svg-key.js):
  *
  *   <svg>  [ diagram ]  │spine│  [ swatch · wrapping label · value ]  </svg>
  *
@@ -1344,7 +1344,7 @@ section.chart-frame .chart-caption::before {
  *     the columns stay locked in both voices.
  * See engineering/decisions/2026-06-13-svg-native-legend.md §4(b) and
  * engineering/decisions/2026-08-12-sketch-label-voice.md. */
-/* Legend text lives INSIDE the svg (svg-legend.js), so Read·Article re-hosts it
+/* Legend text lives INSIDE the svg (legend-svg-key.js), so Read·Article re-hosts it
  * with the chart; the `figure.chart-frame` arm keeps the label/value ink themed
  * there (black `--text-body` fallback would vanish on a dark canvas). */
 :is(section.chart-frame, figure.chart-frame) .chart-key-label,
