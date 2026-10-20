@@ -704,6 +704,17 @@ the line's word timeline ahead of speaking it, as the LTT core's `CaptionTrack` 
 sentence, times in ms from the start of the line). `findCueWord(plan, word)` answers with the
 `{cue, word, match}` an LTT action records, plus the word's times.
 
+### The voice leans toward the target — `setPan`
+
+A narrator may implement `setPan(pan, glideMs?)` (-1 left … 1 right). Before each spoken beat the
+storyboard asks the stage where the beat's `point` (or a drag's start) sits across the viewport
+(`stage.panOf`) and passes it on, so the voice leans toward what the cursor is about to touch. A beat
+that points at nothing, or at a target that will not resolve, speaks from the centre. `voicedNarrator`
+applies it at the start of the next clip and glides a live clip there. A narrator without `setPan`
+is unaffected. How strong the lean is — the scale from viewport position to `pan` — is the host's
+choice, because the storyboard passes the raw -1…1 position and the host's narrator wrapper can
+scale it.
+
 ### The action lands on the word — `at`
 
 ```ts

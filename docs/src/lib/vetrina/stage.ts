@@ -174,6 +174,10 @@ export interface Stage {
 	 *  hand is already moving before they say the thing. Returns 0 for a target that will not
 	 *  resolve. */
 	leadMs?(target: Target): number;
+	/** Where `target` sits across the viewport, -1 (left edge) … 1 (right edge), or null when it
+	 *  will not resolve. The storyboard hands this to `Narrator.setPan` so the voice leans toward
+	 *  what the cursor is about to point at. */
+	panOf?(target: Target): number | null;
 	/** PIN the caption visible for a beat, overriding the step-aside.
 	 *
 	 *  For the one beat where the caption is not competing with the action but TIMING it: a word
@@ -2799,6 +2803,16 @@ export function createStage(opts: StageOptions): Stage {
 		return (register + travel) * pace;
 	}
 
+	/** Horizontal position of a target across the viewport, -1 … 1. */
+	function panOf(target: Target): number | null {
+		if (destroyed) return null;
+		const r = liveRect(resolveSource(target));
+		if (!r) return null;
+		const w = doc.defaultView?.innerWidth || 0;
+		if (!w) return null;
+		return Math.max(-1, Math.min(1, (aimAt(r).x / w) * 2 - 1));
+	}
+
 	// ── The caption's visibility state machine (the `caption:'cursor'` style) ───────────────
 	//
 	// Two inputs, one rule. `captionWanted` is whether there is anything to say; `performDepth`
@@ -3029,6 +3043,7 @@ export function createStage(opts: StageOptions): Stage {
 		},
 		captionStepsAside: () => caption === 'cursor' && !voiced,
 		leadMs,
+		panOf,
 		contains: (node) => node instanceof Node && layer.contains(node),
 		destroy: () => {
 			destroyed = true;
