@@ -15,7 +15,7 @@ import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -140,9 +140,9 @@ const clearHostSave = () => {
  * clock's (Tavola `now()`): `seq` is the session's order (1, 2, 3…, the same on every browser),
  * `at` is session time, and `name` / `color` are the roster's when the host took the line in.
  */
-type ChatLine = { seq: number; id: string; peer: string; name: string; color: LiveColor; text: string; at: number };
+type ChatLine = { seq: number; id: string; peer: string; name: string; color: LiveColor; text: string; at: number; note?: LiveNote };
 /** A line this browser sent that the host has not echoed back yet ("Sending…"). */
-type Pending = { id: string; text: string; at: number; tries?: number };
+type Pending = { id: string; text: string; at: number; tries?: number; note?: LiveNote };
 /** A waiting line given up on after this many resends (about 1.5 min), with a note: one the host can
  *  never take (its id belongs to an old rejoin token) must not say "Sending…" forever. */
 const MAX_TRIES = 6;
@@ -157,7 +157,7 @@ const MAX_TRIES = 6;
  * plus `typing` and `bye`, which are not chat and go to everyone directly.
  */
 type Post =
-	| { k: 'say'; id: string; text: string; have?: number }
+	| { k: 'say'; id: string; text: string; have?: number; note?: LiveNote }
 	| { k: 'gone'; id: string; name: string; color: LiveColor }
 	| { k: 'line'; line: ChatLine }
 	| { k: 'since'; seq: number }
@@ -217,10 +217,28 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
 /** A history line from the host, kept only in the shape a line has. */
+/** An AI turn shared into the chat is capped like a long message: the question short, the answer longer. */
+const NOTE_ASK_MAX = 600;
+const NOTE_ANSWER_MAX = 4000;
+/** A note as a peer sent it, or null; `undefined` in, `undefined` out (a plain line). Plain strings and
+ *  slide numbers only: the receiver writes every word around them, so a note cannot claim to be anything else. */
+const cleanNote = (x: unknown): LiveNote | null | undefined => {
+	if (x === undefined) return undefined;
+	const n = x as Record<string, unknown> | null;
+	if (!n || typeof n !== 'object') return null;
+	if (n.k === 'ai-edit' && Array.isArray(n.slides)) {
+		const slides = n.slides.filter((v): v is number => Number.isInteger(v) && v >= 1 && v <= POINTER_MAX_SLIDE).slice(0, 12);
+		return { k: 'ai-edit', slides };
+	}
+	if (n.k === 'ai-turn' && typeof n.ask === 'string' && typeof n.answer === 'string' && n.answer.trim()) return { k: 'ai-turn', ask: n.ask.slice(0, NOTE_ASK_MAX), answer: n.answer.slice(0, NOTE_ANSWER_MAX) };
+	return null;
+};
 const cleanLine = (x: unknown): ChatLine | null => {
 	const l = x as Partial<ChatLine> | null;
 	if (!l || typeof l !== 'object' || !Number.isSafeInteger(l.seq) || (l.seq as number) < 1 || typeof l.id !== 'string' || typeof l.peer !== 'string' || typeof l.name !== 'string' || typeof l.text !== 'string' || !isColor(l.color) || typeof l.at !== 'number' || !Number.isFinite(l.at) || Math.abs(l.at) > 1e14) return null;
-	return { seq: l.seq as number, id: l.id.slice(0, 120), peer: l.peer.slice(0, 120), name: cleanName(l.name), color: l.color, text: l.text.slice(0, CHAT_MAX), at: l.at };
+	const note = cleanNote(l.note);
+	if (note === null) return null;
+	return { seq: l.seq as number, id: l.id.slice(0, 120), peer: l.peer.slice(0, 120), name: cleanName(l.name), color: l.color, text: l.text.slice(0, CHAT_MAX), at: l.at, ...(note ? { note } : {}) };
 };
 
 /** This tab's hold on hosting `room` (navigator.locks): a duplicated tab copies sessionStorage and
@@ -251,10 +269,10 @@ const cleanDoing = (v: unknown): LiveDoing | undefined => {
 	const { panel, view, presenting } = v as Record<string, unknown>;
 	if (panel !== null && !(LIVE_PANELS as readonly unknown[]).includes(panel)) return undefined;
 	if (!(LIVE_VIEWS as readonly unknown[]).includes(view)) return undefined;
-	return { panel: panel as LiveDoing['panel'], view: view as LiveDoing['view'], presenting: presenting === true };
+	return { panel: panel as LiveDoing['panel'], view: view as LiveDoing['view'], presenting: presenting === true, ...((v as Record<string, unknown>).asking === true ? { asking: true } : {}) };
 };
 /** This browser's activity from its Studio state. */
-const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting });
+const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting, ...(d.asking ? { asking: true } : {}) });
 /** Pointers: at most this many a second leave this browser; one arriving faster from a peer is dropped,
  *  and one that has not moved for this long disappears. */
 const POINTER_EVERY_MS = 100;
@@ -1472,7 +1490,7 @@ export class LiveController {
 			this.followedDoing = null;
 		}
 		// Activity: what I am doing, when I share it.
-		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting)) r.aw.setLocalStateField('doing', doingOf(deps));
+		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) r.aw.setLocalStateField('doing', doingOf(deps));
 		// The host keeps the lobby invite current.
 		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
 			this.invitedAs = s.me?.name;
@@ -1589,8 +1607,8 @@ export class LiveController {
 		// Mine: sent from this browser, or (after a reload, under a new peer id) under my name and color.
 		// Mine: written under one of this tab's chat-id prefixes (this page's, or an earlier load's).
 		const mine = this.mySids();
-		const lines: LiveChatLine[] = this.chat.map((l) => ({ kind: 'message', id: `c${l.seq}`, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || mine.has(sidOf(l.id)) }));
-		for (const p of this.pending) lines.push({ kind: 'message', id: `p${p.id}`, from: me?.name ?? '', color: me?.color ?? 1, text: p.text, at: p.at, mine: true, pending: true });
+		const lines: LiveChatLine[] = this.chat.map((l) => ({ kind: 'message', id: `c${l.seq}`, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || mine.has(sidOf(l.id)), ...(l.note ? { note: l.note } : {}) }));
+		for (const p of this.pending) lines.push({ kind: 'message', id: `p${p.id}`, from: me?.name ?? '', color: me?.color ?? 1, text: p.text, at: p.at, mine: true, pending: true, ...(p.note ? { note: p.note } : {}) });
 		return lines;
 	}
 
@@ -1683,7 +1701,7 @@ export class LiveController {
 		if (kept.length < this.pending.length) this.sys(`${this.pending.length - kept.length === 1 ? 'A message' : 'Some messages'} could not be sent.`);
 		const next = kept.map((p) => ({ ...p, tries: (p.tries ?? 0) + 1 }));
 		this.setPending(next);
-		for (const p of next) this.post({ k: 'say', id: p.id, text: p.text, have: this.seq }, host);
+		for (const p of next) this.post({ k: 'say', id: p.id, text: p.text, have: this.seq, ...(p.note ? { note: p.note } : {}) }, host);
 	}
 
 	/** Host: a member holding a number past ours means our save was older than the session (a reload),
@@ -1696,7 +1714,7 @@ export class LiveController {
 	}
 
 	/** Host: number a line, keep it, and send it to everyone (the sender's copy is its receipt). */
-	private hostTake(id: string, peer: string, member: { name: string; color: LiveColor }, text: string) {
+	private hostTake(id: string, peer: string, member: { name: string; color: LiveColor }, text: string, note?: LiveNote) {
 		const r = this.rt;
 		// A resend of a line already taken: the same MEMBER and id. Keyed by the member (name and
 		// color), not its connection id, because a reload gives the tab a new connection while the
@@ -1718,7 +1736,7 @@ export class LiveController {
 			if (peer !== r.session.getState().selfId) this.post({ k: 'line', line: taken }, peer);
 			return;
 		}
-		const line: ChatLine = { seq: this.seq + 1, id, peer, name: member.name, color: member.color, text: text.slice(0, CHAT_MAX), at: r.session.now() };
+		const line: ChatLine = { seq: this.seq + 1, id, peer, name: member.name, color: member.color, text: text.slice(0, CHAT_MAX), at: r.session.now(), ...(note ? { note } : {}) };
 		this.addLines([line]);
 		this.post({ k: 'line', line });
 		// Seal now, not a second later: a reload restores the numbering from this save.
@@ -1970,6 +1988,25 @@ export class LiveController {
 		this.host.rerender();
 	}
 
+	/** A line in the people chat, typed or a note (§5.3). It goes through the host, which numbers it. */
+	private sendLine(text: string, note?: LiveNote) {
+		const r = this.rt;
+		const s = r?.session.getState();
+		if (!r || !s?.me || s.me.role === 'view') return;
+		const id = `${r.sid}:${++r.chatN}`;
+		const line = text.slice(0, CHAT_MAX);
+		this.lastTypingPost = 0;
+		if (s.isHost) {
+			this.hostTake(id, s.selfId, s.me, line, note);
+			return;
+		}
+		// Shown at once as "Sending…"; the host's echo replaces it. If the host is away, it waits.
+		this.setPending([...this.pending, { id, text: line, at: r.session.now(), ...(note ? { note } : {}) }]);
+		this.host.rerender();
+		const host = this.hostId();
+		if (host && !s.hostAway) this.post({ k: 'say', id, text: line, have: this.seq, ...(note ? { note } : {}) }, host);
+	}
+
 	/** Member: the host started a tour for everyone. Only a shipped tour's id is obeyed: it is code that
 	 *  ships with Lattice and plays on a practice deck, so a peer can start it but cannot write it (§7.5).
 	 *  Someone idle starts at the host's moment; someone typing is asked, as with Present. */
@@ -2075,7 +2112,9 @@ export class LiveController {
 				// The sender's highest number is a floor too, so a host restored from an old save never
 				// numbers this line with a number the sender already holds.
 				if (Number.isSafeInteger(p.have)) this.raiseFloor(from, p.have as number);
-				this.hostTake(p.id, from, sender, p.text);
+				const note = cleanNote(p.note);
+				if (note === null) return;
+				this.hostTake(p.id, from, sender, p.text, note);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
 				// One answer per member every 2 s: a 30-byte ask must not buy a megabyte reply on demand.
 				// An ask inside the window is answered when it ends (once), not dropped — a member that
@@ -2393,22 +2432,14 @@ export class LiveController {
 			this.teardown('leave', { linger: true });
 			this.host.notify('You left the live session. Your copy of the deck stays.');
 		},
-		sendChat: (text) => {
-			const r = this.rt;
-			const s = r?.session.getState();
-			if (!r || !s?.me || s.me.role === 'view') return;
-			const id = `${r.sid}:${++r.chatN}`;
-			const line = text.slice(0, CHAT_MAX);
-			this.lastTypingPost = 0;
-			if (s.isHost) {
-				this.hostTake(id, s.selfId, s.me, line);
-				return;
-			}
-			// Shown at once as "Sending…"; the host's echo replaces it. If the host is away, it waits.
-			this.setPending([...this.pending, { id, text: line, at: r.session.now() }]);
-			this.host.rerender();
-			const host = this.hostId();
-			if (host && !s.hostAway) this.post({ k: 'say', id, text: line, have: this.seq }, host);
+		sendChat: (text) => this.sendLine(text),
+		noteAiEdit: (slides: number[]) => {
+			const note = cleanNote({ k: 'ai-edit', slides });
+			if (note) this.sendLine('', note);
+		},
+		shareAiTurn: (turn: { ask: string; answer: string }) => {
+			const note = cleanNote({ k: 'ai-turn', ask: turn.ask, answer: turn.answer });
+			if (note) this.sendLine('', note);
 		},
 		chatTyping: () => {
 			const t = Date.now();

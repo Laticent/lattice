@@ -57,7 +57,11 @@ export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean; doin
 export type LivePanelId = 'coach' | 'lenses' | 'library' | 'live';
 export type LiveViewId = 'compose' | 'fabricate' | 'article';
 /** What a member is doing in the Studio: activity, shown to everyone, followed by whoever follows them. */
-export type LiveDoing = { panel: LivePanelId | null; view: LiveViewId; presenting: boolean };
+/** `asking`: an AI chat turn is in flight. What is asked never leaves the browser (§5.3). */
+export type LiveDoing = { panel: LivePanelId | null; view: LiveViewId; presenting: boolean; asking?: boolean };
+/** What a chat line can carry besides text (§5.3): an AI edit someone applied, by slide (1-based, empty
+ *  for the front matter), or one AI chat turn its owner shared. The receiver writes the words. */
+export type LiveNote = { k: 'ai-edit'; slides: number[] } | { k: 'ai-turn'; ask: string; answer: string };
 /** A remote pointer over the slide, in the slide's own coordinates (0..1 each way). */
 export type LivePointer = { id: string; name: string; color: LiveColor; slide: number; x: number; y: number; clickAt: number };
 /** What the pointer overlay reads: the others' pointers, and this browser's own to send. */
@@ -85,7 +89,7 @@ export type LiveKnock = { id: string; name: string; at: number };
 
 export type LiveChatLine =
 	/** `at` is session time (the host's clock, Tavola `now()`), shown in the viewer's own zone. */
-	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean; pending?: boolean }
+	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean; pending?: boolean; note?: LiveNote }
 	| { kind: 'system'; id: string; text: string; at: number };
 
 export type LiveView = {
@@ -153,6 +157,10 @@ export type LiveActions = {
 	/** Host: play a shipped tour on every member's screen at once (§7.5). True when it went to the room;
 	 *  false when there is no room to send it to, and the tour plays here only. */
 	tourForEveryone: (tourId: string) => boolean;
+	/** Tell the session this browser applied an AI edit, by the slides it changed (§5.3). */
+	noteAiEdit: (slides: number[]) => void;
+	/** Share one AI chat turn with the session, as a card in the people chat (§5.3). */
+	shareAiTurn: (turn: { ask: string; answer: string }) => void;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;

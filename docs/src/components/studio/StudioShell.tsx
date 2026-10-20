@@ -375,6 +375,18 @@ type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; compo
 
 const NO_WEB_IMAGES_EAGER: WebImageSummary = { count: 0, origins: [], byOrigin: {} };
 
+
+/** The slides an edit changed, 1-based, for the live note "applied an AI edit to slide 3" (2026-10-20 live
+ *  note §5.3). A change that moves the slide count marks every slide from the first difference on, capped. */
+function changedSlides(before: string, after: string): number[] {
+	const a = splitSlides(stripFrontMatter(before));
+	const b = splitSlides(stripFrontMatter(after));
+	const out: number[] = [];
+	const n = Math.max(a.length, b.length);
+	for (let i = 0; i < n && out.length < 12; i++) if (a[i] !== b[i]) out.push(i + 1);
+	return out;
+}
+
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
 	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
@@ -464,6 +476,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// what the session sees, what remote edits update, and what any save writes. The session's records are
 	// held as they were, so the practice deck's empty Library never reads as records withdrawn.
 	const [practice, setPractice] = React.useState<{ real: string; records: LiveRecords } | null>(null);
+	// Live (§5.3): an applied AI edit is said in the people chat. The session hook is declared further down,
+	// so the edit paths above it reach it through this ref.
+	const liveAiEditRef = React.useRef<((slides: number[]) => void) | null>(null);
+	const noteAiEdit = React.useCallback((before: string, after: string) => liveAiEditRef.current?.(changedSlides(before, after)), []);
+	// An AI chat turn in flight here, for "asking the AI" (§5.3).
+	const [aiAsking, setAiAsking] = React.useState(false);
 	const practiceRef = React.useRef(practice);
 	practiceRef.current = practice;
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
@@ -3566,11 +3584,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			}
 			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
 			setSource(next);
+			noteAiEdit(source, next);
 			discardFix(key);
 			notify('Fix applied — ⌘Z or restore from History to undo.');
 			return true;
 		},
-		[fixStates, source, deck.id, discardFix, setSource],
+		[fixStates, source, deck.id, discardFix, setSource, noteAiEdit],
 	);
 	// Draft fixes for EVERY draftable finding (idle OR previously-stale), serialized against
 	// one source snapshot so slide numbers stay coherent — each lands as its own reviewable
@@ -3630,10 +3649,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			applied++;
 			discardFix(key);
 		}
-		if (applied) setSource(next);
+		if (applied) {
+			setSource(next);
+			noteAiEdit(source, next);
+		}
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
 		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
-	}, [fixStates, source, deck.id, discardFix, setSource]);
+	}, [fixStates, source, deck.id, discardFix, setSource, noteAiEdit]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -3844,6 +3866,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		panel: livePublicPanel,
 		view,
 		presenting: presentOpen,
+		asking: aiAsking,
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
 		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
@@ -3946,6 +3969,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Show me in a session (§7.5): the tour's new deck is a practice one, and ending the tour puts the
 	// shared deck back as the session now has it. Only while bound to a session; a tour anywhere else is
 	// the solo tour, which keeps its deck.
+	// An AI edit is said in the session only while bound to it, and never from a tour's practice deck.
+	liveAiEditRef.current = live.collab && !practice ? live.actions.noteAiEdit : null;
 	livePracticeRef.current = live.collab
 		? {
 				start: () => {
@@ -4540,6 +4565,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const applyChatEdit = (next: string) => {
 		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI chat edit', Date.now()));
 		setSource(next);
+		noteAiEdit(source, next);
 		goToChunk(0, { after: next });
 		// The AI edit jumps the preview to the top — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
@@ -4936,7 +4962,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onBusyChange={setAiAsking} onShareTurn={live.collab ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
 		</PanelLoader>
 	);
 

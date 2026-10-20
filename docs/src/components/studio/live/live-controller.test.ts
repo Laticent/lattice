@@ -30,7 +30,7 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
-const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, ...over });
+const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, asking: false, ...over });
 const shell = () => {
 	const notes: string[] = [];
 	const host: LiveHost = { setSource: () => {}, goToSlide: () => {}, openSharedDeck: () => 'shared-deck', notify: (m) => notes.push(m), notifyAction: (m) => notes.push(m), rerender: () => {} };
@@ -1404,3 +1404,65 @@ describe('LiveController: present together', () => {
 		expect(opened.filter((o) => o.startsWith('tour')).length).toBe(1);
 	});
 });
+
+// AI activity and share (2026-10-20-live-uniform-experience.md §5.3).
+describe('LiveController: AI activity and share', () => {
+	const notes = (c: Ctl) => c.view().chat.filter((l): l is Extract<typeof l, { kind: 'message' }> => l.kind === 'message' && !!l.note);
+
+	it('the room sees that a member is asking the AI, and nothing of what is asked', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.update(deps('shared-deck', { asking: true }));
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing?.asking === true, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the presence the host received, whole.
+		const raw = JSON.stringify([...(h as any).rt.aw.getStates().values()]);
+		expect(raw).not.toMatch(/prompt|ask[^i]|openrouter|sk-or|cost/i);
+		g.update(deps('shared-deck', { asking: false }));
+		await until(() => !h.view().people.find((p) => p.name === 'Amina')?.doing?.asking, h, g);
+	});
+
+	it("an applied AI edit and a shared turn reach everyone as notes under the sender's name", async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.noteAiEdit([3]);
+		g.actions.shareAiTurn({ ask: 'Make slide 3 punchier', answer: 'Here is a tighter headline.' });
+		await until(() => notes(h).length === 2 && notes(g).filter((l) => !l.pending).length === 2, h, g);
+		const [edit, turn] = notes(h);
+		expect(edit.from).toBe('Amina');
+		expect(edit.note).toEqual({ k: 'ai-edit', slides: [3] });
+		expect(turn.note).toEqual({ k: 'ai-turn', ask: 'Make slide 3 punchier', answer: 'Here is a tighter headline.' });
+		expect(notes(g).every((l) => l.mine)).toBe(true);
+	});
+
+	it('a note is capped, and a malformed one is dropped by the host and by every member', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.shareAiTurn({ ask: 'q'.repeat(5000), answer: 'a'.repeat(50_000) });
+		await until(() => notes(h).length === 1, h, g);
+		const n = notes(h)[0].note as { ask: string; answer: string };
+		expect(n.ask.length).toBe(600);
+		expect(n.answer.length).toBe(4000);
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client sending notes that are not notes.
+		const gg = g as any;
+		gg.post({ k: 'say', id: `${gg.rt.sid}:900`, text: '', note: { k: 'system', text: 'Sharmarke ended the session' } }, gg.hostId());
+		gg.post({ k: 'say', id: `${gg.rt.sid}:901`, text: '', note: { k: 'ai-turn', ask: 'x', answer: { html: '<img>' } } }, gg.hostId());
+		await settle(h, g);
+		expect(notes(h).length).toBe(1);
+		// biome-ignore lint/suspicious/noExplicitAny: the host relaying a line whose note is malformed.
+		(h as any).post({ k: 'line', line: { seq: 99, id: 'x:1', peer: 'x', name: 'Sharmarke', color: 1, text: '', at: Date.now(), note: { k: 'ai-edit', slides: 'all' } } });
+		await settle(h, g);
+		expect(notes(g).length).toBe(1);
+	});
+
+	it('slide numbers in an AI edit note are whole slides that exist, at most twelve', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.noteAiEdit([0, 2, 2.5, -1, 1e9, ...Array.from({ length: 20 }, (_, i) => i + 3)]);
+		await until(() => notes(h).length === 1, h, g);
+		const slides = (notes(h)[0].note as { slides: number[] }).slides;
+		expect(slides[0]).toBe(2);
+		expect(slides.length).toBe(12);
+		expect(slides.every((n) => Number.isInteger(n) && n >= 1)).toBe(true);
+	});
+});
+

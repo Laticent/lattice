@@ -495,6 +495,33 @@ Measured on two real headless Chromium browsers at 1440 px (`.scratch/live-repro
 The first browser run caught a wiring defect the unit tests could not: `use-live-session.ts` builds the
 controller's host callbacks field by field, and `startTour` was missing.
 
+**Slice 5 as built (2026-10-20): AI activity and share (§5.3).** Three pieces, and none sends a key, a
+model, a cost or a prompt the owner did not share:
+- **"Asking the AI."** `ArchitectChat` reports only whether a turn is in flight (`onBusyChange`). The Studio
+  passes it to the session as `asking`, a boolean in the `doing` presence field, and the people list reads
+  "asking the AI".
+- **"Amina applied an AI edit to Slide 2."** Each AI apply path (a chat edit, one fix, fix-all) compares
+  the deck before and after (`changedSlides`). It sends the changed slide numbers as a note on an ordinary
+  chat line, which the host numbers and relays under the sender's name. A tour's practice deck reports
+  nothing.
+- **Share a turn.** In a session, each finished AI reply has "Share with the session". It sends that turn's
+  question and answer as a note, shown to everyone as a card.
+
+A note is plain data: a kind from a fixed list, slide numbers (whole, 1 to 10,000, at most 12), or two
+strings capped at 600 and 4,000 characters. The host drops a `say` whose note is malformed, and every member
+drops a relayed line whose note is malformed (`cleanNote`). The panel writes every word around the data and
+renders the strings as text.
+
+Measured on two real headless Chromium browsers, with the guest's AI mocked at the endpoint (HARD RULE
+#24; `.scratch/live-repro/slice5.mjs`):
+- the host's people list read "asking the AI" while the guest's turn was in flight, and cleared when the
+  reply came;
+- applying the edit put "Amina applied an AI edit to Slide 2" in the host's chat, and the host's deck held
+  the edited slide;
+- Share put the turn on the host's screen as a card;
+- the mock key never appeared on the host's screen;
+- the notes rendered at 1440, 820 and 390 px, with no sideways scroll.
+
 ### 7.6 Pointers and actions
 
 Pointers are not Vetrina cues: `stage.point()` is an eased glide for choreographed tours, and cues
@@ -561,6 +588,9 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 - Read · Article renders the session's records like every in-app surface, so printing it from the
   browser carries the host's theme, unlike an export. Left as is: it is a reading view, not an
   export, and the exports are what §5.1 keeps to each member's own Library.
+- A shared AI turn stays in the session's chat like any line: it is kept in the host's sealed save
+  and handed to people who join later. Sharing it cannot be undone.
+- Slice 5 has no checker yet either (§8 asks for one).
 - Show me together (slice 4) has no checker yet: §8 asks for one, and it waits on the owner's agent budget.
   It has not run on a real phone, only at phone width in Chromium.
 - Custom components still fall back (their code is not shared); a member is told once, by name.

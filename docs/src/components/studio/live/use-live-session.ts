@@ -41,8 +41,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,
 			};
-			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting } = depsRef.current;
-			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting });
+			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking } = depsRef.current;
+			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking });
 			setCtl(c);
 			return c;
 		});
@@ -73,7 +73,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	// Feed the controller this render's Studio state (it diffs against the last one).
 	React.useEffect(() => {
-		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme, panel: deps.panel, view: deps.view, presenting: deps.presenting });
+		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme, panel: deps.panel, view: deps.view, presenting: deps.presenting, asking: deps.asking });
 	});
 
 	// Hosting others: ask before the tab goes.
@@ -104,6 +104,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		presentTransport: NOOP,
 		mixIntoCall: NOOP,
 		tourForEveryone: () => false,
+		noteAiEdit: NOOP,
+		shareAiTurn: NOOP,
 		copyLink: () => Promise.resolve(false),
 		setLinkRole: NOOP,
 		setAutoAdmit: NOOP,

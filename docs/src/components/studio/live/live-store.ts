@@ -30,6 +30,8 @@ export type LiveDeps = {
 	panel: 'coach' | 'lenses' | 'library' | 'live' | null;
 	view: 'compose' | 'fabricate' | 'article';
 	presenting: boolean;
+	/** An AI chat turn is in flight here (shown as "asking the AI"; never what is asked). */
+	asking: boolean;
 };
 
 /** A saved theme as a session carries it: its name and its CSS. */
