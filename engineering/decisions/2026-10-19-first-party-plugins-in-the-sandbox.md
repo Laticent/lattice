@@ -4,7 +4,7 @@ summary: >
   Math, Mermaid and function-plot draw behind a wall for every CLI export, with byte-identical output and no extra
   browser: KaTeX in QuickJS-in-WebAssembly in the CLI's own process, function-plot in an isolated context of the
   export's own browser, Mermaid in the locked page. D-A closed itself (the wall is synchronous, so the library API uses
-  it too); how the live previews sandbox the three libraries (D-B) is still the owner's.
+  it too); the live previews will use the code door's existing frame pool (D-B, owner 2026-10-20).
 ---
 
 # First-party plugins in the sandbox: math, Mermaid and function-plot (2026-10-19)
@@ -101,13 +101,12 @@ drawing's own bytes only when the same markup, parsed in that page, serializes t
 **D-A. The library API with no browser.** Closed by §3: the wall is synchronous, so the library API, the docs build
 and the CLI all typeset behind it. There is no in-process fallback and no exception.
 
-**D-B. The previews (decision 15).** The Studio and the Playground still run KaTeX, Mermaid and function-plot in the
-page that holds the deck. Both options below make the preview's draw asynchronous where it is synchronous today.
-Measured cost goes on the card once a shape is chosen.
+**D-B. The previews (decision 15). Decided (owner, 2026-10-20): the existing pool.** "Don't give each their own
+iframe. Use the available pool we already have." Math, Mermaid and function-plot run in the Studio and the Playground
+through the code door's own sandboxed frames (`docs/src/lib/code-packages/door-run.ts` `frameFor`, `runner.ts`), the
+ones a zip plugin already runs in, and come back as drawings the host sanitizes. No frame per library.
 
-- **B1 (recommended):** one warm `sandbox="allow-scripts"` frame per library per tab. This is the shape the code door's
-  Studio runner already has (`docs/src/lib/code-packages/runner.ts`). It takes figures by message and returns
-  drawings, which the host sanitizes.
-- **B2:** one frame per figure.
-  - Plus: simpler isolation.
-  - Minus: each figure parses its library afresh, and Mermaid alone is 1.6 MB.
+The design step the previews PR starts with: that pool runs a package in a WORKER inside the frame, which has no DOM.
+KaTeX's `renderToString` needs none, so math fits as it is. Mermaid and function-plot measure text in a layout, so they
+need the pool's frame document (or a DOM the worker can measure with) rather than its worker, without loosening the
+frame's policy. Measure the preview latency before and after, at 1440, 820 and 390 px.
