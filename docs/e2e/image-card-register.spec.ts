@@ -24,6 +24,11 @@ async function choose(page: Page, label: string, option: string): Promise<void> 
 function chip(page: Page, name: string) {
 	return page.getByRole('radio', { name, exact: true }).filter({ visible: true }).first();
 }
+// The backing control says when the photo behind the card has been read ahead, which is when a thin
+// step becomes ONE edit; a test about that waits on this, never on a timer.
+async function inkReady(page: Page): Promise<void> {
+	await expect(page.locator('[data-ink-ready="true"]').filter({ visible: true }).first()).toBeVisible();
+}
 function slider(page: Page, name: string) {
 	return page.getByRole('slider', { name }).filter({ visible: true }).first();
 }
@@ -111,6 +116,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 	// when the card is no longer thin, because an ink class also swaps the card's fill.
 	test(`slide settings: dragging thin then thick again takes the picked ink back out${tag}`, async ({ page }) => {
 		await openSlideImageTab(page);
+		await inkReady(page);
 		await slider(page, 'Slide card backing').fill('35');
 		await expect.poll(() => persistedSource(page), { message: 'thin: an ink should be picked' }).toContain('ink-light');
 		await slider(page, 'Slide card backing').fill('70');
@@ -118,13 +124,26 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
 	});
 
+	// "One edit" is the point of reading the photo ahead: the backing and its ink land together, so a single
+	// Undo takes both back. (Before the read lands the ink is a second edit, which this test would catch.)
+	test(`slide settings: a thin step is one edit, so one Undo removes the backing and the ink together${tag}`, async ({ page }) => {
+		await openSlideImageTab(page);
+		await inkReady(page);
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		await expect.poll(() => persistedSource(page)).toContain('ink-light');
+		await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect.poll(() => persistedSource(page), { message: 'one Undo should take the backing AND the ink back' }).not.toContain('card-o35');
+		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+	});
+
 	test(`slide settings: an ink the deck line names is left alone${tag}`, async ({ page }) => {
 		await setEditorContent(page, `---\ntitle: Photos\nimage-card: dark\n---\n\n${SLIDE}`);
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
 		await expect.poll(() => persistedSource(page)).toContain('card-o35');
-		// No wait needed: with a deck ink named, `slideNeedsInk` is false, so no ink is ever decided and
-		// the source the backing write just produced is the final one.
+		// The photo may still be read, but `slideNeedsInk` gates every ink write and is false with a deck ink
+		// named, so the source the backing write produced is final. card-ink-pick.test.ts pins the gate.
 		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
 	});
 
@@ -133,8 +152,9 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
 		await expect.poll(() => persistedSource(page)).toContain('card-o35');
-		// No wait needed: with an ink already named, `slideNeedsInk` is false, so no photo read ever starts
-		// and the source the backing write just produced is the final one.
+		// The photo may still be read (the read-ahead always runs), but `slideNeedsInk` gates every ink write
+		// and is false here, so the source the backing write produced is final. card-ink-pick.test.ts pins
+		// that no path writes an ink past that gate.
 		const src = await persistedSource(page);
 		expect(src).toContain('ink-dark');
 		expect(src).not.toContain('ink-light');

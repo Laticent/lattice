@@ -42,29 +42,65 @@ function loadPhoto(url: string): Promise<HTMLImageElement | null> {
 	});
 }
 
-const squash = (text: string | null | undefined): string => (text ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' };
+// Letters and digits of any script, case-folded: the source has markdown and entities, the page has
+// decoded entities and typographer quotes, and none of that is the heading.
+const squash = (text: string | null | undefined): string =>
+	(text ?? '')
+		.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => ENTITIES[e] ?? e)
+		.normalize('NFKC')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]/gu, '');
+
+/** How much of the two headings must agree. Long enough to tell "Revenue grew in Q3 ..." slides apart. */
+const SAME_SLIDE_CHARS = 24;
 
 /**
  * Whether the preview's section is the slide being edited. The frame holds one slide at a time and
  * lags a slide switch, so the first section can still be the PREVIOUS slide; the heading is the
  * cheap tell. The comparison drops everything but letters and digits (the source has markdown, the
- * page has typographer quotes) and accepts a shared 12-character start. No heading on either side
- * proves nothing, so it passes.
+ * page has typographer quotes) and accepts a shared 24-character start. No heading on either side
+ * proves nothing, so it passes, which is why `photoMatches` checks the photo as well.
  */
 export function sameSlide(sourceHeading: string | null, renderedHeading: string | null): boolean {
 	const a = squash(sourceHeading);
 	const b = squash(renderedHeading);
 	if (!a || !b) return true;
-	const n = Math.min(12, a.length, b.length);
+	const n = Math.min(SAME_SLIDE_CHARS, a.length, b.length);
 	return a.slice(0, n) === b.slice(0, n);
+}
+
+const decoded = (text: string): string => {
+	try {
+		return decodeURIComponent(text);
+	} catch {
+		return text;
+	}
+};
+
+/**
+ * Whether the preview's photo is the one the slide's `![bg](ref)` names. A `sample:` name must end
+ * the resolved URL; a web or data address must match it; an `asset:` reference resolves to a blob:
+ * URL the source cannot be compared with, so it proves nothing and passes. With the heading check,
+ * this is what stops a preview still showing the PREVIOUS slide from being read as this one.
+ */
+export function photoMatches(ref: string | null, url: string): boolean {
+	if (!ref) return true;
+	const r = decoded(ref.trim());
+	const u = decoded(url);
+	if (r.startsWith('sample:')) return u.endsWith(`/${r.slice('sample:'.length)}`);
+	if (r.startsWith('asset:')) return true;
+	if (/^(https?:|data:)/i.test(r)) return u === r || u.startsWith(r);
+	return u.endsWith(r.replace(/^\.?\//, ''));
 }
 
 /**
  * The mean colour of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
  * when it cannot be read. The preview frame holds either the whole deck or just the slide on
- * screen, so the section is taken by position, falls back to the first, and must show `heading`.
+ * screen, so the section is taken by position, falls back to the first, and must show `heading` and
+ * the photo `photoRef` names.
  */
-export async function sampleBehindCard(slideNumber: number, heading: string | null): Promise<Rgb | null> {
+export async function sampleBehindCard(slideNumber: number, heading: string | null, photoRef: string | null = null): Promise<Rgb | null> {
 	try {
 		const doc = previewDocument();
 		if (!doc) return null;
@@ -76,6 +112,7 @@ export async function sampleBehindCard(slideNumber: number, heading: string | nu
 		const card = section.querySelector<HTMLElement>('.image-text');
 		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
 		if (!panel || !card || !url) return null;
+		if (!photoMatches(photoRef, url)) return null;
 
 		// Measure first. Changing the slide's classes re-renders the preview, which replaces the section
 		// this function holds; after the photo loads it would be detached and read as zero-sized.

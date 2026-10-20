@@ -442,13 +442,19 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const chunkRef = React.useRef(chunk);
 	chunkRef.current = chunk;
 	const pickRef = React.useRef<typeof import('./card-ink-pick') | null>(null);
+	// Whether the read-ahead has landed for this slide: shown on the control, so a test (and a person
+	// watching) can tell the next thin step will be one edit.
+	const [behindReady, setBehindReady] = React.useState(false);
 	const behindRef = React.useRef<{ slide: number; rgb: number[] } | null>(null);
 	const autoInkRef = React.useRef<{ slide: number; ink: 'light' | 'dark' } | null>(null);
 	// What the card's box and photo depend on: where it sits, how big, and which photo.
-	const cardKey = `${tokens.filter((t) => /^(at-|card-(sm|md|lg)$|band$|compact$|mirror$)/.test(t)).join(' ')}|${/!\[bg[^\]]*\]\([^)]*\)/.exec(chunk)?.[0] ?? ''}`;
+	// The composition is part of it: switching a slide between spotlight and statement changes what the
+	// card needs, and the read belongs to the composition it was taken under.
+	const cardKey = `${tokens.filter((t) => /^(at-|card-(sm|md|lg)$|band$|compact$|mirror$|spotlight$|statement$|clean$|split$|gallery$|full$|contain$|museum$)/.test(t)).join(' ')}|${/!\[bg[^\]]*\]\([^)]*\)/.exec(chunk)?.[0] ?? ''}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: re-read when the slide or its card geometry changes, not on every keystroke.
 	React.useEffect(() => {
 		behindRef.current = null;
+		setBehindReady(false);
 		if (!showsImageCard) return;
 		let live = true;
 		const at = slideNumber;
@@ -462,6 +468,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 				if (!live) return;
 				if (rgb) {
 					behindRef.current = { slide: at, rgb };
+					setBehindReady(true);
 					return;
 				}
 			}
@@ -482,26 +489,34 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		const at = slideNumber;
 		const pick = pickRef.current;
 		const behind = behindRef.current?.slide === at ? behindRef.current.rgb : null;
-		const auto = autoInkRef.current?.slide === at ? autoInkRef.current.ink : null;
 		if (pick && behind) {
-			// The usual path: one edit carries the backing and the ink.
-			const edit = pick.applyBacking(chunk, source, word, behind, auto);
-			if (edit.picked) autoInkRef.current = { slide: at, ink: edit.picked };
-			else if (edit.removed) autoInkRef.current = null;
-			onMutate((c) => pick.applyBacking(c, source, word, behind, auto).chunk);
+			// The usual path: one edit carries the backing and the ink. The updater runs on the FRESHEST
+			// source (`settingsWrite` hands it that), so it decides from `c`, not from this render's
+			// `chunk`, and records what it wrote on the refs: with ticks arriving faster than renders, the
+			// record then matches what landed.
+			onMutate((c) => {
+				const auto = autoInkRef.current?.slide === at ? autoInkRef.current.ink : null;
+				const edit = pick.applyBacking(c, source, word, behind, auto);
+				if (edit.picked) autoInkRef.current = { slide: at, ink: edit.picked };
+				else if (edit.removed) autoInkRef.current = null;
+				return edit.chunk;
+			});
 			return;
 		}
 		// The photo has not been read yet (the first moments on a slide): write the backing now and the
-		// ink when the read lands, if the card is still thin and still names no ink by then.
+		// ink when the read lands, if the card is thin and still names no ink by then. That is two edits,
+		// so two Undo steps, and only happens before the read-ahead has landed.
 		onMutate((c) => setImageCard(c, 'backing', word));
 		void (async () => {
 			const mod = pick ?? (await import('./card-ink-pick'));
 			const rgb = behind ?? (await mod.readBehindCard(chunk, at));
 			if (!rgb || slideRef.current !== at) return;
-			behindRef.current = { slide: at, rgb };
-			const late = mod.applyLateRead(chunkRef.current, source, rgb);
-			if (late.picked) autoInkRef.current = { slide: at, ink: late.picked };
-			onMutate((c) => mod.applyLateRead(c, source, rgb).chunk);
+			if (behindRef.current?.slide !== at) behindRef.current = { slide: at, rgb };
+			onMutate((c) => {
+				const late = mod.applyLateRead(c, source, rgb);
+				if (late.picked) autoInkRef.current = { slide: at, ink: late.picked };
+				return late.chunk;
+			});
 		})();
 	};
 
@@ -846,6 +861,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 												inheritedWord={p.deckValue}
 												autoLabel={p.deckValue ? `Auto: ${imageCardOptionLabel(p.deckValue)}` : `Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
 												onChange={onBacking}
+												inkReady={behindReady}
 											/>
 										</Row>
 									);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applyBacking, applyLateRead, headingOf, slideHasInk, slideNeedsInk } from './card-ink-pick';
-import { sameSlide } from './card-ink-sampler';
+import { applyBacking, applyLateRead, compositionOf, headingOf, photoRefOf, slideHasInk, slideNeedsInk } from './card-ink-pick';
+import { photoMatches, sameSlide } from './card-ink-sampler';
 import { getClassTokens } from './slide-directives';
 
 describe('thin spotlight card: when the backing slider should pick an ink', () => {
@@ -71,5 +71,58 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		expect(sameSlide('Slide 1: a plain spotlight card.', 'Slide 2: a plain statement.')).toBe(false);
 		expect(sameSlide(null, 'Anything')).toBe(true);
 		expect(sameSlide('Anything', '')).toBe(true);
+	});
+
+	it('composition: read the way the engine reads it, so a statement never gets an ink', async () => {
+		const engine = await import('../../../../lib/core/image-aspect.js');
+		const lists = [
+			['image', 'spotlight'], ['image', 'statement'], ['image', 'statement', 'spotlight'], ['image', 'spotlight', 'statement'],
+			['image', 'full'], ['image', 'contain'], ['image', 'full', 'statement'], ['image', 'clean', 'card-o35'], ['image'], ['content'],
+		];
+		for (const tokens of lists) expect(compositionOf(tokens), tokens.join(' ')).toBe(engine.compositionFromClass(tokens.join(' ')));
+		expect(slideNeedsInk(slide('image statement card-o35'), deck(''))).toBe(false);
+		expect(slideNeedsInk(slide('image clean card-o35'), deck(''))).toBe(false);
+		expect(slideNeedsInk(slide('image full card-o35'), deck(''))).toBe(true);
+		expect(slideNeedsInk(slide('image card-o35'), deck(''))).toBe(true); // unnamed: the sampler decides
+		const edit = applyBacking(slide('image statement'), deck(''), '35%', DARK, null);
+		expect(edit.picked).toBeNull();
+		expect(getClassTokens(edit.chunk)).not.toContain('ink-light');
+	});
+
+	it('keeps re-picking its own ink as the card thins further, and leaves an author ink alone', () => {
+		// On this photo white reads better at 55% and near-black at 5%: the better ink changes as it thins.
+		const MID = [0, 120, 240];
+		// (55% is the register's name `sheer`; the Studio writes the name for the four named levels.)
+		const at55 = applyBacking(slide('image spotlight'), deck(''), 'sheer', MID, null);
+		expect(at55.picked).toBe('light');
+		const at5 = applyBacking(at55.chunk, deck(''), '5%', MID, 'light');
+		expect(at5.picked).toBe('dark');
+		expect(getClassTokens(at5.chunk)).toContain('ink-dark');
+		expect(getClassTokens(at5.chunk)).not.toContain('ink-light');
+		// An ink the author set is not ours to change, however thin.
+		const own = applyBacking(slide('image spotlight card-sheer ink-light'), deck(''), '5%', MID, null);
+		expect(own.picked).toBeNull();
+		expect(getClassTokens(own.chunk)).toContain('ink-light');
+	});
+
+	it('photo reference: the raw `![bg](ref)` of the slide', () => {
+		expect(photoRefOf(slide('image spotlight'))).toBe('sample:photo-wide.svg');
+		expect(photoRefOf('## No photo\n')).toBeNull();
+	});
+
+	it('the preview identity checks: a heading and a photo, either of which can say "another slide"', () => {
+		// The photo.
+		expect(photoMatches('sample:photo-wide.svg', 'http://localhost:4321/playground/v/abc/samples/photo-wide.svg')).toBe(true);
+		expect(photoMatches('sample:photo-wide.svg', 'http://localhost:4321/playground/v/abc/samples/photo-pano.svg')).toBe(false);
+		expect(photoMatches('sample:photo-wide.svg', 'http://x/samples/not-photo-wide.svg')).toBe(false);
+		expect(photoMatches('https://cdn.test/a.jpg', 'https://cdn.test/a.jpg')).toBe(true);
+		expect(photoMatches('https://cdn.test/a.jpg', 'https://cdn.test/b.jpg')).toBe(false);
+		expect(photoMatches('asset:harbor.jpg', 'blob:http://x/1234')).toBe(true);
+		expect(photoMatches(null, 'anything')).toBe(true);
+		// The heading: other scripts, entities, and series headings that share a long start.
+		expect(sameSlide('\u5199\u771f\u306e\u8aac\u660e', '\u524d\u306e\u30b9\u30e9\u30a4\u30c9')).toBe(false);
+		expect(sameSlide('\u5199\u771f\u306e\u8aac\u660e', '\u5199\u771f\u306e\u8aac\u660e')).toBe(true);
+		expect(sameSlide('R&amp;D grew', 'R&D grew')).toBe(true);
+		expect(sameSlide('Revenue grew in Q3 across EMEA', 'Revenue grew in Q3 across APAC')).toBe(false);
 	});
 });

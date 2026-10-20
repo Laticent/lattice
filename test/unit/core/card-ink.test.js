@@ -30,6 +30,18 @@ test('class readers: the last word wins, and a level is a percent', async () => 
   assert.equal(k.inkOf(['image']), null);
 });
 
+test('painted levels: pinned to the register, and a level with no CSS rule sets nothing', async () => {
+  const k = await load();
+  const { BACKING_LEVELS } = require(path.join(ROOT, 'lib/core/resolve-image-card.js'));
+  assert.deepEqual([...k.PAINTED_LEVELS], BACKING_LEVELS, 'the policy and the register list the same levels');
+  const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
+  for (const n of k.PAINTED_LEVELS) assert.ok(css.includes(`.card-o${n} {`), `card-o${n} is painted`);
+  for (const n of [0, 55, 80, 100]) {
+    assert.ok(!css.includes(`.card-o${n} {`), `card-o${n} has no rule`);
+    assert.equal(k.backingPercent([`card-o${n}`]), null, `card-o${n} sets no backing`);
+  }
+});
+
 test('needsInk: only a thin spotlight card with no ink, from the slide or the deck', async () => {
   const k = await load();
   assert.equal(k.needsInk(['image', 'spotlight', 'card-o35']), true);

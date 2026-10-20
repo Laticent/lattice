@@ -46,12 +46,14 @@ type Props = {
 	ariaLabel: string;
 	/** `null` returns the control to Auto. */
 	onChange: (word: string | null) => void;
+	/** The photo behind the card has been read, so a thin step can pick its ink in the same edit. */
+	inkReady?: boolean;
 };
 
-export function CardBackingControl({ word, inheritedWord, autoLabel, ariaLabel, onChange }: Props) {
+export function CardBackingControl({ word, inheritedWord, autoLabel, ariaLabel, onChange, inkReady }: Props) {
 	const shown = backingPercent(word) ?? backingPercent(inheritedWord) ?? 100;
 	return (
-		<div className="flex w-full flex-col gap-2">
+		<div className="flex w-full flex-col gap-2" data-ink-ready={inkReady === undefined ? undefined : String(inkReady)}>
 			<div className="flex items-center gap-3">
 				<Slider aria-label={ariaLabel} min={0} max={100} step={5} value={shown} onValueChange={(v) => onChange(backingWord(v))} />
 				<span className="w-9 shrink-0 whitespace-nowrap text-right font-mono text-[11px] tabular-nums text-muted-foreground" aria-hidden="true">
