@@ -6,7 +6,7 @@
   cells, the shape now marks the cell on its own where the old numbered marker could not fit and left
   a bare ring. Every marker on a chart shares one size and one place: whole inside its cell's top-left
   corner, or a badge just outside it. A marker's size follows the cell's, and a cell's marker and its
-  label's marker are the same solid color. With a band key, a callout's words grow toward the key's
+  label's marker are the same solid color, and so is the ring around the cell. With a band key, a callout's words grow toward the key's
   label size as far as the lane holds them whole. The pill words still choose: `circle`, `tag` (the square) and
   `diamond` pick that shape, `c4` the color. A seventh callout and any after it are not drawn: the
   chart's description lists them, their `detail` still reaches the cell's hover card and the speaker

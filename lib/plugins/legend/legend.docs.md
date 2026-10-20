@@ -94,6 +94,9 @@ dense grid gets small markers and a roomy one larger, never larger than the mark
 marker in the lane carries a digit as large as the label beside it, centered on the digit's own
 height. A callout's words are never smaller than the band key's labels when the chart has one.
 
+The cell's ring takes its callout's color too, over a thin halo of the canvas color, so the ring, its
+marker and the label's marker read as one color on any cell.
+
 Every marker on one chart shares **one size and one place**, so no marker jumps or shrinks against
 its neighbors: whole inside its cell's top-left corner, or, where that would cover a value, a badge
 up and to the left of that corner, or centered where the gutters cross there. A marker never sits on

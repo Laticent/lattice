@@ -121,6 +121,27 @@ text.legend-text.legend-number[data-c] tspan {
   stroke-width: 1;
 }
 
+/* The ring in its callout's color, the marker's strong tone, over a halo of the canvas color that
+ * parts it from whatever fill the cell has (a slot's tone can be the ramp's own hue). */
+.legend-target-halo {
+  fill: none;
+  stroke: var(--bg);
+  stroke-width: 2.6;
+}
+
+.legend-target[data-c='c1']  { stroke: light-dark(var(--cat-1-mark), var(--cat-1-fill)); }
+.legend-target[data-c='c2']  { stroke: light-dark(var(--cat-2-mark), var(--cat-2-fill)); }
+.legend-target[data-c='c3']  { stroke: light-dark(var(--cat-3-mark), var(--cat-3-fill)); }
+.legend-target[data-c='c4']  { stroke: light-dark(var(--cat-4-mark), var(--cat-4-fill)); }
+.legend-target[data-c='c5']  { stroke: light-dark(var(--cat-5-mark), var(--cat-5-fill)); }
+.legend-target[data-c='c6']  { stroke: light-dark(var(--cat-6-mark), var(--cat-6-fill)); }
+.legend-target[data-c='c7']  { stroke: light-dark(var(--cat-7-mark), var(--cat-7-fill)); }
+.legend-target[data-c='c8']  { stroke: light-dark(var(--cat-8-mark), var(--cat-8-fill)); }
+.legend-target[data-c='c9']  { stroke: light-dark(var(--cat-9-mark), var(--cat-9-fill)); }
+.legend-target[data-c='c10'] { stroke: light-dark(var(--cat-10-mark), var(--cat-10-fill)); }
+.legend-target[data-c='c11'] { stroke: light-dark(var(--cat-11-mark), var(--cat-11-fill)); }
+.legend-target[data-c='c12'] { stroke: light-dark(var(--cat-12-mark), var(--cat-12-fill)); }
+
 /* ── HTML: the key ───────────────────────────────────────────────────────── */
 
 /* A flex row of labels, sized in `em` so it scales with the text around it. Spaced with `gap`, never

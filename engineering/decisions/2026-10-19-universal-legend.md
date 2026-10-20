@@ -780,3 +780,11 @@ produces: with the demo deck's short label it reaches the key's 8.1; with long l
 7.85 in landscape and 8 in portrait (the key there is 13.5). (3) A top-row badge could touch a column
 name's descenders; it now avoids each column name's own box, descenders included, with half a unit
 to spare, and the row names with half a unit too. Every shape still places on every test grid.
+
+**The ring takes the callout's color (owner, 2026-10-20).** After the color fix the owner asked whether
+the ring around a called-out cell should match its marker. A prototype rendered both, light and dark;
+the owner chose the colored ring over a canvas-color halo (`.legend-target-halo`, 2.6 units wide,
+under a one-unit ring in the slot's strong tone). The halo is what keeps a slot-1 ring, whose blue is
+the heatmap ramp's own hue, from vanishing into a blue cell; in light mode it shows as a thin white
+frame. The alternatives were a colored ring with no halo, and the old body-ink ring, which always
+contrasted but carried no link to its marker.

@@ -145,7 +145,7 @@ describe('laneSvg', () => {
     assert.equal(drops.length, 3 - kept.length);
     assert.equal(drops[0].reason, 'overlap');
     // The ring is drawn for a dropped label too: the mark is still the one the author named.
-    assert.equal((value.svg.match(/legend-target/g) || []).length, 3);
+    assert.equal((value.svg.match(/class="legend-target"/g) || []).length, 3);
   });
 
   test('the label\'s pill words shape and color its marker; the words stay bare', () => {
@@ -219,6 +219,17 @@ describe('laneSvg', () => {
     // The digit's ink, on the text AND its tspan, and `!important`: Mermaid's stylesheet paints every
     // text and tspan under any `.legend` group `!important` (followups.d/2816-p2-mermaid-legend-rules-leak.md).
     assert.match(css, /text\.legend-text\.legend-number\[data-c\],\s*text\.legend-text\.legend-number\[data-c\] tspan \{\s*fill: light-dark\(var\(--cat-on-mark\), var\(--cat-on-fill\)\) !important;/);
+  });
+
+  test('the ring around a mark takes its callout\'s color, over a canvas-color halo', () => {
+    const at = (text, cy, mark, more = {}) => ({ text, ...more, target: { cx: 10, cy, w: 10, h: 10, mark } });
+    const { svg } = laneSvg([at('A', 20, 0), at('B', 40, 1, { color: 7 })], opts);
+    const d = doc(`<svg>${svg}</svg>`);
+    const ringSlot = (m) => d.querySelector(`rect.legend-target[data-mark-for="${m}"]`).getAttribute('data-c');
+    const markerSlot = (m) => d.querySelector(`.legend-plate[data-mark-for="${m}"]`).getAttribute('data-c');
+    assert.equal(ringSlot(0), markerSlot(0));
+    assert.equal(ringSlot(1), 'c7');
+    assert.equal(d.querySelectorAll('rect.legend-target-halo').length, 2);
   });
 
   test('no entries, nothing drawn', () => {
