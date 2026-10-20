@@ -122,3 +122,24 @@ The design step the previews PR starts with: that pool runs a package in a WORKE
 KaTeX's `renderToString` needs none, so math fits as it is. Mermaid and function-plot measure text in a layout, so they
 need the pool's frame document (or a DOM the worker can measure with) rather than its worker, without loosening the
 frame's policy. Measure the preview latency before and after, at 1440, 820 and 390 px.
+
+### D-B findings: what the pool cannot do as it stands (2026-10-20, read from the source)
+
+The previews PR starts from what the three libraries need and what the pool gives. Read from source, not yet built:
+
+| | Draws today | Needs | The pool's frame gives |
+|---|---|---|---|
+| math | KaTeX in the host page, called synchronously by `render()` through `lib/engine/katex-browser-stub.js`; the slide frame gets finished HTML | no DOM, no layout | a worker with no DOM: enough |
+| Mermaid | inside the un-sandboxed, same-origin preview frame, loaded by `lib/runtime` (`host-browser.mjs` `ensureLibrary`) | a laid-out DOM, the deck's fonts, `mermaid.initialize` per palette | no DOM, `font-src data:` only |
+| function-plot | the same frame, same loader | a laid-out DOM, d3, `getBoundingClientRect`, and `'unsafe-eval'` (it compiles each expression, as `lib/export/locked-figures.js` says) | no DOM, no `'unsafe-eval'` |
+
+Three facts follow, and each one collides with a line of the brief ("no new frame kind"; "math fits as it is"):
+
+1. **Math is synchronous in the engine and the pool is not.** `math.render.js` calls KaTeX inside `render()`; a frame answers by `postMessage`. Moving math into the pool means a two-pass render (the engine leaves a placeholder, the door fills it), as the fence door does, and the engine's display-math reflow (`data-math-reflow`) reads the typeset. That is a change to the engine's math path, not a change to the door.
+2. **Mermaid and function-plot cannot run in a worker.** They need the frame's own document: a second document in the pool (same `sandbox="allow-scripts"`, no `allow-same-origin`, the library inlined and named by hash, about 3 MB for Mermaid). That is a new frame kind in the sense of a new document, though not a new boundary.
+3. **function-plot cannot run under `sandboxCsp`.** Its sibling document needs `'unsafe-eval'`, as the CLI's locked page already grants it. Whether that loosens "the frame's policy" is the owner's call.
+
+An alternative for math alone that keeps `render()` synchronous and starts no browser: load the CLI's QuickJS-in-WebAssembly wall (`lib/core/katex-wall.js`) in the page. It needs a browser loader for the wasm (the file uses `fs` today) and an awaited load before `render()`, which `ensure-katex.ts` already does for the KaTeX script. It is byte-identical to the CLI and walls the library, but it is not the existing pool, which D-B decided.
+
+**Not built in this session.** The owner was away and D-B is a decided item whose premise these facts change, so the build waits on the ❓ card (`followups.d/2800-p1-preview-sandbox-pool-fork.md`).
+
