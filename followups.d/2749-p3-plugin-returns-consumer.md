@@ -16,9 +16,15 @@ why now   — the returns channel is built and checked in both doors, but nothin
             plugin's sheet "for a later step" (`asset-bundle.ts`). Markdown values are never rendered, although owner
             decision 11 says the host renders them; `renderReturnMarkdown` has no caller. Found by the inversion review.
 where     — lib/packages/plugin-returns.mjs `renderReturnMarkdown`; lattice.js (plugin styles); docs/src/components/studio/asset-bundle.ts.
-done when — the owner has picked the surface (recommended: the host fills a named slot the plugin's own fragment
-            leaves, `<lattice-value name="summary">`, with the rendered markdown or the text, through the slide
-            sanitizer), and a plugin's `styles.css` reaches every export through `sanitizeStyleText` (HARD RULE #22).
+decided   — HOST SLOTS (owner, 2026-10-20): "host slots for d3 ( i am thinking `${ket}` gets replaced)". The plugin's
+            drawing holds `${key}` where a returned field should show, and the host swaps in the checked value: a
+            text, word, number or flag value as plain text (so `<b>` shows literally), a markdown value as the
+            host's own rendered, sanitized HTML. Default unless the owner says otherwise: a placeholder works in
+            visible text only, never inside an attribute such as `href` or `style`, so a returned value cannot
+            become a link or a style.
+done when — `${key}` slots are filled on every surface (CLI and Studio) with the rule above; a `${name}` that is
+            not a declared field stays as written; and a plugin's `styles.css` reaches every export through
+            `sanitizeStyleText` (HARD RULE #22).
 evidence  — a demo deck (HARD RULE #9) whose plugin shows a word as a styled badge and a markdown value as a table,
             rendered dark and light.
 verify    — maker-checker; the adversarial trio if the slot adds a new markup sink.
