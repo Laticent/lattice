@@ -18,7 +18,10 @@ const DECK = '---\ntheme: indaco\n---\n\n## A plot\n\n```functionplot\n{ "data":
 // frame are skipped, so one build gives both sides of a before and after (screenshots, latency) without a second checkout.
 const baseline = !!process.env.LATTICE_NO_DRAW_HOST;
 
-test('function-plot draws in the preview through a sandboxed draw frame, and its library never loads into the deck page @smoke', async ({ page }) => {
+// All three engines, as plugin-slots.spec.ts runs them: `@gecko` runs on the desktop (Chromium) project and the gecko one;
+// the `@webkit-tablet` twin runs on WebKit. A sandboxed srcdoc frame, its CSP and postMessage are engine behavior.
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+test(`function-plot draws in the preview through a sandboxed draw frame, and its library never loads into the deck page @smoke${tag}`, async ({ page, browserName }) => {
 	const evidence = process.env.LATTICE_EVIDENCE_DIR;
 	if (baseline) await page.addInitScript(() => Object.defineProperty(window, '__latticeDrawHost', { value: null, writable: false, configurable: false }));
 	const loaded: string[] = [];
@@ -84,6 +87,7 @@ test('function-plot draws in the preview through a sandboxed draw frame, and its
 				{ timeout: 15_000, intervals: [300] },
 			)
 			.toBe(true);
-		if (evidence) await page.screenshot({ path: `${evidence}/draw-frame-plot${baseline ? '-baseline' : ''}-${width}.png` });
+		if (evidence) await page.screenshot({ path: `${evidence}/draw-frame-plot${baseline ? '-baseline' : ''}-${browserName}-${width}.png` });
 	}
 });
+}
