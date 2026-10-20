@@ -43,6 +43,10 @@ test('kernel: the backing is a 0–100% level — four names, and every other 5%
   const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
   const levels = IMAGE_CARD_REGISTER.AXES.find((a) => a.axis === 'backing').tokens.filter((t) => /^card-o\d+$/.test(t));
   assert.equal(levels.length, 17, 'every 5% step from 5 to 95 except the two a name already holds');
+  // A level class written FIRST in `_class` has no space before it in the class attribute, so the
+  // translucent-card rules match it twice over: `^=` for the first class, `*=" "` for the rest.
+  assert.ok(css.includes('[class^="card-o"], [class*=" card-o"]'), 'the hairline rule matches a card-o class in any position');
+  assert.ok(css.includes(':not([class^="card-o"]):not([class*=" card-o"])'), 'the solid-card text-shadow rule excludes it in any position');
   for (const t of levels) {
     const pct = Number(t.slice('card-o'.length));
     assert.ok(css.includes(`.${t} { --_card-mix: ${pct}%; --_card-alpha: ${pct / 100}; }`), `image.styles.css paints ${t}`);

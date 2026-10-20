@@ -673,6 +673,12 @@ section.image:is([data-img-composition="spotlight"], [data-img-composition="stat
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text > :not(h2) {
   grid-column: 2; padding-top: 0; max-width: none;
 }
+/* A one-element body (the usual case) shares row 1 with the heading, so `align-items: center` lines
+ * the two up whichever is taller. A longer body (a paragraph and a list) keeps the heading spanning
+ * its rows instead, so the body's own rows stay as tall as their content. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> :not(h2) ~ :not(h2))) > * {
+  grid-row: 1;
+}
 /* No heading, or no body: one column, not a half-empty strip. */
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> h2)),
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> :not(h2))) {
@@ -759,7 +765,7 @@ section.image:is([data-img-composition="spotlight"], [data-img-composition="stat
 /* The hard lift is a shadow UNDER an opaque card; under a see-through one it
  * shows through as a gray slab. Only the solid card keeps it, and a clear card
  * drops the hairline too, since it has no edge left to draw. */
-section.image[data-img-composition="spotlight"]:is(.card-soft, .card-sheer, [class*=" card-o"]) .image-text { box-shadow: var(--img-hairline); }
+section.image[data-img-composition="spotlight"]:is(.card-soft, .card-sheer, [class^="card-o"], [class*=" card-o"]) .image-text { box-shadow: var(--img-hairline); }
 section.image[data-img-composition="spotlight"].card-clear .image-text { box-shadow: none; }
 
 /* ── Ink ── */
@@ -788,7 +794,7 @@ section.image[data-img-composition="spotlight"]:is(.ink-light, .ink-dark) .image
 }
 /* On spotlight's solid card the words sit on an opaque panel, so they need no
  * shadow; the shadow is for a backing the photo shows through. */
-section.image[data-img-composition="spotlight"]:not(.card-soft):not(.card-sheer):not(.card-clear):not([class*=" card-o"]) { --_card-shadow: none; }
+section.image[data-img-composition="spotlight"]:not(.card-soft):not(.card-sheer):not(.card-clear):not([class^="card-o"]):not([class*=" card-o"]) { --_card-shadow: none; }
 
 /* ── Size ── `card-md` restates the default. Width steps in landscape only (a
  * portrait card is already full width); padding and type step everywhere. */
