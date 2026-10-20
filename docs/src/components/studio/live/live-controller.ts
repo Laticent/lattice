@@ -14,7 +14,7 @@ import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LivePerson, type LivePointer, type LivePointerSource, type LiveShare, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -164,6 +164,8 @@ type Post =
 	| { k: 'tip'; seq: number; startedAt: number; look?: LiveLook }
 	| { k: 'typing' }
 	| { k: 'bye' }
+	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
+	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string }
 	/** a member's pointer over the slide it is on, in the slide's coordinates; `off` when it left the slide */
 	| { k: 'ptr'; s?: number; x?: number; y?: number; c?: 1; off?: 1 }
 	/** host → member: the Library records the deck uses that the host shares (themes, finish recipes,
@@ -255,6 +257,14 @@ const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, pre
 const POINTER_EVERY_MS = 100;
 const POINTER_MIN_GAP_MS = 30;
 const POINTER_IDLE_MS = 6000;
+/** A presentation started this soon after the last one is not obeyed: a host toggling fast moves nobody. */
+const PRESENT_RESTART_MS = 2000;
+/** A transport as a host sent it, or null. */
+const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown }): LiveTransport | null => {
+	const ok = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 10_000;
+	if (!ok(p.i) || !ok(p.p) || typeof p.l !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(p.l)) return null;
+	return { idx: p.i, page: p.p, lens: p.l };
+};
 /** A click is drawn at most this often per member; a flood of clicks is dropped like a flood of moves. */
 const POINTER_CLICK_GAP_MS = 150;
 /** No deck has this many slides; a pointer naming a slide past it is dropped. */
@@ -454,6 +464,13 @@ export class LiveController {
 	 *  carried in the host save, and taken by a member only from the current host's `tip`. A member
 	 *  that takes over keeps the one it holds, so a takeover never re-skins anyone's deck. */
 	private look: LiveLook | null = null;
+	/** Present together (§7.2). Host: whether it presents to everyone, and where its Present is. Member: the
+	 *  host's presentation it follows, and when the last one started (a host toggling fast is not obeyed). */
+	private presentingToAll = false;
+	private transport: LiveTransport = { idx: 0, page: 0, lens: 'full' };
+	private roomPresent: LivePresent | null = null;
+	private roomPresentHost: string | null = null;
+	private roomPresentAt = 0;
 	/** Pointers: the others', by peer, and who wants them (the overlay, outside React's render). */
 	private pointers = new Map<string, LivePointer & { at: number }>();
 	private pointerSubs = new Set<(p: LivePointer[]) => void>();
@@ -798,6 +815,8 @@ export class LiveController {
 								// The records first: a look naming a shared theme is taken only once its record is here.
 								this.sendRecords(to);
 								this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, to);
+								// A presentation in progress: the newcomer joins it where it is.
+								if (this.presentingToAll) this.post({ k: 'present', on: true, i: this.transport.idx, p: this.transport.page, l: this.transport.lens }, to);
 							}, 400);
 						}
 						// A newcomer learns whether our microphone is on (who is speaking it measures itself).
@@ -879,6 +898,12 @@ export class LiveController {
 				if (s.isHost && s.heir !== prev.heir) this.sentSids = '';
 				if (s.isHost) this.sendSids();
 				if (prev.stage !== s.stage) this.onStage(prev.stage, s);
+				// The presenter is no longer the host (it dropped and someone took over): its presentation is over.
+				if (this.roomPresentHost && !s.members.some((m) => m.id === this.roomPresentHost && m.role === 'host')) {
+					this.roomPresent = null;
+					this.roomPresentHost = null;
+					this.host.closeRoomPresent?.();
+				}
 				prev = s;
 				this.saveHostSoon();
 				this.host.rerender();
@@ -1011,6 +1036,11 @@ export class LiveController {
 		this.pointerLater = null;
 		this.pointerNext = null;
 		this.followedDoing = null;
+		if (this.roomPresent) this.host.closeRoomPresent?.();
+		this.presentingToAll = false;
+		this.roomPresent = null;
+		this.roomPresentHost = null;
+		this.transport = { idx: 0, page: 0, lens: 'full' };
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -1259,6 +1289,10 @@ export class LiveController {
 		this.lastSelfId = mine;
 		this.sidOwner = new Map(this.heirSids.map(([sid, owner]): [string, string] => [sid, owner === mine ? 'host' : owner]));
 		this.heirSids = [];
+		// The presentation was the old host's: it has stopped.
+		if (this.roomPresent) this.host.closeRoomPresent?.();
+		this.roomPresent = null;
+		this.roomPresentHost = null;
 		// The heir relays the records it received; none of its OWN until it agrees to each (§6 rule 6).
 		this.shared = new Set();
 		this.asked = new Set();
@@ -1281,6 +1315,7 @@ export class LiveController {
 	 *  Rejoin it as a member and hand the chat back. A reload now rejoins by link and token, in this
 	 *  same deck, instead of resuming as host. */
 	private onSteppedDown(r: Runtime) {
+		this.presentingToAll = false;
 		r.release?.();
 		r.release = null;
 		r.key = null;
@@ -1874,6 +1909,32 @@ export class LiveController {
 		this.emitPointers();
 	}
 
+	/** Member: the host presents to everyone, moves, or stops. Joining is automatic for someone idle; someone
+	 *  typing is asked (nobody is moved while typing). A Present the room opened closes when it stops. */
+	private takePresent(p: Extract<Post, { k: 'present' }>, from: string, name: string, r: Runtime) {
+		if (!p.on) {
+			if (!this.roomPresent) return;
+			this.roomPresent = null;
+			this.roomPresentHost = null;
+			this.host.closeRoomPresent?.();
+			this.host.notify(`${name} stopped presenting.`);
+			this.host.rerender();
+			return;
+		}
+		const t = cleanTransport(p);
+		if (!t) return;
+		const starting = !this.roomPresent || this.roomPresentHost !== from;
+		if (starting && Date.now() - this.roomPresentAt < PRESENT_RESTART_MS) return;
+		this.roomPresent = { ...t, by: name };
+		this.roomPresentHost = from;
+		if (starting) {
+			this.roomPresentAt = Date.now();
+			if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) this.host.notifyAction(`${name} is presenting to everyone`, { label: 'Join', onClick: () => this.roomPresent && this.host.openRoomPresent?.() });
+			else this.host.openRoomPresent?.();
+		}
+		this.host.rerender();
+	}
+
 	/** A post from an admitted member (Tavola dropped everyone else's). */
 	private onPost(data: Uint8Array, from: string) {
 		const r = this.rt;
@@ -1963,6 +2024,8 @@ export class LiveController {
 				// Kept whether or not we know yet that we are the heir: it can arrive before the roster.
 				this.takeLook(p.look);
 				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
+			} else if (p.k === 'present' && typeof p.on === 'boolean') {
+				this.takePresent(p, from, sender.name, r);
 			} else if (p.k === 'records') {
 				void this.takeRecords(p, r, sender.name);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
@@ -2012,6 +2075,8 @@ export class LiveController {
 			canChat: s.me?.role !== 'view',
 			typing,
 			unshared: this.unshared(),
+			presentingToAll: s.isHost && this.presentingToAll,
+			present: s.isHost ? null : this.roomPresent,
 		};
 	}
 
@@ -2075,6 +2140,20 @@ export class LiveController {
 
 	readonly actions: LiveActions = {
 		shareRecord: (key: string) => this.shareRecord(key),
+		presentToEveryone: (on: boolean) => {
+			const s = this.rt?.session.getState();
+			if (!s?.isHost || s.stage !== 'live' || on === this.presentingToAll) return;
+			this.presentingToAll = on;
+			this.post(on ? { k: 'present', on: true, i: this.transport.idx, p: this.transport.page, l: this.transport.lens } : { k: 'present', on: false });
+			this.host.rerender();
+		},
+		presentTransport: (t: LiveTransport) => {
+			const clean = cleanTransport({ i: t.idx, p: t.page, l: t.lens });
+			if (!clean) return;
+			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens;
+			this.transport = clean;
+			if (!same && this.presentingToAll && this.rt?.session.getState().isHost) this.post({ k: 'present', on: true, i: clean.idx, p: clean.page, l: clean.lens });
+		},
 		start: (name: string) => {
 			const n = name.trim() || 'Host';
 			saveName(n);

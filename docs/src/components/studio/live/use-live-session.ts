@@ -34,6 +34,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				openSharedDeck: (o) => depsRef.current.openSharedDeck(o),
 				followDoing: (d) => depsRef.current.followDoing?.(d),
 				canFollowDoing: () => depsRef.current.canFollowDoing?.() ?? false,
+				openRoomPresent: () => depsRef.current.openRoomPresent?.(),
+				closeRoomPresent: () => depsRef.current.closeRoomPresent?.(),
 				notify: (m) => notify(m),
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,
@@ -96,6 +98,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 	const actions: LiveActions = ctl?.actions ?? {
 		start: (name) => void ensure().then((c) => c.actions.start(name), NOOP),
 		shareRecord: NOOP,
+		presentToEveryone: NOOP,
+		presentTransport: NOOP,
 		copyLink: () => Promise.resolve(false),
 		setLinkRole: NOOP,
 		setAutoAdmit: NOOP,

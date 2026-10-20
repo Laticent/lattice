@@ -62,6 +62,9 @@ export type LiveHost = {
 	followDoing?: (d: { panel: 'coach' | 'lenses' | 'library' | 'live' | null; view: 'compose' | 'fabricate' | 'article' }) => void;
 	/** Whether this shell mirrors a panel and view at its current width (a phone or tablet does not). */
 	canFollowDoing?: () => boolean;
+	/** Present together (§7.2): open Present following the presenter, or close a Present the room opened. */
+	openRoomPresent?: () => void;
+	closeRoomPresent?: () => void;
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */

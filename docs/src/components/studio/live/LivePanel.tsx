@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, Share2, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Presentation, Server, Share2, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
@@ -554,6 +554,7 @@ function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActi
 				<DropdownMenuContent align="end" className="w-52">
 					<DropdownMenuItem onSelect={() => void actions.copyLink()}><Link2 className="size-4" /> Copy invite link</DropdownMenuItem>
 					{view.isHost && <DropdownMenuItem onSelect={actions.bringEveryone}><Eye className="size-4" /> Bring everyone to my slide</DropdownMenuItem>}
+					{view.isHost && <DropdownMenuItem onSelect={() => actions.presentToEveryone(!view.presentingToAll)} data-live-present-all><Presentation className="size-4" /> {view.presentingToAll ? 'Stop presenting to everyone' : 'Present to everyone'}</DropdownMenuItem>}
 					<DropdownMenuSeparator />
 					<DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
 						<LogOut className="size-4" /> {ending ? 'End session for everyone…' : 'Leave session…'}

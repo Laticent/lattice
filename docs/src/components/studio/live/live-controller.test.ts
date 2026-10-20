@@ -1185,3 +1185,83 @@ describe('LiveController: activity, Follow and pointers', () => {
 		off();
 	});
 });
+
+// Present together (2026-10-20-live-uniform-experience.md §5.5, §7.2).
+describe('LiveController: present together', () => {
+	async function member(h: Ctl, name: string) {
+		const sh = shell();
+		const opened: string[] = [];
+		const asks: string[] = [];
+		sh.host.openRoomPresent = () => opened.push('open');
+		sh.host.closeRoomPresent = () => opened.push('close');
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps(`${name}-deck`));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName(name);
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		return { g, opened, asks };
+	}
+
+	it('the host presents to everyone: an idle member opens Present where the host is, follows it, and closes with it', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
+		h.actions.presentToEveryone(true);
+		await until(() => opened.includes('open') && g.view().present?.idx === 2, h, g);
+		expect(g.view().present).toEqual({ idx: 2, page: 0, lens: 'full', by: 'Sharmarke' });
+		h.actions.presentTransport({ idx: 3, page: 1, lens: 'full' });
+		await until(() => g.view().present?.idx === 3 && g.view().present?.page === 1, h, g);
+		h.actions.presentToEveryone(false);
+		await until(() => opened.includes('close') && g.view().present === null, h, g);
+	});
+
+	it('a member who is typing is asked to join instead of being moved', async () => {
+		const { h } = await hostSession();
+		const { g, opened, asks } = await member(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.actions.presentToEveryone(true);
+		await until(() => asks.some((a) => a.includes('presenting to everyone')), h, g);
+		expect(opened).toEqual([]);
+	});
+
+	it('a member cannot present to everyone, and a forged present from a member moves nobody', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await member(h, 'Amina');
+		const { g: b, opened } = await member(h, 'Bo');
+		a.actions.presentToEveryone(true);
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a room event.
+		(a as any).post({ k: 'present', on: true, i: 0, p: 0, l: 'full' });
+		await settle(h, a, b);
+		expect(opened).toEqual([]);
+		expect(b.view().present).toBeNull();
+	});
+
+	it('someone who joins during a presentation joins it where it is', async () => {
+		const { h } = await hostSession();
+		h.actions.presentTransport({ idx: 4, page: 0, lens: 'full' });
+		h.actions.presentToEveryone(true);
+		const { g, opened } = await member(h, 'Amina');
+		await until(() => opened.includes('open') && g.view().present?.idx === 4, h, g);
+	});
+
+	it('a malformed transport is dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentToEveryone(true);
+		await until(() => g.view().present !== null, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the host sending a slide past any deck and a lens with markup.
+		(h as any).post({ k: 'present', on: true, i: 1e9, p: 0, l: '<img>' });
+		await settle(h, g);
+		expect(g.view().present?.idx).toBe(0);
+	});
+});
+

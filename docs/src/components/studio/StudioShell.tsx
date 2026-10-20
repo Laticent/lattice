@@ -755,6 +755,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// popup window when the Stage is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
 	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
+	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
+	const [presentByRoom, setPresentByRoom] = React.useState(false);
+	const presentByRoomRef = React.useRef(false);
+	presentByRoomRef.current = presentByRoom;
 	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
 	// PresentOverlay is React.lazy below. `presentEverOpened` latches true once PresentOverlay
 	// has actually MOUNTED (via its `onReady` callback below) and never resets, so from then on
@@ -3815,6 +3819,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		presenting: presentOpen,
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
+		openRoomPresent: () => {
+			setPresentByRoom(true);
+			setPresentOpen(true);
+		},
+		closeRoomPresent: () => {
+			if (presentByRoomRef.current) setPresentOpen(false);
+			setPresentByRoom(false);
+		},
 		followDoing: (d) => {
 			if (!desktop) return;
 			if (d.panel) revealCraftDock();
@@ -3842,6 +3854,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		setSessionLook((was) => (was?.palette === liveLook?.palette && was?.mode === liveLook?.mode ? was : liveLook));
 	}, [liveLook]);
+	// Present together (§7.2): the host's Present reports where it is while presenting to everyone, and
+	// opens when that starts; a member's Present opened by the room follows the presenter.
+	const livePresentingToAll = live.view.presentingToAll;
+	React.useEffect(() => {
+		if (livePresentingToAll) setPresentOpen(true);
+	}, [livePresentingToAll]);
+	const liveForPresent = React.useMemo(
+		() =>
+			live.view.status === 'live'
+				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), follow: presentByRoom ? live.view.present : null, inertKeys: presentByRoom }
+				: undefined,
+		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom],
+	);
 	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
 	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
 	const openLive = () => {
@@ -7150,7 +7175,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</button>
 					}
 				>
-					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
+					<PresentOverlay open={presentOpen} onClose={() => { setPresentOpen(false); setPresentByRoom(false); if (live.view.presentingToAll) live.actions.presentToEveryone(false); }} live={liveForPresent} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
 				</React.Suspense>
 			)}
 			{cmdPalette}

@@ -123,7 +123,15 @@ export type LiveView = {
 	 *  Share button (2026-10-20-live-uniform-experience.md §6 rule 6). It stays until shared, so a
 	 *  missed prompt is never a silent difference between screens. */
 	unshared: LiveUnshared[];
+	/** Host: it is presenting to everyone. Member: who presents to everyone and where they are, or null. */
+	presentingToAll: boolean;
+	present: LivePresent | null;
 };
+
+/** Where the presenter is in Present (§7.2): the rendered slide in their lens, the page of a split slide,
+ *  and the lens. Every member renders the same deck, so the same index is the same slide. */
+export type LiveTransport = { idx: number; page: number; lens: string };
+export type LivePresent = LiveTransport & { by: string };
 
 /** One of the host's records the others do not have: a theme, a finish, a custom component, or the
  *  host's saved site palette offered as the session's look. `tooLarge` cannot be shared. */
@@ -133,6 +141,10 @@ export type LiveActions = {
 	start: (name: string) => void;
 	/** Host: share one of its records (a `LiveUnshared` key) with the session. */
 	shareRecord: (key: string) => void;
+	/** Host: start or stop presenting to everyone. */
+	presentToEveryone: (on: boolean) => void;
+	/** Host, presenting to everyone: where its Present is now. */
+	presentTransport: (t: LiveTransport) => void;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;
@@ -210,6 +222,8 @@ export const IDLE_VIEW: LiveView = {
 	canChat: true,
 	typing: [],
 	unshared: [],
+	presentingToAll: false,
+	present: null,
 };
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a

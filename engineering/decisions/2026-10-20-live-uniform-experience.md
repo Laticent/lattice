@@ -337,6 +337,22 @@ tap). A Present opened by a room event shows captions at once and a "Tap to list
 authored-chunk index and drifts on heading-split decks, so a transport keyed by slide index would
 put members on the wrong slide until 2704 lands.
 
+**Slice 3, step 1 as built (2026-10-20): Present together, without narration yet.** The transport is
+Present's own position (the rendered slide in its lens, the page of a split slide, the lens), not the
+editor's chunk index, so it does not wait on `2704-p2-present-follows-the-hub.md`: every member renders the
+same deck, so the same Present index is the same slide. The host's "Present to everyone" (the Live panel's
+session menu) opens its Present, which reports each move (`presentTransport`); the controller posts a
+`present` room event to everyone and a snapshot to anyone admitted meanwhile. A member takes it only from the
+host, through `cleanTransport` (slide and page 0..10,000, a lens id of word characters), and ignores a
+restart within 2 s. An idle member's Studio opens Present following it; a member typing in the editor or
+another field gets "Sharmarke is presenting to everyone · Join". A Present the room opened blurs the editor
+and ignores every key but Escape until the member clicks into it. Any move of the member's own detaches them,
+with a "Rejoin" chip; the host's Stop, the host leaving Present, or a change of host closes the room's
+Present. Measured on two real headless Chromium browsers: the guest's Present opened at the host's 1 / 7,
+followed to 3 / 7, ignored an arrow key before a click, went to 4 / 7 on its own with "Rejoin" shown,
+rejoined at 3 / 7, and closed when the host stopped. Narration (§7.3) is the next step; until then a member
+follows with Present's silent caption cadence under their own control.
+
 ### 7.3 Narration — the presenter's voice, made once
 
 - **Made once, on the presenter's key.** Lattice is bring-your-own-key, so a member without a key
