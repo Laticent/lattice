@@ -706,6 +706,26 @@ describe('markdown-it-plugins', () => {
     assert.equal(pathedSrc[1], '../brand/mark.svg');
   });
 
+  test('applyDeckLogoToHtml: `logo-at` stamps the section attribute and moves the mark by frame inset', () => {
+    const html = logoFixture('<section id="1" data-lattice-slide="1"></section>');
+    const at = (v) => plugins.applyDeckLogoToHtml(html, `---\nlogo: ./acme.svg\nlogo-at: ${v}\n---\n`);
+    const bl = at('bottom-left');
+    assert.match(bl, /data-logo-at="bottom-left"/);
+    assert.match(bl, /--logo-bottom:var\(--frame-inset-y\)/);
+    assert.match(bl, /--logo-x:var\(--frame-inset-x\)/);
+    assert.match(at('top-center'), /--logo-nudge:translateX\(-50%\)/);
+    // the default berth moves nothing but still stamps the attribute (chrome stands down)
+    const tr = at('top-right');
+    assert.match(tr, /data-logo-at="top-right"/);
+    assert.doesNotMatch(tr, /--logo-x/);
+    // an unknown value is dropped, never interpolated
+    assert.doesNotMatch(at('"><script>'), /data-logo-at/);
+    // a free x/y pair still wins the position; the anchor only decides what stands down
+    const both = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-at: bottom-right\nlogo-x: 30\nlogo-y: 40\n---\n');
+    assert.ok(both.indexOf('--logo-y:40%') > both.indexOf('--logo-y:auto'), 'free y must come after the anchor');
+    assert.match(both, /--logo-bottom:auto;--logo-nudge/);
+  });
+
   test('applyDeckLogoToHtml: `logo:` with default `logo-on: all` injects <img class="deck-logo"> into every section', () => {
     const html = logoFixture([
       '<section id="1" data-lattice-slide="1"></section>',

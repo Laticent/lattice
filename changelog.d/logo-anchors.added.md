@@ -1,0 +1,1 @@
+- `logo-at:` puts the deck logo in any of six berths: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right. The header, footer or page number in that band stands down, so the logo never overlaps chrome. A deck without `logo-at:` renders as before.

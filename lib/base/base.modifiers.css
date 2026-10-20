@@ -2944,6 +2944,7 @@ img.deck-logo {
    * logo centers on its point instead of hugging the corner. All defaults reproduce
    * the original placement, so untouched decks are unchanged. */
   top: var(--logo-y, var(--frame-inset-y));
+  bottom: var(--logo-bottom, auto);
   right: var(--logo-anchor-right, var(--frame-inset-x));
   left: var(--logo-x, auto);
   width: calc(6.25cqi * var(--logo-scale, 1));
@@ -2976,6 +2977,30 @@ img.deck-logo {
   opacity: var(--deck-logo-opacity, 0.4);
   filter: var(--deck-logo-filter, grayscale(1) brightness(0.4) contrast(1.2));
 }
+
+/* ── THE LOGO IS SUPREME: an explicit `logo-at` clears the chrome in its band ──────────
+ * The author chose a berth for the brand, so whatever else lives there gives way — no overlap
+ * to de-collide, no reserve to size. The band decides what stands down:
+ *   top-*           → the running header and the meta tile
+ *   bottom-left,
+ *   bottom-center   → the footer (it spans the whole bottom edge)
+ *   bottom-right    → the page number and the progress rail (the footer keeps its text)
+ * Only an EXPLICIT anchor does this; a deck with no `logo-at` keeps header and logo together
+ * exactly as before. Keyed on the SECTION attribute the injectors write (`data-logo-at`). */
+/* `.form` is in every selector below to out-rank the show rules in stage.css
+ * (`section.form > .cell-footer > footer`, (0,2,2)); the legacy direct-child footer is the
+ * second selector of each pair. Same reach `no-footer` / `no-paginate` use. */
+section[data-logo-at^='top'] > header,
+section.form[data-logo-at^='top'] .tile-meta,
+section[data-logo-at='bottom-left'] > footer,
+section[data-logo-at='bottom-center'] > footer,
+section.form[data-logo-at='bottom-left'] > .cell-footer > footer,
+section.form[data-logo-at='bottom-center'] > .cell-footer > footer,
+section.form[data-logo-at='bottom-right'] .lat-pagination,
+section.form[data-logo-at='bottom-right'] .tile-progress {
+  display: none;
+}
+section[data-logo-at='bottom-right'][data-logo-at]::after { content: none; }
 
 /* `deck-logo-brand` — keep the logo's original colors on a soft
  * plate. The plate uses the theme's surface token so it harmonises

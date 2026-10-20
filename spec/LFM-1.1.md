@@ -131,6 +131,7 @@ specify them, and `split:` and `preset:` have none.
 | Key | Value | What it sets | Rule |
 |---|---|---|---|
 | `logo:` | a path or URL | The deck's logo on every slide. | — |
+| `logo-at:` | `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right` | The berth the logo sits in. The header, footer or page number in that band stands down. | `unknown-logo-at` |
 | `plugins:` | a list of plugin names | The plugins the deck needs loaded. It only adds: a renderer that loads more by default still does. | `unknown-plugin` |
 
 **Delivery** keys change no rendered pixel. They tell a self-presenting player how to

@@ -1516,6 +1516,7 @@ One canvas is genuinely unanswerable, and one is not:
 logo: lattice                     # a built-in name, or a path / URL of your own
 logo-style: auto | brand          # optional, default `auto`
 logo-on: all | title              # optional, default `all`
+logo-at: top-left | top-center | top-right | bottom-left | bottom-center | bottom-right   # optional; the chrome in that band stands down
 ---
 ```
 
