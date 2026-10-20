@@ -32,6 +32,7 @@ import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
+import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
@@ -763,6 +764,19 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<TabIntro>The text card over the photo. It moves on <code>spotlight</code> and <code>statement</code>, the two layouts that float the words over the picture. Auto follows the deck's Image settings.</TabIntro>
 							{IMAGE_CARD_ROWS.map((row) => {
 								const p = imageCard[row.axis];
+								if (row.axis === 'backing') {
+									return (
+										<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
+											<CardBackingControl
+												ariaLabel={`Slide ${row.label.toLowerCase()}`}
+												word={p.state === 'on' ? p.value : undefined}
+												inheritedWord={p.deckValue}
+												autoLabel={p.deckValue ? `Auto: ${imageCardOptionLabel(p.deckValue)}` : `Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
+												onChange={(w) => onImageCard('backing', w ?? '__inherit__')}
+											/>
+										</Row>
+									);
+								}
 								return (
 									<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
 										<CatalogSelect

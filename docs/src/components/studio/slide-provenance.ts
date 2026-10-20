@@ -564,7 +564,11 @@ export const IMAGE_CARD_AXES = {
 		'bottom-left': 'at-bl', bottom: 'at-bottom', 'bottom-right': 'at-br', center: 'at-center',
 		'top-left': 'at-tl', top: 'at-top', 'top-right': 'at-tr',
 	},
-	backing: { solid: 'card-solid', soft: 'card-soft', sheer: 'card-sheer', clear: 'card-clear' },
+	// The four named levels, then every other 5% step as a percent word (`65%` → `card-o65`).
+	backing: {
+		solid: 'card-solid', soft: 'card-soft', sheer: 'card-sheer', clear: 'card-clear',
+		...Object.fromEntries([5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 65, 70, 75, 85, 90, 95].map((n) => [`${n}%`, `card-o${n}`])),
+	},
 	ink: { light: 'ink-light', dark: 'ink-dark' },
 	size: { md: 'card-md', sm: 'card-sm', lg: 'card-lg' },
 	density: { regular: 'card-regular', compact: 'compact' },

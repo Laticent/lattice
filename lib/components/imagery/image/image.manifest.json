@@ -26,7 +26,7 @@
     "pitch"
   ],
   "description": "Image as the slide's anchor, with optional text alongside — composition adapts to the asset and the deck.",
-  "purpose": "Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`), shape (`band` stretches the card across the top or bottom edge) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).",
+  "purpose": "Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`, or any 5% step such as `card-o65`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`), shape (`band` stretches the card across the top or bottom edge) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).",
   "variants": [
     "clean",
     "split",
@@ -292,7 +292,7 @@
     },
     {
       "variant": "card-soft",
-      "useWhen": "On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), or drop it with `card-clear` when the photo is calm where the words land."
+      "useWhen": "On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), set an exact level with a 5% step (`card-o65` is 65%; the deck line writes `65%`), or drop it with `card-clear` when the photo is calm where the words land. A thin backing needs a matching `ink-light` or `ink-dark`."
     },
     {
       "variant": "ink-dark",
@@ -304,7 +304,7 @@
     },
     {
       "variant": "band",
-      "useWhen": "On `spotlight` or `statement`, the card covers something you want to see above or below it — add `band` to `at-top` or `at-bottom` to stretch the card across the slide in one short strip (heading left, text right) and leave the middle of the photo clear. On a corner or center placement `band` does nothing; `card-float` steps one slide out of a deck-wide `band`."
+      "useWhen": "On `spotlight` or `statement`, the card covers something you want to see above or below it — add `band` to `at-top` or `at-bottom` to stretch the card across the slide in one short strip (heading left, text right) and leave the middle of the photo clear, with a hairline in the gap between the two columns. On a corner or center placement `band` does nothing; `card-float` steps one slide out of a deck-wide `band`."
     }
   ],
   "showcase": {

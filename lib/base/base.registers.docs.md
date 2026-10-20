@@ -1087,7 +1087,7 @@ image-card: top-right soft sm compact
 | Axis | Deck value | Per-slide class | Effect |
 |---|---|---|---|
 | Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `at-tl` `at-top` `at-tr` `at-center` `at-bl` `at-bottom` `at-br` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
-| Backing | `solid` `soft` `sheer` `clear` | `card-solid` … | How much of what sits behind the words survives: spotlight's panel, statement's scrim. 100%, 80%, 55%, none. **Default `solid`** |
+| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `card-solid` … · `card-o5` … `card-o95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
 | Ink | `light` `dark` | `ink-light` `ink-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
 | Size | `sm` `md` `lg` | `card-sm` `card-md` `card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
 | Density | `regular` `compact` | `card-regular` `compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
@@ -1109,7 +1109,9 @@ leaving the axis out already means it.
 
 Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.
 
-In the Studio: Deck settings → **Image**, one control per axis; on an image slide, the slide
+**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `spectrum-trim:` (a quiet accent tint by default, the deck's spectrum under `on`) and a slide's own `spectrum-trim` class. `rule: none` drops them.
+
+In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 

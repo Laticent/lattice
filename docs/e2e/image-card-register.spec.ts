@@ -19,6 +19,15 @@ async function choose(page: Page, label: string, option: string): Promise<void> 
 	await page.getByRole('option', { name: option, exact: true }).click();
 }
 
+// The backing is a slider with the four names as chips (a ToggleGroup, so each chip is a radio).
+// `Card backing` / `Slide card backing` name the slider; the chips name themselves by level.
+function chip(page: Page, name: string) {
+	return page.getByRole('radio', { name, exact: true }).filter({ visible: true }).first();
+}
+function slider(page: Page, name: string) {
+	return page.getByRole('slider', { name }).filter({ visible: true }).first();
+}
+
 async function openSlideImageTab(page: Page): Promise<void> {
 	// At 390px the bottom bar's Settings opens both scopes behind a Slide | Deck switch.
 	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
@@ -31,20 +40,47 @@ async function openSlideImageTab(page: Page): Promise<void> {
 }
 
 for (const tag of ['', ' @webkit-tablet']) {
-	test(`deck settings: the Image tab writes one \`image-card:\` line from five selects${tag}`, async ({ page }) => {
+	test(`deck settings: the Image tab writes one \`image-card:\` line from its controls${tag}`, async ({ page }) => {
 		await openInspectorTab(page, 'image');
 		await choose(page, 'Card placement', 'Top right');
 		await expect.poll(() => persistedSource(page)).toContain('\\nimage-card: top-right\\n');
-		await choose(page, 'Card backing', 'Soft — 80%');
+		await chip(page, 'Soft, 80%').click();
 		await choose(page, 'Card size', 'Small');
 		await choose(page, 'Card density', 'Compact');
 		// The Studio writer may quote a value with a space; the engine unquotes it.
 		await expect.poll(() => persistedSource(page)).toMatch(/\\nimage-card: (\\"top-right soft sm compact\\"|top-right soft sm compact)\\n/);
 		// Every axis back to its default removes the key rather than writing an empty value.
-		for (const [label, head] of [['Card placement', 'Bottom left (default)'], ['Card backing', 'Solid (default)'], ['Card size', 'Medium (default)'], ['Card density', 'Regular (default)']]) {
+		for (const [label, head] of [['Card placement', 'Bottom left (default)'], ['Card size', 'Medium (default)'], ['Card density', 'Regular (default)']]) {
 			await choose(page, label, head);
 		}
+		await chip(page, 'Auto: Solid').click();
 		await expect.poll(() => persistedSource(page)).not.toContain('image-card:');
+	});
+
+	test(`deck settings: the backing slider writes a level, and a name snaps it${tag}`, async ({ page }) => {
+		await openInspectorTab(page, 'image');
+		await slider(page, 'Card backing').fill('65');
+		// The Studio writer quotes a value it cannot leave bare (`%`); the engine unquotes it.
+		await expect.poll(() => persistedSource(page)).toMatch(/\\nimage-card: (\\"65%\\"|65%)\\n/);
+		// 80 is the name `soft`, so the slider writes the name, and its chip lights.
+		await slider(page, 'Card backing').fill('80');
+		await expect.poll(() => persistedSource(page)).toContain('\\nimage-card: soft\\n');
+		await expect(chip(page, 'Soft, 80%')).toBeChecked();
+		await chip(page, 'Auto: Solid').click();
+		await expect.poll(() => persistedSource(page)).not.toContain('image-card:');
+	});
+
+	test(`slide settings: the backing slider writes a card-o class, and Auto follows the deck${tag}`, async ({ page }) => {
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: sheer\n---\n\n${SLIDE}`);
+		await openSlideImageTab(page);
+		await expect(chip(page, 'Auto: Sheer — 55%')).toBeChecked();
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		await chip(page, 'Clear, 0%').click();
+		await expect.poll(() => persistedSource(page)).toContain('card-clear');
+		await expect.poll(() => persistedSource(page)).not.toContain('card-o35');
+		await chip(page, 'Auto: Sheer — 55%').click();
+		await expect.poll(() => persistedSource(page)).not.toContain('card-clear');
 	});
 
 	test(`slide settings: the Image tab writes the card classes, and Auto follows the deck${tag}`, async ({ page }) => {
@@ -91,7 +127,7 @@ test('@crosswidth the deck and slide Image tabs in dark mode', async ({ page }, 
 	await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
 	await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right sheer light sm\n---\n\n${SLIDE}`);
 	await openInspectorTab(page, 'image');
-	await expect(page.getByRole('combobox', { name: 'Card backing' }).filter({ visible: true }).first()).toContainText('Sheer');
+	await expect(chip(page, 'Sheer, 55%')).toBeChecked();
 	await page.screenshot({ path: info.outputPath('image-card-deck-dark.png') });
 	await openSlideImageTab(page);
 	await expect(page.getByRole('combobox', { name: 'Slide card ink' }).filter({ visible: true }).first()).toContainText('Light words');
@@ -126,7 +162,7 @@ for (const [label, width, height] of [
 		const placement = page.getByRole('combobox', { name: 'Card placement' }).filter({ visible: true }).first();
 		await placement.scrollIntoViewIfNeeded();
 		await expect(placement).toContainText('Top right');
-		await expect(page.getByRole('combobox', { name: 'Card backing' }).filter({ visible: true }).first()).toContainText('Soft');
+		await expect(chip(page, 'Soft, 80%')).toBeChecked();
 		await expect(page.getByRole('combobox', { name: 'Card size' }).filter({ visible: true }).first()).toContainText('Small');
 		await page.screenshot({ path: info.outputPath(`image-card-deck-${label}.png`) });
 	});

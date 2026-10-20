@@ -35,6 +35,20 @@ test('kernel: words map to the classes the image CSS paints; order and case do n
   assert.deepEqual(imageCardClasses('bottom band soft'), ['at-bottom', 'card-soft', 'band']);
 });
 
+test('kernel: the backing is a 0–100% level — four names, and every other 5% step as `NN%`', () => {
+  assert.deepEqual(imageCardClasses('65% light'), ['card-o65', 'ink-light']);
+  assert.deepEqual(imageCardClasses('bottom band 5%'), ['at-bottom', 'card-o5', 'band']);
+  assert.equal(parseImageCard('65 soft').unknown[0], '65', 'a bare number is not a word; the percent sign is');
+  assert.equal(parseImageCard('55%').unknown[0], '55%', '55 and 80 are the names `sheer` and `soft`');
+  const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
+  const levels = IMAGE_CARD_REGISTER.AXES.find((a) => a.axis === 'backing').tokens.filter((t) => /^card-o\d+$/.test(t));
+  assert.equal(levels.length, 17, 'every 5% step from 5 to 95 except the two a name already holds');
+  for (const t of levels) {
+    const pct = Number(t.slice('card-o'.length));
+    assert.ok(css.includes(`.${t} { --_card-mix: ${pct}%; --_card-alpha: ${pct / 100}; }`), `image.styles.css paints ${t}`);
+  }
+});
+
 test('kernel: a deck `regular` stamps nothing; unknown and doubled words are reported, not stamped', () => {
   assert.deepEqual(imageCardClasses('regular'), [], 'no deck-wide compact is the same as regular');
   assert.deepEqual(imageCardClasses('float'), [], 'a deck `float` is the default shape, so it stamps nothing');
@@ -53,7 +67,8 @@ test('kernel: every class sits on exactly one axis, and every class is a declare
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.manifest.json'), 'utf8'));
   for (const t of IMAGE_CARD_TOKENS) {
     assert.ok(imageCardTokenAxis(t), t);
-    assert.ok(t === 'compact' || manifest.variants.includes(t), `${t} is not an image variant`);
+    // `card-o5` … `card-o95` are declared by VARIANT_DECL_IGNORE, not one by one (see check-ownership.js).
+    assert.ok(t === 'compact' || /^card-o\d+$/.test(t) || manifest.variants.includes(t), `${t} is not an image variant`);
   }
   const all = IMAGE_CARD_REGISTER.AXES.flatMap((a) => a.tokens);
   assert.equal(new Set(all).size, all.length, 'no class on two axes');
