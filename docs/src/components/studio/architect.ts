@@ -12,6 +12,8 @@ import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { notify } from '@/lib/notify';
+import { openSignInWindow, signIn } from '@/lib/sign-in';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -2018,13 +2020,36 @@ export async function architectAccount(): Promise<ORAccount | null> {
 	}
 }
 
-/** Start the OpenRouter one-click OAuth (PKCE) — navigates to the auth page. */
-export async function connectOpenRouter(): Promise<void> {
+/**
+ * Start the OpenRouter one-click OAuth (PKCE). OpenRouter's page opens in a popup and the
+ * code is exchanged here, so the Studio never leaves the screen (lib/sign-in.js). Resolves
+ * `true` once connected and `false` when the popup closed first; a code that arrives after
+ * that still connects, with the same toast. Where no popup can open, the page goes to
+ * OpenRouter and comes back with `?code=` (resumePendingAuth), and this never resolves.
+ *
+ * Callers must call this synchronously from the click: the popup opens before the first
+ * `await`, or the browser blocks it.
+ */
+export async function connectOpenRouter(): Promise<boolean> {
+	const popup = openSignInWindow();
 	const m = await architectModel();
-	if (!m) throw new Error('AI model unavailable in this environment.');
-	const callback = location.href.split('?')[0];
-	const url = await m.beginOpenRouterAuth(callback);
-	if (url) location.href = url;
+	if (!m) {
+		popup?.close();
+		throw new Error('AI model unavailable in this environment.');
+	}
+	const finish = async (back: string) => {
+		const code = new URL(back).searchParams.get('code');
+		if (!code) throw new Error('OpenRouter did not return a sign-in code.');
+		await m.resumeOpenRouterAuth(code);
+		notify('OpenRouter connected — the Architect can now edit your deck.');
+	};
+	const back = await signIn((callback) => m.beginOpenRouterAuth(callback), location.href.split('?')[0], {
+		popup,
+		onLate: (url) => { finish(url).catch((e) => notify(`Connect failed: ${(e as Error)?.message || 'try again'}`)); },
+	});
+	if (!back) return false;
+	await finish(back);
+	return true;
 }
 
 /** On return from OAuth (`?code=`), exchange the code and clean the URL. */

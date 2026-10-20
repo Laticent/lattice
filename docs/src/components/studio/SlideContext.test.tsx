@@ -16,7 +16,7 @@ beforeAll(() => loadAuthoring());
 // cloud-connected model (so the Generate button shows); a test flips it to offline.
 vi.mock('./architect', () => ({
 	generateDescription: vi.fn(),
-	connectOpenRouter: vi.fn(() => Promise.resolve()),
+	connectOpenRouter: vi.fn(() => Promise.resolve(true)),
 	useArchitectStatus: vi.fn(() => ({ openRouterReady: true })),
 }));
 const mockGenerate = vi.mocked(generateDescription);

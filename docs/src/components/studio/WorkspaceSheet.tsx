@@ -502,9 +502,12 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const connect = async () => {
 		setConnecting(true);
 		try {
-			await connectOpenRouter(); // navigates away to the OAuth page
+			// Opens OpenRouter in a popup and resolves when it is done or closed (or, where no
+			// popup can open, navigates away and never resolves).
+			await connectOpenRouter();
 		} catch (e) {
 			notify(`Connect failed: ${(e as Error)?.message || 'unavailable here'}`);
+		} finally {
 			setConnecting(false);
 		}
 	};
@@ -1043,7 +1046,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									</div>
 								) : (
 									<div>
-										<button type="button" onClick={connect} disabled={connecting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60"><Plug className="size-4" />{connecting ? 'Opening OpenRouter…' : 'Connect OpenRouter (one click)'}</button>
+										<button type="button" onClick={connect} disabled={connecting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60"><Plug className="size-4" />{connecting ? 'Signing in to OpenRouter…' : 'Connect OpenRouter (one click)'}</button>
 										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Connecting uses your own OpenRouter account (one-click OAuth — no key to paste). You then pick from 500+ models, defaulting to the latest Claude Sonnet. Or switch to On-device to run free &amp; private with no account.</p>
 									</div>
 								)

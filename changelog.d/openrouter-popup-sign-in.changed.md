@@ -1,0 +1,1 @@
+- Connect OpenRouter now signs in through a popup, so the Studio stays on screen and keeps its place. The Studio still sends the whole page to OpenRouter and back when the browser blocks the popup, and in an iOS home-screen app.

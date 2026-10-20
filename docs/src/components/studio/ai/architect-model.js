@@ -239,7 +239,7 @@ export function orPricePerM(raw) {
 // Studio bundle (#1773).
 
 // OpenRouter cloud backend — the { ready, complete } shape plus the OAuth methods
-// (beginAuth → redirect → completeAuth) and the catalog (listModels, with
+// (beginAuth → popup or redirect → completeAuth) and the catalog (listModels, with
 // per-million pricing) the settings picker reads. OpenAI-compatible streaming. The
 // deck text leaves the device → gated behind explicit consent in the UI before
 // connect() is ever offered.
@@ -338,8 +338,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
-    // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
-    // caller navigates there; OpenRouter returns to callbackUrl with ?code=.
+    // OAuth step 1: stash a PKCE verifier and return the sign-in URL. The caller opens
+    // it (a popup, or the page itself: lib/sign-in.js); OpenRouter returns to callbackUrl
+    // with ?code=.
     async beginAuth(callbackUrl) {
       const verifier = pkceVerifier();
       writeLS(OR_VERIFIER_LS, verifier);
@@ -977,9 +978,10 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     },
     setTier(name) { tierPref = name; emitChange(); },
     // OpenRouter cloud tier — one-click OAuth (PKCE), the user's own account.
-    // beginOpenRouterAuth() returns the URL to redirect to; the page navigates
-    // there. On return (?code=) the page calls resumeOpenRouterAuth(code), which
-    // exchanges the code for a key — OpenRouter is then the active cloud backend.
+    // beginOpenRouterAuth() returns the sign-in URL; the page opens it in a popup (or
+    // navigates there when it cannot). With the returned ?code= the page calls
+    // resumeOpenRouterAuth(code), which exchanges the code for a key — OpenRouter is
+    // then the active cloud backend.
     hasPendingOpenRouterAuth() { return openrouter.hasPendingAuth(); },
     async beginOpenRouterAuth(callbackUrl) { return openrouter.beginAuth(callbackUrl); },
     async resumeOpenRouterAuth(code) {

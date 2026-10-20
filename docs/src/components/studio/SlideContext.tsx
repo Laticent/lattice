@@ -333,7 +333,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// on-device model isn't trusted for accessibility text). When no cloud model is
 	// connected, offer a one-tap Connect right here — the same affordance Fabricate
 	// gives — instead of a dead-end "go to the Architect" message. `connectOpenRouter`
-	// begins the OAuth redirect and the app resumes it on return (resumePendingAuth).
+	// opens OpenRouter's sign-in in a popup; the cloud tier is live once it closes.
 	const cloudReady = useArchitectStatus().openRouterReady;
 	const connectCloud = async () => {
 		setDescMsg('');
