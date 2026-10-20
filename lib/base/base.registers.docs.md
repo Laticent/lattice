@@ -1109,6 +1109,8 @@ leaving the axis out already means it.
 
 Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.
 
+**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `ink-light` (white words on a near-black card) and `ink-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
+
 **Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `spectrum-trim:` (a quiet accent tint by default, the deck's spectrum under `on`) and a slide's own `spectrum-trim` class. `rule: none` drops them.
 
 In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide

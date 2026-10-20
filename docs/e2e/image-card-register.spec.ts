@@ -83,6 +83,42 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).not.toContain('card-clear');
 	});
 
+	// The photo is read in the real preview frame: the slide's `.lattice-bg` url, the card's real box, a
+	// canvas. `photo-wide.svg` is dark where the default bottom-left card sits, so it wants white words.
+	test(`slide settings: thinning a spotlight card picks an ink from the photo${tag}`, async ({ page }) => {
+		await openSlideImageTab(page);
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page), { message: 'the slider wrote no ink from the photo' }).toContain('card-o35');
+		await expect.poll(() => persistedSource(page), { message: 'a thin card with no ink should pick one from the photo' }).toMatch(/ink-(light|dark)/);
+		await expect.poll(() => persistedSource(page)).toContain('ink-light');
+		// The pick is a plain class the author can change: Card ink Auto removes it again.
+		await choose(page, 'Slide card ink', 'Auto — Layout\'s own');
+		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+	});
+
+	// The opposite photo: a pale one wants near-black words, so the pick is a reading of the photo and
+	// not a constant. A data: URI is same-origin to the canvas, like a Library photo's blob: URL.
+	test(`slide settings: a pale photo picks dark ink${tag}`, async ({ page }) => {
+		const pale = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNjAwJyBoZWlnaHQ9JzEwMDAnPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbGw9JyNmNGYxZTgnLz48L3N2Zz4=';
+		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('![bg](sample:photo-wide.svg)', `![bg](${pale})`)}`);
+		await openSlideImageTab(page);
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page), { message: 'a pale photo behind a thin card should pick ink-dark' }).toContain('ink-dark');
+		expect(await persistedSource(page)).not.toContain('ink-light');
+	});
+
+	test(`slide settings: an ink the slide or deck already names is left alone${tag}`, async ({ page }) => {
+		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight ink-dark')}`);
+		await openSlideImageTab(page);
+		await slider(page, 'Slide card backing').fill('35');
+		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		// No wait needed: with an ink already named, `slideNeedsInk` is false, so no photo read ever starts
+		// and the source the backing write just produced is the final one.
+		const src = await persistedSource(page);
+		expect(src).toContain('ink-dark');
+		expect(src).not.toContain('ink-light');
+	});
+
 	test(`slide settings: the Image tab writes the card classes, and Auto follows the deck${tag}`, async ({ page }) => {
 		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE}`);
 		await openSlideImageTab(page);

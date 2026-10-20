@@ -292,7 +292,7 @@
     },
     {
       "variant": "card-soft",
-      "useWhen": "On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), set an exact level with a 5% step (`card-o65` is 65%; the deck line writes `65%`), or drop it with `card-clear` when the photo is calm where the words land. A thin backing needs a matching `ink-light` or `ink-dark`."
+      "useWhen": "On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), set an exact level with a 5% step (`card-o65` is 65%; the deck line writes `65%`), or drop it with `card-clear` when the photo is calm where the words land. A thin spotlight card (under 60%) needs a matching `ink-light` or `ink-dark`, or the theme's own ink is read against the photo; lint warns (`thin-card-no-ink`), and in the Studio the Card backing slider picks one from the photo for you."
     },
     {
       "variant": "ink-dark",

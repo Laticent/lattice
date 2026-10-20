@@ -618,3 +618,12 @@ export function setImageCard(chunk: string, axis: ImageCardAxis, word: string | 
 	if (cls) kept.push(cls);
 	return setClassTokens(chunk, kept);
 }
+
+/** The classes the deck's `image-card:` line stamps on an image slide (each word as its class). */
+export function deckImageCardClasses(source: string): string[] {
+	const deck = deckImageCard(source);
+	return (Object.keys(deck) as ImageCardAxis[]).flatMap((axis) => {
+		const cls = imageCardClass(axis, deck[axis] as string);
+		return cls ? [cls] : [];
+	});
+}

@@ -431,6 +431,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		[chunk, source],
 	);
 	const onImageCard = (axis: ImageCardAxis, v: string) => onMutate((c) => setImageCard(c, axis, v === '__inherit__' ? null : v));
+	// The backing slider takes a spotlight card thin: with no ink on the slide or the deck line, the
+	// theme's own ink would be read against the photo, so pick `ink-light` or `ink-dark` from the
+	// pixels behind the card (lib/core/card-ink.mjs). The photo read is async, so the write is
+	// guarded twice: the slide must still have no ink, and still be the slide on screen.
+	const slideRef = React.useRef(slideNumber);
+	slideRef.current = slideNumber;
+	const onBacking = (word: string | null) => {
+		onImageCard('backing', word ?? '__inherit__');
+		const at = slideNumber;
+		void import('./card-ink-pick').then(async (pick) => {
+			const ink = await pick.thinCardInk(chunk, source, word, at);
+			if (!ink || slideRef.current !== at) return;
+			onMutate((c) => pick.withInkIfNone(c, ink));
+		});
+	};
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
@@ -772,7 +787,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 												word={p.state === 'on' ? p.value : undefined}
 												inheritedWord={p.deckValue}
 												autoLabel={p.deckValue ? `Auto: ${imageCardOptionLabel(p.deckValue)}` : `Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
-												onChange={(w) => onImageCard('backing', w ?? '__inherit__')}
+												onChange={onBacking}
 											/>
 										</Row>
 									);

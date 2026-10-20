@@ -286,3 +286,13 @@ describe('image-card provenance (the `image-card:` register)', () => {
 		expect(imageCardDeckValue({ size: 'sm', placement: 'top', ink: undefined })).toBe('top sm');
 	});
 });
+
+describe('the deck image-card line, as classes', () => {
+	const deck = (fm: string) => `---\ntitle: T\n${fm}---\n\n`;
+
+	it('maps the deck line to the classes it stamps', async () => {
+		const { deckImageCardClasses } = await import('./slide-provenance');
+		expect(deckImageCardClasses(deck('image-card: bottom 35% light\n'))).toEqual(['at-bottom', 'card-o35', 'ink-light']);
+		expect(deckImageCardClasses(deck(''))).toEqual([]);
+	});
+});

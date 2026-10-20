@@ -32,7 +32,7 @@ export const IMAGE_CARD_ROWS: readonly ImageCardRow[] = [
 		find: 'image photo card backing opacity transparent solid soft sheer clear scrim',
 		help: (
 			<>
-				The card's panel on a spotlight slide, the scrim on a statement slide. Drag for any 5% step, or tap a name: <strong>Solid</strong> is 100%, <strong>Soft</strong> 80%, <strong>Sheer</strong> 55%, <strong>Clear</strong> none at all. Thin backings need a matching ink, so pair them with the Card ink row. Written as <code>image-card: soft</code> or <code>image-card: 65%</code>.
+				The card's panel on a spotlight slide, the scrim on a statement slide. Drag for any 5% step, or tap a name: <strong>Solid</strong> is 100%, <strong>Soft</strong> 80%, <strong>Sheer</strong> 55%, <strong>Clear</strong> none at all. Under 60% the photo shows through, so a spotlight card needs a matching ink: on this slide, dragging below 60% picks one from the photo for you. A deck can set one in the Card ink row. Written as <code>image-card: soft</code> or <code>image-card: 65%</code>.
 			</>
 		),
 	},

@@ -226,6 +226,7 @@ distinct, stable ID.
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
+| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
