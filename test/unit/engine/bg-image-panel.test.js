@@ -102,3 +102,16 @@ test('a non-image slide keeps its picture as the engine\'s full-bleed background
   assert.doesNotMatch(html, /class="lattice-bg /);
   assert.match(html, /background-image:url\(&quot;a\.jpg&quot;\)/);
 });
+
+// A panes slide on a deck that cannot lay panes side by side (9:16) is split into one page per pane, and the image
+// pane's page is an ordinary `image` slide by the time the rule runs, so its picture is the panel (followups.d/2739-p13).
+// A 16:9 deck lays the same panes out side by side and renders the image pane through `renderPane`, unchanged.
+test('a split image pane draws its panel on a 9:16 deck; the 16:9 carve keeps the section background', () => {
+  const deck = (size) => `---\ntheme: indaco\n${size}---\n\n<!-- _class: columns -->\n\n## The site\n\n<!-- _pane: image -->\n![bg](photo.jpg)\n\n<!-- _pane: list -->\n### What changes\n\n- The hall opens in May\n`;
+  const story = render(deck('size: story\n'), {}).html;
+  assert.equal(panels(story), 'image,plain panel');
+  assert.doesNotMatch(story, /background-image:url\(&quot;photo\.jpg/, 'no full-bleed section background on the image page');
+  const wide = render(deck(''), {}).html;
+  assert.doesNotMatch(wide, /class="lattice-bg /);
+  assert.match(wide, /background-image:url\(&quot;photo\.jpg/, 'the carved pane keeps the background it had');
+});

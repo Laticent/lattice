@@ -9,3 +9,7 @@
   inside a line of prose on an `image` slide becomes the panel too, instead of the slide's background. Two shapes are
   now plain text, as markdown reads them everywhere else: a `![bg]` written inside a raw HTML block, and a URL with a
   space in it (write `![bg](<my photo.jpg>)`).
+- **Fixed: an `image` pane on a tall deck draws its photo in the image layout's panel.** On a 9:16 (or square,
+  portrait, mobile) deck, panes become one page each, and the image pane's photo filled the whole page behind its
+  title. It now takes the image layout's composition, as an `image` slide does. A 16:9 deck that lays the panes out
+  side by side is unchanged.
