@@ -555,7 +555,7 @@ runtime script holds the connection first (it ends at 2.6 s and 8.2 s). The load
 5% of the roughly 900 KB the first slide waits for. With the loader, stylesheet composition falls from 112 to 34 ms and `renderDeck` from
 250 to 110 ms (both scale with the sheet), and it pays a second render (47 to 51 ms warm) and the grow fetch (about 100 ms).
 
-**Guessing the modules from the Markdown, to skip the second render.** `scanMarkdown` (`lib/core/style-needs-scan.mjs`) reads class
+**Guessing the modules from the Markdown, to skip the second render.** `scanMarkdown` (`lib/core/style-markdown-scan.mjs`, loaded lazily, never in the eager bundle) reads class
 directives, front matter, raw HTML classes and the elements Markdown becomes; `tools/style-predict-eval.mjs` scores it against the
 rendered HTML on all 295 decks, counting modules beyond the floor. Markdown alone is perfect on 28 decks (median 2 modules missed,
 9 KB). Adding what each component's class word implies (rendering each component's own exemplar slides once, `impliesFor`) raises

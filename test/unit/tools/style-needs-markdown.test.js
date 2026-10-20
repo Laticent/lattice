@@ -1,11 +1,11 @@
 /**
- * Unit: `scanMarkdown` (lib/core/style-needs-scan.mjs), the guess at a deck's tokens from its Markdown alone. It is a HINT for the
+ * Unit: `scanMarkdown` (lib/core/style-markdown-scan.mjs), the guess at a deck's tokens from its Markdown alone. It is a HINT for the
  * Playground loader (a miss is caught by the scan of the rendered HTML), so the tests pin what it reads and that it stays cheap.
  */
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const load = () => import('../../../lib/core/style-needs-scan.mjs');
+const load = () => import('../../../lib/core/style-markdown-scan.mjs');
 
 describe('scanMarkdown', () => {
   test('reads class directives, front matter, raw HTML classes and the elements Markdown becomes', async () => {

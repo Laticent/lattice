@@ -3,7 +3,7 @@
  * How well does reading a deck's MARKDOWN predict the style modules its rendered HTML needs?
  *
  * The Playground's style loader finds a deck's modules by scanning the HTML the engine rendered, which costs a second
- * render when the first one used too few modules. `scanMarkdown` (lib/core/style-needs-scan.mjs) guesses the same set
+ * render when the first one used too few modules. `scanMarkdown` (lib/core/style-markdown-scan.mjs) guesses the same set
  * from the source, so the modules can be fetched and registered BEFORE the first render. This script measures the guess
  * against the truth on every example deck, counting only modules beyond the start-up floor (the floor loads for every
  * deck, so a guess about it changes nothing):
@@ -18,7 +18,8 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { neededModules, scanDocument, scanMarkdown } from '../lib/core/style-needs-scan.mjs';
+import { scanMarkdown } from '../lib/core/style-markdown-scan.mjs';
+import { neededModules, scanDocument } from '../lib/core/style-needs-scan.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');

@@ -21,7 +21,7 @@
 // selectors cannot be asked about that document: the scan falls back to the token filter for them.
 
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
-import { neededModules, scanDocument, scanMarkdown } from '../../../lib/core/style-needs-scan.mjs';
+import { neededModules, scanDocument } from '../../../lib/core/style-needs-scan.mjs';
 
 type Alt = [string[], string[], string[], string[]];
 type IndexEntry = { id: string; always: boolean; alts: Alt[]; requires: number[]; defines?: string[]; sel?: (string[] | null)[] };
@@ -101,7 +101,9 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	let hintSource: string | null = null;
 
 	/** The modules the Markdown seems to need: its tokens against the index. */
-	function guessFromSource(n: Needs, markdown: string): number[] {
+	async function guessFromSource(n: Needs, markdown: string): Promise<number[]> {
+		// Loaded on demand: the guess is an opt-in experiment, and the eager bundle must not carry it (the route budget).
+		const { scanMarkdown } = await import('../../../lib/core/style-markdown-scan.mjs');
 		const tokens = scanMarkdown(markdown);
 		const flags = neededModules(n.index, tokens, undefined, { c: n.runtime.c, a: n.runtime.a, t: [], i: [], text: markdown }) as boolean[];
 		return flags.flatMap((f, i) => (f ? [i] : []));
@@ -214,11 +216,7 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 		// oracle). A miss costs nothing but the scan-and-render-again the loader does anyway; a deck whose guess is most of the
 		// sheet is left to that scan, like `ensureFor`'s whole-sheet line.
 		if (opts.predict) {
-			const guess = Array.isArray(opts.predict)
-				? opts.predict
-				: hintSource == null
-					? []
-					: guessFromSource(n, hintSource);
+			const guess = Array.isArray(opts.predict) ? opts.predict : hintSource == null ? [] : await guessFromSource(n, hintSource);
 			const total = n.modules.reduce((a, m) => a + m.bytes, 0);
 			const held = n.modules.reduce((a, m, i) => a + (want.has(i) || guess.includes(i) ? m.bytes : 0), 0);
 			if (total > 0 && held / total <= wholeAbove) for (const i of guess) want.add(i);

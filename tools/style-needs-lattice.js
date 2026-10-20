@@ -125,7 +125,8 @@ async function impliesFor(built, root = ROOT) {
   const latticeEngine = require(path.join(root, 'lib/engine'));
   const { loadAll } = require(path.join(root, 'lib/components'));
   const { galleryPlan } = require(path.join(root, 'tools/build-component-docs.js'));
-  const { neededModules, scanDocument, scanMarkdown } = await import(path.join(root, 'lib/core/style-needs-scan.mjs'));
+  const { neededModules, scanDocument } = await import(path.join(root, 'lib/core/style-needs-scan.mjs'));
+  const { scanMarkdown } = await import(path.join(root, 'lib/core/style-markdown-scan.mjs'));
   const engine = latticeEngine.createEngine({});
   engine.addThemes([
     { name: 'lattice', css: fs.readFileSync(path.join(root, 'dist/lattice-min.css'), 'utf8') },
