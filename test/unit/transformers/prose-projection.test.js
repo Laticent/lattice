@@ -2035,7 +2035,7 @@ test('a check inside a pill narrates through the layout\'s words, with a space a
 	const { html } = engine.render('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Residency\n  - [/] Adoption\n  - [ ] Calibration\n', 'indaco', {});
 	const sem = { pass: '[x]', skip: '[/]', todo: '[ ]' };
 	const composed = html.replace(/<span class="badge (\w+) state-\w+">([^<]*)<\/span>/g,
-		(_, c, text) => `<span class="lat-pill" data-shape="capsule">${stateHtml(sem[c])}${text}</span>`);
+		(_, c, text) => `<span class="lat-pill" data-shape="capsule">${stateHtml(sem[c])}<span class="lat-label">${text}</span></span>`);
 	assert.notEqual(composed, html, 'the badges were replaced');
 	const speak1 = (h) => speak([...new JSDOM(`<body>${h}</body>`).window.document.querySelectorAll('section[data-class]')])[0];
 	const today = speak1(html);

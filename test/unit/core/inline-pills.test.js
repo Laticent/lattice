@@ -205,28 +205,13 @@ describe('the gap after a drawn mark inside a pill', () => {
   const path = require('node:path');
   const read = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
 
-  test('the pill sets the disc\'s gap through its custom property, and adds no margin of its own', () => {
+  test('a pill that holds a disc is a flex row with a gap, and adds no margin of its own', () => {
     const css = read('lib/plugins/pills/pills.styles.css');
-    assert.match(css, /\.lat-pill > \.lat-state \{ --lat-state-gap:0 0\.4em; \}/);
-    assert.match(read('lib/base/base.modifiers.css'), /margin-inline:var\(--lat-state-gap, 0\.22em\);/, 'the disc reads it');
-    const margins = css.split('\n').filter((l) => /^\s*margin[\w-]*\s*:/.test(l));
-    assert.deepEqual(margins.map((l) => l.trim()), ['margin-inline:0.22em;'], 'the pill\'s one sanctioned margin, and no more');
-  });
-
-  test('--lat-state-gap is assigned exactly once in engine CSS, to the pill\'s `0 0.4em`', () => {
-    // The disc's sanctioned margin reads this property, so every assignment is a margin the
-    // margin gate cannot see. One is sanctioned; a second must come with an owner decision.
-    const hits = [];
-    (function walk(d) {
-      for (const e of fs.readdirSync(path.join(__dirname, '../../..', d), { withFileTypes: true })) {
-        const rel = `${d}/${e.name}`;
-        if (e.isDirectory()) walk(rel);
-        else if (e.name.endsWith('.css')) {
-          for (const m of read(rel).matchAll(/--lat-state-gap\s*:\s*([^;}]+)/g)) hits.push(`${rel}: ${m[1].trim()}`);
-        }
-      }
-    })('lib');
-    assert.deepEqual(hits, ['lib/plugins/pills/pills.styles.css: 0 0.4em']);
+    assert.match(css, /\.lat-pill:has\(> \.lat-state\) \{\s*display:inline-flex;\s*align-items:center;\s*gap:0\.4em;/);
+    assert.match(css, /\.lat-pill > \.lat-label \{ text-box:trim-both cap alphabetic; \}/, 'the label is trimmed on its own element');
+    // Nonzero margins are the gate's business; a `margin:0` reset adds no space and is fine.
+    const values = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(?:^|[\s{;])margin[\w-]*\s*:\s*([^;}]+)/g)].map((m) => m[1].trim());
+    assert.deepEqual(values.sort(), ['0', '0.22em'], 'the pill\'s one sanctioned margin and the disc reset, nothing else');
   });
 
   test('the pill source never names a check', () => {

@@ -298,18 +298,27 @@
  * the icons sheet comes first. */
 section .lat-pill[role='img'] { text-indent:0; }
 
-/* ── A pill that holds a drawn mark: the gap after it ──────────────────────────────
- * A pill given content (pills.inline.js `contentHtml`) can lead with a `.lat-state` disc. The
- * disc carries its own 0.22em margin each side, which is breathing room from the words around a
- * mark in running prose, and it is too little inside a chip: measured at 1280x720 on the indaco
- * theme, the disc ended 2.48px from the first letter (2.92px at `:lg`), and its ring painted
- * across most of that. Two changes, both on the disc a pill holds (an icon may come before it):
- *   - the start side goes to 0, so the disc sits at the pill's own padding and the chip reads
- *     balanced (a zero reset adds no space);
- *   - the end side opens the gap to the label. It is a margin because the disc is a fixed 1em
- *     square with `box-sizing:border-box`: padding would shrink the CIRCLE, and the pill is an
- *     `inline-block` for `text-box`, so `gap` has no flex container to act in.
- * This sets `--lat-state-gap` (start end) and the disc's one sanctioned margin declaration in
- * base.modifiers.css reads it, so no margin declaration is added here.
- * It lives here and not in a component, so every component that composes a pill gets the same gap. */
-.lat-pill > .lat-state { --lat-state-gap:0 0.4em; }
+/* ── A pill that holds a drawn mark: a flex row with a gap ────────────────────────
+ * A pill given content (pills.inline.js `contentHtml`) can lead with a `.lat-state` disc. As an
+ * inline-block with the disc's own 0.22em margin the disc ended 2.48px from the first letter
+ * (measured at 1280x720 on indaco), and its ring painted across most of that. A pill that holds
+ * a disc is a flex row instead: `align-items:center` centers the two, `gap` spaces them, and no
+ * margin is involved, so the gap is inside the pill's own box where a measuring layout sees it.
+ * Measured the same way: 4.95px between disc and label, pill 20.1px tall against 20.7px, the disc
+ * 0.3px lower in the box.
+ *
+ * THE LABEL NEEDS ITS OWN ELEMENT. `text-box` trims a BLOCK container's first and last line, so in a
+ * flex pill the bare label text (an anonymous flex item) never receives it. The component that
+ * composes the pill wraps its words in `.lat-label`, a real flex item, and the trim goes there.
+ * Where `text-box` is unsupported, the pill's own padding already carries the shift (the branch
+ * above), so nothing is needed. Only a pill that holds a disc gets this; a plain label pill is the
+ * inline-block it always was. */
+.lat-pill:has(> .lat-state) {
+  display:inline-flex;
+  align-items:center;
+  gap:0.4em;
+}
+.lat-pill > .lat-state { margin:0; }
+@supports (text-box: trim-both cap alphabetic) {
+  .lat-pill > .lat-label { text-box:trim-both cap alphabetic; }
+}
