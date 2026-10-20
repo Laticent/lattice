@@ -70,6 +70,18 @@ for (const [w, h] of [
 		await openChatAtWidth(page, w);
 		await ask(page, 'does slide 2 work as a single number?');
 
+		// What the Architect did is ONE line under the reply, and nothing in the transcript scrolls sideways.
+		const row = page.getByTestId('chat-activity-row');
+		await expect(row).toBeVisible();
+		const rowBox = await row.boundingBox();
+		expect(rowBox && rowBox.height < 48).toBe(true);
+		const overflowX = await row.evaluate((el) => {
+			const scroller = el.closest('.overflow-y-auto');
+			return scroller ? scroller.scrollWidth - scroller.clientWidth : 0;
+		});
+		expect(overflowX).toBeLessThanOrEqual(0);
+		await page.screenshot({ path: test.info().outputPath(`transcript-${w}.png`) });
+
 		// The metrics dropdown: spend three ways, the window, and the last reply.
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
 		const menu = page.getByTestId('chat-metrics');
