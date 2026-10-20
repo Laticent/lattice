@@ -131,3 +131,10 @@ test('lint: thin-card-no-ink warns on a thin spotlight card with no ink, and onl
   assert.equal(hits(deck('', 'image statement spotlight card-o30')).length, 0, 'the first composition word wins, as in the engine: this renders a statement');
   assert.equal(hits(deck('', 'image spotlight statement card-o30')).length, 1, '...and here it renders a spotlight');
 });
+
+test('compositionOf reads a class list the way the engine does', () => {
+  const { compositionOf } = require('../../../lib/core/card-ink-policy.mjs');
+  const { compositionFromClass } = require('../../../lib/core/image-aspect');
+  const lists = [[], ['at-top'], ['spotlight'], ['full'], ['museum', 'split'], ['contain'], ['gallery', 'full'], ['full', 'statement']];
+  for (const l of lists) assert.equal(compositionOf(l), compositionFromClass(l.join(' ')), l.join(' '));
+});

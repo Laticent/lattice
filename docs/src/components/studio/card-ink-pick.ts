@@ -1,4 +1,4 @@
-import { effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
+import { compositionOf, effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
 import { type Rgb, sampleBehindCard } from './card-ink-sampler';
 import { getClassTokens } from './slide-directives';
 import { deckImageCardClasses, setImageCard } from './slide-provenance';
@@ -13,20 +13,8 @@ import { deckImageCardClasses, setImageCard } from './slide-provenance';
 
 export type Ink = 'light' | 'dark';
 
-const COMPOSITIONS = ['clean', 'split', 'spotlight', 'gallery', 'statement'];
-const LEGACY_COMPOSITIONS: Record<string, string> = { full: 'spotlight', contain: 'gallery', museum: 'gallery' };
-
-/**
- * The composition a class list NAMES, the way the engine reads it (`compositionFromClass`,
- * lib/core/image-aspect.js): the first composition word wins, then a legacy alias. Null when none
- * is named, which the engine resolves from the photo's shape; that case is left to the sampler,
- * which reads the composition the preview actually used. A test pins this to the engine's function.
- */
-export function compositionOf(tokens: string[]): string | null {
-	for (const t of tokens) if (COMPOSITIONS.includes(t)) return t;
-	for (const t of tokens) if (LEGACY_COMPOSITIONS[t]) return LEGACY_COMPOSITIONS[t];
-	return null;
-}
+// Which composition a class list names (null when none is): the kernel's, pinned to the engine's by a test.
+export { compositionOf };
 
 /**
  * The destination of the slide's `![bg ...](dest "title")`, as written: `<a b.jpg>` with spaces, or a
