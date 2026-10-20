@@ -28,9 +28,29 @@ export function compositionOf(tokens: string[]): string | null {
 	return null;
 }
 
-/** The raw reference in the slide's `![bg](ref)`, for checking the preview shows this slide's photo. */
+/**
+ * The destination of the slide's `![bg ...](dest "title")`, as written: `<a b.jpg>` with spaces, or a
+ * bare one with balanced parentheses (`img/(1).jpg`). Null when there is no bg image, or when the
+ * destination cannot be read (the caller then skips the photo check rather than guess).
+ */
 export function photoRefOf(chunk: string): string | null {
-	return /!\[bg[^\]]*\]\(([^)\s]+)/.exec(chunk)?.[1] ?? null;
+	const open = /!\[bg[^\]]*\]\(/.exec(chunk);
+	if (!open) return null;
+	const rest = chunk.slice(open.index + open[0].length);
+	if (rest.startsWith('<')) {
+		const end = rest.indexOf('>');
+		return end > 0 ? rest.slice(1, end) : null;
+	}
+	let depth = 0;
+	for (let i = 0; i < rest.length; i++) {
+		const ch = rest[i];
+		if (ch === '(') depth++;
+		else if (ch === ')') {
+			if (depth === 0) return rest.slice(0, i) || null;
+			depth--;
+		} else if (/\s/.test(ch) && depth === 0) return rest.slice(0, i) || null;
+	}
+	return null;
 }
 
 /** The slide's own first heading as written in the source (`## A photo.`), for the preview identity check. */
@@ -40,7 +60,7 @@ export function headingOf(chunk: string): string | null {
 
 /** The colour behind this slide's card, or null when the preview cannot say. */
 export function readBehindCard(chunk: string, slideNumber: number): Promise<Rgb | null> {
-	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk));
+	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk), getClassTokens(chunk));
 }
 
 /**

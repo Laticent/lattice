@@ -36,6 +36,9 @@ test('painted levels: pinned to the register, and a level with no CSS rule sets 
   assert.deepEqual([...k.PAINTED_LEVELS], BACKING_LEVELS, 'the policy and the register list the same levels');
   const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
   for (const n of k.PAINTED_LEVELS) assert.ok(css.includes(`.card-o${n} {`), `card-o${n} is painted`);
+  assert.equal(k.backingPercent(['card-o05']), null, 'a zero-padded level matches no rule');
+  assert.equal(k.backingPercent(['card-o080']), null);
+  assert.equal(k.backingPercent(['card-o5']), 5);
   for (const n of [0, 55, 80, 100]) {
     assert.ok(!css.includes(`.card-o${n} {`), `card-o${n} has no rule`);
     assert.equal(k.backingPercent([`card-o${n}`]), null, `card-o${n} sets no backing`);

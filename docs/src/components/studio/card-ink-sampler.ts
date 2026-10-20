@@ -42,12 +42,25 @@ function loadPhoto(url: string): Promise<HTMLImageElement | null> {
 	});
 }
 
-const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' };
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', eacute: 'é', egrave: 'è', agrave: 'à', uuml: 'ü', ouml: 'ö', auml: 'ä', ntilde: 'ñ', ccedil: 'ç' };
+const decodeEntities = (text: string): string =>
+	text.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]*));/gi, (_whole, dec, hex, name) => {
+		try {
+			if (dec) return String.fromCodePoint(Number(dec));
+			if (hex) return String.fromCodePoint(Number.parseInt(hex, 16));
+		} catch {
+			return '';
+		}
+		// A named entity this table lacks is almost always punctuation (`&mdash;`), which the fold below drops anyway.
+		return NAMED_ENTITIES[String(name).toLowerCase()] ?? '';
+	});
+/** A heading as the page shows it: markdown links and images reduced to their text, entities decoded. */
+const plainHeading = (text: string): string =>
+	decodeEntities(text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1'));
 // Letters and digits of any script, case-folded: the source has markdown and entities, the page has
 // decoded entities and typographer quotes, and none of that is the heading.
 const squash = (text: string | null | undefined): string =>
-	(text ?? '')
-		.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => ENTITIES[e] ?? e)
+	plainHeading(text ?? '')
 		.normalize('NFKC')
 		.toLowerCase()
 		.replace(/[^\p{L}\p{N}]/gu, '');
@@ -79,28 +92,36 @@ const decoded = (text: string): string => {
 };
 
 /**
- * Whether the preview's photo is the one the slide's `![bg](ref)` names. A `sample:` name must end
- * the resolved URL; a web or data address must match it; an `asset:` reference resolves to a blob:
- * URL the source cannot be compared with, so it proves nothing and passes. With the heading check,
- * this is what stops a preview still showing the PREVIOUS slide from being read as this one.
+ * Whether the preview's photo is the one the slide's `![bg](ref)` names. A `sample:` name must be the
+ * last path segment of the resolved URL; a web or data address must match it; a relative path (the
+ * engine resolves it against the deck's base, which the preview does not expose) must be the tail of the
+ * URL's path once its leading `./` and `../` are dropped, on a `/` boundary. An `asset:` reference
+ * resolves to a blob: URL the source cannot be compared with, and anything this cannot parse, so those
+ * pass: a guard that wrongly says "another slide" silently turns the feature off. With the heading
+ * check, this is what stops a preview still showing the PREVIOUS slide from being read as this one.
  */
 export function photoMatches(ref: string | null, url: string): boolean {
 	if (!ref) return true;
 	const r = decoded(ref.trim());
 	const u = decoded(url);
 	if (r.startsWith('sample:')) return u.endsWith(`/${r.slice('sample:'.length)}`);
-	if (r.startsWith('asset:')) return true;
+	if (r.startsWith('asset:') || r.includes('<')) return true;
 	if (/^(https?:|data:)/i.test(r)) return u === r || u.startsWith(r);
-	return u.endsWith(r.replace(/^\.?\//, ''));
+	const tail = r.replace(/^(?:\.{0,2}\/)+/, '').split(/[?#]/)[0];
+	return !tail || u.split(/[?#]/)[0].endsWith(`/${tail}`);
 }
+
+/** The slide's classes that decide what its card looks like; the preview must already carry them. */
+const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|band|compact|mirror|at-.+|card-.+|ink-.+)$/;
 
 /**
  * The mean colour of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
  * when it cannot be read. The preview frame holds either the whole deck or just the slide on
  * screen, so the section is taken by position, falls back to the first, and must show `heading` and
- * the photo `photoRef` names.
+ * the photo `photoRef` names, and already carry the slide's card classes `classes`: right after a class
+ * change the preview can still show the OLD render of this same slide.
  */
-export async function sampleBehindCard(slideNumber: number, heading: string | null, photoRef: string | null = null): Promise<Rgb | null> {
+export async function sampleBehindCard(slideNumber: number, heading: string | null, photoRef: string | null = null, classes: string[] | null = null): Promise<Rgb | null> {
 	try {
 		const doc = previewDocument();
 		if (!doc) return null;
@@ -113,6 +134,7 @@ export async function sampleBehindCard(slideNumber: number, heading: string | nu
 		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
 		if (!panel || !card || !url) return null;
 		if (!photoMatches(photoRef, url)) return null;
+		if (classes?.some((c) => CARD_CLASS.test(c) && !section.classList.contains(c))) return null;
 
 		// Measure first. Changing the slide's classes re-renders the preview, which replaces the section
 		// this function holds; after the photo loads it would be detached and read as zero-sized.

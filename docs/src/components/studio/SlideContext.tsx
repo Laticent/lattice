@@ -490,12 +490,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		const pick = pickRef.current;
 		const behind = behindRef.current?.slide === at ? behindRef.current.rgb : null;
 		if (pick && behind) {
-			// The usual path: one edit carries the backing and the ink. The updater runs on the FRESHEST
-			// source (`settingsWrite` hands it that), so it decides from `c`, not from this render's
-			// `chunk`, and records what it wrote on the refs: with ticks arriving faster than renders, the
-			// record then matches what landed.
+			// The usual path: one edit carries the backing and the ink. `auto` is read ONCE, here, and the
+			// updater never reads the ref: `settingsWrite` runs it on the current source and again on a
+			// fresher one when an editor flush landed between, and a run that read a ref the first run had
+			// already changed would orphan the session's ink. Every run is now the same pure function of its
+			// chunk; each records its outcome on the ref, so the last run, the one that landed, is what stays.
+			const auto = autoInkRef.current?.slide === at ? autoInkRef.current.ink : null;
 			onMutate((c) => {
-				const auto = autoInkRef.current?.slide === at ? autoInkRef.current.ink : null;
 				const edit = pick.applyBacking(c, source, word, behind, auto);
 				if (edit.picked) autoInkRef.current = { slide: at, ink: edit.picked };
 				else if (edit.removed) autoInkRef.current = null;

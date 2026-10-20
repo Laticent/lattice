@@ -125,4 +125,41 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		expect(sameSlide('R&amp;D grew', 'R&D grew')).toBe(true);
 		expect(sameSlide('Revenue grew in Q3 across EMEA', 'Revenue grew in Q3 across APAC')).toBe(false);
 	});
+
+	it('reading the slide\'s photo reference: spaces, angle brackets, parentheses, titles, modifiers', () => {
+		expect(photoRefOf('![bg](<a b.jpg>)')).toBe('a b.jpg');
+		expect(photoRefOf('![bg](img/(1).jpg)')).toBe('img/(1).jpg');
+		expect(photoRefOf('![bg](a.jpg "A title")')).toBe('a.jpg');
+		expect(photoRefOf('![bg left:40%](sample:photo-wide.svg)')).toBe('sample:photo-wide.svg');
+		expect(photoRefOf('![bg](https://cdn.test/a.jpg?w=1600&q=80)')).toBe('https://cdn.test/a.jpg?w=1600&q=80');
+		expect(photoRefOf('![bg](unterminated')).toBeNull();
+	});
+
+	it('the photo check: relative paths with ../ pass on a / boundary, and a look-alike name does not', () => {
+		expect(photoMatches('../img/a.jpg', 'https://site/img/a.jpg')).toBe(true);
+		expect(photoMatches('./a.jpg', 'https://site/deck/a.jpg')).toBe(true);
+		expect(photoMatches('a.jpg?v=2', 'https://site/deck/a.jpg')).toBe(true);
+		expect(photoMatches('x.jpg', 'https://site/deck/photo-x.jpg')).toBe(false);
+		expect(photoMatches('<a b.jpg>', 'https://site/anything.jpg')).toBe(true); // unparsed: do not guess
+		expect(photoMatches('img/a b.jpg', 'https://site/img/a%20b.jpg')).toBe(true);
+	});
+
+	it('the heading check survives entities and links in the source heading', () => {
+		expect(sameSlide('A &mdash; B and a long enough heading', 'A \u2014 B and a long enough heading')).toBe(true);
+		expect(sameSlide('Caf&#233; society and a long heading', 'Caf\u00e9 society and a long heading')).toBe(true);
+		expect(sameSlide('See [the docs](https://example.test/x) now please', 'See the docs now please')).toBe(true);
+		expect(sameSlide('Revenue grew in Q3 across EMEA', 'Revenue grew in Q3 across APAC')).toBe(false);
+	});
+
+	it('the updater is a pure function of its chunk, so a re-run on a fresher source still removes the pick', () => {
+		// settingsWrite runs the updater on the current source and again on a fresher one; both runs get the same `auto`.
+		const thin = applyBacking(slide('image spotlight'), deck(''), '35%', DARK, null);
+		const prev = thin.chunk;
+		const fresher = prev.replace('## A photo.', '## A photo, edited.');
+		const first = applyBacking(prev, deck(''), '70%', DARK, 'light');
+		const second = applyBacking(fresher, deck(''), '70%', DARK, 'light');
+		expect(first.removed).toBe(true);
+		expect(second.removed).toBe(true);
+		expect(getClassTokens(second.chunk)).not.toContain('ink-light');
+	});
 });
