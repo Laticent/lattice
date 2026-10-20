@@ -73,8 +73,16 @@ popup inside the desktop app.
 
 - Unit: `docs/src/lib/sign-in.test.ts`, against jsdom's real BroadcastChannel and
   postMessage.
-- Chromium e2e: `docs/e2e/openrouter-popup-sign-in.spec.ts`, with OpenRouter mocked by
-  `context.route` (HARD RULE #24): the popup round trip with the Studio page never
-  navigating, a closed popup resetting Connect, and the no-listener fallback.
+- e2e on three engines (desktop Chromium, Firefox, WebKit on an iPhone 15 Pro profile):
+  `docs/e2e/openrouter-popup-sign-in.spec.ts`, with OpenRouter mocked by `context.route`
+  (HARD RULE #24). It covers:
+  - the popup round trip, with the Studio page never reloaded;
+  - a closed popup resetting Connect;
+  - a sign-in page that sends `Cross-Origin-Opener-Policy: same-origin` and cuts the popup
+    off (the Google case): the code still arrives over the BroadcastChannel, the Studio
+    connects, and the cut-off popup closes itself on the ack;
+  - the no-listener fallback (Chromium only).
+- The Cloudflare preview serves `/sign-in/callback/?code=…` with a 200, and redirects the
+  no-slash form to it with the query kept.
 - **UNVERIFIED:** a real OpenRouter account (the mock stands in for OpenRouter's redirect),
-  and the Google-sign-in COOP cut, which no mock reproduces.
+  real Google sign-in (the COOP mock stands in for it), and an iOS home-screen app.

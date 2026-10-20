@@ -7,7 +7,7 @@ import { expect, gotoStudio, readStorage, test, toastText } from './studio-fixtu
 // code, the way OpenRouter does once the user approves, and the mock /auth/keys hands back a
 // throwaway key.
 
-async function mockOpenRouter(context: import('@playwright/test').BrowserContext, opts: { authHolds?: boolean } = {}) {
+async function mockOpenRouter(context: import('@playwright/test').BrowserContext, opts: { authHolds?: boolean; coop?: boolean } = {}) {
 	const exchanges: Array<Record<string, string>> = [];
 	await context.route('https://openrouter.ai/**', async (route) => {
 		const url = new URL(route.request().url());
@@ -18,7 +18,21 @@ async function mockOpenRouter(context: import('@playwright/test').BrowserContext
 			}
 			const back = new URL(url.searchParams.get('callback_url') || '');
 			back.searchParams.set('code', 'e2e-code');
-			await route.fulfill({ status: 302, headers: { location: back.toString() } });
+			if (opts.coop) {
+				// What Google's sign-in page does inside OpenRouter's flow: a COOP header puts the
+				// popup in a new browsing context group, which cuts it off from the Studio for good.
+				// The user then "approves" a moment later.
+				await route.fulfill({
+					status: 200,
+					contentType: 'text/html',
+					headers: { 'Cross-Origin-Opener-Policy': 'same-origin' },
+					body: `<!doctype html><title>Sign in</title><script>setTimeout(() => location.replace(${JSON.stringify(back.toString())}), 1500)</script>`,
+				});
+				return;
+			}
+			// A page that redirects, not a 302: Playwright's WebKit cannot fulfill a navigation
+			// with a redirect status.
+			await route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><script>location.replace(${JSON.stringify(back.toString())})</script>` });
 			return;
 		}
 		if (url.pathname === '/api/v1/auth/keys') {
@@ -39,12 +53,14 @@ async function openCloudPane(page: import('@playwright/test').Page) {
 	return sheet;
 }
 
-test('Connect signs in through a popup and the Studio page never navigates', async ({ page, context }) => {
+test('@crosswidth @webkit-phone @gecko Connect signs in through a popup and the Studio page never navigates', async ({ page, context }) => {
 	const exchanges = await mockOpenRouter(context);
 	await gotoStudio(page);
 	const studioUrl = page.url();
-	let mainNavigations = 0;
-	page.on('framenavigated', (f) => { if (f === page.mainFrame()) mainNavigations++; });
+	// A marker on the page's own window: any page load (a redirect out and back) wipes it.
+	// Counting `framenavigated` instead also counts the phone sheet's same-document history
+	// entry on WebKit.
+	await page.evaluate(() => { (window as unknown as { __stayed: number }).__stayed = 1; });
 	const sheet = await openCloudPane(page);
 
 	const [popup] = await Promise.all([page.waitForEvent('popup'), sheet.getByRole('button', { name: /Connect OpenRouter/ }).click()]);
@@ -58,11 +74,11 @@ test('Connect signs in through a popup and the Studio page never navigates', asy
 	expect(exchanges[0].code).toBe('e2e-code');
 	expect(exchanges[0].code_verifier).toBeTruthy();
 	expect(page.url(), 'the Studio stayed where it was').toBe(studioUrl);
-	expect(mainNavigations, 'the Studio page itself never navigated').toBe(0);
+	expect(await page.evaluate(() => (window as unknown as { __stayed?: number }).__stayed), 'the Studio page was never reloaded').toBe(1);
 	await expect(sheet.getByText(/OpenRouter — (active|connected)/)).toBeVisible();
 });
 
-test('closing the popup resets Connect and connects nothing', async ({ page, context }) => {
+test('@crosswidth @webkit-phone @gecko closing the popup resets Connect and connects nothing', async ({ page, context }) => {
 	await mockOpenRouter(context, { authHolds: true });
 	await gotoStudio(page);
 	const sheet = await openCloudPane(page);
@@ -92,4 +108,19 @@ test('a callback no tab answers sends the popup back to the Studio, which finish
 	await expect.poll(() => readStorage(orphan, 'lattice-db-or-key'), { timeout: 30_000 }).toBe('sk-e2e-mock-not-a-real-key');
 	expect(exchanges.map((e) => e.code)).toEqual(['orphan-code']);
 	await expect.poll(() => orphan.evaluate(() => location.search), { timeout: 30_000 }).toBe('');
+});
+
+test('@crosswidth @webkit-phone @gecko a sign-in page that cuts the popup off (COOP) still connects', async ({ page, context }) => {
+	const exchanges = await mockOpenRouter(context, { coop: true });
+	await gotoStudio(page);
+	const studioUrl = page.url();
+	const sheet = await openCloudPane(page);
+	const [popup] = await Promise.all([page.waitForEvent('popup'), sheet.getByRole('button', { name: /Connect OpenRouter/ }).click()]);
+	await expect(toastText(page)).toContainText('OpenRouter connected', { timeout: 20_000 });
+	expect(await readStorage(page, 'lattice-db-or-key')).toBe('sk-e2e-mock-not-a-real-key');
+	expect(exchanges.map((e) => e.code)).toEqual(['e2e-code']);
+	expect(page.url()).toBe(studioUrl);
+	await expect(sheet.getByText(/OpenRouter — (active|connected)/)).toBeVisible();
+	// The cut-off popup closes itself on the tab's ack (the opener can no longer close it).
+	await expect.poll(() => popup.isClosed(), { timeout: 10_000 }).toBe(true);
 });
