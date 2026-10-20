@@ -92,6 +92,8 @@ export function createStage(opts: StageOptions = {}): Stage {
 	// (which can decode to 100×+ its size) should set THAT low. A single clip larger than the whole
 	// decoded budget is not retained at all (it plays once, then GCs).
 	const decoded = new Map<string, Clip>();
+	/** Live copies of what this stage plays (`tapPlayback`): each clip connects to every one. */
+	const taps = new Set<MediaStreamAudioDestinationNode>();
 	let decodedBytes = 0;
 	function decodedSet(key: string, clip: Clip): void {
 		if (decoded.has(key)) return; // idempotent — keep the first decode of a key
@@ -412,6 +414,14 @@ export function createStage(opts: StageOptions = {}): Stage {
 					}
 				}
 				node.connect(ctx.destination);
+				// And to every tap: a copy of what this stage plays, for a call to send (`tapPlayback`).
+				for (const t of taps) {
+					try {
+						node.connect(t);
+					} catch {
+						/* a tap from a closed context */
+					}
+				}
 				const myGen = ++gen;
 				const myGain = g;
 				s.onended = () => {
@@ -687,6 +697,32 @@ export function createStage(opts: StageOptions = {}): Stage {
 				return null;
 			}
 		},
+		tapPlayback() {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamDestination !== 'function') return null;
+			try {
+				const dest = ctx.createMediaStreamDestination();
+				taps.add(dest);
+				let stopped = false;
+				return {
+					stream: dest.stream,
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						taps.delete(dest);
+						for (const t of dest.stream.getTracks()) {
+							try {
+								t.stop();
+							} catch {
+								/* already ended */
+							}
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
 		gainStream(stream, gain) {
 			const ctx = getCtx();
 			if (!ctx || typeof ctx.createMediaStreamSource !== 'function' || typeof ctx.createMediaStreamDestination !== 'function' || typeof ctx.createGain !== 'function') return null;
@@ -700,10 +736,29 @@ export function createStage(opts: StageOptions = {}): Stage {
 				source.connect(node);
 				node.connect(dest);
 				let stopped = false;
+				const mixed = new Set<MediaStreamAudioSourceNode>();
 				return {
 					stream: dest.stream,
 					setGain(g) {
 						if (!stopped) node.gain.value = clamp(g);
+					},
+					mix(extra) {
+						if (stopped) return null;
+						try {
+							const m = ctx.createMediaStreamSource(extra);
+							m.connect(dest);
+							mixed.add(m);
+							return () => {
+								if (!mixed.delete(m)) return;
+								try {
+									m.disconnect();
+								} catch {
+									/* best-effort */
+								}
+							};
+						} catch {
+							return null;
+						}
 					},
 					stop() {
 						if (stopped) return;
@@ -711,9 +766,11 @@ export function createStage(opts: StageOptions = {}): Stage {
 						try {
 							source.disconnect();
 							node.disconnect();
+							for (const m of mixed) m.disconnect();
 						} catch {
 							/* best-effort */
 						}
+						mixed.clear();
 						for (const t of dest.stream.getTracks()) {
 							try {
 								t.stop();

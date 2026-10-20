@@ -885,6 +885,13 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 								</ul>
 							</>
 						)}
+						{view.present && (
+							<div className="mx-1.5 mt-2 flex items-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-1.5" data-live-present-join>
+								<Presentation className="size-4 shrink-0 text-[var(--accent)]" />
+								<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{view.present.by} is presenting</span>
+								<Button size="xs" onClick={actions.joinPresent}>Join</Button>
+							</div>
+						)}
 						{view.isHost && view.unshared.length > 0 && (
 							<>
 								<div className={SECTION}>Not shared yet ({view.unshared.length})</div>

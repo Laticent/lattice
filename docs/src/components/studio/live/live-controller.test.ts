@@ -1253,6 +1253,91 @@ describe('LiveController: present together', () => {
 		await until(() => opened.includes('open') && g.view().present?.idx === 4, h, g);
 	});
 
+	it("a start carries where the host's Present is now, not where the last presentation ended", async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		const sent: number[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: watching what the host posts.
+		const hh = h as any;
+		const post = hh.post.bind(hh);
+		hh.post = (m: { k: string; on?: boolean; i?: number }, to?: string) => {
+			if (m.k === 'present' && m.on) sent.push(m.i as number);
+			return post(m, to);
+		};
+		h.actions.presentTransport({ idx: 5, page: 0, lens: 'full' });
+		h.actions.presentToEveryone(true);
+		// The host's Present opens and reports: that is the start.
+		h.actions.presentTransport({ idx: 1, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 1, h, g);
+		expect(sent[0]).toBe(1);
+		expect(sent).not.toContain(5);
+	});
+
+	it('a fast run of steps goes out as a few posts, ending where the host stopped', async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 0, page: 0, lens: 'full' });
+		await until(() => g.view().present !== null, h, g);
+		let posts = 0;
+		// biome-ignore lint/suspicious/noExplicitAny: watching what the host posts.
+		const hh = h as any;
+		const post = hh.post.bind(hh);
+		hh.post = (m: { k: string }, to?: string) => {
+			if (m.k === 'present') posts++;
+			return post(m, to);
+		};
+		for (let i = 1; i <= 30; i++) h.actions.presentTransport({ idx: i, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 30, h, g);
+		expect(posts).toBeLessThanOrEqual(3);
+	});
+
+	it('a host who stops and starts again within the restart window still brings members back', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		// Past the newcomer's welcome (a beat after admission), which would otherwise carry the start again.
+		await new Promise((r) => setTimeout(r, 3000));
+		await settle(h, g);
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 2, h, g);
+		// Stop and start back to back: the start reaches the member well inside its window from the first one.
+		h.actions.presentToEveryone(false);
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
+		await until(() => g.view().present === null, h, g);
+		// The first start lands inside the member's 2 s window and is dropped; the repeat, just past it, is not.
+		await new Promise((r) => setTimeout(r, 2500));
+		await until(() => g.view().present?.idx === 2, h, g);
+		expect(opened.filter((o) => o === 'open').length).toBe(2);
+	}, 20000);
+
+	it('a transport outside any deck, by slide or by page, is dropped', async () => {
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 1, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 1, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the host sending positions no deck has.
+		const hh = h as any;
+		hh.post({ k: 'present', on: true, i: 1e9, p: 0, l: 'full' });
+		hh.post({ k: 'present', on: true, i: 2, p: -1, l: 'full' });
+		hh.post({ k: 'present', on: true, i: 2.5, p: 0, l: 'full' });
+		await settle(h, g);
+		expect(g.view().present?.idx).toBe(1);
+	});
+
+	it('mixing into the call reaches the call audio, and a new stream takes the old one out', async () => {
+		const { h } = await hostSession();
+		const calls: string[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: a stand-in for the call's audio.
+		(h as any).audio = { mixIntoSend: (s: { id: string }) => calls.push(`mix ${s.id}`), unmix: (s: { id: string }) => calls.push(`unmix ${s.id}`) };
+		h.actions.mixIntoCall({ id: 'a' } as unknown as MediaStream);
+		h.actions.mixIntoCall({ id: 'b' } as unknown as MediaStream);
+		h.actions.mixIntoCall(null);
+		expect(calls).toEqual(['mix a', 'unmix a', 'mix b', 'unmix b']);
+	});
+
 	it('a malformed transport is dropped', async () => {
 		const { h } = await hostSession();
 		const { g } = await member(h, 'Amina');

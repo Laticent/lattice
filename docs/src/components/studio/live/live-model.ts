@@ -130,7 +130,7 @@ export type LiveView = {
 
 /** Where the presenter is in Present (§7.2): the rendered slide in their lens, the page of a split slide,
  *  and the lens. Every member renders the same deck, so the same index is the same slide. */
-export type LiveTransport = { idx: number; page: number; lens: string };
+export type LiveTransport = { idx: number; page: number; lens: string; hash?: string };
 export type LivePresent = LiveTransport & { by: string };
 
 /** One of the host's records the others do not have: a theme, a finish, a custom component, or the
@@ -141,10 +141,15 @@ export type LiveActions = {
 	start: (name: string) => void;
 	/** Host: share one of its records (a `LiveUnshared` key) with the session. */
 	shareRecord: (key: string) => void;
+	/** Member: join (or rejoin) the presentation that is running. */
+	joinPresent: () => void;
 	/** Host: start or stop presenting to everyone. */
 	presentToEveryone: (on: boolean) => void;
 	/** Host, presenting to everyone: where its Present is now. */
 	presentTransport: (t: LiveTransport) => void;
+	/** Mix a live stream into what this browser sends on the call (the presenter's narration), or take
+	 *  the last one out (null). It waits for the call if there is none yet. */
+	mixIntoCall: (stream: MediaStream | null) => void;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;

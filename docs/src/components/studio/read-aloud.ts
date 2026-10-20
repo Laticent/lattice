@@ -303,6 +303,11 @@ function getStage(): Stage {
 	if (!stageSingleton) stageSingleton = createStage();
 	return stageSingleton;
 }
+/** The stage every narration plays on: a live session taps it to send a presenter's narration on the call
+ *  (engineering/decisions/2026-10-20-live-uniform-experience.md §7.3). */
+export function narrationStage(): Stage {
+	return getStage();
+}
 // The in-flight Voice-tab sample audition (played on the shared stage), so stopTtsPreview can cut it.
 let previewHandle: { stop(): void } | null = null;
 

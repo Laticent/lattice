@@ -754,7 +754,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Present is the heaviest thing the Studio opens (a second render surface, plus a
 	// popup window when the Stage is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
-	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
+	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); if (livePresentRef.current) setPresentByRoom(true); setPresentOpen(true); }, []);
+	// While someone presents to everyone, this person's own Present joins it (the way back in, §7.2).
+	const livePresentRef = React.useRef(false);
 	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
 	const [presentByRoom, setPresentByRoom] = React.useState(false);
 	const presentByRoomRef = React.useRef(false);
@@ -3820,6 +3822,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
 		openRoomPresent: () => {
+			// A Present this person opened themselves is theirs: the Live panel offers to join instead.
+			if (presentOpenRef.current && !presentByRoomRef.current) return;
 			setPresentByRoom(true);
 			setPresentOpen(true);
 		},
@@ -3856,10 +3860,58 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [liveLook]);
 	// Present together (§7.2): the host's Present reports where it is while presenting to everyone, and
 	// opens when that starts; a member's Present opened by the room follows the presenter.
+	livePresentRef.current = !!live.view.present;
 	const livePresentingToAll = live.view.presentingToAll;
+	const livePresentingToAllRef = React.useRef(livePresentingToAll);
+	livePresentingToAllRef.current = livePresentingToAll;
+	const liveActionsRef = React.useRef(live.actions);
+	liveActionsRef.current = live.actions;
 	React.useEffect(() => {
 		if (livePresentingToAll) setPresentOpen(true);
 	}, [livePresentingToAll]);
+	// While presenting to everyone the host's Present shows the deck as it was when it started (§6 rule 7):
+	// narration is synthesized on the presenter's own key, so an edit someone makes meanwhile can neither
+	// add to the bill nor move a slide under the people following. Edits land when the presentation ends.
+	const [presentFrozen, setPresentFrozen] = React.useState<{ slides: string[]; fm: string } | null>(null);
+	const presentSourceRef = React.useRef({ slides, fm: previewFm });
+	presentSourceRef.current = { slides, fm: previewFm };
+	// A member following the presentation freezes too, so the same index is still the same slide.
+	const presentTogether = livePresentingToAll || presentByRoom;
+	// A member who joins mid-presentation opens before the shared deck is bound: binding it re-freezes,
+	// so the frozen copy is the room's deck and not the one this browser had open.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is the trigger; the source is read from the ref.
+	React.useEffect(() => {
+		setPresentFrozen(presentTogether ? presentSourceRef.current : null);
+	}, [presentTogether, deck.id]);
+	// Every way Present closes (its own Exit, Escape on the loading screen, the loading screen's Cancel,
+	// the room ending it) ends the same things: the room's hold on it, and this browser presenting to all.
+	const presentWasOpenRef = React.useRef(presentOpen);
+	React.useEffect(() => {
+		const was = presentWasOpenRef.current;
+		presentWasOpenRef.current = presentOpen;
+		if (!was || presentOpen) return;
+		setPresentByRoom(false);
+		if (livePresentingToAllRef.current) liveActionsRef.current.presentToEveryone(false);
+	}, [presentOpen]);
+	// Narration on the call (§7.3): while this browser presents to everyone and is on the call, what its
+	// narration plays goes out with its microphone, so everyone on the call hears the presenter's voice and
+	// no second speaker plays it. Only the presenter synthesizes; nothing is fetched or sent besides audio.
+	const liveInCall = live.view.call.inCall;
+	React.useEffect(() => {
+		if (!livePresentingToAll || !liveInCall) return;
+		let tap: { stream: MediaStream; stop(): void } | null = null;
+		let canceled = false;
+		void import('./read-aloud').then(({ narrationStage }) => {
+			if (canceled) return;
+			tap = narrationStage().tapPlayback();
+			if (tap) live.actions.mixIntoCall(tap.stream);
+		});
+		return () => {
+			canceled = true;
+			live.actions.mixIntoCall(null);
+			tap?.stop();
+		};
+	}, [livePresentingToAll, liveInCall, live.actions]);
 	const liveForPresent = React.useMemo(
 		() =>
 			live.view.status === 'live'
@@ -7175,7 +7227,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</button>
 					}
 				>
-					<PresentOverlay open={presentOpen} onClose={() => { setPresentOpen(false); setPresentByRoom(false); if (live.view.presentingToAll) live.actions.presentToEveryone(false); }} live={liveForPresent} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
+					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} live={liveForPresent} onReady={() => setPresentEverOpened(true)} options={options} slides={presentFrozen?.slides ?? slides} frontMatter={presentFrozen?.fm ?? previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
 				</React.Suspense>
 			)}
 			{cmdPalette}

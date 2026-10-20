@@ -165,7 +165,7 @@ type Post =
 	| { k: 'typing' }
 	| { k: 'bye' }
 	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
-	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string }
+	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
 	/** a member's pointer over the slide it is on, in the slide's coordinates; `off` when it left the slide */
 	| { k: 'ptr'; s?: number; x?: number; y?: number; c?: 1; off?: 1 }
 	/** host → member: the Library records the deck uses that the host shares (themes, finish recipes,
@@ -259,12 +259,18 @@ const POINTER_MIN_GAP_MS = 30;
 const POINTER_IDLE_MS = 6000;
 /** A presentation started this soon after the last one is not obeyed: a host toggling fast moves nobody. */
 const PRESENT_RESTART_MS = 2000;
+/** The host's Present reports where it is within this long of a start; past it the start goes out as is. */
+const PRESENT_START_WAIT_MS = 600;
+/** A host stepping fast sends its position at most this often (the last one always goes). */
+const PRESENT_EVERY_MS = 100;
 /** A transport as a host sent it, or null. */
-const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown }): LiveTransport | null => {
+const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown }): LiveTransport | null => {
 	const ok = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 10_000;
 	if (!ok(p.i) || !ok(p.p) || typeof p.l !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(p.l)) return null;
-	return { idx: p.i, page: p.p, lens: p.l };
+	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}) };
 };
+/** A transport as a `present` post carries it. */
+const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}) });
 /** A click is drawn at most this often per member; a flood of clicks is dropped like a flood of moves. */
 const POINTER_CLICK_GAP_MS = 150;
 /** No deck has this many slides; a pointer naming a slide past it is dropped. */
@@ -467,10 +473,18 @@ export class LiveController {
 	/** Present together (§7.2). Host: whether it presents to everyone, and where its Present is. Member: the
 	 *  host's presentation it follows, and when the last one started (a host toggling fast is not obeyed). */
 	private presentingToAll = false;
+	/** The stream mixed into this browser's call (its narration while it presents to everyone). */
+	private callMix: MediaStream | null = null;
 	private transport: LiveTransport = { idx: 0, page: 0, lens: 'full' };
 	private roomPresent: LivePresent | null = null;
 	private roomPresentHost: string | null = null;
 	private roomPresentAt = 0;
+	/** Host: a start waiting for its Present's first position, the repeat that reaches a member who dropped
+	 *  the first start inside its restart window, and the trailing send of a fast run of steps. */
+	private presentStartDue = false;
+	private presentTimers: ReturnType<typeof setTimeout>[] = [];
+	private presentSentAt = 0;
+	private presentLater: ReturnType<typeof setTimeout> | null = null;
 	/** Pointers: the others', by peer, and who wants them (the overlay, outside React's render). */
 	private pointers = new Map<string, LivePointer & { at: number }>();
 	private pointerSubs = new Set<(p: LivePointer[]) => void>();
@@ -816,7 +830,7 @@ export class LiveController {
 								this.sendRecords(to);
 								this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, to);
 								// A presentation in progress: the newcomer joins it where it is.
-								if (this.presentingToAll) this.post({ k: 'present', on: true, i: this.transport.idx, p: this.transport.page, l: this.transport.lens }, to);
+								if (this.presentingToAll) this.post({ k: 'present', on: true, ...transportPost(this.transport) }, to);
 							}, 400);
 						}
 						// A newcomer learns whether our microphone is on (who is speaking it measures itself).
@@ -898,11 +912,14 @@ export class LiveController {
 				if (s.isHost && s.heir !== prev.heir) this.sentSids = '';
 				if (s.isHost) this.sendSids();
 				if (prev.stage !== s.stage) this.onStage(prev.stage, s);
-				// The presenter is no longer the host (it dropped and someone took over): its presentation is over.
-				if (this.roomPresentHost && !s.members.some((m) => m.id === this.roomPresentHost && m.role === 'host')) {
+				// Someone else hosts now (the presenter dropped and an heir took over): its presentation is over.
+				// A host only briefly missing from the roster (a network blip) keeps presenting.
+				if (this.roomPresentHost && s.members.some((m) => m.role === 'host' && m.id !== this.roomPresentHost)) {
+					const by = this.roomPresent?.by;
 					this.roomPresent = null;
 					this.roomPresentHost = null;
 					this.host.closeRoomPresent?.();
+					if (by) this.host.notify(`${by}'s presentation ended: they are no longer hosting.`);
 				}
 				prev = s;
 				this.saveHostSoon();
@@ -1038,9 +1055,11 @@ export class LiveController {
 		this.followedDoing = null;
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
+		this.clearPresentTimers();
 		this.roomPresent = null;
 		this.roomPresentHost = null;
 		this.transport = { idx: 0, page: 0, lens: 'full' };
+		this.callMix = null;
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -1316,6 +1335,7 @@ export class LiveController {
 	 *  same deck, instead of resuming as host. */
 	private onSteppedDown(r: Runtime) {
 		this.presentingToAll = false;
+		this.clearPresentTimers();
 		r.release?.();
 		r.release = null;
 		r.key = null;
@@ -1917,7 +1937,8 @@ export class LiveController {
 			this.roomPresent = null;
 			this.roomPresentHost = null;
 			this.host.closeRoomPresent?.();
-			this.host.notify(`${name} stopped presenting.`);
+			// A host toggling fast says nothing: a stop right after a start is not news.
+			if (Date.now() - this.roomPresentAt >= PRESENT_RESTART_MS) this.host.notify(`${name} stopped presenting.`);
 			this.host.rerender();
 			return;
 		}
@@ -1933,6 +1954,42 @@ export class LiveController {
 			else this.host.openRoomPresent?.();
 		}
 		this.host.rerender();
+	}
+
+	/** Host: the start, once; then the same again just past a member's restart window, so one who dropped
+	 *  the first (the host stopped and started again quickly) still joins. */
+	private sendPresentStart() {
+		if (!this.presentStartDue || !this.presentingToAll) return;
+		this.presentStartDue = false;
+		this.presentSentAt = Date.now();
+		this.post({ k: 'present', on: true, ...transportPost(this.transport) });
+		this.presentTimers.push(
+			setTimeout(() => {
+				if (this.presentingToAll) this.post({ k: 'present', on: true, ...transportPost(this.transport) });
+			}, PRESENT_RESTART_MS + 200),
+		);
+	}
+
+	/** Host: a step goes out at once, or at the end of a fast run of steps. */
+	private sendPresentSoon() {
+		if (this.presentLater) return;
+		const wait = this.presentSentAt + PRESENT_EVERY_MS - Date.now();
+		const send = () => {
+			this.presentLater = null;
+			if (!this.presentingToAll) return;
+			this.presentSentAt = Date.now();
+			this.post({ k: 'present', on: true, ...transportPost(this.transport) });
+		};
+		if (wait <= 0) send();
+		else this.presentLater = setTimeout(send, wait);
+	}
+
+	private clearPresentTimers() {
+		for (const t of this.presentTimers) clearTimeout(t);
+		this.presentTimers = [];
+		if (this.presentLater) clearTimeout(this.presentLater);
+		this.presentLater = null;
+		this.presentStartDue = false;
 	}
 
 	/** A post from an admitted member (Tavola dropped everyone else's). */
@@ -2140,19 +2197,35 @@ export class LiveController {
 
 	readonly actions: LiveActions = {
 		shareRecord: (key: string) => this.shareRecord(key),
+		joinPresent: () => {
+			if (this.roomPresent) this.host.openRoomPresent?.();
+		},
 		presentToEveryone: (on: boolean) => {
 			const s = this.rt?.session.getState();
 			if (!s?.isHost || s.stage !== 'live' || on === this.presentingToAll) return;
 			this.presentingToAll = on;
-			this.post(on ? { k: 'present', on: true, i: this.transport.idx, p: this.transport.page, l: this.transport.lens } : { k: 'present', on: false });
+			this.clearPresentTimers();
+			if (on) {
+				// The start carries where the host's Present is, so it waits for that Present's first report
+				// (it may be opening now) rather than send where the last presentation ended.
+				this.presentStartDue = true;
+				this.presentTimers.push(setTimeout(() => this.sendPresentStart(), PRESENT_START_WAIT_MS));
+			} else this.post({ k: 'present', on: false });
 			this.host.rerender();
 		},
+		mixIntoCall: (stream: MediaStream | null) => {
+			if (this.callMix && this.callMix !== stream) this.audio?.unmix(this.callMix);
+			this.callMix = stream;
+			if (stream) this.audio?.mixIntoSend(stream);
+		},
 		presentTransport: (t: LiveTransport) => {
-			const clean = cleanTransport({ i: t.idx, p: t.page, l: t.lens });
+			const clean = cleanTransport(transportPost(t));
 			if (!clean) return;
-			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens;
+			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash;
 			this.transport = clean;
-			if (!same && this.presentingToAll && this.rt?.session.getState().isHost) this.post({ k: 'present', on: true, i: clean.idx, p: clean.page, l: clean.lens });
+			if (!this.presentingToAll || !this.rt?.session.getState().isHost) return;
+			if (this.presentStartDue) this.sendPresentStart();
+			else if (!same) this.sendPresentSoon();
 		},
 		start: (name: string) => {
 			const n = name.trim() || 'Host';

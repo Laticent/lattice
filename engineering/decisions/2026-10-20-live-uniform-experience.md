@@ -385,6 +385,53 @@ follows with Present's silent caption cadence under their own control.
   call. With at most three other members that is at most about 29 MB of upload for the presenter,
   only for members off the call.
 
+**Slice 3, step 2 as built (2026-10-20): narration on the call, and a frozen deck.** Suono gains two calls:
+`stage.tapPlayback()`, a live stream copy of every clip the stage plays (never a stream it amplifies), and
+`gainStream(…).mix(stream)`, which mixes another stream into the shaped call send past the mic gain.
+`read-aloud.ts` exports `narrationStage()`. While the host presents to everyone and is on the call, the
+Studio taps that stage and hands the stream to `LiveActions.mixIntoCall`, which `LiveAudio.mixIntoSend`
+applies (and re-applies after a microphone re-capture). Muting keeps the sent track open while something is
+mixed and silences the capture track, so the narration still goes out while the presenter's own voice does
+not. Only the presenter synthesizes. While presenting to everyone, the host's Present and a member's
+room-opened Present render the deck as it was when the presentation started (`presentFrozen`), so an editor
+can neither add to the presenter's bill nor shift slide indices under the followers; this stands in for
+§6 rule 7's per-run budget, since the bill is then the deck the presenter started with.
+
+Measured on two real headless Chromium browsers on a call (Chromium's fake microphone), with the host's mic
+muted: the guest's inbound audio energy read 0.31/s with the host unmuted (the control), 0.0000/s muted with
+no narration, 0.2404/s while a 3 s tone played through the narration stage, and 0.0000/s after it ended.
+Not built yet, and tracked: compressed clips straight from the presenter to members off the call
+(`followups.d/2810-p2-live-present-together-with-narration.md`), captions on a member's Present in step with
+the presenter, and "Tap to listen" on an iPhone (a member hears the narration through the call, which their
+own tap on Join audio already unlocked). UNVERIFIED: whether browser echo cancellation removes the
+presenter's local narration from their microphone; while the presenter is unmuted the others may hear it
+twice, faintly.
+
+**Slice 3 hardened by its trio (2026-10-20).** The checker reproduced one real defect in a test: a member's
+Present stays mounted after its first open, and the open transition moved through the detaching setter, so
+every presentation after a member's first showed "Rejoin" on their own slide. Opening now moves without
+detaching, and `studio.present-live-follow.test.tsx` reopens it (the test fails with the old line put back).
+The rest, each fixed:
+- **Where a start lands.** The host's start waits for its Present's first report (at most 600 ms), so
+  members no longer open where the last presentation ended. It goes out again just past a member's 2 s
+  restart window, so a host who stops and starts quickly still brings everyone back.
+- **Fast steps.** A run of steps sends at most one position per 100 ms, and always the last.
+- **A short drop.** A presentation ends for members only when someone else hosts, not when the host is
+  briefly missing from the roster. A stop right after a start shows no toast.
+- **One way to close.** Every close of Present (its Exit, Escape or Cancel on the loading screen, the room
+  ending it) clears the room's hold and stops the host presenting to everyone; the loading screen's two
+  exits used to skip that.
+- **A member's own Present** is never taken over; the Live panel offers to join.
+- **A member who joins mid-presentation** freezes the room's deck once it is bound, not the deck their
+  browser had open.
+- **Keys.** A swallowed key is also `preventDefault`ed, so a space cannot scroll the page underneath.
+- **Views the member's deck cannot show.** The chip says so instead of "Following".
+- **Split slides.** A page step no longer paints page 0 for a frame.
+- **The call mix.** `unmix` removes only its own meter, and a re-capture starts un-ducked.
+
+Left as designed: pressing Play while following runs the member's own copy, so its first advance detaches
+them, like any other move of their own.
+
 ### 7.4 Why the swarm was cut
 
 Round 2 asked for clips shared by any holder, like BitTorrent. The trio showed: a session holds at
@@ -469,7 +516,10 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 - §3 item 1 is reproduced on two real Chromium browsers (§3). Items 2 and 3 are read from code
   only; slice 1b's test reproduces them with a saved theme.
 - The call mix (§7.3), the iPhone tap (§7.2), and a Present opened by a room event on a phone have
-  not run on a real device.
+  not run on a real device. Firefox may refuse to mix the narration stage's stream into the call's audio
+  graph when the two run at different sample rates; not run.
+- The slice 3 browser runs used scratch scripts and a test tone on the narration stage, not narration
+  synthesized from a deck. The scripts are not committed, so a reviewer cannot rerun them from the tree.
 - The red team's findings on keys (§7.2), theme fetches (§5.2) and scrolling (§7.6) are reasoned
   from code, not run in a browser.
 - Sending a deck's Library records costs bandwidth once per join; not measured.

@@ -56,6 +56,21 @@ export class LiveAudio {
 	/** The microphone as captured, which is what is stopped when the call ends. */
 	private raw: MediaStream | null = null;
 	private shaped: GainStream | null = null;
+	/** Streams mixed into what is sent (a presenter's narration, 2026-10-20 live note §7.3), and how to take
+	 *  each out of the current shaping. Kept across a re-capture, which builds a new shaping. */
+	private mixes = new Map<MediaStream, (() => void) | null>();
+	/** Each mixed stream's own meter, which `unmix` removes and no other. */
+	private mixMeters = new Map<MediaStream, string>();
+	private mixCount = 0;
+	/** While a mixed stream is sounding, the microphone is ducked to silence (half duplex), so a narration
+	 *  played on the presenter's speakers does not go out a second time through their microphone. */
+	private duckTimer: ReturnType<typeof setInterval> | null = null;
+	private ducked = false;
+	/** Whether something is really mixed into the send (a shaped send took it). */
+	private get mixing(): boolean {
+		for (const undo of this.mixes.values()) if (undo) return true;
+		return false;
+	}
 	/** How loud this browser sends (1 = as captured). Kept across re-captures and calls, not saved. */
 	private level = 1;
 	private lastHeal = Number.NEGATIVE_INFINITY;
@@ -132,7 +147,14 @@ export class LiveAudio {
 		this.mic = sent;
 		this.hifi = highFidelity;
 		this.deviceId = stream.getAudioTracks()[0]?.getSettings().deviceId ?? deviceId ?? null;
-		for (const t of sent.getAudioTracks()) t.enabled = !this.muted;
+		for (const [extra] of this.mixes) this.mixes.set(extra, shaped?.mix(extra) ?? null);
+		// The new shaping starts at the set level, not ducked; the duck reads the mix again on its next tick.
+		this.ducked = false;
+		if (this.mixing) {
+			for (const [extra, undo] of this.mixes) if (undo) this.meterMix(extra);
+			this.startDuck();
+		}
+		for (const t of sent.getAudioTracks()) t.enabled = !this.muted || this.mixing;
 		for (const t of stream.getAudioTracks()) t.enabled = !this.muted;
 		if (oldRaw) {
 			for (const t of oldRaw.getTracks()) t.stop();
@@ -145,6 +167,57 @@ export class LiveAudio {
 		for (const peer of this.players.keys()) this.applyVolume(peer);
 		this.onChange();
 		return sent;
+	}
+
+	/**
+	 * Mix a live stream into what this call sends (a presenter's narration). Only with a shaped send (Web
+	 * Audio present); returns whether it is mixed. `unmix` takes it out again.
+	 */
+	mixIntoSend(stream: MediaStream): boolean {
+		if (this.mixes.has(stream)) return true;
+		const undo = this.shaped?.mix(stream) ?? null;
+		this.mixes.set(stream, undo);
+		// Only a shaped send carries the mix; an unshaped one IS the raw microphone, never opened by this.
+		if (!undo) return false;
+		for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = true;
+		this.meterMix(stream);
+		this.startDuck();
+		return true;
+	}
+	unmix(stream: MediaStream): void {
+		const undo = this.mixes.get(stream);
+		if (!this.mixes.delete(stream)) return;
+		undo?.();
+		const key = this.mixMeters.get(stream);
+		this.mixMeters.delete(stream);
+		if (key) this.unmeter(key);
+		if (!this.mixing) this.stopDuck();
+		for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = !this.muted || this.mixing;
+	}
+
+	private meterMix(stream: MediaStream) {
+		if (this.mixMeters.has(stream)) return;
+		const key = `mix:${++this.mixCount}`;
+		this.mixMeters.set(stream, key);
+		this.meter(key, stream);
+	}
+
+	private startDuck() {
+		if (this.duckTimer) return;
+		this.duckTimer = setInterval(() => {
+			let loud = false;
+			for (const [key, m] of this.meters) if (key.startsWith('mix:') && m.meter.level() > 0.01) loud = true;
+			if (loud !== this.ducked) {
+				this.ducked = loud;
+				this.shaped?.setGain(loud ? 0 : this.level);
+			}
+		}, 100);
+	}
+	private stopDuck() {
+		if (this.duckTimer) clearInterval(this.duckTimer);
+		this.duckTimer = null;
+		if (this.ducked) this.shaped?.setGain(this.level);
+		this.ducked = false;
 	}
 
 	/** Leave the call: stop the microphone and every playback. */
@@ -219,7 +292,7 @@ export class LiveAudio {
 	/** Set how loud this browser sends. Remembered for the next call; takes effect at once on a live one. */
 	setMicLevel(level: number): void {
 		this.level = Math.min(MAX_MIC_LEVEL, Math.max(0, Number.isFinite(level) ? level : 1));
-		this.shaped?.setGain(this.level);
+		if (!this.ducked) this.shaped?.setGain(this.level);
 		this.onChange();
 	}
 
@@ -258,7 +331,9 @@ export class LiveAudio {
 		setMuted(muted: boolean): void {
 		this.muted = muted;
 		// The sent track, AND the raw capture: Firefox turns its microphone light off only when every capture track is disabled.
-		for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = !muted;
+		// While something is mixed in (a narration), the sent track stays open: muting silences the microphone
+		// itself (its capture track, below), not the narration the others are listening to.
+		for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = !muted || this.mixing;
 		for (const t of this.raw?.getAudioTracks() ?? []) t.enabled = !muted;
 		// Unmuting is a tap, the one moment a suspended context is surely allowed to resume.
 		if (!muted) this.heal(Number.POSITIVE_INFINITY);
@@ -305,6 +380,7 @@ export class LiveAudio {
 
 	dispose(): void {
 		this.disposed = true;
+		this.stopDuck();
 		this.leave();
 		for (const peer of [...this.players.keys()]) this.stopPlaying(peer);
 		for (const peer of [...this.meters.keys()]) this.unmeter(peer);
