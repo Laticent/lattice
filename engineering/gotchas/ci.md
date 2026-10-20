@@ -630,16 +630,15 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   error was read: `docs/e2e/library-images-complete.spec.ts:67` timed out waiting for editor
   text (the editor still read `<!-- _class: collage -->## Site walk- te- `), and 115 other
   tests passed.
-- **That test is a known, tracked flake.** `followups.d/2649-p3-library-images-complete-flake.md`
-  records the same test failing with the same symptom on #2649 and #2673, and calls it ready for
-  a root-cause fix. Add each new repeat there (#2749 is one more) instead of re-deriving it.
+- **That test's flake is fixed.** It was CodeMirror's 75 ms interaction delay swallowing the Enter (#2817, which
+  closed `followups.d/2649-p3`; the cause is in `gotchas/studio-playground.md`). A new repeat of that symptom is a
+  regression of the fix, not the old flake.
 - **Fix for a PR you are driving:** a `studio-smoke` failure does not block the `ci` gate, and
   a failure in a test your diff cannot reach is not yours to fix on that PR. Do not edit the
   test, skip it, or quarantine it there. Name the follow-up in your stand-down note. A failure
   in a test your diff does touch is real.
 - **Triggered by:** an intermittent e2e test.
-- **Removable when:** the flaky test is fixed (`followups.d/2649-p3-library-images-complete-flake.md`)
-  and `studio-smoke` has joined the gate or this entry is trimmed to the advisory rule.
+- **Removable when:** `studio-smoke` has joined the gate, or this entry is trimmed to the advisory rule.
 
 ## The build fails with `Could not resolve "@laticent/<package>"` after you cut from a newer `origin/main`
 
