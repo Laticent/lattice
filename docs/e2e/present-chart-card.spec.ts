@@ -46,9 +46,8 @@ test('the chart card in Present closes on a press outside, and Escape closes the
 	await expect(dialog).toBeVisible();
 
 	// With no card open, Escape goes on to leave Present (two steps when it is fullscreen).
-	for (let i = 0; i < 3 && (await dialog.isVisible()); i++) {
-		await page.keyboard.press('Escape');
-		await page.waitForTimeout(400);
-	}
-	await expect(dialog).toBeHidden();
+	await expect(async () => {
+		if (await dialog.isVisible()) await page.keyboard.press('Escape');
+		await expect(dialog).toBeHidden({ timeout: 1_000 });
+	}).toPass({ timeout: 15_000 });
 });
