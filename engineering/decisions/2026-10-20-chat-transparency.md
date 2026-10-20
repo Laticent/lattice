@@ -82,6 +82,12 @@ the header; a stray `reasoning: ""` hid `reasoning_details`; and the end-of-turn
 used to lose the whole thread: traces now stay on the newest 20 replies and the save retries with fewer traces before it drops anything else.
 Left as known: the meter keeps the previous model's window until the next reply after a model switch.
 
-**UNVERIFIED:** a real reasoning model's stream. The parser reads `delta.reasoning` and
-`reasoning_details` from the OpenRouter documentation; the e2e mock sends both. A real model's
-shape should be captured once, off the per-PR path, with a tiny prompt on the owner's key.
+## 7. Real stream captured (2026-10-20)
+
+Two tiny calls to `anthropic/claude-sonnet-4.5` through OpenRouter on the owner's key, about $0.002 in all (a throwaway script in
+`.scratch/`, HARD RULE #24). **What the chat sends today (no `reasoning` setting): no thinking comes back at all.** The deltas carry only
+`content`; `reasoning_tokens` is 0. With a reasoning request on, each chunk carries BOTH `reasoning` (a string) and `reasoning_details`
+(an array), the same text twice, so the parser's "take `reasoning`, else the details" never double counts, as designed. The usage block
+carries `cached_tokens` and `reasoning_tokens` as read. So Show work's Thinking section appears only for models that think by default; on
+Claude with default settings it shows the commands, cost and sizes but no thinking. Showing Claude's thinking would mean sending a
+`reasoning` setting, which bills those tokens, and that was left as a decision for the owner, not done here.
