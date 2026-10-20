@@ -1,0 +1,45 @@
+import { CHROME, expect, gotoStudio, openChat, openInspector, test } from './studio-fixture';
+
+// The Studio's docked panels share one size contract (studio/dock-layout.ts,
+// engineering/decisions/2026-10-20-studio-split-panel-sizing.md): docks open at 320 (never under
+// 280) and the editor takes 46% of the editor|preview pair; a window too narrow for all four
+// columns folds the editor to its rail instead of squeezing the others under their minimums.
+
+const widths = (page: import('@playwright/test').Page) =>
+	page.evaluate(() => {
+		const out: Record<string, number> = {};
+		for (const p of document.querySelectorAll('[data-studio-split] [data-slot="resizable-panel"]')) out[p.id] = p.getBoundingClientRect().width;
+		return out;
+	});
+
+for (const w of [1280, 1440, 1920, 2560]) {
+	test(`desktop ${w}: both docks open, docks >= 280 and the pair splits 46:54`, async ({ page }) => {
+		await page.setViewportSize({ width: w, height: 900 });
+		await gotoStudio(page);
+		await openInspector(page);
+		await openChat(page);
+		await expect.poll(async () => (await widths(page))['studio-assistant'] ?? 0).toBeGreaterThanOrEqual(279);
+		const s = await widths(page);
+		expect(s['studio-settings']).toBeGreaterThanOrEqual(279);
+		expect(s['studio-editor']).toBeGreaterThanOrEqual(299);
+		expect(s['studio-preview']).toBeGreaterThanOrEqual(299);
+		if (w >= 1440) {
+			expect(s['studio-settings']).toBeCloseTo(320, -1);
+			expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 1);
+		}
+	});
+}
+
+test('desktop 1100: both docks open folds the editor to its rail, silently, and unfolds when one closes', async ({ page }) => {
+	await page.setViewportSize({ width: 1100, height: 800 });
+	await gotoStudio(page);
+	await openInspector(page);
+	await openChat(page);
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	const s = await widths(page);
+	expect(s['studio-settings']).toBeGreaterThanOrEqual(279);
+	expect(s['studio-assistant']).toBeGreaterThanOrEqual(279);
+	await expect(page.getByText('Editor collapsed.')).toHaveCount(0);
+	await page.getByRole('button', { name: CHROME.chat, exact: true }).first().click();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
+});
