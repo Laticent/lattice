@@ -62,9 +62,21 @@ the site palette (`palette`) and mode (`mode`), and the Library (`savedThemes`,
 
 ## 3. Finding: two members can see different slides
 
-This is a correctness bug, not a missing feature: Live's promise is one deck. Found by reading,
-and confirmed by the independent checker's reading; **UNVERIFIED on a real two-browser
-session**. Slice 1 starts by reproducing it.
+This is a correctness bug, not a missing feature: Live's promise is one deck.
+
+**Reproduced (item 1) on 2026-10-20** with two real headless Chromium processes, the real Tavola
+and Trystero transport and real WebRTC, driven by a throwaway script built from `tools/live-session-check.mjs`'s session
+steps (its source is in PR #2810's comments). The host ran Indaco dark, the guest Cuoio light, and the host
+replaced its deck with a two-slide deck with no `theme:` line before starting the session. After
+the guest was admitted the editor text was identical on both sides, and the preview frames read:
+
+| Member | Site palette, mode | Slide frame's theme | Slide background | Text color |
+|---|---|---|---|---|
+| Host | indaco, dark | `indaco-dark` | `rgb(0, 29, 51)` | `rgb(203, 217, 232)` |
+| Guest | cuoio, light | `cuoio` | `rgb(250, 247, 242)` | `rgb(107, 93, 79)` |
+
+Items 2 and 3 are confirmed by reading only: reproducing them needs a saved theme in the host's
+Library, which slice 1b's test sets up.
 
 1. **An un-themed deck renders in each viewer's own look.** `resolveDeckTheme` falls back to
    `sitePalette` and `siteMode` when the deck names no `theme:` (`StudioShell.tsx:3652-3669`).
@@ -302,7 +314,7 @@ trio (HARD RULE #25, `engineering/orchestration.md` tier 2).
 
 | # | Slice | Done when | Verify |
 |---|---|---|---|
-| 1a | The frozen look (§5.1) | Reproduced first; then two real browsers with different palettes and modes render pixel-equal previews of an un-themed deck, through a host drop and a takeover | Tier 1 checker; two-browser screenshots |
+| 1a | The frozen look (§5.1) | The §3 reproduction, re-run, shows the same theme on both sides; two real browsers with different palettes and modes render pixel-equal previews of an un-themed deck, through a host drop and a takeover | Tier 1 checker; two-browser screenshots |
 | 1b | Library records (§5.2, §6 rules 5, 6, 8) | A deck using a saved theme and finish renders pixel-equal; a guest who types a new private name gets nothing until the host agrees; code components fall back with a label | Adversarial trio; two-browser screenshots |
 | 2 | Activity, wide Follow, pointers, sender rules and allowlist (§6, §7.6) | Avatars show panel, view and presenting; Following mirrors them at 1440/820/390; a forged post from the wrong sender or outside the allowlist does nothing | Adversarial trio; a test that replays forged posts; two-browser screenshots at three widths |
 | 3 | Present together and narration (§7.2–7.3) | Host starts it; idle members join, a typist gets a toast; keys stay inert until clicked; the call mix and direct clips work; no member calls TTS | Adversarial trio; two-browser recording at phone and desktop width; the call mix measured on a real call. Needs 2704 first |
@@ -336,7 +348,8 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 
 ## 10. What is not verified
 
-- §3 is read from code, not reproduced. Slice 1a's first step is the reproduction.
+- §3 item 1 is reproduced on two real Chromium browsers (§3). Items 2 and 3 are read from code
+  only; slice 1b's test reproduces them with a saved theme.
 - The call mix (§7.3), the iPhone tap (§7.2), and a Present opened by a room event on a phone have
   not run on a real device.
 - The red team's findings on keys (§7.2), theme fetches (§5.2) and scrolling (§7.6) are reasoned
