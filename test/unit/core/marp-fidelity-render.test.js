@@ -543,6 +543,19 @@ const PROBES = {
     probe: (doc) => chipTailProbe(doc),
   },
 
+  'slotLabelLift@actors-state': {
+    row: 'slotLabelLift',
+    min: 2,
+    minMatch: /chip:state/,
+    section: 'actors',
+    body: [
+      '## Owners', '',
+      '- Owns the scoring model `[x]`', '  - The one person who can change a weight.',
+      '- Runs the weekly review `[!]`', '  - Convenes it and chairs it.',
+    ].join('\n'),
+    probe: (doc) => chipTailProbe(doc),
+  },
+
   glossaryListToTable: {
     min: 4,
     section: 'glossary',
