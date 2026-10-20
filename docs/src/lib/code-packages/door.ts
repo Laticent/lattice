@@ -24,7 +24,7 @@
 
 import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
-import { ASPECT_RE, planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
+import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import { pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/packages/code-shape.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
@@ -55,6 +55,8 @@ export type StudioPlugin = {
 	kinds?: StudioPluginKind[];
 	/** The values it declares it may return (`pluginReturnFields`; threat-model decisions 11 and 12), pinned into its digest. */
 	returns?: ReturnType<typeof pluginReturnFields>;
+	/** The plugin's `styles.css`, which is data and not pinned into the digest; scoped to its root by `scopePluginCss` when it reaches a preview. */
+	css?: string;
 };
 /** One inline kind a zip plugin declares: its name, its fields as a Segno slot spec, and its placeholder's size. */
 export type StudioPluginKind = { name: string; slot?: unknown; placeholder?: { size?: string }; title?: string };
@@ -170,7 +172,7 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * only draws in a deck that lists it under `plugins:` (decision 11), and only once approved.
  */
 let setPluginsSeq = 0;
-export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown }[]): Promise<void> {
+export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown; css?: string }[]): Promise<void> {
 	const mine = ++setPluginsSeq;
 	const next = new Map<string, StudioPlugin>();
 	for (const p of list) {
@@ -190,6 +192,7 @@ export async function setPlugins(list: { name: string; fence: string; code: stri
 			...(p.placeholder ? { placeholder: p.placeholder } : {}),
 			...(kinds.length ? { kinds } : {}),
 			...(returns.length ? { returns } : {}),
+			...(p.css ? { css: p.css } : {}),
 		});
 	}
 	if (mine !== setPluginsSeq) return;
@@ -345,5 +348,8 @@ export function codePackagesStamp(): string {
 		...[...packages.values()].sort((a, b) => a.name.localeCompare(b.name)).map((p) => `${p.name}@${p.sha256.slice(0, 16)}${isApproved(p) ? '+' : '-'}`),
 		...[...plugins.values()].sort((a, b) => a.name.localeCompare(b.name)).map((p) => `plugin/${p.name}@${p.sha256.slice(0, 16)}${isPluginApproved(p) ? '+' : '-'}`),
 	];
-	return `/* lattice code packages: ${parts.join(' ')} */`;
+	// An approved plugin's own stylesheet rides with the stamp: the stamp is already part of every preview's and export's extra CSS,
+	// so the sheet reaches each of them through the one path that already passes `styleElementText` (HARD RULE #22).
+	const sheets = [...plugins.values()].filter((p) => p.css && isPluginApproved(p)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => scopePluginCss(p.name, p.css));
+	return `/* lattice code packages: ${parts.join(' ')} */${sheets.length ? `\n${sheets.join('\n')}` : ''}`;
 }

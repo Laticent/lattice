@@ -409,12 +409,12 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     // `capped` draws 3.9 million characters a block, so its third block passes the render's output cap
     // (FENCE_OUTPUT_MAX, 8 million) and is replaced by a note; what that block returned is never checked or written.
     const big = 'function render(f){ return { html: "<p>" + "z".repeat(3900000) + "</p>", data: JSON.parse(f.body) }; }\nexport { render as default };';
-    const plugins = [...Object.keys(vectors), 'twice'].map((v) => ({ name: `dr-${v}`, fence: `dr${v}`, code, returns })).concat({ name: 'dr-capped', fence: 'drcapped', code: big, returns });
+    const plugins = [...Object.keys(vectors), 'twice'].map((v) => ({ name: `dr-${v}`, fence: `dr${v}`, code, returns })).concat({ name: 'dr-capped', fence: 'drcapped', code: big, returns }, { name: 'dr-slots', fence: 'drslots', code, returns });
     for (const p of plugins) grantTrust('plugin', p.name, pluginDigest(p.code, p.fence, [], returns), { layer: null });
     const block = (fence, body) => `\`\`\`\`${fence}\n${body}\n\`\`\`\``;
     const deck = `---\ntheme: indaco\nplugins: [${plugins.map((p) => p.name).join(', ')}]\n---\n\n${Object.entries(vectors)
       .map(([v, data]) => `## ${v}\n\n${block(`dr${v}`, JSON.stringify({ html: `<p>MARK-${v}</p>`, data }))}`)
-      .join('\n\n---\n\n')}\n\n---\n\n## twice\n\n${block('drtwice', JSON.stringify({ html: '<p>MARK-twice-1</p>', data: { status: 'ok' } }))}\n\n${block('drtwice', JSON.stringify({ html: '<p>MARK-twice-2</p>', data: { status: 'late' } }))}\n\n---\n\n## capped\n\n${[{ status: 'ok' }, { note: 'one' }, { status: 'evil' }].map((d) => block('drcapped', JSON.stringify(d))).join('\n\n')}\n`;
+      .join('\n\n---\n\n')}\n\n---\n\n## twice\n\n${block('drtwice', JSON.stringify({ html: '<p>MARK-twice-1</p>', data: { status: 'ok' } }))}\n\n${block('drtwice', JSON.stringify({ html: '<p>MARK-twice-2</p>', data: { status: 'late' } }))}\n\n---\n\n## slots\n\n${block('drslots', JSON.stringify({ html: '<p id="s" title="${note}">SLOT ${status} ${note} ${n} ${done} ${nope}</p><div>${summary}</div>', data: { status: 'late', note: 'a < b "q"', n: 3, done: true, summary: '**b**' } }))}\n\n---\n\n## capped\n\n${[{ status: 'ok' }, { note: 'one' }, { status: 'evil' }].map((d) => block('drcapped', JSON.stringify(d))).join('\n\n')}\n`;
     const e = engine.createEngine();
     const lines = { warn: [], info: [] };
     const r = renderWithCodePackages((hook, more) => e.render(deck, 'indaco', { codePackages: hook, ...more }), {
@@ -443,6 +443,10 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     if (!slide.includes(`${attr('dr-good', 'n')}="3"`) || !slide.includes(`${attr('dr-good', 'done')}="true"`)) problems.push(`good: its number or flag is missing: ${slide}`);
     if (!slide.includes(`${attr('dr-good', 'summary')}="**bold**`)) problems.push(`good: its markdown is missing: ${slide}`);
     if (lines.warn.some((l) => l.includes('plugin dr-good '))) problems.push(`good: it was warned about: ${lines.warn.join(' | ')}`);
+    // HOST SLOTS (owner, 2026-10-20): the checked values fill `${field}` in visible text, and only there.
+    if (!html.includes('SLOT late a &lt; b &quot;q&quot; 3 true ${nope}')) problems.push('slots: the values are not filled into the text');
+    if (!html.includes('title="${note}"')) problems.push('slots: a slot in an attribute was filled');
+    if (!/<div><p><strong>b<\/strong><\/p>\s*<\/div>/.test(html)) problems.push('slots: the markdown value is not the host\'s rendering');
     // Two blocks of one plugin on one slide with different values for one field: the first is kept, and the author is told.
     if (!html.includes(`${attr('dr-twice', 'status')}="ok"`) || html.includes(`${attr('dr-twice', 'status')}="late"`)) problems.push('twice: the first block\'s value is not the one kept');
     if (!lines.warn.some((l) => /dr-twice returned two different values for status/.test(l))) problems.push('twice: no clash warning');

@@ -165,3 +165,134 @@ describe('replaceFences writes the values on the slide’s own <section>', () =>
     assert.doesNotMatch(out, /data-returned-/);
   });
 });
+
+describe('host slots: `${field}` in a drawing takes the checked value, in visible text only (owner, 2026-10-20)', () => {
+  const { fillReturnSlots, slotFills, slotMarkdownHtml } = require('../../../lib/packages/plugin-returns.mjs');
+  const { scopePluginCss } = require('../../../lib/packages/code-door-fence.mjs');
+  const fill = (html, data) => {
+    const r = check(data);
+    assert.ok(r.values, JSON.stringify(r));
+    return fillReturnSlots(html, slotFills(r.values, FIELDS));
+  };
+
+  test('a word, number, flag and text fill as text', () => {
+    assert.equal(fill('<b>${status}</b> <i>${n}</i> ${done} ${note}', { status: 'late', n: 4, done: true, note: 'hi' }), '<b>late</b> <i>4</i> true hi');
+  });
+  test('a text value shows literally: markup characters are escaped', () => {
+    assert.equal(fill('<p>${note}</p>', { note: 'a < b & "c"' }), '<p>a &lt; b &amp; &quot;c&quot;</p>');
+  });
+  test('a markdown value is the host’s own html: a table, with no attribute on any tag', () => {
+    const html = fill('<div>${summary}</div>', { summary: '| a | b |\n|:--|--:|\n| 1 | 2 |\n\n**bold**' }).replace(/\n/g, '');
+    assert.match(html, /^<div><table><thead><tr><th>a<\/th><th>b<\/th><\/tr><\/thead><tbody><tr><td>1<\/td><td>2<\/td><\/tr><\/tbody><\/table>\s*<p><strong>bold<\/strong><\/p>\s*<\/div>$/);
+    assert.doesNotMatch(html, /style=|class=/);
+  });
+  test('a slot never fills inside a tag: an href, a style, a class, a data attribute', () => {
+    const html = '<a href="${note}" style="color:${note}" class="${status}" data-x=\'${n}\' title="a>${note}">${note}</a>';
+    assert.equal(fill(html, { note: 'javascript:alert(1)', status: 'ok', n: 1 }), '<a href="${note}" style="color:${note}" class="${status}" data-x=\'${n}\' title="a>${note}">javascript:alert(1)</a>');
+  });
+  test('a slot stays as written in a comment and in a raw-text element', () => {
+    const html = '<!-- ${note} --><style>.x::after{content:"${note}"}</style><textarea>${note}</textarea><title>${note}</title><p>${note}</p>';
+    assert.equal(fill(html, { note: 'z' }), '<!-- ${note} --><style>.x::after{content:"${note}"}</style><textarea>${note}</textarea><title>${note}</title><p>z</p>');
+  });
+  test('a name that is not a declared field stays as written; a declared field that was not returned fills as nothing', () => {
+    assert.equal(fill('<p>${nope} [${note}] ${__proto__} ${constructor}</p>', {}), '<p>${nope} [] ${__proto__} ${constructor}</p>');
+  });
+  test('a fill is never rescanned: a value that holds a slot cannot chain', () => {
+    assert.equal(fill('<p>${note}${status}</p>', { note: '${status}', status: 'ok' }), '<p>${status}ok</p>');
+  });
+  test('an unclosed tag or comment cannot bring a later slot into play', () => {
+    assert.equal(fill('<p>${note}<img alt="${note}', { note: 'a' }), '<p>a<img alt="${note}');
+    assert.equal(fill('<!-- ${note}', { note: 'a' }), '<!-- ${note}');
+  });
+  test('a `$` in a value is not read as a replacement pattern', () => {
+    assert.equal(fill('<p>${note}</p>', { note: "$& $1 $$ $'" }), "<p>$&amp; $1 $$ $&#39;</p>");
+  });
+  test('markdown html keeps a short list of bare tags, and falls back to escaped text for anything else', () => {
+    assert.equal(slotMarkdownHtml('**x**').trim(), '<p><strong>x</strong></p>');
+    for (const md of ['- a\n- b', '1. a\n2. b', '> q', '# h', '`c`', '---']) assert.doesNotMatch(slotMarkdownHtml(md), /<[a-z0-9]+\s/i, md);
+  });
+});
+
+describe('host slots, after review (red team, inversion, checker; 2026-10-20)', () => {
+  const { fillReturnSlots, slotFills, SLOT_FILL_MAX } = require('../../../lib/packages/plugin-returns.mjs');
+  const fillWith = (html, data, opts) => {
+    const r = check(data);
+    assert.ok(r.values, JSON.stringify(r));
+    return fillReturnSlots(html, slotFills(r.values, FIELDS), opts);
+  };
+  const MD = '# Big heading\n\n| a | b |\n|---|---|\n| 1 | 2 |';
+
+  test('a markdown value in an inline span fills as escaped source text, never as block html', () => {
+    const out = fillWith('<span class="x">${summary}</span>', { summary: MD }, { inline: true });
+    assert.doesNotMatch(out, /<h1>|<table>|<p>/);
+    assert.match(out, /# Big heading/);
+  });
+  test('a markdown value inside <svg> or <math> fills as escaped source text, and after the element closes it is block html again', () => {
+    const out = fillWith('<svg viewBox="0 0 1 1"><text>${summary}</text></svg><div>${summary}</div>', { summary: '**b**' });
+    assert.match(out, /<svg[^>]*><text>\*\*b\*\*<\/text><\/svg><div><p><strong>b<\/strong><\/p>/);
+    assert.doesNotMatch(fillWith('<math><mtext>${summary}</mtext></math>', { summary: MD }), /<h1>|<table>/);
+  });
+  test('a self-closing <svg/> does not leave the rest of the drawing in a foreign element', () => {
+    assert.match(fillWith('<svg/><div>${summary}</div>', { summary: '**b**' }), /<div><p><strong>b<\/strong><\/p>/);
+  });
+  test('the fills of one render are budgeted: 200,000 slots of one 2,000-character value stop at the budget', () => {
+    const html = '<p>${summary}</p>'.repeat(200000);
+    const budget = { left: SLOT_FILL_MAX };
+    const started = Date.now();
+    assert.equal(fillWith(html, { summary: 'x'.repeat(1900) }, { budget }), null);
+    assert.ok(Date.now() - started < 3000, 'the budget stops the fill early');
+    // Within budget, the budget is spent across blocks.
+    const shared = { left: 20 };
+    assert.equal(fillWith('<p>${note}</p>', { note: 'a'.repeat(15) }, { budget: shared }), `<p>${'a'.repeat(15)}</p>`);
+    assert.equal(fillWith('<p>${note}</p>', { note: 'a'.repeat(15) }, { budget: shared }), null);
+  });
+  test('many raw-text elements cost linear time (a 480 KB drawing took 23 s when the scan lowercased the whole drawing per element)', () => {
+    const html = `<p>\${note}</p>${'<title>x</title>'.repeat(30000)}`;
+    const started = Date.now();
+    assert.ok(fillWith(html, { note: 'z' }).startsWith('<p>z</p>'));
+    assert.ok(Date.now() - started < 1500, `took ${Date.now() - started} ms`);
+  });
+});
+
+describe('a plugin stylesheet is rebuilt behind the plugin’s root, never wrapped (red team, inversion, checker; 2026-10-20)', () => {
+  const { scopePluginCss } = require('../../../lib/packages/code-door-fence.mjs');
+  const { pluginCssRefusal } = require('../../../lib/packages/plugin-css.mjs');
+  const ROOT = '[data-lattice-plugin="gantt"]';
+  const HOSTILE = {
+    'a stray } that ends the wrapper': '.lp-a{color:red}\n}\nsection, h1, p { visibility:hidden !important }\n.x{',
+    'the same } hidden in a comment and a string': '.lp-a{content:"}"}\n/* } */ }\nbody{background:red}\n.y{',
+    'a sibling combinator': '& ~ * { visibility:hidden }',
+    'a leading combinator': '~ * { visibility:hidden }',
+    ':has(&) reaching the slide': 'section:has(&) h1 { color: red }',
+    'a nested rule': '.lp-a { color: red; .lp-b { color: blue } }',
+    'an @import': '@import "x.css"; .a{}',
+    'a @keyframes': '@keyframes spin { from { opacity: 0 } to { opacity: 1 } }',
+    'a @font-face': '@font-face { font-family: x; src: local(a) }',
+    'a @layer': '@layer base { .a { color: red } }',
+    'an unclosed block': '.a { color: red',
+    'an unclosed comment': '.a { color: red } /* x',
+    'an at-rule inside an at-rule': '@media (min-width:1px){ @supports (display:grid){ .a{color:red} } }',
+  };
+  for (const [why, css] of Object.entries(HOSTILE)) {
+    test(`${why}: refused at the gate, and scopes to nothing at render`, () => {
+      assert.ok(pluginCssRefusal(css), 'the gate admits it');
+      assert.equal(scopePluginCss('gantt', css), '');
+    });
+  }
+  test('a sheet the gate admits scopes every selector, in a rule list and inside @media', () => {
+    const out = scopePluginCss('gantt', '.a, section > b:not(.c) { color: red }\n@media (min-width: 1px) { table { x: y } }\n/* c } */');
+    assert.equal(pluginCssRefusal('.a { color: red }'), null);
+    assert.match(out, new RegExp(`^\\${ROOT.slice(0, -1)}\\] \\.a,\\n\\[data-lattice-plugin="gantt"\\] section > b:not\\(\\.c\\) \\{ color: red \\}`));
+    assert.match(out, /@media \(min-width: 1px\) \{\n\[data-lattice-plugin="gantt"\] table \{ x: y \}\n\}/);
+    assert.doesNotMatch(out, /c \}/);
+  });
+  test('every rule of the output starts with the root, whatever the input holds', () => {
+    const out = scopePluginCss('gantt', '.a{b:c}\nsection{b:c}\nbody , :root{b:c}\n.lp-x::after{content:"a,b{c}"}');
+    for (const line of out.split('\n').filter((l) => /\{$|^\[/.test(l) || l.includes('{'))) assert.match(line, /^\[data-lattice-plugin="gantt"\] /);
+    assert.match(out, /content:"a,b\{c\}"/);
+  });
+  test('an empty or blank sheet is nothing, and the plugin name cannot break out of the attribute selector', () => {
+    assert.equal(scopePluginCss('gantt', ' \n'), '');
+    assert.match(scopePluginCss('x"]{}a[', '.b{c:d}'), /^\[data-lattice-plugin="xa"\] \.b/);
+  });
+});
