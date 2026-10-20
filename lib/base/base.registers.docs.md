@@ -791,14 +791,14 @@ shared screen.
 |---|---|---|---|---|
 | `laptop` | *(no class)* | You on your own screen. The default when `venue:` is omitted. | 1x | 1x |
 | `huddle` | `venue-huddle` | 4–6 people around a TV | 1.15x | 1.15x |
-| `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x (header, footer, page number 1.3x) |
-| `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x (header, footer, page number 1.5x) |
+| `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x (header, footer, page number 1.1x) |
+| `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x (header, footer, page number 1.3x) |
 
 "Labels" is the meta role — eyebrows, captions, card tags — which a venue lifts past the
 body because the smallest text fails first at distance. The running header, footer and
 page number are wayfinding, not content: they follow the venue's type step (1.3x at
-conference, 1.5x at hall) but skip the label lift, so they stay as small next to the body
-as they are on a laptop.
+conference, 1.5x at hall), skip the label lift, and take a further 15% cut, so they sit
+well under the body and the eyebrows.
 If your back row is farther from the screen than the band assumes (for example, 30
 people and a small TV), pick the next venue up.
 

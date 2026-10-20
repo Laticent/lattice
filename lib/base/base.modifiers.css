@@ -1330,8 +1330,8 @@ section.divider.light code {
  * text (the label's 1.3 would put code at 26.2pt over a 24.0pt body). The derivation
  * is engineering/typography.md §7 "Venue". `laptop` is the designed size: no class. */
 section.venue-huddle     { --fs-scale: 1.15; }
-section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; --venue-compact-lift: 1.15; }
-section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-compact-lift: 1.14; }
+section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; --venue-compact-lift: 1.15; --venue-chrome-cut: 0.85; }
+section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-compact-lift: 1.14; --venue-chrome-cut: 0.85; }
 
 section.scale-l   { --fs-scale: 1.15; }
 section.scale-xl  { --fs-scale: 1.3;  }
