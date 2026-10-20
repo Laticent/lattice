@@ -8,10 +8,14 @@ import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { BUILTIN_PALETTES } from '@/lib/theme-catalog.generated';
+import { coerceRecipe } from '../finish-generate';
+import { RESERVED_FINISH_NAMES } from '../finish-library';
+import { refuseImportedTheme } from '../import-gate';
+import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
-import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, type LiveLook, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
@@ -76,17 +80,41 @@ type HostSave = { room: string; sealed: string; pub: string; name: string; deckI
  *  null (the default palette), never by name. */
 const freezeLook = (d: LiveDeps): LiveLook => ({ palette: BUILTIN_PALETTES.includes(d.theme) ? d.theme : null, mode: d.mode === 'dark' ? 'dark' : 'light' });
 /** A look as a peer sent it, or null when it is not one: only a built-in palette name and a mode. */
-const cleanLook = (v: unknown): LiveLook | null => {
+const cleanLook = (v: unknown, known: (name: string) => boolean = () => false): LiveLook | null => {
 	if (!v || typeof v !== 'object') return null;
 	const { palette, mode } = v as { palette?: unknown; mode?: unknown };
 	if (mode !== 'light' && mode !== 'dark') return null;
-	if (palette !== null && (typeof palette !== 'string' || !BUILTIN_PALETTES.includes(palette))) return null;
+	if (palette !== null && (typeof palette !== 'string' || !(BUILTIN_PALETTES.includes(palette) || known(palette)))) return null;
 	return { palette, mode };
 };
+
+// ── Library records (slice 1b, 2026-10-20 note §5.2 and §6 rules 5, 6, 8) ─────────────────────────────
+/** A record's key in the host's shared set: `t:` a theme, `f:` a finish. */
+const themeKey = (name: string) => `t:${name}`;
+const finishKey = (name: string) => `f:${name}`;
+const componentKey = (name: string) => `c:${name}`;
+const LOOK_KEY = 'look';
+const keysOf = (r: LiveRecords) => [...r.themes.map((t) => themeKey(t.name)), ...r.finishes.map((f) => finishKey(f.name)), ...r.components.map(componentKey)];
+/** Bounds on what a member takes, so one message stays far under Tavola's 4 MB and nothing grows unbounded. */
+const MAX_THEMES = 8;
+const MAX_THEME_CSS = 128 * 1024;
+/** All themes in one message, in characters. UTF-8 takes at most 3 bytes a character, so this keeps a
+ *  records message near 2.3 MB at worst, under Tavola's 4 MB MAX_MESSAGE, which would drop it whole. */
+const MAX_THEMES_CSS = 768 * 1024;
+const MAX_FINISHES = 16;
+const MAX_COMPONENTS = 50;
+const THEME_NAME = /^[a-z][a-z0-9-]{0,63}$/;
+const FINISH_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const COMPONENT_NAME = /^[a-z][a-z0-9-]{0,63}$/;
+/** A member remembers this many gate verdicts, so a theme sent again is not checked again. */
+const VERDICTS_KEPT = 64;
+/** A member says at most this many things about records, and about components at most this often. */
+const RECORD_NOTES_KEPT = 100;
+const COMPONENT_NOTE_EVERY_MS = 30_000;
 /** Whether the deck's front matter names a theme of its own (then the session's look does not apply). */
 const deckNamesTheme = (source: string): boolean => /^theme:[ \t]*\S/m.test(/^---\r?\n([\s\S]*?)\r?\n---/.exec(source)?.[1] ?? '');
 /** What `HostSave.sealed` opens to. Chat is in here because people paste things into chat. */
-type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string };
+type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string; shared?: string[]; lookTheme?: LiveTheme };
 const toB64 = (u: Uint8Array) => {
 	let s = '';
 	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
@@ -136,6 +164,9 @@ type Post =
 	| { k: 'tip'; seq: number; startedAt: number; look?: LiveLook }
 	| { k: 'typing' }
 	| { k: 'bye' }
+	/** host → member: the Library records the deck uses that the host shares (themes, finish recipes,
+	 *  and custom component NAMES only). A member takes them only from the host, through the import gate. */
+	| { k: 'records'; themes: LiveTheme[]; finishes: LiveFinish[]; components: string[] }
 	/** a member's own microphone state (about itself only; who is SPEAKING is measured, never said) */
 	| { k: 'mic'; on: boolean }
 	/** host → its heir: who owns each chat-id prefix, by rejoin token, so the chat keeps its owners
@@ -390,14 +421,42 @@ export class LiveController {
 	 *  carried in the host save, and taken by a member only from the current host's `tip`. A member
 	 *  that takes over keeps the one it holds, so a takeover never re-skins anyone's deck. */
 	private look: LiveLook | null = null;
+	/** Member (and an heir): the host's records, validated, held in memory for the session only. */
+	private received: LiveRecords = NO_RECORDS;
+	private recordsSeq = 0;
+	/** Member: a look that names a theme whose record has not passed the gate yet. */
+	private pendingLook: unknown = null;
+	/** Host: which of ITS OWN records it shares — the ones the deck used when sharing started, plus any
+	 *  it agreed to since. An heir starts with none of its own. Kept in the sealed host save. */
+	private shared = new Set<string>();
+	/** Host: the records it has already asked about, so an edit does not ask twice. */
+	private asked = new Set<string>();
+	private sentRecords = '';
+	/** Host: the saved theme it shared as the session's look, captured when it said yes, so changing its
+	 *  site palette later never takes the record away from the others. */
+	private lookTheme: LiveTheme | null = null;
+	/** Member: what it has already said about records it could not show, and when it last named components. */
+	private recordNotes = new Set<string>();
+	private componentNoteAt = 0;
+	/** Member: the import gate's verdicts by name and CSS, so a theme sent again (or a hostile host sending the
+	 *  same heavy sheet over and over) is checked once. */
+	private verdicts = new Map<string, boolean>();
 	/** The theme the lobby names: the session's frozen look, never the host's palette now (a saved theme's
 	 *  name is not shared, so it shows none). A heir that holds no look names none either. */
 	private inviteTheme(): string {
-		return this.look?.palette ?? '';
+		const p = this.look?.palette;
+		return p && BUILTIN_PALETTES.includes(p) ? p : '';
 	}
 	/** Take the look a host message carried, if it is one and differs from ours. */
 	private takeLook(v: unknown) {
-		const look = cleanLook(v);
+		const look = cleanLook(v, (n) => this.received.themes.some((t) => t.name === n));
+		// A look naming a saved theme whose record is still being checked: hold it until the record lands.
+		if (!look && cleanLook(v, () => true)) {
+			const { palette, mode } = v as LiveLook;
+			if (typeof palette === 'string' && THEME_NAME.test(palette)) this.pendingLook = { palette, mode };
+			return;
+		}
+		this.pendingLook = null;
 		if (look && (look.palette !== this.look?.palette || look.mode !== this.look?.mode)) {
 			this.look = look;
 			this.host.rerender();
@@ -507,7 +566,7 @@ export class LiveController {
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
 				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
 				this.sidOwner = new Map((opened.sids ?? []).filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string'));
-				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken, look: 'look' in hosting ? cleanLook(hosting.look) : undefined }, startedAt: hosting.startedAt, release });
+				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken, look: 'look' in hosting ? cleanLook(hosting.look, (n) => n === opened.lookTheme?.name) : undefined, shared: opened.shared ?? [], lookTheme: opened.lookTheme ?? null }, startedAt: hosting.startedAt, release });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
 				this.host.notify('Your live session is back. People who were in rejoin without knocking.');
@@ -553,10 +612,14 @@ export class LiveController {
 		this.host.rerender();
 	}
 
-	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string; succession?: Succession; selfToken?: string; look?: LiveLook | null }; token?: string; minTerm?: number; startedAt?: number; release?: () => void }) {
+	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string; succession?: Succession; selfToken?: string; look?: LiveLook | null; shared?: string[]; lookTheme?: LiveTheme | null }; token?: string; minTerm?: number; startedAt?: number; release?: () => void }) {
 		const d = this.deps;
 		// A host freezes the look now, or keeps the one its save carried. A member waits for the host's.
 		this.look = args.host ? (args.host.look === undefined ? freezeLook(d) : args.host.look) : null;
+		// A fresh session shares what the deck uses now; a resumed one, what its save says it shared.
+		this.shared = new Set(args.host ? (args.host.shared ?? keysOf(d.records)) : []);
+		this.lookTheme = args.host?.lookTheme ?? null;
+		this.asked = new Set(this.shared);
 		const doc = new Y.Doc();
 		const ytext = doc.getText('source');
 		if (args.host?.doc) Y.applyUpdate(doc, fromB64(args.host.doc));
@@ -678,7 +741,10 @@ export class LiveController {
 							this.floorFrom.delete(to);
 							this.sinceAt.delete(to);
 							setTimeout(() => {
-								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, to);
+								if (this.rt !== r) return;
+								// The records first: a look naming a shared theme is taken only once its record is here.
+								this.sendRecords(to);
+								this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, to);
 							}, 400);
 						}
 						// A newcomer learns whether our microphone is on (who is speaking it measures itself).
@@ -875,6 +941,16 @@ export class LiveController {
 		this.lastSelfId = null;
 		this.hostStartedAt = null;
 		this.look = null;
+		this.received = NO_RECORDS;
+		this.recordsSeq++;
+		this.pendingLook = null;
+		this.shared = new Set();
+		this.asked = new Set();
+		this.sentRecords = '';
+		this.recordNotes = new Set();
+		this.componentNoteAt = 0;
+		this.verdicts = new Map();
+		this.lookTheme = null;
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -931,7 +1007,7 @@ export class LiveController {
 			await r.session.idle();
 			const succ = r.session.succession();
 			const succession = succ ? { root: succ.root, fingerprint: succ.fingerprint, chain: succ.chain, base: succ.base, top: succ.top } : undefined;
-			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner], succession, selfToken: succ?.selfToken } satisfies HostSealed));
+			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner], succession, selfToken: succ?.selfToken, shared: [...this.shared], ...(this.lookTheme ? { lookTheme: this.lookTheme } : {}) } satisfies HostSealed));
 		} catch {
 			return false;
 		}
@@ -1121,6 +1197,10 @@ export class LiveController {
 		this.lastSelfId = mine;
 		this.sidOwner = new Map(this.heirSids.map(([sid, owner]): [string, string] => [sid, owner === mine ? 'host' : owner]));
 		this.heirSids = [];
+		// The heir relays the records it received; none of its OWN until it agrees to each (§6 rule 6).
+		this.shared = new Set();
+		this.asked = new Set();
+		this.sentRecords = '';
 		const waiting = this.pending;
 		this.setPending([]);
 		for (const p of waiting) this.hostTake(p.id, r.session.getState().selfId, r.session.getState().me as { name: string; color: LiveColor }, p.text);
@@ -1259,6 +1339,11 @@ export class LiveController {
 			this.invitedAs = s.me?.name;
 			r.session.setInvite({ title: deps.deckTitle, hostName: s.me?.name ?? '', slides: deps.slideCount, theme: this.inviteTheme() });
 		}
+		// The host's records: ask about any the deck newly names, and send what changed.
+		if (s.isHost && s.stage === 'live' && prev.records !== deps.records) {
+			for (const u of this.unshared()) if (u.kind !== 'look') this.offer(u);
+			this.sendRecords();
+		}
 	}
 
 	// ── awareness-driven behavior: follow and summon ────────────────────────
@@ -1337,7 +1422,7 @@ export class LiveController {
 		const r = this.rt;
 		const s = r?.session.getState();
 		if (!r || !this.bound || !s?.me) return null;
-		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), look: this.look };
+		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), look: this.look, records: this.received };
 	}
 
 	/** The chat in the host's order. A line's author is the member its `say` ARRIVED from at the
@@ -1484,6 +1569,150 @@ export class LiveController {
 		void this.saveHost();
 	}
 
+	/** Host: what it sends — the records it relays (an heir's, received from the first host), its own that
+	 *  it shares, and the saved theme it shared as the look. Nothing of its own leaves without a yes (§6 rule 6). */
+	private outgoing(): LiveRecords {
+		const own = this.deps.records;
+		const themes = new Map(this.received.themes.map((t) => [t.name, t]));
+		for (const t of own.themes) if (this.shared.has(themeKey(t.name)) && t.css.length <= MAX_THEME_CSS) themes.set(t.name, t);
+		if (this.lookTheme) themes.set(this.lookTheme.name, this.lookTheme);
+		const finishes = new Map(this.received.finishes.map((f) => [f.name, f]));
+		for (const f of own.finishes) if (this.shared.has(finishKey(f.name))) finishes.set(f.name, f);
+		const components = new Set(this.received.components);
+		for (const c of own.components) if (this.shared.has(componentKey(c))) components.add(c);
+		let total = 0;
+		const fit = [...themes.values()].slice(0, MAX_THEMES).filter((t) => (total += t.css.length) <= MAX_THEMES_CSS);
+		return { themes: fit, finishes: [...finishes.values()].slice(0, MAX_FINISHES), components: [...components].slice(0, MAX_COMPONENTS) };
+	}
+	/** Host: send the records to one newcomer, or to everyone when they changed. The signature reads
+	 *  names and the CSS by length and ends, so a keystroke does not stringify every sheet. */
+	private sendRecords(to?: string) {
+		const s = this.rt?.session.getState();
+		if (!s?.isHost || s.stage !== 'live') return;
+		const out = this.outgoing();
+		const empty = !out.themes.length && !out.finishes.length && !out.components.length;
+		if (to) {
+			if (!empty) this.post({ k: 'records', ...out }, to);
+			return;
+		}
+		const sig = [...out.themes.map((t) => `t:${t.name}:${t.css.length}:${t.css.slice(0, 64)}:${t.css.slice(-64)}`), ...out.finishes.map((f) => `f:${f.name}:${f.label}:${JSON.stringify(f.recipe)}`), ...out.components.map(componentKey)].join('\n');
+		if (sig === this.sentRecords || (!this.sentRecords && empty)) return;
+		this.sentRecords = sig;
+		this.post({ k: 'records', ...out });
+	}
+	/** Host: its records the deck uses that the session does not have — the list the panel shows, with a
+	 *  Share button each, until they are shared. A record it relays under the same name is not listed. */
+	private unshared(): LiveUnshared[] {
+		const s = this.rt?.session.getState();
+		if (!s?.isHost || s.stage !== 'live') return [];
+		const own = this.deps.records;
+		const out: LiveUnshared[] = [];
+		for (const t of own.themes) if (!this.shared.has(themeKey(t.name)) && !this.received.themes.some((x) => x.name === t.name) && this.lookTheme?.name !== t.name) out.push({ key: themeKey(t.name), kind: 'theme', name: t.name, ...(t.css.length > MAX_THEME_CSS || !THEME_NAME.test(t.name) ? { tooLarge: true } : {}) });
+		for (const f of own.finishes) if (!this.shared.has(finishKey(f.name)) && !this.received.finishes.some((x) => x.name === f.name)) out.push({ key: finishKey(f.name), kind: 'finish', name: f.label || f.name });
+		for (const c of own.components) if (!this.shared.has(componentKey(c)) && !this.received.components.includes(c)) out.push({ key: componentKey(c), kind: 'component', name: c });
+		const st = this.siteLookOffer();
+		if (st) out.unshift({ key: LOOK_KEY, kind: 'look', name: st.name, ...(st.css.length > MAX_THEME_CSS || !THEME_NAME.test(st.name) ? { tooLarge: true } : {}) });
+		return out;
+	}
+	/** Host: its saved site palette, when the session's look fell back to the default because of it and
+	 *  the deck names no theme of its own (§5.1). */
+	private siteLookOffer(): LiveTheme | null {
+		const st = this.deps.siteTheme;
+		if (!st || this.lookTheme || !this.look || this.look.palette !== null || deckNamesTheme(this.deps.source)) return null;
+		return st;
+	}
+	/** Host: share one record. A component is shared by name; the look takes the theme captured now. */
+	private shareRecord(key: string) {
+		const r = this.rt;
+		const s = r?.session.getState();
+		if (!r || !s?.isHost || s.stage !== 'live') return;
+		const item = this.unshared().find((u) => u.key === key);
+		if (!item || item.tooLarge) return;
+		if (item.kind === 'look') {
+			const st = this.siteLookOffer();
+			if (!st || !this.look) return;
+			this.lookTheme = { name: st.name, css: st.css };
+			this.look = { palette: st.name, mode: this.look.mode };
+			// The record first, then the look that names it, to everyone.
+			this.sendRecords();
+			this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, look: this.look });
+		} else {
+			this.shared.add(key);
+			this.sendRecords();
+		}
+		void this.saveHost();
+		this.host.rerender();
+	}
+	/** Host: a record the deck newly names. The panel lists it until it is shared; this toast only points
+	 *  there, once per record, and says whether this browser or someone else made the change. */
+	private offer(item: LiveUnshared) {
+		if (this.asked.has(item.key)) return;
+		this.asked.add(item.key);
+		const what = item.kind === 'theme' ? `your saved theme "${item.name}"` : item.kind === 'finish' ? `your saved finish "${item.name}"` : `your custom component "${item.name}"`;
+		const who = this.rt && this.rt.session.now() - this.myEditAt < 2000 ? 'You changed the deck to use' : 'Someone in the session changed the deck to use';
+		if (item.tooLarge) {
+			this.host.notify(`${who} ${what}. It's too large to share in a live session, so the others see a fallback.`);
+			return;
+		}
+		this.host.notifyAction(`${who} ${what}, which the others don't have. It's listed in the Live panel until you share it.`, { label: 'Share', onClick: () => this.shareRecord(item.key) });
+	}
+	/** Host, on starting: a saved site palette is not shared without a yes (§5.1). The panel lists it; this
+	 *  says so once. Without the theme's record at hand (the Library still loading) it can only say why. */
+	private offerSiteTheme() {
+		if (!this.look || this.look.palette !== null || deckNamesTheme(this.deps.source)) return;
+		const st = this.siteLookOffer();
+		if (!st) {
+			this.host.notify("Your saved theme isn't shared in a live session yet, so everyone sees this deck in the default theme.");
+			return;
+		}
+		this.asked.add(LOOK_KEY);
+		this.host.notifyAction(`Your theme "${st.name}" isn't shared yet, so everyone sees this deck in the default theme. Share it from the Live panel, or here.`, { label: 'Share', onClick: () => this.shareRecord(LOOK_KEY) });
+	}
+	/** Member: take the host's records through the gates, and hold them in memory. A later message
+	 *  replaces an earlier one; a slow check never lands over a newer one, and stops as soon as one arrives. */
+	private async takeRecords(v: unknown, r: Runtime, hostName: string) {
+		const n = ++this.recordsSeq;
+		const p = v as Partial<LiveRecords>;
+		const themes: LiveTheme[] = [];
+		for (const t of (Array.isArray(p.themes) ? p.themes : []).slice(0, MAX_THEMES)) {
+			if (this.rt !== r || n !== this.recordsSeq) return;
+			if (!t || typeof t.name !== 'string' || !THEME_NAME.test(t.name) || RESERVED_THEME_NAMES.has(t.name) || typeof t.css !== 'string' || t.css.length > MAX_THEME_CSS) continue;
+			const vkey = `${t.name}\u0000${t.css}`;
+			let ok = this.verdicts.get(vkey);
+			if (ok === undefined) {
+				// The same gate as a theme in a file from someone else: an off-device fetch is refused.
+				const refused = await refuseImportedTheme(t.css, t.name).catch(() => ({ name: t.name, why: 'it could not be checked' }));
+				ok = !refused;
+				if (this.verdicts.size >= VERDICTS_KEPT) this.verdicts.delete(this.verdicts.keys().next().value as string);
+				this.verdicts.set(vkey, ok);
+				if (refused) this.noteRecord(`theme:${t.name}`, `${hostName}'s theme "${t.name}" isn't shown here: ${refused.why}`);
+			}
+			if (ok) themes.push({ name: t.name, css: t.css });
+		}
+		// A finish travels as its recipe; coercing it keeps every value in the generator's vocabulary. A
+		// shipped finish's name is refused, as a saved one could never take it.
+		const finishes: LiveFinish[] = (Array.isArray(p.finishes) ? p.finishes : [])
+			.slice(0, MAX_FINISHES)
+			.filter((f) => f && typeof f.name === 'string' && FINISH_NAME.test(f.name) && !RESERVED_FINISH_NAMES.has(f.name))
+			.map((f) => ({ name: f.name, label: typeof f.label === 'string' ? cleanName(f.label).slice(0, 60) || f.name : f.name, recipe: coerceRecipe(f.recipe) }));
+		const components = (Array.isArray(p.components) ? p.components : []).filter((c): c is string => typeof c === 'string' && COMPONENT_NAME.test(c)).slice(0, MAX_COMPONENTS);
+		if (this.rt !== r || n !== this.recordsSeq) return;
+		this.received = { themes, finishes, components };
+		if (this.pendingLook) this.takeLook(this.pendingLook);
+		const unseen = components.filter((c) => !this.recordNotes.has(`component:${c}`));
+		if (unseen.length && Date.now() - this.componentNoteAt > COMPONENT_NOTE_EVERY_MS && this.recordNotes.size < RECORD_NOTES_KEPT) {
+			this.componentNoteAt = Date.now();
+			for (const c of unseen) this.recordNotes.add(`component:${c}`);
+			this.host.notify(`This deck uses ${unseen.length === 1 ? `a custom component from ${hostName}'s Library ("${unseen[0]}")` : `${unseen.length} custom components from ${hostName}'s Library`}. Custom components aren't shared in a live session yet, so those slides may look different here.`);
+		}
+		this.host.rerender();
+	}
+	private noteRecord(key: string, message: string) {
+		if (this.recordNotes.has(key) || this.recordNotes.size >= RECORD_NOTES_KEPT) return;
+		this.recordNotes.add(key);
+		this.host.notify(message);
+	}
+
 	/** A post from an admitted member (Tavola dropped everyone else's). */
 	private onPost(data: Uint8Array, from: string) {
 		const r = this.rt;
@@ -1571,6 +1800,8 @@ export class LiveController {
 				// Kept whether or not we know yet that we are the heir: it can arrive before the roster.
 				this.takeLook(p.look);
 				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
+			} else if (p.k === 'records') {
+				void this.takeRecords(p, r, sender.name);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
 				this.takeLook(p.look);
@@ -1617,6 +1848,7 @@ export class LiveController {
 			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown, masterVolume: this.audio?.masterVolume ?? 1, outputs: this.outDevices, output: this.audio?.output || null, canPickOutput: LiveAudio.canPickOutput() },
 			canChat: s.me?.role !== 'view',
 			typing,
+			unshared: this.unshared(),
 		};
 	}
 
@@ -1679,6 +1911,7 @@ export class LiveController {
 	}
 
 	readonly actions: LiveActions = {
+		shareRecord: (key: string) => this.shareRecord(key),
 		start: (name: string) => {
 			const n = name.trim() || 'Host';
 			saveName(n);
@@ -1705,7 +1938,7 @@ export class LiveController {
 				this.bound = true;
 				// A saved theme stays in this browser's Library, so the session's look falls back to the
 				// default for everyone, this browser included. Say so once, where the host can act on it.
-				if (this.look && this.look.palette === null && !deckNamesTheme(this.deps.source)) this.host.notify("Your saved theme isn't shared in a live session, so everyone sees this deck in the default theme. Pick a built-in theme for the deck to change that.");
+				if (this.rt) this.offerSiteTheme();
 				this.boundDeck = this.deps.deckId;
 				const keyKept = await putHostPrivateKey(parts.room, key.privateKey).then(
 					() => true,

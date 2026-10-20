@@ -103,10 +103,20 @@ export type LiveView = {
 	canChat: boolean;
 	/** Names of the people typing a chat message right now (never this browser). */
 	typing: string[];
+	/** Host: its own Library records the deck uses that the session does not have yet, each with a
+	 *  Share button (2026-10-20-live-uniform-experience.md §6 rule 6). It stays until shared, so a
+	 *  missed prompt is never a silent difference between screens. */
+	unshared: LiveUnshared[];
 };
+
+/** One of the host's records the others do not have: a theme, a finish, a custom component, or the
+ *  host's saved site palette offered as the session's look. `tooLarge` cannot be shared. */
+export type LiveUnshared = { key: string; kind: 'theme' | 'finish' | 'component' | 'look'; name: string; tooLarge?: boolean };
 
 export type LiveActions = {
 	start: (name: string) => void;
+	/** Host: share one of its records (a `LiveUnshared` key) with the session. */
+	shareRecord: (key: string) => void;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;
@@ -183,6 +193,7 @@ export const IDLE_VIEW: LiveView = {
 	call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false, micLevel: 1, canShapeMic: false, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: false },
 	canChat: true,
 	typing: [],
+	unshared: [],
 };
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a

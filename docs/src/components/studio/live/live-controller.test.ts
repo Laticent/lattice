@@ -2,8 +2,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryNetwork, type MemoryNetwork } from '@/lib/tavola/memory';
 import type { Transport } from '@/lib/tavola/types';
-import type { LiveDeps, LiveHost } from './live-store';
-import { takeLiveIntent } from './live-store';
+import type { LiveDeps, LiveFinish, LiveHost, LiveTheme } from './live-store';
+import { NO_RECORDS, takeLiveIntent } from './live-store';
 
 // The Studio's controller over the in-memory network: the real controller, Tavola and Yjs, with
 // only the Trystero transport swapped. These pin the second-round trio findings that live in the
@@ -30,7 +30,7 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
-const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, ...over });
+const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, ...over });
 const shell = () => {
 	const notes: string[] = [];
 	const host: LiveHost = { setSource: () => {}, goToSlide: () => {}, openSharedDeck: () => 'shared-deck', notify: (m) => notes.push(m), notifyAction: (m) => notes.push(m), rerender: () => {} };
@@ -768,5 +768,191 @@ describe('LiveController: the session look', () => {
 		(g as any).post({ k: 'since', seq: 0 }, (h as any).rt.session.getState().selfId);
 		await until(() => lookOf(g) !== null, h, g);
 		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+});
+
+// The host's Library records (2026-10-20-live-uniform-experience.md §5.2, §6 rules 5, 6, 8): a member renders the
+// saved theme and finish the deck uses; nothing the host did not share leaves its Library; a member takes them
+// only from the host, through the import gate, and holds them in memory.
+describe('LiveController: Library records', () => {
+	const acme = { name: 'acme-brand', css: ':root{--accent:#123456}' };
+	const linen = { name: 'linen', label: 'Linen', recipe: { grain: { type: 'paper', strength: 0.3 } } };
+	const recordsOf = (c: Ctl) => c.collab()?.records ?? NO_RECORDS;
+	const withRecords = (themes: LiveTheme[] = [acme], finishes: LiveFinish[] = [linen], components: string[] = []) => ({ records: { themes, finishes, components } });
+
+	it('a member gets the saved theme and finish the deck used when sharing started', async () => {
+		const { h } = await hostSession(withRecords());
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => recordsOf(g).themes.length === 1 && recordsOf(g).finishes.length === 1, h, g);
+		expect(recordsOf(g).themes[0]).toEqual(acme);
+		expect(recordsOf(g).finishes[0]).toMatchObject({ name: 'linen', label: 'Linen' });
+	});
+
+	it('a record the deck names later is not sent until the host agrees', async () => {
+		const sh = shell();
+		const actions: Array<{ m: string; go: () => void }> = [];
+		sh.host.notifyAction = (m, o) => actions.push({ m, go: o.onClick });
+		sessionStorage.removeItem('lattice-live-sids');
+		const h = new LiveController(sh.host, deps('host-deck'));
+		h.actions.start('Sharmarke');
+		await until(() => h.view().status === 'live', h);
+		const { g } = await guestOf(h, 'Amina');
+		// An editor writes a private theme's name into the deck: the host's deck now resolves it.
+		h.update(deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{--accent:#000}' }], [])));
+		await settle(h, g);
+		expect(recordsOf(g).themes).toEqual([]);
+		const ask = actions.find((a) => a.m.includes('private-brand'));
+		expect(ask).toBeDefined();
+		ask?.go();
+		await until(() => recordsOf(g).themes.some((t) => t.name === 'private-brand'), h, g);
+	});
+
+	it('records from a member who is not the host are ignored, and so are shipped names and oversized CSS', async () => {
+		const { h } = await hostSession(withRecords([], []));
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting records to everyone.
+		(a as any).post({ k: 'records', themes: [acme], finishes: [linen], components: [] });
+		// biome-ignore lint/suspicious/noExplicitAny: the host itself sending a shipped name and a huge sheet.
+		(h as any).post({ k: 'records', themes: [{ name: 'indaco', css: ':root{}' }, { name: 'huge', css: 'x'.repeat(200 * 1024) }], finishes: [{ name: 'Bad Name!', recipe: {} }], components: ['ok-name', '<img>'] });
+		await settle(h, a, b);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(recordsOf(b).themes).toEqual([]);
+		expect(recordsOf(b).finishes).toEqual([]);
+		expect(recordsOf(b).components).toEqual(['ok-name']);
+	});
+
+	it('a theme that fetches off the device is refused by the import gate, with a note', async () => {
+		const beacon = { name: 'beacon', css: "@font-face{font-family:x;src:url(https://evil.example/f.woff2)} :root{--accent:#111}" };
+		const { h } = await hostSession(withRecords([beacon], []));
+		const { g, notes } = await guestOf(h, 'Amina');
+		await until(() => notes.some((n) => n.includes('"beacon"')), h, g);
+		expect(recordsOf(g).themes).toEqual([]);
+	});
+
+	it('a finish travels as a recipe, coerced into the generator\'s vocabulary', async () => {
+		const evil = { name: 'gloss', label: 'Gloss', recipe: { grain: { type: 'url(https://evil.example/x)' }, extra: '</style><script>' } };
+		const { h } = await hostSession(withRecords([], [evil]));
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => recordsOf(g).finishes.length === 1, h, g);
+		expect(JSON.stringify(recordsOf(g).finishes[0].recipe)).not.toMatch(/evil|script/);
+	});
+
+	it('a deck with a custom component says so once, by name', async () => {
+		const { h } = await hostSession(withRecords([], [], ['org-chart']));
+		const { g, notes } = await guestOf(h, 'Amina');
+		await until(() => notes.some((n) => n.includes('org-chart')), h, g);
+		expect(notes.filter((n) => n.includes('org-chart'))).toHaveLength(1);
+	});
+
+	it('a host whose site palette is a saved theme can share it as the session look', async () => {
+		const sh = shell();
+		const actions: Array<{ m: string; go: () => void }> = [];
+		sh.host.notifyAction = (m, o) => actions.push({ m, go: o.onClick });
+		sessionStorage.removeItem('lattice-live-sids');
+		const h = new LiveController(sh.host, deps('host-deck', { theme: 'acme-brand', mode: 'dark', siteTheme: acme }));
+		h.actions.start('Sharmarke');
+		await until(() => h.view().status === 'live', h);
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
+		// biome-ignore lint/suspicious/noExplicitAny: the look the member holds.
+		const lookOf = (c: Ctl) => (c as any).look;
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(g)).toEqual({ palette: null, mode: 'dark' });
+		actions.find((a) => a.m.includes('acme-brand'))?.go();
+		await until(() => lookOf(g)?.palette === 'acme-brand', h, g);
+		expect(recordsOf(g).themes).toEqual([acme]);
+	});
+
+	it('an heir relays the records it holds, but none of its own Library without asking', async () => {
+		const { h } = await hostSession(withRecords());
+		const { g: a } = await guestOf(h, 'Amina', withRecords([{ name: 'amina-private', css: ':root{--accent:#222}' }], []));
+		const { g: c } = await guestOf(h, 'Chen');
+		await until(() => h.view().heir === 'Amina' && a.view().heir === 'you' && recordsOf(a).themes.length === 1 && recordsOf(c).themes.length === 1, h, a, c);
+		// biome-ignore lint/suspicious/noExplicitAny: the test drops the host's transport like a sleeping phone.
+		net.current?.drop((h as any).rt.session.getState().selfId);
+		await until(() => a.view().isHost && !c.view().hostAway, a, c);
+		const { g: d } = await guestOf(a, 'Dee');
+		await until(() => recordsOf(d).themes.length > 0, a, c, d);
+		expect(recordsOf(d).themes.map((t) => t.name)).toEqual(['acme-brand']);
+		a.dispose();
+		c.dispose();
+		d.dispose();
+	});
+
+	it('a component the deck names later is not named to anyone until the host shares it', async () => {
+		const { h } = await hostSession(withRecords([], []));
+		const { g } = await guestOf(h, 'Amina');
+		h.update(deps('host-deck', withRecords([], [], ['acme-merger-org-chart'])));
+		await settle(h, g);
+		expect(recordsOf(g).components).toEqual([]);
+		expect(h.view().unshared).toEqual([{ key: 'c:acme-merger-org-chart', kind: 'component', name: 'acme-merger-org-chart' }]);
+		h.actions.shareRecord('c:acme-merger-org-chart');
+		await until(() => recordsOf(g).components.includes('acme-merger-org-chart'), h, g);
+		expect(h.view().unshared).toEqual([]);
+	});
+
+	it('an unshared record stays listed in the panel after its prompt is gone, and asks once', async () => {
+		const sh = shell();
+		const asks: string[] = [];
+		sh.host.notifyAction = (m) => asks.push(m);
+		sessionStorage.removeItem('lattice-live-sids');
+		const h = new LiveController(sh.host, deps('host-deck'));
+		h.actions.start('Sharmarke');
+		await until(() => h.view().status === 'live', h);
+		const both = deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{}' }], [linen]));
+		h.update(both);
+		h.update(deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{}' }], [linen])));
+		expect(h.view().unshared.map((u) => u.key)).toEqual(['t:private-brand', 'f:linen']);
+		expect(asks.filter((a) => a.includes('private-brand'))).toHaveLength(1);
+		expect(asks[0]).toMatch(/^Someone in the session changed the deck/);
+	});
+
+	it('a shared site theme stays the look and stays sent after the host changes its site palette', async () => {
+		const { h } = await hostSession({ theme: 'acme-brand', mode: 'dark', siteTheme: acme });
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
+		// biome-ignore lint/suspicious/noExplicitAny: the look the member holds.
+		const lookOf = (c: Ctl) => (c as any).look;
+		await until(() => lookOf(g) !== null, h, g);
+		expect(h.view().unshared).toEqual([{ key: 'look', kind: 'look', name: 'acme-brand' }]);
+		h.actions.shareRecord('look');
+		await until(() => lookOf(g)?.palette === 'acme-brand', h, g);
+		h.update(deps('host-deck', { theme: 'indaco', siteTheme: null, source: '# changed\n' }));
+		await settle(h, g);
+		expect(recordsOf(g).themes).toEqual([acme]);
+		const { g: late } = await guestOf(h, 'Bo', { theme: 'onyx' });
+		await until(() => lookOf(late)?.palette === 'acme-brand', h, g, late);
+		expect(recordsOf(late).themes).toEqual([acme]);
+	});
+
+	it('a host that reloads keeps a shared site theme as the look, whatever its Library holds yet', async () => {
+		const { h } = await hostSession({ theme: 'acme-brand', mode: 'dark', siteTheme: acme });
+		h.actions.shareRecord('look');
+		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
+		await (h as any).saveHost();
+		h.dispose();
+		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', siteTheme: null }));
+		await reloaded.resume();
+		await until(() => reloaded.view().status === 'live', reloaded);
+		// biome-ignore lint/suspicious/noExplicitAny: the look and the record the reloaded host holds.
+		expect((reloaded as any).look).toEqual({ palette: 'acme-brand', mode: 'dark' });
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		expect((reloaded as any).outgoing().themes).toEqual([acme]);
+	});
+
+	it('a shipped finish name is refused, and a refused theme is checked once however often it is sent', async () => {
+		const gate = await import('../import-gate');
+		const spy = vi.spyOn(gate, 'refuseImportedTheme');
+		const { h } = await hostSession(withRecords([], []));
+		const { g } = await guestOf(h, 'Amina');
+		const beacon = { name: 'beacon', css: '@import url(https://evil.example/x.css); :root{}' };
+		for (let i = 0; i < 4; i++) {
+			// biome-ignore lint/suspicious/noExplicitAny: a hostile host sending the same heavy sheet again and again.
+			(h as any).post({ k: 'records', themes: [beacon], finishes: [{ name: 'boardroom', recipe: {} }, { name: 'none', recipe: {} }], components: [] });
+			await settle(h, g);
+		}
+		expect(recordsOf(g).finishes).toEqual([]);
+		expect(recordsOf(g).themes).toEqual([]);
+		expect(spy.mock.calls.filter((c) => c[1] === 'beacon')).toHaveLength(1);
+		spy.mockRestore();
 	});
 });

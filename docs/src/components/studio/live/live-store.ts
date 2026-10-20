@@ -19,7 +19,22 @@ export type LiveDeps = {
 	/** The site's light or dark mode, frozen with the palette into the session's look. */
 	mode: 'light' | 'dark';
 	activeSlide: number;
+	/** This browser's own Library records the open deck uses now. A host shares only the ones the deck
+	 *  used when sharing started, and asks before any other (2026-10-20 note §6, rule 6). */
+	records: LiveRecords;
+	/** This browser's site palette as a saved theme, when it is one: what a host may offer to share
+	 *  as the session's look (§5.1). */
+	siteTheme: LiveTheme | null;
 };
+
+/** A saved theme as a session carries it: its name and its CSS. */
+export type LiveTheme = { name: string; css: string };
+/** A saved finish as a session carries it: its recipe, never its CSS (each browser regenerates it). */
+export type LiveFinish = { name: string; label: string; recipe: unknown };
+/** The Library records a deck uses: themes and finishes travel; custom components travel by name
+ *  only, so a member can say why those slides fall back. */
+export type LiveRecords = { themes: LiveTheme[]; finishes: LiveFinish[]; components: string[] };
+export const NO_RECORDS: LiveRecords = { themes: [], finishes: [], components: [] };
 
 /** The look every member's preview gives a deck that names no `theme:`. The host freezes it when the
  *  session starts and it does not change after that, through a host drop or a takeover
@@ -40,7 +55,7 @@ export type LiveHost = {
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
-export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null };
+export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null; records: LiveRecords };
 
 const read = (s: Storage, k: string): string | null => {
 	try {

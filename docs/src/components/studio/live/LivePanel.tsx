@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, Share2, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
@@ -865,6 +865,32 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 											<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{k.name}</span>
 											<Button size="icon" variant="ghost" className="size-6" onClick={() => actions.deny(k.id)} aria-label={`Deny ${k.name}`} title="Deny"><X className="size-3.5" /></Button>
 											<Button size="xs" onClick={() => actions.admit(k.id)} disabled={full} aria-label={`Admit ${k.name}`}><Check /> Admit</Button>
+										</li>
+									))}
+								</ul>
+							</>
+						)}
+						{view.isHost && view.unshared.length > 0 && (
+							<>
+								<div className={SECTION}>Not shared yet ({view.unshared.length})</div>
+								<p className="px-3.5 pb-1.5 text-[11px] leading-snug text-muted-foreground">
+									The deck uses these from your Library. Until you share them, the others see a fallback.
+									{view.unshared.some((u) => u.kind === 'component') && " A component's code isn't shared yet; sharing its name stops their editor flagging it."}
+								</p>
+								<ul className="flex flex-col gap-1 px-1.5" data-live-unshared>
+									{view.unshared.map((u) => (
+										<li key={u.key} className="flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
+											<span className="flex min-w-0 flex-1 flex-col">
+												<span className="text-[10.5px] text-muted-foreground">{u.kind === 'look' ? 'Session look' : u.kind === 'theme' ? 'Theme' : u.kind === 'finish' ? 'Finish' : 'Component'}</span>
+												<span className="truncate text-[12.5px] font-semibold text-foreground">{u.name}</span>
+											</span>
+											{u.tooLarge ? (
+												<span className="shrink-0 text-[11px] text-muted-foreground">Too large to share</span>
+											) : (
+												<Button size="xs" variant="outline" className="shrink-0" onClick={() => actions.shareRecord(u.key)} aria-label={`Share ${u.name}`}>
+													<Share2 /> {u.kind === 'component' ? 'Share name' : 'Share'}
+												</Button>
+											)}
 										</li>
 									))}
 								</ul>

@@ -84,7 +84,7 @@ import type { FabricateSeed } from './Fabricate';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
-import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
+import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
@@ -105,7 +105,7 @@ import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
 import { liveColor } from './live/live-model';
-import type { LiveLook } from './live/live-store';
+import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
@@ -1324,6 +1324,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
 	// its class applied — the consumption loop). Loaded async; refreshed on save/delete.
 	const [savedFinishes, setSavedFinishes] = React.useState<StudioFinish[]>([]);
+	// A live session's Library records, as the host shared them (themes, finish recipes, component
+	// names), held in memory for the session only (2026-10-20-live-uniform-experience.md §5.2). They
+	// join what this browser RENDERS; exports and the `.lattice` file keep this browser's own Library.
+	const [sessionRecords, setSessionRecords] = React.useState<LiveRecords>(NO_RECORDS);
+	const sessionThemes = React.useMemo<StudioTheme[]>(() => sessionRecords.themes.map((t) => ({ id: `live:${t.name}`, name: t.name, label: t.name, css: t.css, essentials: null, overrides: null, rampStrategy: null })), [sessionRecords]);
+	const renderThemes = React.useMemo(() => (sessionThemes.length ? [...sessionThemes, ...savedThemes.filter((t) => !sessionThemes.some((x) => x.name === t.name))] : savedThemes), [sessionThemes, savedThemes]);
+	const renderFinishes = React.useMemo(() => {
+		if (!sessionRecords.finishes.length) return savedFinishes;
+		const shared = sessionRecords.finishes.map((f): StudioFinish => {
+			const recipe = coerceRecipe(f.recipe);
+			return { id: `live:${f.name}`, name: f.name, label: f.label, css: generateFinishCss(f.name, recipe), recipe };
+		});
+		return [...shared, ...savedFinishes.filter((f) => !shared.some((x) => x.name === f.name))];
+	}, [sessionRecords, savedFinishes]);
 	const refreshFinishes = React.useCallback(() => {
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
@@ -1736,7 +1750,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() => (components.length ? components.map((c) => c.name) : componentNames?.length ? componentNames : KNOWN),
 		[components, componentNames],
 	);
-	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
+	// A live session's custom component names count as known, so a member's lint and Coach do not offer
+	// to "fix" the host's class in the shared deck (2026-10-20-live-uniform-experience.md §5.2).
+	const lintLocalNames = React.useMemo(() => (sessionRecords.components.length ? [...localNames, ...sessionRecords.components.filter((c) => !localNames.includes(c))] : localNames), [localNames, sessionRecords]);
+	const knownWithLocal = React.useMemo(() => [...catalogNames, ...lintLocalNames], [catalogNames, lintLocalNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	// The unknown layout names, not just their count: "1 issue" tells an author nothing, and
 	// Compose shows no underline to look for. The chip and the Coach card both name them.
@@ -2313,7 +2330,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// That's the form the deck carries, autocomplete offers, and Apply writes — the
 	// SAME token in `finish:` front matter and per-slide `_class:` lines.
 	const builtinFinishNames = React.useMemo(() => ((lintVocab as { finishNames?: string[] } | null)?.finishNames) || [], [lintVocab]);
-	const savedFinishTokens = React.useMemo(() => savedFinishes.map((f) => `finish-${f.name}`), [savedFinishes]);
+	const savedFinishTokens = React.useMemo(() => renderFinishes.map((f) => `finish-${f.name}`), [renderFinishes]);
 	// The `finish:` VALUE vocabulary the editor completes: built-in presets bare (the
 	// engine adds the prefix) + saved finishes prefixed.
 	const editorFinishValues = React.useMemo(() => [...builtinFinishNames, ...savedFinishTokens], [builtinFinishNames, savedFinishTokens]);
@@ -2322,14 +2339,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const editorFinishClasses = React.useMemo(() => [...builtinFinishNames.map((b) => `finish-${b}`), ...savedFinishTokens], [builtinFinishNames, savedFinishTokens]);
 	// The `theme:` front-matter VALUE vocabulary — the built-in palettes + the user's
 	// saved (Fabricated) themes, so the editor completes a deck's own theme name.
-	const editorPalettes = React.useMemo(() => [...BUILTIN_PALETTES, ...savedThemes.map((t) => t.name)], [savedThemes]);
+	const editorPalettes = React.useMemo(() => [...BUILTIN_PALETTES, ...renderThemes.map((t) => t.name)], [renderThemes]);
 	// Lint accepts BOTH the prefixed token and the bare slug of a saved finish (a deck
 	// authored before the prefix convention shouldn't false-warn).
-	const savedFinishLintNames = React.useMemo(() => savedFinishes.flatMap((f) => [`finish-${f.name}`, f.name]), [savedFinishes]);
+	const savedFinishLintNames = React.useMemo(() => renderFinishes.flatMap((f) => [`finish-${f.name}`, f.name]), [renderFinishes]);
 	// When the active `finish:` value names a SAVED finish (not a built-in register
 	// entry), it renders via injected CSS + an applied class — the engine doesn't
 	// know its name. `activeSavedFinish` is that record (or undefined).
-	const activeSavedFinish = React.useMemo(() => savedFinishes.find((f) => finish === `finish-${f.name}` || finish === f.name), [savedFinishes, finish]);
+	const activeSavedFinish = React.useMemo(() => renderFinishes.find((f) => finish === `finish-${f.name}` || finish === f.name), [renderFinishes, finish]);
+	// The same from this browser's own finishes only: what an export applies.
+	const ownActiveSavedFinish = React.useMemo(() => savedFinishes.find((f) => finish === `finish-${f.name}` || finish === f.name), [savedFinishes, finish]);
 	function removeFinish(f: StudioFinish) {
 		deleteStudioFinish(f.id).then(() => {
 			refreshFinishes();
@@ -2350,32 +2369,46 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const finishOverride = React.useMemo(() => parseFinishOverride(source), [source]);
 	// The saved finishes this deck uses: the `finish-<slug>` class token as a whole word
 	// (front-matter value or a per-slide _class line), or the bare deck-wide slug (back-compat).
-	const usedSavedFinishes = React.useMemo(
-		() =>
-			savedFinishes.filter((f) => {
+	// The saved finishes a deck uses from a list, and their CSS. Two lists: what this browser RENDERS
+	// (its own plus a live session's) and its OWN, which is all an export carries.
+	const finishesUsedFrom = React.useCallback(
+		(list: StudioFinish[]) =>
+			list.filter((f) => {
 				const esc = `finish-${f.name}`.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 				return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
 			}),
-		[savedFinishes, source, finish],
+		[source, finish],
 	);
-	const finishExtraCss = React.useMemo(() => {
-		if (!usedSavedFinishes.length) return undefined;
-		const hasOverride = Object.keys(finishOverride).length > 0;
-		return usedSavedFinishes
-			.map((f) => {
-				// The active deck-wide finish REGENERATES with the override deep-merged into its
-				// recipe (backdrop + any layer); every other used finish renders its baked CSS.
-				const isActive = finish === `finish-${f.name}` || finish === f.name;
-				return isActive && hasOverride ? generateFinishCss(f.name, mergeFinishOverride(f.recipe, finishOverride)) : f.css;
-			})
-			.filter(Boolean)
-			.join('\n\n') || undefined;
-	}, [usedSavedFinishes, finish, finishOverride]);
+	const usedSavedFinishes = React.useMemo(() => finishesUsedFrom(renderFinishes), [finishesUsedFrom, renderFinishes]);
+	const ownUsedSavedFinishes = React.useMemo(() => (renderFinishes === savedFinishes ? usedSavedFinishes : finishesUsedFrom(savedFinishes)), [finishesUsedFrom, renderFinishes, savedFinishes, usedSavedFinishes]);
+	const finishCssOf = React.useCallback(
+		(used: StudioFinish[]) => {
+			if (!used.length) return undefined;
+			const hasOverride = Object.keys(finishOverride).length > 0;
+			return used
+				.map((f) => {
+					// The active deck-wide finish REGENERATES with the override deep-merged into its
+					// recipe (backdrop + any layer); every other used finish renders its baked CSS.
+					const isActive = finish === `finish-${f.name}` || finish === f.name;
+					return isActive && hasOverride ? generateFinishCss(f.name, mergeFinishOverride(f.recipe, finishOverride)) : f.css;
+				})
+				.filter(Boolean)
+				.join('\n\n') || undefined;
+		},
+		[finish, finishOverride],
+	);
+	const finishExtraCss = React.useMemo(() => finishCssOf(usedSavedFinishes), [finishCssOf, usedSavedFinishes]);
+	const ownFinishExtraCss = React.useMemo(() => (ownUsedSavedFinishes === usedSavedFinishes ? finishExtraCss : finishCssOf(ownUsedSavedFinishes)), [finishCssOf, ownUsedSavedFinishes, usedSavedFinishes, finishExtraCss]);
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
 		() => [usedLocalCss, finishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined,
 		[usedLocalCss, finishExtraCss, codeStamp, assetStampText],
+	);
+	// The same, with only this browser's own finishes: what an export carries.
+	const exportExtraCss = React.useMemo(
+		() => (ownFinishExtraCss === finishExtraCss ? previewExtraCss : [usedLocalCss, ownFinishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined),
+		[ownFinishExtraCss, finishExtraCss, previewExtraCss, usedLocalCss, codeStamp, assetStampText],
 	);
 	// Point the registry at the open deck (its own photos join the shared ones) and take its stamp.
 	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without
@@ -2396,6 +2429,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// RENDER/ARTIFACT paths (preview, Present, PDF/PPTX/Print) — never the editable
 	// source or the Markdown/Marp source handoff, which stay clean.
 	const finishClass = activeSavedFinish ? `finish finish-${activeSavedFinish.name}` : '';
+	const ownFinishClass = ownActiveSavedFinish ? `finish finish-${ownActiveSavedFinish.name}` : '';
 	// The deck front-matter the PREVIEW renders with — the editable `fm` plus, when a
 	// saved finish is active, the `finish finish-<slug>` class MERGED into any existing
 	// `class:` (deduped union — a deck's own `class: dark wide` is preserved). Stamped
@@ -3310,7 +3344,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let live = true;
 		setAssessing(true);
 		const id = setTimeout(() => {
-			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes).then((a: CoachAssessment) => {
+			assessDeck(source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes).then((a: CoachAssessment) => {
 				if (!live) return;
 				setScorecard(a.scorecard);
 				setDeckHasContent(a.hasContent);
@@ -3322,7 +3356,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			live = false;
 			clearTimeout(id);
 		};
-	}, [source, lintVocab, components, localNames, savedFinishLintNames, profileOverride, editorPalettes]);
+	}, [source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes]);
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
@@ -3673,8 +3707,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// EXPORTS never follow the session: a member's PDF, PPTX or `.lattice` file renders as it would outside
 	// the session (an export-bytes change is the owner's call, QUALITY BAR), so they read `ownPreview`.
 	const look = sessionLook;
-	const resolvePreview = React.useCallback((look: LiveLook | null) => {
-		const isKnownTheme = (n: string) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n);
+	const resolvePreview = React.useCallback((look: LiveLook | null, themes: StudioTheme[]) => {
+		const isKnownTheme = (n: string) => BUILTIN_PALETTES.includes(n) || themes.some((t) => t.name === n);
 		const sitePalette = look ? (look.palette ?? DEFAULT_PALETTE) : palette;
 		const r = resolveDeckTheme(source, { sitePalette, siteMode: look ? look.mode : mode === 'dark' ? 'dark' : 'light', isKnownTheme });
 		// Live: always pass the resolved mode, so a deck that pins none still renders in the session's.
@@ -3685,17 +3719,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// pass it as extraTheme; a built-in is fetched by name (extraTheme none).
 			// A shipped name always resolves to the shipped theme. A record saved under one
 			// before saves were guarded (library/reserved-names.ts) must not re-skin it.
-			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : savedThemes.find((t) => t.name === r.palette);
+			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : themes.find((t) => t.name === r.palette);
 			return { paletteOverride: r.palette, extraTheme: saved ? { name: saved.name, css: saved.css } : undefined, modeOverride };
 		}
 		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
 		// existing activeTheme/extraTheme behavior). A `class: dark` on an un-themed
 		// deck still pins dark via modeOverride. Live: the session's built-in palette, by name.
-		if (look) return { paletteOverride: sitePalette, extraTheme: undefined, modeOverride };
+		if (look) {
+			// The session's palette is a built-in, or a saved theme the host shared with its record.
+			const shared = BUILTIN_PALETTES.includes(sitePalette) ? undefined : themes.find((t) => t.name === sitePalette);
+			return { paletteOverride: sitePalette, extraTheme: shared ? { name: shared.name, css: shared.css } : undefined, modeOverride };
+		}
 		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
-	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
-	const ownPreview = React.useMemo(() => resolvePreview(null), [resolvePreview]);
-	const preview = React.useMemo(() => (look ? resolvePreview(look) : ownPreview), [resolvePreview, ownPreview, look]);
+	}, [source, palette, mode, activeTheme, extraTheme]);
+	const ownPreview = React.useMemo(() => resolvePreview(null, savedThemes), [resolvePreview, savedThemes]);
+	const preview = React.useMemo(() => (look || renderThemes !== savedThemes ? resolvePreview(look, renderThemes) : ownPreview), [resolvePreview, ownPreview, look, renderThemes, savedThemes]);
 	// The saved Library records this deck uses — its saved theme, its saved components and
 	// its saved finishes — which a `.lattice` project carries along as package folders
 	// (portable-packages §4). Built from the same derivations the preview uses, so the file
@@ -3709,9 +3747,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return {
 			themes: themeName ? savedThemes.filter((t) => t.name === themeName) : [],
 			components: localComponents.filter((c) => usedComps.has(c.name)),
-			finishes: usedSavedFinishes,
+			finishes: ownUsedSavedFinishes,
 		};
-	}, [source, ownPreview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
+	}, [source, ownPreview.extraTheme, savedThemes, usedLocalComponents, localComponents, ownUsedSavedFinishes]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	const goToSlideRef = React.useRef(goToSlide);
@@ -3744,6 +3782,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (v >= 0) goToSlide(v, { origin: 'live' });
 		else notify('That slide is hidden by the current reader view.');
 	};
+	// This browser's own records the deck uses, as a live session shares them (only what the host
+	// shares ever leaves; §6 rule 6). Components travel by name only.
+	// The same object while nothing in it changed: `deckPackages` is rebuilt on every keystroke, and the
+	// session reads a new object as new records to check.
+	const liveRecordsRef = React.useRef<LiveRecords>(NO_RECORDS);
+	const liveRecords = React.useMemo<LiveRecords>(() => {
+		const next: LiveRecords = { themes: deckPackages.themes.map((t) => ({ name: t.name, css: t.css })), finishes: deckPackages.finishes.map((f) => ({ name: f.name, label: f.label, recipe: f.recipe })), components: deckPackages.components.map((c) => c.name) };
+		const was = liveRecordsRef.current;
+		const same = was.themes.length === next.themes.length && was.finishes.length === next.finishes.length && was.components.length === next.components.length && next.themes.every((t, i) => t.name === was.themes[i].name && t.css === was.themes[i].css) && next.finishes.every((f, i) => f.name === was.finishes[i].name && f.label === was.finishes[i].label && f.recipe === was.finishes[i].recipe) && next.components.every((c, i) => c === was.components[i]);
+		if (!same) liveRecordsRef.current = next;
+		return liveRecordsRef.current;
+	}, [deckPackages]);
+	const liveSiteTheme = React.useMemo(() => (activeTheme ? { name: activeTheme.name, css: activeTheme.css } : null), [activeTheme]);
 	const live = useLiveSession({
 		source,
 		setSource: setSourceFromEditor,
@@ -3752,6 +3803,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		slideCount: slides.length,
 		theme: palette,
 		mode: mode === 'dark' ? 'dark' : 'light',
+		records: liveRecords,
+		siteTheme: liveSiteTheme,
 		activeSlide: activeFullIndex,
 		goToSlide: goToFullSlide,
 		openSharedDeck: ({ deckId, title, source: shared }) => {
@@ -3767,6 +3820,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return d.id;
 		},
 	});
+	const liveRecordsIn = live.collab?.records ?? NO_RECORDS;
+	React.useEffect(() => setSessionRecords(liveRecordsIn), [liveRecordsIn]);
 	const liveLook = live.collab?.look ?? null;
 	React.useEffect(() => {
 		setSessionLook((was) => (was?.palette === liveLook?.palette && was?.mode === liveLook?.mode ? was : liveLook));
@@ -4684,12 +4739,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
 			const [a, errs] = await Promise.all([
-				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
+				assessDeck(draft, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
 			]);
 			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
 		},
-		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
+		[lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
 	);
 	// And the agent's fit check renders the draft the way export does (draft-fit.ts). The shell
 	// hands over only what that render needs; the lazy agent imports the render path itself.
@@ -6974,7 +7029,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
 				</PanelLoader>
 			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />

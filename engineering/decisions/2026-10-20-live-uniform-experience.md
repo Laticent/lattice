@@ -123,8 +123,8 @@ an earlier answer, only the final one is listed, with what changed.
    members use the default palette. The frozen mode also applies to a deck that names a theme but
    pins no mode. Each member's Studio chrome keeps their own palette, and exports are unchanged:
    a member's PDF or PPTX renders as it would outside the session. Nothing is written into the
-   deck. The ask ships with slice 1b, which is what can send the theme; until then a saved theme
-   is not shared, and the host is told. *(Round 1 said "the host's look"; the trio showed it leaked a record
+   deck. Since slice 1b the host is asked (§7.1): the saved theme is listed in the Live panel with
+   a Share button until the host shares it. *(Round 1 said "the host's look"; the trio showed it leaked a record
    and flipped on a takeover.)*
 2. **Library dependencies: CSS arrives, code waits.** Saved themes and finishes the deck uses
    travel as the same records `deckPackages` builds. Each goes through the existing import gate
@@ -187,8 +187,8 @@ holds against a hostile peer, including the host.
    clipboard, AI calls, keys, settings, mic and camera, opening a link or window, installing a
    plugin.
 5. **Nothing reaches your storage without your click.** Library records and narration clips that
-   arrive in a session are held in memory, with a size cap and least-recently-used eviction, and
-   dropped when it ends. "Save to my Library" is a local action. (The deck text itself is the
+   arrive in a session are held in memory, under count and size caps (each records message replaces
+   the last), and dropped when it ends. "Save to my Library" is a local action. (The deck text itself is the
    exception, as today: a guest's linked copy is saved, design note §5.5.)
 6. **Nothing leaves your Library because of what a peer typed.** The host sends only the records
    the deck used when sharing started (the baseline). A record a peer's edit newly names asks the
@@ -202,8 +202,9 @@ holds against a hostile peer, including the host.
    The narrated text is frozen when Present starts; an edit during the run re-quotes the cost and
    the presenter approves it. A per-run character budget caps the rest.
 8. **Received bytes are bounded before they are parsed.** Tavola sets Trystero's
-   `maxReceiveBytes` to its own `MAX_MESSAGE` (4 MB, `session.ts:181`); today it is left at the
-   library default (`adapters/trystero.ts:172`). A clip's duration is checked against what its
+   `maxReceiveBytes` to 8 MB, two of its own `MAX_MESSAGE` (4 MB, `session.ts:181`), which drops
+   anything larger anyway; Trystero's default is 256 MiB. The budget is per room for concurrent
+   transfers, so two full messages can arrive at once. A clip's duration is checked against what its
    text length predicts, from the header, before `decodeAudioData`, because a 4 MB clip at 8 kbps
    decodes to about 800 MB of samples.
 9. **Labels are local strings.** "Amina opened Library" is built from an enum and the roster
@@ -243,6 +244,43 @@ theme; the lobby named the host's palette of the moment; and the docs said "no `
 the frozen mode applies to any deck that pins no mode. Known and left: the preview renders once
 in the member's own look before the session's applies (one extra frame, `sessionLook` state copied
 in an effect).
+
+**1b as built (2026-10-20).** The host's Studio passes the controller its own records the deck uses
+(`LiveDeps.records`: saved theme CSS, saved finish recipes, custom component names, from the same
+`deckPackages` a `.lattice` file carries) and its saved site palette (`siteTheme`). The controller
+shares a record only when its key (`t:`, `f:`, `c:` and a name) is in the host's shared set: the
+deck's records when sharing started, plus each one the host shares from the Live panel. The panel
+lists every record the deck uses that the session does not have ("Not shared yet", with a Share
+button each, "Share name" for a component), and the list stays until it is shared, so a missed
+prompt never leaves a silent difference. A toast points at it once per record and says whether this
+browser or someone else made the edit. A saved site palette is listed as the session look; sharing
+it captures the theme (`lookTheme`), so the host changing its site palette later never takes it from
+the others, and the sealed host save keeps it, the shared set and the look. An heir relays the
+records it received and shares none of its own without a yes. A member takes a `records` post only
+from the host: themes pass `THEME_NAME`, the shipped names, a 128 K-character cap (768 K for all of
+them, so a message stays under 4 MB) and `refuseImportedTheme`, with each verdict cached so a theme
+sent again is not checked again; finishes pass `FINISH_NAME` and the shipped finish names and are
+rebuilt with `coerceRecipe` and `generateFinishCss`; component names join the member's lint and
+Coach vocabulary, so nobody's editor offers to "fix" the host's class. A newer message stops an older
+check at the next theme. Everything is held in memory. `StudioShell.tsx` renders with the records
+(`renderThemes`, `renderFinishes`, the finish class, the lint vocabulary) while the Share sheet and the
+`.lattice` packages read only this browser's Library (`ownPreview`, `ownFinishClass`,
+`ownFinishExtraCss`, `exportExtraCss`), so export bytes do not change.
+
+Measured on real headless Chromium browsers, the real transport and WebRTC (scripts in PR #2810's
+comments). A host with a saved theme `acme-brand` (Onyx renamed) and a saved finish `linen` shared a
+deck naming both with a guest whose Library was empty and whose site was Cuoio light: both slide
+frames read theme `acme-brand`, background `rgb(255, 255, 255)`, class `finish finish-linen`, and the
+guest's Library was still empty afterward. A host whose site palette was `acme-brand`, on an
+un-themed deck: both frames read `cuoio-dark` (the default, in the host's dark mode) before Share and
+`acme-brand` after, and the panel's list emptied. The list rendered at 1440, 820 and 390 px. The
+adversarial trio (2026-10-20) found, and the commit fixes with tests: a test the first cut broke;
+component names sent without consent, so an editor could probe the host's Library; the shared site
+theme dropping out when the host changed its site palette; a reload losing the look before the
+Library loaded; shipped finish names accepted; a refused theme re-checked on every message; prompts
+lost when one toast replaced another; and records re-sent on every keystroke. Held: no peer content
+reaches a document except through the existing style sinks, which run `sanitizeStyleText`; records
+are taken only from the host; members' exports and Library are unchanged.
 
 ### 7.2 Present together
 
@@ -385,3 +423,9 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
 - The red team's findings on keys (§7.2), theme fetches (§5.2) and scrolling (§7.6) are reasoned
   from code, not run in a browser.
 - Sending a deck's Library records costs bandwidth once per join; not measured.
+- An heir holds the records it relays in memory only, so an heir that reloads has none to relay and
+  its newcomers see fallbacks; members already in keep theirs.
+- Read · Article renders the session's records like every in-app surface, so printing it from the
+  browser carries the host's theme, unlike an export. Left as is: it is a reading view, not an
+  export, and the exports are what §5.1 keeps to each member's own Library.
+- Custom components still fall back (their code is not shared); a member is told once, by name.
