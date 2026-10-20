@@ -3128,7 +3128,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		clientOnlyPanelIds: splitPanelIds,
 		// The editor is folded because the docks leave it no room; opening it means giving one up.
 		onFoldedExpand: () => {
-			if (assistantOpen) setActiveAssistant(null);
+			if (desktop && assistantOpen) setActiveAssistant(null);
 			else setInspectorOpen(false);
 		},
 		// A panel set the person never dragged starts at the ideal layout for this group width,

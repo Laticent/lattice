@@ -198,13 +198,13 @@ export interface UseResizableSplitOptions {
 	 * stand, which is only right when they are all one unit (mixed px + % is normalized by the
 	 * library, so a px dock never opens at its px default).
 	 */
+	freshLayout?: (ids: string[]) => { layout: Record<string, number>; foldEditor: boolean } | undefined
 	/**
-	 * The person asked to expand a pane that `freshLayout` folded because the group cannot hold
-	 * it. The library would refuse (no room), so the consumer makes room — it closes a dock — and
-	 * the fold lifts itself on that panel-set change.
+	 * The person asked to expand a pane that is folded (or collapsed into a group with no room
+	 * for it). The library would swap the panes instead, so the consumer makes room — it closes a
+	 * dock — and the fold lifts itself on that panel-set change.
 	 */
 	onFoldedExpand?: (side: SplitSide) => void
-	freshLayout?: (ids: string[]) => { layout: Record<string, number>; foldEditor: boolean } | undefined
 	/** The ids of the panels the consumer is about to render, in any order —
 	 *  **only from an island that NEVER server-renders** (`client:only`). The name carries the
 	 *  constraint because passing it from a hydrated island is silently destructive, and a
@@ -560,6 +560,17 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 				configChangingRef.current = true
 				editor.expand()
 				releaseConfigChanging()
+				// The library scales the unfolded panels in percentages, which drifts the docks off
+				// the contract; a set the person never dragged goes back to its ideal widths.
+				if (!readLayoutStore(storageKey)[bucketOf(layout)]) {
+					requestAnimationFrame(() =>
+						requestAnimationFrame(() => {
+							const now = groupRef.current?.getLayout() as LayoutMap | undefined
+							const again = now ? optsRef.current.freshLayout?.(Object.keys(now)) : undefined
+							if (again && !again.foldEditor && !editor.isCollapsed()) groupRef.current?.setLayout(again.layout)
+						}),
+					)
+				}
 			}
 		}
 		const onResize = () => {
@@ -571,7 +582,7 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			window.clearTimeout(timer)
 			window.removeEventListener("resize", onResize)
 		}
-	}, [ready, active, groupRef, editorRef, previewRef, releaseConfigChanging])
+	}, [ready, active, groupRef, editorRef, previewRef, releaseConfigChanging, storageKey])
 
 	// Track collapse via the panel's authoritative isCollapsed() (the library has
 	// no onCollapse event; onResize is our poll). Per-side prev guards the edge so
@@ -614,10 +625,26 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	const collapse = React.useCallback((side: SplitSide) => panelRefOf(side).current?.collapse(), [panelRefOf])
 	const expand = React.useCallback(
 		(side: SplitSide) => {
-			if (side === "a" && autoFoldRef.current && editorRef.current?.isCollapsed()) return optsRef.current.onFoldedExpand?.(side)
+			if (side === "a" && editorRef.current?.isCollapsed() && optsRef.current.onFoldedExpand) {
+				// Folded by us, or collapsed by the person into a group with no room for it: either
+				// way the library would swap the panes, so make room instead.
+				const layout = groupRef.current?.getLayout() as LayoutMap | undefined
+				const ids = layout ? Object.keys(layout) : []
+				const byFold = autoFoldRef.current
+				if (byFold || (ids.length && optsRef.current.freshLayout?.(ids)?.foldEditor)) {
+					optsRef.current.onFoldedExpand(side)
+					// Our own fold lifts itself once the dock is gone; a collapse the person made does
+					// not, so open the editor once the room exists.
+					if (!byFold)
+						window.setTimeout(() => {
+							if (editorRef.current?.isCollapsed()) editorRef.current.expand()
+						}, 300)
+					return
+				}
+			}
 			panelRefOf(side).current?.expand()
 		},
-		[panelRefOf, editorRef],
+		[panelRefOf, editorRef, groupRef],
 	)
 	// Reset (⌘K "Reset split"): expand any collapsed pane, clear this config's saved
 	// layout + collapse, and restore the DEFAULT editor share of the PAIR — keeping

@@ -84,3 +84,29 @@ test('desktop: narrowing the window with both docks open folds the editor instea
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
 });
+
+test('desktop 1100: expanding an editor the person collapsed makes room instead of swapping the panes', async ({ page }) => {
+	await page.setViewportSize({ width: 1100, height: 800 });
+	await gotoStudio(page);
+	await openInspector(page);
+	await page.getByRole('button', { name: /Collapse editor/ }).first().click();
+	await openChat(page);
+	await page.getByRole('button', { name: /Expand editor/ }).first().click();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
+	expect((await widths(page))['studio-preview']).toBeGreaterThan(299);
+	await expect(page.getByText('Preview collapsed — rendering paused.')).toHaveCount(0);
+});
+
+test('desktop: a fold and unfold from resizing returns both docks to the contract widths', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await openInspector(page);
+	await openChat(page);
+	await page.setViewportSize({ width: 1180, height: 900 });
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await expect.poll(async () => Math.round((await widths(page))['studio-settings'])).toBe(320);
+	const s = await widths(page);
+	expect(Math.round(s['studio-assistant'])).toBe(320);
+	expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 1);
+});
