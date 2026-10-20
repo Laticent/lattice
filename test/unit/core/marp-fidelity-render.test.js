@@ -115,7 +115,7 @@ function renderEngine(deck) {
  * reason its docblock gives: the bootstrap is an esbuild IIFE with no exports
  * and no global, so nothing can `require` it — it has to be run.
  */
-async function renderRuntime(markup, frontMatter) {
+async function renderRuntime(markup, frontMatter, pluginData = []) {
   const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${markup}</body></html>`, {
     url: 'https://example.test/deck.html',
     runScripts: 'dangerously',
@@ -129,6 +129,14 @@ async function renderRuntime(markup, frontMatter) {
   dom.window.fetch = frontMatter
     ? () => Promise.resolve({ ok: true, text: () => Promise.resolve(frontMatter) })
     : () => Promise.reject(new Error('no network in this test'));
+  // A browser surface gets a plugin's drawings from a data script that sets this global
+  // (lib/plugins/plugin-data.js). A probe whose claim is about a DRAWN chip names the data it
+  // needs; without it the runtime leaves the span as the `<code>` the author wrote.
+  if (pluginData.length) {
+    dom.window.__latticePluginData = Object.fromEntries(
+      pluginData.map((n) => [n, require(path.join(ROOT, `lib/plugins/${n}/${n}.data.generated.js`))]),
+    );
+  }
   const el = dom.window.document.createElement('script');
   el.textContent = fs.readFileSync(RUNTIME_BUNDLE, 'utf8');
   dom.window.document.body.appendChild(el);
@@ -173,6 +181,18 @@ const COMPONENT_NAMES = new Set(require(path.join(ROOT, 'lib/core/resolve-compon
  * it, BEFORE any lattice transform; `probe` projects the claimed output out of
  * a rendered document; `min` is the anti-vacuity floor.
  */
+/** Each lifted label with the class of the element left beside its <strong>: `label|chip:lat-avatar`.
+ *  A chip that landed inside the <strong> reads `chip:` (nothing beside it), and so does a literal
+ *  `<code>`, which is why a probe floor names the drawn class. */
+function chipTailProbe(doc) {
+  return [...doc.querySelectorAll('section ul > li')]
+    .filter((li) => li.querySelector(':scope > strong'))
+    .map((li) => {
+      const chip = [...li.children].find((c) => c.tagName !== 'STRONG' && c.tagName !== 'UL' && c.tagName !== 'OL');
+      return `${li.querySelector(':scope > strong').textContent.replace(/\s+/g, ' ').trim()}|chip:${chip ? (chip.className || chip.tagName.toLowerCase()) : ''}`;
+    });
+}
+
 const PROBES = {
   verdictGridBadges: {
     min: 4,
@@ -490,6 +510,52 @@ const PROBES = {
         }),
   },
 
+  // The same shape for the other trailing inline kinds. The engine lifts the label BEFORE the
+  // inline kinds render, so a trailing avatar `!{…}`, icon `^{…}` or spark `~{…}` is a sibling of
+  // the <strong> there. The runtime builds those elements first, and its chip-tail loop knew only
+  // `<code>` and a pill, so each landed INSIDE the <strong> (the PR #2755 follow-up). Each kind gets
+  // its own probe because the three draw from different data: a kind whose drawing is not on this
+  // surface stays a literal `<code>`, which is a chip already, so the floor counts the drawn span.
+  'slotLabelLift@actors-avatar': {
+    row: 'slotLabelLift',
+    min: 2,
+    minMatch: /chip:lat-avatar/,
+    pluginData: ['avatars'],
+    section: 'actors',
+    body: [
+      '## Owners', '',
+      '- Owns the scoring model `!{Ada Okafor}`', '  - The one person who can change a weight.',
+      '- Runs the weekly review `!{Grace Hopper}`', '  - Convenes it and chairs it.',
+    ].join('\n'),
+    probe: (doc) => chipTailProbe(doc),
+  },
+  'slotLabelLift@actors-icon-spark': {
+    row: 'slotLabelLift',
+    min: 2,
+    minMatch: /chip:lat-(icon|spark)/,
+    pluginData: ['icons'],
+    section: 'actors',
+    body: [
+      '## Owners', '',
+      '- Owns the scoring model `^{database}`', '  - The one person who can change a weight.',
+      '- Runs the weekly review `~{1 3 2 5}`', '  - Convenes it and chairs it.',
+    ].join('\n'),
+    probe: (doc) => chipTailProbe(doc),
+  },
+
+  'slotLabelLift@actors-state': {
+    row: 'slotLabelLift',
+    min: 2,
+    minMatch: /chip:state/,
+    section: 'actors',
+    body: [
+      '## Owners', '',
+      '- Owns the scoring model `[x]`', '  - The one person who can change a weight.',
+      '- Runs the weekly review `[!]`', '  - Convenes it and chairs it.',
+    ].join('\n'),
+    probe: (doc) => chipTailProbe(doc),
+  },
+
   glossaryListToTable: {
     min: 4,
     section: 'glossary',
@@ -665,7 +731,7 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
           'the deck or the probe selector is wrong, and without this the comparison below would ' +
           'be two empty arrays passing forever',
       );
-      const runtimeOut = spec.probe(await renderRuntime(markup, spec.frontMatter));
+      const runtimeOut = spec.probe(await renderRuntime(markup, spec.frontMatter, spec.pluginData));
       assert.deepEqual(
         runtimeOut,
         engineOut,
