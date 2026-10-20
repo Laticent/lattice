@@ -26,14 +26,31 @@
     "pitch"
   ],
   "description": "Image as the slide's anchor, with optional text alongside — composition adapts to the asset and the deck.",
-  "purpose": "Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).",
+  "purpose": "Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).",
   "variants": [
     "clean",
     "split",
     "spotlight",
     "gallery",
     "statement",
-    "mirror"
+    "mirror",
+    "at-tl",
+    "at-top",
+    "at-tr",
+    "at-center",
+    "at-bl",
+    "at-bottom",
+    "at-br",
+    "card-solid",
+    "card-soft",
+    "card-sheer",
+    "card-clear",
+    "ink-light",
+    "ink-dark",
+    "card-sm",
+    "card-md",
+    "card-lg",
+    "card-regular"
   ],
   "slots": {
     "image": {
@@ -131,6 +148,91 @@
       "label": "mirror",
       "summary": "The image lands on the left.",
       "sample": "<!-- _class: image mirror -->\n\n## mirror lands the image on the left.\n\nText leads from the right; image anchors from the left.\n\n![bg left](sample:photo-wide.svg)\n"
+    },
+    "at-tl": {
+      "label": "Top left",
+      "summary": "The text card sits in the top-left corner.",
+      "sample": "<!-- _class: image spotlight at-tl -->\n\n## at-tl lifts the card to the top left.\n\nMove the card to wherever the photo is quiet, so the subject keeps the frame.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "at-top": {
+      "label": "Top center",
+      "summary": "The text card sits centered along the top.",
+      "sample": "<!-- _class: image statement at-top -->\n\n## at-top centers the title up high.\n\nThe scrim follows the words to the top edge.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "at-tr": {
+      "label": "Top right",
+      "summary": "The text card sits in the top-right corner.",
+      "sample": "<!-- _class: image spotlight at-tr -->\n\n## at-tr parks the card top right.\n\nThe subject sits low and left, so the words take the open sky.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "at-center": {
+      "label": "Center",
+      "summary": "The text card sits in the middle of the slide.",
+      "sample": "<!-- _class: image statement at-center -->\n\n## at-center puts the title dead center.\n\nA radial scrim darkens only the middle.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "at-bl": {
+      "label": "Bottom left",
+      "summary": "The text card sits in the bottom-left corner — the default.",
+      "sample": "<!-- _class: image spotlight at-bl -->\n\n## at-bl is the default corner.\n\nName it to return a slide to bottom left inside a deck that moved it.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "at-bottom": {
+      "label": "Bottom center",
+      "summary": "The text card sits centered along the bottom.",
+      "sample": "<!-- _class: image spotlight at-bottom -->\n\n## at-bottom centers the card low.\n\nA caption band under the subject, centered on the slide.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "at-br": {
+      "label": "Bottom right",
+      "summary": "The text card sits in the bottom-right corner.",
+      "sample": "<!-- _class: image statement at-br -->\n\n## at-br anchors the title bottom right.\n\nThe scrim flips to darken the right side.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-solid": {
+      "label": "Solid backing",
+      "summary": "The card or scrim at full strength — the default.",
+      "sample": "<!-- _class: image spotlight card-solid -->\n\n## card-solid keeps the card opaque.\n\nFull legibility over any photo. This is the default.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-soft": {
+      "label": "Soft backing",
+      "summary": "The card or scrim at 80%, so the photo glows through.",
+      "sample": "<!-- _class: image spotlight card-soft -->\n\n## card-soft lets the photo glow through.\n\nThe panel drops to 80% and loses its lift shadow.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-sheer": {
+      "label": "Sheer backing",
+      "summary": "The card or scrim at 55%, a tint more than a panel.",
+      "sample": "<!-- _class: image spotlight card-sheer ink-light -->\n\n## card-sheer turns the card into a tint.\n\nAt 55% the photo reads through; pair it with an ink that suits the photo.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-clear": {
+      "label": "Clear backing",
+      "summary": "No card and no scrim: the words ride the photo.",
+      "sample": "<!-- _class: image statement card-clear -->\n\n## card-clear drops the scrim.\n\nOnly for a photo with a calm, dark patch where the words land.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "ink-light": {
+      "label": "Light ink",
+      "summary": "White words on a dark backing.",
+      "sample": "<!-- _class: image spotlight ink-light -->\n\n## ink-light sets white words on a dark card.\n\nThe card turns dark to match, whatever the deck palette.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "ink-dark": {
+      "label": "Dark ink",
+      "summary": "Near-black words on a light backing.",
+      "sample": "<!-- _class: image statement ink-dark -->\n\n## ink-dark sets dark words on a light scrim.\n\nFor a bright photo: the scrim turns light and the title goes dark.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-sm": {
+      "label": "Small card",
+      "summary": "A narrower card with smaller type, so the photo breathes.",
+      "sample": "<!-- _class: image spotlight card-sm at-tr -->\n\n## card-sm keeps the card discreet.\n\nSmaller type and a narrower card leave the photo the slide.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-md": {
+      "label": "Medium card",
+      "summary": "The default card width and type.",
+      "sample": "<!-- _class: image spotlight card-md -->\n\n## card-md is the default size.\n\nName it to return a slide to the default inside a deck that resized it.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-lg": {
+      "label": "Large card",
+      "summary": "A wider card with larger type, for a message that leads.",
+      "sample": "<!-- _class: image spotlight card-lg -->\n\n## card-lg lets the message lead.\n\nWider card, bigger heading, room for a longer line.\n\n![bg](sample:photo-wide.svg)\n"
+    },
+    "card-regular": {
+      "label": "Regular density",
+      "summary": "The default card spacing, so one slide can step out of a deck-wide compact.",
+      "sample": "<!-- _class: image spotlight card-regular -->\n\n## card-regular keeps the default spacing.\n\nIn a deck that sets `image-card: compact`, this slide keeps the roomier card.\n\n![bg](sample:photo-wide.svg)\n"
     }
   },
   "commonMistakes": [
@@ -141,6 +243,10 @@
     {
       "mistake": "Naming a composition class (`image spotlight`, `image gallery`, …) reflexively instead of leaving it unset.",
       "fix": "The composition RESOLVES from the photo's own aspect ratio plus the deck orientation — an explicit class always wins over the resolver, so naming one out of habit can force a crop (e.g. `spotlight`'s full-bleed cover) that the auto-picked `clean`/`split` composition would have avoided."
+    },
+    {
+      "mistake": "Adding a card control (`at-*`, `card-*`, `ink-*`) to a `clean`, `split` or `gallery` slide.",
+      "fix": "Those compositions set the text beside the photo, not over it, so there is no card to move. The card controls act only on `spotlight` and `statement` — name one of those first: `image spotlight at-tr card-sm`."
     }
   ],
   "variantDecisionRule": [
@@ -167,6 +273,22 @@
     {
       "variant": "mirror",
       "useWhen": "The composition is right but the deck's rhythm wants the image on the left instead of the right — flips the side without changing the composition."
+    },
+    {
+      "variant": "at-tl",
+      "useWhen": "On `spotlight` or `statement`, the photo's subject sits where the card would land — move the card to the quiet part of the frame with one of `at-tl` · `at-top` · `at-tr` · `at-center` · `at-bl` · `at-bottom` · `at-br`."
+    },
+    {
+      "variant": "card-soft",
+      "useWhen": "On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), or drop it with `card-clear` when the photo is calm where the words land."
+    },
+    {
+      "variant": "ink-dark",
+      "useWhen": "On `spotlight` or `statement`, the photo is bright where the words land — `ink-dark` sets dark words on a light backing; `ink-light` sets white words on a dark one."
+    },
+    {
+      "variant": "card-sm",
+      "useWhen": "On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite. Add `compact` to tighten the card's padding and pull it closer to the slide edge at any size."
     }
   ],
   "showcase": {
@@ -189,5 +311,73 @@
         "select": ".lattice-bg"
       }
     }
-  }
+  },
+  "variantAxes": [
+    {
+      "label": "Composition",
+      "exclusive": true,
+      "members": [
+        "clean",
+        "split",
+        "spotlight",
+        "gallery",
+        "statement"
+      ]
+    },
+    {
+      "label": "Side",
+      "members": [
+        "mirror"
+      ]
+    },
+    {
+      "label": "Card placement",
+      "exclusive": true,
+      "default": "at-bl",
+      "members": [
+        "at-tl",
+        "at-top",
+        "at-tr",
+        "at-center",
+        "at-bl",
+        "at-bottom",
+        "at-br"
+      ]
+    },
+    {
+      "label": "Card backing",
+      "exclusive": true,
+      "default": "card-solid",
+      "members": [
+        "card-solid",
+        "card-soft",
+        "card-sheer",
+        "card-clear"
+      ]
+    },
+    {
+      "label": "Card ink",
+      "exclusive": true,
+      "members": [
+        "ink-light",
+        "ink-dark"
+      ]
+    },
+    {
+      "label": "Card size",
+      "exclusive": true,
+      "default": "card-md",
+      "members": [
+        "card-sm",
+        "card-md",
+        "card-lg"
+      ]
+    },
+    {
+      "label": "Card density",
+      "members": [
+        "card-regular"
+      ]
+    }
+  ]
 }

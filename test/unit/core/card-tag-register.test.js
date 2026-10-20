@@ -319,3 +319,9 @@ test('engine: banner-tag draws through the band placement rules', () => {
   // The old in-flow recipe is gone: no rule turns a banner card into a padding-0 column.
   assert.doesNotMatch(css, /section\.banner-tag[^{]*\{[^}]*flex-direction:\s*column/);
 });
+
+test('kernel and lint agree on a YAML flow list', () => {
+  assert.deepEqual(cardTagClasses('[plain, large]'), ['tag-plain', 'tag-large']);
+  const found = lintText(deck(['tag: [plain, large]'])).filter((f) => f.rule === 'unknown-tag');
+  assert.deepEqual(found, []);
+});

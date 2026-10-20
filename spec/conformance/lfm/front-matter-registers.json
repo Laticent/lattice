@@ -1,5 +1,5 @@
 {
- "title": "Every register value in \u00a72.3 is accepted, and a value outside the list is unknown-<key>",
+ "title": "Every register value in §2.3 is accepted, and a value outside the list is unknown-<key>",
  "spec": "LFM-1.1",
  "section": "2.3",
  "rows": [
@@ -861,6 +861,48 @@
       "slide": 0
      }
     ]
+   }
+  },
+  {
+   "name": "image-card: top-right",
+   "source": "---\nimage-card: top-right\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: center soft",
+   "source": "---\nimage-card: center soft\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: bottom sheer light",
+   "source": "---\nimage-card: bottom sheer light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: top-left clear dark sm",
+   "source": "---\nimage-card: top-left clear dark sm\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: bottom-right lg compact",
+   "source": "---\nimage-card: bottom-right lg compact\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: regular",
+   "source": "---\nimage-card: regular\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
    }
   },
   {

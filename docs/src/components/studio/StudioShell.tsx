@@ -90,6 +90,7 @@ import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
+import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
@@ -125,7 +126,7 @@ import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -251,7 +252,7 @@ const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then(
 // the old Developer footer disclosure, so there is one place for "things about this
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
-type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech' | 'plugins';
+type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'image' | 'motion' | 'speech' | 'plugins';
 // There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
 // move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
 // order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
@@ -2430,6 +2431,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setDeckTag = (axis: CardTagAxis, v: string) => {
 		const next = { ...deckTag, [axis]: v === '__auto__' ? undefined : v };
 		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'tag', cardTagDeckValue(next)));
+	};
+	// Image card — the deck `image-card:` register (lib/core/resolve-image-card.js): ONE line
+	// holding up to five words (placement, backing, ink, size, density). The default on an axis
+	// leaves its word out, and the default on every axis removes the key.
+	const deckImage = deckImageCard(source);
+	const setDeckImage = (axis: ImageCardAxis, v: string) => {
+		const next = { ...deckImage, [axis]: v === '__auto__' ? undefined : v };
+		settingsWrite('Image card', (s) => writeFrontMatterLine(s, 'image-card', imageCardDeckValue(next)));
 	};
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'lift', lift ? 'off' : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
@@ -5105,6 +5114,30 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</Field>
 					)}
 				</SubGroup>}
+			</div>
+			),
+		},
+		{
+			// The `image-card:` register: the text card on every image slide that floats its words
+			// over the photo. Its own tab, not a Look sub-group: five controls that act on one
+			// component, which an author reaches for while laying out photo slides.
+			value: 'image',
+			label: 'Image',
+			keywords: 'image photo picture spotlight statement card text placement opacity ink size compact',
+			body: () => (
+			<div>
+				<TabNote>The text card on every photo slide that floats its words over the picture (<code>image spotlight</code>, <code>image statement</code>). A slide can change any one of these in its own Image tab.</TabNote>
+				{IMAGE_CARD_ROWS.map((row) => (
+					<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
+						<CatalogSelect
+							ariaLabel={row.label}
+							value={deckImage[row.axis] && (row.axis === 'ink' || deckImage[row.axis] !== imageCardWords(row.axis)[0]) ? (deckImage[row.axis] as string) : '__auto__'}
+							onValueChange={(v) => setDeckImage(row.axis, v)}
+							className="w-full"
+							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)` }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w) }))] }]}
+						/>
+					</Field>
+				))}
 			</div>
 			),
 		},
