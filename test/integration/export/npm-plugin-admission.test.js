@@ -7,6 +7,10 @@
  *               The same plugin as a plain, approved entry is the CONTROL: it reports the layer this
  *               machine gives, and the npm entry must run exactly when that layer is admissible.
  *   BUNDLE (8)  the door admits bytes against the pinned hash and leaves no dependency external.
+ *   LOADER      `lattice packages fetch` downloads a real `npm pack` tarball from a local registry,
+ *               approves it where the layer allows, and a real CLI render of a deck that lists it
+ *               runs it as `source: 'npm'` (lib/packages/npm-plugin-loader.js). Where the layer does
+ *               not allow it, the approval is refused and the render names the plugin, not its output.
  *   NEVER LOADED IN NODE (9, G5)  a plugin whose code writes a file when LOADED IN NODE leaves no
  *               file after admission and render. The CONTROL imports it in Node and finds the file,
  *               so the probe can see a load. Exit criterion for phase G, like the canary.
@@ -93,6 +97,69 @@ describe('npm plugin admission through the real door', () => {
     const r = run({ ...plain, name: 'gantt-bytes', code: new TextEncoder().encode(GOOD) });
     assert.ok(r.rendered, JSON.stringify(r.refusal));
     assert.match(r.rendered.html, /drawn A 1/);
+  });
+
+  test('LOADER: fetch a real npm tarball from a registry, then render a deck that lists it through the real CLI', { timeout: TIMEOUT }, async () => {
+    const http = require('node:http');
+    const { spawnSync, execFileSync } = require('node:child_process');
+    const loader = require('../../../lib/packages/npm-plugin-loader.js');
+    // The tarball npm itself packs, so the loader reads what a registry really serves.
+    const pkgDir = fs.mkdtempSync(path.join(home, 'pack-'));
+    fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify({ name: '@acme/lattice-gantt', version: '1.4.2', files: ['lattice-plugin.js'] }));
+    fs.writeFileSync(path.join(pkgDir, 'lattice-plugin.js'), GOOD);
+    // Windows ships npm as `npm.cmd`, which only a shell starts; every argument here is a fixed word (the folder is the
+    // cwd), so the shell has nothing to split or expand.
+    const win = process.platform === 'win32';
+    const tgzName = execFileSync(win ? 'npm.cmd' : 'npm', ['pack', '--silent', '--pack-destination', '.'], { cwd: pkgDir, encoding: 'utf8', shell: win }).trim().split('\n').pop().trim();
+    const tgz = fs.readFileSync(path.join(pkgDir, tgzName));
+    const hits = [];
+    const server = http.createServer((req, res) => {
+      hits.push(req.url);
+      if (req.url === '/@acme/lattice-gantt/-/lattice-gantt-1.4.2.tgz') return res.writeHead(200).end(tgz);
+      res.writeHead(404).end();
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    const store = fs.mkdtempSync(path.join(home, 'loader-'));
+    const proj = path.join(store, 'proj');
+    fs.mkdirSync(proj);
+    fs.writeFileSync(path.join(proj, loader.LIST_FILE), JSON.stringify({ registry: `http://127.0.0.1:${server.address().port}`, plugins: [{ name: 'gantt-npm', package: '@acme/lattice-gantt', version: '1.4.2', fence: 'gantt', sha256: sha(GOOD) }] }));
+    fs.writeFileSync(path.join(proj, 'deck.md'), DECK.replace('theme: indaco', 'theme: indaco\nplugins: [gantt-npm]'));
+    const cli = path.join(__dirname, '../../../lattice.js');
+    const env = { ...process.env, LATTICE_HOME: store };
+    try {
+      const fetched = await new Promise((resolve) => {
+        const { spawn } = require('node:child_process');
+        const c = spawn(process.execPath, [cli, 'packages', 'fetch', proj, '--trust'], { env });
+        let out = '';
+        c.stdout.on('data', (d) => (out += d));
+        c.stderr.on('data', (d) => (out += d));
+        c.on('close', (code) => resolve({ code, out }));
+      });
+      assert.match(fetched.out, /fetched {2}plugin\/gantt-npm {2}@acme\/lattice-gantt@1\.4\.2/, fetched.out);
+      assert.deepEqual(hits, ['/@acme/lattice-gantt/-/lattice-gantt-1.4.2.tgz']);
+      const approved = /approved plugin\/gantt-npm/.test(fetched.out);
+      const r = spawnSync(process.execPath, [cli, path.join(proj, 'deck.md'), path.join(proj, 'deck.html')], { encoding: 'utf8', timeout: TIMEOUT, env });
+      const html = fs.existsSync(path.join(proj, 'deck.html')) ? fs.readFileSync(path.join(proj, 'deck.html'), 'utf8') : '';
+      assert.equal(hits.length, 1, 'the render reached the registry');
+      // A list the deck relies on that breaks is said out loud, not dropped (the checker, 2026-10-19).
+      const listFile = path.join(proj, loader.LIST_FILE);
+      const good = fs.readFileSync(listFile, 'utf8');
+      fs.writeFileSync(listFile, good.replace('"1.4.2"', '"^1.4.2"'));
+      const broken = spawnSync(process.execPath, [cli, path.join(proj, 'deck.md'), path.join(proj, 'broken.html')], { encoding: 'utf8', timeout: TIMEOUT, env });
+      fs.writeFileSync(listFile, good);
+      assert.match(broken.stderr, /warning: .*lattice-plugins\.json plugins\[0\].*exact version/, broken.stderr);
+      if (approved) {
+        assert.equal(r.status, 0, r.stderr);
+        assert.match(html, /drawn A 1/, `the fetched plugin did not draw: ${r.stderr}`);
+      } else {
+        // This machine's layer does not admit npm plugins: the approval says so, and the render does not run it.
+        assert.match(fetched.out, /not approved: plugin\/gantt-npm is an npm plugin, and npm plugins do not run here/, fetched.out);
+        assert.doesNotMatch(html, /drawn A 1/);
+        assert.match(r.stderr, /npm plugin gantt-npm, and you have not approved its code[\s\S]*the deck’s folder/);
+      }
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
   });
 
   test('G5: a plugin that writes a file when loaded in Node leaves no file after admission and render', { timeout: TIMEOUT }, async () => {

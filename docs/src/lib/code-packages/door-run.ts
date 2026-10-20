@@ -18,6 +18,7 @@ import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, s
 import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
+import { checkReturnData, returnAttr, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
@@ -65,6 +66,8 @@ const memo = new Map<string, string>();
 const spanFailures = new Map<string, string>();
 /** The RAW length of each remembered fence result, so a remembered result counts against the cap as a fresh one did. */
 const rawLength = new Map<string, number>();
+/** What a remembered fence result RETURNED besides its drawing (`{ html, data }`), by its memo key: checked again on every render that reuses it. */
+const returnedData = new Map<string, Record<string, unknown>>();
 /** Code that failed to load, by digest, with why: not retried on every render. */
 const unloadable = new Map<string, string>();
 
@@ -151,6 +154,7 @@ function remember(key: string, section: string) {
 		memo.delete(k);
 		rawLength.delete(k);
 		spanFailures.delete(k);
+		returnedData.delete(k);
 	};
 	if (memo.has(key)) drop(key);
 	while (memo.size && (memo.size >= MEMO_MAX || memoChars + section.length > MEMO_CHARS_MAX)) drop(memo.keys().next().value as string);
@@ -204,6 +208,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// The plugins' fences spend a pool of their own, in claim order, like the CLI door's: slide packages cannot starve them.
 	let fenceTotal = 0;
 	const sections = new Map<string, string>();
+	/** What each block drawn THIS render returned, by its key: what the returns check reads. */
+	const drawnData = new Map<string, Record<string, unknown>>();
 	const unapproved = new Map<string, StudioCodePackage | StudioPlugin>();
 	const failed: CodePackagesStatus['failed'] = [];
 	const unlisted = new Set<string>();
@@ -293,6 +299,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			continue;
 		}
 		const known = memo.get(key);
+		const knownData = returnedData.get(key);
 		const knownWhy = kindOf ? spanFailures.get(key) : undefined;
 		if (known && knownWhy) {
 			failed.push({ name: c.pkg, slide: c.slide + 1, why: knownWhy });
@@ -301,12 +308,17 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		}
 		if (known) {
 			fenceTotal += rawLength.get(key) ?? known.length;
-			sections.set(key, fenceTotal > RENDER_OUTPUT_MAX ? notDrawn(fenceOutputNote(RENDER_OUTPUT_MAX)) : known);
+			if (fenceTotal > RENDER_OUTPUT_MAX) sections.set(key, notDrawn(fenceOutputNote(RENDER_OUTPUT_MAX)));
+			else {
+				sections.set(key, known);
+				if (knownData) drawnData.set(key, knownData);
+			}
 			continue;
 		}
 		let why: string | null = null;
 		let out = '';
 		let rawLen = 0;
+		let data: Record<string, unknown> | null = null;
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
 			try {
@@ -314,9 +326,16 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 				// A kind that declares a slot is handed only a record the slot reads (the CLI door's rule, code-door.js).
 				if (kindOf && !fields && p.kinds?.find((k) => k.name === kindOf)?.slot) throw new Error(`\`${c.body.slice(0, 60)}\` does not read as the kind's declared slot`);
 				const input = kindOf ? inlineInput(c as Parameters<typeof inlineInput>[0], fields) : fenceInput(c);
-				const raw = await (await frameFor(p, frames, true)).runFence(input, SLIDE_MS);
-				fenceTotal += raw.length;
-				rawLen = raw.length;
+				const answer = await (await frameFor(p, frames, true)).runFence(input, SLIDE_MS);
+				// A renderer's `{ html, data }` crosses as one string (code-shape.mjs RETURN_ENVELOPE): the html goes on to
+				// the sanitizer like any output, and the data waits for the returns check below.
+				const parts = splitReturn(answer);
+				if ('error' in parts) throw new Error(parts.error);
+				const raw = parts.html;
+				data = parts.data ?? null;
+				// Returned data counts against the cap with the drawing, as in the CLI door (code-door.js).
+				rawLen = raw.length + (data ? JSON.stringify(data).length : 0);
+				fenceTotal += rawLen;
 				if (fenceTotal > RENDER_OUTPUT_MAX) throw new Error(fenceOutputNote(RENDER_OUTPUT_MAX));
 				const done = ((kindOf ? doorFinishInline : doorFinishFence) as DoorFinishFence)(document, doorSanitizer(), raw, fenceNamespace(p.name));
 				if ('error' in done) why = done.error;
@@ -347,8 +366,61 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		} else {
 			remember(key, out);
 			rawLength.set(key, rawLen);
+			if (data) {
+				returnedData.set(key, data);
+				drawnData.set(key, data);
+			}
 			sections.set(key, out);
 		}
+	}
+	// THE RETURNS CHECK, the CLI door's (code-door.js; plugin-returns.mjs; owner decisions 11 and 12). Every value a
+	// plugin handed back is held to the fields it declared, on every render, a remembered result included. One value
+	// that breaks the declaration disables the plugin for the whole render, and the strip says why.
+	const disabled = new Map<string, { why: string; slide: number }>();
+	const valuesOf = new Map<string, Array<[string, string]>>();
+	for (const c of capFences.claims) {
+		const p = offered.get(c.pkg);
+		const key = p ? fenceKey(c, p.sha256) : '';
+		// Only a result that is ON the page is checked: one the cap replaced with a note returns nothing. Read from this
+		// render's own record, not the memo, which a later block's result can evict mid-render (the checker).
+		const data = p ? drawnData.get(key) : undefined;
+		if (!p || !data || disabled.has(p.name)) continue;
+		const r = checkReturnData(data, p.returns ?? []);
+		if ('violation' in r) disabled.set(p.name, { why: r.violation, slide: c.slide + 1 });
+		else valuesOf.set(key, r.values);
+	}
+	for (const [name, { why, slide }] of disabled) failed.push({ name: `plugin/${name}`, slide, why: `the plugin is disabled for this render, because ${why}; nothing it drew or returned is on the page` });
+	// Where each value lands: `data-returned-<plugin>--<name>` on the slide's own <section>. Two blocks of one plugin on one slide
+	// that return different values for one name: the first, in deck order, is kept, and the strip says so once.
+	const attrs = new Map<string, Array<[string, string]>>();
+	const onSlide = new Map<number, Map<string, string>>();
+	const clashes = new Set<string>();
+	for (const c of capFences.claims) {
+		const p = offered.get(c.pkg);
+		if (!p) continue;
+		const key = fenceKey(c, p.sha256);
+		const kindOf = (c as { inline?: string }).inline;
+		const off = disabled.get(p.name);
+		if (off) {
+			sections.set(key, kindOf ? c.block : withFenceNote(c.block, c.pkg, `the plugin was disabled for this render, because ${off.why}`));
+			continue;
+		}
+		const values = valuesOf.get(key);
+		if (!values?.length) continue;
+		const here = onSlide.get(c.slide) ?? new Map<string, string>();
+		onSlide.set(c.slide, here);
+		const mine: Array<[string, string]> = [];
+		for (const [field, value] of values) {
+			const attr = returnAttr(p.name, field);
+			if (!here.has(attr)) {
+				here.set(attr, value);
+				mine.push([attr, value]);
+			} else if (here.get(attr) !== value && !clashes.has(`${p.name}\u0000${field}`)) {
+				clashes.add(`${p.name}\u0000${field}`);
+				failed.push({ name: c.pkg, slide: c.slide + 1, why: `it returned two different values for ${field} on this slide; the first block's is kept` });
+			}
+		}
+		if (mine.length) attrs.set(key, mine);
 	}
 	for (const f of frames.values()) f.then((fr) => fr.close()).catch(() => {});
 	if (reporting) report({ unapproved: [...unapproved.values()], failed, ...(unlisted.size ? { offered: [...unlisted].map((n) => offered.get(n) as StudioPlugin) } : {}), ...(notes.length ? { notes } : {}) });
@@ -356,6 +428,6 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		...engineOpts,
 		codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }),
 		...(externalPlugins.length ? { externalPlugins } : {}),
-		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds, escapeKinds }) } : {}),
+		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds, escapeKinds, attrs }) } : {}),
 	}) as R;
 }

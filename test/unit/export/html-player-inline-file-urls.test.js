@@ -291,6 +291,12 @@ test('text between elements is untouched when nothing is baked', () => {
   assert.equal(bake(doc).html, doc);
 });
 
+test('an address with no local path is tried once and listed once, however often a srcset repeats it', () => {
+  // `file://host/…` has no local path on any platform (on Windows, neither does a path with no drive letter).
+  const r = bake(`<img srcset="${'file://share.example/a.png 1x,'.repeat(2000)}">`);
+  assert.deepEqual(r.missing, ['file://share.example/a.png']);
+});
+
 // A hostile deck must not stall the export. The parse is jsdom's, which the assembler pays anyway; the readers add
 // a pass over the attribute and style text. Each of these took seconds to minutes with the regex tokenizer.
 const HOSTILE = {

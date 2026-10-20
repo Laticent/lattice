@@ -1,0 +1,2 @@
+- The Studio now picks up a re-imported plugin right away when only its manifest changed, such as its return fields, inline kinds or placeholder. It used to keep the old declaration until the page was reloaded, so a widened declaration did not ask for approval again in that session.
+- The Studio's one-line "did not draw" strip now carries its full reason as a hover title, because a long reason was cut off at the strip's width.

@@ -25,3 +25,12 @@ done when — one CI run on a markdown-only PR saves both builds' output (the ba
 evidence  — the diff of the two saved builds, file by file, from the CI run.
 verify    — tier 1; the change is to a CI step, so it needs the owner's OK before it is added
             (HARD RULE: the CI contract is the owner's call).
+
+Status 2026-10-19 (the npm-plugin-safety PR): no CI step was added. The gate's own `--measure` now records each eager
+file's gzip bytes under its hash-fixed name (`eagerFiles`), and the existing "Measure the base" step already runs that
+same script on the base, so `evaluateAllowance` names the files that grew most on every nonzero delta and in the
+failure text. That answers "which file grew" for every PR from now on, with no new step to approve. What is left:
+the next markdown-only PR that reads a delta on CI names its chunk; then write the cause into the gotcha, and this
+file closes. If the owner still wants both builds SAVED as artifacts for a file-by-file diff, that is a new CI step
+and the owner's call (it is on the PR's decision card).
+

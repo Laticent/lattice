@@ -38,3 +38,40 @@ No new plugin ships browser code (no manifest other than the two above declares 
 
 Mermaid cost, measured 2026-10-18 on this container with the current bake path (a one-slide `flowchart LR A-->B-->C` deck against a one-slide plain deck, `.html` export): 2,216,222 bytes against 2,202,922 (**+13.3 KB**), 4.1 s against 1.9 s to render (**+2.2 s**, the Chromium subprocess), the diagram baked as inline SVG with no Mermaid library in the file (0 references to `mermaid.initialize` or `mermaid.run`). The PDF is 10.8 KB. So the default export already ships a baked diagram; what is left in the browser is the `hydrate` pass (click links, per `mermaid.hydrate.js:1077`) and the payload for decks that need it. Moving the bake into the locked page changes no export bytes if the SVG is identical, and needs the diagram golden check to prove that; **it is an export-affecting change, so it stops for the owner's sign-off with dark and light renders (CLAUDE.md QUALITY BAR)**. Not measured: diagram quality against a bake in the locked page, and decks that use the payload.
 
+
+Math feasibility, measured 2026-10-19 (the npm-plugin-safety PR): the vendored `katex.min.js` (272 KB, under the door's
+1 MB cap) runs as a fence renderer in the LOCKED sandbox page (`openPackageSandbox`, `runPackage`) and renders all 80
+formulas in the math docs, fixtures, gallery and examples, plus a malformed one, **byte-identical** to `renderTex` in
+Node (81 in all). That parity is now pinned by `test/unit/core/katex-wall.test.js` (below).
+Cost: 447 ms to open the sandbox once, then about 4.4 ms per formula against 0.9 ms in Node (the memo would cut repeats
+in both). So moving math changes no export bytes. Dark and light renders of `examples/math-form-frame.md` went to the
+owner for sign-off; **math moves after that sign-off, not before.** Mermaid and function-plot are not measured yet.
+
+Mermaid's CLI bake, moved 2026-10-19 (the npm-plugin-safety PR): `render-worker.js` now draws in the LOCKED page. It
+runs in the code sandbox's browser (`launchCodeSandbox`, the OS sandbox on where the machine allows it), on a synthetic
+origin the worker answers from Lattice's own files, under a CSP that admits those files and nothing else. Before, it
+ran on a `file:` page with `--no-sandbox`. A flowchart image node's `file:` picture is re-addressed onto the origin,
+answered through the same file confiner, and its address is restored in the SVG. Evidence: 32 of 32 gallery and
+fixture diagrams are byte-identical, and so are the PDFs of `examples/mermaid-diagram-surface.md`,
+`dark-diagram-fills.md` and `mermaid-init-merge.md` and the fixtures' HTML and PDF. No export bytes changed, so there
+is nothing to sign off. Still open: Mermaid's `hydrate` in the previews and in the plain `.html` export's click
+links (owner decision 15, previews), function-plot, and math.
+
+function-plot in the CLI captures, moved 2026-10-19: every export that captures a page (PDF, PNG, PPTX, `--player`,
+`--read`) loads a copy of the page without the library. The plugin's hydrator is marked `drawnByHost`
+(`hydrateScript`'s `hostDrawn`), so its placeholders wait. `lattice.js` then draws them in the locked page
+(`lib/export/locked-figures.js`) by running the plugin's own `hydrate` there, and writes each drawing back
+through the slide sanitizer. Since 2026-10-20 that locked page is a fresh context of the export's own browser,
+started while the capture page loads, and the sanitizer runs in the capture page: no browser of its own. The plain `.html` keeps the library and its
+zoom (decision 16). Evidence: the PDF and `--player` files of `examples/plugin-system-phase-b.md`,
+`math-form-frame.md` and `marp-export-fidelity.md` are byte-identical before and after, and a debug run showed the
+capture page with `window.functionPlot` undefined while the kept `.html` still holds the library. No export bytes
+changed. Still open: function-plot in the previews (decision 15), and math.
+
+math in the CLI and the library API, moved 2026-10-20: KaTeX runs behind a wall, QuickJS compiled to WebAssembly
+in the same process (`lib/core/katex-wall.js`), with a 128 MB memory, a 5 s time and a 256 KB stack limit, and each
+result is checked against what KaTeX emits before it leaves. It replaced the 2026-10-19 cut (KaTeX in the locked
+browser page, +1.3 s per math deck) after the owner ruled out starting a browser for it. The wall is synchronous, so
+D-A closed: there is no in-process fallback. Evidence: 91 formulas × 3 output modes byte-identical
+(`test/unit/core/katex-wall.test.js`), and the CLI never `require`s KaTeX (`test/integration/export/math-walled.test.js`).
+Still open: the previews (decision 15).

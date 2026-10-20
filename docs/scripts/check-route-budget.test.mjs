@@ -22,6 +22,7 @@ import {
 	evaluateAllowance,
 	evaluateRoute,
 	freeBytes,
+	grewFiles,
 	LAZY_BUDGET_ROUTE,
 	METRICS,
 	measure,
@@ -110,6 +111,21 @@ describe('per-PR allowance', () => {
 
 	it('never fails a PR that shrinks the route', () => {
 		expect(evaluateAllowance('studio', { eagerJsGz: 590_000 }, { eagerJsGz: 600_000 }, 700_000).problems).toEqual([]);
+	});
+
+	test('an overage names the files that grew, so a byte nobody wrote has an address (followup 2749-p3)', () => {
+		const base = { eagerJsGz: 600_000, eagerFiles: { '_astro/studio.00000000.js': 500_000, '_astro/shared.00000000.js': 100_000 } };
+		const actual = { eagerJsGz: 602_100, eagerFiles: { '_astro/studio.00000000.js': 500_000, '_astro/shared.00000000.js': 102_069, '_astro/new.00000000.js': 31 } };
+		const r = evaluateAllowance('studio', actual, base, 700_000);
+		expect(r.problems[0]).toContain('Grew most (gzip bytes, hashes fixed): _astro/shared.00000000.js +2069, _astro/new.00000000.js +31.');
+		expect(r.line).toContain('(_astro/shared.00000000.js +2069, _astro/new.00000000.js +31)');
+		// A base measured before the field existed names nothing, and still gates.
+		expect(evaluateAllowance('studio', { eagerJsGz: 602_100 }, { eagerJsGz: 600_000 }, 700_000).problems[0]).not.toContain('Grew most');
+	});
+
+	test('grewFiles ranks by size of change, counts a file one side lacks in full, and skips unchanged files', () => {
+		expect(grewFiles({ a: 10, b: 5, c: 7 }, { a: 10, b: 9, d: 3 })).toEqual(['c +7', 'b -4', 'd -3']);
+		expect(grewFiles(undefined, { a: 1 })).toEqual([]);
 	});
 });
 

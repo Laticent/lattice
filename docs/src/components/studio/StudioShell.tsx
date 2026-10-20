@@ -1239,9 +1239,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
 			.catch(() => setLocalComponents((prev) => (prev.length ? [] : prev)));
-		// The zip plugins share the Library's refresh: every place that changes the shelf calls this.
+		// The zip plugins share the Library's refresh: every place that changes the shelf calls this. The WHOLE record
+		// decides "unchanged": a re-import that keeps the code but widens its returns, kinds or placeholder replaces the
+		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
-			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => p.id === list[i].id && p.code === list[i].code && p.fence === list[i].fence) ? prev : list)))
+			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
 			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
@@ -1269,7 +1271,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			localPlugins.map((p) => (p.kinds ?? []).map((k) => k.name)),
 		);
 		let live = true;
-		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}) }))).then(
+		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}), ...(p.returns !== undefined ? { returns: p.returns } : {}) }))).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },
 			(e) => console.warn('lattice: the plugin door did not load', e),
 		);

@@ -15,12 +15,15 @@
  *   MARKUP      the canary's output half in an ordinary online page, raw                → fires
  *               the same output after the host's sanitizer                              → 0
  *   PAGE WALLS  the same worker in an ONLINE browser, with only the locked page         → 0
+ *   STYLESHEET  each hostile package sheet in an online page, ungated                    → fires
+ *               the same sheet as an installed component, rendered by the real CLI      → refused, 0
  *
  * KEEPING IT OPEN-ENDED: a reviewer who names an exit adds a pair to `attempts()` or a tag to
  * `markupVectors()` in test/fixtures/npm-plugin-canary.js and every arm here picks it up.
  *
- * NOT YET RUNNABLE (and marked `todo`, never accepted): the data-return case (decision 10) and the
- * export check. See the two `todo` tests at the end for what each needs.
+ * DATA RETURN (owner decisions 10 to 12): the gate admits a plugin's `returns` only in its declared shape,
+ * and one render runs a plugin per hostile value next to a clean one. Each hostile plugin is disabled with
+ * an alert and puts nothing on the page; the clean one's values land escaped on its slide's <section>.
  *
  * Needs Chromium. Slow tier: one real sandbox launch per case that runs code.
  */
@@ -42,8 +45,10 @@ const engine = require('../../../lib/engine');
 const puppeteer = require('puppeteer');
 const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
 const { pluginDigest, grantTrust } = require('../../../lib/packages/trust.js');
+const { pluginReturnFields, MAX_RETURN_TEXT } = require('../../../lib/packages/code-shape.mjs');
 const { launchSandboxBrowser, openPackageSandbox, runPackage } = require('../../../lib/core/code-sandbox.js');
-const { PLANTED, attempts, markupVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
+const { spawnSync } = require('node:child_process');
+const { PLANTED, attempts, markupVectors, stylesheetVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
 
 const DECK = '---\ntheme: indaco\n---\n\n## Canary\n\n```canary\nrender me\n```\n';
 const CHROME = process.env.CHROME_PATH || undefined;
@@ -118,6 +123,8 @@ const settle = async () => {
 const reportOf = (html) => Object.fromEntries([...html.matchAll(/<li>([a-z-]+)=([^<]*)<\/li>/g)].map((m) => [m[1], m[2]]));
 
 const plugin = { name: 'canary-plugin', fence: 'canary' };
+/** The declaration every DATA RETURN plugin carries: one field of each type. */
+const RETURN_FIELDS = { status: { type: 'word', values: ['ok', 'late'] }, note: { type: 'text' }, summary: { type: 'markdown' }, n: { type: 'number', min: 0, max: 10 }, done: { type: 'flag' } };
 const approve = (code) => grantTrust('plugin', plugin.name, pluginDigest(code, plugin.fence), { layer: null });
 const runDoor = (code) => {
   const e = engine.createEngine();
@@ -302,10 +309,147 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     }
   });
 
-  // The two parts of §5.2 that cannot run yet. They are `todo`, not skipped and not passing: a
-  // `todo` test that fails is reported and does not fail the run, and one that passes tells the
-  // next session the door can open. Neither may be turned green by accepting an exit.
-  test('DATA RETURN (decision 10): a plugin that hands the host a script, a handler, a javascript: link, a </style> break-out and oversized values has them dropped, and is disabled with an alert', { todo: 'the host has no data-return surface yet: followups.d/2749-p4-plugin-data-return-surface.md' }, () => {
-    assert.fail('no data-return surface exists to test');
+  test('STYLESHEET: each hostile package sheet fires in an online page ungated, and the real CLI refuses it as an installed component', { timeout: TIMEOUT }, async () => {
+    const sheets = stylesheetVectors(H);
+    const name = 'canary-css';
+    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const open = async (doc) => {
+      hits = [];
+      const page = await browser.newPage();
+      await page.goto(`${H}/blank`, { waitUntil: 'load' });
+      await page.setContent(doc, { waitUntil: 'load' });
+      await settle();
+      await page.close();
+      return vectorsHit();
+    };
+    const problems = [];
+    try {
+      for (const [v, sheet] of Object.entries(sheets)) {
+        // CONTROL: the sheet itself, on a slide that carries the class, with no gate in the way.
+        const fired = await open(`<!doctype html><html><head><style>${sheet(name)}</style></head><body><section class="${name}" style="width:99px;height:99px"><h2>x</h2></section></body></html>`);
+        if (!fired.includes(v)) problems.push(`the control sheet ${v} did not fire (it fired ${fired.join(' ') || 'nothing'})`);
+        // DOOR: the same sheet placed in the package store by hand (no \`add\`), rendered by the real CLI.
+        const store = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canary-css-'));
+        const dir = path.join(store, 'packages', 'component', name);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify({ name, type: 'component', format: 1 }));
+        fs.writeFileSync(path.join(dir, `${name}.styles.css`), sheet(name));
+        fs.writeFileSync(path.join(dir, `${name}.gallery.md`), `<!-- _class: ${name} -->\n\n## ${name}\n`);
+        fs.writeFileSync(path.join(store, 'deck.md'), `---\ntheme: indaco\n---\n\n<!-- _class: ${name} -->\n\n## Sheet\n`);
+        const out = path.join(store, 'deck.html');
+        const r = spawnSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), path.join(store, 'deck.md'), out], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: store } });
+        const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+        fs.rmSync(store, { recursive: true, force: true });
+        if (r.status !== 0) problems.push(`${v}: the render failed: ${r.stderr}`);
+        if (!/the installed component canary-css is refused/.test(r.stderr)) problems.push(`${v}: the CLI did not refuse the sheet`);
+        if (html.includes(`/${v}`)) problems.push(`${v}: the address reached the export`);
+        const leaked = await open(html);
+        if (leaked.length) problems.push(`${v}: the export reached the listener with ${leaked.join(' ')}`);
+      }
+    } finally {
+      await browser.close();
+    }
+    assert.deepEqual(problems, []);
+  });
+
+  test('DATA RETURN (decisions 10 to 12): the gate admits only a declared `returns`, and every other data contribution stays shut', { timeout: TIMEOUT }, () => {
+    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const zip = (contributes, name = 'data-canary') => ({
+      type: 'plugin',
+      name,
+      code: true,
+      manifest: { name, type: 'plugin', contributes: { fences: { dcanary: {} }, ...contributes } },
+      roles: { 'render.js': `${name}.render.js` },
+      files: { [`${name}.render.js`]: 'function render(){return "<p>x</p>"}\nexport { render as default };' },
+    });
+    assert.equal(refusePackage(zip({})), null, 'the control plugin is refused for another reason, so the arms below prove nothing');
+    assert.equal(refusePackage(zip({ returns: { fields: RETURN_FIELDS } })), null, 'a well-formed declaration is refused');
+    for (const point of ['meta', 'registers', 'providers', 'services', 'data']) {
+      assert.match(refusePackage(zip({ [point]: {} })) ?? '', new RegExp(point), `a zip plugin may contribute ${point}`);
+    }
+    const bad = {
+      'no fields': {},
+      'an extra key': { fields: { a: { type: 'flag' } }, attrs: {} },
+      'a URL type': { fields: { a: { type: 'url' } } },
+      'an HTML type': { fields: { a: { type: 'html' } } },
+      'a word field with no words': { fields: { a: { type: 'word' } } },
+      'a word that is not a word': { fields: { a: { type: 'word', values: ['ok', 'x y'] } } },
+      'a text max past 256': { fields: { a: { type: 'text', max: 257 } } },
+      'a markdown max past 2000': { fields: { a: { type: 'markdown', max: 2001 } } },
+      'a field name with markup': { fields: { '<a>': { type: 'flag' } } },
+      'a key a flag does not take': { fields: { a: { type: 'flag', max: 3 } } },
+      'seventeen fields': { fields: Object.fromEntries(Array.from({ length: 17 }, (_, k) => [`f${k}`, { type: 'flag' }])) },
+    };
+    for (const [why, returns] of Object.entries(bad)) assert.ok(refusePackage(zip({ returns })), `the gate admits ${why}`);
+    // Every value lands as `data-returned-<plugin>--<field>`, so a field name holding `--` would let two plugins write one attribute.
+    assert.match(refusePackage(zip({ returns: { fields: { 'a--b': { type: 'flag' } } } })) ?? '', /single hyphens/);
+  });
+
+  test('DATA RETURN (decisions 10 to 12): a plugin that hands the host a script, a handler, a javascript: link, a </style> break-out, an image or an oversized value is disabled with an alert; a clean one lands escaped on its slide', { timeout: TIMEOUT }, () => {
+    // One render, one plugin per vector: a violation disables ITS plugin only, so the clean one in the same deck still lands.
+    const vectors = {
+      good: { status: 'late', note: 'Q3 "plan" & co‮', summary: '**bold**, *em*\n\n- a\n- b\n\n| h |\n|---|\n| c |', n: 3, done: true },
+      undeclared: { onclick: 'alert(1)' },
+      forge: { 'lattice-plugin': 'forged' },
+      word: { status: 'evil' },
+      script: { note: '<script>alert(1)</script>' },
+      breakout: { note: '</style><img src=//e>' },
+      jslink: { summary: '[x](javascript:alert(1))' },
+      link: { summary: '[x](https://e.example)' },
+      image: { summary: '![x](//e/img)' },
+      mdhtml: { summary: 'hi <b onmouseover=x>b</b>' },
+      fenced: { summary: '```\nx\n```' },
+      oversize: { note: 'a'.repeat(MAX_RETURN_TEXT + 1) },
+      range: { n: 11 },
+      string: { n: '3' },
+      flag: { done: 'yes' },
+    };
+    const code = 'function render(f){ return JSON.parse(f.body); }\nexport { render as default };';
+    const returns = pluginReturnFields({ contributes: { returns: { fields: RETURN_FIELDS } } });
+    // `capped` draws 3.9 million characters a block, so its third block passes the render's output cap
+    // (FENCE_OUTPUT_MAX, 8 million) and is replaced by a note; what that block returned is never checked or written.
+    const big = 'function render(f){ return { html: "<p>" + "z".repeat(3900000) + "</p>", data: JSON.parse(f.body) }; }\nexport { render as default };';
+    const plugins = [...Object.keys(vectors), 'twice'].map((v) => ({ name: `dr-${v}`, fence: `dr${v}`, code, returns })).concat({ name: 'dr-capped', fence: 'drcapped', code: big, returns });
+    for (const p of plugins) grantTrust('plugin', p.name, pluginDigest(p.code, p.fence, [], returns), { layer: null });
+    const block = (fence, body) => `\`\`\`\`${fence}\n${body}\n\`\`\`\``;
+    const deck = `---\ntheme: indaco\nplugins: [${plugins.map((p) => p.name).join(', ')}]\n---\n\n${Object.entries(vectors)
+      .map(([v, data]) => `## ${v}\n\n${block(`dr${v}`, JSON.stringify({ html: `<p>MARK-${v}</p>`, data }))}`)
+      .join('\n\n---\n\n')}\n\n---\n\n## twice\n\n${block('drtwice', JSON.stringify({ html: '<p>MARK-twice-1</p>', data: { status: 'ok' } }))}\n\n${block('drtwice', JSON.stringify({ html: '<p>MARK-twice-2</p>', data: { status: 'late' } }))}\n\n---\n\n## capped\n\n${[{ status: 'ok' }, { note: 'one' }, { status: 'evil' }].map((d) => block('drcapped', JSON.stringify(d))).join('\n\n')}\n`;
+    const e = engine.createEngine();
+    const lines = { warn: [], info: [] };
+    const r = renderWithCodePackages((hook, more) => e.render(deck, 'indaco', { codePackages: hook, ...more }), {
+      packages: [],
+      plugins,
+      executablePath: CHROME,
+      warn: (l) => lines.warn.push(l),
+      info: (l) => lines.info.push(l),
+    });
+    const html = r.rendered.html;
+    const problems = [];
+    const attr = (plugin, field) => `data-returned-${plugin}--${field}`;
+    for (const v of Object.keys(vectors).filter((k) => k !== 'good')) {
+      if (!lines.warn.some((l) => l.includes(`the plugin dr-${v} is disabled for this render`))) problems.push(`${v}: no alert`);
+      // A disabled block keeps its source, quoted and escaped, with a note; its DRAWING never lands.
+      if (html.includes(`<p>MARK-${v}</p>`)) problems.push(`${v}: the disabled plugin's drawing reached the page`);
+      if (!html.includes(`The plugin “dr-${v}” did not draw this block: the plugin was disabled for this render`)) problems.push(`${v}: its block carries no note`);
+      if (html.includes(`data-returned-dr-${v}--`)) problems.push(`${v}: a value reached the page`);
+    }
+    if (/<script>alert|<img src=\/\/e|<b onmouseover|href="javascript:|src="\/\/e\/img/.test(html)) problems.push('a hostile value reached the page as markup or an attribute');
+    // The clean plugin: drawn, and every value on its own slide's <section>, escaped, bidi removed.
+    const slide = html.match(/<section\b[^>]*data-returned-dr-good--status="late"[^>]*>/)?.[0] ?? '';
+    if (!html.includes('<p>MARK-good</p>')) problems.push('good: it did not draw');
+    if (!slide) problems.push('good: its status is not on a <section>');
+    if (!slide.includes(`${attr('dr-good', 'note')}="Q3 &quot;plan&quot; &amp; co"`)) problems.push(`good: its note is not escaped and cleaned: ${slide}`);
+    if (!slide.includes(`${attr('dr-good', 'n')}="3"`) || !slide.includes(`${attr('dr-good', 'done')}="true"`)) problems.push(`good: its number or flag is missing: ${slide}`);
+    if (!slide.includes(`${attr('dr-good', 'summary')}="**bold**`)) problems.push(`good: its markdown is missing: ${slide}`);
+    if (lines.warn.some((l) => l.includes('plugin dr-good '))) problems.push(`good: it was warned about: ${lines.warn.join(' | ')}`);
+    // Two blocks of one plugin on one slide with different values for one field: the first is kept, and the author is told.
+    if (!html.includes(`${attr('dr-twice', 'status')}="ok"`) || html.includes(`${attr('dr-twice', 'status')}="late"`)) problems.push('twice: the first block\'s value is not the one kept');
+    if (!lines.warn.some((l) => /dr-twice returned two different values for status/.test(l))) problems.push('twice: no clash warning');
+    // The capped block's bad value is not checked: the plugin stays on, and its two drawn blocks' values land.
+    if (lines.warn.some((l) => l.includes('the plugin dr-capped is disabled'))) problems.push('capped: a block the cap removed disabled the plugin');
+    if (!html.includes(`${attr('dr-capped', 'status')}="ok"`) || !html.includes(`${attr('dr-capped', 'note')}="one"`)) problems.push('capped: the drawn blocks\' values are missing');
+    if (!/returned more than [\d,]+ characters/.test(html)) problems.push('capped: the third block carries no cap note');
+    assert.deepEqual(problems, []);
   });
 });

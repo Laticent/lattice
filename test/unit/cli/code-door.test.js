@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, slideInput } = require('../../../lib/packages/code-door-core.mjs');
 const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
-const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
+const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile, trustOf, MAX_PINS } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/packages/gate.js');
 const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
 const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
@@ -163,6 +163,37 @@ describe('consent, pinned to the bytes and the layer', () => {
     assert.deepEqual(untrustedCodePackages([{ name: 'tally', pkg: p }], { file }), []);
     assert.equal(revokeTrust('component', 'tally', { file }), true);
     assert.deepEqual(untrustedCodePackages([{ name: 'tally', pkg: p }], { file }), [{ name: 'tally', sha256: d }]);
+  });
+
+  test('an npm plugin keeps one approval per pin (`keep`); a component and a zip plugin keep one, as before', () => {
+    const file = path.join(tmp('home'), 'trust.json');
+    const [a, b, c] = ['a', 'b', 'c'].map((x) => x.repeat(64));
+    const now = new Date('2026-10-19T00:00:00Z');
+    grantTrust('plugin', 'gantt', a, { file, now, layer: 'on', keep: true });
+    grantTrust('plugin', 'gantt', b, { file, now, layer: 'unmeasured', keep: true });
+    assert.equal(isTrusted('plugin', 'gantt', a, file), true, 'the first pin still runs');
+    assert.equal(isTrusted('plugin', 'gantt', b, file), true);
+    assert.deepEqual(readTrust(file), { 'plugin/gantt': { sha256: b, at: '2026-10-19T00:00:00.000Z', layer: 'unmeasured', pins: [{ sha256: a, at: '2026-10-19T00:00:00.000Z', layer: 'on' }] } });
+    assert.equal(trustOf(readTrust(file), 'plugin', 'gantt', a).layer, 'on', 'each pin keeps the layer it was approved at');
+    // Approving a kept pin again moves it to the front, never doubles it.
+    grantTrust('plugin', 'gantt', a, { file, now, layer: 'on', keep: true });
+    assert.deepEqual(readTrust(file)['plugin/gantt'].pins.map((p) => p.sha256), [b]);
+    // A grant without `keep` (a zip plugin, a component) replaces every pin.
+    grantTrust('plugin', 'gantt', c, { file, now });
+    assert.equal(isTrusted('plugin', 'gantt', a, file), false);
+    assert.equal(isTrusted('plugin', 'gantt', b, file), false);
+    // At most MAX_PINS approvals a name, the oldest dropped first.
+    for (let k = 0; k < MAX_PINS + 3; k++) grantTrust('plugin', 'gantt', k.toString(16).padStart(64, '0'), { file, now, keep: true });
+    const kept = readTrust(file)['plugin/gantt'];
+    assert.equal(1 + kept.pins.length, MAX_PINS);
+    assert.equal(isTrusted('plugin', 'gantt', '0'.repeat(64), file), false, 'the oldest pin fell off');
+    // Withdrawing the name withdraws every pin.
+    assert.equal(revokeTrust('plugin', 'gantt', { file }), true);
+    assert.equal(isTrusted('plugin', 'gantt', (MAX_PINS + 1).toString(16).padStart(64, '0'), file), false);
+    assert.deepEqual(untrustedCodePackages([{ name: 'gantt', type: 'plugin', sha256: c }], { file }), [{ name: 'gantt', type: 'plugin', sha256: c }]);
+    // A hostile trust file is read without throwing and grants nothing it should not.
+    fs.writeFileSync(file, JSON.stringify({ version: 1, trusted: { 'plugin/gantt': { sha256: a, at: { toString: null }, pins: [{ sha256: b, at: { toString: null } }, null, 7, { sha256: 'zz' }, { sha256: a }] } } }));
+    assert.deepEqual(readTrust(file), { 'plugin/gantt': { sha256: a, at: '', pins: [{ sha256: b, at: '' }] } });
   });
 
   test('consent lives in $LATTICE_HOME, not in the package store; a foreign file grants nothing', () => {
@@ -318,7 +349,7 @@ describe('the OS layer', () => {
     assert.doesNotMatch(line({ summary: 'on: confined', layer: { os: 'on', tried: [], reason: null } }), /to put it on/);
   });
 
-  test('the render’s notice: OFF warns with the reason’s remedy; the platform default is a plain line', () => {
+  test('the render’s notice: OFF warns with the reason’s remedy; a layer nobody could measure warns too; on is a plain line', () => {
     const { sandboxNotice } = require('../../../lib/packages/code-door.js');
     const off = sandboxNotice(['tally'], { os: 'off', summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason: 'apparmor-userns' });
     assert.equal(off.warn, true);
@@ -326,8 +357,10 @@ describe('the OS layer', () => {
     assert.doesNotMatch(off.text, /CHROME_PATH/, 'the render repeated the old remedy after the prompt gave the right one');
     const root = sandboxNotice(['tally'], { os: 'off', summary: 'OFF', tried: ['as nobody: EACCES'], reason: 'unprivileged-user-cannot-run' });
     assert.match(root.text, /To put it on, set CHROME_PATH to a Chromium the unprivileged user can run/);
-    const mac = sandboxNotice(['tally'], { os: 'unmeasured', summary: "on by the platform's default, running as ann (not measured here)", tried: [], reason: null });
-    assert.deepEqual(mac, { warn: false, text: "  code packages: tally — OS sandbox on by the platform's default, running as ann (not measured here)" });
+    const unread = sandboxNotice(['tally'], { os: 'unmeasured', summary: 'could not be measured here, running as ann', tried: [], reason: null });
+    assert.deepEqual(unread, { warn: true, text: 'warning: code packages: tally — OS sandbox could not be measured here, running as ann.' });
+    const on = sandboxNotice(['tally'], { os: 'on', summary: 'on: Chromium’s OS sandbox confines the renderer, running as ann', tried: [], reason: null });
+    assert.deepEqual(on, { warn: false, text: '  code packages: tally — OS sandbox on: Chromium’s OS sandbox confines the renderer, running as ann' });
   });
 
   // launchCodeSandbox, driven with a stub puppeteer whose sandboxed launch fails: the wiring from
@@ -573,6 +606,11 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
     assert.match(refusePackage(plugin({}, { contributes: { fences: { mermaid: {} } } })), /fence `mermaid` is one a shipped plugin owns/);
     assert.match(refusePackage(plugin({}, { contributes: { fences: { python: {} } } })), /code language Lattice highlights/);
     assert.match(refusePackage(plugin({}, {}, 'chart')), /class Lattice uses/);
+    // Its stylesheet: an address a custom property holds, which image-set(var(…)) fetches.
+    const styled = (css) => plugin({ roles: { 'render.js': 'gantt-plugin.render.js', 'styles.css': 'gantt-plugin.styles.css' }, files: { 'gantt-plugin.render.js': code, 'gantt-plugin.styles.css': css } });
+    assert.equal(refusePackage(styled('.lp-gantt-plugin{--sep:"/";color:var(--text)}')), null);
+    assert.match(refusePackage(styled('.lp-gantt-plugin{--q:"https://evil.example/y";background-image:image-set(var(--q) 1x)}')), /its styles\.css: .*custom property/);
+    assert.match(refusePackage(styled('.lp-gantt-plugin{background:url(https://evil.example/y)}')), /its styles\.css: /);
     assert.match(refusePackage(plugin({ files: { 'gantt-plugin.render.js': `import("x");\n${code}` } })), /dynamic `import\(\)`/);
     assert.match(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), /no fence and no inline kind/);
   });

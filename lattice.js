@@ -411,6 +411,7 @@ PACKAGES
     lattice packages export <type>/<name> [-o file.zip]
     lattice packages remove <type>/<name>
     lattice packages trust  component/<name> [--yes]
+    lattice packages fetch  [dir] [--trust]   (the npm plugins lattice-plugins.json lists)
     lattice packages untrust component/<name>
   The store is $LATTICE_HOME/packages (default ~/.lattice/packages); --packages <dir>
   overrides it for one run, for renders too. A deck whose theme is neither shipped nor
@@ -1786,7 +1787,7 @@ function refuseUnapprovedCode(pkgs) {
 function withInstalledPlugins(source) {
   const { refusePackage } = require('./lib/packages/gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
-  const { readTrust } = require('./lib/packages/trust.js');
+  const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
@@ -1794,9 +1795,12 @@ function withInstalledPlugins(source) {
     if (why) console.error(`warning: the installed plugin ${p.name} is refused and not used: ${why}`);
     else installed.push(p);
   }
-  if (!installed.length) return [];
-  const active = activePluginNames(source, installed.map((p) => p.name));
   const approvals = readTrust();
+  // The npm plugins the project's `lattice-plugins.json` lists, read from the fetch cache only: a render
+  // never reaches a registry (lib/packages/npm-plugin-loader.js; `lattice packages fetch` downloads them).
+  const npm = withNpmPlugins(source, installed, approvals, PLUGIN_NAMES);
+  if (!installed.length) return npm;
+  const active = activePluginNames(source, installed.map((p) => p.name));
   const { inlineKindsOf } = require('./lib/packages/code-door-fence.mjs');
   const fenceOf = (p) => Object.keys(p.pkg.manifest.contributes.fences ?? {})[0] ?? '';
   for (const p of installed.filter((x) => !active.has(x.name))) {
@@ -1809,7 +1813,38 @@ function withInstalledPlugins(source) {
     const written = inlineKindsOf(p.pkg.manifest).filter((k) => source.includes(`\`@${k.name}{`));
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
-  return installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null }));
+  const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
+}
+
+/**
+ * The deck's npm plugins (threat-model note 2026-10-16 §5.1 G2): each one the deck's front matter lists
+ * and `lattice-plugins.json` names, from the cache `lattice packages fetch` fills, gated as a zip plugin
+ * is. The door admits the bytes against the pin again and refuses them where the OS layer reads OFF.
+ */
+function withNpmPlugins(source, installed, approvals, shippedNames) {
+  const { deckPluginList } = require('./lib/plugins/deck-plugins.mjs');
+  const asked = deckPluginList(source);
+  // A deck that lists no plugin never reads a list: a file someone planted in a parent folder costs it nothing.
+  if (!asked.length) return [];
+  const { findPluginList, readPluginList, npmPluginEntries, npmPluginPkg } = require('./lib/packages/npm-plugin-loader.js');
+  const { refusePackage, printableLine } = require('./lib/packages/gate.js');
+  const deckDir = path.dirname(path.resolve(mdFile));
+  const file = findPluginList(deckDir);
+  if (!file) return [];
+  const list = readPluginList(file);
+  const known = new Set([...installed.map((p) => p.name), ...shippedNames]);
+  // A broken list is said out loud when the deck asks for a plugin it would have supplied, not dropped (the checker).
+  if (list.problems.length && asked.some((n) => !known.has(n))) for (const p of list.problems) console.error(printableLine(`warning: ${p}`));
+  const listed = new Set(list.entries.map((e) => e.name).filter((n) => asked.includes(n)));
+  if (!listed.size) return [];
+  const { entries, warnings } = npmPluginEntries(deckDir, listed, { approvals, taken: known });
+  for (const w of warnings) console.error(printableLine(w));
+  return entries.filter((e) => {
+    const why = refusePackage(npmPluginPkg({ name: e.name, fence: e.fence }, e.code), { forRender: true });
+    if (why) console.error(printableLine(`warning: the npm plugin ${e.name} is refused and not used: ${why}`));
+    return !why;
+  });
 }
 // The installed component packages this render USES — `--reopenable` carries them in the
 // `.lattice`, so the deck opens styled for a recipient who never installed them. Filled by
@@ -1847,7 +1882,7 @@ function withInstalledComponents(source) {
   // could reach. A code package under a name Lattice reserves (a slide class such as `invert`)
   // would claim every slide carrying that class, so it is not used (the inversion lens: a folder
   // placed in the store by hand never went through `add`, which refuses one).
-  const { codeDigest, readTrust } = require('./lib/packages/trust.js');
+  const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const reservedNames = require('./lib/packages/index.js').createRegistry(require('./lib/packages/packages.generated.json'));
   const approvals = readTrust();
   const { codeNameRefusal } = require('./lib/packages/code-door-core.mjs');
@@ -1857,7 +1892,7 @@ function withInstalledComponents(source) {
     console.error(`warning: the installed code package ${p.name} has a name Lattice reserves, so it is not used`);
     return false;
   });
-  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
+  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: trustOf(approvals, 'component', p.name, codeDigest(p.pkg))?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
   refuseUnapprovedCode(DECK_CODE_PACKAGES.filter((p) => named.has(p.name)));
   DECK_PLUGINS = withInstalledPlugins(source);
   // `--reopenable` carries what this render used: the components the CSS pass embedded, and the
@@ -2755,6 +2790,23 @@ const pluginHydrateScript = hasHydratedPlugins
       `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins)}\n</script>`,
     ].join('\n')
   : '';
+// THE CAPTURE PAGE DRAWS NO PLUGIN LIBRARY THE LOCKED PAGE CAN DRAW FOR IT (owner decisions 14 and 16; threat-model
+// note 2026-10-16 §6 rows 3 and 4). The `.html` file keeps function-plot's library and its zoom (decision 16). The page
+// every capture reads (PDF, PNG, PPTX, `--player`, `--read`) is served a copy without it: its placeholders wait, and
+// `awaitPluginFigures` draws them in the locked page (lib/export/locked-figures.js).
+const HOST_DRAWN = pagePlugins.filter((h) => h.name === 'function-plot').map((h) => h.name);
+const capturePageHydrateScript = HOST_DRAWN.length
+  ? [
+      ...pagePlugins.filter((h) => !HOST_DRAWN.includes(h.name)).map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
+      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN })}\n</script>`,
+    ].join('\n')
+  : '';
+/** The capture page's copy of a document written to `outHtml`: the same, with the host-drawn plugins' libraries out. */
+function capturePageOf(html) {
+  const at = HOST_DRAWN.length ? html.indexOf(pluginHydrateScript) : -1;
+  // By index, not String.replace: a library's source holds `$&` and `$'`, which replace would expand.
+  return at < 0 ? html : html.slice(0, at) + capturePageHydrateScript + html.slice(at + pluginHydrateScript.length);
+}
 
 // ── state-chart browser-measured layout bootstrap ─────────────────────────
 // The state chart takes the flowchart's delivery (state-chart.layout.js, a Trama
@@ -3256,6 +3308,12 @@ async function renderExport({ hardened }) {
 }
 
 async function renderBody(browser, g, closeBrowser) {
+  // function-plot's locked page and its sanitizer, made ready WHILE the capture page loads (lib/export/locked-figures.js
+  // `openPlotter`), so the draw below pays almost nothing for its setup. Settled into `{ plotter }` or `{ error }`, never
+  // left to reject unobserved.
+  const plotterReady = HOST_DRAWN.includes('function-plot')
+    ? require('./lib/export/locked-figures.js').openPlotter(browser).then((plotter) => ({ plotter }), (error) => ({ error }))
+    : null;
   const page = await g(() => browser.newPage(), 'new page');
   // LOCAL FILES stay inside the deck. The page loads the deck's pictures as `file://` addresses, and Chromium
   // follows a symlink or a typed `file:///etc/x` wherever it points. Each `file:` request is checked by REAL
@@ -3278,6 +3336,11 @@ async function renderBody(browser, g, closeBrowser) {
     page.on('request', (req) => {
       if (req.isInterceptResolutionHandled()) return;
       const url = req.url();
+      // The output page itself, as the capture page sees it (`capturePageOf`): the file on disk is the deliverable.
+      if (HOST_DRAWN.length && req.isNavigationRequest() && /^file:/i.test(url) && isOutputPage(url)) {
+        req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: capturePageOf(fs.readFileSync(outHtml, 'utf8')) });
+        return;
+      }
       if (!/^file:/i.test(url) || confine.allows(url) || (req.isNavigationRequest() && isOutputPage(url))) { req.continue(); return; }
       if (!refused.has(url)) {
         refused.add(url);
@@ -3401,8 +3464,44 @@ async function renderBody(browser, g, closeBrowser) {
   // TIMING: function-plot's inflater was synchronous and ran before `load`, so the navigation wait
   // covered it — true of that one library, and of nothing the plugin contract promises. A plugin
   // that stays pending past the budget is closed with its source shown, and said so.
+  // The figures the HOST draws (HOST_DRAWN): read from this page, drawn in a locked page in a fresh context of THIS
+  // browser (no second browser: one per export), sanitized, written back and settled, before the barrier below waits on
+  // what is left. Remembered by the page's whole list of plots, so a re-navigation that shows the same ones (auto-split,
+  // rails) draws them once.
+  const hostDrawnMemo = new Map();
+  const drawHostFigures = async (label) => {
+    if (!HOST_DRAWN.includes('function-plot')) return;
+    const fpLocked = require('./lib/export/locked-figures.js');
+    const plots = await g(() => page.evaluate(fpLocked.READ), `read function plots${label}`);
+    if (!plots.some((p) => p.pending)) return;
+    const deviceScaleFactor = await g(() => page.evaluate(() => window.devicePixelRatio), `read pixel ratio${label}`);
+    const key = JSON.stringify([deviceScaleFactor, plots.map(({ config, w, h }) => [config, w, h])]);
+    let drawn = hostDrawnMemo.get(key);
+    if (!drawn) {
+      try {
+        drawn = await g(async () => {
+          const ready = await plotterReady;
+          if (ready.error) throw ready.error;
+          return ready.plotter.draw(plots, { deviceScaleFactor });
+        }, `draw function plots${label}`);
+        hostDrawnMemo.set(key, drawn);
+      } catch (e) {
+        // Released at once with their source showing, as the in-page host releases a plot whose library is missing,
+        // rather than left for the barrier to close at the end of its budget (the checker).
+        if (!QUIET) console.warn(`  ⚠ function-plot: the locked page could not draw the plots (${String(e?.message ?? e).split('\n')[0]}) — they export showing their source.`);
+        const { releaseFigure } = require('./lib/plugins/host-browser.mjs');
+        const { fromBase64 } = require('./lib/core/base64-utf8');
+        await g(() => page.evaluate(`(() => { const releaseFigure = ${releaseFigure.toString()}; const fromBase64 = ${fromBase64.toString()};
+          for (const el of document.querySelectorAll('[data-lattice-hydrate="function-plot"][data-lattice-settle="pending"]:not([data-lattice-final])')) releaseFigure(el, fromBase64, true); })()`), `release function plots${label}`);
+        return;
+      }
+    }
+    await g(() => page.evaluate(fpLocked.SANITIZER()), `sanitizer for function plots${label}`);
+    await g(() => page.evaluate(fpLocked.WRITE, drawn), `write function plots${label}`);
+  };
   const awaitPluginFigures = async (label) => {
     if (!hasHydratedPlugins) return;
+    await drawHostFigures(label);
     const closed = await g(() => page.evaluate(settleBarrierScript(settleBudget(pagePlugins))), `settle plugin figures${label}`);
     if (closed && !QUIET) {
       console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${settleBudget(pagePlugins)}ms — exported showing their source.`);

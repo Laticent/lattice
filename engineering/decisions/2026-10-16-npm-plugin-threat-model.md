@@ -166,6 +166,12 @@ neither (§6 rows 3 and 4 and decision 10: plugins never send code) and part 3 c
    it must not pass by recording the exit and accepting it. Accepting an exit is a separate owner
    decision.
 4. **Data-return case (decision 10).** The canary hands the host hostile data (a script, an event handler, a `javascript:` link, a `</style>` break-out, oversized values) and checks two things: the host sanitizes or drops it, and the host disables the plugin and alerts the user.
+   **Built 2026-10-19** (decisions 11 and 12): `DATA RETURN` in `test/integration/export/npm-plugin-canary.test.js`
+   runs one plugin per hostile value in one real render, next to a clean one. Fourteen values (an undeclared
+   handler name, a forged engine name, a word outside its list, `<script>`, `</style>`, a `javascript:` link, a
+   plain link, an image, inline HTML, a fence, an oversized text, a number out of range, a number sent as text and a
+   flag sent as text) each disable their plugin with an alert and put neither a drawing nor a value on the page; the
+   clean plugin's values land escaped on its `<section>`. Removing any one check in `checkReturnData` turns it red.
 5. **Keep the canary open-ended.** It is pinned to the listener and policy surface, not to a fixed
    list. Any exit a reviewer names is added before the door opens, and the canary runs in
    Chromium, WebKit and Firefox as §3.1 did.
@@ -185,8 +191,7 @@ an online page raw and reads zero after the host's sanitizer. A committed WEAKEN
 wall all removed (a manual run, not committed), the door arm goes red and names `fetch`, `importscripts`, `websocket` and `xhr`; with the first
 three removed and the worker wall left, it stays green, because the worker wall holds alone. `export-nightly/npm-plugin-export-check.test.js` (nightly) opens the real
 `--player` and plain exports with normal browser arguments in Chromium, WebKit and Firefox and is `todo` because it
-reads open exits (below); it must lose the `todo` only by closing them. The red team found a bypass the first canary missed: an address held in a custom property and read through `image-set(var(--q))` survived the door's sanitizer (`cssRefTargets`). The first fix was bypassable and over-broad (the checker found an inherited variable, a space, backslashes and a comment slipped past, and a plain `--sep:"/"` label was stripped); the second lists an address-shaped string (a network scheme, `//` or a backslash pair) from any custom property, and the canary now carries the inherited, spaced and backslash forms in real Chromium; the same hole in the package stylesheet gate is `followups.d/2749-p2-stylesheet-gate-custom-property-address.md`. Part 4 waits on the data-return surface
-(`followups.d/2749-p4-plugin-data-return-surface.md`). What stays open is in
+reads open exits (below); it must lose the `todo` only by closing them. The red team found a bypass the first canary missed: an address held in a custom property and read through `image-set(var(--q))` survived the door's sanitizer (`cssRefTargets`). The first fix was bypassable and over-broad (the checker found an inherited variable, a space, backslashes and a comment slipped past, and a plain `--sep:"/"` label was stripped); the second lists an address-shaped string (a network scheme, `//` or a backslash pair) from any custom property, and the canary now carries the inherited, spaced and backslash forms in real Chromium; the same hole in the package stylesheet gate is closed (2026-10-19): `findCssExfil` (`lib/core/css-scan.js`) reports an address-shaped string in a custom property or an `@property` `initial-value` as `css-var-address`, which `firstRefusal` refuses, so a component, theme or plugin package carrying one is refused. The same walk replaced the `image-set()` regex, which stopped at the first `)` and missed `image-set(url(data:…) type(…) 1x, "//evil" 2x)`. The canary's STYLESHEET arm renders each form as an installed component through the real CLI and opens the export in an online browser; with the fix reverted all five forms reached the listener. Part 4 runs since 2026-10-19 (`DATA RETURN`, §5.2 item 4 and §6.1). What stays open is in
 `followups.d/2743-p1-npm-plugin-canary-harness.md`.
 
 **Measured 2026-10-18 on real exports, normal browser arguments, each cell with a control that reached the
@@ -247,6 +252,84 @@ Checked that the lock costs no rendering: 5 decks (KaTeX, Mermaid, function-plot
 coverage deck) exported with and without the four directives, opened in all three engines, produce
 0 policy violations and byte-identical screenshots; the check was re-run on Chromium 141.0.7390.37 (a second Chrome) and on exports served over http instead of `file://`, with the same five open exits and every control firing.
 
+### 5.5 The loader (2026-10-19)
+
+`lib/packages/npm-plugin-loader.js` builds the `source: 'npm'` entries the door admits. It does two
+separate jobs, and only the first touches the network:
+
+- **`lattice packages fetch [dir] [--trust]`** finds the nearest `lattice-plugins.json` (the deck's
+  folder, then each folder above it, stopping at a folder that holds `.git` and at the home folder),
+  prints which file it uses, downloads each listed plugin's registry tarball, reads ONE
+  file out of it (`bundle`, default `lattice-plugin.js`, below the tarball's top folder), and caches
+  it at `$LATTICE_HOME/npm-plugins/<sha256>.js` only when `admitNpmBundle` accepts the bytes against
+  the pinned hash. It then gates the plugin as a zip plugin is gated (`refusePackage`: shape, syntax,
+  a reserved name, a shipped fence, a highlighted language) and asks for consent at its digest. The
+  consent text names the list file, the package, the version, the bundle's pinned hash, and a registry
+  that is not npm's, because the list is the root of trust: the pin protects an honest list from a
+  swapped download, and does nothing against a hostile list. A plugin left unapproved makes `fetch`
+  exit 1. Nothing is installed and nothing runs: no `npm`, no lifecycle script, no dependency (decision 8).
+- **A render** reads the cache only, and reads the list only when the deck's front matter lists a
+  plugin, so a list planted in a parent folder costs a deck without plugins nothing. A plugin the deck's front matter lists (`plugins: [name]`) and
+  the list names becomes `{ source: 'npm', pin, code: bytes }`; one that is not fetched is named with
+  the command that fetches it. An export never reaches a registry.
+
+The list entry is `{ name, package, version, fence, sha256, bundle? }`, with an optional top-level
+`registry` (`https:`, or `http:` on loopback). `version` must be exact; a range, a tag or `latest`
+is refused, because G2 pins versions and the hash pins the bytes. The list is read only if it is a
+regular file under 1 MB (a symlink to `/dev/zero` ran a render out of memory and one to a FIFO hung it),
+with at most 64 entries.
+
+The tar reader must read the file a reviewer reads with `tar`, or the review proves nothing. It takes
+regular files, folders and pax headers, and refuses the whole tarball on any other entry type (a GNU
+long name, a contiguous file, a link, a device). It parses pax records by their length and refuses two
+`path` records, requires a strictly octal size, refuses `..`, and refuses a bundle path that appears
+twice after `./` and `//` are normalized (tar keeps the last). It caps the download (8 MB), the unpacked
+size (32 MB) and the bundle (4 MB). Redirects are followed by hand, at most five, and each must keep the
+scheme and pass the registry rule; every download failure reads the same, so a list cannot use the
+loader to learn which local ports answer.
+
+Admission (`externalRefusal`) also refuses an HTML-like comment (`<!--`, or `-->` first on a line). The
+worker runs a bundle as a classic script, which reads those as comments, and the check parses it as a
+module, which does not, so a `<!--` line could hide an `importScripts` line from the check.
+
+**At approval, as well as at render, an npm plugin is refused where the OS layer reads OFF or cannot be
+determined** (decision 7). `--trust` does not override it. Refusing it at approval is the safe default
+for the followup's question (3): an approval at OFF would approve something the door will never run.
+
+**Every platform is measured (decision 13, 2026-10-19).** `rendererSandboxed` reads Linux renderers'
+seccomp mode, asks macOS's kernel through `sandbox_check` for each renderer pid, and reads Chromium's
+`chrome://sandbox` page on Windows. `unmeasured` now means a probe failed, on any platform, so an npm
+plugin refuses there (`npmLayerRefusal`) and a code package's render warns. The proof runs on real
+runners: the `os-sandbox-measure` platform suite (`.github/platform-suites.json`) reads `on` on macOS and
+Windows, its control reads a `--no-sandbox` browser as `false`, and the npm admission test runs the real
+door on both.
+
+**One approval per pin** (2026-10-19, was one per name). `lattice packages fetch` and `trust plugin/<name> <dir>`
+grant an npm plugin's approval with `keep` (`lib/packages/trust.js`): the earlier approvals of that name stay under its
+entry's `pins`, most recent first, up to eight, each with the OS layer it was approved at. Two projects that pin
+different versions no longer replace each other's approval at every `fetch`, and a render reads the layer of ITS pin
+(`trustOf`). A zip plugin's or a component's approval still replaces the last, and `untrust plugin/<name>` withdraws
+every pin. An older Lattice reads only the current approval and ignores `pins`, so it fails safe. `fetch`
+refuses a name a shipped or installed plugin already uses, so the npm door never replaces their approval.
+
+The adversarial trio reviewed the loader on 2026-10-19. The red team found no way to run code without
+consent, past the pin, in Node or outside the cache folder. It did find the list crash, the forged
+output lines, the redirect SSRF, the four tar differences and the HTML-comment parse gap above, all
+fixed with tests. The inversion review added the consent text, the search boundary, the exit code
+and the name refusal. The checker added the render's warning for a broken list and three tests that
+mutation showed were missing.
+
+Verified: the unit tests (`test/unit/cli/npm-plugin-loader.test.js`) cover every refusal against a local
+registry, a real `npm pack` tarball is read byte-for-byte, and the G5 probe shows that fetching,
+caching, gating and building the door entry never load the bundle in Node (its control imports the
+same bytes and the marker appears). The integration arm (`npm-plugin-admission.test.js` LOADER) runs
+the real `lattice packages fetch` against a local registry, then renders a deck that lists the plugin
+through the real CLI, and checks that the render made no request. In this sandbox Chromium runs as
+root, so the layer reads OFF and that arm takes its refusal branch; the approving branch was driven by
+hand with a Chromium copy the `nobody` user can run (layer on): `fetch --trust` approved the plugin and
+the rendered PDF holds its output. Not verified: a fetch from the real
+`registry.npmjs.org` (the test registry is local), and the macOS and Windows layer readings.
+
 ## 6. Decisions
 
 The owner answered on 2026-10-17. Rows 1 to 5 keep the original question numbers; row 6 is a new
@@ -278,15 +361,65 @@ Three more decisions came out of the red team and inversion reviews. The owner a
 | 7 | Do npm plugins inherit "may be approved at OFF"? | **No, refuse.** An npm plugin does not run when the OS layer reads OFF. A failed probe (the layer cannot be determined) counts as OFF, so it refuses too (owner, 2026-10-17). Code packages keep today's behavior (decision 6). |
 | 8 | Must an npm plugin have zero runtime dependencies? | **Reframed by the owner:** plugins are not npm packages whose dependencies Lattice installs. A plugin is a self-contained bundle built with all its dependencies, and Lattice downloads it as it is. Lattice never runs `npm install` for a plugin. |
 | 9 | Add G5, a check that Lattice never loads a plugin in Node? | **Yes.** The owner's reason: "we need to be safe." **G5 is also an exit criterion for phase G, like the harness (owner, 2026-10-17): the npm door does not open while the G5 test is red.** |
-| 10 | May an npm plugin return data (instead of, or besides, an HTML fragment) that the host writes onto the page or into the shared context? | **Yes, with the host in control** (owner, 2026-10-17). A plugin hands data to the host. The host sanitizes it and the host, which is our engine, attaches it to the slide or the deck. The plugin never writes onto the page itself. The first data provider is the embedded meta plugin in PR #2762 (`@meta{…}`; its design note `2026-10-17-meta-record.md` is in that PR and not yet on `main`), which is first-party and built in. **Detect and disable:** the host catches any plugin that tries to inject a script or do something malicious, disables it, and alerts the user. The owner said "for now", so this is the first version, not the last word. Today's disabled-with-a-diagnostic path (`2026-09-27-plugin-system.md` §4.10) only disables a data-layer plugin whose name collides, at resolve time. Detecting an injected script at render time, and alerting the user, is new work. **CSS:** plugins may provide CSS in the future. All of it must go through `sanitizeStyleText` (HARD RULE #22) before it reaches a document. **Code:** plugins never send code (row 3, 4). Still open: the exact limits on what data may be attached (names, length, which elements). |
+| 10 | May an npm plugin return data (instead of, or besides, an HTML fragment) that the host writes onto the page or into the shared context? | **Yes, with the host in control** (owner, 2026-10-17). A plugin hands data to the host. The host sanitizes it and the host, which is our engine, attaches it to the slide or the deck. The plugin never writes onto the page itself. The first data provider is the embedded meta plugin in PR #2762 (`@meta{…}`; its design note `2026-10-17-meta-record.md` is in that PR and not yet on `main`), which is first-party and built in. **Detect and disable:** the host catches any plugin that tries to inject a script or do something malicious, disables it, and alerts the user. The owner said "for now", so this is the first version, not the last word. Today's disabled-with-a-diagnostic path (`2026-09-27-plugin-system.md` §4.10) only disables a data-layer plugin whose name collides, at resolve time. Detecting an injected script at render time, and alerting the user, is new work. **CSS:** plugins may provide CSS in the future. All of it must go through `sanitizeStyleText` (HARD RULE #22) before it reaches a document. **Code:** plugins never send code (row 3, 4). The limits were set on 2026-10-19: decisions 11 and 12 below. |
+
+The owner answered six more on 2026-10-19, asked to make this line feature complete before the API-key work:
+
+| # | Question | Decision |
+|---|---|---|
+| 11 | Which data types may a third-party (zip or npm) plugin hand back (decision 10's open limits)? | **Words, numbers and plain text, plus markdown text.** An enum or register word, a flag or number, plain text with control and bidi characters removed, and **markdown text**: bold, italic, lists, tables and the like, rendered by the host and sanitized, with **no HTML in it at all**. No CSS-valued and no URL type. |
+| 12 | Where may that data land, and what happens on a violation? | **On the slide only, and a violation disables the plugin and alerts the user.** The host writes `data-<plugin>-<name>` attributes on the slide's own `<section>`, never the deck context. A wrong type, an undeclared name, or HTML in a markdown value disables the plugin for the whole render and says why. |
+| 13 | Does an npm plugin run where the OS sandbox layer reads `unmeasured` (macOS, Windows)? | **Measure it on those platforms, on the macOS and Windows CI runners the platform suites already use** (`.github/platform-suites.json`), so the layer stops being `unmeasured` there. Supersedes the open half of decision 7 for those platforms. |
+| 14 | Which in-tree plugins move into the sandbox (rows 3 and 4)? | **All three: math, Mermaid and function-plot, renders first.** Each sends light and dark renders to the owner before it moves; interactivity a move would lose comes back as its own question. |
+| 15 | Do the live previews (Studio, Playground) move into a sandbox too, or only the CLI exports? | **Previews too, in the same line of work** (owner, 2026-10-19). Mermaid, function-plot and math render in a sandboxed frame on every surface and come back as sanitized output, so no first-party plugin runs its library in the page that holds the deck. |
+| 16 | May the plain `.html` export keep function-plot's zoom and drag, which needs the library in the reader's browser? | **Yes: keep zoom in the plain `.html` export** (owner, 2026-10-19). A recorded exception to "plugins never send code": the plain `.html` export alone ships the vendored, pinned function-plot and runs it in the reader's browser. The PDF, the `--player` export and every preview get the static plot drawn in the sandbox. |
+| 17 | May a sandbox cost a browser start? | **No** (owner, 2026-10-20): "speed is extremely important to me. spinning up a browser is an absolute no no. the question is can we be fast and secure using node?" Answered for math: KaTeX now runs behind a WebAssembly wall in the CLI's own process (`lib/core/katex-wall.js`), byte-identical, with no browser. function-plot draws in an isolated context of the browser an export already starts. Mermaid's bake keeps the browser it already started on `main` (`followups.d/2800-p3-mermaid-bake-one-browser.md`). Design and measurements: `2026-10-19-first-party-plugins-in-the-sandbox.md` §2 and §3. |
 
 Decision 8 is a different model from the one this note started with, and it settles two of the
 gaps in §3. Gap 3 (install scripts and transitive dependencies) is closed by design, because
 nothing is installed. Gap 4 (version drift) shrinks to "which bundle and hash is pinned", which G2
-covers. Implementing 7 to 9 is `followups.d/2749-p3-npm-plugin-admission-rules.md`.
+covers. Implementing 7 to 9 is done: the door enforces them, and the loader that produces its entries is §5.5.
 
 This note does not edit `2026-09-13` Axis 2 beyond a pointer. Decisions 3 and 4 mean that row's npm line ("code,
 Node-side, resolved at build time") no longer describes the plan. Superseding it is `followups.d/2749-p1-supersede-plugin-architecture-axis2-npm-row.md`.
+
+### 6.1 The returns surface, as built (decisions 11 and 12, 2026-10-19)
+
+A plugin opts in with `contributes.returns.fields` (`spec/LPM.md` §3.3, `lib/plugins/plugin.schema.json`). The gate
+(`returnsRefusal`, `lib/packages/code-shape.mjs`) admits only the five types of decision 11, at most 16 fields named
+`[a-z][a-z0-9-]{0,31}` with no `--` and no trailing hyphen, text capped at 256 characters and markdown at 2,000. The
+declaration is pinned into the consent digest and SHOWN in both approval prompts (`returnsConsent`: each field, its
+bounds and the attribute it lands on), so widening a word list asks again with a prompt that says what changed; a
+plugin that declares none keeps the digest it had.
+
+**Where values land: `data-returned-<plugin>--<field>`, not decision 12's `data-<plugin>-<name>`.** Decision 12 fixed
+the place (the slide's own `<section>`, never the deck context); the attribute shape was this note's proposal. Built as
+proposed, with a list of engine prefixes kept off it, the red team and the inversion lens both found the list already
+stale: a plugin named `split` could write `data-split-mods` (`lib/base/base.variants.css` tones a slide by it), `build`
+reached `data-build-at`, `focus` reached `data-focus-style`, and any plugin's `state` field collided with the settle
+protocol's `data-<plugin>-state`. Plugin `a` with field `b-c` and plugin `a-b` with field `c` also wrote one attribute.
+A host-owned prefix that nothing in the tree reads, with `--` before the field, closes both by construction; a unit test
+fails if anything in `lib/`, `themes/` or `docs/src/` starts reading the prefix. The owner may veto the spelling; the
+place is unchanged.
+
+At run time the worker sends `{ html, data }` across the frame as one string (`RETURN_ENVELOPE`). Each door, the CLI
+(`lib/packages/code-door.js`) and the Studio (`docs/src/lib/code-packages/door-run.ts`), sanitizes the html as any
+fence output and holds every value to its field with one shared check (`checkReturnData`,
+`lib/packages/plugin-returns.mjs`), on every render, a remembered result included. Markdown is parsed with HTML
+detection on and markdown-it's link filter off, so `[x](javascript:…)` shows up as a link and is refused rather
+than quietly turned to text. One violation disables the plugin for the whole render: its blocks keep their source
+with a note, the CLI warns, and the Studio's strip says why. Both doors apply the output cap first, counting returned data with the drawing: a block the cap
+replaces returns nothing, so its values are neither checked nor written. Clean values land as
+`data-returned-<plugin>--<field>` on the slide's own `<section>`, escaped as attribute values, first block wins per
+slide and the author is told of a clash. The host writes them by walking the open tag attribute by attribute: a regex
+over the whole tag matched a name inside another attribute's quoted value and broke the tag's quoting (the red team).
+Each value is also held to twice its declared length BEFORE cleaning, and a lone surrogate is refused.
+
+Not built, and put to the owner (the ❓ card on the PR): no host surface SHOWS a returned value yet. The values are
+attributes a deck's own CSS can select on (`section[data-returned-gantt--status="late"]`), but a plugin's own
+`styles.css` does not reach a CLI export (`lattice.js` embeds component sheets only) and markdown is never rendered,
+although decision 11 says the host renders it; `renderReturnMarkdown` waits for that surface. The deck context stays
+out of reach (decision 12). Recorded in `followups.d/2749-p3-plugin-returns-consumer.md`.
 
 ## 7. What is not verified
 

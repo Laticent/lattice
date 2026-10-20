@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { admitNpmBundle, externalRefusal } = require('../../../lib/packages/npm-plugin-admission.js');
-const { npmLayerRefusal, npmRefusals } = require('../../../lib/core/os-sandbox.js');
+const { npmLayerRefusal, npmRefusals, judgeWindowsRows } = require('../../../lib/core/os-sandbox.js');
 
 const sha = (c) => crypto.createHash('sha256').update(c).digest('hex');
 const GOOD = 'function render(f){ return "<p>" + f.body.length + "</p>"; }\nexport { render as default };';
@@ -15,6 +15,9 @@ const GOOD = 'function render(f){ return "<p>" + f.body.length + "</p>"; }\nexpo
 describe('admitNpmBundle', () => {
   test('a self-contained bundle at its pinned hash is admitted', () => {
     assert.deepEqual(admitNpmBundle({ name: 'x', code: GOOD, sha256: sha(GOOD) }), { ok: true, sha256: sha(GOOD) });
+    // Bytes that are not UTF-8 decode to other bytes, so a grant digest (text) and a render digest (bytes) would never meet.
+    const bad = Uint8Array.from([0x78, 0xff]);
+    assert.match(admitNpmBundle({ name: 'x', code: bad, sha256: sha(bad) }).reason, /not UTF-8 text/);
     assert.equal(admitNpmBundle({ name: 'x', code: new TextEncoder().encode(GOOD), sha256: sha(GOOD) }).ok, true, 'bytes are accepted as downloaded');
   });
 
@@ -47,6 +50,9 @@ describe('admitNpmBundle', () => {
     'a require taken by reference': 'const r = require;\nfunction render(){return r("dep")}\nexport { render as default };',
     'importScripts': 'importScripts("https://x/y.js");\nfunction render(){return ""}\nexport { render as default };',
     'a require call nested in a function': 'function render(){ return (() => require("dep"))() }\nexport { render as default };',
+    // A classic script reads these as comments and a module does not, so the check and the worker saw different code (the red team).
+    'an HTML open comment hiding a line from the module parse': 'var a = 1 <!-- c /*\nvar r = importScripts;\n// */\nfunction render(){return ""}\nexport { render as default };',
+    'an HTML close comment at the start of a line': 'var n = 1;\n  --> hidden\nfunction render(){return ""}\nexport { render as default };',
   };
   for (const [what, code] of Object.entries(left)) {
     test(`a bundle with ${what} left external is refused`, () => {
@@ -55,6 +61,11 @@ describe('admitNpmBundle', () => {
       assert.match(r.reason, /not a self-contained bundle/);
     });
   }
+
+  test('`n-->0` mid-line, and `<!--` in a string, are not HTML comments', () => {
+    const code = 'function render(f){ var n = 2; while (n-->0); return "<!-- x -->"; }\nexport { render as default };';
+    assert.equal(admitNpmBundle({ name: 'x', code, sha256: sha(code) }).ok, true);
+  });
 
   test('the words import( and require( in a string or a comment are not a dependency', () => {
     const code = '// require("x") and import("y")\nfunction render(){ return "import(\\"a\\") require(\\"b\\")"; }\nexport { render as default };';
@@ -76,10 +87,8 @@ describe('npmLayerRefusal (decision 7)', () => {
   test('OFF is refused everywhere', () => {
     for (const p of ['linux', 'darwin', 'win32']) assert.match(npmLayerRefusal(layer('off'), p), /reads OFF/);
   });
-  test('unmeasured is a failed probe on Linux and the platform default elsewhere', () => {
-    assert.match(npmLayerRefusal(layer('unmeasured'), 'linux'), /cannot be determined counts as OFF/);
-    assert.equal(npmLayerRefusal(layer('unmeasured'), 'darwin'), null);
-    assert.equal(npmLayerRefusal(layer('unmeasured'), 'win32'), null);
+  test('unmeasured is a failed probe on every platform, so it refuses (decision 13: macOS and Windows are measured now)', () => {
+    for (const p of ['linux', 'darwin', 'win32']) assert.match(npmLayerRefusal(layer('unmeasured'), p), /cannot be (measured|determined)/);
   });
   test('a missing or malformed layer counts as OFF', () => {
     for (const bad of [undefined, null, {}, { os: 'maybe' }, 'on', 5]) assert.match(npmLayerRefusal(bad, 'darwin'), /counts as OFF/, JSON.stringify(bad));
@@ -92,3 +101,18 @@ describe('npmLayerRefusal (decision 7)', () => {
     assert.deepEqual(npmRefusals(job, layer('on'), 'linux'), {});
   });
 });
+
+describe('judgeWindowsRows (decision 13: Windows is read from chrome://sandbox)', () => {
+  test('every renderer locked down reads on; one not sandboxed reads off; none listed, or an unknown state, reads unmeasured', () => {
+    assert.equal(judgeWindowsRows(['1234\tRenderer\tLockdown\tUntrusted', '5678\tRenderer\tLockdown\tUntrusted']), true);
+    assert.equal(judgeWindowsRows(['1234\tRenderer\tLockdown', '5678\tRenderer\tNot Sandboxed']), false);
+    assert.equal(judgeWindowsRows([]), null);
+    assert.equal(judgeWindowsRows(['1234\tRenderer\tsomething new']), null);
+    // What a real windows-latest runner's page held (2026-10-19): the table rows, then the policy JSON, which names
+    // renderers and no state. The JSON must not turn four locked-down renderers into `null`.
+    const real = ['9248\tRenderer\t\tRenderer\tLockdown\tS-1-16-0 Untrusted\t\u279501111001100110000100000020010000', '4868\tRenderer\t\tRenderer\tLockdown\tS-1-16-0 Untrusted\t\u279501111001100110000100000020010000', '    "name": "RendererAppContainer"', '    "tag": "renderer!kRenderer",'];
+    assert.equal(judgeWindowsRows(real), true);
+    assert.equal(judgeWindowsRows(['    "tag": "renderer!kRenderer",']), null, 'policy JSON alone is no reading');
+  });
+});
+

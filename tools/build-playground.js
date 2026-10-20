@@ -16,11 +16,12 @@
  *
  * KaTeX is deliberately EXCLUDED (~78.5KB gzip / see
  * engineering/decisions/2026-07-10-landing-perf-katex-defer.md §4): the
- * math plugin's own copy of KaTeX (lib/plugins/math/vendor/katex/katex.min.js,
- * required by math.render.js) is swapped for lib/engine/katex-browser-stub.js
- * for THIS build only (katexStubPlugin) — a Node/CLI build of the same
- * renderer (lattice.js, the npm package) still requires the real copy,
- * since esbuild never runs there. The real
+ * math plugin's KaTeX, which Node runs behind a wall (lib/core/katex-wall.js,
+ * required by math.render.js), is swapped for lib/engine/katex-browser-stub.js
+ * for THIS build only (katexStubPlugin), so neither KaTeX nor the wall's
+ * WebAssembly reaches the bundle — a Node/CLI build of the same renderer
+ * (lattice.js, the npm package) still requires the wall, since esbuild never
+ * runs there. The real
  * KaTeX ships as a separate on-demand bundle — tools/build-katex-provider.js
  * → lattice-katex.js — loaded only when a deck actually has math.
  *
@@ -100,14 +101,14 @@ const oneMarkdownItPlugin = {
 // a deck that uses the plugin. Matched on the resolved file, so every relative spelling is caught.
 const PLUGIN_DATA = path.join(ROOT, 'lib', 'plugins', 'data.generated.js');
 const PLUGIN_DATA_STUB = path.join(ROOT, 'lib', 'plugins', 'data-browser-stub.js');
-// The math plugin's KaTeX copy → the stub (see the header). Matched by the RESOLVED path, so the
-// relative `require('./vendor/katex/katex.min.js')` in math.render.js is what it catches.
-const KATEX_COPY = path.join(ROOT, 'lib', 'plugins', 'math', 'vendor', 'katex', 'katex.min.js');
+// The math plugin's walled KaTeX → the stub (see the header). Matched by the RESOLVED path, so the
+// relative `require('../../core/katex-wall.js')` in math.render.js is what it catches.
+const KATEX_WALL = path.join(ROOT, 'lib', 'core', 'katex-wall.js');
 const katexStubPlugin = {
   name: 'katex-browser-stub',
   setup(build) {
-    build.onResolve({ filter: /vendor[\\/]katex[\\/]katex\.min\.js$/ }, (args) =>
-      path.resolve(args.resolveDir, args.path) === KATEX_COPY ? { path: path.join(ROOT, 'lib', 'engine', 'katex-browser-stub.js') } : undefined);
+    build.onResolve({ filter: /katex-wall\.js$/ }, (args) =>
+      path.resolve(args.resolveDir, args.path) === KATEX_WALL ? { path: path.join(ROOT, 'lib', 'engine', 'katex-browser-stub.js') } : undefined);
   },
 };
 

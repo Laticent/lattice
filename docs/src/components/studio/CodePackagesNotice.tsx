@@ -11,6 +11,7 @@ import { Code2, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { approveCodePackage, approvePlugin, type CodePackagesStatus, offeredIn, onCodePackagesStatus, type StudioPlugin, unapprovedIn } from '@/lib/code-packages/door';
+import { returnsConsent } from '../../../../lib/packages/code-shape.mjs';
 import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
 
 const isPlugin = (p: { name: string }): p is StudioPlugin => 'fence' in p;
@@ -72,7 +73,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
-						{p.name}.{plugin ? `render.js (${codeRole(p)})` : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of what it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again. The approval stays in this browser even if you undo the line.
+						{p.name}.{plugin ? `render.js (${codeRole(p)})` : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of what it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have.{plugin && p.returns?.length ? ` ${returnsConsent(p.name, p.returns)}` : ''} Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again. The approval stays in this browser even if you undo the line.
 					</p>
 				)}
 			</div>
@@ -110,7 +111,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
-						{p.name}.render.js ({codeRole(p)}), {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. This deck does not list it under <code>plugins:</code>, so what it draws shows a placeholder. Approving adds <code>{p.name}</code> to the deck's <code>plugins:</code> line and lets its code run in this browser: in a sandbox with no network and no access to this page or your saved work, seeing only the text of what it draws. Run code only from someone you trust. Changed code asks again.
+						{p.name}.render.js ({codeRole(p)}), {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. This deck does not list it under <code>plugins:</code>, so what it draws shows a placeholder. Approving adds <code>{p.name}</code> to the deck's <code>plugins:</code> line and lets its code run in this browser: in a sandbox with no network and no access to this page or your saved work, seeing only the text of what it draws.{p.returns?.length ? ` ${returnsConsent(p.name, p.returns)}` : ''} Run code only from someone you trust. Changed code asks again.
 					</p>
 				)}
 			</div>
@@ -118,12 +119,13 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 	}
 	if (status.failed.length) {
 		const f = status.failed[0];
+		// One line, cut to the width: the title carries the whole reason, which the block's own note also shows.
+		const said = `The code of “${f.name}” did not draw slide ${f.slide}${status.failed.length > 1 ? ` and ${status.failed.length - 1} more` : ''}: ${f.why}`;
 		return (
 			<div role="status" data-slot="code-packages" data-state="failed" className={`${row} text-muted-foreground`}>
 				<Code2 className="size-3.5 shrink-0" aria-hidden />
-				<span className="min-w-0 flex-1 truncate">
-					The code of “{f.name}” did not draw slide {f.slide}
-					{status.failed.length > 1 ? ` and ${status.failed.length - 1} more` : ''}: {f.why}
+				<span className="min-w-0 flex-1 truncate" title={said}>
+					{said}
 				</span>
 			</div>
 		);

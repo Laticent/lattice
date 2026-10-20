@@ -73,6 +73,24 @@
       ],
       "run": "node tools/check-ownership.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
       "why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there; the path, Biome-launch, command-length and report-path fixes in tools/check-ownership.js and tools/check-lint-coverage.js removed that. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
+    },
+    {
+      "name": "os-sandbox-measure",
+      "os": [
+        "macos-latest",
+        "windows-latest"
+      ],
+      "paths": [
+        "lib/core/os-sandbox.js",
+        "lib/core/code-sandbox.js",
+        "lib/packages/code-door.js",
+        "lib/packages/code-door-worker.js",
+        "lib/packages/npm-plugin-admission.js",
+        "test/integration/export/os-sandbox-measure.test.js",
+        "test/integration/export/npm-plugin-admission.test.js"
+      ],
+      "run": "node --test test/integration/export/os-sandbox-measure.test.js test/integration/export/npm-plugin-admission.test.js",
+      "why": "The code door reads the OS sandbox layer before it runs a stranger's code, and an npm plugin runs only where it reads `on` (threat-model note §6 decisions 7 and 13). macOS (sandbox_check) and Windows (chrome://sandbox) are read differently from Linux, and only a real runner of each starts Chromium's sandbox to be read. The npm admission test then runs the real door there: an npm plugin draws exactly when the measured layer admits it."
     }
   ]
 }
