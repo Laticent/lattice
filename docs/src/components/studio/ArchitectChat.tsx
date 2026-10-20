@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
+import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
@@ -16,7 +17,7 @@ import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigu
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { ChatTraceDialog } from './ChatTraceDialog';
-import { activitySentence } from './chat-activity';
+import { thoughtTail } from './chat-activity';
 import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
@@ -188,8 +189,8 @@ function LiveReply({ store, thoughts, deck, activity, onGrow }: { store: ReturnT
 			)}
 			{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
 			{thought && (
-				<p className="truncate text-[11px] italic leading-snug text-muted-foreground" data-testid="chat-live-thought">
-					{thought}
+				<p className="line-clamp-2 text-[11.5px] leading-snug text-muted-foreground" data-testid="chat-live-thought">
+					{thoughtTail(thought)}
 				</p>
 			)}
 			<ChatLiveStatus label={activity ?? (text === '' ? THINKING : 'Writing…')} progress={`${activity ?? ''}|${text.length}`} />
@@ -891,12 +892,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
-							{m.activity?.length ? <p className="text-[11.5px] leading-snug text-muted-foreground">{activitySentence(m.activity)}</p> : null}
-							{m.trace ? (
-								<button type="button" onClick={() => setTraceIdx(i)} className="self-start text-[11px] font-medium text-[var(--accent)] hover:underline">
-									Show work
-								</button>
-							) : null}
+							<ChatActivityRow activity={m.activity} hasTrace={!!m.trace} onOpen={() => setTraceIdx(i)} />
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">

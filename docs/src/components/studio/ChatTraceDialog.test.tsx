@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ChatTraceDialog } from './ChatTraceDialog';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ChatTraceDialog, snippet } from './ChatTraceDialog';
 import type { ChatTrace, ChatUsage } from './studio-store';
 
 afterEach(cleanup);
@@ -46,5 +46,27 @@ describe('Show work', () => {
 	it('does not claim a billed figure once compaction has made the count an estimate', () => {
 		render(<ChatTraceDialog trace={trace} usage={{ ...usage, estimated: true }} open onOpenChange={() => {}} />);
 		expect(screen.queryByText(/The provider billed/)).toBeNull();
+	});
+
+	it('shows the first line of each thought beside its label, without markdown marks', () => {
+		expect(snippet('**Plan**\n- read the slides')).toBe('Plan');
+		expect(snippet('\n\n> The deck has three slides.')).toBe('The deck has three slides.');
+		expect(snippet('x'.repeat(200), 20)).toHaveLength(20);
+		render(<ChatTraceDialog trace={trace} usage={usage} open onOpenChange={() => {}} />);
+		expect(screen.getByText(/The deck has three slides\./, { selector: 'summary span' })).toBeTruthy();
+	});
+
+	it('opens as a bottom sheet on a phone-width screen, with the same content', () => {
+		vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('max-width: 639px'), media: q, addEventListener: () => {}, removeEventListener: () => {} }));
+		try {
+			render(<ChatTraceDialog trace={trace} usage={usage} open onOpenChange={() => {}} />);
+			const sheet = screen.getByTestId('chat-trace');
+			expect(sheet.getAttribute('data-slot')).toBe('sheet-content');
+			expect(sheet.className).toContain('rounded-t-2xl');
+			expect(screen.getByText('Lattice primer')).toBeTruthy();
+			expect(screen.getByText('2 model calls')).toBeTruthy();
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 });

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { fmtTok } from './ChatCost';
 import { callLabel, num } from './chat-trace';
@@ -11,6 +12,10 @@ import type { ChatTrace, ChatUsage } from './studio-store';
 // beside its answer, each command's arguments and result pass through `runAgentLoop`, and every
 // response carries its own usage — so showing it costs no request and no credit. The trace is
 // saved with the reply (chat-trace.ts bounds it), which is why the dialog works after a reload.
+//
+// On a phone it opens as a bottom sheet that fills most of the screen and scrolls inside itself; wider
+// screens keep the centered dialog. Either way the page behind does not move, which is the point: the
+// reply in the transcript carries one line, and everything else lives here.
 //
 // Commands are native <details>: the summary line is the clickable link, the body is the
 // arguments the model sent and what came back. Native because it is keyboard- and
@@ -29,19 +34,59 @@ const PARTS: { key: keyof ChatTrace['sent']; label: string; hint: string }[] = [
  *  sanitizer: model text reaches markup only through the one sink the chat already has. */
 export type RenderMarkdown = (text: string) => React.ReactNode;
 
+/** True on a phone-width screen. False where `matchMedia` is missing (jsdom, old engines), so those get the dialog. */
+function useNarrow(): boolean {
+	const query = '(max-width: 639px)';
+	const [narrow, setNarrow] = React.useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches);
+	React.useEffect(() => {
+		if (typeof window.matchMedia !== 'function') return;
+		const mq = window.matchMedia(query);
+		const on = () => setNarrow(mq.matches);
+		on();
+		mq.addEventListener?.('change', on);
+		return () => mq.removeEventListener?.('change', on);
+	}, []);
+	return narrow;
+}
+
 export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdown }: { trace: ChatTrace; usage?: ChatUsage; open: boolean; onOpenChange: (v: boolean) => void; renderMarkdown?: RenderMarkdown }) {
-	const md = (t: string) => renderMarkdown?.(t) ?? <p className="whitespace-pre-wrap">{t}</p>;
-	const sent = trace.sent ?? ({} as ChatTrace['sent']);
-	const rounds = Array.isArray(trace.rounds) ? trace.rounds : [];
-	const total = PARTS.reduce((n, p) => n + num(sent[p.key]), 0);
+	const narrow = useNarrow();
+	const intro = 'What the Architect sent, thought and ran for this reply. Reading this costs nothing.';
+	const body = <TraceBody trace={trace} usage={usage} renderMarkdown={renderMarkdown} />;
+	if (narrow) {
+		return (
+			<Sheet open={open} onOpenChange={onOpenChange}>
+				<SheetContent side="bottom" className="max-h-[88dvh] gap-0 overflow-hidden rounded-t-2xl" data-testid="chat-trace">
+					<div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-border" aria-hidden />
+					<SheetHeader className="shrink-0 pb-2">
+						<SheetTitle>Show work</SheetTitle>
+						<SheetDescription>{intro}</SheetDescription>
+					</SheetHeader>
+					<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{body}</div>
+				</SheetContent>
+			</Sheet>
+		);
+	}
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl" data-testid="chat-trace">
 				<DialogHeader>
 					<DialogTitle>Show work</DialogTitle>
-					<DialogDescription>What the Architect sent, thought and ran for this reply. Reading this costs nothing.</DialogDescription>
+					<DialogDescription>{intro}</DialogDescription>
 				</DialogHeader>
+				{body}
+			</DialogContent>
+		</Dialog>
+	);
+}
 
+function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?: ChatUsage; renderMarkdown?: RenderMarkdown }) {
+	const md = (t: string) => renderMarkdown?.(t) ?? <p className="whitespace-pre-wrap">{t}</p>;
+	const sent = trace.sent ?? ({} as ChatTrace['sent']);
+	const rounds = Array.isArray(trace.rounds) ? trace.rounds : [];
+	const total = PARTS.reduce((n, p) => n + num(sent[p.key]), 0);
+	return (
+		<>
 				<section aria-label="What was sent" className="flex flex-col gap-1.5">
 					<h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sent to the model</h3>
 					{PARTS.filter((p) => num(sent[p.key]) > 0).map((p) => (
@@ -73,7 +118,10 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 							</div>
 							{r.reasoning && (
 								<details className="group">
-									<summary className="cursor-pointer text-[var(--accent)] hover:underline">Thinking</summary>
+									<summary className="cursor-pointer truncate text-[var(--accent)] hover:underline">
+										Thinking
+										<span className="font-normal text-muted-foreground"> · {snippet(r.reasoning)}</span>
+									</summary>
 									<Thinking text={r.reasoning} md={md} />
 								</details>
 							)}
@@ -95,9 +143,14 @@ export function ChatTraceDialog({ trace, usage, open, onOpenChange, renderMarkdo
 						{num(usage.reasoning) ? ` · ${fmtTok(num(usage.reasoning))} thinking tokens` : ''}
 					</p>
 				)}
-			</DialogContent>
-		</Dialog>
+		</>
 	);
+}
+
+/** The first line of a thought with its markdown marks removed, for the one-line summary above the full text. */
+export function snippet(text: string, max = 80): string {
+	const line = (text.split('\n').map((l) => l.replace(/^[\s>*#\-\d.]+/, '').replace(/[*_`]/g, '').trim()).find(Boolean) ?? '').trim();
+	return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
 }
 
 /** The model's thinking, formatted, with a button in its corner to read the exact characters instead. Formatted is the default
