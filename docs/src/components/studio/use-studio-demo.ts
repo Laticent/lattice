@@ -59,7 +59,7 @@ export type StudioDemoBindings = {
 	/** In a live session the tour plays on a PRACTICE deck (2026-10-20 live note §7.5): `startPractice`
 	 *  stands in for `createFirstDeck` and swaps the editor and preview to a blank local text the session
 	 *  never sees; `endPractice` throws it away and puts the shared deck back. Null outside a session. */
-	practice: { start: () => void; end: () => void } | null;
+	practice: { start: () => void; end: () => boolean } | null;
 };
 
 export type StudioDemo = {
@@ -178,9 +178,10 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				const cur = bindRef.current;
 				if (practice) {
 					// The practice deck goes; the shared deck comes back. The look was never touched.
-					practice.end();
+					// False when the session ended mid-tour and already put the deck back: there is no shared deck now.
+					const back = practice.end();
 					cur.setInspectorOpen(false);
-					notify(reason === 'complete' ? 'Tour complete. You are back on the shared deck.' : 'Tour ended. You are back on the shared deck.');
+					notify(!back ? 'Tour ended.' : reason === 'complete' ? 'Tour complete. You are back on the shared deck.' : 'Tour ended. You are back on the shared deck.');
 					return;
 				}
 				// The deck is NOT restored (the newcomer keeps "My First Deck"). Only the

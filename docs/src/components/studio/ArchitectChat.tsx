@@ -306,8 +306,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		onBusyRef.current?.(busy);
 	}, [busy]);
 	React.useEffect(() => () => onBusyRef.current?.(false), []);
-	// Turns this person shared with the session, by transcript index (a turn is shared once).
-	const [sharedTurns, setSharedTurns] = React.useState<ReadonlySet<number>>(() => new Set());
+	// Turns this person shared with the session, by what they say (a turn is shared once). Not by position:
+	// Regenerate puts a new reply where the shared one was.
+	const [sharedTurns, setSharedTurns] = React.useState<ReadonlySet<string>>(() => new Set());
+	const turnKey = (ask: string, answer: string) => `${ask}\u0000${answer}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: another deck is another transcript.
 	React.useEffect(() => setSharedTurns(new Set()), [deckId]);
 	// "Facts locked" — a tone/clarity-only turn: the model may improve wording but must not
@@ -913,7 +915,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							)}
 							{/* Live: a turn reaches the session only when its owner shares it (§5.3). */}
 							{onShareTurn && m.content.trim() && messages[i - 1]?.role === 'user' ? (
-								sharedTurns.has(i) ? (
+								sharedTurns.has(turnKey(messages[i - 1].content, m.content)) ? (
 									<span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground" data-live-shared-turn>
 										<Check className="size-3" /> Shared with the session
 									</span>
@@ -922,7 +924,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 										type="button"
 										onClick={() => {
 											onShareTurn({ ask: messages[i - 1].content, answer: m.content });
-											setSharedTurns((was) => new Set(was).add(i));
+											setSharedTurns((was) => new Set(was).add(turnKey(messages[i - 1].content, m.content)));
 										}}
 										className="inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-[var(--accent)]"
 										data-live-share-turn

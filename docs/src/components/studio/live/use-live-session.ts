@@ -37,12 +37,13 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				openRoomPresent: () => depsRef.current.openRoomPresent?.(),
 				closeRoomPresent: () => depsRef.current.closeRoomPresent?.(),
 				startTour: (id) => depsRef.current.startTour?.(id),
+				applyComments: (deck, set, del) => depsRef.current.applyComments?.(deck, set, del),
 				notify: (m) => notify(m),
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,
 			};
-			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking } = depsRef.current;
-			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking });
+			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking, comments } = depsRef.current;
+			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide, records, siteTheme, panel, view, presenting, asking, comments });
 			setCtl(c);
 			return c;
 		});
@@ -73,7 +74,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	// Feed the controller this render's Studio state (it diffs against the last one).
 	React.useEffect(() => {
-		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme, panel: deps.panel, view: deps.view, presenting: deps.presenting, asking: deps.asking });
+		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide, records: deps.records, siteTheme: deps.siteTheme, panel: deps.panel, view: deps.view, presenting: deps.presenting, asking: deps.asking, comments: deps.comments });
 	});
 
 	// Hosting others: ask before the tab goes.
@@ -103,9 +104,14 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		joinPresent: NOOP,
 		presentTransport: NOOP,
 		mixIntoCall: NOOP,
-		tourForEveryone: () => false,
+		tourForEveryone: () => 'solo',
 		noteAiEdit: NOOP,
 		shareAiTurn: NOOP,
+		commentAdded: NOOP,
+		commentResolved: NOOP,
+		commentDeleted: NOOP,
+		mayDeleteComment: () => true,
+		shareComments: NOOP,
 		copyLink: () => Promise.resolve(false),
 		setLinkRole: NOOP,
 		setAutoAdmit: NOOP,

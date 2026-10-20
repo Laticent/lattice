@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	addComment,
 	clearComments,
@@ -7,7 +7,10 @@ import {
 	editComment,
 	importComments,
 	listComments,
+	mayDeleteComment,
+	mergeSessionComments,
 	openCountForSlide,
+	setCommentRelay,
 	setResolved,
 } from './slide-comments';
 
@@ -110,3 +113,40 @@ describe('slide-comments store', () => {
 		expect(listComments(DECK)).toHaveLength(0);
 	});
 });
+
+// A live session's hold on a deck's comments (2026-10-20 live note, slice 6).
+describe('slide-comments in a live session', () => {
+	afterEach(() => setCommentRelay(null));
+	const relay = (mayDelete: (id: string) => boolean = () => true) => {
+		const log: string[] = [];
+		setCommentRelay({ deckId: DECK, added: (c) => log.push(`add ${c.body}`), resolved: (id, r) => log.push(`resolve ${id} ${r}`), deleted: (id) => log.push(`del ${id}`), mayDelete });
+		return log;
+	};
+
+	it("reports this person's own adds, resolves and deletes on the session's deck, and nothing on another deck", () => {
+		const log = relay();
+		const c = addComment(DECK, 1, 'Check the source');
+		setResolved(DECK, String(c?.id), true);
+		deleteComment(DECK, String(c?.id));
+		addComment('another-deck', 1, 'Elsewhere');
+		expect(log).toEqual(['add Check the source', `resolve ${c?.id} true`, `del ${c?.id}`]);
+	});
+
+	it("does not delete someone else's shared comment", () => {
+		const c = addComment(DECK, 1, 'Their note');
+		const log = relay((id) => id !== c?.id);
+		expect(mayDeleteComment(DECK, String(c?.id))).toBe(false);
+		deleteComment(DECK, String(c?.id));
+		expect(listComments(DECK)).toHaveLength(1);
+		expect(log).toEqual([]);
+	});
+
+	it('takes what the session sends without reporting it back, and drops a malformed one', () => {
+		const mine = addComment(DECK, 1, 'Mine');
+		const log = relay();
+		mergeSessionComments(DECK, [{ id: 's1', slide: 2, author: 'Amina', body: 'Shared', createdAt: 5, resolved: false }, { id: 's2', slide: 0, author: 'x', body: 'bad slide', createdAt: 5, resolved: false }], [String(mine?.id)]);
+		expect(listComments(DECK).map((c) => c.id)).toEqual(['s1']);
+		expect(log).toEqual([]);
+	});
+});
+

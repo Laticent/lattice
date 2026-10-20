@@ -115,7 +115,7 @@ const COMPONENT_NOTE_EVERY_MS = 30_000;
 /** Whether the deck's front matter names a theme of its own (then the session's look does not apply). */
 const deckNamesTheme = (source: string): boolean => /^theme:[ \t]*\S/m.test(/^---\r?\n([\s\S]*?)\r?\n---/.exec(source)?.[1] ?? '');
 /** What `HostSave.sealed` opens to. Chat is in here because people paste things into chat. */
-type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string; shared?: string[]; lookTheme?: LiveTheme };
+type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; cmts?: SessionComment[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string; shared?: string[]; lookTheme?: LiveTheme };
 const toB64 = (u: Uint8Array) => {
 	let s = '';
 	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
@@ -169,6 +169,14 @@ type Post =
 	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
 	/** Show me together (§7.5): a shipped tour's id and when to start it, on the session clock. */
 	| { k: 'tour'; id: string; at: number }
+	/** Comments (slice 6). Member → host: an operation the host checks against who may do it. Host → all:
+	 *  the comment as it now is, a deletion, or (to a newcomer) every shared comment. */
+	| { k: 'cmt'; op: 'add'; id: string; slide: number; body: string; at?: number; by?: string }
+	| { k: 'cmt'; op: 'resolve'; id: string; resolved: boolean }
+	| { k: 'cmt'; op: 'del'; id: string }
+	| { k: 'cmtset'; c: SessionComment }
+	| { k: 'cmtdel'; id: string }
+	| { k: 'cmts'; list: SessionComment[] }
 	/** a member's pointer over the slide it is on, in the slide's coordinates; `off` when it left the slide */
 	| { k: 'ptr'; s?: number; x?: number; y?: number; c?: 1; off?: 1 }
 	/** host → member: the Library records the deck uses that the host shares (themes, finish recipes,
@@ -217,6 +225,61 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
 /** A history line from the host, kept only in the shape a line has. */
+// ── History size ─────────────────────────────────────────────────────────────────────────────────────
+// Tavola drops a message past 4 MB, so a history reply that grows past it reaches nobody (checker, slice 5:
+// 160 shared AI turns made a newcomer's `lines` 4.4 MB and the newcomer got no chat at all). Every message
+// carrying history is held under a byte budget, newest kept; the sealed save, which a browser's
+// sessionStorage holds beside everything else, under a smaller one.
+const HISTORY_BYTES = 3_000_000;
+const SAVED_BYTES = 1_200_000;
+const bytesOf = (v: unknown): number => new TextEncoder().encode(JSON.stringify(v)).length;
+/** The newest items that fit `budget` bytes, in their order. */
+function newestWithin<T>(items: T[], budget: number): T[] {
+	let total = 2;
+	let i = items.length;
+	while (i > 0) {
+		const b = bytesOf(items[i - 1]) + 1;
+		if (total + b > budget) break;
+		total += b;
+		i--;
+	}
+	return items.slice(i);
+}
+/** Items split into runs that each fit `budget` bytes (an item larger than the budget goes alone). */
+function chunksWithin<T>(items: T[], budget: number): T[][] {
+	const out: T[][] = [];
+	let run: T[] = [];
+	let total = 2;
+	for (const it of items) {
+		const b = bytesOf(it) + 1;
+		if (run.length && total + b > budget) {
+			out.push(run);
+			run = [];
+			total = 2;
+		}
+		run.push(it);
+		total += b;
+	}
+	if (run.length) out.push(run);
+	return out;
+}
+
+// ── Comments (slice 6, 2026-10-20 note §4 tier 5) ─────────────────────────────────────────────────────
+/** A slide comment as a session holds it. `owner` is the writer's rejoin-token id (a one-way hash of a
+ *  secret, so it identifies without letting anyone rejoin as them): who may delete it. */
+export type SessionComment = { id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean; owner: string };
+/** The same limits a comment has anywhere, and how many one session holds. */
+const COMMENT_BODY_MAX = 2000;
+const COMMENTS_MAX = 500;
+const COMMENT_ID = /^[A-Za-z0-9_-]{1,80}$/;
+/** A shared comment as the host sent it, or null. */
+const cleanComment = (x: unknown): SessionComment | null => {
+	const c = x as Partial<SessionComment> | null;
+	if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !COMMENT_ID.test(c.id) || !Number.isInteger(c.slide) || (c.slide as number) < 1 || (c.slide as number) > POINTER_MAX_SLIDE) return null;
+	if (typeof c.body !== 'string' || !c.body.trim() || typeof c.author !== 'string' || typeof c.owner !== 'string' || c.owner.length > 128 || typeof c.resolved !== 'boolean' || typeof c.createdAt !== 'number' || !Number.isFinite(c.createdAt) || Math.abs(c.createdAt) > 1e14) return null;
+	return { id: c.id, slide: c.slide as number, author: cleanName(c.author), body: c.body.slice(0, COMMENT_BODY_MAX), createdAt: c.createdAt, resolved: c.resolved, owner: c.owner };
+};
+
 /** An AI turn shared into the chat is capped like a long message: the question short, the answer longer. */
 const NOTE_ASK_MAX = 600;
 const NOTE_ANSWER_MAX = 4000;
@@ -227,7 +290,7 @@ const cleanNote = (x: unknown): LiveNote | null | undefined => {
 	const n = x as Record<string, unknown> | null;
 	if (!n || typeof n !== 'object') return null;
 	if (n.k === 'ai-edit' && Array.isArray(n.slides)) {
-		const slides = n.slides.filter((v): v is number => Number.isInteger(v) && v >= 1 && v <= POINTER_MAX_SLIDE).slice(0, 12);
+		const slides = [...new Set(n.slides.filter((v): v is number => Number.isInteger(v) && v >= 1 && v <= POINTER_MAX_SLIDE))].slice(0, 12);
 		return { k: 'ai-edit', slides };
 	}
 	if (n.k === 'ai-turn' && typeof n.ask === 'string' && typeof n.answer === 'string' && n.answer.trim()) return { k: 'ai-turn', ask: n.ask.slice(0, NOTE_ASK_MAX), answer: n.answer.slice(0, NOTE_ANSWER_MAX) };
@@ -506,6 +569,8 @@ export class LiveController {
 	private roomPresent: LivePresent | null = null;
 	private roomPresentHost: string | null = null;
 	private roomPresentAt = 0;
+	/** Comments shared in this session (slice 6), by id. Every member holds them all, so an heir has them. */
+	private cmts = new Map<string, SessionComment>();
 	/** Show me together: when the last tour reached this browser, and the start waiting for its moment. */
 	private tourAt = 0;
 	private tourLater: ReturnType<typeof setTimeout> | null = null;
@@ -676,6 +741,7 @@ export class LiveController {
 				if (!opened || !priv) throw new Error('nothing to resume');
 				const key = await hostKeyFrom(priv, fromBase64Url(hosting.pub));
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
+				this.cmts = new Map((opened.cmts ?? []).map(cleanComment).filter((c): c is SessionComment => !!c).map((c) => [c.id, c]));
 				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
 				this.sidOwner = new Map((opened.sids ?? []).filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string'));
 				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken, look: 'look' in hosting ? cleanLook(hosting.look, (n) => n === opened.lookTheme?.name) : undefined, shared: opened.shared ?? [], lookTheme: opened.lookTheme ?? null }, startedAt: hosting.startedAt, release });
@@ -858,6 +924,8 @@ export class LiveController {
 								if (this.rt !== r) return;
 								// The records first: a look naming a shared theme is taken only once its record is here.
 								this.sendRecords(to);
+								// Every shared comment, before the newcomer can act on any.
+								for (const list of chunksWithin([...this.cmts.values()], HISTORY_BYTES / 2)) this.post({ k: 'cmts', list }, to);
 								this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, to);
 								// A presentation in progress: the newcomer joins it where it is.
 								if (this.presentingToAll) this.post({ k: 'present', on: true, ...transportPost(this.transport) }, to);
@@ -936,7 +1004,7 @@ export class LiveController {
 					const to = s.members.find((m) => m.role === 'host')?.id;
 					if (to) {
 						this.handbackDue = false;
-						this.post({ k: 'handback', lines: this.chat, sids: [...this.sidOwner].map(([sid, owner]): [string, string] => [sid, owner === 'host' ? (this.lastSelfId ?? owner) : owner]) }, to);
+						this.post({ k: 'handback', lines: newestWithin(this.chat, HISTORY_BYTES), sids: [...this.sidOwner].map(([sid, owner]): [string, string] => [sid, owner === 'host' ? (this.lastSelfId ?? owner) : owner]) }, to);
 					}
 				}
 				if (s.isHost && s.heir !== prev.heir) this.sentSids = '';
@@ -1042,6 +1110,7 @@ export class LiveController {
 		this.systemLines = [];
 		this.fromY.clear();
 		this.chat = [];
+		this.cmts.clear();
 		this.lastSealed = null;
 		for (const a of this.away.values()) clearTimeout(a.timer);
 		this.away.clear();
@@ -1148,7 +1217,7 @@ export class LiveController {
 			await r.session.idle();
 			const succ = r.session.succession();
 			const succession = succ ? { root: succ.root, fingerprint: succ.fingerprint, chain: succ.chain, base: succ.base, top: succ.top } : undefined;
-			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner], succession, selfToken: succ?.selfToken, shared: [...this.shared], ...(this.lookTheme ? { lookTheme: this.lookTheme } : {}) } satisfies HostSealed));
+			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: newestWithin(this.chat, SAVED_BYTES), cmts: newestWithin([...this.cmts.values()], SAVED_BYTES), sids: [...this.sidOwner], succession, selfToken: succ?.selfToken, shared: [...this.shared], ...(this.lookTheme ? { lookTheme: this.lookTheme } : {}) } satisfies HostSealed));
 		} catch {
 			return false;
 		}
@@ -2007,6 +2076,83 @@ export class LiveController {
 		if (host && !s.hostAway) this.post({ k: 'say', id, text: line, have: this.seq, ...(note ? { note } : {}) }, host);
 	}
 
+	/** Who owns what `peer` writes: its rejoin token's id, the identity that survives a reload and a takeover. */
+	private ownerOf(peer: string, r: Runtime): string | null {
+		const s = r.session.getState();
+		if (peer === s.selfId) return this.myOwner();
+		return r.session.memberToken(peer) ?? null;
+	}
+	/** This browser's own owner id: a host's from its succession, a member's from its token. */
+	private myOwner(): string | null {
+		const r = this.rt;
+		const s = r?.session.getState();
+		if (!r || !s) return null;
+		const t = s.isHost ? r.session.succession()?.selfToken : s.token;
+		return t ? tokenId(t) : null;
+	}
+
+	/** Host: a comment operation from a member or from this browser, held to who may do it (owner's
+	 *  answer, 2026-10-20): anyone who can edit adds and resolves; only the writer deletes, or the host. */
+	private hostComment(p: Extract<Post, { k: 'cmt' }>, from: string, sender: { name: string; role: string }, r: Runtime) {
+		if (sender.role === 'view' || typeof p.id !== 'string' || !COMMENT_ID.test(p.id)) return;
+		const owner = this.ownerOf(from, r);
+		if (!owner) return;
+		const had = this.cmts.get(p.id);
+		if (p.op === 'add') {
+			const body = typeof p.body === 'string' ? p.body.trim().slice(0, COMMENT_BODY_MAX) : '';
+			if (had || !body || !Number.isInteger(p.slide) || p.slide < 1 || p.slide > POINTER_MAX_SLIDE || this.cmts.size >= COMMENTS_MAX) return;
+			const now = r.session.now();
+			// A comment written before it was shared keeps its own time, if that time is a believable past one.
+			const createdAt = typeof p.at === 'number' && Number.isFinite(p.at) && p.at <= now && p.at > now - 10 * 365 * 86_400_000 ? p.at : now;
+			// Someone else's comment kept from an earlier session is shown as theirs, shared by this person: the
+			// host never takes a sender's word for whose name a comment carries.
+			const by = typeof p.by === 'string' ? cleanName(p.by) : '';
+			const author = by && by !== 'You' && by !== cleanName(sender.name) ? `${by} · shared by ${cleanName(sender.name)}` : cleanName(sender.name);
+			const c: SessionComment = { id: p.id, slide: p.slide, author, body, createdAt, resolved: false, owner };
+			this.putComments([c], []);
+			this.post({ k: 'cmtset', c });
+		} else if (p.op === 'resolve' && had && typeof p.resolved === 'boolean') {
+			if (had.resolved === p.resolved) return;
+			const c = { ...had, resolved: p.resolved };
+			this.putComments([c], []);
+			this.post({ k: 'cmtset', c });
+		} else if (p.op === 'del' && had && (had.owner === owner || from === r.session.getState().selfId)) {
+			this.putComments([], [p.id]);
+			this.post({ k: 'cmtdel', id: p.id });
+		}
+	}
+
+	/** Take comments into the session's set and onto this browser's copy of the deck. */
+	private putComments(set: SessionComment[], del: string[]) {
+		for (const c of set) {
+			if (!this.cmts.has(c.id) && this.cmts.size >= COMMENTS_MAX) continue;
+			this.cmts.set(c.id, c);
+		}
+		for (const id of del) this.cmts.delete(id);
+		const deck = this.boundDeck;
+		const mine = this.myOwner();
+		if (deck) this.host.applyComments?.(deck, set.filter((c) => this.cmts.has(c.id)).map((c) => ({ ...c, author: c.owner === mine ? 'You' : c.author })), del);
+		if (this.rt?.session.getState().isHost) this.saveHostSoon();
+		this.host.rerender();
+	}
+
+	/** This person's comments on the deck that the session does not have yet (§7.1's "Not shared yet"). */
+	private unsharedComments() {
+		return this.bound ? this.deps.comments.filter((c) => !this.cmts.has(c.id) && COMMENT_ID.test(c.id)) : [];
+	}
+
+	/** A comment operation from this browser: the host applies its own; a member's goes to the host. */
+	private commentOp(op: Extract<Post, { k: 'cmt' }>) {
+		const r = this.rt;
+		const s = r?.session.getState();
+		if (!r || !s?.me || s.stage !== 'live' || !this.bound || s.me.role === 'view') return;
+		if (s.isHost) this.hostComment(op, s.selfId, s.me, r);
+		else {
+			const host = this.hostId();
+			if (host && !s.hostAway) this.post(op, host);
+		}
+	}
+
 	/** Member: the host started a tour for everyone. Only a shipped tour's id is obeyed: it is code that
 	 *  ships with Lattice and plays on a practice deck, so a peer can start it but cannot write it (§7.5).
 	 *  Someone idle starts at the host's moment; someone typing is asked, as with Present. */
@@ -2017,7 +2163,8 @@ export class LiveController {
 		this.tourAt = Date.now();
 		if (this.tourLater) clearTimeout(this.tourLater);
 		this.tourLater = null;
-		if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+		// Someone typing, or watching a presentation, is asked: a tour played under Present is a tour nobody sees.
+		if (this.roomPresent || r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
 			this.host.notifyAction(`${name} is showing “${tour.label}”`, { label: 'Watch', onClick: () => this.host.startTour?.(tour.id) });
 			return;
 		}
@@ -2115,6 +2262,8 @@ export class LiveController {
 				const note = cleanNote(p.note);
 				if (note === null) return;
 				this.hostTake(p.id, from, sender, p.text, note);
+			} else if (p.k === 'cmt') {
+				this.hostComment(p, from, sender, r);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
 				// One answer per member every 2 s: a 30-byte ask must not buy a megabyte reply on demand.
 				// An ask inside the window is answered when it ends (once), not dropped — a member that
@@ -2128,7 +2277,7 @@ export class LiveController {
 							this.sinceLater.delete(from);
 							if (this.rt !== r || !r.session.getState().members.some((m) => m.id === from)) return;
 							this.sinceAt.set(from, Date.now());
-							this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, from);
+							this.post({ k: 'lines', lines: newestWithin(this.chat.filter((l) => l.seq > p.seq), HISTORY_BYTES), startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, from);
 						}, wait);
 					}
 					return;
@@ -2136,7 +2285,7 @@ export class LiveController {
 				this.sinceAt.set(from, Date.now());
 				// A member holding a number past ours means our save was older than the session (a
 				// reload): never hand those numbers out again. Bounded, so nobody can push it far.
-				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, from);
+				this.post({ k: 'lines', lines: newestWithin(this.chat.filter((l) => l.seq > p.seq), HISTORY_BYTES), startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, from);
 			}
 		} else if (fromHost) {
 			if (p.k === 'line') {
@@ -2159,6 +2308,13 @@ export class LiveController {
 				this.takePresent(p, from, sender.name, r);
 			} else if (p.k === 'tour') {
 				this.takeTour(p, sender.name, r);
+			} else if (p.k === 'cmtset') {
+				const c = cleanComment(p.c);
+				if (c) this.putComments([c], []);
+			} else if (p.k === 'cmtdel' && typeof p.id === 'string') {
+				this.putComments([], [p.id]);
+			} else if (p.k === 'cmts' && Array.isArray(p.list)) {
+				this.putComments(p.list.slice(0, COMMENTS_MAX).map(cleanComment).filter((c): c is SessionComment => !!c), []);
 			} else if (p.k === 'records') {
 				void this.takeRecords(p, r, sender.name);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
@@ -2208,6 +2364,7 @@ export class LiveController {
 			canChat: s.me?.role !== 'view',
 			typing,
 			unshared: this.unshared(),
+			unsharedComments: s?.me?.role === 'view' ? 0 : this.unsharedComments().length,
 			presentingToAll: s.isHost && this.presentingToAll,
 			present: s.isHost ? null : this.roomPresent,
 		};
@@ -2289,10 +2446,27 @@ export class LiveController {
 			} else this.post({ k: 'present', on: false });
 			this.host.rerender();
 		},
+		commentAdded: (c: { id: string; slide: number; body: string; createdAt: number }) => this.commentOp({ k: 'cmt', op: 'add', id: c.id, slide: c.slide, body: c.body, at: c.createdAt }),
+		commentResolved: (id: string, resolved: boolean) => this.commentOp({ k: 'cmt', op: 'resolve', id, resolved }),
+		commentDeleted: (id: string) => this.commentOp({ k: 'cmt', op: 'del', id }),
+		mayDeleteComment: (id: string) => {
+			const c = this.cmts.get(id);
+			const s = this.rt?.session.getState();
+			if (!c || !s || s.stage !== 'live') return true;
+			return !!s.isHost || c.owner === this.myOwner();
+		},
+		shareComments: () => {
+			for (const c of this.unsharedComments()) this.commentOp({ k: 'cmt', op: 'add', id: c.id, slide: c.slide, body: c.body, at: c.createdAt, by: c.author });
+		},
 		tourForEveryone: (tourId: string) => {
 			const r = this.rt;
 			const s = r?.session.getState();
-			if (!r || !s?.isHost || s.stage !== 'live' || !this.bound || s.members.length < 2 || !TOURS.some((t) => t.id === tourId)) return false;
+			if (!r || !s?.isHost || s.stage !== 'live' || !this.bound || s.members.length < 2 || !TOURS.some((t) => t.id === tourId)) return 'solo';
+			// While presenting to everyone, the room is watching Present: the tour waits for it to end.
+			if (this.presentingToAll) return 'presenting';
+			// The host keeps the same window its members do, so it never plays a tour the room dropped.
+			if (Date.now() - this.tourAt < TOUR_RESTART_MS) return 'wait';
+			this.tourAt = Date.now();
 			const at = r.session.now() + TOUR_LEAD_MS;
 			this.post({ k: 'tour', id: tourId, at });
 			// The host starts at the same moment its members do.
@@ -2301,7 +2475,7 @@ export class LiveController {
 				this.tourLater = null;
 				if (this.rt === r) this.host.startTour?.(tourId);
 			}, TOUR_LEAD_MS);
-			return true;
+			return 'sent';
 		},
 		mixIntoCall: (stream: MediaStream | null) => {
 			if (this.callMix && this.callMix !== stream) this.audio?.unmix(this.callMix);

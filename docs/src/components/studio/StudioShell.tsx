@@ -126,7 +126,7 @@ import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
-import { importComments } from './slide-comments';
+import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
@@ -378,12 +378,19 @@ const NO_WEB_IMAGES_EAGER: WebImageSummary = { count: 0, origins: [], byOrigin: 
 
 /** The slides an edit changed, 1-based, for the live note "applied an AI edit to slide 3" (2026-10-20 live
  *  note §5.3). A change that moves the slide count marks every slide from the first difference on, capped. */
-function changedSlides(before: string, after: string): number[] {
+function changedSlides(before: string, after: string): number[] | null {
+	if (before === after) return null;
 	const a = splitSlides(stripFrontMatter(before));
 	const b = splitSlides(stripFrontMatter(after));
+	// A slide added or removed shifts every slide after it: name where the deck first differs, not all of them.
+	if (a.length !== b.length) {
+		const at = a.findIndex((s, i) => s !== b[i]);
+		return [(at < 0 ? Math.min(a.length, b.length) : at) + 1];
+	}
 	const out: number[] = [];
-	const n = Math.max(a.length, b.length);
-	for (let i = 0; i < n && out.length < 12; i++) if (a[i] !== b[i]) out.push(i + 1);
+	for (let i = 0; i < a.length && out.length < 12; i++) if (a[i] !== b[i]) out.push(i + 1);
+	// No slide differs: the change is in the deck's settings, unless the front matter is the same too.
+	if (!out.length && frontMatterBlock(before) === frontMatterBlock(after)) return null;
 	return out;
 }
 
@@ -475,13 +482,30 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// practice text, so the editor, preview and lint all show it, while `real` keeps the shared deck's text:
 	// what the session sees, what remote edits update, and what any save writes. The session's records are
 	// held as they were, so the practice deck's empty Library never reads as records withdrawn.
-	const [practice, setPractice] = React.useState<{ real: string; records: LiveRecords } | null>(null);
+	const [practice, setPractice] = React.useState<{ real: string; records: LiveRecords; slide: number; count: number } | null>(null);
+	// Bumped when a session ends mid-tour: the editor rebuilds from the shared text, so Undo cannot bring
+	// the practice deck back over it.
+	const [editorEpoch, setEditorEpoch] = React.useState(0);
 	// Live (§5.3): an applied AI edit is said in the people chat. The session hook is declared further down,
 	// so the edit paths above it reach it through this ref.
 	const liveAiEditRef = React.useRef<((slides: number[]) => void) | null>(null);
-	const noteAiEdit = React.useCallback((before: string, after: string) => liveAiEditRef.current?.(changedSlides(before, after)), []);
+	const noteAiEdit = React.useCallback((before: string, after: string) => {
+		const slides = changedSlides(before, after);
+		if (slides) liveAiEditRef.current?.(slides);
+	}, []);
 	// An AI chat turn in flight here, for "asking the AI" (§5.3).
 	const [aiAsking, setAiAsking] = React.useState(false);
+	// The open deck's comments, for a live session to offer the ones it does not have yet (slice 6).
+	const [deckComments, setDeckComments] = React.useState<Array<{ id: string; slide: number; body: string; createdAt: number; author: string }>>([]);
+	React.useEffect(() => {
+		const read = () => setDeckComments(listComments(deck.id).map(({ id, slide, body, createdAt, author }) => ({ id, slide, body, createdAt, author })));
+		read();
+		const onChange = (e: Event) => {
+			if ((e as CustomEvent<{ deckId?: string }>).detail?.deckId === deck.id) read();
+		};
+		window.addEventListener(COMMENTS_EVENT, onChange);
+		return () => window.removeEventListener(COMMENTS_EVENT, onChange);
+	}, [deck.id]);
 	const practiceRef = React.useRef(practice);
 	practiceRef.current = practice;
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
@@ -3039,7 +3063,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			off();
 		};
 	}, []);
-	const livePracticeRef = React.useRef<{ start: () => void; end: () => void } | null>(null);
+	const livePracticeRef = React.useRef<{ start: () => void; end: () => boolean } | null>(null);
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
@@ -3856,7 +3880,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		deckId: deck.id,
 		deckTitle: titleFromSource(liveSource, deck.title),
-		slideCount: slides.length,
+		// A tour's practice deck is not where this person is: presence keeps the shared deck's slide.
+		slideCount: practice ? practice.count : slides.length,
 		theme: palette,
 		mode: mode === 'dark' ? 'dark' : 'light',
 		records: practice ? practice.records : liveRecords,
@@ -3867,6 +3892,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		view,
 		presenting: presentOpen,
 		asking: aiAsking,
+		comments: practice ? [] : deckComments,
+		applyComments: (deckId, set, del) => mergeSessionComments(deckId, set, del),
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
 		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
@@ -3878,6 +3905,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		openRoomPresent: () => {
 			// A Present this person opened themselves is theirs: the Live panel offers to join instead.
 			if (presentOpenRef.current && !presentByRoomRef.current) return;
+			// A tour on a practice deck ends first, so Present freezes the shared deck, not the practice one.
+			if (practiceRef.current) stopDemo();
 			setPresentByRoom(true);
 			setPresentOpen(true);
 		},
@@ -3891,7 +3920,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setActiveAssistant(d.panel);
 			setView(d.view);
 		},
-		activeSlide: activeFullIndex,
+		activeSlide: practice ? practice.slide : activeFullIndex,
 		goToSlide: goToFullSlide,
 		openSharedDeck: ({ deckId, title, source: shared }) => {
 			flushActiveDeck();
@@ -3933,10 +3962,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const presentTogether = livePresentingToAll || presentByRoom;
 	// A member who joins mid-presentation opens before the shared deck is bound: binding it re-freezes,
 	// so the frozen copy is the room's deck and not the one this browser had open.
+	// The same holds when a tour's practice deck gives way to the shared deck: the frozen copy is never practice.
+	const practicing = practice !== null;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is the trigger; the source is read from the ref.
 	React.useEffect(() => {
-		setPresentFrozen(presentTogether ? presentSourceRef.current : null);
-	}, [presentTogether, deck.id]);
+		setPresentFrozen(presentTogether && !practicing ? presentSourceRef.current : null);
+	}, [presentTogether, deck.id, practicing]);
 	// Every way Present closes (its own Exit, Escape on the loading screen, the loading screen's Cancel,
 	// the room ending it) ends the same things: the room's hold on it, and this browser presenting to all.
 	const presentWasOpenRef = React.useRef(presentOpen);
@@ -3969,20 +4000,35 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Show me in a session (§7.5): the tour's new deck is a practice one, and ending the tour puts the
 	// shared deck back as the session now has it. Only while bound to a session; a tour anywhere else is
 	// the solo tour, which keeps its deck.
+	// Comments (slice 6): while bound to a session, this person's adds, resolves and deletes on the deck go to it.
+	const liveCommentDeck = live.collab && !practice ? deck.id : null;
+	const liveActionsForComments = live.actions;
+	React.useEffect(() => {
+		if (!liveCommentDeck) return;
+		const a = liveActionsForComments;
+		setCommentRelay({ deckId: liveCommentDeck, added: (c) => a.commentAdded(c), resolved: (id, r) => a.commentResolved(id, r), deleted: (id) => a.commentDeleted(id), mayDelete: (id) => a.mayDeleteComment(id) });
+		return () => setCommentRelay(null);
+	}, [liveCommentDeck, liveActionsForComments]);
 	// An AI edit is said in the session only while bound to it, and never from a tour's practice deck.
 	liveAiEditRef.current = live.collab && !practice ? live.actions.noteAiEdit : null;
 	livePracticeRef.current = live.collab
 		? {
+				// `practiceRef` moves at once, not at the next render: a remote edit arriving in between must
+				// already go to the right text.
 				start: () => {
 					if (practiceRef.current) return;
-					setPractice({ real: sourceRef.current, records: liveRecords });
+					const next = { real: sourceRef.current, records: liveRecords, slide: activeFullIndex, count: slides.length };
+					practiceRef.current = next;
+					setPractice(next);
 					setSource('');
 				},
 				end: () => {
 					const was = practiceRef.current;
-					if (!was) return;
+					if (!was) return false;
+					practiceRef.current = null;
 					setPractice(null);
 					setSource(was.real);
+					return true;
 				},
 			}
 		: null;
@@ -3990,19 +4036,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		if (!live.collab && practiceRef.current) {
 			const was = practiceRef.current;
+			practiceRef.current = null;
 			// The tour stops first: left running, it would go on typing into the real deck.
 			stopDemo();
 			setPractice(null);
 			setSource(was.real);
+			setEditorEpoch((e) => e + 1);
 		}
 	}, [live.collab, setSource, stopDemo]);
 	// Pressing a tour as the host of a session with others in it plays it for everyone (§7.5).
 	const showMe = (tourId?: string) => {
-		if (live.actions.tourForEveryone(typeof tourId === 'string' ? tourId : DEFAULT_TOUR)) {
-			notify('Playing the tour for everyone in the session.');
-			return;
-		}
-		startDemo(tourId);
+		const sent = live.actions.tourForEveryone(typeof tourId === 'string' ? tourId : DEFAULT_TOUR);
+		if (sent === 'sent') notify('Playing the tour for everyone in the session.');
+		else if (sent === 'presenting') notify('Stop presenting to everyone first, then start the tour.');
+		else if (sent === 'wait') notify('A tour just started for everyone. Give it a moment before starting another.');
+		else startDemo(tourId);
 	};
 	const liveForPresent = React.useMemo(
 		() =>
@@ -4962,7 +5010,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onBusyChange={setAiAsking} onShareTurn={live.collab ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
 		</PanelLoader>
 	);
 
@@ -5816,7 +5864,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>

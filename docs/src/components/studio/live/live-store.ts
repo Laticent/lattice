@@ -32,6 +32,8 @@ export type LiveDeps = {
 	presenting: boolean;
 	/** An AI chat turn is in flight here (shown as "asking the AI"; never what is asked). */
 	asking: boolean;
+	/** The comments on the open deck (slice 6): what is not shared yet is offered to share. */
+	comments: Array<{ id: string; slide: number; body: string; createdAt: number; author: string }>;
 };
 
 /** A saved theme as a session carries it: its name and its CSS. */
@@ -69,6 +71,8 @@ export type LiveHost = {
 	closeRoomPresent?: () => void;
 	/** Show me together (§7.5): start this shipped tour now, on a practice deck. */
 	startTour?: (tourId: string) => void;
+	/** Comments (slice 6): put shared comments on this browser's copy of `deckId`, and take deleted ones off. */
+	applyComments?: (deckId: string, set: Array<{ id: string; slide: number; author: string; body: string; createdAt: number; resolved: boolean }>, del: string[]) => void;
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */

@@ -30,7 +30,7 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
-const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, asking: false, ...over });
+const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, asking: false, comments: [], ...over });
 const shell = () => {
 	const notes: string[] = [];
 	const host: LiveHost = { setSource: () => {}, goToSlide: () => {}, openSharedDeck: () => 'shared-deck', notify: (m) => notes.push(m), notifyAction: (m) => notes.push(m), rerender: () => {} };
@@ -1362,16 +1362,16 @@ describe('LiveController: present together', () => {
 		const { h } = await hostSession();
 		const { g, opened } = await member(h, 'Amina');
 		const started = hostTours(h);
-		expect(h.actions.tourForEveryone('first-look')).toBe(true);
+		expect(h.actions.tourForEveryone('first-look')).toBe('sent');
 		await until(() => opened.includes('tour first-look') && started.includes('first-look'), h, g);
 	});
 
 	it('alone in a session, or as a member, a tour plays here only', async () => {
 		const { h } = await hostSession();
-		expect(h.actions.tourForEveryone('first-look')).toBe(false);
+		expect(h.actions.tourForEveryone('first-look')).toBe('solo');
 		const { g } = await member(h, 'Amina');
-		expect(g.actions.tourForEveryone('first-look')).toBe(false);
-		expect(h.actions.tourForEveryone('not-a-tour')).toBe(false);
+		expect(g.actions.tourForEveryone('first-look')).toBe('solo');
+		expect(h.actions.tourForEveryone('not-a-tour')).toBe('solo');
 	});
 
 	it('a member typing is asked to watch instead of having a tour start under their cursor', async () => {
@@ -1383,6 +1383,32 @@ describe('LiveController: present together', () => {
 		await until(() => asks.some((a) => a.includes('is showing')), h, g);
 		await settle(h, g);
 		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+	});
+
+	it('a tour waits while the host presents to everyone, and a member watching a presentation is asked', async () => {
+		const { h } = await hostSession();
+		const { g, opened, asks } = await member(h, 'Amina');
+		hostTours(h);
+		h.actions.presentToEveryone(true);
+		h.actions.presentTransport({ idx: 1, page: 0, lens: 'full' });
+		await until(() => g.view().present !== null, h, g);
+		expect(h.actions.tourForEveryone('first-look')).toBe('presenting');
+		// A tour that reaches someone watching a presentation (an older host) does not start under Present.
+		// biome-ignore lint/suspicious/noExplicitAny: the host posting the tour as an older build would.
+		(h as any).post({ k: 'tour', id: 'first-look', at: 0 });
+		await until(() => asks.some((a) => a.includes('is showing')), h, g);
+		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
+	});
+
+	it('the host keeps the same restart window as its members, so it never plays a tour the room dropped', async () => {
+		const { h } = await hostSession();
+		const { g, opened } = await member(h, 'Amina');
+		const started = hostTours(h);
+		expect(h.actions.tourForEveryone('first-look')).toBe('sent');
+		await until(() => opened.includes('tour first-look') && started.length === 1, h, g);
+		expect(h.actions.tourForEveryone('first-look')).toBe('wait');
+		await new Promise((r) => setTimeout(r, 900));
+		expect(started.length).toBe(1);
 	});
 
 	it('only the host starts a tour, only a shipped one, and not twice in quick succession', async () => {
@@ -1454,15 +1480,124 @@ describe('LiveController: AI activity and share', () => {
 		expect(notes(g).length).toBe(1);
 	});
 
+	it('a long history of shared turns still reaches someone who joins later (under the 4 MB message limit)', async () => {
+		const { h } = await hostSession();
+		// 160 full-size shared turns in a character JSON writes as six bytes: about 4.4 MB unbudgeted.
+		const big = { k: 'ai-turn', ask: '\u0001'.repeat(600), answer: '\u0001'.repeat(4000) };
+		// biome-ignore lint/suspicious/noExplicitAny: the host's history, filled directly rather than by 160 round trips.
+		const hh = h as any;
+		hh.chat = Array.from({ length: 160 }, (_, i) => ({ seq: i + 1, id: `x:${i + 1}`, peer: 'p', name: 'Amina', color: 1, text: '', at: Date.now(), note: big }));
+		hh.seq = 160;
+		const { g: late } = await guestOf(h, 'Bo');
+		await until(() => notes(late).length > 0, h, late);
+		expect(notes(late).length).toBeLessThan(160);
+		// The newest are the ones kept.
+		expect(notes(late).at(-1)?.id).toBe('c160');
+	}, 30000);
+
 	it('slide numbers in an AI edit note are whole slides that exist, at most twelve', async () => {
 		const { h } = await hostSession();
 		const { g } = await guestOf(h, 'Amina');
-		g.actions.noteAiEdit([0, 2, 2.5, -1, 1e9, ...Array.from({ length: 20 }, (_, i) => i + 3)]);
+		g.actions.noteAiEdit([0, 2, 2, 2.5, -1, 1e9, ...Array.from({ length: 20 }, (_, i) => i + 3)]);
 		await until(() => notes(h).length === 1, h, g);
 		const slides = (notes(h)[0].note as { slides: number[] }).slides;
-		expect(slides[0]).toBe(2);
+		expect(slides.slice(0, 2)).toEqual([2, 3]);
 		expect(slides.length).toBe(12);
 		expect(slides.every((n) => Number.isInteger(n) && n >= 1)).toBe(true);
+	});
+});
+
+// Comments (2026-10-20-live-uniform-experience.md slice 6; the owner's rules: anyone resolves, the writer
+// or the host deletes, comments from before the session are shared on request).
+describe('LiveController: comments', () => {
+	type Applied = { deck: string; set: Array<{ id: string; author: string; resolved: boolean }>; del: string[] };
+	const watch = (c: Ctl) => {
+		const got: Applied[] = [];
+		// biome-ignore lint/suspicious/noExplicitAny: the shell's callback.
+		(c as any).host.applyComments = (deck: string, set: Applied['set'], del: string[]) => got.push({ deck, set, del });
+		return got;
+	};
+	// biome-ignore lint/suspicious/noExplicitAny: what this browser's session holds.
+	const held = (c: Ctl) => [...((c as any).cmts as Map<string, { id: string; author: string; resolved: boolean; owner: string }>).values()];
+	const add = (c: Ctl, id: string, body = 'Check this number') => c.actions.commentAdded({ id, slide: 2, body, createdAt: Date.now() });
+
+	it("a comment written in the session reaches everyone under the writer's name, and is 'You' on the writer's copy", async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		const gotA = watch(a);
+		const gotB = watch(b);
+		add(a, 'c1');
+		await until(() => held(h).length === 1 && held(b).length === 1 && held(a).length === 1, h, a, b);
+		expect(held(h)[0].author).toBe('Amina');
+		expect(gotB.at(-1)?.set[0].author).toBe('Amina');
+		expect(gotB.at(-1)?.deck).toBe('shared-deck');
+		expect(gotA.at(-1)?.set[0].author).toBe('You');
+	});
+
+	it('anyone resolves; only the writer or the host deletes', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		add(a, 'c1');
+		add(b, 'c2');
+		await until(() => held(h).length === 2 && held(a).length === 2 && held(b).length === 2, h, a, b);
+		b.actions.commentResolved('c1', true);
+		await until(() => held(a).find((c) => c.id === 'c1')?.resolved === true, h, a, b);
+		expect(b.actions.mayDeleteComment('c1')).toBe(false);
+		expect(a.actions.mayDeleteComment('c1')).toBe(true);
+		expect(h.actions.mayDeleteComment('c1')).toBe(true);
+		// A modified client deletes anyway: the host refuses it.
+		b.actions.commentDeleted('c1');
+		await settle(h, a, b);
+		expect(held(a).some((c) => c.id === 'c1')).toBe(true);
+		a.actions.commentDeleted('c1');
+		await until(() => !held(b).some((c) => c.id === 'c1'), h, a, b);
+		h.actions.commentDeleted('c2');
+		await until(() => held(a).length === 0 && held(b).length === 0, h, a, b);
+	});
+
+	it("only the host's word changes comments, and a malformed one is dropped", async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting the host's messages.
+		const aa = a as any;
+		aa.post({ k: 'cmtset', c: { id: 'x1', slide: 1, author: 'Sharmarke', body: 'Approved', createdAt: Date.now(), resolved: false, owner: 'o' } });
+		aa.post({ k: 'cmts', list: [{ id: 'x2', slide: 1, author: 'Sharmarke', body: 'Approved', createdAt: Date.now(), resolved: false, owner: 'o' }] });
+		add(a, 'bad id with spaces');
+		add(a, 'c0', '   ');
+		a.actions.commentAdded({ id: 'c9', slide: 0, body: 'x', createdAt: Date.now() });
+		add(a, 'c8', 'y'.repeat(9000));
+		await until(() => held(h).length === 1, h, a, b);
+		await settle(h, a, b);
+		expect(held(b).map((c) => c.id)).toEqual(['c8']);
+		// biome-ignore lint/suspicious/noExplicitAny: the body as the session holds it.
+		expect(((b as any).cmts.get('c8').body as string).length).toBe(2000);
+	});
+
+	it('comments from before the session wait until their writer shares them; someone else\'s keeps its name', async () => {
+		const { h } = await hostSession({ comments: [{ id: 'old1', slide: 1, body: 'Mine from yesterday', createdAt: 1, author: 'You' }, { id: 'old2', slide: 3, body: 'Amina said this last week', createdAt: 2, author: 'Amina' }] });
+		const { g: a } = await guestOf(h, 'Bo');
+		h.update(deps('host-deck', { comments: [{ id: 'old1', slide: 1, body: 'Mine from yesterday', createdAt: 1, author: 'You' }, { id: 'old2', slide: 3, body: 'Amina said this last week', createdAt: 2, author: 'Amina' }] }));
+		expect(h.view().unsharedComments).toBe(2);
+		await settle(h, a);
+		expect(held(a)).toEqual([]);
+		h.actions.shareComments();
+		await until(() => held(a).length === 2, h, a);
+		expect(held(a).find((c) => c.id === 'old1')?.author).toBe('Sharmarke');
+		expect(held(a).find((c) => c.id === 'old2')?.author).toBe('Amina · shared by Sharmarke');
+		expect(h.view().unsharedComments).toBe(0);
+	});
+
+	it('someone who joins later gets every shared comment', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		add(a, 'c1');
+		add(a, 'c2');
+		await until(() => held(h).length === 2, h, a);
+		const { g: b } = await guestOf(h, 'Bo');
+		await until(() => held(b).length === 2, h, a, b);
 	});
 });
 

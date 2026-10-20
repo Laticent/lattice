@@ -964,6 +964,19 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 								</ul>
 							</>
 						)}
+						{view.unsharedComments > 0 && (
+							<div className="mx-1.5 mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5" data-live-unshared-comments>
+								<span className="flex min-w-0 flex-1 flex-col">
+									<span className="text-[10.5px] text-muted-foreground">Comments written before the session</span>
+									<span className="truncate text-[12.5px] font-semibold text-foreground">
+										{view.unsharedComments === 1 ? '1 comment only you see' : `${view.unsharedComments} comments only you see`}
+									</span>
+								</span>
+								<Button size="xs" variant="outline" className="shrink-0" onClick={actions.shareComments} aria-label={view.unsharedComments === 1 ? 'Share 1 comment' : `Share ${view.unsharedComments} comments`}>
+									<Share2 /> Share
+								</Button>
+							</div>
+						)}
 						<div className={SECTION}>
 							In this session ({view.people.length}/{view.cap})
 						</div>

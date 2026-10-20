@@ -522,6 +522,69 @@ Measured on two real headless Chromium browsers, with the guest's AI mocked at t
 - the mock key never appeared on the host's screen;
 - the notes rendered at 1440, 820 and 390 px, with no sideways scroll.
 
+**Slice 6 as built (2026-10-20): comments.** The owner's answers (2026-10-20): comments written in a session
+go to everyone; ones written before it stay their writer's until they share them; anyone resolves; only the
+writer edits or deletes, and the host can delete any.
+- **The host decides.** A comment travels through the host like a chat line. A member sends `cmt`
+  (add, resolve or delete); the host checks it and sends everyone `cmtset` (the comment as it now is) or
+  `cmtdel`. Members take comment messages only from the host. A newcomer gets every shared comment in
+  chunks of at most 1.5 MB.
+- **Who owns a comment.** `owner` is the writer's rejoin-token id. It is a SHA-256 hash of a secret, so it
+  identifies the writer without letting anyone rejoin as them. It survives reloads and a takeover,
+  because every member holds the whole set.
+- **The name on a comment** is always the host's roster name for the sender. Someone else's comment kept
+  from an earlier session is shared as "Amina · shared by Sharmarke", so nobody can post under another
+  name.
+- **Copies stay.** `slide-comments.ts` keeps its localStorage store; shared comments are merged into each
+  member's copy of the deck (`mergeSessionComments`), so they stay after the session ends.
+- **Own actions reach the session** through a relay that the Studio sets only while bound
+  (`setCommentRelay`). The comments UI hides Delete on a comment this person may not delete, and the
+  store refuses that delete too.
+- **Older comments** appear in the Live panel as "N comments only you see · Share".
+- **Limits.** A body is capped at 2,000 characters and a session holds at most 500 comments. Anchoring
+  is still by slide number (the comments note's known limit).
+
+Measured on two real headless Chromium browsers (`.scratch/live-repro/slice6.mjs`):
+- the guest's comment reached the host as "Amina" and stayed "You" on the guest's copy;
+- the host's comment reached the guest as "Sharmarke";
+- the guest had no Delete on the host's comment, and had one on its own; the host had Delete on the
+  guest's;
+- the guest resolving the host's comment showed resolved on the host;
+- the host deleting the guest's comment removed it from the guest's copy.
+
+**Slices 4 and 5 hardened by their checkers (2026-10-20).** One checker per slice, at the owner's word.
+
+Slice 4. The checker found no path from the practice deck into the shared text or the saved deck. It
+confirmed two timing defects, both fixed with tests:
+- A tour started while the host presents to everyone now waits (`presenting`), and a tour reaching
+  someone watching a presentation asks first.
+- The host keeps the members' 5 s restart window (`wait`).
+
+It also raised four likely defects, each fixed:
+- Present freezes the shared deck, never a practice one: the freeze waits for practice to end, and a
+  room Present ends a running tour first.
+- When a session ends mid-tour, the editor rebuilds (`editorEpoch`), so Undo cannot bring the practice
+  text back.
+- `practiceRef` now changes at once in `start` and `end`, so an edit arriving in between goes to the
+  right text.
+- Presence keeps the shared deck's slide and count during practice.
+
+Slice 5. The checker found that no key, model or cost leaves, that no prompt leaves without a click, and
+that forged notes are dropped. It confirmed three defects, each fixed:
+- **History past the 4 MB message limit.** 160 shared turns made a newcomer's history 4.4 MB, and the
+  newcomer got no chat. Every message carrying history (`lines`, `handback`) now keeps its newest lines
+  within 3 MB, and the sealed save within 1.2 MB; a test fails with the budget removed.
+- **Regenerate.** The new reply showed "Shared". Shared turns are now keyed by what they say, not by
+  their place in the transcript.
+- **Viewers.** A viewer saw a Share button that sent nothing; viewers no longer get one.
+
+Smaller fixes:
+- `changedSlides` names the first slide when one is added or removed, and says nothing when nothing
+  changed.
+- Duplicate slide numbers in a note are dropped.
+
+Left as is: closing the AI chat mid-turn clears "asking the AI" while the request keeps running.
+
 ### 7.6 Pointers and actions
 
 Pointers are not Vetrina cues: `stage.point()` is an eased glide for choreographed tours, and cues
@@ -590,7 +653,6 @@ another's id, and a deck `style:` with a remote `@import` is stripped (run).
   export, and the exports are what §5.1 keeps to each member's own Library.
 - A shared AI turn stays in the session's chat like any line: it is kept in the host's sealed save
   and handed to people who join later. Sharing it cannot be undone.
-- Slice 5 has no checker yet either (§8 asks for one).
-- Show me together (slice 4) has no checker yet: §8 asks for one, and it waits on the owner's agent budget.
-  It has not run on a real phone, only at phone width in Chromium.
+- Show me together (slice 4) has not run on a real phone, only at phone width in Chromium.
+- Comments (slice 6) have no checker; §8 asks for one.
 - Custom components still fall back (their code is not shared); a member is told once, by name.

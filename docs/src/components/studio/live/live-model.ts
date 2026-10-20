@@ -127,6 +127,8 @@ export type LiveView = {
 	 *  Share button (2026-10-20-live-uniform-experience.md §6 rule 6). It stays until shared, so a
 	 *  missed prompt is never a silent difference between screens. */
 	unshared: LiveUnshared[];
+	/** How many of this person's comments on the deck the session does not have yet (slice 6). */
+	unsharedComments: number;
 	/** Host: it is presenting to everyone. Member: who presents to everyone and where they are, or null. */
 	presentingToAll: boolean;
 	present: LivePresent | null;
@@ -154,13 +156,22 @@ export type LiveActions = {
 	/** Mix a live stream into what this browser sends on the call (the presenter's narration), or take
 	 *  the last one out (null). It waits for the call if there is none yet. */
 	mixIntoCall: (stream: MediaStream | null) => void;
-	/** Host: play a shipped tour on every member's screen at once (§7.5). True when it went to the room;
-	 *  false when there is no room to send it to, and the tour plays here only. */
-	tourForEveryone: (tourId: string) => boolean;
+	/** Host: play a shipped tour on every member's screen at once (§7.5). `sent` when it went to the room;
+	 *  `solo` when there is no room to send it to (play it here only); `presenting` while presenting to
+	 *  everyone, and `wait` right after another tour started, when nothing plays. */
+	tourForEveryone: (tourId: string) => 'sent' | 'solo' | 'presenting' | 'wait';
 	/** Tell the session this browser applied an AI edit, by the slides it changed (§5.3). */
 	noteAiEdit: (slides: number[]) => void;
 	/** Share one AI chat turn with the session, as a card in the people chat (§5.3). */
 	shareAiTurn: (turn: { ask: string; answer: string }) => void;
+	/** Comments (slice 6): this person added, resolved or deleted one on the bound deck. */
+	commentAdded: (c: { id: string; slide: number; body: string; createdAt: number }) => void;
+	commentResolved: (id: string, resolved: boolean) => void;
+	commentDeleted: (id: string) => void;
+	/** Whether this person may delete a comment: its writer or the host, for a shared one. */
+	mayDeleteComment: (id: string) => boolean;
+	/** Share this person's comments the session does not have yet (written before it started). */
+	shareComments: () => void;
 	/** Resolves whether the link reached the clipboard. */
 	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;
@@ -238,6 +249,7 @@ export const IDLE_VIEW: LiveView = {
 	canChat: true,
 	typing: [],
 	unshared: [],
+	unsharedComments: 0,
 	presentingToAll: false,
 	present: null,
 };
