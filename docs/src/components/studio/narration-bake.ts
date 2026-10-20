@@ -41,7 +41,7 @@ import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, type NarrationDeck, narrationDeck, resolveNarration } from './narration-resolve';
-import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
+import { type BakeVoice, bakeClipKeys, narrationClipFor, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getSayLine } from './slide-say';
 import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
 
@@ -1006,3 +1006,18 @@ export function formatDuration(seconds: number): string {
 	const m = Math.round(s / 60);
 	return m < 60 ? `${m} min` : `${Math.round(m / 6) / 10} h`;
 }
+
+/** The presenter's clip for a spoken sentence, compressed for the wire (Present together, §7.3). It lives here,
+ *  with the one other place that compresses, because the compressed bytes are sent and never stored: what it already holds (never
+ *  synthesized here), as mp3 at the bake's bitrate when it is not already compressed. */
+export async function narrationClipForRoom(spoken: string): Promise<{ bytes: Uint8Array; mime: string; lead?: number } | null> {
+	const held = await narrationClipFor(spoken);
+	if (!held) return null;
+	const packed = (await compressClip(held as Blob, narrationBitrate()).catch(() => null)) ?? (held as Blob & { leadMs?: number });
+	// Raw WAV is about 3 KB a character: far past what a member accepts, and a dead encoder would have the
+	// link carry it on every retry. Only compressed audio is served; the member keeps its captions.
+	if (typeof packed.arrayBuffer !== 'function' || !/^audio\/(mpeg|mp3)$/.test(packed.type)) return null;
+	const bytes = new Uint8Array(await packed.arrayBuffer());
+	return { bytes, mime: 'audio/mpeg', ...(typeof packed.leadMs === 'number' ? { lead: Math.round(packed.leadMs) } : {}) };
+}
+

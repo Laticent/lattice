@@ -103,6 +103,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		presentToEveryone: NOOP,
 		joinPresent: NOOP,
 		presentTransport: NOOP,
+		serveClips: NOOP,
+		askClip: () => Promise.resolve(null),
 		mixIntoCall: NOOP,
 		tourForEveryone: () => 'solo',
 		noteAiEdit: NOOP,

@@ -1328,6 +1328,169 @@ describe('LiveController: present together', () => {
 		expect(g.view().present?.idx).toBe(1);
 	});
 
+	describe('narration clips for a member off the call', () => {
+		const HASH = 'aaaaaaaaaaaaaaaa';
+		/** An mp3 as far as its first frame header goes (MPEG-2 layer III, 24 kHz, `idx` is the bitrate index: 8 is 64 kbps). */
+		const clip = (n: number, fill = 7, idx = 8) => {
+			const bytes = new Uint8Array(n).fill(fill);
+			bytes.set([0xff, 0xf3, (idx << 4) | 0x04, 0x00]);
+			return { bytes, mime: 'audio/mpeg' };
+		};
+		/** Asks and pumps the in-memory network until the answer is in. An ask nobody answers is canceled after
+		 *  `ms`, so it ends the test instead of waiting out the retries. */
+		const askFor = async (h: Ctl, g: Ctl, hash: string, len: number, ms = 600) => {
+			const stop = new AbortController();
+			setTimeout(() => stop.abort(), ms);
+			let done = false;
+			let out: Awaited<ReturnType<Ctl['actions']['askClip']>> = null;
+			void g.actions.askClip(hash, len, stop.signal).then((c) => {
+				out = c;
+				done = true;
+			});
+			await until(() => done, h, g);
+			return out as Awaited<ReturnType<Ctl['actions']['askClip']>>;
+		};
+		async function presenting(serve: (hash: string) => Promise<ReturnType<typeof clip> | null>) {
+			const { h } = await hostSession();
+			const m = await member(h, 'Amina');
+			h.actions.serveClips(serve);
+			h.actions.presentTransport({ idx: 0, page: 0, lens: 'full', voice: true });
+			h.actions.presentToEveryone(true);
+			await until(() => m.g.view().present?.voice === true, h, m.g);
+			return { h, ...m };
+		}
+
+		it('the presenter says it narrates, and a member gets the clip it asks for', async () => {
+			const asked: string[] = [];
+			const { h, g } = await presenting(async (hash) => {
+				asked.push(hash);
+				return clip(900);
+			});
+			const got = await askFor(h, g, HASH, 40, 5000);
+			expect(asked).toEqual([HASH]);
+			expect(got?.bytes.length).toBe(900);
+			expect(got?.mime).toBe('audio/mpeg');
+			// Asked again, it is held: the presenter is not asked twice.
+			await askFor(h, g, HASH, 40, 5000);
+			expect(asked).toEqual([HASH]);
+		});
+
+		it('turning Voice on or off alone, with the slide unmoved, still tells the members', async () => {
+			const { h, g } = await presenting(async () => null);
+			h.actions.presentTransport({ idx: 0, page: 0, lens: 'full', voice: false });
+			await until(() => g.view().present?.voice === undefined, h, g);
+			h.actions.presentTransport({ idx: 0, page: 0, lens: 'full', voice: true });
+			await until(() => g.view().present?.voice === true, h, g);
+		});
+
+		it('a clip nobody asked for, or from a member, is dropped', async () => {
+			const { h, g, g: member } = await presenting(async () => clip(300, 9));
+			// biome-ignore lint/suspicious/noExplicitAny: the host and a member posting clips unasked.
+			const hh = h as any;
+			hh.post({ k: 'clip', h: HASH, m: 'audio/mpeg', d: btoa('\x01\x02\x03') });
+			// biome-ignore lint/suspicious/noExplicitAny: a forged clip from a member, to the other member.
+			(member as any).post({ k: 'clip', h: HASH, m: 'audio/mpeg', d: btoa('\x01\x02\x03') });
+			await settle(h, g);
+			const got = await askFor(h, g, HASH, 40, 5000);
+			expect(got?.bytes.length).toBe(300);
+			expect(got?.bytes[4]).toBe(9);
+		});
+
+		it('a clip far larger than its text could be, and one of a wrong type, are refused', async () => {
+			const { h, g } = await presenting(async () => clip(100_000));
+			expect(await askFor(h, g, HASH, 10)).toBeNull();
+			const { h: h2, g: g2 } = await presenting(async () => ({ bytes: new Uint8Array(500), mime: 'audio/wav' }));
+			expect(await askFor(h2, g2, HASH, 40)).toBeNull();
+		});
+
+		it('a clip whose header makes it far longer than its sentence, or too low in bitrate to be speech, is refused before decoding', async () => {
+			// 8 kbps for 80,000 bytes is 80 s of audio for a 10-character sentence.
+			const { h, g } = await presenting(async () => clip(40_000, 7, 1));
+			expect(await askFor(h, g, HASH, 10)).toBeNull();
+			// 64 kbps for 40,000 bytes is 5 s, but the sentence is 10 characters: 6 s allowed, so it passes; 20 s does not.
+			const { h: h2, g: g2 } = await presenting(async () => clip(160_000));
+			expect(await askFor(h2, g2, HASH, 10)).toBeNull();
+			// Not an mp3 at all.
+			const { h: h3, g: g3 } = await presenting(async () => ({ bytes: new Uint8Array(900).fill(7), mime: 'audio/mpeg' }));
+			expect(await askFor(h3, g3, HASH, 40)).toBeNull();
+		});
+
+		it('is not answered unless the host is presenting to everyone, and never from a hash the serve function does not know', async () => {
+			const { h } = await hostSession();
+			const { g } = await member(h, 'Amina');
+			let served = 0;
+			h.actions.serveClips(async () => {
+				served++;
+				return clip(200);
+			});
+			// Not presenting: the member has no presentation to ask about, and a forged ask is not answered.
+			expect(await g.actions.askClip(HASH, 40)).toBeNull();
+			// biome-ignore lint/suspicious/noExplicitAny: a modified client asking anyway.
+			(g as any).post({ k: 'cw', h: HASH }, (h as any).rt.session.getState().me.id);
+			await settle(h, g);
+			expect(served).toBe(0);
+			h.actions.presentToEveryone(true);
+			await until(() => h.view().presentingToAll, h, g);
+			// A hash that is not 16 hex digits is not even passed on.
+			// biome-ignore lint/suspicious/noExplicitAny: a modified client sending a text key.
+			(g as any).post({ k: 'cw', h: '["kokoro","m","v",1,"my other deck"]' }, (h as any).rt.session.getState().me.id);
+			await settle(h, g);
+			expect(served).toBe(0);
+		});
+
+		it('answers one member at a bounded rate', async () => {
+			let served = 0;
+			const { h, g } = await presenting(async () => {
+				served++;
+				return null;
+			});
+			// biome-ignore lint/suspicious/noExplicitAny: a modified client flooding asks.
+			const gg = g as any;
+			const hostId = gg.roomPresentHost as string;
+			for (let i = 0; i < 60; i++) gg.post({ k: 'cw', h: i.toString(16).padStart(16, '0') }, hostId);
+			await settle(h, g);
+			expect(served).toBeGreaterThan(0);
+			expect(served).toBeLessThanOrEqual(12);
+		});
+
+		it('a clip is not sent to the same member twice in a few seconds, however often they ask', async () => {
+			const { h, g } = await presenting(async () => clip(200));
+			let sent = 0;
+			const real = (h as unknown as { post: (p: { k: string }, to?: string) => void }).post.bind(h);
+			(h as unknown as { post: (p: { k: string }, to?: string) => void }).post = (p, to) => {
+				if (p.k === 'clip') sent++;
+				real(p, to);
+			};
+			// biome-ignore lint/suspicious/noExplicitAny: a retrying member asking again before the answer lands.
+			const gg = g as any;
+			const hostId = gg.roomPresentHost as string;
+			for (let i = 0; i < 4; i++) gg.post({ k: 'cw', h: HASH }, hostId);
+			await settle(h, g);
+			gg.post({ k: 'cw', h: HASH }, hostId);
+			await settle(h, g);
+			expect(sent).toBe(1);
+		});
+
+		it('are forgotten when the presentation ends: a second run asks the presenter again', async () => {
+			let served = 0;
+			const { h, g } = await presenting(async () => {
+				served++;
+				return clip(400);
+			});
+			expect((await askFor(h, g, HASH, 40, 5000))?.bytes.length).toBe(400);
+			expect(served).toBe(1);
+			h.actions.presentToEveryone(false);
+			await until(() => g.view().present === null, h, g);
+			expect(await g.actions.askClip(HASH, 40)).toBeNull();
+			// A new run, after the restart window: the member holds nothing from the last one.
+			await new Promise((r) => setTimeout(r, 2300));
+			h.actions.presentToEveryone(true);
+			await until(() => g.view().present?.voice === true, h, g);
+			expect((await askFor(h, g, HASH, 40, 5000))?.bytes.length).toBe(400);
+			expect(served).toBe(2);
+		}, 20000);
+	});
+
 	it('mixing into the call reaches the call audio, and a new stream takes the old one out', async () => {
 		const { h } = await hostSession();
 		const calls: string[] = [];

@@ -1251,6 +1251,27 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return { rung: rung.name, bytes: await p, key };
   }
 
+  /**
+   * A clip this device ALREADY holds for `text` under the active voice, or null. Never synthesizes,
+   * so it never bills: Present together serves a member's clip request from here, and a peer must not
+   * be able to spend the presenter's key (live-uniform note §6 rule 7).
+   */
+  async function peekClip(text) {
+    const rung = pickRung();
+    if (!text || rung.name === 'silent' || rung.name === 'speechSynthesis') return null;
+    const key = clipKey(text);
+    const mem = audioCache.get(key);
+    if (mem) return mem;
+    if (narrationCacheEnabled()) {
+      try {
+        return (await getClip(key)) ?? null;
+      } catch {
+        /* a cold or blocked store is a miss */
+      }
+    }
+    return null;
+  }
+
   function speakViaSpeech(text, signal, lang) {
     return new Promise((resolve) => {
       if (typeof speechSynthesis === 'undefined') { resolve(); return; }
@@ -1606,6 +1627,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     warm,
     latencyKey,
     clipKey,
+    peekClip,
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {

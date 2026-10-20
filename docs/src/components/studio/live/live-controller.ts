@@ -15,7 +15,7 @@ import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -167,6 +167,10 @@ type Post =
 	| { k: 'bye' }
 	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
 	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
+	/** Narration clips (§7.3). Member → host: the clip of the sentence whose text hashes to `h`. Host → that
+	 *  member: the clip (`d` base64 of compressed audio, `m` its type, `l` its lead-in) or, with no `d`, "not yet". */
+	| { k: 'cw'; h: string }
+	| { k: 'clip'; h: string; m?: string; l?: number; d?: string }
 	/** Show me together (§7.5): a shipped tour's id and when to start it, on the session clock. */
 	| { k: 'tour'; id: string; at: number }
 	/** Comments (slice 6). Member → host: an operation the host checks against who may do it. Host → all:
@@ -356,13 +360,58 @@ const PRESENT_START_WAIT_MS = 600;
 /** A host stepping fast sends its position at most this often (the last one always goes). */
 const PRESENT_EVERY_MS = 100;
 /** A transport as a host sent it, or null. */
-const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown }): LiveTransport | null => {
+const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown; v?: unknown }): LiveTransport | null => {
 	const ok = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 10_000;
 	if (!ok(p.i) || !ok(p.p) || typeof p.l !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(p.l)) return null;
-	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}) };
+	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}), ...(p.v === 1 ? { voice: true } : {}) };
 };
 /** A transport as a `present` post carries it. */
-const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}) });
+const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}), ...(t.voice ? { v: 1 } : {}) });
+/** Narration clips a member holds for one presentation, and the most one clip may carry. A clip is mp3 at
+ *  64 kbps, about 8 KB a second of speech, so these are a few minutes of talk and several times a
+ *  sentence's real size. The size a clip may be for its text is `clipLimit`. */
+const CLIP_KEEP = 96;
+const CLIP_BYTES_KEEP = 24 * 1024 * 1024;
+const CLIP_MAX_BYTES = 1536 * 1024;
+const CLIP_HASH = /^[0-9a-f]{16}$/;
+/** A member asks again this often while a clip has not come (the presenter may not have made it yet), and gives up after. */
+const CLIP_RETRY_MS = 1500;
+const CLIP_TRIES = 10;
+/** The host answers one member at most this many requests in CLIP_WINDOW_MS; a flood of asks buys no flood of bytes. */
+const CLIP_RATE = 4;
+const CLIP_WINDOW_MS = 1000;
+/** The host keeps this many answered clips for the run, so four members asking costs one compression. */
+const CLIP_SERVED_KEEP = 128;
+/** What an mp3's first frame header says, or null for anything that is not MPEG audio layer III at a rate a
+ *  voice clip has. A member reads this before it decodes: a clip is bounded by its bitrate and length, not by its
+ *  bytes, and 1.5 MB at 8 kbps decodes to 25 minutes of audio (about 265 MB). */
+const mp3Header = (b: Uint8Array): { kbps: number } | null => {
+	let i = 0;
+	// An ID3v2 tag may come first: skip it, bounded.
+	if (b.length > 10 && b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) i = 10 + (((b[6] & 0x7f) << 21) | ((b[7] & 0x7f) << 14) | ((b[8] & 0x7f) << 7) | (b[9] & 0x7f));
+	if (i > 4096 || i + 4 > b.length) return null;
+	if (b[i] !== 0xff || (b[i + 1] & 0xe0) !== 0xe0) return null;
+	const version = (b[i + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2 (0 is 2.5, 1 reserved)
+	const layer = (b[i + 1] >> 1) & 3; // 1 = layer III
+	const bitrate = b[i + 2] >> 4;
+	const rate = (b[i + 2] >> 2) & 3;
+	if ((version !== 3 && version !== 2) || layer !== 1 || bitrate === 0 || bitrate === 15 || rate === 3) return null;
+	const kbpsV1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+	const kbpsV2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+	const hz = (version === 3 ? [44100, 48000, 32000] : [22050, 24000, 16000])[rate];
+	const kbps = (version === 3 ? kbpsV1 : kbpsV2)[bitrate];
+	return hz >= 22050 && kbps >= 24 ? { kbps } : null;
+};
+/** The longest a sentence's clip may run: speech is about 15 characters a second, so this is three times that
+ *  pace and a few seconds over. */
+const clipSeconds = (chars: number) => chars / 5 + 4;
+/** A clip already sent to a member is not sent to them again this soon: a retry on a slow link must not
+ *  queue a second copy behind the first on the one channel everything shares. */
+const CLIP_RESEND_MS = 8000;
+/** Speech is about 15 characters a second, so a sentence's clip of that many characters should be about
+ *  540 bytes a character at 64 kbps; allow ample slack, and a floor for a short one. A clip far over
+ *  this is not that sentence (a 4 MB clip decodes to about 800 MB, §6 rule 8). */
+const clipLimit = (chars: number) => Math.min(CLIP_MAX_BYTES, 24_000 + chars * 2000);
 /** A click is drawn at most this often per member; a flood of clicks is dropped like a flood of moves. */
 const POINTER_CLICK_GAP_MS = 150;
 /** No deck has this many slides; a pointer naming a slide past it is dropped. */
@@ -571,6 +620,17 @@ export class LiveController {
 	private roomPresent: LivePresent | null = null;
 	private roomPresentHost: string | null = null;
 	private roomPresentAt = 0;
+	/** Narration clips (§7.3). Host: how to answer a request, what it answered for this run, and each member's
+	 *  recent request times. Member: the clips held for this presentation, and the sentences it waits on. */
+	private clipServer: ((hash: string) => Promise<LiveClip | null>) | null = null;
+	private clipServed = new Map<string, Promise<Extract<Post, { k: 'clip' }> | null>>();
+	private clipAsks = new Map<string, number[]>();
+	private clipSentAt = new Map<string, number>();
+	/** Serving is one at a time: an encode is synchronous work on the presenter's own thread. */
+	private clipBusy = false;
+	private clipHave = new Map<string, LiveClip>();
+	private clipHaveBytes = 0;
+	private clipWait = new Map<string, { len: number; subs: Array<(c: LiveClip | null) => void>; tries: number; timer: ReturnType<typeof setTimeout> | null }>();
 	/** Comments shared in this session (slice 6), by id. Every member holds them all, so an heir has them. */
 	private cmts = new Map<string, SessionComment>();
 	/** Comment actions taken while the host was away, sent when it is back. */
@@ -1019,6 +1079,7 @@ export class LiveController {
 				if (this.roomPresentHost && s.members.some((m) => m.role === 'host' && m.id !== this.roomPresentHost)) {
 					const by = this.roomPresent?.by;
 					this.roomPresent = null;
+					this.resetClips();
 					this.roomPresentHost = null;
 					this.host.closeRoomPresent?.();
 					if (by) this.host.notify(`${by}'s presentation ended: they are no longer hosting.`);
@@ -1159,10 +1220,12 @@ export class LiveController {
 		this.followedDoing = null;
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
+		this.resetClips();
 		this.clearPresentTimers();
 		if (this.tourLater) clearTimeout(this.tourLater);
 		this.tourLater = null;
 		this.roomPresent = null;
+		this.resetClips();
 		this.roomPresentHost = null;
 		this.transport = { idx: 0, page: 0, lens: 'full' };
 		this.callMix = null;
@@ -1417,6 +1480,7 @@ export class LiveController {
 		// The presentation was the old host's: it has stopped.
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.roomPresent = null;
+		this.resetClips();
 		this.roomPresentHost = null;
 		// The heir relays the records it received; none of its OWN until it agrees to each (§6 rule 6).
 		this.shared = new Set();
@@ -1441,6 +1505,7 @@ export class LiveController {
 	 *  same deck, instead of resuming as host. */
 	private onSteppedDown(r: Runtime) {
 		this.presentingToAll = false;
+		this.resetClips();
 		this.clearPresentTimers();
 		r.release?.();
 		r.release = null;
@@ -2044,6 +2109,7 @@ export class LiveController {
 		if (!p.on) {
 			if (!this.roomPresent) return;
 			this.roomPresent = null;
+			this.resetClips();
 			this.roomPresentHost = null;
 			this.host.closeRoomPresent?.();
 			// A host toggling fast says nothing: a stop right after a start is not news.
@@ -2194,6 +2260,110 @@ export class LiveController {
 		}, wait);
 	}
 
+	/** Forget every narration clip, and tell anyone still waiting on one that none is coming. The presentation
+	 *  they belonged to has ended (§6 rule 5: clips are held in memory for the run only). */
+	private resetClips() {
+		this.clipServed.clear();
+		this.clipAsks.clear();
+		this.clipSentAt.clear();
+		this.clipHave.clear();
+		this.clipHaveBytes = 0;
+		const waits = [...this.clipWait.values()];
+		this.clipWait.clear();
+		for (const w of waits) {
+			if (w.timer) clearTimeout(w.timer);
+			for (const f of w.subs) f(null);
+		}
+	}
+
+	/** Member: send the host a request for this clip, and ask again until it comes or the tries run out. */
+	private askClipNow(h: string) {
+		const w = this.clipWait.get(h);
+		const host = this.roomPresentHost;
+		if (!w) return;
+		if (!this.roomPresent || !host || w.tries >= CLIP_TRIES) {
+			this.clipWait.delete(h);
+			for (const f of w.subs) f(null);
+			return;
+		}
+		w.tries++;
+		this.post({ k: 'cw', h }, host);
+		w.timer = setTimeout(() => this.askClipNow(h), CLIP_RETRY_MS);
+	}
+
+	/** Member: the host's answer to a request. Only what was asked for, from the presenter, bounded. */
+	private takeClip(p: Extract<Post, { k: 'clip' }>) {
+		if (typeof p.h !== 'string' || !CLIP_HASH.test(p.h) || typeof p.d !== 'string') return;
+		const w = this.clipWait.get(p.h);
+		if (!w || typeof p.m !== 'string' || !/^audio\/(mpeg|mp3)$/.test(p.m)) return;
+		// The text's length bounds the base64 before it is decoded: nothing larger than the limit is parsed.
+		const limit = clipLimit(w.len);
+		if (p.d.length > Math.ceil(limit / 3) * 4 + 4) return;
+		let bytes: Uint8Array;
+		try {
+			bytes = fromB64(p.d);
+		} catch {
+			return;
+		}
+		if (bytes.length === 0 || bytes.length > limit) return;
+		// Its own header decides how long it will play, before any decoder sees it.
+		const head = mp3Header(bytes);
+		if (!head || (bytes.length * 8) / (head.kbps * 1000) > clipSeconds(w.len)) return;
+		const lead = Number.isFinite(p.l) && (p.l as number) >= 0 && (p.l as number) <= 2000 ? (p.l as number) : undefined;
+		const clip: LiveClip = { bytes, mime: p.m, ...(lead !== undefined ? { lead } : {}) };
+		while (this.clipHave.size && (this.clipHave.size >= CLIP_KEEP || this.clipHaveBytes + bytes.length > CLIP_BYTES_KEEP)) {
+			const oldest = this.clipHave.keys().next().value as string;
+			this.clipHaveBytes -= this.clipHave.get(oldest)?.bytes.length ?? 0;
+			this.clipHave.delete(oldest);
+		}
+		this.clipHave.set(p.h, clip);
+		this.clipHaveBytes += bytes.length;
+		this.clipWait.delete(p.h);
+		if (w.timer) clearTimeout(w.timer);
+		for (const f of w.subs) f(clip);
+	}
+
+	/** Host: a member asks for the clip of one sentence. Answered only while presenting to everyone, only from
+	 *  what this device already holds (the serve function never synthesizes), and at a bounded rate. */
+	private serveClip(from: string, h: unknown) {
+		if (typeof h !== 'string' || !CLIP_HASH.test(h) || !this.presentingToAll || !this.clipServer) return;
+		const now = Date.now();
+		const recent = (this.clipAsks.get(from) ?? []).filter((t) => now - t < CLIP_WINDOW_MS);
+		if (recent.length >= CLIP_RATE) return;
+		recent.push(now);
+		this.clipAsks.set(from, recent);
+		let answer = this.clipServed.get(h);
+		if (!answer && this.clipBusy) return;
+		if (!answer) {
+			const serve = this.clipServer;
+			this.clipBusy = true;
+			answer = serve(h)
+				.then((c): Extract<Post, { k: 'clip' }> | null => (c && c.bytes.length > 0 && c.bytes.length <= CLIP_MAX_BYTES ? { k: 'clip', h, m: c.mime, ...(c.lead !== undefined ? { l: c.lead } : {}), d: toB64(c.bytes) } : null))
+				.catch(() => null);
+			this.clipServed.set(h, answer);
+			void answer.finally(() => {
+				this.clipBusy = false;
+			});
+			// A miss is not remembered: the presenter may have the clip a moment later.
+			void answer.then((a) => {
+				if (!a && this.clipServed.get(h) === answer) this.clipServed.delete(h);
+			});
+			while (this.clipServed.size > CLIP_SERVED_KEEP) this.clipServed.delete(this.clipServed.keys().next().value as string);
+		}
+		const to = from;
+		void answer.then((a) => {
+			if (!this.presentingToAll || !this.rt?.session.getState().members.some((m) => m.id === to)) return;
+			if (a) {
+				const key = `${to}|${h}`;
+				const sent = this.clipSentAt.get(key);
+				if (sent !== undefined && Date.now() - sent < CLIP_RESEND_MS) return;
+				this.clipSentAt.set(key, Date.now());
+				if (this.clipSentAt.size > CLIP_SERVED_KEEP * 8) this.clipSentAt.delete(this.clipSentAt.keys().next().value as string);
+			}
+			this.post(a ?? { k: 'clip', h }, to);
+		});
+	}
+
 	/** Host: the start, once; then the same again just past a member's restart window, so one who dropped
 	 *  the first (the host stopped and started again quickly) still joins. */
 	private sendPresentStart() {
@@ -2281,6 +2451,8 @@ export class LiveController {
 				const note = cleanNote(p.note);
 				if (note === null) return;
 				this.hostTake(p.id, from, sender, p.text, note);
+			} else if (p.k === 'cw') {
+				this.serveClip(from, p.h);
 			} else if (p.k === 'cmt') {
 				this.hostComment(p, from, sender, r);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
@@ -2325,6 +2497,8 @@ export class LiveController {
 				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
 			} else if (p.k === 'present' && typeof p.on === 'boolean') {
 				this.takePresent(p, from, sender.name, r);
+			} else if (p.k === 'clip' && from === this.roomPresentHost && this.roomPresent) {
+				this.takeClip(p);
 			} else if (p.k === 'tour') {
 				this.takeTour(p, sender.name, r);
 			} else if (p.k === 'cmtset') {
@@ -2462,7 +2636,10 @@ export class LiveController {
 				// (it may be opening now) rather than send where the last presentation ended.
 				this.presentStartDue = true;
 				this.presentTimers.push(setTimeout(() => this.sendPresentStart(), PRESENT_START_WAIT_MS));
-			} else this.post({ k: 'present', on: false });
+			} else {
+				this.post({ k: 'present', on: false });
+				this.resetClips();
+			}
 			this.host.rerender();
 		},
 		commentAdded: (c: { id: string; slide: number; body: string; createdAt: number }) => this.commentOp({ k: 'cmt', op: 'add', id: c.id, slide: c.slide, body: c.body, at: c.createdAt }),
@@ -2496,6 +2673,39 @@ export class LiveController {
 			}, TOUR_LEAD_MS);
 			return 'sent';
 		},
+		serveClips: (serve) => {
+			this.clipServer = serve;
+			if (!serve) this.clipServed.clear();
+		},
+		askClip: (hash: string, textLen: number, signal?: AbortSignal) => {
+			if (!CLIP_HASH.test(hash) || !this.roomPresent || !Number.isFinite(textLen) || textLen <= 0) return Promise.resolve(null);
+			const have = this.clipHave.get(hash);
+			if (have) return Promise.resolve(have);
+			if (signal?.aborted) return Promise.resolve(null);
+			return new Promise<LiveClip | null>((resolve) => {
+				let w = this.clipWait.get(hash);
+				if (!w) {
+					w = { len: Math.floor(textLen), subs: [], tries: 0, timer: null };
+					this.clipWait.set(hash, w);
+					w.subs.push(resolve);
+					this.askClipNow(hash);
+				} else w.subs.push(resolve);
+				signal?.addEventListener(
+					'abort',
+					() => {
+						const cur = this.clipWait.get(hash);
+						if (!cur) return;
+						cur.subs = cur.subs.filter((f) => f !== resolve);
+						if (!cur.subs.length) {
+							if (cur.timer) clearTimeout(cur.timer);
+							this.clipWait.delete(hash);
+						}
+						resolve(null);
+					},
+					{ once: true },
+				);
+			});
+		},
 		mixIntoCall: (stream: MediaStream | null) => {
 			if (this.callMix && this.callMix !== stream) this.audio?.unmix(this.callMix);
 			this.callMix = stream;
@@ -2504,7 +2714,7 @@ export class LiveController {
 		presentTransport: (t: LiveTransport) => {
 			const clean = cleanTransport(transportPost(t));
 			if (!clean) return;
-			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash;
+			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash && clean.voice === this.transport.voice;
 			this.transport = clean;
 			if (!this.presentingToAll || !this.rt?.session.getState().isHost) return;
 			if (this.presentStartDue) this.sendPresentStart();

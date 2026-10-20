@@ -4056,12 +4056,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		else if (sent === 'wait') notify('A tour just started for everyone. Give it a moment before starting another.');
 		else startDemo(tourId);
 	};
+	// A member hears the presenter's narration from clips when the presenter has Voice on and it is not coming
+	// through the call: this browser is off the call, or the presenter is (§7.3, off the call). A member on the
+	// call with the presenter hears it there, so a second copy would only echo.
+	const hostMic = live.view.people.find((p) => p.role === 'host')?.mic ?? 'off';
+	const roomClips = presentByRoom && live.view.present?.voice && (!liveInCall || hostMic === 'off') ? live.actions.askClip : null;
 	const liveForPresent = React.useMemo(
 		() =>
 			live.view.status === 'live'
-				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), follow: presentByRoom ? live.view.present : null, inertKeys: presentByRoom }
+				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), serveClips: livePresentingToAll ? live.actions.serveClips : undefined, follow: presentByRoom ? live.view.present : null, clips: roomClips, inertKeys: presentByRoom }
 				: undefined,
-		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom],
+		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom, roomClips],
 	);
 	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
 	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
