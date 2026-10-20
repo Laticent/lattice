@@ -220,7 +220,7 @@
                 "properties": {
                   "type": {"enum": ["text", "enum", "classes", "css", "url", "steps", "words"], "description": "The field's type. The host validates a value against it at the boundary (record note §5.7)."},
                   "values": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}, "description": "The words an `enum` field accepts."},
-                  "scope": {"enum": ["deck"], "description": "`deck`: the key is written once, at the top of the deck, and never per slide (Marp's global-only keys). Omitted: it may be set per slide, or from a slide on."},
+                  "scope": {"enum": ["deck", "slide"], "description": "`deck`: the key is written once, at the top of the deck, and never per slide (Marp's global-only keys). `slide`: set on a slide, in either spelling (`<!-- header: H -->` or `<!-- _header: H -->`), it applies to that slide only; only front matter sets it for every slide. Omitted: it may be set per slide, or from a slide on."},
                   "bare": {"const": true, "description": "The key may be written with no value (`<!-- _build -->`). Every other key requires a colon, so prose such as `<!-- color -->` stays a note."},
                   "local": {"const": true, "description": "One of Marp's local directives, which a bare (non-underscore) comment may also set."},
                   "applied": {"const": true, "description": "The engine writes the key on the slide as `data-<key>`."},

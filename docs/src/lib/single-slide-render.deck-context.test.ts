@@ -345,7 +345,8 @@ describe('deck-context gate (needsDeckContext)', () => {
 	});
 
 	it('renders the DECK when a running-global directive could be inherited', async () => {
-		// A bare `<!-- header: … -->` applies to its slide AND every one after, so a slice loses it.
+		// A bare running-global directive applies to its slide AND every one after, so a slice loses it. The probe still
+		// matches a bare `header:`, which now sets its own slide only (audit §11r): over-triggering is the cheap direction.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();

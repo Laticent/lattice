@@ -418,7 +418,9 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 // deck to actually carry deck-scoped state:
 //   · the page NUMBER — only rendered when `paginate` is truthy, which in the Studio is a
 //     default-OFF toggle that none of the three shipped decks sets;
-//   · inherited RUNNING-GLOBAL directives — a bare `<!-- header: … -->` mid-deck. The Studio's own
+//   · inherited RUNNING-GLOBAL directives — a bare `<!-- class: … -->` mid-deck (`header`, `footer` and
+//     `paginate` set only their own slide, audit §11r, so the probe below over-triggers on them, the cheap
+//     direction). The Studio's own
 //     header/footer controls write FRONT MATTER, which the caller already prepends to the slice, so
 //     this is reachable only by hand-authoring directive comments;
 //   · the deck-scoped PROGRESS RAIL and watermark glyph — both derived from divider slides, and both
@@ -489,7 +491,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	},
 	{
 		fact: 'running-global directive',
-		why: 'a directive comment without the `_` spot prefix applies to its slide AND every one after, so a slice loses what it inherited',
+		why: 'a directive comment without the `_` spot prefix (other than header, footer and paginate) applies to its slide AND every one after, so a slice loses what it inherited',
 		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
 	},
 

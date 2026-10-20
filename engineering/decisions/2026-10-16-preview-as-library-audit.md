@@ -935,7 +935,7 @@ at least 560 px wide and under it otherwise, measured on a wrapper the rail does
   (the tiles on screen, at most 24) instead of learning it. The Studio's stage is not driven by Veduta, and the page-global live
   budget priced per connector has one connector. So the 11f.2 tripwire ("the Playground adopts the core with no change to it")
   is met for the band arithmetic and the map window only; the capacity report, the joint stage-and-map budget and the poster tier
-  have no production caller. Publishing to npm should wait for those (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`).
+  have no production caller. Publishing to npm should wait for those (the follow-up that tracked them is closed by section 11p).
 - **Found by the trio and fixed before merge.** A scrollbar loop (React #185 wherever scrollbars take layout space; the scroller
   now always carries its track and the measuring effect no longer re-runs with `refresh`), arrow keys that handed focus to the
   editor after one step (a key now picks quietly), a hidden focus before every lens-shown slide (no tile is highlighted and Next
@@ -996,7 +996,7 @@ carries a constant.**
   and with it the binding is shown on the real Studio: a ten-slide deck gets 3 live tiles and 3 frames with the ceiling at
   3, and 10 and 10 without it (`studio-map.spec.ts`, desktop Chromium).
 - **Not done here.** The pill rail as a map tier, and a stage window that changes what is mounted, are still open
-  (`followups.d/2789-p2-veduta-pool-capacity-and-stage.md`, narrowed). The npm tripwire should not count as met until a
+  (narrowed, then closed by section 11p). The npm tripwire should not count as met until a
   production value can bind.
 
 ## 11m. Fixed on 2026-10-19: a blank slide is a unit (continuation P2)
@@ -1044,7 +1044,7 @@ engine renders.
 
 The 2789 follow-up asked the owner to rule whether a plain `<!-- header: H -->` on a slide carries onto later slides (Marp's
 rule, and the engine's) or scopes to its slide. The owner was away, so the session took the reversible default and pinned
-it; reversing it is an owner call, kept open in `followups.d/2789-p4-header-carries-forward-past-its-slide.md` and on the
+it; reversing it is an owner call, kept open in the 2789-p4 follow-up (ruled and closed in §11r) and on the
 PR's decision card.
 
 - **The default: keep the carry for the comment form.** Front matter sets every slide; `_header`, `_footer` and
@@ -1085,6 +1085,152 @@ one of those few long decks while the reader scrolls.
   export already takes), has to be measured on a real Safari device, which this sandbox cannot reach. So no shipped host
   passes `poster`, the poster rung stays at 0, and Safari is **UNVERIFIED**
   (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to capture).
+
+## 11p. Decided on 2026-10-20: the pill rail against the map, and the stage stays one frame (continuation P1)
+
+The last two pieces of the 2789 follow-up. Both are rulings with a small change behind them, not a new mechanism.
+
+- **The pills hide where the map sits beside the slide.** There the map is a second, richer list of the same slides,
+  with its own number, position and first-to-last controls, so the Studio's pill navigator under it was the same list
+  twice. `StudioShell.tsx` now renders `SlideRail` only when the map is off, stacked under the slide (a pane under
+  560 px, which is every phone and a narrow tablet pane), or dropped by the phone's cinema morph. The stacked strip has
+  no labels and no steps, so the pills stay there. This session also weighed pills as a map tier (a tile kind Veduta can
+  fall to) and chose against it: a pill is a label you read, a tile now carries the same label (below), and the ladder
+  falls only when a budget binds, which no shipped host's does.
+- **What the pills carried moves onto the tiles.** Outside the Read stop a pill's visible text is the slide's component
+  class, which no slide renders, so a tile that shows only a picture would have dropped the one deck-wide view of the
+  classes (an inversion found this in the first draft, which claimed nothing was lost). Tiles now carry it as a caption
+  beside the number (`MapRail`'s `caption`, filled by `StudioMap` from `slideClass` outside Read). In Read a pill shows
+  the title, which a live tile shows in its picture and every tile in its accessible name. The Live presence dots move
+  too (`mark`, from the same `liveBySlide` map, decorative as on the pills), only where the pills are hidden, so a
+  stacked strip does not draw them twice. Each tile says where it sits in the whole deck (`aria-setsize`,
+  `aria-posinset`), since the map mounts a window of a long deck where the pills listed every slide. A reader who saved
+  the map as on loses the pills beside it with no notice; the map button brings them back.
+- **When the pills hide.** Only once the map is measured as beside the slide AND has mounted (`onReady`), so a first
+  open on a slow network never leaves a moment with no navigator. The measure is a layout effect that follows the
+  wrapper element through a callback ref: a red team found that a round trip to the Article view (which unmounts the
+  preview pane) left the old observer on a detached wrapper, so the map stuck as a full-width strip on desktop and never
+  restacked. A resize across 560 px that keeps the tree (a split drag) reaches it through the observer, a frame later.
+- **The stage stays `pip` with one frame, and the Veduta README says why** (§"Why the Studio's stage is one frame"): a
+  step already takes the patch path in a loaded frame, a neighbor frame would be one more resident engine document
+  (about 11 MB on WebKit), and with the map open the neighbors are already live tiles. Under the rail's arithmetic a
+  neighbor would cost no map tile (the stage's cost is added to the cap as well as charged), so the case is memory
+  against an unmeasured step latency, not a lost tile. The `multi` stage is the Playground filmstrip's, in production.
+- **What this means for the npm tripwire (11f.2).** It is not met. The core's stage pricing (`stage: { cost }` and the
+  stage half of `settle`) still has no caller in which it binds: the Studio's value cancels by construction. So that API
+  is unproven, and before a publish it must be proven by a caller or removed from the core. The capacity report still
+  carries a constant in production (section 11l), and posters still need their capture measured on Safari.
+- **Evidence.** `MapRail.test.tsx`: with the stage priced and a real `PreviewPool` holding 4, the rail mounts 4 real
+  pooled faces and the rest as sketches, and the pool holds at least one tile and at most 4. With the cap taken out of
+  the rail, the same test mounts 9 (run, not reasoned). The follow-up asked for "a stage over budget falls down the
+  ladder". Under `pip` the stage cannot fall: the rail adds the stage's cost to the cap it charges, so what this test
+  shows is the tiles falling under a priced stage, which is the half that has a caller. A `mark` draws on mounted tiles
+  only and is hidden from assistive tech, and a `caption` shows beside the number. `studio-map.spec.ts` counts the pills
+  before opening the map, requires none beside it and the full set under it, reads the class caption on a tile beside
+  the slide, and watches the pills leave and come back as the viewport goes to 390 px wide and back (the pane then
+  crosses the 560 px line), keeps restacking after a round trip to the Article view, and gives each tile its place in the
+  whole deck. The Studio's tours waited for the pill count while typing a deck (`tour-kit.ts`
+  `railReady`), so beside the map each typed slide would have waited out Vetrina's 15 s give-up; the wait now reads the
+  map's tiles as well (`tour-kit.test.ts`). Screenshots at 1440, 820 and 390 were taken with `tools/screenshot.js` on the e2e build and looked at: beside the map at 1440, stacked with the pills at 820 and 390.
+
+## 11q. Built on 2026-10-20: the poster capture (continuation P2)
+
+Section 11o built the poster cache and tile and left the capture blocked on a pool API and a Safari measurement. The pool
+API is built here; the Safari device number is still owed.
+
+- **The case is still thin, measured again.** The decks have not grown: 12 of the 295 example and baseline decks have more
+  than 12 slides. The session built it because the continuation brief ordered it, and it costs nothing until a tile has
+  been live once. Where it shows: a tile past the live budget (a long deck, or a host that lowers `maxSlots`), and, new
+  here, under a live tile whose pooled frame the pool has not re-pointed to it yet (the 220 ms `APPLY_MS` pass plus the
+  render), which is every tile a fast scroll brings in.
+- **The pool captures** (`preview-pool.tsx`). A `PooledThumbFace` takes `onPicture`. Once a slot's `DeckPreview` has
+  gone `CAPTURE_SETTLE_MS` (400) without another render and still shows its tile's current props, the pool hands the tile
+  a `capture()`. The settle is there because a re-point that lands mid-render is deferred, and the in-flight render's
+  own report would offer a picture of the slide the slot is leaving. At capture time the pool also reads the frame
+  itself (`slotShows`): no capture while a full document write is still loading (`renderInto` returns before the new
+  document commits, so the old one is still in the frame; a checker found the first draft captured it), none when the
+  frame shows another slide index, and none of a frame with no slide. A capture queues,
+  runs one at a time, waits until the scroller the pool sits in has been still for `CAPTURE_QUIET_MS` (300) and for an
+  idle callback where there is one, then rasterizes the slot frame's `.lattice > section` with html-to-image `toCanvas`
+  (the export's route) at the tile's size times the pixel ratio (at most 2), as a JPEG. A slot re-pointed before or
+  during the capture yields null, never another slide's picture. Fonts are not embedded (the export's `fontEmbedCSS`
+  costs a fetch per face): at a tile's size a fallback face is not legible either way, and the live picture replaces
+  the poster when the tile is live again. A pool that unmounts resolves every queued capture with null. The capture and
+  the frame check live in `pool-capture.ts`, a chunk the pool imports on the first capture, because every grid that
+  pools its frames loads `preview-pool.tsx` eagerly and only the slide map captures.
+- **The Studio map stores them** (`StudioMap.tsx`). The key is `posterKey` of the slide's text with a look that carries
+  the theme, palette, mode, finish and theme CSS, front matter, the slide's place and the deck's length (a page number),
+  and every plain directive carried from earlier slides (section 11n). A deck that trips a deck-derived fact
+  (`DECK_DERIVED_FACTS`: a divider's rail and total, a proof run's ordinal, `glossary: auto`, an expander) draws a slide
+  from the whole deck, so its key carries the whole deck and any edit retires its posters. The look is hashed once per
+  look, not per key. Up to 24 tiles show a poster; the cache keeps 8 MB
+  beyond the rail's mounted window, which it pins (`MapRail`'s new `onWindow`, re-keyed when the look changes). A slide
+  edited since the pictures settled shows its sketch, as a live tile does. Evicted posters are revoked, and a capture
+  that finishes after the map unmounts mints no URL.
+- **Evidence.** `e2e/studio-map-posters.spec.ts` lowers the pool to 3 frames, types a 40-slide deck, walks the rail down
+  and jumps back to the top: tiles past the live cap show posters (7 on desktop Chromium, 4 or 5 on Playwright WebKit), and
+  no capture began within 250 ms of a scroll, and every poster on screen is a decoded image. Its arm (the quiet window set
+  to 0) fails that check (run, not reasoned).
+- **The right slide, in a real browser** (added on 2026-10-20 at the owner's request). A second spec gives each of 40
+  slides its own full-bleed background, a hue 9 degrees from its neighbor's, with a Mermaid diagram on every seventh (a
+  second frame shape, so a re-point takes the full write path), walks the rail slowly and then in fast jumps paced in
+  animation frames, and samples every poster's pixels in the page: each must be nearest to its own tile's slide out of
+  all forty. **It failed on desktop Chromium on its first run**, and the failure was real: every Chromium poster was a
+  rainbow. Chromium lists `-webkit-border-image` among a node's computed properties, a shorthand alias with the slice's
+  `fill` implied, so html-to-image copied the spectrum ribbon's border image onto the clone and it painted the whole
+  slide (`engineering/gotchas/export.md`). The capture now passes the export's own ribbon repaint as the clone's style
+  (`ribbonCaptureStyle`, factored out of `withCaptureFixups` into `export/capture-ribbon.js`, with the export's capture
+  tests still green), overrides `webkitBorderImage`, and passes the one shared property list
+  (`captureStyleProperties`), which the first draft also skipped: html-to-image keeps the first list a page gives it, so
+  a poster captured before an export would have left that export's CSS counters at 0. After the fix: 147 posters on
+  Chromium and 191 on Playwright WebKit sampled, none wrong, worst color distance 2 against about 40 between neighbors.
+  The race arm (`slotShows` forced true, the settle at 0) was not run, so the guards against a re-point mid-render are
+  shown by `preview-pool.test.tsx` on stub frames and by this spec passing, not by a red arm. Each capture records a `lattice-poster-capture` performance measure, its
+  WALL time from the clone to the JPEG across awaits (image inlining and the encode can run off the main thread), so it
+  bounds the main-thread cost rather than measuring it; on this
+  sandbox's loaded machine, desktop Chromium (34 captures a run): median 28 to 43 ms, max 72 to 232 ms across four runs;
+  Playwright WebKit (37 to 40 a run): median 48 to 49 ms, max 94 to 130 ms across three. The spread is the sandbox's
+  load (its load average sat near 9 during these runs), so read the medians, not the worst cases. `MapRail.test.tsx`: posters sit under live tiles only with a poster
+  budget, and `onWindow` reports the mounted tiles.
+- **Not verified: Safari on a device, or the long task itself.** Playwright's WebKit is the engine, not an iPhone's memory
+  or CPU, and a 94 to 130 ms worst case of wall time could hold a long task above a frame budget even while the rail is
+  still; a Long Animation Frames reading is what would say. **UNVERIFIED** until measured on a device
+  (`followups.d/2782-p3-veduta-poster-tile.md`, narrowed to that).
+
+## 11r. Ruled and built on 2026-10-20: a slide's header, footer and page number stay on that slide
+
+**The owner's ruling, final:** "Make it stay on its own slide. We are not Marp. If someone wants to set header, footer
+and pagination for every slide they can set it in the front matter and use no-header, no-footer, no-pagination on
+specific slides using `_class:`. If someone wants a specific `_header` and `_footer` they can." This reverses the
+default §11n pinned.
+
+- **The rule.** Front matter sets `header`, `footer` and `paginate` for every slide. A slide comment sets that slide
+  only, in either spelling: `<!-- header: H -->` now behaves as `<!-- _header: H -->`. A slide drops the deck's chrome
+  with `_class: no-header`, `no-footer` or `no-paginate` (the classes the ruling calls "no-pagination" are spelled
+  `no-paginate`; they already existed, `lib/base/base.variants.css`). Every other plain directive (`class:`,
+  `backgroundColor:`) keeps Marp's carry; the ruling names these three.
+- **One declaration.** The three keys are `scope: "slide"` in `lib/plugins/meta/meta.manifest.json` (the schema now
+  allows `slide` beside `deck`), derived as `SLIDE_ONLY_KEYS` in `lib/core/meta-keys.mjs`. Every reader of the carry
+  asks that set: the engine (`lib/engine/slides.js` `lattice_directives`, and `parseCommentDirectives`), the meta
+  record's walk (`lib/core/meta-record.mjs`), the slice-equivalence prelude (`synthesizePrelude`, through its injected
+  vocabulary), and the split strip (`lib/core/auto-split.js` `deckChromeFrom`, which used to read the last plain
+  comment as the deck band and now reads front matter only: with no carry, stripping it would delete a slide's text).
+- **The export to Marp.** Marp would carry the plain spelling, so each producer of a bundle writes it as `_header:` /
+  `_footer:` / `_paginate:` (`lib/core/marp-slide-only.mjs`) on the deck it hands `withRuntimeScriptsReport`: the CLI
+  directly, the Studio through a dynamic import. It first lived inside `withRuntimeScriptsReport`, which ships in the
+  browser engine every route loads, and the merge queue measured it there: on current `main` the getting-started
+  engine read 321,405 gzip bytes against a 321,241 ceiling (main alone: 320,970). Moved out, the same build reads
+  320,999. A census test pins both producers (`test/unit/core/marp-slide-only.test.js`). Comments in fenced
+  or inline code, prose comments, and front matter are untouched, and a deck with nothing to rewrite is byte-identical.
+  LFM 1.1 §2.3 now states the rule and the export obligation.
+- **What changes for a deck.** None of the 309 example and baseline decks has a plain `header:`, `footer:` or
+  `paginate:` comment (§11n), so no shipped render moves. An author's deck that relied on the carry now shows the
+  header on its own slide only; the changelog leads with **Breaking:**.
+- **Evidence.** `test/unit/engine/directive-scope.test.js`, flipped: a plain header on slide 2 of five reads
+  `-, H, -, L, -`; footers and pagination follow; front matter sets every slide and a slide overrides it for itself
+  only; `backgroundColor:` still carries; the meta record resolves the same way. With the engine's check removed, five
+  of its eight go red (run, not reasoned). `test/unit/core/marp-slide-only.test.js` pins the export rewrite and its
+  exclusions, and the bundled deck rendered by real `marp-cli` is in the PR's export sign-off, in dark and light.
 
 ## 12. Next step
 
