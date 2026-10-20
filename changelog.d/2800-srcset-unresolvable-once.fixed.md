@@ -1,0 +1,1 @@
+- An export no longer slows down, or lists the same missing picture over and over, when a long `srcset` repeats an address that has no local path (a `file://host/…` share, or on Windows a path with no drive letter). The address is tried once.
