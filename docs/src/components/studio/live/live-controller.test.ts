@@ -30,7 +30,7 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
-const deps = (deckId: string): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', activeSlide: 0 });
+const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, ...over });
 const shell = () => {
 	const notes: string[] = [];
 	const host: LiveHost = { setSource: () => {}, goToSlide: () => {}, openSharedDeck: () => 'shared-deck', notify: (m) => notes.push(m), notifyAction: (m) => notes.push(m), rerender: () => {} };
@@ -51,17 +51,17 @@ const until = async (ok: () => boolean, ...ctls: Ctl[]) => {
 	expect(ok()).toBe(true);
 };
 
-async function hostSession() {
+async function hostSession(over: Partial<LiveDeps> = {}) {
 	const sh = shell();
 	// Each controller is its own browser tab: no chat-id prefixes inherited (jsdom shares storage).
 	sessionStorage.removeItem('lattice-live-sids');
 	sessionStorage.removeItem('lattice-live-share');
-	const h = new LiveController(sh.host, deps('host-deck'));
+	const h = new LiveController(sh.host, deps('host-deck', over));
 	h.actions.start('Sharmarke');
 	await until(() => h.view().status === 'live', h);
 	return { h, notes: sh.notes };
 }
-async function guestOf(h: Ctl, name: string) {
+async function guestOf(h: Ctl, name: string, over: Partial<LiveDeps> = {}) {
 	const sh = shell();
 	// Each guest is its own browser: no rejoin token left by the one before (jsdom shares storage).
 	localStorage.removeItem('lattice-live-links');
@@ -69,7 +69,7 @@ async function guestOf(h: Ctl, name: string) {
 	sessionStorage.removeItem('lattice-live-share');
 	location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 	takeLiveIntent();
-	const g = new LiveController(sh.host, deps(`${name}-deck`));
+	const g = new LiveController(sh.host, deps(`${name}-deck`, over));
 	await g.resume();
 	await until(() => g.lobby()?.stage === 'ready', h, g);
 	g.lobbyActions.setName(name);
@@ -653,5 +653,120 @@ describe('what you share (2026-10-12)', () => {
 		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true });
 		h.actions.setShare({ slide: false });
 		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true });
+	});
+});
+
+// The session's look (2026-10-20-live-uniform-experience.md §5.1): an un-themed deck renders in the look the
+// host froze when the session started, for every member, whatever their own site palette and mode.
+describe('LiveController: the session look', () => {
+	// biome-ignore lint/suspicious/noExplicitAny: the look a member holds, read where the Studio reads it.
+	const lookOf = (c: Ctl) => (c as any).look as { palette: string | null; mode: string } | null;
+
+	it('every member takes the host\'s frozen look, not its own palette and mode', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(h)).toEqual({ palette: 'indaco', mode: 'dark' });
+		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
+		expect(h.collab()?.look).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('the look is frozen: the host changing its own palette later does not change it', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		h.update(deps('host-deck', { theme: 'onyx', mode: 'light' }));
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('a host whose palette is a saved theme shares no name: everyone gets the default, and the host is told', async () => {
+		const { h, notes } = await hostSession({ theme: 'Acme Brand', mode: 'light' });
+		const { g } = await guestOf(h, 'Amina', { theme: 'onyx', mode: 'dark' });
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(h)).toEqual({ palette: null, mode: 'light' });
+		expect(lookOf(g)).toEqual({ palette: null, mode: 'light' });
+		expect(notes.some((n) => n.includes("saved theme isn't shared"))).toBe(true);
+	});
+
+	it('a look from a member who is not the host is ignored, and so is a name that is not a built-in', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		await until(() => lookOf(a) !== null && lookOf(b) !== null, h, a, b);
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a forged tip to everyone.
+		(a as any).post({ k: 'tip', seq: 0, startedAt: 0, look: { palette: 'onyx', mode: 'light' } });
+		// biome-ignore lint/suspicious/noExplicitAny: the host itself sending a name no built-in carries.
+		(h as any).post({ k: 'tip', seq: 0, startedAt: 0, look: { palette: 'evil</style>', mode: 'light' } });
+		await settle(h, a, b);
+		expect(lookOf(b)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('the heir keeps the look when the host drops, and a newcomer gets the same one from the heir', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g: a } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
+		const { g: c } = await guestOf(h, 'Chen', { theme: 'onyx', mode: 'light' });
+		await until(() => h.view().heir === 'Amina' && a.view().heir === 'you' && lookOf(a) !== null && lookOf(c) !== null, h, a, c);
+		// biome-ignore lint/suspicious/noExplicitAny: the test drops the host's transport like a sleeping phone.
+		net.current?.drop((h as any).rt.session.getState().selfId);
+		await until(() => a.view().isHost && !c.view().hostAway, a, c);
+		expect(lookOf(a)).toEqual({ palette: 'indaco', mode: 'dark' });
+		expect(lookOf(c)).toEqual({ palette: 'indaco', mode: 'dark' });
+		const { g: d } = await guestOf(a, 'Dee', { theme: 'cuoio', mode: 'light' });
+		await until(() => lookOf(d) !== null, a, c, d);
+		expect(lookOf(d)).toEqual({ palette: 'indaco', mode: 'dark' });
+		a.dispose();
+		c.dispose();
+		d.dispose();
+	});
+
+	it('a host that reloads keeps the look it froze, not its palette now', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
+		await (h as any).saveHost();
+		h.dispose();
+		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
+		await reloaded.resume();
+		await until(() => reloaded.view().status === 'live', reloaded);
+		expect(lookOf(reloaded)).toEqual({ palette: 'indaco', mode: 'dark' });
+	});
+
+	it('the saved-theme note is not shown when the deck names a theme of its own', async () => {
+		const { notes } = await hostSession({ theme: 'Acme Brand', source: '---\ntheme: onyx\n---\n\n# Q3\n' });
+		expect(notes.some((n) => n.includes("saved theme isn't shared"))).toBe(false);
+	});
+
+	it('the lobby names the frozen look, never the host\'s palette now or a saved theme', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		h.update(deps('host-deck', { theme: 'onyx' }));
+		// biome-ignore lint/suspicious/noExplicitAny: the invite the lobby reads, from the host's session.
+		expect((h as any).rt.session.getState().invite?.theme).toBe('indaco');
+		const { h: saved } = await hostSession({ theme: 'Acme Brand' });
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		expect((saved as any).rt.session.getState().invite?.theme).toBe('');
+	});
+
+	it('a host holding no look keeps none across a reload, instead of freezing its palette now', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		// biome-ignore lint/suspicious/noExplicitAny: an heir that took over before its tip arrived holds no look.
+		(h as any).look = null;
+		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
+		await (h as any).saveHost();
+		h.dispose();
+		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
+		await reloaded.resume();
+		await until(() => reloaded.view().status === 'live', reloaded);
+		expect(lookOf(reloaded)).toBeNull();
+	});
+
+	it('a member that missed the tip gets the look with the lines it asks for', async () => {
+		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
+		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
+		await until(() => lookOf(g) !== null, h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: forget the look, then ask the host for lines as a returning member does.
+		(g as any).look = null;
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		(g as any).post({ k: 'since', seq: 0 }, (h as any).rt.session.getState().selfId);
+		await until(() => lookOf(g) !== null, h, g);
+		expect(lookOf(g)).toEqual({ palette: 'indaco', mode: 'dark' });
 	});
 });

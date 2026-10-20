@@ -16,8 +16,16 @@ export type LiveDeps = {
 	deckTitle: string;
 	slideCount: number;
 	theme: string;
+	/** The site's light or dark mode, frozen with the palette into the session's look. */
+	mode: 'light' | 'dark';
 	activeSlide: number;
 };
+
+/** The look every member's preview gives a deck that names no `theme:`. The host freezes it when the
+ *  session starts and it does not change after that, through a host drop or a takeover
+ *  (engineering/decisions/2026-10-20-live-uniform-experience.md §5.1). `palette` is a built-in name, or
+ *  null when the host's own palette is a saved theme, which is not shared: members then use the default. */
+export type LiveLook = { palette: string | null; mode: 'light' | 'dark' };
 
 /** What the session code calls back into the shell for. */
 export type LiveHost = {
@@ -32,7 +40,7 @@ export type LiveHost = {
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
-export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string };
+export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null };
 
 const read = (s: Storage, k: string): string | null => {
 	try {

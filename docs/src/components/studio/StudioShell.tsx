@@ -105,6 +105,7 @@ import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
 import { liveColor } from './live/live-model';
+import type { LiveLook } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
@@ -3645,6 +3646,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Track the document's light/dark mode reactively so exports + the preview
 	// follow a mode flip while Studio is open (the topbar writes <html data-mode>).
 	const [mode, setMode] = React.useState<string>(() => (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-mode') ?? 'light') : 'light'));
+	// The live session's frozen look (set from the session below, where `live` exists), or null.
+	const [sessionLook, setSessionLook] = React.useState<LiveLook | null>(null);
 	React.useEffect(() => {
 		const root = document.documentElement;
 		const sync = () => setMode(root.getAttribute('data-mode') ?? 'light');
@@ -3663,10 +3666,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// (`class: dark`, a `-dark` theme) wins over the site mode. resolveDeckTheme
 	// (deck-theme.ts) is the one place that precedence lives; here we map its result
 	// onto DeckPreview/Present's paletteOverride / extraTheme / modeOverride props.
-	const preview = React.useMemo(() => {
+	// In a live session the SESSION's look stands in for this browser's site palette and mode, so every
+	// member renders the same deck the same way (2026-10-20-live-uniform-experience.md §5.1). The host
+	// froze it when the session started; a null palette is a saved theme the host did not share. The
+	// Studio's own chrome keeps this browser's palette: only the deck follows the session.
+	// EXPORTS never follow the session: a member's PDF, PPTX or `.lattice` file renders as it would outside
+	// the session (an export-bytes change is the owner's call, QUALITY BAR), so they read `ownPreview`.
+	const look = sessionLook;
+	const resolvePreview = React.useCallback((look: LiveLook | null) => {
 		const isKnownTheme = (n: string) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n);
-		const r = resolveDeckTheme(source, { sitePalette: palette, siteMode: mode === 'dark' ? 'dark' : 'light', isKnownTheme });
-		const modeOverride = pinnedMode(r);
+		const sitePalette = look ? (look.palette ?? DEFAULT_PALETTE) : palette;
+		const r = resolveDeckTheme(source, { sitePalette, siteMode: look ? look.mode : mode === 'dark' ? 'dark' : 'light', isKnownTheme });
+		// Live: always pass the resolved mode, so a deck that pins none still renders in the session's.
+		const modeOverride = pinnedMode(r) ?? (look ? r.mode : undefined);
 		if (r.fromDeck) {
 			// The deck names its own theme — pin the preview to it. A deck theme that
 			// names a saved (Fabricated) library theme needs its CSS registered, so
@@ -3678,9 +3690,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
 		// existing activeTheme/extraTheme behavior). A `class: dark` on an un-themed
-		// deck still pins dark via modeOverride.
+		// deck still pins dark via modeOverride. Live: the session's built-in palette, by name.
+		if (look) return { paletteOverride: sitePalette, extraTheme: undefined, modeOverride };
 		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
 	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
+	const ownPreview = React.useMemo(() => resolvePreview(null), [resolvePreview]);
+	const preview = React.useMemo(() => (look ? resolvePreview(look) : ownPreview), [resolvePreview, ownPreview, look]);
 	// The saved Library records this deck uses — its saved theme, its saved components and
 	// its saved finishes — which a `.lattice` project carries along as package folders
 	// (portable-packages §4). Built from the same derivations the preview uses, so the file
@@ -3689,14 +3704,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Only a theme the deck NAMES: an un-themed deck previews in the site picker's theme,
 		// which the file must not carry as if the deck depended on it.
 		const named = getFrontMatter(source, 'theme');
-		const themeName = named && preview.extraTheme?.name === named ? named : undefined;
+		const themeName = named && ownPreview.extraTheme?.name === named ? named : undefined;
 		const usedComps = new Set(usedLocalComponents.map((c) => c.name));
 		return {
 			themes: themeName ? savedThemes.filter((t) => t.name === themeName) : [],
 			components: localComponents.filter((c) => usedComps.has(c.name)),
 			finishes: usedSavedFinishes,
 		};
-	}, [source, preview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
+	}, [source, ownPreview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	const goToSlideRef = React.useRef(goToSlide);
@@ -3736,6 +3751,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		deckTitle: titleFromSource(source, deck.title),
 		slideCount: slides.length,
 		theme: palette,
+		mode: mode === 'dark' ? 'dark' : 'light',
 		activeSlide: activeFullIndex,
 		goToSlide: goToFullSlide,
 		openSharedDeck: ({ deckId, title, source: shared }) => {
@@ -3751,6 +3767,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return d.id;
 		},
 	});
+	const liveLook = live.collab?.look ?? null;
+	React.useEffect(() => {
+		setSessionLook((was) => (was?.palette === liveLook?.palette && was?.mode === liveLook?.mode ? was : liveLook));
+	}, [liveLook]);
 	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
 	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
 	const openLive = () => {
@@ -6954,7 +6974,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
 				</PanelLoader>
 			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />

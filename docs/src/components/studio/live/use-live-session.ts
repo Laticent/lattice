@@ -36,8 +36,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				notifyAction: (m, o) => notifyAction(m, o),
 				rerender,
 			};
-			const { source, deckId, deckTitle, slideCount, theme, activeSlide } = depsRef.current;
-			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, activeSlide });
+			const { source, deckId, deckTitle, slideCount, theme, mode, activeSlide } = depsRef.current;
+			const c = new C(host, { source, deckId, deckTitle, slideCount, theme, mode, activeSlide });
 			setCtl(c);
 			return c;
 		});
@@ -68,7 +68,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	// Feed the controller this render's Studio state (it diffs against the last one).
 	React.useEffect(() => {
-		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, activeSlide: deps.activeSlide });
+		ctl?.update({ source: deps.source, deckId: deps.deckId, deckTitle: deps.deckTitle, slideCount: deps.slideCount, theme: deps.theme, mode: deps.mode, activeSlide: deps.activeSlide });
 	});
 
 	// Hosting others: ask before the tab goes.

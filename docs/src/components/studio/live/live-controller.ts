@@ -7,10 +7,11 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwareness
 import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
+import { BUILTIN_PALETTES } from '@/lib/theme-catalog.generated';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
-import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
+import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, type LiveLook, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
@@ -69,7 +70,21 @@ const writeLink = (room: string, patch: Linked) => {
 
 /** What a hosting tab keeps in sessionStorage. The secret and the tokens are sealed; the signing key
  *  lives in IndexedDB as a non-extractable CryptoKey (`putHostPrivateKey`), never in this record. */
-type HostSave = { room: string; sealed: string; pub: string; name: string; deckId: string; doc: string; startedAt: number };
+type HostSave = { room: string; sealed: string; pub: string; name: string; deckId: string; doc: string; startedAt: number; look?: LiveLook | null };
+
+/** The session's look as this browser would freeze it: a saved theme is not shared, so it freezes as
+ *  null (the default palette), never by name. */
+const freezeLook = (d: LiveDeps): LiveLook => ({ palette: BUILTIN_PALETTES.includes(d.theme) ? d.theme : null, mode: d.mode === 'dark' ? 'dark' : 'light' });
+/** A look as a peer sent it, or null when it is not one: only a built-in palette name and a mode. */
+const cleanLook = (v: unknown): LiveLook | null => {
+	if (!v || typeof v !== 'object') return null;
+	const { palette, mode } = v as { palette?: unknown; mode?: unknown };
+	if (mode !== 'light' && mode !== 'dark') return null;
+	if (palette !== null && (typeof palette !== 'string' || !BUILTIN_PALETTES.includes(palette))) return null;
+	return { palette, mode };
+};
+/** Whether the deck's front matter names a theme of its own (then the session's look does not apply). */
+const deckNamesTheme = (source: string): boolean => /^theme:[ \t]*\S/m.test(/^---\r?\n([\s\S]*?)\r?\n---/.exec(source)?.[1] ?? '');
 /** What `HostSave.sealed` opens to. Chat is in here because people paste things into chat. */
 type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string };
 const toB64 = (u: Uint8Array) => {
@@ -108,7 +123,8 @@ const MAX_TRIES = 6;
  *   host → all     `line`   that line, numbered and stamped
  *   member → host  `since`  "I have everything up to `seq`" — on admission, return, or a gap
  *   host → member  `lines`  everything after it, plus the session's start time
- *   host → member  `tip`    the latest number, so a returning member knows whether to ask
+ *   host → member  `tip`    the latest number, so a returning member knows whether to ask, and
+ *                           the session's frozen look
  * plus `typing` and `bye`, which are not chat and go to everyone directly.
  */
 type Post =
@@ -116,15 +132,15 @@ type Post =
 	| { k: 'gone'; id: string; name: string; color: LiveColor }
 	| { k: 'line'; line: ChatLine }
 	| { k: 'since'; seq: number }
-	| { k: 'lines'; lines: ChatLine[]; startedAt: number }
-	| { k: 'tip'; seq: number; startedAt: number }
+	| { k: 'lines'; lines: ChatLine[]; startedAt: number; look?: LiveLook }
+	| { k: 'tip'; seq: number; startedAt: number; look?: LiveLook }
 	| { k: 'typing' }
 	| { k: 'bye' }
 	/** a member's own microphone state (about itself only; who is SPEAKING is measured, never said) */
 	| { k: 'mic'; on: boolean }
 	/** host → its heir: who owns each chat-id prefix, by rejoin token, so the chat keeps its owners
 	 *  when the heir takes over (the host's own lines under its own rejoin token). */
-	| { k: 'sids'; sids: Array<[sid: string, owner: string]> }
+	| { k: 'sids'; sids: Array<[sid: string, owner: string]>; look?: LiveLook }
 	/** a regent that stepped down → the host that took the session back: the lines it numbered
 	 *  meanwhile, and the chat-id owners it learned. Taken only from a member that host certified. */
 	| { k: 'handback'; lines: ChatLine[]; sids: Array<[sid: string, owner: string]> };
@@ -370,6 +386,23 @@ export class LiveController {
 	private sinceLater = new Set<string>();
 	/** Member: the host's session start (session time), from its `lines` / `tip`. */
 	private hostStartedAt: number | null = null;
+	/** The session's look (§5.1 of the 2026-10-20 note): frozen by the host that started the session,
+	 *  carried in the host save, and taken by a member only from the current host's `tip`. A member
+	 *  that takes over keeps the one it holds, so a takeover never re-skins anyone's deck. */
+	private look: LiveLook | null = null;
+	/** The theme the lobby names: the session's frozen look, never the host's palette now (a saved theme's
+	 *  name is not shared, so it shows none). A heir that holds no look names none either. */
+	private inviteTheme(): string {
+		return this.look?.palette ?? '';
+	}
+	/** Take the look a host message carried, if it is one and differs from ours. */
+	private takeLook(v: unknown) {
+		const look = cleanLook(v);
+		if (look && (look.palette !== this.look?.palette || look.mode !== this.look?.mode)) {
+			this.look = look;
+			this.host.rerender();
+		}
+	}
 	private lastTypingPost = 0;
 	private lastSummon = 0;
 	private followJump = false;
@@ -474,7 +507,7 @@ export class LiveController {
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
 				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
 				this.sidOwner = new Map((opened.sids ?? []).filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string'));
-				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken }, startedAt: hosting.startedAt, release });
+				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken, look: 'look' in hosting ? cleanLook(hosting.look) : undefined }, startedAt: hosting.startedAt, release });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
 				this.host.notify('Your live session is back. People who were in rejoin without knocking.');
@@ -520,8 +553,10 @@ export class LiveController {
 		this.host.rerender();
 	}
 
-	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string; succession?: Succession; selfToken?: string }; token?: string; minTerm?: number; startedAt?: number; release?: () => void }) {
+	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string; succession?: Succession; selfToken?: string; look?: LiveLook | null }; token?: string; minTerm?: number; startedAt?: number; release?: () => void }) {
 		const d = this.deps;
+		// A host freezes the look now, or keeps the one its save carried. A member waits for the host's.
+		this.look = args.host ? (args.host.look === undefined ? freezeLook(d) : args.host.look) : null;
 		const doc = new Y.Doc();
 		const ytext = doc.getText('source');
 		if (args.host?.doc) Y.applyUpdate(doc, fromB64(args.host.doc));
@@ -602,7 +637,7 @@ export class LiveController {
 			transport: transport,
 			doc: docStream,
 			awareness: awStream,
-			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, ...(args.host.succession ? { succession: args.host.succession } : {}), ...(args.host.selfToken ? { selfToken: args.host.selfToken } : {}), invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
+			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, ...(args.host.succession ? { succession: args.host.succession } : {}), ...(args.host.selfToken ? { selfToken: args.host.selfToken } : {}), invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: this.inviteTheme() } } } : { hostFingerprint: args.hostFingerprint }),
 			...(args.token ? { token: args.token } : {}),
 			...(args.minTerm !== undefined ? { minTerm: args.minTerm } : {}),
 			client: aw.clientID,
@@ -643,7 +678,7 @@ export class LiveController {
 							this.floorFrom.delete(to);
 							this.sinceAt.delete(to);
 							setTimeout(() => {
-								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt }, to);
+								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, to);
 							}, 400);
 						}
 						// A newcomer learns whether our microphone is on (who is speaking it measures itself).
@@ -839,6 +874,7 @@ export class LiveController {
 		this.handbackDue = false;
 		this.lastSelfId = null;
 		this.hostStartedAt = null;
+		this.look = null;
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -906,7 +942,7 @@ export class LiveController {
 	private writeHostSave(r: Runtime): boolean {
 		const s = r.session.getState();
 		if (!r.key || !s.isHost || s.stage !== 'live' || this.lastSealed?.room !== r.room) return false;
-		const save: HostSave = { room: r.room, sealed: this.lastSealed.sealed, pub: toBase64Url(r.key.publicRaw), name: s.me?.name ?? 'Host', deckId: this.boundDeck ?? this.deps.deckId, doc: toB64(Y.encodeStateAsUpdate(r.doc)), startedAt: r.startedAt };
+		const save: HostSave = { room: r.room, sealed: this.lastSealed.sealed, pub: toBase64Url(r.key.publicRaw), name: s.me?.name ?? 'Host', deckId: this.boundDeck ?? this.deps.deckId, doc: toB64(Y.encodeStateAsUpdate(r.doc)), startedAt: r.startedAt, look: this.look };
 		try {
 			sessionStorage.setItem(HOST_KEY, JSON.stringify(save));
 			return true;
@@ -1070,7 +1106,7 @@ export class LiveController {
 		const key = `${s.heir}|${JSON.stringify(sids)}`;
 		if (key === this.sentSids) return;
 		this.sentSids = key;
-		this.post({ k: 'sids', sids }, s.heir);
+		this.post({ k: 'sids', sids, ...(this.look ? { look: this.look } : {}) }, s.heir);
 	}
 
 	/** This browser took the host role over: it numbers the chat from here, keeps the session's
@@ -1221,7 +1257,7 @@ export class LiveController {
 		// The host keeps the lobby invite current.
 		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
 			this.invitedAs = s.me?.name;
-			r.session.setInvite({ title: deps.deckTitle, hostName: s.me?.name ?? '', slides: deps.slideCount, theme: deps.theme });
+			r.session.setInvite({ title: deps.deckTitle, hostName: s.me?.name ?? '', slides: deps.slideCount, theme: this.inviteTheme() });
 		}
 	}
 
@@ -1301,7 +1337,7 @@ export class LiveController {
 		const r = this.rt;
 		const s = r?.session.getState();
 		if (!r || !this.bound || !s?.me) return null;
-		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString() };
+		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), look: this.look };
 	}
 
 	/** The chat in the host's order. A line's author is the member its `say` ARRIVED from at the
@@ -1508,7 +1544,7 @@ export class LiveController {
 							this.sinceLater.delete(from);
 							if (this.rt !== r || !r.session.getState().members.some((m) => m.id === from)) return;
 							this.sinceAt.set(from, Date.now());
-							this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
+							this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, from);
 						}, wait);
 					}
 					return;
@@ -1516,7 +1552,7 @@ export class LiveController {
 				this.sinceAt.set(from, Date.now());
 				// A member holding a number past ours means our save was older than the session (a
 				// reload): never hand those numbers out again. Bounded, so nobody can push it far.
-				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
+				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt, ...(this.look ? { look: this.look } : {}) }, from);
 			}
 		} else if (fromHost) {
 			if (p.k === 'line') {
@@ -1529,12 +1565,15 @@ export class LiveController {
 				if (line.seq > had + 1) this.post({ k: 'since', seq: had }, from);
 			} else if (p.k === 'lines' && Array.isArray(p.lines)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
+				this.takeLook(p.look);
 				this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
 			} else if (p.k === 'sids' && Array.isArray(p.sids)) {
 				// Kept whether or not we know yet that we are the heir: it can arrive before the roster.
+				this.takeLook(p.look);
 				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
+				this.takeLook(p.look);
 				// Ahead OR behind: a host whose number is below ours came back from an old save, and our
 				// `since` is what raises its floor (checker round 3, finding 2).
 				if (p.seq !== this.seq || this.pending.length) this.catchUp();
@@ -1664,6 +1703,9 @@ export class LiveController {
 				// surviving a reload, and says so (checker round 2, finding 4).
 				this.wire({ room: parts.room, secret: parts.secret, key, host: { name: n }, release });
 				this.bound = true;
+				// A saved theme stays in this browser's Library, so the session's look falls back to the
+				// default for everyone, this browser included. Say so once, where the host can act on it.
+				if (this.look && this.look.palette === null && !deckNamesTheme(this.deps.source)) this.host.notify("Your saved theme isn't shared in a live session, so everyone sees this deck in the default theme. Pick a built-in theme for the deck to change that.");
 				this.boundDeck = this.deps.deckId;
 				const keyKept = await putHostPrivateKey(parts.room, key.privateKey).then(
 					() => true,

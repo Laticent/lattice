@@ -120,8 +120,11 @@ an earlier answer, only the final one is listed, with what changed.
    drop and a takeover (design note §12.1). A built-in palette travels by name. A saved theme
    used as the host's site palette is a Library record the deck does not use, so the host is
    asked first: "Share your theme Acme Brand so everyone sees the same deck?" If they decline,
-   members use the default palette. Each member's Studio chrome keeps their own palette. Nothing
-   is written into the deck. *(Round 1 said "the host's look"; the trio showed it leaked a record
+   members use the default palette. The frozen mode also applies to a deck that names a theme but
+   pins no mode. Each member's Studio chrome keeps their own palette, and exports are unchanged:
+   a member's PDF or PPTX renders as it would outside the session. Nothing is written into the
+   deck. The ask ships with slice 1b, which is what can send the theme; until then a saved theme
+   is not shared, and the host is told. *(Round 1 said "the host's look"; the trio showed it leaked a record
    and flipped on a takeover.)*
 2. **Library dependencies: CSS arrives, code waits.** Saved themes and finishes the deck uses
    travel as the same records `deckPackages` builds. Each goes through the existing import gate
@@ -213,6 +216,33 @@ holds against a hostile peer, including the host.
 
 As §5.1, §5.2 and §6 rule 6. Slice 1 ships in two parts: 1a the frozen look, 1b the CSS records
 through the import gate.
+
+**1a as built (2026-10-20).** `LiveController` freezes the look in `wire()` when it starts a session
+(`freezeLook`: a built-in palette by name, anything else as null), keeps it in the host save (an
+empty look as an explicit null, so a reload never re-freezes the palette of the moment), and
+sends it in the `tip` post the host sends each admitted member 400 ms after admission, in the
+`lines` reply to a member's `since`, and in the `sids` post to the heir. A member takes it only in
+the `fromHost` branch of `onPost`, and only if `cleanLook` finds a built-in name and a mode. An
+heir keeps the look it holds, so a takeover changes nothing, and a newcomer admitted by the heir
+gets the same look. The lobby names the frozen look, never the host's palette of the moment.
+`LiveCollab.look` carries it to `StudioShell.tsx`, whose `preview` uses it in place of the
+browser's palette and mode on every in-app deck surface (the focused preview, the map, Present,
+the pickers, Read); `ownPreview`, without the look, feeds the Share sheet and the `.lattice`
+packages, so export bytes do not change. The host is told a saved theme is not shared only when
+the deck names no theme of its own.
+
+Measured on real headless Chromium browsers, the real transport and WebRTC (2026-10-20, scripts in
+PR #2810's comments). Steady state, two members: both slide frames read `indaco-dark`, background
+`rgb(0, 29, 51)`, while the guest's own site stayed Cuoio light. Takeover, four browsers with four
+site looks (indaco/dark host, cuoio/light, onyx/light, and a newcomer in cuoio/light): every frame
+read `indaco-dark` before the host's tab closed, after the heir took over (about 42 s later), and
+on the newcomer the heir admitted. The independent checker (tier 1) found five defects, all fixed
+with tests: exports followed the session look (a saved-theme host's PDF lost its theme); an heir
+holding no look re-froze its own palette on a reload; the host notice fired when the deck named a
+theme; the lobby named the host's palette of the moment; and the docs said "no `theme:`" where
+the frozen mode applies to any deck that pins no mode. Known and left: the preview renders once
+in the member's own look before the session's applies (one extra frame, `sessionLook` state copied
+in an effect).
 
 ### 7.2 Present together
 
