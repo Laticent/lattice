@@ -2025,7 +2025,7 @@ const SANCTIONED_MARGINS = [
   },
   {
     file: 'lib/base/base.modifiers.css',
-    value: '0.22em',
+    value: 'var(--lat-state-gap, 0.22em)',
     why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
        + 'needs its own entry because this allowlist consumes one declaration per entry. On '
        + 'the disc the case against padding is plainer than on the pill: the box is a fixed '

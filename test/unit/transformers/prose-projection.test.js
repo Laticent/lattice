@@ -2027,3 +2027,25 @@ test('every layout\'s spoken state words equal the check registry\'s', () => {
 		assert.deepEqual(got, want, layout);
 	}
 });
+
+test('a check inside a pill narrates through the layout\'s words, with a space after it', () => {
+	// engineering/decisions/2026-10-18-checks.md §14: the composed grid read "yesResidency,
+	// does not applyAdoption" because narration keyed on `.badge` and the disc's label welded on.
+	const { stateHtml } = require('../../../lib/core/state-marks.js');
+	const { html } = engine.render('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Residency\n  - [/] Adoption\n  - [ ] Calibration\n', 'indaco', {});
+	const sem = { pass: '[x]', skip: '[/]', todo: '[ ]' };
+	const composed = html.replace(/<span class="badge (\w+) state-\w+">([^<]*)<\/span>/g,
+		(_, c, text) => `<span class="lat-pill" data-shape="capsule">${stateHtml(sem[c])}${text}</span>`);
+	assert.notEqual(composed, html, 'the badges were replaced');
+	const speak1 = (h) => speak([...new JSDOM(`<body>${h}</body>`).window.document.querySelectorAll('section[data-class]')])[0];
+	const today = speak1(html);
+	assert.match(today, /Residency: yes/);
+	assert.equal(speak1(composed), today, 'the composed grid narrates like today\'s grid');
+});
+
+test('a disc inside a pill is spoken with a space after it, in a layout with no word map', async () => {
+	const { stateHtml } = require('../../../lib/core/state-marks.js');
+	const dom = new JSDOM(`<body><p><span class="lat-pill">${stateHtml('[x]')}Residency</span></p></body>`);
+	const { speechText } = await import('../../../lib/transformers/prose-projection.mjs');
+	assert.equal(speechText(dom.window.document.querySelector('p')), 'yes Residency');
+});

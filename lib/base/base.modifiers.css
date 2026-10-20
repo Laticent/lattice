@@ -4224,7 +4224,7 @@ section .lat-state {
    * the uneven rhythm this would be trying to avoid. Vertical room is the CONTAINER's to
    * own, through its `line-height`; the mark takes what the line already gives it and
    * centres on the text with `vertical-align`. */
-  margin-inline:0.22em;
+  margin-inline:var(--lat-state-gap, 0.22em);
 }
 section .lat-state.pass { --state-color:var(--pass); }
 section .lat-state.warn { --state-color:var(--warn); }

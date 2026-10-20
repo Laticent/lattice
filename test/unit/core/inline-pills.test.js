@@ -165,3 +165,52 @@ describe('inline-pills — the two render paths agree', () => {
     }
   });
 });
+
+describe('a pill that holds content a component composed', () => {
+  test('contentHtml replaces the label text; shape, color and size stay', () => {
+    assert.equal(
+      pills.pillHtml('{Residency, tag, c4, lg}', undefined, '<b>x</b> Residency'),
+      '<span class="lat-pill" data-shape="tag" data-c="c4" data-size="lg"><b>x</b> Residency</span>',
+    );
+  });
+
+  test('without content the label is escaped text, as before', () => {
+    assert.equal(pills.pillHtml('{A&B}'), '<span class="lat-pill" data-shape="pill">A&amp;B</span>');
+  });
+
+  test('content never rescues a span that is not a pill', () => {
+    assert.equal(pills.pillHtml('{X, c13}', undefined, '<b>x</b>'), null);
+    assert.equal(pills.pillHtml('plain', undefined, '<b>x</b>'), null);
+  });
+
+  test('the DOM path takes Nodes and draws no label beside them', () => {
+    const doc = new JSDOM().window.document;
+    const mark = doc.createElement('i');
+    const el = pills.pillElement(doc, '{Residency, c2}', undefined, [mark, doc.createTextNode('Residency')]);
+    assert.equal(el.firstChild, mark);
+    assert.equal(el.textContent, 'Residency', 'one copy of the label, not two');
+    assert.equal(el.getAttribute('data-c'), 'c2');
+  });
+});
+
+describe('the gap after a drawn mark inside a pill', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const read = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
+
+  test('the pill sets the disc\'s gap through its custom property, and adds no margin of its own', () => {
+    const css = read('lib/plugins/pills/pills.styles.css');
+    assert.match(css, /\.lat-pill > \.lat-state:first-child \{ --lat-state-gap:0 0\.4em; \}/);
+    assert.match(read('lib/base/base.modifiers.css'), /margin-inline:var\(--lat-state-gap, 0\.22em\);/, 'the disc reads it');
+    const margins = css.split('\n').filter((l) => /^\s*margin[\w-]*\s*:/.test(l));
+    assert.deepEqual(margins.map((l) => l.trim()), ['margin-inline:0.22em;'], 'the pill\'s one sanctioned margin, and no more');
+  });
+
+  test('the pill source never names a check', () => {
+    // The Unix test of the checks note §4: the pill knows nothing about checks, so content arrives
+    // from the component and the pill never looks inside it. Scoped to the renderer, because the
+    // reader above it legitimately discusses the reserved `{x}` marker spellings.
+    const src = read('lib/plugins/pills/pills.inline.js');
+    assert.doesNotMatch(src.slice(src.indexOf('function pillHtml')), /\bcheck|\bstatus\b/i, 'the renderer mentions neither');
+  });
+});

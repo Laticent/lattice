@@ -57,6 +57,16 @@ only shrinks. An element that merely looks like a pill (a chip an engine builds,
 is not a pill: it owns its type and shape and shares only the base `--radius-*` scale. The rules and their reasons are
 in the design note, § 4.3 and § 4.4.
 
+### Content a component composes
+
+`pillHtml(text, off, contentHtml)` and `pillElement(doc, text, off, content)` take an optional third argument: what the pill
+HOLDS in place of its label text. `contentHtml` is a string of markup the component built from its own parts (a drawn
+`.lat-state` mark, then the escaped words); `content` is an array of Nodes for the runtime's DOM path. The pill keeps its
+shape, color and size and does not look inside the content. The caller owns escaping, so author text never goes in
+unescaped. A drawn mark that leads the content gets its gap from the pill (`pills.styles.css`, the leading `.lat-state`
+rule); a component adds no spacing of its own. Narration reads such a pill through the layout's words
+(`prose-projection.mjs`). Design: `engineering/decisions/2026-10-18-checks.md` §14.
+
 ## Icons
 
 A pill's `icon=` calls the icons plugin. Icons is an essential plugin, so a host can switch it off, and then a pill

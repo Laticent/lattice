@@ -1,0 +1,2 @@
+- The pills renderer can hold content a component composes (a drawn mark followed by words), and a leading drawn mark gets a gap from the label (2.5 px to 4.5 px at 1280 x 720). Narration reads such a pill through the layout's words, so a composed `verdict-grid` speaks "Residency: yes" like today's.
+- The six check answers now live in one table, `CHECKS` in `lib/core/state-marks.js`; no deck renders differently.
