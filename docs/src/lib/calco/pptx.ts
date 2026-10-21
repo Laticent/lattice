@@ -41,6 +41,10 @@ import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, FrameRole, Gradient, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
 
+/** Loops, not a spread: `Math.min(...xs)` overflows the call stack past about 120,000 values. */
+const lowest = (xs: number[]) => xs.reduce((m, v) => (v < m ? v : m), Number.POSITIVE_INFINITY);
+const highest = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
+
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
 	return faceFamilyName({ ...face, family: safeFamily(face.family) });
@@ -393,10 +397,10 @@ export function groupShapes(xml: string): string {
 			if (!off || !ext) throw new Error('calco: a grouped shape has no position');
 			return [Number(off[1]), Number(off[2]), Number(off[1]) + Number(ext[1]), Number(off[2]) + Number(ext[2])];
 		});
-		const x = Math.min(...boxes.map((b) => b[0]));
-		const y = Math.min(...boxes.map((b) => b[1]));
-		const cx = Math.max(...boxes.map((b) => b[2])) - x;
-		const cy = Math.max(...boxes.map((b) => b[3])) - y;
+		const x = lowest(boxes.map((b) => b[0]));
+		const y = lowest(boxes.map((b) => b[1]));
+		const cx = highest(boxes.map((b) => b[2])) - x;
+		const cy = highest(boxes.map((b) => b[3])) - y;
 		const frame = `<a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/><a:chOff x="${x}" y="${y}"/><a:chExt cx="${cx}" cy="${cy}"/>`;
 		return (
 			`<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${nextId++}" name="Group ${group}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +

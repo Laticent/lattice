@@ -9,6 +9,10 @@
 import type { PlacedBox } from './layout.js';
 import type { PathCmd, Shape, Slide, TextFrame } from './types.js';
 
+/** Loops, not a spread: `Math.min(...xs)` overflows the call stack past about 120,000 values. */
+const lowest = (xs: number[]) => xs.reduce((m, v) => (v < m ? v : m), Number.POSITIVE_INFINITY);
+const highest = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
+
 export type { PathCmd };
 
 /** A shape's outline, ready to write. */
@@ -90,10 +94,10 @@ export function shapeGeometry(shape: Shape): ShapeGeometry {
 		path.push(['L', toMilli(x + w), toMilli(y + h)]);
 		if (r1) path.push(arc(bx, by, r1, b0, b1));
 		const pts = path.flatMap((c) => (c[0] === 'Z' ? [] : c[0] === 'C' ? [[c[1], c[2]], [c[3], c[4]], [c[5], c[6]]] : [[c[1], c[2]]]));
-		const minX = Math.min(...pts.map((p) => p[0]));
-		const minY = Math.min(...pts.map((p) => p[1]));
-		const maxX = Math.max(...pts.map((p) => p[0]));
-		const maxY = Math.max(...pts.map((p) => p[1]));
+		const minX = lowest(pts.map((p) => p[0]));
+		const minY = lowest(pts.map((p) => p[1]));
+		const maxX = highest(pts.map((p) => p[0]));
+		const maxY = highest(pts.map((p) => p[1]));
 		return { x: minX, y: minY, w: toMilli(maxX - minX), h: toMilli(maxY - minY), path: shift(path, -minX, -minY), closed: false };
 	}
 	const c = (shape.stroke?.width || 0) / 2;

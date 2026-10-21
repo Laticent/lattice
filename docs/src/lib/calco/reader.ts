@@ -99,6 +99,9 @@ export interface ReadOptions {
 export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResult {
 	const doc = section.ownerDocument;
 	const win = doc.defaultView as Window & typeof globalThis;
+	// Loops, not `Math.min(...xs)`: a spread of more than about 120,000 values overflows the call stack.
+	const minOf = (xs: number[]) => xs.reduce((m, v) => (v < m ? v : m), Number.POSITIVE_INFINITY);
+	const maxOf = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
 	const boxW = section.offsetWidth;
 	const boxH = section.offsetHeight;
 	const origin = section.getBoundingClientRect();
@@ -189,9 +192,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (m) {
 				const n = m[2].split(',').map(Number);
 				const [b, c] = m[1] ? [n[1], n[4]] : [n[1], n[2]];
-				v = Math.abs(b) > 1e-6 || Math.abs(c) > 1e-6;
+				// Rotation or skew turns the text; a scale resizes it past what the computed font size says.
+				v = Math.abs(b) > 1e-6 || Math.abs(c) > 1e-6 || Math.abs(n[0] - 1) > 1e-3 || Math.abs(m[1] ? n[5] - 1 : n[3] - 1) > 1e-3;
 			}
 		}
+		const ext = tcs as unknown as Record<string, string>;
+		// The `scale` and `zoom` properties and a subtree the page does not render (a closed <details>) change
+		// what is shown without touching `transform`.
+		if (!v && ext.scale && ext.scale !== 'none' && !/^1( 1)?$/.test(ext.scale)) v = true;
+		if (!v && ext.zoom && ext.zoom !== '1' && ext.zoom !== 'normal') v = true;
+		if (!v && ext.contentVisibility === 'hidden') v = true;
 		v = v || tilted(el.parentElement);
 		tiltCache.set(el, v);
 		return v;
@@ -273,12 +283,17 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 
 	const emit = (node: Text, el: Element, cs: CSSStyleDeclaration, opacity: number, clip: Clip) => {
 		if (tilted(el) || !/^horizontal/.test(cs.writingMode || 'horizontal-tb')) return;
+		// The body of a closed <details> is not shown.
+		const closed = el.closest('details');
+		if (closed && !closed.hasAttribute('open') && !el.closest('summary')) return;
 		// Stroked text: the stroke would stay in the picture under the box's text.
 		if (Number.parseFloat((cs as unknown as Record<string, string>).webkitTextStrokeWidth || '0') > 0) return;
 		const c = parseColor(cs.webkitTextFillColor && cs.webkitTextFillColor !== cs.color ? cs.webkitTextFillColor : cs.color);
 		if (!c || c.a === 0) return; // transparent text (gradient text, already hidden) stays put
 		// Two decimals: the canvas reads alpha back as a byte, so 0.5 returns as 128/255.
 		const alpha = Math.round(c.a * opacity * 100) / 100;
+		// Text that is all but clear is not text anyone reads: it stays where the page left it.
+		if (alpha < 0.02) return;
 		const spaced = cs.letterSpacing !== 'normal' && Number.parseFloat(cs.letterSpacing) !== 0;
 		const flat = alpha < 1 ? flatten(el, { ...c, a: alpha }, spaced) : undefined;
 		const style: TextStyle = {
@@ -421,7 +436,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// after a `hide`.
 	const materialized: Array<{ probe: Element; el: Element; before: string | null }> = [];
 	const tpStyle = doc.createElement('style');
-	tpStyle.textContent = '[data-calco-tp~="before"]::before{content:none!important}[data-calco-tp~="after"]::after{content:none!important}';
+	// Doubled attribute selector: a deck's own `content: ... !important` at the same specificity would otherwise win.
+	tpStyle.textContent = '[data-calco-tp~="before"][data-calco-tp]::before{content:none!important}[data-calco-tp~="after"][data-calco-tp]::after{content:none!important}';
 	const numberText = (n: number, style: string): string | null => {
 		const alpha = (k: number, up: boolean) => {
 			let out = '';
@@ -443,8 +459,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		if (n < 1 && /alpha|latin|roman/.test(style)) return String(n);
 		if (style === 'lower-alpha' || style === 'lower-latin') return alpha(n, false);
 		if (style === 'upper-alpha' || style === 'upper-latin') return alpha(n, true);
-		if (style === 'lower-roman') return roman(n, false);
-		if (style === 'upper-roman') return roman(n, true);
+		// CSS roman numerals cover 1 to 3999 and fall back to decimal beyond it.
+		if (style === 'lower-roman') return n > 3999 ? String(n) : roman(n, false);
+		if (style === 'upper-roman') return n > 3999 ? String(n) : roman(n, true);
 		if (style === 'none') return '';
 		return null; // a marker style (disc, a language's digits) is not read
 	};
@@ -621,7 +638,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			else c.el.appendChild(probe);
 			const after = snap();
 			const moved = before.some((b, i) => b.some((v, j) => Math.abs(v - after[i][j]) > 0.5));
-			if (moved) {
+			// The pseudo must really be off now: an inline or absolute one moves nothing when it stays painted, and a
+			// stand-in over a pseudo that still draws is the text twice.
+			const stillDrawn = win.getComputedStyle(c.el, c.side === 'before' ? '::before' : '::after').content !== 'none';
+			if (moved || stillDrawn) {
 				probe.remove();
 				if (had === null) c.el.removeAttribute('data-calco-tp');
 				else c.el.setAttribute('data-calco-tp', had);
@@ -640,6 +660,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		tpStyle.remove();
 	};
 	if (options?.pseudoText !== false) materializeTextPseudos();
+	// Whatever this read changes is undone by `restoreSlide`, from the moment it changes it: a read that throws
+	// midway leaves its stand-ins and probe rule behind otherwise.
+	const earlyHost = section as unknown as { __calcoRestore?: () => void };
+	const earlyExtras: Element[] = [];
+	earlyHost.__calcoRestore = () => {
+		unmaterialize();
+		for (const extra of earlyExtras) extra.remove();
+		earlyHost.__calcoRestore = undefined;
+	};
 
 	visit(section, 1, sectionRect);
 	range.detach();
@@ -670,13 +699,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			lines[lines.length - 1].push(w);
 			prev = w;
 		}
-		const left = Math.min(...words.map((w) => w.x));
-		const right = Math.max(...words.map((w) => w.x + w.w));
-		const firstTop = Math.min(...lines[0].map((w) => w.y));
-		const firstH = Math.max(...lines[0].map((w) => w.h));
+		const left = minOf(words.map((w) => w.x));
+		const right = maxOf(words.map((w) => w.x + w.w));
+		const firstTop = minOf(lines[0].map((w) => w.y));
+		const firstH = maxOf(lines[0].map((w) => w.h));
 		const last = lines[lines.length - 1];
-		const lastTop = Math.min(...last.map((w) => w.y));
-		const bottom = Math.max(...last.map((w) => w.y + w.h));
+		const lastTop = minOf(last.map((w) => w.y));
+		const bottom = maxOf(last.map((w) => w.y + w.h));
 		const br = block.getBoundingClientRect();
 		const padL = Number.parseFloat(bcs.paddingLeft) || 0;
 		const padR = Number.parseFloat(bcs.paddingRight) || 0;
@@ -698,7 +727,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// (pushed right by a `::before` marker or counter, which stays in the picture) gets a
 		// spacer of the difference below, so its words never land on the marker.
 		if (align === 'left') {
-			const start = Math.min(...lines.filter((l) => l.length).map((l) => l[0].x));
+			const start = minOf(lines.filter((l) => l.length).map((l) => l[0].x));
 			if (start > x + 1) {
 				w -= start - x;
 				x = start;
@@ -710,7 +739,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// slides them under the icon (measured: verdict pills, "peed" under a check mark).
 		// When every line shares one center, the box is narrowed around that center.
 		if (align === 'center') {
-			const centers = lines.filter((l) => l.length).map((l) => (Math.min(...l.map((wd) => wd.x)) + Math.max(...l.map((wd) => wd.x + wd.w))) / 2);
+			const centers = lines.filter((l) => l.length).map((l) => (minOf(l.map((wd) => wd.x)) + maxOf(l.map((wd) => wd.x + wd.w))) / 2);
 			const c = centers.reduce((a, b) => a + b, 0) / centers.length;
 			if (centers.every((v) => Math.abs(v - c) <= 1) && Math.abs(c - (x + w / 2)) > 1) {
 				const half = Math.min(c - x, x + w - c);
@@ -720,13 +749,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		}
 		// A right-aligned box ends where its lines end, for the same reason on the other side.
 		if (align === 'right' && !rtl) {
-			const end = Math.max(...lines.filter((l) => l.length).map((l) => Math.max(...l.map((wd) => wd.x + wd.w))));
+			const end = maxOf(lines.filter((l) => l.length).map((l) => maxOf(l.map((wd) => wd.x + wd.w))));
 			if (end < x + w - 1) w = end - x;
 		}
 		// The line pitch is the SMALLEST step between two lines; a step of several pitches is
 		// blank lines (an empty line in code has no word to read), which go back in as empty
 		// lines so everything after them keeps its place.
-		const tops = lines.map((l) => Math.min(...l.map((wd) => wd.y)));
+		const tops = lines.map((l) => minOf(l.map((wd) => wd.y)));
 		const steps = tops.slice(1).map((t, k) => t - tops[k]).filter((d) => d > firstH * 0.5);
 		// Only preformatted text has blank lines, and its line height is uniform, so its own
 		// computed line-height is a pitch even when no two lines sit one step apart. (Prose is
@@ -734,7 +763,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const declared = Number.parseFloat(bcs.lineHeight);
 		const preformatted = words.some((wd) => wd.pre);
 		if (preformatted && declared > firstH * 0.5) steps.push(declared);
-		const lineHeight = steps.length ? Math.min(...steps) : lines.length > 1 ? (lastTop - firstTop) / (lines.length - 1) : firstH;
+		const lineHeight = steps.length ? minOf(steps) : lines.length > 1 ? (lastTop - firstTop) / (lines.length - 1) : firstH;
 		// A tall inline in prose makes an uneven step, not a blank line: only code gets them.
 		for (let k = lines.length - 1; preformatted && k > 0; k--) {
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
@@ -1096,7 +1125,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			out.push(inner.slice(at).trim());
 			return out;
 		};
-		const tileOf = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect): Rect | null => {
+		const tileOf = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect, out?: { full?: Rect }): Rect | null => {
 			// The origin box: padding box unless the page says otherwise. A gradient under an OPAQUE or clear
 			// border covers the border box as far as anyone can see, and its stops are at most the border's
 			// width off.
@@ -1138,13 +1167,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const [rx, ry] = rep[0] === 'repeat-x' ? ['repeat', 'no-repeat'] : rep[0] === 'repeat-y' ? ['no-repeat', 'repeat'] : [rep[0], rep[1] || rep[0]];
 			// A tile smaller than the box that repeats would paint many; that stays a picture.
 			if ((rx !== 'no-repeat' && tw < o.w - 0.5) || (ry !== 'no-repeat' && th < o.h - 0.5)) return null;
-			// A tile wider than the box is cut to it (a stripe sized for a wider slide).
-			const wx = tw >= o.w - 0.5 ? 0 : tx;
-			const wy = th >= o.h - 0.5 ? 0 : ty;
-			const x0 = o.x + Math.max(0, wx);
-			const y0 = o.y + Math.max(0, wy);
-			const x1 = o.x + Math.min(o.w, wx + tw);
-			const y1 = o.y + Math.min(o.h, wy + th);
+			// The whole tile, placed in the origin box: it may be larger than the box (a stripe sized for a wider slide,
+			// a 200% ramp), and then only the part inside the box is painted.
+			const fx = o.x + tx;
+			const fy = o.y + ty;
+			if (out) out.full = { x: fx, y: fy, w: tw, h: th };
+			const x0 = Math.max(o.x, fx);
+			const y0 = Math.max(o.y, fy);
+			const x1 = Math.min(o.x + o.w, fx + tw);
+			const y1 = Math.min(o.y + o.h, fy + th);
 			return x1 - x0 > 0 && y1 - y0 > 0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
 		};
 		// The one-color layer's paint, or null when the layer is anything else.
@@ -1159,7 +1190,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		// A linear gradient over the tile, in the shape a writer can draw: an angle and stops. Corner
 		// directions, radial and repeating gradients stay pictures.
-		const gradientOf = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect, op: number): Gradient | null => {
+		const gradientOf = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect, op: number, full: Rect): Gradient | null => {
 			const m = (cs.backgroundImage || '').match(/^linear-gradient\((.*)\)$/);
 			if (!m || splitArgs(cs.backgroundImage).length !== 1) return null;
 			let args = splitArgs(m[1]);
@@ -1176,7 +1207,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			} else if (/^-?[\d.]+(turn|rad|grad)$/.test(first)) return null;
 			if (args.length < 2) return null;
 			const rad = (angle * Math.PI) / 180;
-			const line = Math.abs(rect.w * Math.sin(rad)) + Math.abs(rect.h * Math.cos(rad));
+			const line = Math.abs(full.w * Math.sin(rad)) + Math.abs(full.h * Math.cos(rad));
 			if (!(line > 0)) return null;
 			const raw: Array<{ c: { r: number; g: number; b: number; a: number }; pos: number | null }> = [];
 			for (const a of args) {
@@ -1210,11 +1241,44 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				for (let k = i; k < j; k++) raw[k].pos = a0 + ((a1 - a0) * (k - i + 1)) / (j - i + 1);
 				i = j;
 			}
-			let prev = 0;
-			const stops = raw.map(({ c, pos }) => {
-				prev = Math.min(1, Math.max(prev, pos as number));
+			let prev = Number.NEGATIVE_INFINITY;
+			let ramp = raw.map(({ c, pos }) => {
+				prev = Math.max(prev, pos as number);
 				return { c, pos: prev };
 			});
+			// The part of the ramp that shows: all of it when the tile fits the box, else the slice the box cuts out.
+			// Only a ramp along an axis can be cut; stops beyond 0..1 are a slice of the ramp too.
+			let from = 0;
+			let to = 1;
+			const cutX = Math.abs(rect.x - full.x) > 0.5 || Math.abs(rect.w - full.w) > 0.5;
+			const cutY = Math.abs(rect.y - full.y) > 0.5 || Math.abs(rect.h - full.h) > 0.5;
+			if (cutX || cutY) {
+				if (angle === 90) [from, to] = [(rect.x - full.x) / full.w, (rect.x + rect.w - full.x) / full.w];
+				else if (angle === 270) [from, to] = [(full.x + full.w - (rect.x + rect.w)) / full.w, (full.x + full.w - rect.x) / full.w];
+				else if (angle === 180) [from, to] = [(rect.y - full.y) / full.h, (rect.y + rect.h - full.y) / full.h];
+				else if (angle === 0) [from, to] = [(full.y + full.h - (rect.y + rect.h)) / full.h, (full.y + full.h - rect.y) / full.h];
+				else return null;
+				// A tile cut across the ramp's other axis (a 90deg ramp cut in y) shows the whole ramp.
+			}
+			if (!(to > from)) return null;
+			const head = ramp[0];
+			const tail = ramp[ramp.length - 1];
+			const at = (t: number) => {
+				if (t <= head.pos) return head.c;
+				if (t >= tail.pos) return tail.c;
+				for (let i = 1; i < ramp.length; i++) {
+					if (t > ramp[i].pos) continue;
+					const lo = ramp[i - 1];
+					const hi = ramp[i];
+					const k = hi.pos === lo.pos ? 1 : (t - lo.pos) / (hi.pos - lo.pos);
+					return { r: lo.c.r + (hi.c.r - lo.c.r) * k, g: lo.c.g + (hi.c.g - lo.c.g) * k, b: lo.c.b + (hi.c.b - lo.c.b) * k, a: lo.c.a + (hi.c.a - lo.c.a) * k };
+				}
+				return tail.c;
+			};
+			if (from !== 0 || to !== 1 || ramp.some((st) => st.pos < 0 || st.pos > 1)) {
+				ramp = [{ c: at(from), pos: 0 }, ...ramp.filter((st) => st.pos > from && st.pos < to).map((st) => ({ c: st.c, pos: (st.pos - from) / (to - from) })), { c: at(to), pos: 1 }];
+			}
+			const stops = ramp;
 			// A fully transparent stop carries the color of its neighbor, so an office suite that blends the
 			// channels apart does not fade through black.
 			const solid = stops.find((st) => st.c.a > 0);
@@ -1235,9 +1299,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			let fill = paintOf(cs.backgroundColor, op);
 			// A one-color or gradient layer, sized and placed, over the box. With no background color under it, it IS the
 			// box's fill (cut to its tile); over a color, it is a second shape above the box.
-			const tile = (!cs.borderImageSource || cs.borderImageSource === 'none') && cs.backgroundImage && cs.backgroundImage !== 'none' ? tileOf(cs, rect) : null;
+			const fullTile: { full?: Rect } = {};
+			const tile = (!cs.borderImageSource || cs.borderImageSource === 'none') && cs.backgroundImage && cs.backgroundImage !== 'none' ? tileOf(cs, rect, fullTile) : null;
 			const solid = tile ? solidLayer(cs, op) : null;
-			const gradient = tile && !solid ? gradientOf(cs, tile, op) : null;
+			const gradient = tile && !solid && fullTile.full ? gradientOf(cs, tile, op, fullTile.full) : null;
 			const layer = tile && (solid || gradient) ? { tile, paint: solid, gradient } : null;
 			// The stand-in color of a gradient is its most opaque stop; it also tells `covers` the box paints its area.
 			const standIn = (g: Gradient): Paint => {
@@ -1361,6 +1426,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// takes its place for one read, and the pseudo is switched off meanwhile. If anything else
 		// moved by the swap, the pseudo is not measured and stays in the picture.
 		const probeStyle = doc.createElement('style');
+		earlyExtras.push(probeStyle);
 		probeStyle.textContent = '[data-calco-probe="before"]::before,[data-calco-probe="after"]::after{content:none!important}';
 		const LAYOUT = ['display', 'position', 'top', 'right', 'bottom', 'left', 'float', 'clear', 'order', 'flexGrow', 'flexShrink', 'flexBasis', 'alignSelf', 'justifySelf', 'verticalAlign', 'boxSizing', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'transform'] as const;
 		const measurePseudo = (el: Element, which: '::before' | '::after', ps: CSSStyleDeclaration & Record<string, string>): Rect | null => {
@@ -1621,12 +1687,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				return out;
 			});
 			if (!pts.length) return null;
+			if (pts.some((v) => !Number.isFinite(v) || Math.abs(v) > 1e6)) return null;
 			const xs = pts.filter((_v, k) => k % 2 === 0);
 			const ys = pts.filter((_v, k) => k % 2 === 1);
-			let bx = Math.min(...xs);
-			let by = Math.min(...ys);
-			let bw = Math.max(...xs) - bx;
-			let bh = Math.max(...ys) - by;
+			// A path that leaves its box is clipped by the mask in the browser; a shape would not be.
+			const reach = (Number.parseFloat(attr(first, 'stroke-width') || '1') || 1) * ((sx + sy) / 2);
+			if (minOf(xs) < r.x - reach - 1 || maxOf(xs) > r.x + r.w + reach + 1 || minOf(ys) < r.y - reach - 1 || maxOf(ys) > r.y + r.h + reach + 1) return null;
+			let bx = minOf(xs);
+			let by = minOf(ys);
+			let bw = maxOf(xs) - bx;
+			let bh = maxOf(ys) - by;
 			// A straight rule has no thickness in one direction; a path needs a box.
 			if (bw < 1) {
 				bx -= (1 - bw) / 2;
@@ -1641,6 +1711,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const shape: Shape = { kind: 'path', x: round(bx), y: round(by), w: round(bw), h: round(bh), path, closed: cmds.some((c) => c[0] === 'Z') && !stroked, pseudo: true };
 			if (stroked) {
 				const width = Number.parseFloat(attr(first, 'stroke-width') || '1') * ((sx + sy) / 2);
+				if (!Number.isFinite(width)) return null;
 				shape.stroke = { ...color, width: round(width) };
 				const cap = attr(first, 'stroke-linecap');
 				const join = attr(first, 'stroke-linejoin');
@@ -1846,32 +1917,59 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			at: number;
 		}
 		const clusterItems = (): Cluster[] => {
-			const out: Cluster[] = [];
+			let groups: Cluster[] = [];
 			for (const it of items) {
 				const ink = grow(it.rect, (it.bleed || 0) + SPRITE_PAD);
 				const x0 = Math.max(0, Math.floor(ink.x));
 				const y0 = Math.max(0, Math.floor(ink.y));
 				const x1 = Math.min(boxW, Math.ceil(ink.x + ink.w));
 				const y1 = Math.min(boxH, Math.ceil(ink.y + ink.h));
-				if (!(x1 > x0 && y1 > y0)) continue;
-				out.push({ items: [it], box: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, at: 0 });
+				if (x1 > x0 && y1 > y0) groups.push({ items: [it], box: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, at: 0 });
 			}
-			for (let merged = true; merged; ) {
-				merged = false;
-				for (let i = 0; i < out.length && !merged; i++) {
-					for (let j = i + 1; j < out.length && !merged; j++) {
-						if (!overlaps(out[i].box, out[j].box)) continue;
-						const a = out[i].box;
-						const b = out[j].box;
-						const x0 = Math.min(a.x, b.x);
-						const y0 = Math.min(a.y, b.y);
-						out[i] = { items: [...out[i].items, ...out[j].items], box: { x: x0, y: y0, w: Math.max(a.x + a.w, b.x + b.w) - x0, h: Math.max(a.y + a.h, b.y + b.h) - y0 }, at: 0 };
-						out.splice(j, 1);
-						merged = true;
+			// Merge groups whose boxes overlap, by a sweep along x (each box is compared only with the boxes that are
+			// still open at its left edge), and again on the merged boxes until none overlap.
+			for (;;) {
+				groups.sort((a, b) => a.box.x - b.box.x);
+				const parent = groups.map((_g, i) => i);
+				const find = (i: number): number => {
+					let r = i;
+					while (parent[r] !== r) r = parent[r];
+					for (let k = i; parent[k] !== r; ) {
+						const next = parent[k];
+						parent[k] = r;
+						k = next;
 					}
+					return r;
+				};
+				let active: number[] = [];
+				let joined = false;
+				for (let i = 0; i < groups.length; i++) {
+					const gi = groups[i].box;
+					active = active.filter((j) => groups[j].box.x + groups[j].box.w - 0.5 > gi.x);
+					for (const j of active) {
+						if (overlaps(groups[j].box, gi) && find(i) !== find(j)) {
+							parent[find(i)] = find(j);
+							joined = true;
+						}
+					}
+					active.push(i);
 				}
+				if (!joined) return groups;
+				const merged = new Map<number, Cluster>();
+				groups.forEach((g, i) => {
+					const root = find(i);
+					const hit = merged.get(root);
+					if (!hit) {
+						merged.set(root, { items: [...g.items], box: { ...g.box }, at: 0 });
+						return;
+					}
+					hit.items.push(...g.items);
+					const x0 = Math.min(hit.box.x, g.box.x);
+					const y0 = Math.min(hit.box.y, g.box.y);
+					hit.box = { x: x0, y: y0, w: Math.max(hit.box.x + hit.box.w, g.box.x + g.box.w) - x0, h: Math.max(hit.box.y + hit.box.h, g.box.y + g.box.h) - y0 };
+				});
+				groups = [...merged.values()];
 			}
-			return out;
 		};
 		let clusters: Cluster[] = [];
 		if (!options?.sprites) {
@@ -1930,7 +2028,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const owners = k.items.map((it) => it.owner);
 				const rep = owners.reduce((a, b) => commonAncestor(a, b));
 				const pic: Shape = { kind: 'picture', x: k.box.x, y: k.box.y, w: k.box.w, h: k.box.h };
-				const alt = k.items.find((it) => it.alt)?.alt;
+				// Every distinct description in the cluster (an icon and the chart beside it), not just the first.
+				const alt = [...new Set(k.items.map((it) => it.alt).filter(Boolean))].join('. ');
 				if (alt) pic.alt = alt;
 				shapes.push(pic);
 				shapeEls.push(rep);
@@ -2292,6 +2391,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			};
 		} else unmaterialize();
 	}
+	if (!hidden) earlyHost.__calcoRestore = undefined;
 	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }
 
@@ -2349,6 +2449,18 @@ export function splitSlide(section: HTMLElement, which: 'background' | 'foregrou
 		if (which === 'background' ? text : !text) rules.push(`${sel}${pseudo} { visibility: hidden !important; }`);
 	}
 	const layer = `${sel} [data-calco-backdrop], ${sel} [data-calco-backdrop] *`;
+	// The background hides every element INLINE. A stylesheet rule can be outranked by a deck's own `!important`
+	// (`visibility: visible !important` on a paragraph), and a paragraph that stays visible is baked into a
+	// background that other slides share. An inline `!important` is outranked only by another inline one, which
+	// this replaces; the author's inline value is put back on undo.
+	const hiddenInline: Array<[HTMLElement, string | null]> = [];
+	if (which === 'background') {
+		for (const el of Array.from(section.querySelectorAll<HTMLElement>('*'))) {
+			if (!el.style || el.closest('[data-calco-backdrop]')) continue;
+			hiddenInline.push([el, el.getAttribute('style')]);
+			el.style.setProperty('visibility', 'hidden', 'important');
+		}
+	}
 	if (which === 'background') rules.push(`${sel} * { visibility: hidden !important; }`, `${layer} { visibility: visible !important; }`);
 	else rules.push(`${layer} { visibility: hidden !important; }`,`${sel} { background: none !important; border-color: transparent !important; border-image: none !important; box-shadow: none !important; outline-color: transparent !important; }`);
 	style.textContent = rules.join('\n');
@@ -2358,6 +2470,12 @@ export function splitSlide(section: HTMLElement, which: 'background' | 'foregrou
 	void section.getBoundingClientRect();
 	host.__calcoSplit = () => {
 		style.remove();
+		for (const [el, saved] of hiddenInline) {
+			// Read first: Chrome writes CSSOM changes back to the attribute lazily.
+			el.getAttribute('style');
+			if (saved === null) el.removeAttribute('style');
+			else el.setAttribute('style', saved);
+		}
 		for (const el of backdrops) el.removeAttribute('data-calco-backdrop');
 		section.removeAttribute('data-calco-split');
 		delete host.__calcoSplit;
