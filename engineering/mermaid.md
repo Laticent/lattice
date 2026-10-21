@@ -702,7 +702,7 @@ node with an `<img>` label would size differently there).
 **What the frame does not isolate.** In Chromium a sandboxed frame from the same site runs on the page's own thread. A definition that
 is CPU-bound for a long time (measured in review: a 14.5 KB mindmap of 1,200 nodes blocked the page for 33 s, a 33 KB state diagram for 17 s)
 freezes the Studio tab, and the host's 15 s timeout cannot fire until the work returns. The in-page library froze it the same way, so this is
-not new, but the frame does not fix it either. Only a frame served from another site gets its own process (measured above), which needs a second host.
+not new, but the frame does not fix it either. Only a frame served from another site gets its own process (measured above), which needs a second host; the owner ruled that out (2026-10-21).
 
 **When the frame cannot load.** The boot module imports the entry with a dynamic `import()` and posts `failed` if it cannot, so the host
 learns at once instead of waiting out its 30 s open timeout. The host then drops Mermaid from the list of kinds it offers (`kinds` is read
@@ -715,14 +715,14 @@ Chromium keys its HTTP cache by the frame's origin, so the modules are fetched a
 `immutable` still reached the server on each of three loads). The in-page library came from the service worker's cache after the first visit.
 The cold-cache numbers below therefore do not cover a returning visitor, and the offline Studio falls back to the in-page library only
 after the first failed draw. A frame served from a second origin with `allow-same-origin` would get its own cache, service worker and
-process, and that is the owner's call (see the decision note).
+process; the owner ruled a second origin out (2026-10-21), so this stays as it is (see the decision note).
 
 **What it costs and what it saves** (CPU trace of the real Studio, headless Chromium, three runs each, editor change to first diagram):
 1779 ms drawing in the page, 1366 ms in the frame, against 885 ms for a prose deck; main-thread time 1652 ms and 1257 ms. The page
 warms the frame when a deck holds a fence, so it overlaps the preview's own start. A later edit is within noise of the old path.
 What is left over the prose floor (about 480 ms) is the preview's own start and the first draw, all on the one main thread: only a frame
 in another process would run in parallel (a frame served from a different site is isolated by the browser; measured 13 to 48 ms of
-parent-thread blocking against 330 to 590 ms for a same-site frame), which needs a second host and is a decision for the owner.
+parent-thread blocking against 330 to 590 ms for a same-site frame), which needs a second host; the owner ruled that out (2026-10-21).
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
