@@ -435,8 +435,10 @@ function main() {
       for (const mood of THEMES) items.push({ kind: 'gallery', md, mood, relPath: md.replace(/\.gallery\.md$/, `.gallery.${mood}.pdf`) });
     }
     for (const pdf of renderPlan.decks) items.push({ kind: 'deck', md: pdf.replace(/\.pdf$/, '.md'), mood: '·', relPath: pdf });
+    let renderedCount = 0;
     for (const item of items) {
       if (covered.has(item.relPath)) continue;
+      process.stderr.write(`golden-diff: render ${++renderedCount}/${items.length} ${item.relPath}\n`);
       const { name, mood } = describe(item.relPath, item.kind);
       const r = renderAndCompare(base, item);
       if (r.status === 'stale-on-main' && !depChange) { staleOnMain.push(item.relPath); continue; }
@@ -509,6 +511,10 @@ function main() {
     if (renderPlan.omitted.length) {
       lines.push('', `⚠️ **${renderPlan.omitted.length} more galler${renderPlan.omitted.length === 1 ? 'y' : 'ies'} could be affected but ${renderPlan.omitted.length === 1 ? 'was' : 'were'} not rendered** (the per-PR cap is ${RENDER_CAP} renders). The nightly bless renders the whole corpus.`);
     }
+    if (renderPlan.omittedDecks?.length) {
+      const n = renderPlan.omittedDecks.length;
+      lines.push('', `⚠️ **${n} deck${n === 1 ? "" : "s"} not rendered** (the per-PR cap is ${RENDER_CAP} renders). The nightly bless renders them.`);
+    }
     if (staleOnMain.length) {
       lines.push('', `<sub>${staleOnMain.length} golden${staleOnMain.length === 1 ? ' is' : 's are'} stale on main (they differ from main's PDF but this PR did not move them); the nightly bless refreshes them.</sub>`);
     }
@@ -555,7 +561,7 @@ function main() {
     montageCap: MONTAGE_CAP,
     montagesOmitted,
     render: renderPlan
-      ? { scope: renderPlan.scope, cap: RENDER_CAP, galleries: renderPlan.galleries, decks: renderPlan.decks, omitted: renderPlan.omitted, staleOnMain, errors: renderErrors }
+      ? { scope: renderPlan.scope, cap: RENDER_CAP, galleries: renderPlan.galleries, decks: renderPlan.decks, omitted: renderPlan.omitted, omittedDecks: renderPlan.omittedDecks, staleOnMain, errors: renderErrors }
       : null,
   };
   writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
