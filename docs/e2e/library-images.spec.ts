@@ -116,6 +116,7 @@ async function openLibraryImages(page: Page, width: number) {
 		await page.getByRole('button', { name: CHROME.moreControls, exact: true }).click();
 		await page.getByRole('button', { name: /^Library/ }).click();
 	}
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 }
 

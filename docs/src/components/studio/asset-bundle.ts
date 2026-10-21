@@ -183,7 +183,7 @@ token; the derivation is WCAG-AA in light **and** dark.
 - \`${t.name}/\` — the theme as a Lattice package: \`${t.name}.manifest.json\` (its name and label), \`${t.name}.css\` (the serialized \`@theme ${t.name}\`)${t.essentials ? `, and \`${t.name}.essentials.json\` (the picked colors, so it reopens for editing)` : ''}.
 ${hasShowcase ? `- \`${t.name}-showcase.pdf\` — a representative deck rendered in this theme (title · KPIs · chart · Mermaid · split-panel · closer).\n` : ''}
 ## Use it
-Open the Studio → **Library** → **Import .zip**. The folder is the same shape a Lattice repo keeps its packages in.
+Open the Studio → **Library** → **Import**. The folder is the same shape a Lattice repo keeps its packages in.
 `;
 }
 
@@ -196,7 +196,7 @@ A local, palette-blind, scope-checked component for [Lattice](https://lattice.st
 - \`${c.name}/\` — the component as a Lattice package: \`${c.name}.manifest.json\`, \`${c.name}.styles.css\` (the \`.${c.name}\`-scoped styles, palette-blind) and \`${c.name}.gallery.md\` (a sample slide that invokes \`<!-- _class: ${c.name} -->\`).
 
 ## Use it
-Open the Studio → **Library** → **Import .zip**, then **Insert** it into any deck.
+Open the Studio → **Library** → **Import**, then **Insert** it into any deck.
 `;
 }
 
@@ -210,7 +210,7 @@ Every color is a token; it recolors with the theme and bakes clean into PDF/PPTX
 - \`${f.name}/\` — the finish as a Lattice package: \`${f.name}.manifest.json\` and \`${f.name}.recipe.json\`, the structured layer recipe. The CSS is generated from the recipe on import, so it is not in the zip. Apply it per slide with \`<!-- _class: finish finish-${f.name} -->\` or deck-wide with \`class: finish finish-${f.name}\`.
 
 ## Use it
-Open the Studio → **Library** → **Import .zip**, then pick it from the Finish menu in the Inspector.
+Open the Studio → **Library** → **Import**, then pick it from the Finish menu in the Inspector.
 `;
 }
 
@@ -226,7 +226,7 @@ a PDF.
 ${s.poster ? `- \`${s.name}/${s.name}.poster.svg\` — the hero still (keeps \`var(--token)\`, so it recolors with the theme).\n` : ''}${s.art ? `- \`${s.name}/${s.name}.art.svg\` — the authored line-art the scene draws.\n` : ''}
 
 ## Use it
-Open the Studio → **Library** → **Import .zip**, then place it via the scene component.
+Open the Studio → **Library** → **Import**, then place it via the scene component.
 `;
 }
 
@@ -271,7 +271,7 @@ export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob |
 	const { themePackage, componentPackage, finishPackage, motionPackage } = await packageZip();
 	const pkgs = [...themes.map((t) => themePackage(t.theme)), ...components.map(componentPackage), ...finishes.map(finishPackage), ...scenes.map(motionPackage)];
 	const extras: Record<string, string | Blob> = {
-		'README.md': `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es) + ${scenes.length} motion(s).\nEach folder is a Lattice package: \`<type>/<name>/<name>.manifest.json\` plus its files.\nImport via the Studio → **Library** → **Import .zip**.\n`,
+		'README.md': `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es) + ${scenes.length} motion(s).\nEach folder is a Lattice package: \`<type>/<name>/<name>.manifest.json\` plus its files.\nImport via the Studio → **Library** → **Import**.\n`,
 	};
 	for (const { theme, showcase } of themes) if (showcase) extras[`showcases/${theme.name}-showcase.pdf`] = showcase;
 	// A single-item "bundle" still lands under its type folder, so a bundle is always the same shape.

@@ -25,7 +25,7 @@ import { classifyMedia, importImage, importVideo, LIBRARY_MEDIA_ACCEPT, MediaImp
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
-import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
+import { LIBRARY_HEADER, LIBRARY_KINDS, LIBRARY_SECTIONS, type LibraryFilter, type LibrarySection, sectionFilter, sectionOf } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
@@ -64,6 +64,9 @@ function fmtDate(ts: number): string {
 	}
 }
 
+/** Everything the one Import picker offers: a package archive, photos and clips, and reference files. */
+const IMPORT_ACCEPT = `.zip,${LIBRARY_MEDIA_ACCEPT},${REF_DOC_ACCEPT}`;
+
 /** The reference-file extensions the picker accepts, as a lower-cased set. */
 const REF_DOC_EXTS = new Set(
 	REF_DOC_ACCEPT.split(',').map((e) => e.trim().toLowerCase()).filter((e) => e.startsWith('.')),
@@ -93,6 +96,24 @@ export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; im
 		else rejected.push(f);
 	}
 	return { zips, docs, images, rejected };
+}
+
+/**
+ * Where the Library should open after a batch lands: the one place it all belongs, or All when it
+ * spans kinds. A package archive goes to Design, a photo to Images, a clip to Videos, a mix of the
+ * two to Media, a reference file to Files. `null` when nothing in the batch can be added.
+ */
+export function landingFilter(c: { zips: File[]; docs: File[]; images: File[] }): LibraryFilter | null {
+	const clips = c.images.filter((f) => classifyMedia(f) === 'video').length;
+	const photos = c.images.length - clips;
+	const kinds: LibraryFilter[] = [];
+	if (c.zips.length) kinds.push('design');
+	if (c.docs.length) kinds.push('refdoc');
+	if (photos && clips) kinds.push('media');
+	else if (photos) kinds.push('image');
+	else if (clips) kinds.push('video');
+	if (!kinds.length) return null;
+	return kinds.length === 1 ? kinds[0] : 'all';
 }
 
 /**
@@ -226,9 +247,19 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [historyFor, setHistoryFor] = React.useState<VersionedAsset | null>(null);
 	const [scenes, setScenes] = React.useState<StudioScene[]>([]);
 	const [shipped, setShipped] = React.useState<ShippedScene[]>([]);
-	const fileRef = React.useRef<HTMLInputElement>(null);
-	const docFileRef = React.useRef<HTMLInputElement>(null);
-	const mediaFileRef = React.useRef<HTMLInputElement>(null);
+	// ONE picker for everything. What a file IS decides where it goes (`classifyDropped`), not which
+	// button it came through, so a person never has to know the kind before they choose.
+	const importRef = React.useRef<HTMLInputElement>(null);
+	// Items saved at or after this time wear a ring for a few seconds, so a batch is easy to find.
+	const [freshSince, setFreshSince] = React.useState(0);
+	const freshTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	React.useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
+	function markFresh() {
+		setFreshSince(Date.now());
+		if (freshTimer.current) clearTimeout(freshTimer.current);
+		freshTimer.current = setTimeout(() => setFreshSince(0), 8000);
+	}
+	const isFresh = (at?: number) => freshSince > 0 && (at ?? 0) >= freshSince;
 
 	// `reload` is a stable callback, so it reads the open deck through a ref rather than closing over a stale id.
 	const activeDeckIdRef = React.useRef(activeDeckId);
@@ -309,10 +340,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	}, [open, reload, initialFilter]);
 
 	const q = query.trim().toLowerCase();
-	const vThemes = filter === 'all' || filter === 'theme' ? themes.filter((t) => !q || t.label.toLowerCase().includes(q) || t.name.includes(q)) : [];
-	const vComponents = filter === 'all' || filter === 'component' ? components.filter((c) => !q || c.name.includes(q) || (c.bucket || '').includes(q)) : [];
-	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
-	const vScenes = filter === 'all' || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
+	const inDesign = filter === 'all' || filter === 'design';
+	const vThemes = inDesign || filter === 'theme' ? themes.filter((t) => !q || t.label.toLowerCase().includes(q) || t.name.includes(q)) : [];
+	const vComponents = inDesign || filter === 'component' ? components.filter((c) => !q || c.name.includes(q) || (c.bucket || '').includes(q)) : [];
+	const vFinishes = inDesign || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
+	const vScenes = inDesign || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	const shownMedia = visibleMedia(media, activeDeckId);
 	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
 	const liveSource = React.useDeferredValue(activeDeckSource);
@@ -322,9 +354,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
 		return Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, sources)]));
 	}, [media, otherSources, liveSource]);
-	// The Images tab holds photos and the Videos tab clips; "All" shows both.
-	const vMedia = filter === 'all' || filter === 'media' || filter === 'video' ? shownMedia.filter((a) => (filter === 'all' || a.kind === (filter === 'video' ? 'video' : 'image')) && (!q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q))) : [];
-	const mediaTab = filter === 'media' || filter === 'video';
+	// Media holds photos and clips; Images and Videos narrow it, and "All" shows both.
+	const mediaTab = filter === 'media' || filter === 'image' || filter === 'video';
+	const vMedia = filter === 'all' || mediaTab ? shownMedia.filter((a) => (filter === 'all' || filter === 'media' || a.kind === (filter === 'video' ? 'video' : 'image')) && (!q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q))) : [];
+	const mediaWord = filter === 'video' ? 'videos' : filter === 'image' ? 'images' : 'photos or videos';
 	const videoCount = shownMedia.filter((a) => a.kind === 'video').length;
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
 	// The shipped scenes show on the Motion tab only. "All" is the user's own shelf, and four
@@ -450,8 +483,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	function removeDoc(d: RefDocRecord) {
 		deleteRefDoc(d.id).then(() => { reload(); notify(`Deleted ${d.name}.`); });
 	}
-	async function addDocFiles(files: FileList | null) {
+	async function addDocFiles(files: FileList | File[] | null) {
 		if (!files?.length) return;
+		markFresh();
 		setBusy('Adding…');
 		let n = 0;
 		try {
@@ -466,7 +500,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			notify(String((e as Error)?.message || 'Could not add that file.'));
 		} finally {
 			setBusy(null);
-			if (docFileRef.current) docFileRef.current.value = '';
 		}
 	}
 
@@ -488,10 +521,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const photos = picked.filter((f) => classifyMedia(f) !== 'video');
 		if (clips.length) void importClips(clips);
 		if (photos.length) setPendingPhotos(photos);
-		else if (mediaFileRef.current) mediaFileRef.current.value = '';
 	}
 	async function importClips(picked: File[]) {
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
+		markFresh();
 		setBusy('Adding…');
 		const taken = new Set((await listMedia()).map((a) => a.name));
 		let n = 0;
@@ -516,11 +549,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
 		} finally {
 			setBusy(null);
-			if (mediaFileRef.current) mediaFileRef.current.value = '';
 		}
 	}
 	async function importPicked(picked: File[], format: PhotoFormat) {
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
+		markFresh();
 		setBusy('Adding…');
 		const taken = new Set((await listMedia()).flatMap(namesOf));
 		let n = 0;
@@ -558,7 +591,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
 		} finally {
 			setBusy(null);
-			if (mediaFileRef.current) mediaFileRef.current.value = '';
 		}
 	}
 	function removeMedia(a: MediaRecord) {
@@ -751,8 +783,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setBusy(null);
 		}
 	}
-	async function importFiles(files: FileList | null) {
+	async function importFiles(files: FileList | File[] | null) {
 		if (!files?.length) return;
+		markFresh();
 		setBusy('Importing…');
 		let nThemes = 0;
 		let nComps = 0;
@@ -820,7 +853,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			else if (refusals.length) notify('Nothing could be imported from that file.', { description: detail });
 			else notify('Nothing to import from that file.');
 			setBusy(null);
-			if (fileRef.current) fileRef.current.value = '';
 		}
 	}
 	// ── Drop a file on the Library ──────────────────────────────────────────────
@@ -836,17 +868,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// regardless of which filter tab happens to be showing. Anything else is named in
 	// the toast rather than silently ignored — a drop that does nothing reads as broken.
 	async function acceptDropped(files: File[]) {
-		const { zips, docs, images, rejected } = classifyDropped(files);
-		// A FileList is what both ingests take; rebuild one per group rather than
-		// widening their signatures for this one caller.
-		const asList = (fs: File[]) => {
-			const dt = new DataTransfer();
-			for (const f of fs) dt.items.add(f);
-			return dt.files;
-		};
-		if (zips.length) await importFiles(asList(zips));
-		if (docs.length) await addDocFiles(asList(docs));
-		if (images.length) await addMediaFiles(images);
+		const picked = classifyDropped(files);
+		const { zips, docs, images, rejected } = picked;
+		// Take the person to what they just added, before the slow part starts. A mixed batch lands on All,
+		// where the newest items sort first.
+		const target = landingFilter(picked);
+		if (target) {
+			setQuery('');
+			React.startTransition(() => setFilter(target));
+		}
+		if (zips.length) await importFiles(zips);
+		if (docs.length) await addDocFiles(docs);
+		if (images.length) addMediaFiles(images);
 		if (rejected.length) notify(rejectedMessage(rejected.map((f) => f.name)));
 	}
 	// A counter, not a boolean: `dragleave` fires every time the pointer crosses into a
@@ -945,18 +978,23 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const headerControls = (
 		<>
 			{phone ? null : searchField}
-					{/* Contextual add: the Files tab attaches .txt/.md/.pdf reference files; every
-					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
-					{mediaTab ? (
-							<Tip label={filter === 'video' ? 'Add videos' : 'Add photos or images'}><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => mediaFileRef.current?.click()} aria-label={filter === 'video' ? 'Add videos' : 'Add images'}><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>{filter === 'video' ? 'Add video' : 'Add image'}</span></Button></Tip>
-						) : filter === 'refdoc' ? (
-						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Add file</span></Button></Tip>
-					) : (
-						<Tip label="Import a .zip"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => fileRef.current?.click()} aria-label="Import .zip"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
-					)}
-					<input ref={fileRef} type="file" accept=".zip" multiple hidden onChange={(e) => importFiles(e.target.files)} />
-					<input ref={docFileRef} type="file" accept={REF_DOC_ACCEPT} multiple hidden onChange={(e) => addDocFiles(e.target.files)} />
-						<input ref={mediaFileRef} type="file" accept={LIBRARY_MEDIA_ACCEPT} multiple hidden onChange={(e) => addMediaFiles(e.target.files)} />
+					{/* ONE import, the same on every tab. The kind of file decides where it goes; the person only
+					    chooses files. No `capture` attribute, so a phone's sheet offers Photo Library, Take Photo
+					    or Video and Choose Files. */}
+					<Tip label="Import files, photos or a package (.zip)"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => importRef.current?.click()} aria-label="Import files"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
+					<input
+						ref={importRef}
+						type="file"
+						accept={IMPORT_ACCEPT}
+						multiple
+						hidden
+						onChange={(e) => {
+							// Copied out and cleared FIRST: a FileList is live and WebKit empties it across an await.
+							const picked = Array.from(e.target.files ?? []);
+							e.target.value = '';
+							if (picked.length) void acceptDropped(picked);
+						}}
+					/>
 		</>
 	);
 
@@ -977,6 +1015,140 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		/>
 	);
 
+	// A package that arrived from outside. Nothing is shown for one made here: a record saved before this
+	// field existed cannot be told apart, so the Library never claims "made here".
+	const importedTag = (origin?: string) => origin === 'imported' ? <span className="rounded-full border border-border bg-[var(--bg-alt)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-muted-foreground">Imported</span> : null;
+
+	const renderTheme = (t: StudioTheme) => {
+			const k = tKey(t);
+			const active = t.name === activePalette;
+			return (
+				<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : isFresh(t.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
+					<button type="button" aria-label={`Select ${t.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
+					{/* biome-ignore lint/suspicious/noArrayIndexKey: a fixed positional color ramp — the index IS the swatch identity */}
+					<div className="flex h-[88px] w-full">{themeSwatches(t).map((c, i) => <span key={`${k}-${i}`} className="flex-1" style={{ background: c }} />)}</div>
+					<div className="p-2.5">
+						<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{t.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Theme</span>{importedTag(t.origin)}{active && <span className="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]">Active</span>}</div>
+						{metaLine(<>{t.name} · {t.essentials ? `${Object.keys(t.essentials).length} essentials` : 'theme'} · AA</>, { id: t.id, label: t.label })}
+						<div className="mt-2.5 flex items-center gap-1.5">
+							<button type="button" onClick={() => { onApplyTheme(t.name); notify(`Applied ${t.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
+							{/* Icon-only, like Share: the row is already tight at mobile. This is
+							    the ONLY way back into a saved theme — Fabricate had no seed at all,
+							    so a theme could be made and never reopened. */}
+							{onEditTheme && <button type="button" onClick={() => { onEditTheme(t); onOpenChange(false); }} aria-label={`Edit ${t.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
+							<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
+							<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
+						</div>
+					</div>
+				</div>
+			);
+			};
+
+	const renderComponent = (c: StudioComponent) => {
+			const k = cKey(c);
+			return (
+				<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : isFresh(c.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
+					<button type="button" aria-label={`Select .${c.name}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
+					<div className="grid h-[88px] w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)]"><span className="rounded-lg border border-border bg-card px-3 py-1.5 font-mono text-[12px] font-semibold text-[var(--accent)] shadow-sm">.{c.name}</span></div>
+					<div className="p-2.5">
+						<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">.{c.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--text-muted)_30%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--text-muted)]">Component</span>{importedTag(c.origin)}</div>
+						{metaLine(<>{c.bucket || 'local'} · scoped · palette-blind</>, { id: c.id, label: `.${c.name}` })}
+						<div className="mt-2.5 flex items-center gap-1.5">
+							<button type="button" onClick={() => { onInsert(c.skeleton, c.name); notify(`Inserted .${c.name}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
+							{/* Icon-only and in the same slot as the theme card's, so the row reads
+							    the same way whichever kind you are looking at. Four controls is what
+							    the theme card already ships at 390px; this is the fourth, not a fifth. */}
+							{onEditComponent && <button type="button" onClick={() => { onEditComponent(c); onOpenChange(false); }} aria-label={`Edit .${c.name}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
+							<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
+							<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
+						</div>
+					</div>
+				</div>
+			);
+			};
+
+	const renderFinish = (f: StudioFinish) => {
+			const k = fKey(f);
+			// The deck names a saved finish by its prefixed token `finish-<slug>`
+			// (bare slug accepted too, for back-compat).
+			const active = activeFinish === `finish-${f.name}` || activeFinish === f.name;
+			const sw = generateSwatch(f.recipe);
+			return (
+				<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : isFresh(f.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
+					<button type="button" aria-label={`Select ${f.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
+					<div className="h-[88px] w-full bg-[var(--bg)]" style={{ backgroundImage: sw.background, backgroundSize: sw.backgroundSize }} />
+					<div className="p-2.5">
+						<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{f.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Finish</span>{importedTag(f.origin)}{active && <span className="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]">Active</span>}</div>
+						{metaLine(<>{f.name} · layered · palette-blind</>, { id: f.id, label: f.label })}
+						<div className="mt-2.5 flex items-center gap-1.5">
+							<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
+							{onEditFinish && <button type="button" onClick={() => { onEditFinish(f); onOpenChange(false); }} aria-label={`Edit ${f.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
+							<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
+							<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
+						</div>
+					</div>
+				</div>
+			);
+			};
+
+	const renderScene = (m: StudioScene) => {
+			const k = `motion:${m.id}`;
+			const beats = new Set((m.spec.source === 'svg' ? m.spec.elements : []).flatMap((el) => (el.motion ?? []).map((mo) => (mo as { at?: number }).at ?? 0))).size;
+			const partCount = m.spec.source === 'svg' ? m.spec.elements.length : 0;
+			return (
+				<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : isFresh(m.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
+					<button type="button" aria-label={`Select ${m.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
+					{/* The thumbnail is the drawing itself. It is already sanitized twice over — intake ran
+					    `sanitizeSlideHtml` before it was ever stored, and `saveStudioScene` re-runs it at the
+					    store boundary on EVERY write (HARD RULE #22), so no path can put raw markup here. */}
+					{/* biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TWICE before it can reach here — svg-intake runs sanitizeSlideHtml before the art is ever held, and saveStudioScene re-runs it at the store boundary on every write (HARD RULE #22), so no path can put raw markup on this shelf. */}
+					<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden style={MOTION_PALETTE_STYLE} dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
+					<div className="p-2.5">
+						<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Motion</span>{importedTag(m.origin)}</div>
+						{metaLine(m.art ? <>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</> : <>{m.name} · no drawing — saved by the old Motion tab</>, { id: m.id, label: m.label })}
+						<div className="mt-2.5 flex items-center gap-1.5">
+							<button type="button" onClick={() => insertScene(m)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
+							{onEditMotion && <button type="button" onClick={() => { onEditMotion(m); onOpenChange(false); }} aria-label={`Edit ${m.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
+							<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeScene(m); }} onCancel={() => setArmed(null)} label={m.label} />
+						</div>
+					</div>
+				</div>
+			);
+			};
+
+	const renderMedia = (a: MediaRecord) => (
+			<MediaCard key={`media:${a.id}`} m={a} fresh={isFresh(a.addedAt)} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={(opener) => { openerRef.current = opener; setDetailId(a.id); }} />
+	);
+
+	const renderDoc = (d: RefDocRecord) => (
+			// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
+			<div key={`refdoc:${d.id}`} className={cn('relative overflow-hidden rounded-xl border bg-card', isFresh(d.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
+				<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card font-mono text-[11px] font-bold text-[var(--accent)]">{d.docKind === 'pdf' ? 'PDF' : (/\.([a-z0-9]+)$/i.exec(d.name)?.[1] || 'txt').slice(0, 4).toUpperCase()}</span></div>
+				<div className="p-2.5">
+					<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">File</span></div>
+					<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
+					<div className="mt-2.5 flex items-center gap-1.5">
+						<button type="button" onClick={() => downloadDoc(d)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-1.5 text-[11.5px] font-semibold text-foreground"><Download className="size-3.5" />Download</button>
+						<DeleteBtn labelClass={confirmLabel} armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} onCancel={() => setArmed(null)} label={d.name} />
+					</div>
+				</div>
+			</div>
+	);
+
+	// ONE list, newest first, whatever the kind. Grouping by kind put a fresh import wherever its kind
+	// happened to sit, so a person who just added something had to hunt for it. `sort` is stable, so
+	// items saved in the same instant keep the order below. DOM order is the visual order: no CSS `order`,
+	// so keyboard and screen-reader order match what is on screen.
+	const rows: Array<{ at: number; node: React.ReactNode }> = [
+		...vThemes.map((t) => ({ at: t.addedAt ?? 0, node: renderTheme(t) })),
+		...vComponents.map((c) => ({ at: c.addedAt ?? 0, node: renderComponent(c) })),
+		...vFinishes.map((f) => ({ at: f.addedAt ?? 0, node: renderFinish(f) })),
+		...vScenes.map((m) => ({ at: m.addedAt ?? 0, node: renderScene(m) })),
+		...vMedia.map((a) => ({ at: a.addedAt, node: renderMedia(a) })),
+		...vDocs.map((d) => ({ at: d.addedAt, node: renderDoc(d) })),
+	];
+	rows.sort((a, b) => b.at - a.at);
+
 	return (
 		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange} dropProps={dropProps}>
 			{header}
@@ -992,9 +1164,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					<PillTabs
 						className="min-w-0 flex-1"
 						ariaLabel="Library sections"
-						value={filter}
-						onValueChange={(v) => setFilter(v as Filter)}
-						tabs={LIBRARY_FILTERS}
+						value={sectionOf(filter)}
+						onValueChange={(v) => React.startTransition(() => setFilter(sectionFilter(v as LibrarySection)))}
+						tabs={LIBRARY_SECTIONS}
 					/>
 					{/* The count MOVED to the status bar at the foot of the panel (#1655). It sat
 					    here competing with the filters for the same row, which is why it had to
@@ -1004,14 +1176,19 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					    count is legible at every width instead of disappearing at the two where a
 					    shelf is hardest to read. */}
 				</div>
+				{LIBRARY_KINDS[sectionOf(filter)] && (
+					<div className="border-b border-border bg-card px-4 py-2">
+						<PillTabs ariaLabel={`${sectionOf(filter) === 'design' ? 'Design' : 'Media'} kinds`} value={filter} onValueChange={(v) => React.startTransition(() => setFilter(v as LibraryFilter))} tabs={LIBRARY_KINDS[sectionOf(filter)] ?? []} />
+					</div>
+				)}
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
-					{total === 0 && vShipped.length === 0 && filter !== 'media' ? (
+					{total === 0 && vShipped.length === 0 && !mediaTab ? (
 						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
 						   across every drawer, the same way there is one header. */
 						<div className="grid h-full place-items-center">
 							<PanelEmpty icon={<FileBox />} title="No saved assets yet">
-								Fabricate a theme or a component, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => fileRef.current?.click()}>import a .zip</button>.
+								Fabricate a theme or a component, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>import files, photos or a package</button>.
 							</PanelEmpty>
 						</div>
 					) : (
@@ -1028,122 +1205,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						)}
 						{mediaTab && vMedia.length === 0 && (
 							<div className="grid place-items-center py-10">
-								<PanelEmpty icon={<FileBox />} title={q ? `No ${filter === 'video' ? 'videos' : 'images'} match` : `No ${filter === 'video' ? 'videos' : 'images'} yet`}>
-									{q ? 'Try a different search.' : filter === 'video' ? <>Add a clip from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose videos</button>. A clip you send in the chat lands here too.</> : <>Add photos from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose images</button>. Drop them on this panel too.</>}
+								<PanelEmpty icon={<FileBox />} title={q ? `No ${mediaWord} match` : `No ${mediaWord} yet`}>
+									{q ? 'Try a different search.' : <>Import {mediaWord} from your camera roll, camera or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>choose some</button>. Drop them on this panel too.{filter !== 'image' ? ' A clip you send in the chat lands here too.' : ''}</>}
 								</PanelEmpty>
 							</div>
 						)}
 						<div className={cardGrid}>
-							{vThemes.map((t) => {
-								const k = tKey(t);
-								const active = t.name === activePalette;
-								return (
-									<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-border')}>
-										<button type="button" aria-label={`Select ${t.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
-										{/* biome-ignore lint/suspicious/noArrayIndexKey: a fixed positional color ramp — the index IS the swatch identity */}
-										<div className="flex h-[88px] w-full">{themeSwatches(t).map((c, i) => <span key={`${k}-${i}`} className="flex-1" style={{ background: c }} />)}</div>
-										<div className="p-2.5">
-											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{t.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Theme</span>{active && <span className="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]">Active</span>}</div>
-											{metaLine(<>{t.name} · {t.essentials ? `${Object.keys(t.essentials).length} essentials` : 'theme'} · AA</>, { id: t.id, label: t.label })}
-											<div className="mt-2.5 flex items-center gap-1.5">
-												<button type="button" onClick={() => { onApplyTheme(t.name); notify(`Applied ${t.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
-												{/* Icon-only, like Share: the row is already tight at mobile. This is
-												    the ONLY way back into a saved theme — Fabricate had no seed at all,
-												    so a theme could be made and never reopened. */}
-												{onEditTheme && <button type="button" onClick={() => { onEditTheme(t); onOpenChange(false); }} aria-label={`Edit ${t.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
-												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
-											</div>
-										</div>
-									</div>
-								);
-							})}
-							{vComponents.map((c) => {
-								const k = cKey(c);
-								return (
-									<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-border')}>
-										<button type="button" aria-label={`Select .${c.name}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
-										<div className="grid h-[88px] w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)]"><span className="rounded-lg border border-border bg-card px-3 py-1.5 font-mono text-[12px] font-semibold text-[var(--accent)] shadow-sm">.{c.name}</span></div>
-										<div className="p-2.5">
-											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">.{c.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--text-muted)_30%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--text-muted)]">Component</span></div>
-											{metaLine(<>{c.bucket || 'local'} · scoped · palette-blind</>, { id: c.id, label: `.${c.name}` })}
-											<div className="mt-2.5 flex items-center gap-1.5">
-												<button type="button" onClick={() => { onInsert(c.skeleton, c.name); notify(`Inserted .${c.name}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
-												{/* Icon-only and in the same slot as the theme card's, so the row reads
-												    the same way whichever kind you are looking at. Four controls is what
-												    the theme card already ships at 390px; this is the fourth, not a fifth. */}
-												{onEditComponent && <button type="button" onClick={() => { onEditComponent(c); onOpenChange(false); }} aria-label={`Edit .${c.name}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
-												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
-											</div>
-										</div>
-									</div>
-								);
-							})}
-							{vFinishes.map((f) => {
-								const k = fKey(f);
-								// The deck names a saved finish by its prefixed token `finish-<slug>`
-								// (bare slug accepted too, for back-compat).
-								const active = activeFinish === `finish-${f.name}` || activeFinish === f.name;
-								const sw = generateSwatch(f.recipe);
-								return (
-									<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-border')}>
-										<button type="button" aria-label={`Select ${f.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
-										<div className="h-[88px] w-full bg-[var(--bg)]" style={{ backgroundImage: sw.background, backgroundSize: sw.backgroundSize }} />
-										<div className="p-2.5">
-											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{f.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Finish</span>{active && <span className="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]">Active</span>}</div>
-											{metaLine(<>{f.name} · layered · palette-blind</>, { id: f.id, label: f.label })}
-											<div className="mt-2.5 flex items-center gap-1.5">
-												<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
-												{onEditFinish && <button type="button" onClick={() => { onEditFinish(f); onOpenChange(false); }} aria-label={`Edit ${f.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
-												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
-											</div>
-										</div>
-									</div>
-								);
-							})}
-							{vScenes.map((m) => {
-								const k = `motion:${m.id}`;
-								const beats = new Set((m.spec.source === 'svg' ? m.spec.elements : []).flatMap((el) => (el.motion ?? []).map((mo) => (mo as { at?: number }).at ?? 0))).size;
-								const partCount = m.spec.source === 'svg' ? m.spec.elements.length : 0;
-								return (
-									<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-border')}>
-										<button type="button" aria-label={`Select ${m.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
-										{/* The thumbnail is the drawing itself. It is already sanitized twice over — intake ran
-										    `sanitizeSlideHtml` before it was ever stored, and `saveStudioScene` re-runs it at the
-										    store boundary on EVERY write (HARD RULE #22), so no path can put raw markup here. */}
-										{/* biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TWICE before it can reach here — svg-intake runs sanitizeSlideHtml before the art is ever held, and saveStudioScene re-runs it at the store boundary on every write (HARD RULE #22), so no path can put raw markup on this shelf. */}
-										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden style={MOTION_PALETTE_STYLE} dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
-										<div className="p-2.5">
-											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Motion</span></div>
-											{metaLine(m.art ? <>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</> : <>{m.name} · no drawing — saved by the old Motion tab</>, { id: m.id, label: m.label })}
-											<div className="mt-2.5 flex items-center gap-1.5">
-												<button type="button" onClick={() => insertScene(m)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
-												{onEditMotion && <button type="button" onClick={() => { onEditMotion(m); onOpenChange(false); }} aria-label={`Edit ${m.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeScene(m); }} onCancel={() => setArmed(null)} label={m.label} />
-											</div>
-										</div>
-									</div>
-								);
-							})}
-							{vMedia.map((a) => (
-								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={(opener) => { openerRef.current = opener; setDetailId(a.id); }} />
-							))}
-							{vDocs.map((d) => (
-								// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
-								<div key={`refdoc:${d.id}`} className="relative overflow-hidden rounded-xl border border-border bg-card">
-									<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card font-mono text-[11px] font-bold text-[var(--accent)]">{d.docKind === 'pdf' ? 'PDF' : (/\.([a-z0-9]+)$/i.exec(d.name)?.[1] || 'txt').slice(0, 4).toUpperCase()}</span></div>
-									<div className="p-2.5">
-										<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">File</span></div>
-										<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
-										<div className="mt-2.5 flex items-center gap-1.5">
-											<button type="button" onClick={() => downloadDoc(d)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-1.5 text-[11.5px] font-semibold text-foreground"><Download className="size-3.5" />Download</button>
-											<DeleteBtn labelClass={confirmLabel} armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} onCancel={() => setArmed(null)} label={d.name} />
-										</div>
-									</div>
-								</div>
-							))}
+							{rows.map((r) => r.node)}
 						</div>
 						{vShipped.length > 0 && (
 							// SHIPPED WITH LATTICE — the motion packages in lib/motion/ (portable-packages §5).
@@ -1221,7 +1289,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					<div className="flex flex-col items-center gap-2 text-center">
 						<Upload className="size-7 text-[var(--accent)]" />
 						<div className="text-[13px] font-bold text-[var(--text-heading)]">Drop to add</div>
-						<div className="font-mono text-[10.5px] text-muted-foreground">a lattice-asset .zip, an image, or {REF_DOC_ACCEPT}</div>
+						<div className="font-mono text-[10.5px] text-muted-foreground">a lattice-asset .zip, a photo or video, or {REF_DOC_ACCEPT}</div>
 					</div>
 				</div>
 			)}
@@ -1254,10 +1322,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			/>
 			<PhotoFormatDialog
 				files={pendingPhotos}
-				onCancel={() => {
-					setPendingPhotos(null);
-					if (mediaFileRef.current) mediaFileRef.current.value = '';
-				}}
+				onCancel={() => setPendingPhotos(null)}
 				onConfirm={(format) => {
 					const picked = pendingPhotos;
 					setPendingPhotos(null);
