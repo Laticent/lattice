@@ -213,13 +213,17 @@ always been image slides; `--raster` opts a PDF into the same trade for
 maximum viewer compatibility).
 
 **A slide picture is a PNG or a JPEG.** A `.pptx` or `.odp` slide is one picture, and PNG is the
-wrong format for a photograph: 2 to 6 MB per 2560 × 1440 slide, where a quality-92 JPEG is a
-tenth of that. The CLI (`lib/export/slide-picture.js`) and the Studio
-(`canvasToPictureBlob`, `deck-export.js`) keep the PNG when it is 600 KB or less (a flat slide:
-text on a color, lossless and crisp), and otherwise also encode a JPEG and keep it when it is
-under 70% of the PNG. The thresholds live in `docs/src/lib/calco/picture.ts`; the writers name
-the part by the bytes (`imageMime`). A capture that keeps a rounded corner as transparency
-(`.png` output only) is never a JPEG. A 35-slide deck of photographs: 76.6 MB → 15 MB.
+wrong format for a photograph or a soft gradient wash: 1 to 6 MB per 2560 × 1440 slide and about 1.2 s
+to encode, where a quality-92 JPEG is a fifth of the size and 0.36 s. A flat slide (text on a color)
+is the opposite: a smaller, crisper PNG in 0.2 s. The page says which kind a slide is before any
+shot (`isContinuousTone`: raster images or gradients cover a quarter of it), so the CLI
+(`lib/export/slide-picture.js`) and the Studio (`canvasToPictureBlob`, `deck-export.js`) shoot a
+continuous-tone slide as a JPEG first and never take its PNG when the JPEG is 100 KB or more, and
+shoot any other slide as a PNG first, trying a JPEG only when the PNG is over 600 KB and keeping it
+only when it is under 70% of the PNG. The thresholds live in `docs/src/lib/calco/picture.ts`; the
+writers name the part by the bytes (`imageMime`). A capture that keeps a rounded corner as
+transparency (`.png` output only) is never a JPEG. A 35-slide photo deck: 76.6 MB and 44 s before,
+16 MB and 15.5 s now; the Studio, 8 photo slides: 38.2 MB and 7.4 s before, 8.9 MB and 5.3 s now.
 `engineering/decisions/2026-10-21-slide-pictures-png-or-jpeg.md`.
 
 **`.odp` and `--editable` go through Calco.** Calco (`@laticent/calco`,

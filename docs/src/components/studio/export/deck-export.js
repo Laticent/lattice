@@ -1609,25 +1609,38 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 }
 
 // A slide picture as a Blob: PNG, or JPEG when that is much smaller. A flat slide stays a
-// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a q92 JPEG of a tenth the
-// size. Calco owns the thresholds and the measurement (docs/src/lib/calco/picture.ts). The JPEG
-// is drawn onto a white canvas first, so a transparent pixel is white, not black. Only for
-// an opaque picture: the PPTX and Office captures square their corners, so they are.
-async function canvasToPictureBlob(canvas) {
-	const { worthTryingJpeg, jpegWins, PICTURE_JPEG_QUALITY } = await import('@/lib/calco');
+// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a q92 JPEG of a fifth the
+// size. Calco owns the thresholds and the measurement (docs/src/lib/calco/picture.ts). The ORDER
+// is the cost: a PNG of a photograph takes about 1.2 s to encode and its JPEG 0.36 s, so a
+// continuous-tone slide (`isContinuousTone(section)`: raster images or smooth gradients cover a
+// quarter of it) is a JPEG first, and the PNG is never encoded when the JPEG is large; any other
+// slide is a PNG first. The JPEG is drawn onto a white canvas, so a transparent pixel is white,
+// not black. Only for an opaque picture: the PPTX and Office captures square their corners.
+async function canvasToPictureBlob(canvas, section) {
+	const { worthTryingJpeg, jpegWins, isContinuousTone, PICTURE_JPEG_QUALITY, PICTURE_TONE_JPEG_BYTES } = await import('@/lib/calco');
 	const encode = (c, type, quality) => new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality));
+	const jpegOf = async () => {
+		const flat = document.createElement('canvas');
+		flat.width = canvas.width;
+		flat.height = canvas.height;
+		const ctx = flat.getContext('2d');
+		ctx.fillStyle = '#fff';
+		ctx.fillRect(0, 0, flat.width, flat.height);
+		ctx.drawImage(canvas, 0, 0);
+		const jpeg = await encode(flat, 'image/jpeg', PICTURE_JPEG_QUALITY);
+		// A browser that cannot encode JPEG hands back a PNG; that is no saving.
+		return jpeg.type === 'image/jpeg' ? jpeg : null;
+	};
+	if (section && isContinuousTone(section)) {
+		const jpeg = await jpegOf();
+		if (jpeg && jpeg.size >= PICTURE_TONE_JPEG_BYTES) return jpeg;
+		const png = await encode(canvas, 'image/png');
+		return jpeg && worthTryingJpeg(png.size) && jpegWins(png.size, jpeg.size) ? jpeg : png;
+	}
 	const png = await encode(canvas, 'image/png');
 	if (!worthTryingJpeg(png.size)) return png;
-	const flat = document.createElement('canvas');
-	flat.width = canvas.width;
-	flat.height = canvas.height;
-	const ctx = flat.getContext('2d');
-	ctx.fillStyle = '#fff';
-	ctx.fillRect(0, 0, flat.width, flat.height);
-	ctx.drawImage(canvas, 0, 0);
-	const jpeg = await encode(flat, 'image/jpeg', PICTURE_JPEG_QUALITY);
-	// A browser that cannot encode JPEG hands back a PNG; that is no saving.
-	return jpeg.type === 'image/jpeg' && jpegWins(png.size, jpeg.size) ? jpeg : png;
+	const jpeg = await jpegOf();
+	return jpeg && jpegWins(png.size, jpeg.size) ? jpeg : png;
 }
 
 // Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
@@ -1639,7 +1652,7 @@ async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, l
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
 			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-			return await (await canvasToPictureBlob(canvas)).arrayBuffer();
+			return await (await canvasToPictureBlob(canvas, section)).arrayBuffer();
 		}, undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
@@ -2397,7 +2410,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 					try {
 						const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-						const blob = await canvasToPictureBlob(canvas);
+						const blob = await canvasToPictureBlob(canvas, section);
 						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames, shapes };
 					} finally {
 						calco.restoreSlide(section);
