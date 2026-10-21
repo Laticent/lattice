@@ -191,7 +191,9 @@ describe('the draw host', () => {
 		await new Promise((r) => setTimeout(r, 10));
 		// The first draw's frame reports a module that could not load: it is closed, and the queued draw (never sent) goes to a new frame.
 		frames[0].reply({ t: 'result', id: 1, error: 'Failed to fetch dynamically imported module: x', loadFailed: true });
-		await expect(first).rejects.toThrow(/dynamically imported/);
+		const failure = await first.catch((e) => e);
+		expect(failure.message).toMatch(/dynamically imported/);
+		expect(failure.drawUnavailable).toBe(true);
 		await new Promise((r) => setTimeout(r, 20));
 		expect(frames[0].removed).toBe(true);
 		expect(frames.length).toBe(2);

