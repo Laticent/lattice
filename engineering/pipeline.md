@@ -273,7 +273,7 @@ and resizing in the `.odp` (honored by LibreOffice and Collabora) and in the `.p
 (LibreOffice ignores it). In the CLI, what cannot be a shape is then cropped from the foreground
 capture as pictures of its own, in paint order among the shapes (`captureSlides`, `cropPictures`;
 `2026-10-21-calco-lift-what-can-be-lifted.md` §6); the whole-slide picture remains only for a slide
-whose ink the crops do not cover or that reads its backdrop. The cost is one more screenshot per
+that reads its backdrop (ink no crop covers becomes one more picture). The cost is one more screenshot per
 distinct background and one for the foreground: about +0.16 s per slide on `accent-finishes` (12 slides: 6.2 s → 8.1 s), with
 slides that draw the same background photographed once. Design, measurements and what is not
 verified: `engineering/decisions/2026-10-17-calco-shared-backgrounds.md`.

@@ -32,15 +32,15 @@
     "reasons": {}
   },
   "backdrop-register": {
-    "refused": 41,
-    "shapes": 18,
+    "refused": 47,
+    "shapes": 12,
     "pictures": 10,
     "reasons": {
       "paint:radial-gradient": 9,
       "pseudo:effect": 4,
       "pseudo:no-paint": 10,
       "paint:linear-gradient": 7,
-      "covered": 7,
+      "covered": 13,
       "paint:bg-image": 4
     }
   }

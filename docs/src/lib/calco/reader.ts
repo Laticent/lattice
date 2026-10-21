@@ -1695,9 +1695,26 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return [t && { x, y, w, h: t.width }, r && { x: x + w - r.width, y, w: r.width, h }, b && { x, y: y + h - b.width, w, h: b.width }, l && { x, y, w: l.width, h }].filter(Boolean) as Rect[];
 		};
 		// Is picture item `p` painted ABOVE lifted box `el`?
-		const above = (p: Item, el: Element): boolean => {
+		// `cand` is the lifted box when it is a pseudo-element of `el`: its level and its place among the element's own
+		// paint are its own, not the element's.
+		const above = (p: Item, el: Element, cand?: Candidate): boolean => {
 			if (p.paintOf && p.node !== el && p.node.contains(el)) return false; // an ancestor's own paint
-			if (p.node === el) return true; // the box's own pseudo-element or marker
+			if (p.node === el) {
+				if (!cand?.pseudo) {
+					// The box's own pseudo-element or marker is above it, unless the pseudo is positioned at a negative level
+					// (a glow behind its element), which paints under the element's own background.
+					if (p.pseudo && !p.text) {
+						const ps = win.getComputedStyle(p.owner, p.pseudo === 'before' ? '::before' : '::after');
+						if (ps.position !== 'static' && ps.zIndex !== 'auto' && Number(ps.zIndex) < 0) return false;
+					}
+					return true;
+				}
+				// The candidate is a pseudo of the same element. A pseudo paints above the element's own background, and
+				// below it only when it sits at a negative level.
+				if (p.pseudo) return p.pseudo === 'after' && cand.pseudo === 'before';
+				if (p.text) return true;
+				return lvl(cand, el) < 1;
+			}
 			const common = commonAncestor(p.owner, el);
 			let lp = p.owner === common ? 1 : levelOf(p.owner, common);
 			// An absolutely placed `::before`/`::after` paints at its own level, not its owner's.
@@ -1708,7 +1725,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					lp = Number.isNaN(z) ? Math.max(lp, 2) : z < 0 ? Math.min(lp, -1) : Math.max(lp, 2 + z);
 				}
 			}
-			const le = levelOf(el, common);
+			const le = cand?.pseudo ? lvl(cand, common) : levelOf(el, common);
 			if (lp !== le) return lp > le;
 			if (p.text) return true; // inline content paints after every block background in its level
 			if (p.node === el) return true; // the box's own pseudo-element or marker
@@ -1749,7 +1766,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const unlift = (c: Candidate, reason: string, by?: Item) => {
 			const cover = coverOf(c);
 			lifted.delete(c);
-			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, kind: 'refused-box' });
+			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0), kind: 'refused-box' });
 			if (options?.diagnose) {
 				const above_ = by || items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
 				const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
@@ -1820,7 +1837,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 						const cover = coverOf(c);
 						const rel = k.items.filter((p) => cover.some((r) => overlaps(r, p.rect)));
 						if (!rel.length) continue;
-						const ab = rel.filter((p) => above(p, c.el));
+						const ab = rel.filter((p) => above(p, c.el, c));
 						if (ab.length && ab.length < rel.length) {
 							unlift(c, 'covered', ab[0]);
 							changed = true;

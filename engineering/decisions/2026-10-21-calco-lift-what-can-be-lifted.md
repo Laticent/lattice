@@ -84,8 +84,9 @@ refused, list markers, pseudo-elements it could not lift, text it did not read. 
 1. **Clusters** the items: each item's box, grown by its shadow or blur reach and 8 px, and every
    pair of boxes that overlap merged until none do. Each pixel of the foreground belongs to one cluster.
 2. **Orders** each cluster among the shapes by the same paint-order test the reader already used for
-   "is this item above that box". A box the cluster is partly above and partly below cannot be drawn in
-   either order, so it joins the picture. This replaces the old rule that any lifted box under picture
+   "is this item above that box" (`above`, which knows when the box is a pseudo-element: a `::after`
+   scrim is above its element's picture, a `z-index: -1` glow is below its element). A box the cluster is
+   partly above and partly below cannot be drawn in either order, so it joins the picture. This replaces the old rule that any lifted box under picture
    content stays a picture: a card holding an icon is now a shape with the icon drawn above it.
 3. **Groups** a picture with the card it sits in (`Shape.group`), as for any shape.
 
@@ -95,21 +96,35 @@ ink. A fully opaque crop is a JPEG when that is much smaller (same rule as the s
 `2026-10-21-slide-pictures-png-or-jpeg.md`); a crop with a few clear pixels (a photo next to a thin
 rule) is a JPEG of the largest opaque rectangle plus a PNG of each strip around it, because a JPEG
 would paint the clear pixels black. If the capture has ink outside every crop (more than 0.05% of the
-slide), the slide keeps one foreground picture, and the export line counts those slides.
+slide) it is one more picture, placed first, with the other pictures' boxes cleared out of it: nothing the
+foreground holds is dropped. Only a slide whose crop throws, or that reads its backdrop, keeps one
+whole-slide picture, and the export line counts those. A writer draws a card's members together where the
+first one paints; a member that another shape paints over is drawn in its own place instead
+(`drawOrder`), so a group never puts a picture under a shape that is above it.
 
 Measured:
 
 | | Before | After |
 |---|---:|---:|
-| Gallery `.odp` size | 10.8 MB | 6.9 MB |
-| Gallery pictures / slides on a whole-slide picture | 120 / 120 | 76 / 1 |
+| Gallery `.odp` size | 10.8 MB | 8.0 MB |
+| Gallery pictures / slides on a whole-slide picture | 120 / 120 | 126 / 0 |
 | Gallery `.odp` vs Chrome | 2.53 | 2.54 |
 | 35-slide photo deck `.pptx` (owner's) | 15.0 MB, 35 slides on a whole-slide picture | 13.5 MB, 44 pictures, 0 whole |
-| Cost per slide (CLI) | | about +0.13 s |
+| Cost per slide (CLI) | | about +0.15 s |
 
 The photo deck's media is mostly its 21 layout backgrounds (a photo per slide, shared where equal);
 its pictures are two photos at 330 KB each as JPEG (they were 2.4 MB PNGs while a thin rule beside
 each made the crop non-opaque).
+
+An independent check of the first version found six defects, each now a fixture in
+`test/integration/export/calco-sprites-order.test.js` (and one in `shapes.test.js`): the order test
+ignored pseudo-elements (a scrim under its photo, an accent bar under its card's picture, a glow over
+its card); `opaqueCore` looked only at a crop's edges, so a frame with a clear middle became a JPEG with
+a black middle; ink outside every cluster (a column rule) was dropped; a second read after a fallback
+exported a "Content clipped" pill; a group drew its picture under a shape above it; and splitting or
+dropping a picture left stale `group` indexes that merged unrelated shapes. Correct ordering costs
+lifted shapes: `backdrop-register` now refuses 47 boxes (was 41) and lifts 12 (was 18), because boxes
+the old order wrongly kept as shapes are now left in the picture.
 
 ## 7. Still refused, and why
 

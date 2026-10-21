@@ -198,6 +198,8 @@ export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame
 	};
 	const out: DrawnGroup[] = [];
 	const done = new Set<number>();
+	const framesGiven = new Set<number>();
+	const touches = (a: Shape, b: Shape) => a.x < b.x + b.w + 0.5 && b.x < a.x + a.w + 0.5 && a.y < b.y + b.h + 0.5 && b.y < a.y + a.h + 0.5;
 	shapes.forEach((_s, i) => {
 		if (done.has(i)) return;
 		const g = effective(i);
@@ -208,14 +210,18 @@ export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame
 		}
 		const items: Drawn[] = [];
 		shapes.forEach((_o, j) => {
-			if (effective(j) === g && !done.has(j)) {
-				items.push(shapeItem(j));
-				done.add(j);
-			}
+			if (effective(j) !== g || done.has(j)) return;
+			// The group is drawn together, where its first member paints. A member that another card's shape
+			// paints OVER, between the first member and it, would come out under that shape; it is left for its own
+			// group, in its own place in the order.
+			if (items.length && shapes.some((k, ki) => ki > i && ki < j && effective(ki) !== g && !done.has(ki) && touches(k, shapes[j]))) return;
+			items.push(shapeItem(j));
+			done.add(j);
 		});
-		frames.forEach((f, fi) => {
-			if (!carried.has(fi) && hasText(f) && memberGroup(fi) === g) items.push({ frame: f, index: fi });
-		});
+		// The card's text is drawn with the first group of the card; a later one, split off above, holds shapes only.
+		const text = framesGiven.has(g) ? [] : frames.flatMap((f, fi) => (!carried.has(fi) && hasText(f) && memberGroup(fi) === g ? [{ frame: f, index: fi }] : []));
+		framesGiven.add(g);
+		items.push(...text);
 		out.push({ group: g, items });
 	});
 	frames.forEach((f, fi) => {

@@ -217,3 +217,19 @@ describe('calco shapes — pictures in paint order', () => {
     assert.equal(zip.file('Pictures/slide001.png'), null, 'no full-slide picture');
   });
 });
+
+describe('calco shapes — a group never draws a member under a shape that is above it', () => {
+  test('a card\'s picture that another shape paints over comes out after that shape, as its own group part', () => {
+    const cardShape = { kind: 'box', x: 40, y: 40, w: 400, h: 200, radii: [0, 0, 0, 0], fill: { color: '#eef', alpha: 1 }, group: 0 };
+    const green = { kind: 'box', x: 320, y: 120, w: 300, h: 150, radii: [0, 0, 0, 0], fill: { color: '#0a0', alpha: 1 } };
+    const icon = { kind: 'picture', x: 300, y: 100, w: 60, h: 60, image: ONE_PX_PNG, group: 0 };
+    const far = { kind: 'picture', x: 60, y: 60, w: 20, h: 20, image: ONE_PX_PNG, group: 0 };
+    const order = drawOrder({ frames: [], shapes: [cardShape, far, green, icon] }, () => false);
+    const flat = order.flatMap((o) => o.items.map((d) => d.index));
+    assert.deepEqual(flat, [0, 1, 2, 3], 'paint order is kept: card and the far picture, the green box, then the icon');
+    assert.equal(order[0].group, 0);
+    assert.deepEqual(order[0].items.map((d) => d.index), [0, 1], 'the picture that nothing overlaps stays in the card\'s group');
+    assert.equal(order[1].group, undefined);
+    assert.equal(order[2].group, 0, 'the icon is a part of the card drawn where it paints');
+  });
+});
