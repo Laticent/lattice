@@ -514,3 +514,21 @@ test('narration says the six callouts the chart draws, and not a seventh', () =>
   assert.match(said, /Callout at [^:]*: C6\./);
   assert.doesNotMatch(said, /C7/);
 });
+
+test('beside a band key, a callout holds the key label size; alone, a long callout may step down', () => {
+  // One row style (owner, 2026-10-21): the callout's words and the key's words never print at two
+  // sizes side by side. Without a key the lane may shrink a long label to fit; with one it ellipsizes.
+  const table = '|  | M0 | M1 | M2 |\n| --- | --: | --: | --: |\n| Jan | 100 | 62 | 48 |\n| Feb | 100 | 58 | 31 |\n| Mar | 100 | 71 | 59 |';
+  const span = '`@callout{[{"Setup call removed from onboarding, so new accounts stalled for weeks", row=Feb, col=M1}]}`';
+  const sizes = (ctx) => {
+    const d = doc(transformSection(md.render(`## R\n\n${table}\n\n${span}`), ctx));
+    const at = (sel) => [...new Set([...d.querySelectorAll(sel)].map((t) => Number(t.getAttribute('font-size'))))];
+    return { callout: at('text.legend-text--bare'), key: at('text.chart-key-label') };
+  };
+  const keyed = sizes({ classTokens: ['heatmap', 'scale'] });
+  assert.equal(keyed.key.length, 1);
+  assert.deepEqual(keyed.callout, keyed.key);
+  const alone = sizes({});
+  assert.equal(alone.key.length, 0);
+  assert.ok(alone.callout[0] < keyed.key[0], `a long callout with no key steps down: ${alone.callout}`);
+});

@@ -144,6 +144,13 @@ take the key's face, weight and size. Asked which face both should use, the owne
 the body face, whose figures center in a shape. Every SVG key in the catalog changes size with this,
 so it went to the owner as light and dark renders of the chart gallery and the callout demo deck.
 
+**Beside a key the callout holds the key's size.** Without a key, the heatmap's callout lane steps a
+long label down from the key's size (8.1 on a 16:9 slide) toward 7.5 so it sets whole in three
+lines. Beside a band key that put the two at different sizes side by side, which this ruling rules
+out; a stress deck of long sketch-mode labels found it before merge. With a key the lane now holds
+the key's size, and a label too long for three lines ends in an ellipsis
+(`heatmap.transform.js` `calloutLane`, `keyed`).
+
 ## 7. Work plan
 
 One PR, one commit per item. HTML and SVG emitters stay byte-identical where an item does not
