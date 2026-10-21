@@ -134,4 +134,11 @@ describe('calco red-team fixtures', () => {
     assert.ok(Date.now() - t0 < 60000, `took ${Date.now() - t0} ms`);
     assert.ok(slides[0].shapes.some((s) => s.kind === 'picture') || slides[0].image);
   });
+
+  test('decorative: generated text on the slide\'s decorative layer is background, not live text', async () => {
+    const res = await read(page('.backdrop{position:absolute;inset:0;z-index:-1}.backdrop::before{content:"MONOGRAM_AB";position:absolute;right:40px;bottom:40px;font-size:200px;color:rgba(0,0,0,.08)}', '<div class="backdrop"></div><p>real text</p>'));
+    assert.ok(!words(res).includes('MONOGRAM_AB'), words(res));
+    assert.ok(words(res).includes('real'));
+  });
 });
+

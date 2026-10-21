@@ -213,12 +213,21 @@ export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame
 			return;
 		}
 		const items: Drawn[] = [];
+		const heldBack: number[] = [];
 		shapes.forEach((_o, j) => {
 			if (effective(j) !== g || done.has(j)) return;
 			// The group is drawn together, where its first member paints. A member that another card's shape
 			// paints OVER, between the first member and it, would come out under that shape; it is left for its own
 			// group, in its own place in the order.
-			if (items.length && shapes.some((k, ki) => ki > i && ki < j && effective(ki) !== g && !done.has(ki) && touches(k, shapes[j]))) return;
+			if (items.length && shapes.some((k, ki) => ki > i && ki < j && effective(ki) !== g && !done.has(ki) && touches(k, shapes[j]))) {
+				heldBack.push(j);
+				return;
+			}
+			// A member that comes after one held back and overlaps it would be drawn before it: it waits too.
+			if (heldBack.some((h) => touches(shapes[h], shapes[j]))) {
+				heldBack.push(j);
+				return;
+			}
 			items.push(shapeItem(j));
 			done.add(j);
 		});

@@ -321,6 +321,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (!INLINE.test(ccs.display)) break;
 				const bg = parseColor(ccs.backgroundColor);
 				if (!bg || bg.a === 0) continue;
+				// An inline-block or inline-flex pill is a box of its own: its corners, border and padding are shapes.
+				if (ccs.display !== 'inline') break;
 				const plainPaint = (!ccs.backgroundImage || ccs.backgroundImage === 'none') && (!ccs.borderImageSource || ccs.borderImageSource === 'none') && !chip.querySelector('img,svg,canvas,math,video,picture');
 				// Blend a translucent tint over what is behind the chip; a picture or gradient behind it leaves the chip a shape.
 				const shown = !plainPaint ? undefined : bg.a >= 1 ? hex(bg) : chip.parentElement ? flatten(chip.parentElement, { ...bg, a: bg.a * opacity }) : undefined;

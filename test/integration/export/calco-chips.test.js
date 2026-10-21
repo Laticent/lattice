@@ -25,10 +25,12 @@ const HTML = `<!doctype html><html><head><style>
   .card { position: absolute; left: 60px; top: 300px; width: 420px; height: 80px; background: #fcc; }
   .card p { position: static; }
   .cut { top: 450px; width: 260px; }
+  .pill { top: 560px; }
 </style></head><body><section id="s">
   <p class="ok">Set <code>trim: on</code> and <mark>mark</mark> here.</p>
   <p class="wrap">Words <code>one two three four five six</code> end.</p>
   <div class="card"><p>On a card <code>chip</code></p></div>
+  <p class="pill"><span style="display:inline-block;border-radius:999px;padding:4px 14px;border:2px solid #f80;background:#036;color:#fff">PILL</span></p>
   <p class="cut">A very long token <code>a-very-long-inline-code-token-that-cannot-fit-on-one-line-at-all</code>.</p>
 </section></body></html>`;
 
@@ -78,6 +80,16 @@ describe('calco inline chips as highlights', () => {
     const [last] = res.shapesAfterHide.slice(-1);
     assert.notEqual(last, 'rgba(0, 0, 0, 0)', 'its words are in the picture, so its background is too');
     assert.equal(lit('a-very-long').length, 0);
+  });
+
+  test('the 2px padding spacers around a chip carry no highlight, so no speck shows', () => {
+    const spacers = runs().filter((r) => r.text === '\u00A0' && r.style.size <= 2);
+    assert.ok(spacers.length > 0, 'the fixture has padded chips');
+    assert.ok(spacers.every((r) => !r.style.highlight));
+  });
+
+  test('an inline-block pill is not a highlight: its corners and border are shapes', () => {
+    assert.equal(lit('PILL').length, 0);
   });
 
   test('the export says it approximated chips', () => {

@@ -232,4 +232,14 @@ describe('calco shapes — a group never draws a member under a shape that is ab
     assert.equal(order[1].group, undefined);
     assert.equal(order[2].group, 0, 'the icon is a part of the card drawn where it paints');
   });
+
+  test('once a member is held back, a later member that overlaps it is held back too', () => {
+    const card = { kind: 'box', x: 0, y: 0, w: 200, h: 100, radii: [0, 0, 0, 0], fill: { color: '#eef', alpha: 1 }, group: 0 };
+    const other = { kind: 'box', x: 40, y: 10, w: 10, h: 10, radii: [0, 0, 0, 0], fill: { color: '#0a0', alpha: 1 } };
+    const pic = { kind: 'picture', x: 40, y: 10, w: 40, h: 10, image: ONE_PX_PNG, group: 0 };
+    const above = { kind: 'box', x: 60, y: 10, w: 10, h: 10, radii: [0, 0, 0, 0], fill: { color: '#c00', alpha: 1 }, group: 0 };
+    const flat = drawOrder({ frames: [], shapes: [card, other, pic, above] }, () => false).flatMap((o) => o.items.map((d) => d.index));
+    assert.deepEqual(flat, [0, 1, 2, 3], 'paint order is kept: the member above the picture is not drawn before it');
+  });
 });
+

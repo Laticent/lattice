@@ -77,6 +77,7 @@ layer, which the background capture already draws; the reader skips it, so it no
 | Before pseudo lifting | 447 | | 2.61 |
 | After pseudo lifting + counters | 112 | 1,723 | 2.54 |
 | After gradients and sized layers | 68 | 1,778 | 2.53 |
+| After the review fixes (§6) | | 1,717 | 2.52 |
 
 A 5-shape gradient test (two stops, three stops, a 135° fade, a tall box and a 6 px bar) went from
 5.40 to 2.48 in the `.odp` once multi-stop gradients drew, and matches Chrome in the `.pptx`. The
@@ -109,7 +110,7 @@ pictures from it in the page (`cropPictures`): no second render per picture. Eac
 ink. A fully opaque crop is a JPEG when that is much smaller (same rule as the slide picture, §
 `2026-10-21-slide-pictures-png-or-jpeg.md`); a crop with a few clear pixels (a photo next to a thin
 rule) is a JPEG of the largest opaque rectangle plus a PNG of each strip around it, because a JPEG
-would paint the clear pixels black. If the capture has ink outside every crop (more than 0.05% of the
+would paint the clear pixels black. If the capture has ink outside every crop (more than 0.02% of the
 slide) it is one more picture, placed first, with the other pictures' boxes cleared out of it: nothing the
 foreground holds is dropped. Only a slide whose crop throws, or that reads its backdrop, keeps one
 whole-slide picture, and the export line counts those. A writer draws a card's members together where the
@@ -120,8 +121,8 @@ Measured:
 
 | | Before | After |
 |---|---:|---:|
-| Gallery `.odp` size | 10.8 MB | 8.0 MB |
-| Gallery pictures / slides on a whole-slide picture | 120 / 120 | 126 / 0 |
+| Gallery `.odp` size | 10.8 MB | 8.3 MB (an independent run in another sandbox measured 10.2 MB; the cause is not found) |
+| Gallery pictures / slides on a whole-slide picture | 120 / 120 | 209 / 0 |
 | Gallery `.odp` vs Chrome | 2.53 | 2.54 |
 | 35-slide photo deck `.pptx` (owner's) | 15.0 MB, 35 slides on a whole-slide picture | 13.5 MB, 44 pictures, 0 whole |
 | Cost per slide (CLI) | | about +0.15 s |

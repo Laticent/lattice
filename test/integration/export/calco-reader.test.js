@@ -468,7 +468,7 @@ describe('calco reader: native shapes', () => {
     assert.ok(child >= 0 && pseudo >= 0, 'the child and the pseudo are both shapes');
     assert.ok(pseudo > child, 'the positioned pseudo is drawn after (above) the static child');
     const stacked = boxAt(500, 560);
-    assert.ok(stacked && stacked.shadow, 'two outer shadow layers are drawn as the widest one');
+    assert.ok(stacked?.shadow, 'two outer shadow layers are drawn as the widest one');
     assert.ok(res.approximated.includes('stacked-shadow'), 'and the read says it approximated');
   });
 
