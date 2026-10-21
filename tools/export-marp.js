@@ -398,7 +398,7 @@ function main(argv) {
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  // Lattice scopes a plain `<!-- header: H -->` (and `footer:`, `paginate:`) to its own slide; Marp carries it onto
+  // Lattice scopes a plain `<!-- header: H -->` (and `footer:`) to its own slide; Marp carries it onto
   // every later slide. Writing it as `_header:` makes Marp read the deck Lattice renders (lib/core/marp-slide-only.mjs).
   const bundled = withRuntimeScriptsReport(withSlideOnlySpotted(fm + bakedBody), {
     overflowMarker: marker,

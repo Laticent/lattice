@@ -95,7 +95,6 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 ## Six hues for six bands said nothing six labels had not already said.

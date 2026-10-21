@@ -8,7 +8,6 @@ footer: "read-aloud holds a beat after what matters"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 <!-- _header: '' -->
 

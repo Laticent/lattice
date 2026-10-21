@@ -5,6 +5,6 @@
   "fits": ["pagination-right"],
   "z": 3,
   "population": "derived — the `paginate` page number",
-  "hideToken": "no-paginate",
+  "hideToken": "no-pagination",
   "status": "shipped"
 }

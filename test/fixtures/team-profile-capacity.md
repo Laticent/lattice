@@ -1,5 +1,7 @@
 ---
 theme: indaco
+# No page numbers: the third slide's footer must be the only reason a footer Cell exists.
+paginate: false
 ---
 
 <!-- _class: team-profile lead -->

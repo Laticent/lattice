@@ -90,7 +90,6 @@ paginate: true
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 # ${L}
 
@@ -165,7 +164,6 @@ A framing sentence that sets up the supporting points beside it.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 
 ## ${L}, on every surface.
 

@@ -251,7 +251,8 @@ distinct, stable ID.
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
 | `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |
 | `asset-missing` | warning | — | An `asset:<name>` picture reference that names no file in `assets/` beside the deck (or whose file is a symlink out of the deck folder), so the CLI draws the missing-picture stand-in. Checked by `tools/lint-deck.js`, which has the file system; the linter core does not. |
-| `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold`, Marp values Lattice treats as `false`. |
+| `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold` in front matter, Marp values Lattice treats as `false`. |
+| `paginate-comment-retired` | warning | ✓ | A `paginate:` or `_paginate:` slide comment, which does nothing: front matter, the `no-pagination` / `with-pagination` classes and the component manifest set page numbers. Autofixable only where deleting it changes nothing. |
 | `stray-overflow-marker` | warning | — | `overflow-marker:` in the deck; it is an export setting, so the line does nothing. |
 | `stray-export-settings` | warning | — | An export-settings block copied in from another export. |
 

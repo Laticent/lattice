@@ -221,7 +221,6 @@ The model works: 218 enrolled, 81% placed, 88% of dollars reaching participants.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

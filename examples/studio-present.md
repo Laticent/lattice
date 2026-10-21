@@ -6,7 +6,6 @@ footer: "Laticent · Studio Present"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -21,7 +20,6 @@ Sections become a progress rail, your speaker notes sit beside the slide, and th
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -73,7 +71,6 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -113,7 +110,6 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -141,7 +137,6 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

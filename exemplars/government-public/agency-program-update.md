@@ -138,7 +138,6 @@ Retiring the legacy mainframe in Q4 depends on the appeals module shipping on ti
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

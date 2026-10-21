@@ -149,7 +149,6 @@ A ten-hour head start moves the intervention from cleanup to containment — fri
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

@@ -6,7 +6,6 @@ header: "Lattice · speaker notes"
 ---
 
 <!-- _class: title silent -->
-<!-- _paginate: false -->
 <!-- Open cold. Hold for two seconds before the first word — let the room settle. This whole line is a speaker note: it lives in the PDF and the HTML, but it never shows on the slide. -->
 
 Speaker notes

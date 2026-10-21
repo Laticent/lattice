@@ -81,7 +81,6 @@ On a dark canvas a legend swatch could paint a different color from the mark it 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 ## A rule with nothing to point at is a rule that gets retyped wrong.

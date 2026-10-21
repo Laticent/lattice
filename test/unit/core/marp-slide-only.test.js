@@ -11,9 +11,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { withRuntimeScripts } = require('../../../lib/core/marp-bundle');
 
-test('a plain header, footer and paginate comment become their underscore spelling', () => {
+test('a plain header and footer comment become their underscore spelling; a paginate comment is not this step\'s', () => {
+  // Page numbers are not a slide directive (audit §11s): lib/core/marp-bundle-scope.js drops the comment in the bundle.
   const deck = '# One\n\n---\n\n<!-- header: Q3 -->\n<!-- footer: "Board" -->\n<!--paginate: true-->\n\n# Two\n';
-  assert.equal(withSlideOnlySpotted(deck), '# One\n\n---\n\n<!-- _header: Q3 -->\n<!-- _footer: "Board" -->\n<!--_paginate: true-->\n\n# Two\n');
+  assert.equal(withSlideOnlySpotted(deck), '# One\n\n---\n\n<!-- _header: Q3 -->\n<!-- _footer: "Board" -->\n<!--paginate: true-->\n\n# Two\n');
 });
 
 test('an underscore comment, another directive, and prose are left alone', () => {

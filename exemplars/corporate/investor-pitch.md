@@ -234,7 +234,6 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

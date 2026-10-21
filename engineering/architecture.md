@@ -84,7 +84,7 @@ lines. Its job is:
    Run `mmdc` on the block. Replace the fence with a `<div>` wrapping
    the rendered SVG.
 4. Parse the slides from the markdown (split on `---`). For each
-   slide: read frontmatter directives (`_class`, `_paginate`, etc.),
+   slide: read frontmatter directives (`_class`, `_header`, etc.),
    render the body via a small markdown-it-compatible converter, apply
    per-class scaffolding (header, footer, pagination ::after).
    Structured layouts (`cards-grid`, `cards-stack`, `compare-prose`,
@@ -380,7 +380,7 @@ fix lands once, not per surface (see
   to that section — because the engine derives a slide's page number from its
   ordinal position among the sections it parses and accepts no offset, and because
   a lone slice also loses inherited running-global directives (a mid-deck
-  `<!-- class: … -->`; `header`, `footer` and `paginate` no longer carry) and the deck-scoped progress rail. Narrowing is skipped
+  `<!-- class: … -->`; `header` and `footer` no longer carry, and a `paginate` comment is ignored) and the deck-scoped progress rail. Narrowing is skipped
   whenever the engine's section count disagrees with `slideCount` — a
   `_focusSteps` or `split: headings` deck expands one authored slide into several,
   and picking by index there would paint the WRONG slide — in which case the

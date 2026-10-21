@@ -11,7 +11,6 @@ logo-finish: bottom-center title
 
 <!-- _class: title finish-none -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 # Chrome belongs to the frame
 
@@ -82,7 +81,6 @@ This paragraph follows the same list, and stays body copy.
 
 <!-- _class: closing finish-none -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Where The Fix Lives`
 

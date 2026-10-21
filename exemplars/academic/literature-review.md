@@ -134,7 +134,6 @@ The evidence supports a portfolio — trees where they survive, reflective surfa
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

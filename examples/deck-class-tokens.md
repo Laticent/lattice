@@ -10,7 +10,6 @@ class: no-note
 
 <!-- _class: title finish-none -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 # A deck-wide token reaches every slide
 
@@ -103,7 +102,6 @@ This slide always worked. The point of the fix is that the slide above it now lo
 
 <!-- _class: closing finish-none -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Where The Fix Lives`
 

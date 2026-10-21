@@ -113,7 +113,9 @@ test('settle: a live preview paints the composed cover already lifted, so the ru
   // cover's heading and lead are bare children of the section, and the live runtime wraps them in
   // `.cell-stage` after first paint, which the owner saw as the cover jumping. Settled, every
   // lift-eligible page already has its stage, which is exactly the runtime mirror's skip rule.
-  const md = DECK('portrait');
+  // `paginate: false`: a numbered cover is composed WITH its footer cell, and both the runtime
+  // and this settle leave a footed frame alone (the next test). This one is the footer-less cover.
+  const md = DECK('portrait').replace('theme: indaco\n', 'theme: indaco\npaginate: false\n');
   const out = engine.render(md, 'indaco', { preview: true });
   const opts = { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY };
   const cover = (html) => ss.splitTopLevelSections(html).find((p) => /data-split-role="cover"/.test(p));
@@ -124,6 +126,19 @@ test('settle: a live preview paints the composed cover already lifted, so the ru
   const forms = ss.splitTopLevelSections(settled).filter((p) => /^<section[^>]*\sclass="[^"]*\bform\b/.test(p));
   assert.ok(forms.length >= 5 && forms.every(stagedOrFramed), 'every lift-eligible page is lifted, and none twice');
   assert.equal(settled.match(/class="cell-stage"/g).length, forms.length);
+});
+
+test('settle leaves a numbered cover alone: its footer cell makes it a composed frame, as the runtime reads it', () => {
+  // Page numbers are on by default, so the split composes the cover with its own `.cell-footer`.
+  // The runtime mirror skips a section that has one (masthead-lift.js), so settle must too, or
+  // the export and the live preview would draw two different covers.
+  const md = DECK('portrait');
+  const out = engine.render(md, 'indaco', { preview: true });
+  const opts = { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY };
+  const cover = (html) => ss.splitTopLevelSections(html).find((p) => /data-split-role="cover"/.test(p));
+  const unsettled = cover(ss.structuralSplit(out.html, opts).html);
+  assert.match(unsettled, /<div class="cell-footer">/, 'the numbered cover carries its footer cell');
+  assert.equal(cover(ss.structuralSplit(out.html, { ...opts, settle: true }).html), unsettled, 'settle leaves it byte for byte');
 });
 
 test('settle lifts only what the runtime mirror lifts: a sovereign page with a nested title is left alone', () => {

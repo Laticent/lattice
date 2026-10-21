@@ -8,7 +8,6 @@ header: "Carbone · the curation"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Carbone curation · title" -->
 
 # Carbone, on par
@@ -181,7 +180,6 @@ Warn moved to amber and fail to signal red; they were orange beside coral.
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Carbone curation · closing" -->
 
 `Carbone · both faces`

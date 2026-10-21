@@ -17,7 +17,6 @@ Set `motion:` once in the front matter — or pick it in **Deck Settings › Mot
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 
 # One setting. Deck-wide, with a per-slide override.

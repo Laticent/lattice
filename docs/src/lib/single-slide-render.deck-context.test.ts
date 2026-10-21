@@ -370,11 +370,11 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(mock.mock.calls[0][3]?.page?.deckSection).toEqual({ index: 1, total: 1 });
 	});
 
-	it('a SPOT `_paginate` also takes the slice path — same reasoning', async () => {
+	it('a SPOT pagination class also takes the slice path — same reasoning', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = 'body\n\n---\n\n<!-- _paginate: true -->\n\nmore';
+		const deck = 'body\n\n---\n\n<!-- _class: content no-pagination -->\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 	});

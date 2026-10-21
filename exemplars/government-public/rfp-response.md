@@ -163,7 +163,6 @@ A big-bang cutover concentrates all risk on one date — the failure mode of the
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

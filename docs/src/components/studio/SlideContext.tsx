@@ -1004,7 +1004,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<SettingsScope label="Slide furniture" keywords="chrome parts" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
 									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
-									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
+									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-pagination')} onClick={() => toggle('no-pagination')} /></Row>
 								</SettingsScope>
 							)}
 							{/* The section-progress rail is independent of `silent` (which covers

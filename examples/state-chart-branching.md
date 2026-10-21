@@ -7,7 +7,6 @@ header: "Lattice · Branching state charts"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Feature deck`
 

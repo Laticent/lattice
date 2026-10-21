@@ -165,7 +165,6 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

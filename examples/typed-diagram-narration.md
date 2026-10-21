@@ -8,7 +8,6 @@ footer: "read-aloud narrates the whole first-wave Mermaid family"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 <!-- _header: '' -->
 

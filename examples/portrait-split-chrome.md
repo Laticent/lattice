@@ -7,7 +7,6 @@ header: "Lattice · portrait split chrome"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 # The footer reads on either field
 
@@ -90,7 +89,6 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

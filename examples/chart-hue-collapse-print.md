@@ -48,7 +48,6 @@ The print and a11y channels substitute **texture** for hue, so the two counts ha
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 ## The hue count is the texture count, so both go to one.

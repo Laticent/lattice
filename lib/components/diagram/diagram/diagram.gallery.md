@@ -8,7 +8,6 @@ footer: "Mermaid 11.14 · rendered through the diagram component"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 <!-- _header: '' -->
 
@@ -43,7 +42,6 @@ Stable diagrams render with full theme control. Experimental ones marked 🔥 ma
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Group 01 · Stable diagrams`
@@ -467,7 +465,6 @@ zenuml
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Group 02 · Experimental diagrams`
@@ -710,7 +707,6 @@ treeView-beta
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 <!-- _header: '' -->
 

@@ -78,7 +78,7 @@ section.title h1 + p:has(> code:only-child):not(:where([data-prose])) > code {
  * entirely (a slide break, not a rule). Opt-in: most decks using `title`
  * have no six-part color story to reference.
  *
- * `::before` + `order`, not `::after`: the universal `silent`/`no-paginate`
+ * `::before` + `order`, not `::after`: the universal `silent`/`no-pagination`
  * modifiers suppress `section::after` at matched specificity to hide the
  * engine's own pagination pseudo (base.variants.css) — reusing `::after`
  * here would collide and silently vanish under `silent` (title/closing's

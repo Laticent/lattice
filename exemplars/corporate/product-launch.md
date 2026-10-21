@@ -145,7 +145,6 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

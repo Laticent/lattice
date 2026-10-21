@@ -8,7 +8,6 @@ footer: "Phase 5 — sequential ramp"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -59,7 +58,6 @@ The `--seq-*` ramp encodes magnitude — heat, progress intensity, faint grid. T
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

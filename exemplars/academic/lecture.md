@@ -154,7 +154,6 @@ Assisted evolution trials are now inoculating coral larvae with heat-tolerant cl
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

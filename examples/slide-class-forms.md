@@ -8,7 +8,6 @@ header: "Lattice · Slide class forms"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Fix deck`
 

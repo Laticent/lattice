@@ -167,7 +167,6 @@ Each route trades capital and control differently. We can build our own plant, a
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

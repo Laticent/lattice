@@ -139,7 +139,6 @@ Each of you gets five dots to place across the twenty ideas on the wall. We tall
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->
