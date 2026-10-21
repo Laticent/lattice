@@ -8,7 +8,7 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 ### 2026-10-21 — measured on the callout plugin (#2836) on top of main at 405c145
 
-Raises the getting-started route's engine ceiling by 209 bytes (321241 → 321450), soft target unchanged; the owner chose this on 2026-10-21 (#2836), by exactly that PR's need. The route's engine is the preview runtime, and main sat 0.1KB under the ceiling. #2836 splits callouts into their own plugin and gives a chart's key and its callouts one row style; a docs build of it measures 321301 bytes after the owner dropped the pre-split `legend:` switches to save bytes. The remaining 60 bytes are the `@callout` reader and the shared marker size, and the margin covers the difference between a local build and CI's.
+Raises the getting-started route's engine ceiling by 209 bytes (321241 → 321450), soft target unchanged; the owner chose this on 2026-10-21 (#2836), by exactly that PR's need. The route's engine is the preview runtime, and main sat 0.1KB under the ceiling. #2836 splits callouts into their own plugin and gives a chart's key and its callouts one row style; a docs build of it measures 321301 bytes after the owner dropped the pre-split `legend:` switches to save bytes. The remaining 60 bytes are the `@callout` reader and the shared marker size. The other 149 bytes are headroom no measurement sets: CI reports this metric only to 0.1KB (313.7KB on this PR), so a local build cannot be matched to CI's byte for byte, and the raise was rounded up to leave room for that. The owner can trim it to the 60-byte need.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
