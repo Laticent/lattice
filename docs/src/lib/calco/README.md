@@ -109,8 +109,10 @@ nothing, so a headless browser can receive them as source.
   carried, and it is opaque (its tint is blended over what is behind it).
 - What cannot be a shape (a photo, a chart, an icon, a gradient scrim) is a picture of its own,
   cropped from the slide, placed in order among the shapes and grouped with its card
-  (`ReadOptions.sprites`, `Shape.kind === 'picture'`). A host that does not crop them (the Studio's
-  browser export) gets one foreground picture instead, and a card that holds picture content stays in it.
+  (`ReadOptions.sprites`, `Shape.kind === 'picture'`). `captureOfficeSlides` does the whole capture (shared
+  backgrounds, foreground, these crops) for any host that can `run` a function in the page and `shoot` a slide:
+  the CLI (puppeteer) and the Studio (html-to-image) are two such hosts. A host that does not crop them gets one
+  foreground picture instead, and a card that holds picture content stays in it.
 - The `.pptx` picture lock is markup only: PowerPoint's Lock honors it; LibreOffice does not.
   Google Slides and Collabora on iOS are not verified.
 

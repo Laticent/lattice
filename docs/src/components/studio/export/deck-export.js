@@ -1616,6 +1616,10 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 // quarter of it) is a JPEG first, and the PNG is never encoded when the JPEG is large; any other
 // slide is a PNG first. The JPEG is drawn onto a white canvas, so a transparent pixel is white,
 // not black. Only for an opaque picture: the PPTX and Office captures square their corners.
+function canvasToPng(canvas) {
+	return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+}
+
 async function canvasToPictureBlob(canvas, section) {
 	const { worthTryingJpeg, jpegWins, isContinuousTone, PICTURE_JPEG_QUALITY, PICTURE_TONE_JPEG_BYTES } = await import('@/lib/calco');
 	const encode = (c, type, quality) => new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality));
@@ -2386,46 +2390,86 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			record.length = 0;
 		}
 		const [calco, { toCanvas }] = await Promise.all([import('@/lib/calco'), import('html-to-image')]);
-		const slides = [];
-		for (let i = 0; i < sections.length; i++) {
+		let slides = [];
+		let backgrounds;
+		const progress = async (i) => {
 			if (onStatus) onStatus(`Rendering slide ${i + 1} of ${sections.length}…`, { current: i, total: sections.length });
-			const section = sections[i];
-			let shot;
-			try {
-				shot = await withCaptureFixups(section, async (w, h, pixelRatio) => {
-					// A slide the reader cannot read still exports — as a picture. The picture is
-					// the deliverable; the text boxes are the improvement.
-					let frames = [];
-					let shapes = [];
-					if (editable) {
-						try {
-							// `shapes`: plain boxes and rules come out of the picture as native shapes too.
-							({ frames, shapes } = calco.readSlide(section, { hide: true, shapes: true }));
-						} catch (e) {
-							console.warn(`[deck-export] slide ${i + 1} exports as a picture: ${e?.message || e}`);
-							calco.restoreSlide(section);
-							frames = [];
-							shapes = [];
-						}
-					}
+		};
+		if (editable) {
+			// The same capture the CLI runs (`captureOfficeSlides`): shared backgrounds, a foreground over transparency,
+			// pictures cropped out of it. The Studio is only the host that gives it two verbs. The fixups wrap the WHOLE
+			// slide, because the reader needs the slide laid out at its own size and visible, as the photographs do.
+			let now = null;
+			const host = {
+				run: async (i, fn, arg) => fn(sections[i], arg),
+				shoot: async (i, kind) => {
+					const canvas = await toCanvas(sections[i], captureOptions(now.w, now.h, now.pixelRatio, fontEmbedCSS, log));
+					// A background is a picture to store, and so is the whole slide a slide falls back to: a photograph is a JPEG.
+					// The foreground carries transparency, which only a PNG keeps.
+					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas);
+					return new Uint8Array(await blob.arrayBuffer());
+				},
+				guard: async (i, fn) => {
+					await progress(i);
 					try {
-						const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-						const blob = await canvasToPictureBlob(canvas, section);
-						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames, shapes };
+						return await withCaptureFixups(
+							sections[i],
+							async (w, h, pixelRatio) => {
+								now = { w, h, pixelRatio };
+								try {
+									return await fn();
+								} catch (e) {
+									// A slide the reader cannot read still exports, as a picture: the picture is the deliverable,
+									// the text boxes are the improvement.
+									console.warn(`[deck-export] slide ${i + 1} exports as a picture: ${e?.message || e}`);
+									for (const undo of [calco.restoreSplit, calco.restoreSlide]) {
+										try {
+											undo(sections[i]);
+										} catch {}
+									}
+									return { image: await host.shoot(i, 'full'), frames: [], shapes: [] };
+								} finally {
+									now = null;
+								}
+							},
+							undefined,
+							format,
+						);
+					} catch (e) {
+						throw captureError(e);
 					} finally {
-						calco.restoreSlide(section);
+						// Yield so the progress paints and input stays live between slides.
+						await new Promise((r) => setTimeout(r));
 					}
-				}, undefined, format);
-			} catch (e) {
-				throw captureError(e);
+				},
+			};
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			slides = captured.slides.map((sl, i) => ({ ...sl, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null }));
+			backgrounds = captured.backgrounds;
+		} else {
+			for (let i = 0; i < sections.length; i++) {
+				await progress(i);
+				let shot;
+				try {
+					shot = await withCaptureFixups(
+						sections[i],
+						async (w, h, pixelRatio) => {
+							const canvas = await toCanvas(sections[i], captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i])).arrayBuffer());
+						},
+						undefined,
+						format,
+					);
+				} catch (e) {
+					throw captureError(e);
+				}
+				slides.push({ image: shot, frames: [], shapes: [], notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
+				await new Promise((r) => setTimeout(r));
 			}
-			slides.push({ image: shot.bytes, frames: shot.frames, shapes: shot.shapes, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
-			// Yield so the progress paints and input stays live between slides.
-			await new Promise((r) => setTimeout(r));
 		}
 		const { eng, summary } = provenance(meta, sections.length);
 		const { w, h } = slideGeom(sections[0]);
-		const deck = { width: w, height: h, slides, title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
+		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');

@@ -6,6 +6,9 @@
  * come out of the picture too, as native shapes grouped with their text (shapes.ts).
  * Design: engineering/decisions/2026-10-06-calco-office-export-library.md.
  */
+
+export type { CapturedSlide, CaptureHost, CaptureOptions, Shot } from './capture.js';
+export { captureOfficeSlides, cropPictures, describeBackground, placePictures, readsBackdrop, splitError, toBase64 } from './capture.js';
 export type { FaceUse, FontHost, FontMetrics } from './fonts.js';
 export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts.js';
 export type { PlacedBox } from './layout.js';
@@ -14,7 +17,6 @@ export type { ChromeRole, Layout, MasterPlan } from './masters.js';
 export { CHROME_ROLES, planMasters, withoutHoisted } from './masters.js';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp.js';
 export { imageExt, imageMime, isContinuousTone, jpegWins, PICTURE_FLAT_BYTES, PICTURE_JPEG_QUALITY, PICTURE_JPEG_SHARE, PICTURE_TONE_JPEG_BYTES, worthTryingJpeg } from './picture.js';
-
 export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx.js';
 export { applyRoles, buildPptx, embedPptxFonts, groupShapes, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, uniqueShapeIds, writePptx, xmlSafe } from './pptx.js';
 export type { ReadOptions, ReadResult, Refusal } from './reader.js';

@@ -16,7 +16,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
-const { readSlide, restoreSlide } = require('@laticent/calco');
+const { readSlide, restoreSlide, captureOfficeSlides } = require('@laticent/calco');
 const { captureSlides } = require('../../../lib/export/office-export');
 
 const page = (css, body, n = 1) => `<!doctype html><html><head><style>body{margin:0;font-family:sans-serif} section{width:1280px;height:720px;position:relative;background:#fff;color:#123;isolation:isolate} ${css}</style></head><body>${Array.from({ length: n }, (_, i) => `<section data-lattice-slide="${i + 1}" id="s${i + 1}">${typeof body === 'function' ? body(i) : body}</section>`).join('')}</body></html>`;
@@ -162,6 +162,36 @@ describe('calco red-team fixtures', () => {
       { shapes: true, hide: true, sprites: true },
     );
     assert.equal(res.shapes.filter((sh) => sh.kind === 'picture').length, 0, 'the hidden text must not become a picture');
+  });
+
+  test('host: a slide that reads its backdrop is one whole picture, without shooting its layers, when the host asks', async () => {
+    await load(
+      page(
+        '.blend{position:absolute;left:100px;top:100px;width:300px;height:200px;background:#c00;mix-blend-mode:multiply}',
+        (i) => (i === 0 ? '<p>plain</p>' : '<div class="blend"></div><p>blended</p>'),
+        2,
+      ),
+    );
+    const handles = await tab.$$('section[data-lattice-slide]');
+    const run = async (mode) => {
+      const shots = [];
+      const host = {
+        run: (i, fn, arg) => handles[i].evaluate(fn, arg),
+        shoot: async (i, kind) => {
+          shots.push(`${i}:${kind}`);
+          return new Uint8Array(await handles[i].screenshot({ type: 'png', omitBackground: kind === 'foreground' }));
+        },
+      };
+      const out = await captureOfficeSlides(host, 2, { backdrop: mode });
+      return { shots, out };
+    };
+    const whole = await run('whole');
+    assert.deepEqual(whole.shots.filter((x) => x.startsWith('1:')), ['1:full'], 'the blended slide is shot once, whole');
+    assert.ok(whole.out.slides[1].image && whole.out.slides[1].background === undefined, 'a whole picture, no shared background');
+    assert.equal(typeof whole.out.slides[0].background, 'number', 'the plain slide keeps its shared background');
+    const checked = await run('check');
+    // Slides 0 and 1 paint the same background, so it is shot once; the blended slide's layers are then checked against a whole shot.
+    assert.ok(checked.shots.includes('1:foreground') && checked.shots.includes('1:full'), checked.shots.join());
   });
 
   test('chip over the decorative layer stays a shape; the same chip elsewhere is a highlight', async () => {

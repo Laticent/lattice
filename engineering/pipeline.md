@@ -235,7 +235,7 @@ pinner. Two modes:
   speaker notes on each page's notes view, the `describe:` text as each picture's
   alt text. The PPTX twin is the plain `.pptx`, which stays on
   `lib/export/pptx-export.js`.
-- **Editable** (`--editable` on `.odp` or `.pptx`): Calco reads every paragraph off
+- **Editable** (`--editable` on `.odp` or `.pptx`; the Studio's Editable text switch runs the same capture, `captureOfficeSlides`): Calco reads every paragraph off
   the rendered slide, hides that text, photographs the slide, and writes each
   paragraph back as a real text box in its own font, with the browser's line
   breaks. Both embed the fonts, each pinned to one weight with every character

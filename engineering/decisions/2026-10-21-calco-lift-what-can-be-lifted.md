@@ -5,8 +5,8 @@ summary: Calco now lifts pseudo-elements (dots, rings, accent bars, mask icons, 
 
 # Calco: lift what can be lifted, say what was approximated (2026-10-21)
 
-**Status: built and measured in LibreOffice (§4, §6). The Studio's browser export does not make
-pictures yet (§9). PowerPoint, Google Slides and Collabora on iOS are UNVERIFIED.**
+**Status: built and measured in LibreOffice (§4, §6). The Studio runs the same capture as the CLI (§9).
+PowerPoint, Google Slides and Collabora on iOS are UNVERIFIED.**
 
 **The question.** The owner's rule: if a slide's background is an image it bakes the finish, the
 background and the decorative layer, and everything else is a real shape. A pill is a real pill
@@ -164,10 +164,26 @@ work and is a decision about how weight is named per target app.
 PowerPoint, Google Slides and Collabora Office on iOS. They run different engines than the one
 measured here.
 
-The Studio's browser export (`docs/src/components/studio/export/deck-export.js`) captures with
-html-to-image and still writes one foreground picture per slide. It shares the reader, so it gets
-every shape above (gradients, pseudo-elements, groups); making pictures there needs the same crop
-from its canvas.
+The Studio (`docs/src/components/studio/export/deck-export.js`) and the CLI run one capture:
+`captureOfficeSlides` (`docs/src/lib/calco/capture.ts`) decides what each photograph is (the shared
+background, the foreground, the cropped pictures) and a host gives it two verbs, `run` and `shoot`.
+The CLI's host is puppeteer; the Studio's is html-to-image in the page. Measured on the real Studio
+(Playwright, Chromium), against the CLI on the same decks, mean abs diff to Chrome in LibreOffice:
+
+| Deck | Studio `.pptx` | CLI `.pptx` | Studio `.odp` |
+|---|---:|---:|---:|
+| `accent-finishes` | 5.1 | 5.7 | 2.0 |
+| `card-tags` | 4.8 | 5.4 | 2.4 |
+| `sample-images` | 3.6 | 4.3 | 1.3 |
+| a 35-slide photo deck | 12.4 | 13.3 | 6.4 |
+
+Every Studio `.pptx` passes the full ISO schema check and `validate.py` with no duplicate shape ids.
+
+Two costs. Time: `accent-finishes` takes 9.7 s in the Studio (7 s before this capture, 7.5 s in the CLI);
+the 35-slide deck takes 50 s (about 45 s before). Size: 13.9 MB against 12.7 MB for the CLI. The Studio's
+html-to-image cannot composite a slide that reads the paint behind it (a blend, a backdrop blur) the way
+Chrome does, so its three photographs never add back up; the Studio passes `backdrop: 'whole'` and keeps one
+picture for such a slide without shooting its layers. Without that the 35-slide deck took 90 s and 42 MB.
 
 ## 10. What the validators prove, and what they do not
 

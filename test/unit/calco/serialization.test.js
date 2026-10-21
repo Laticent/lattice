@@ -1,5 +1,5 @@
 /**
- * Unit: Calco's reader ships as SOURCE. The CLI hands `readSlide`, `restoreSlide`, `splitSlide`, `restoreSplit` and `splitKey` to a
+ * Unit: Calco's reader ships as SOURCE. The CLI hands `readSlide`, `restoreSlide`, `splitSlide`, `restoreSplit`, `splitKey` and the capture's in-page helpers to a
  * headless page with `elementHandle.evaluate(fn)`, which serializes `fn.toString()`; so each
  * must close over nothing, and the bundler must not have injected a module-scope helper the
  * body reaches for. Only the BUILT dist/ can show the second, which is what this reads
@@ -14,7 +14,7 @@ const calco = require('@laticent/calco');
 const DIST = path.join(__dirname, '../../../docs/src/lib/calco/dist/index.cjs');
 
 // The functions a headless page receives as source.
-const SHIPPED = [calco.readSlide, calco.restoreSlide, calco.splitSlide, calco.restoreSplit, calco.splitKey, calco.isContinuousTone];
+const SHIPPED = [calco.readSlide, calco.restoreSlide, calco.splitSlide, calco.restoreSplit, calco.splitKey, calco.isContinuousTone, calco.describeBackground, calco.readsBackdrop, calco.splitError, calco.cropPictures];
 
 describe('calco — serialization', () => {
   test('the package resolves to the built dist/, not the TypeScript source', () => {
