@@ -22,7 +22,7 @@ import { bracketMatching, HighlightStyle, indentOnInput, LanguageDescription, La
 import { languages } from '@codemirror/language-data';
 import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { Compartment, EditorSelection, EditorState, RangeSet, StateEffect, StateField, Transaction } from '@codemirror/state';
-import { Decoration, EditorView, GutterMarker, gutterLineClass, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
+import { Decoration, EditorView, GutterMarker, gutterLineClass, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
@@ -812,6 +812,10 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 					? [linter(lintSource, { delay: 350, needsRefresh: (u) => u.transactions.some((tr) => tr.effects.some((e) => e.is(admissionChanged))) }), lintGutter()]
 					: [],
 				bandField,
+				// The Studio's markdown editor scrolls past its last line, so the end of a deck is not pinned to the
+				// bottom edge (and a slide can be centered). The Playground matches it; a fixed-height specimen
+				// (`autoHeight`) has no scroller to scroll in.
+				...(autoHeight ? [] : [scrollPastEnd()]),
 				latticeTheme,
 				...(autoHeight ? [autoHeightTheme] : []),
 				// lintKeymap: F8 / Shift-F8 cycle findings, Ctrl-Shift-M opens the lint

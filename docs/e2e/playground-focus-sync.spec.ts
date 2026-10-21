@@ -190,3 +190,17 @@ test(`the editor starts a slide level with its picture ${TAGS}`, async ({ page }
 		)
 		.toBeLessThan(6);
 });
+
+test(`the editor scrolls past its last line, as the Studio editor does ${TAGS}`, async ({ page }) => {
+	await open(page);
+	const room = await page.evaluate(async () => {
+		const scroller = document.querySelector('.cm-scroller') as HTMLElement;
+		scroller.scrollTop = scroller.scrollHeight;
+		await new Promise((r) => requestAnimationFrame(() => r(null)));
+		const lines = document.querySelectorAll('.cm-line');
+		const last = lines[lines.length - 1].getBoundingClientRect();
+		return scroller.getBoundingClientRect().bottom - last.bottom;
+	});
+	// Pinned to the edge it would be a few pixels; scrolled past, a good part of the pane is left under it.
+	expect(room).toBeGreaterThan(150);
+});
