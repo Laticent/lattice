@@ -57,7 +57,7 @@ for (const vw of [1440, 820, 390]) {
 	test.describe(`at ${vw}px`, () => {
 		test.use({ viewport: { width: vw, height: vw === 1440 ? 900 : 1000 } });
 
-		test(`one Import button: a photo opens Images, a note opens Files, a mix opens All newest first @smoke`, async ({ page }, testInfo) => {
+		test(`one Import button: a photo opens Images, a note opens Files, a mix opens All newest first @smoke${vw === 1440 ? " @webkit-tablet @gecko" : ""}`, async ({ page }, testInfo) => {
 			test.slow();
 			await gotoStudio(page);
 			await openLibrary(page, vw);
