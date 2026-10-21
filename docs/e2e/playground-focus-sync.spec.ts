@@ -105,12 +105,12 @@ test(`the preview and editor scrollbars are thin and quiet ${TAGS}`, async ({ pa
 		return { frame: [getComputedStyle(html).scrollbarWidth, getComputedStyle(html).scrollbarColor], editor: [getComputedStyle(cm).scrollbarWidth, getComputedStyle(cm).scrollbarColor] };
 	});
 	// Firefox resolves `thin` to `none` under the headless runner's overlay scrollbars, so the width is
-	// only asserted to be ours (not the browser's `auto`); the colour is the claim that never varies.
+	// only asserted to be ours (not the browser's `auto`); the color is the claim that never varies.
 	if (browserName === 'chromium') {
 		expect(bars.frame[0]).toBe('thin');
 		expect(bars.editor[0]).toBe('thin');
 	}
-	// One scrollbar, two scrollers: the frame is handed the colour the page resolves, so they are identical.
+	// One scrollbar, two scrollers: the frame is handed the color the page resolves, so they are identical.
 	expect(bars.frame[1]).toBe(bars.editor[1]);
 	for (const [width, color] of [bars.frame, bars.editor]) {
 		expect(width).not.toBe('auto');
@@ -205,7 +205,7 @@ test(`scrolling the editor marks and shows the same slide in the preview ${TAGS}
 test(`a middle slide is centered in both panes, the first at the top, the last at the bottom ${TAGS}`, async ({ page }) => {
 	await open(page);
 	await scrollPreviewTo(page, 4);
-	// Centre of the marked slide's band in the editor and of the slide in the preview, as heights in each pane.
+	// Center of the marked slide's band in the editor and of the slide in the preview, as heights in each pane.
 	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 4 title'))).toBe(true);
 	await expect
 		.poll(() =>
@@ -216,10 +216,10 @@ test(`a middle slide is centered in both panes, the first at the top, the last a
 				const last = document.querySelector('.cm-slide-band-last')?.getBoundingClientRect();
 				const ed = document.querySelector('.cm-scroller')?.getBoundingClientRect();
 				if (!sec || !first || !last || !ed) return 999;
-				const pvCentre = sec.top + sec.height / 2 - f.contentWindow!.innerHeight / 2;
-				const edCentre = (first.top + last.bottom) / 2 - (ed.top + ed.height / 2);
-				// Both are offsets from the middle of their own window: centred slides are both near zero.
-				return Math.max(Math.abs(pvCentre), Math.abs(edCentre));
+				const pvCenter = sec.top + sec.height / 2 - f.contentWindow!.innerHeight / 2;
+				const edCenter = (first.top + last.bottom) / 2 - (ed.top + ed.height / 2);
+				// Both are offsets from the middle of their own window: centered slides are both near zero.
+				return Math.max(Math.abs(pvCenter), Math.abs(edCenter));
 			}),
 		)
 		.toBeLessThan(60);

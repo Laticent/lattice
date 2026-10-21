@@ -419,7 +419,7 @@ function readAnchor(frame) {
 // `sig` must capture everything baked into the document outside the <section>s
 // (theme/mode/size, and for the studios the live token/component CSS). `fresh`
 // forces a full write (deck swap → reset runtime/Mermaid state).
-/** The scrollbar colour the PAGE resolves on its root (native-widgets.css: the palette's muted mark), as the
+/** The scrollbar color the PAGE resolves on its root (native-widgets.css: the palette's muted mark), as the
  *  "thumb track" pair CSS takes back. The frame cannot read the page's tokens, so it is handed the result and
  *  matches the editor's scrollbar in every palette and mode. True when the page has none to give. */
 function hostScrollbarColor() {
@@ -431,7 +431,7 @@ function hostScrollbarColor() {
 	}
 }
 
-/** The page's accent as a colour the frame can use (it cannot read the page's tokens): the root's caret colour is
+/** The page's accent as a color the frame can use (it cannot read the page's tokens): the root's caret color is
  *  `var(--accent)` already resolved (native-widgets.css). Null when there is none, and then nothing is outlined. */
 function hostAccent() {
 	try {

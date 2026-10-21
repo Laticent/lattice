@@ -8,5 +8,5 @@
   browser's default.
 - The Playground no longer finds the caret's slide by matching words against the preview, so a repeated
   heading or a slide with no text can no longer land the preview on the wrong slide.
-- In the Playground, the editor and the preview now scroll together from either side: scrolling the editor scrolls the preview and marks the same slide there, with an accent outline. Slides are kept level section for section: the first at the top, the last at the bottom, every slide between centered in both panes. The preview's scrollbar is also the same colour as the editor's in every palette and mode.
+- In the Playground, the editor and the preview now scroll together from either side: scrolling the editor scrolls the preview and marks the same slide there, with an accent outline. Slides are kept level section for section: the first at the top, the last at the bottom, every slide between centered in both panes. The preview's scrollbar is also the same color as the editor's in every palette and mode.
 - The Playground editor now scrolls past its last line, as the Studio editor does, so the end of a deck is not pinned to the bottom edge.
