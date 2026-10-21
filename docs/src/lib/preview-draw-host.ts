@@ -9,6 +9,8 @@
 // else is `preview-draw-host-impl.ts`, imported on the first draw or the first warm-up, so a deck with no figure costs
 // one property definition.
 
+import { DRAW_KINDS } from '../../../lib/plugins/draw-kinds.generated.mjs';
+
 type Job = { kind: string } & Record<string, unknown>;
 
 declare global {
@@ -21,8 +23,8 @@ const impl = () => import('./preview-draw-host-impl');
 
 // WHAT THE HOST DRAWS FOR A PAGE. A kind listed here is drawn in a sandboxed frame, and its library is not loaded into the page: the runtime
 // installs its stand-in (lib/plugins/draw-shims.mjs) only for a kind the host offers, and the preview builders skip the library's preload.
-// Mermaid is offered since its frame loads Mermaid's lazy ES modules by URL instead of inlining 3 MB (engineering/mermaid.md §5.3f).
-const KINDS = ['function-plot', 'mermaid'];
+// The list is the plugins whose manifests declare `draw` (the registry build writes it): adding a plugin adds its kind here by itself.
+const KINDS: readonly string[] = DRAW_KINDS;
 // A kind whose frame could not load its library (offline, a stale deploy) leaves the list, so the next preview frame loads the library itself.
 const down = new Set<string>();
 export const markDrawKindDown = (kind: string) => void down.add(kind);

@@ -1,5 +1,6 @@
-// THE STUDIO'S DRAW HOST: it owns the sandboxed frames that draw Mermaid and function-plot for the previews, so neither
-// library runs in the page that holds the deck (owner decisions 14 and 15; D1 A, 2026-10-20).
+// THE STUDIO'S DRAW HOST: it owns the sandboxed frames that draw a first-party plugin's figures for the previews, so no such
+// library runs in the page that holds the deck (owner decisions 14 and 15; D1 A, 2026-10-20). It names no plugin: the kinds it can draw
+// are the entries of the registry the build writes from the plugins' manifests (lib/plugins/draw-frame-libraries.generated.mjs).
 //
 // A frame is the pool's sandbox (`sandbox="allow-scripts"`, no `allow-same-origin`, no network) around the library and the
 // bootstrap in lib/packages/draw-frame-core.mjs: ONE inline script for a small library (pinned by SHA-256, checked here before it
@@ -11,13 +12,15 @@
 // Loaded lazily, by whoever installs the host (the previews, in the next step), so the Studio's first load does not pay
 // for it (docs/route-budget.json).
 
-import { checkDrawReply, DRAW_KINDS, drawFrameDocument, drawFrameEsmDocument, drawFrameEsmScripts, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
+import { checkDrawReply, drawFrameDocument, drawFrameEsmDocument, drawFrameEsmScripts, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
 import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/draw-frame-libraries.generated.mjs';
 
-export type DrawKind = keyof typeof DRAW_KINDS;
-export type DrawJob =
-	| { kind: 'mermaid'; definition: string; svgId: string; config: Record<string, unknown>; stage?: number; fonts?: Array<{ family: string; weight: string; style: string; url: string }> }
-	| { kind: 'function-plot'; configB64: string; configText: string; width: number; height: number; index: number };
+/** A plugin's name: the key of a frame the registry knows. */
+export type DrawKind = string;
+/** What one kind's registry entry says (the kernel's `DrawMeta`, plus the library's file and pin). */
+export type DrawLibrary = { file: string; sha256: string; global: string; unsafeEval?: boolean; adapter: string; hydrateSource?: string; esm?: { dir: string; entry: string; integrity: Record<string, string>; preload: string[] } };
+/** A job is whatever its plugin's `draw-frame.js` takes; the host only needs to know which kind it is for. */
+export type DrawJob = { kind: DrawKind } & Record<string, unknown>;
 export type DrawHost = {
 	/** Draw one figure, answering its SVG as text, or rejecting with why it did not draw. */
 	draw: (job: DrawJob, ms?: number, again?: boolean) => Promise<string>;
@@ -33,8 +36,8 @@ export type DrawHostDeps = {
 	folderUrl?: (dir: string) => string | null;
 	/** The absolute URLs of the folders a module-loaded frame may load fonts from (the engine's own), each ending in a slash. */
 	fontFolders?: () => string[];
-	/** function-plot's `hydrate` function as text (the registry's own, so the plot is the one every surface draws). */
-	hydrateSource: () => string;
+	/** The kinds a frame can be built for. Default: the registry the build writes; a test passes its own. */
+	libraries?: Record<string, DrawLibrary>;
 	fetchText?: (url: string) => Promise<string>;
 	doc?: Document;
 	subtle?: SubtleCrypto;
@@ -56,12 +59,29 @@ const DRAW_MS = 15_000;
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
 
-type Frame = { frame: HTMLIFrameElement; closed: boolean; queue: Promise<unknown>; seq: number; waiting: Map<number, { resolve: (s: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>; close: () => void };
+type Frame = { frame: HTMLIFrameElement; closed: boolean; faces: Set<string>; queue: Promise<unknown>; seq: number; waiting: Map<number, { resolve: (s: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>; close: () => void };
+
+/**
+ * A job may carry `fonts`, the faces its text is measured in (the kernel's `env.faces`). A frame keeps a face once it has it, so each face is
+ * sent to a frame once: the same job a second time carries none of them, and a face's bytes (a deck's own font) do not cross again on every draw.
+ */
+function withFreshFaces(f: Frame, job: DrawJob): DrawJob {
+	if (!Array.isArray(job.fonts)) return job;
+	const fresh = (job.fonts as Array<Record<string, unknown>>).filter((face) => {
+		const src = String(face.data ?? face.url ?? '');
+		const key = `${face.family}|${face.weight}|${face.style}|${src.length}|${src.slice(-48)}`;
+		if (f.faces.has(key)) return false;
+		f.faces.add(key);
+		return true;
+	});
+	return { ...job, fonts: fresh };
+}
 
 export function createDrawHost(deps: DrawHostDeps): DrawHost {
 	const doc = deps.doc ?? document;
 	const subtle = deps.subtle ?? crypto.subtle;
 	const fetchText = deps.fetchText ?? (async (url: string) => (await fetch(url, { credentials: 'omit' })).text());
+	const registry = deps.libraries ?? (DRAW_FRAME_LIBRARIES as unknown as Record<string, DrawLibrary>);
 	const libraries = new Map<DrawKind, Promise<string>>();
 	const frames = new Map<DrawKind, Promise<Frame>>();
 	let done = false;
@@ -70,7 +90,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 	function library(kind: DrawKind): Promise<string> {
 		let p = libraries.get(kind);
 		if (!p) {
-			const pin = (DRAW_FRAME_LIBRARIES as Record<string, { file: string; sha256: string }>)[kind];
+			const pin = Object.hasOwn(registry, kind) ? registry[kind] : undefined;
 			p = (async () => {
 				if (!pin) throw new Error(`no library is pinned for ${kind}`);
 				const url = deps.libraryUrl(pin.file);
@@ -92,13 +112,14 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 
 	/** The document of a kind whose library is a module graph: two small inline scripts and the directory the modules load from. */
 	async function esmDocument(kind: DrawKind): Promise<string | null> {
-		const esm = (DRAW_FRAME_LIBRARIES as Record<string, { esm?: { dir: string; entry: string; integrity: Record<string, string>; preload: string[] } }>)[kind]?.esm;
+		const meta = registry[kind];
+		const esm = meta?.esm;
 		if (!esm) return null;
 		const base = deps.folderUrl?.(esm.dir);
 		if (!base) throw new Error(`${esm.dir} has no staged address yet`);
-		const { boot, importMap } = drawFrameEsmScripts({ kind, base, entry: esm.entry, integrity: esm.integrity });
+		const { boot, importMap } = drawFrameEsmScripts({ kind, meta, base });
 		const [bootHash, mapHash] = await Promise.all([boot, importMap].map(async (t) => b64(await subtle.digest('SHA-256', new TextEncoder().encode(t)))));
-		return drawFrameEsmDocument({ kind, base, entry: esm.entry, integrity: esm.integrity, boot, importMap, bootHash, mapHash, preload: esm.preload, fontBases: deps.fontFolders?.() ?? [] });
+		return drawFrameEsmDocument({ kind, meta, base, boot, importMap, bootHash, mapHash, fontBases: deps.fontFolders?.() ?? [] });
 	}
 
 	async function openFrame(kind: DrawKind): Promise<Frame> {
@@ -106,9 +127,9 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		try {
 			html = await esmDocument(kind);
 			if (html === null) {
-				const script = drawFrameScript({ kind, library: await library(kind), ...(kind === 'function-plot' ? { hydrateSource: deps.hydrateSource() } : {}) });
+				const script = drawFrameScript({ kind, library: await library(kind), meta: registry[kind] });
 				const hash = b64(await subtle.digest('SHA-256', new TextEncoder().encode(script)));
-				html = drawFrameDocument({ kind, script, hash });
+				html = drawFrameDocument({ kind, script, hash, meta: registry[kind] });
 			}
 		} catch (e) {
 			// A library that could not be fetched or did not match its pin leaves the kind to the page itself, as a frame that could not open does.
@@ -127,6 +148,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		const f: Frame = {
 			frame,
 			closed: false,
+			faces: new Set(),
 			queue: Promise.resolve(),
 			seq: 0,
 			waiting: new Map(),
@@ -215,7 +237,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		async draw(job, ms = DRAW_MS, again = true): Promise<string> {
 			if (done) throw new Error('the draw host is closed');
 			const kind = job.kind;
-			if (!Object.hasOwn(DRAW_KINDS, kind)) throw new Error(`no draw frame for ${String(kind)}`);
+			if (!Object.hasOwn(registry, kind)) throw new Error(`no draw frame for ${String(kind)}`);
 			const f = await frameFor(kind);
 			// One at a time, so a draw's clock starts when the frame gets it, not while it waits behind another.
 			const next = f.queue.then(
@@ -232,7 +254,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 						}, ms);
 						f.waiting.set(id, { resolve, reject, timer });
 						mark('draw-sent');
-						f.frame.contentWindow?.postMessage({ t: 'draw', id, ...job }, '*');
+						f.frame.contentWindow?.postMessage({ t: 'draw', id, ...withFreshFaces(f, job) }, '*');
 					}),
 			);
 			f.queue = next.catch(() => {});
@@ -246,7 +268,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		},
 		async warm(kind) {
 			if (done) throw new Error('the draw host is closed');
-			if (!Object.hasOwn(DRAW_KINDS, kind)) throw new Error(`no draw frame for ${String(kind)}`);
+			if (!Object.hasOwn(registry, kind)) throw new Error(`no draw frame for ${String(kind)}`);
 			await frameFor(kind);
 		},
 		close() {

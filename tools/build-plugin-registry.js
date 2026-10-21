@@ -84,6 +84,10 @@ const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
 const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
 const DRAWN_LIBRARY_FILE = path.join(PLUGINS_DIR, 'drawn-library.generated.mjs');
 const DRAW_FRAME_LIBRARIES_FILE = path.join(PLUGINS_DIR, 'draw-frame-libraries.generated.mjs');
+const DRAW_HOST_ADAPTERS_FILE = path.join(PLUGINS_DIR, 'draw-host-adapters.generated.mjs');
+const DRAW_SHIMS_FILE = path.join(PLUGINS_DIR, 'draw-shims.generated.mjs');
+const DRAW_KINDS_FILE = path.join(PLUGINS_DIR, 'draw-kinds.generated.mjs');
+const DRAW_WARM_FILE = path.join(PLUGINS_DIR, 'draw-warm.generated.mjs');
 const EXTENSION_POINTS_FILE = path.join(PLUGINS_DIR, 'extension-points.generated.json');
 const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
 const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
@@ -143,6 +147,7 @@ async function readExports(folder, name, manifest) {
     // applies to it (lib/plugins/resolve.js decides which rules a plugin answers to).
     out.hasPass = typeof createPass === 'function';
     out.hydrateSource = fs.readFileSync(hydratePath, 'utf8');
+    if (typeof hydrate === 'function') out.hydrateText = hydrate.toString();
     // What the module holds OUTSIDE the hydrate function: its own source text (which is exactly
     // what the CLI page receives, serialized) cut out, then comments and the one export statement.
     // Anything left — a module-level const, a helper — is a free identifier on the CLI page, where
@@ -157,6 +162,35 @@ async function readExports(folder, name, manifest) {
         .replace(/(['"])use strict\1;?/, '')
         .trim();
     }
+  }
+  // The draw frame's three role files (manifest `draw`): the function that runs inside the sandboxed frame (required to be
+  // self-contained, like a hydrate function, because its text is hashed into the frame's one script), the host-page half and the
+  // stand-in for a runtime pass's library global. Read for their exports and, for the frame function, the source it is embedded from.
+  const drawFramePath = path.join(dir, `${name}.draw-frame.js`);
+  if (fs.existsSync(drawFramePath)) {
+    const { draw } = require(drawFramePath);
+    out.hasDrawFrame = typeof draw === 'function';
+    out.drawFrameSource = fs.readFileSync(drawFramePath, 'utf8');
+    if (out.hasDrawFrame) {
+      out.drawFrameText = draw.toString();
+      out.drawFrameModuleScope = out.drawFrameSource
+        .replace(draw.toString(), '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+        .replace(/module\.exports\s*=\s*\{\s*draw\s*\};?/, '')
+        .replace(/(['"])use strict\1;?/, '')
+        .trim();
+    }
+  }
+  const drawHostPath = path.join(dir, `${name}.draw-host.mjs`);
+  if (fs.existsSync(drawHostPath)) {
+    const mod = await import(pathToFileURL(drawHostPath).href);
+    out.hasDrawHost = typeof mod.prepare === 'function' || typeof mod.finish === 'function';
+  }
+  const drawShimPath = path.join(dir, `${name}.draw-shim.mjs`);
+  if (fs.existsSync(drawShimPath)) {
+    const mod = await import(pathToFileURL(drawShimPath).href);
+    out.hasDrawShim = typeof mod.createShim === 'function';
   }
   // The inline kinds and services: light modules every dispatcher bundle carries, read for their
   // keys (and each kind's four functions) so the one-to-one check can compare them.
@@ -597,14 +631,25 @@ export const DRAWN_LIBRARY_FILES = Object.freeze(${JSON.stringify(files)});
  * EAGERLY: sharing a module put these pins in the Studio's startup bundle (measured: +171 bytes gz on three routes), and
  * only the lazily loaded draw host (docs/src/lib/code-packages/draw-host.ts) reads them.
  */
-/** The diagram chunks whose static imports a draw frame fetches when it opens (the one most first drawings use). */
-const ESM_PRELOAD_DIAGRAMS = ['flowDiagram'];
-
-function renderDrawFrameLibraries(ordered) {
+function renderDrawFrameLibraries(ordered, exportsByName) {
   const frameLibraries = {};
-  for (const p of ordered.filter((q) => ['pass', 'browser'].includes(q.manifest.render?.exec?.hydrate))) {
+  for (const p of ordered.filter((q) => q.manifest.draw)) {
     const [payload] = Object.values(p.manifest.payload || {});
-    if (payload?.vendored?.sha256) frameLibraries[p.manifest.name] = { file: payload.from.split('/').pop(), global: payload.global, sha256: payload.vendored.sha256 };
+    const exp = exportsByName.get(p.manifest.name);
+    const frame = p.manifest.draw.frame || {};
+    // Everything the kernel needs to build this plugin's frame, so the kernel names no plugin: the library's pin and global, the policy bit,
+    // the function that draws inside the frame (its text, hashed into the frame's script) and, when the manifest says so, the plugin's own
+    // hydrate function (what the frame calls to draw, so the preview is made by the code every other surface runs).
+    if (payload?.vendored?.sha256) {
+      frameLibraries[p.manifest.name] = {
+        file: payload.from.split('/').pop(),
+        global: payload.global,
+        sha256: payload.vendored.sha256,
+        unsafeEval: frame.unsafeEval === true,
+        adapter: exp.drawFrameText,
+        ...(frame.usesHydrate ? { hydrateSource: exp.hydrateText } : {}),
+      };
+    }
     // A library that vendors its ESM build (`vendor.esm`: the entry; `vendor.esm-chunks`: the modules it loads lazily) is LOADED by the
     // frame as a module graph, not inlined: the frame needs the entry's name and the SHA-256 of every file under the vendored folder.
     // The per-file digests are computed here, from the committed copy, whose tree is pinned by its manifest (resolve.js refuses a
@@ -632,7 +677,7 @@ function renderDrawFrameLibraries(ordered) {
         return seen;
       };
       const preload = new Set(closure(entry));
-      for (const name of ESM_PRELOAD_DIAGRAMS) {
+      for (const name of frame.preload || []) {
         const file = Object.keys(integrity).find((f) => new RegExp(`/${name}-[A-Z0-9]+\\.mjs$`).test(f));
         if (file) for (const f of closure(file)) preload.add(f);
       }
@@ -641,6 +686,65 @@ function renderDrawFrameLibraries(ordered) {
   }
   return `${HEADER('The libraries a sandboxed draw frame runs, with the SHA-256 of each vendored copy (the staged file must match it).')}
 export const DRAW_FRAME_LIBRARIES = Object.freeze(${JSON.stringify(frameLibraries)});
+`;
+}
+
+/**
+ * The HOST-PAGE halves of the plugins that draw in a sandboxed frame (`draw.host`): each plugin's `prepare` / `finish`, imported
+ * LAZILY, so the Studio's startup JavaScript carries none of them (a deck with no figure never loads one). The host
+ * (docs/src/lib/preview-draw-host-impl.ts) reads this by kind and names no plugin.
+ */
+function renderDrawHostAdapters(ordered) {
+  const lines = ordered.filter((p) => p.manifest.draw?.host === true).map((p) => `  ${JSON.stringify(p.manifest.name)}: () => import('./${p.folder}/${p.manifest.name}.draw-host.mjs'),`);
+  return `${HEADER('The host-page halves of the plugins a sandboxed draw frame draws for, each imported lazily.')}
+export const DRAW_HOST_ADAPTERS = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+`;
+}
+
+/**
+ * The STAND-INS for the library globals of plugins whose browser half is a document pass (`draw.shim`): what a preview frame installs where
+ * the library would have landed, when its page offers a draw host. The runtime bundles this, so it imports each shim statically.
+ */
+function renderDrawShims(ordered) {
+  const shimmed = ordered.filter((p) => p.manifest.draw?.shim === true);
+  const imports = shimmed.map((p, i) => `import { createShim as shim${i} } from './${p.folder}/${p.manifest.name}.draw-shim.mjs';`);
+  const rows = shimmed.map((p, i) => `  ${JSON.stringify(p.manifest.name)}: shim${i},`);
+  return `${HEADER('The stand-ins a preview frame installs for the libraries its page draws for it (a plugin whose browser half is a pass).')}
+${imports.join('\n')}
+
+export const DRAW_SHIMS = Object.freeze({${rows.length ? `\n${rows.join('\n')}\n` : ''}});
+`;
+}
+
+/**
+ * The names of the plugins a draw frame can draw for, and nothing else: the one module the Studio's startup JavaScript reads (the
+ * host's \`kinds\`), so it holds a bare list. A pure-annotated freeze, so an importer that needs no list drops it.
+ */
+function renderDrawKinds(ordered) {
+  const kinds = ordered.filter((p) => p.manifest.draw).map((p) => p.manifest.name);
+  return `${HEADER('The plugins a sandboxed draw frame can draw for. Plain data.')}
+export const DRAW_KINDS = /* @__PURE__ */ Object.freeze(${JSON.stringify(kinds)});
+`;
+}
+
+/**
+ * Per draw kind, the pattern that says "this markdown or markup holds a figure of this plugin", so the page can open the kind's frame
+ * before the first draw asks (docs/src/lib/render-engine.ts). Built from the plugin's declared fences and their aliases: a fence line
+ * in the source, the code block the engine writes for a fence drawn later, or the placeholder a browser half fills. Superset probes: a
+ * deck that merely quotes a fence at line start gets a warm frame it never uses.
+ */
+function renderDrawWarm(ordered) {
+  const rows = ordered.filter((p) => p.manifest.draw).map((p) => {
+    const fences = Object.entries(p.manifest.contributes.fences || {}).flatMap(([f, d]) => [f, ...(d.aliases || []).map((a) => a.name)]);
+    for (const f of [p.manifest.name, ...fences]) {
+      if (!/^[a-z][a-z0-9-]*$/i.test(f)) throw new Error(`build-plugin-registry: draw warm word ${JSON.stringify(f)} is not a plain name`);
+    }
+    const alt = [...new Set(fences)].join('|');
+    const source = alt ? `^[ \\t>]*(?:\`{3,}|~{3,})[^\\S\\n]*(?:${alt})(?![\\w-])|language-(?:${alt})(?![\\w-])|data-lattice-hydrate="${p.manifest.name}"` : `data-lattice-hydrate="${p.manifest.name}"`;
+    return `  ${JSON.stringify(p.manifest.name)}: ${JSON.stringify(source)},`;
+  });
+  return `${HEADER('Per draw kind: the pattern (as source text, flags "m") that says a render holds a figure of the plugin.')}
+export const DRAW_WARM = Object.freeze({${rows.length ? `\n${rows.join('\n')}\n` : ''}});
 `;
 }
 
@@ -857,7 +961,11 @@ async function build(opts = {}) {
       [BAKE_FILE, renderBake(ordered)],
       [DRAWN_FILE, renderDrawn(ordered)],
       [DRAWN_LIBRARY_FILE, renderDrawnLibrary(ordered)],
-      [DRAW_FRAME_LIBRARIES_FILE, renderDrawFrameLibraries(ordered)],
+      [DRAW_FRAME_LIBRARIES_FILE, renderDrawFrameLibraries(ordered, exportsByName)],
+      [DRAW_HOST_ADAPTERS_FILE, renderDrawHostAdapters(ordered)],
+      [DRAW_SHIMS_FILE, renderDrawShims(ordered)],
+      [DRAW_KINDS_FILE, renderDrawKinds(ordered)],
+      [DRAW_WARM_FILE, renderDrawWarm(ordered)],
       [EXTENSION_POINTS_FILE, renderExtensionPoints(ordered)],
       [INLINE_FILE, renderInline(ordered)],
       [SERVICES_FILE, renderServices(ordered)],
@@ -885,7 +993,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,extension-points,inline,services,registers,data,data-probe,meta}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,registers,data,data-probe,meta}.generated.*\n`);
 }
 
 if (require.main === module) {

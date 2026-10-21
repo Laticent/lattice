@@ -571,3 +571,9 @@ highlight.js language or alias, and at most 64 characters.
 - **0.1-draft (2026-09-27).** First draft: `syntax`, `fences`, `hydrate`, `styles` and
   `diagnostics`; `payload`, `tokens`, `render.surfaces`; the settle protocol. Essential plugins:
   `math`, `function-plot`, `anima`.
+
+- **0.9-draft, the `draw` section (2026-10-21).** §3 gains an optional, in-tree-only `draw` object
+  (`frame`, `host`, `shim`) with the role files `<name>.draw-frame.js`, `<name>.draw-host.mjs` and
+  `<name>.draw-shim.mjs`. A plugin that declares it is drawn by the previews in a sandboxed frame;
+  nothing outside the plugin names it. Additive (no api bump). See
+  `engineering/decisions/2026-10-19-first-party-plugins-in-the-sandbox.md` §3.x.

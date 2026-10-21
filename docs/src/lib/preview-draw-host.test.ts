@@ -1,6 +1,6 @@
 // The previews' draw host (docs/src/lib/preview-draw-host.ts): installed once and not replaceable, it answers a draw only
 // with markup the slide sanitizer has approved (the runtime has no sanitizer, so this is the guard behind the
-// SANCTIONED_RUNTIME_MARKUP_SINKS entry for function-plot.hydrate.js), and refuses a kind it does not draw yet.
+// SANCTIONED_RUNTIME_MARKUP_SINKS entry for lib/plugins/host-browser.mjs `target.innerHTML`, the one writer for every plugin), and refuses a kind it does not draw.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -115,9 +115,9 @@ describe('the previews\' draw host', () => {
 		expect(() => warmPreviewDrawHost('function-plot', {} as Window)).not.toThrow();
 	});
 
-	it('refuses a kind it does not draw yet', async () => {
+	it('refuses a kind it does not draw', async () => {
 		const { installPreviewDrawHost } = await import('./preview-draw-host');
 		installPreviewDrawHost(win);
-		await expect((win.__latticeDrawHost as { draw: (j: object) => Promise<string> }).draw({ kind: 'math' })).rejects.toThrow(/does not draw math yet/);
+		await expect((win.__latticeDrawHost as { draw: (j: object) => Promise<string> }).draw({ kind: 'math' })).rejects.toThrow(/does not draw math/);
 	});
 });

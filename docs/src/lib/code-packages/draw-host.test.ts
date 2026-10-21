@@ -2,19 +2,19 @@
 // test/integration/export/draw-frame.test.js): the library is held to its pin before it is run, a frame stays open
 // between draws, a draw that overruns spends its frame and the next one opens a fresh one, and a closed host draws nothing.
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createDrawHost, type DrawJob } from './draw-host';
+import { createDrawHost, type DrawJob, type DrawLibrary } from './draw-host';
 
 const ROOT = path.join(__dirname, '../../../..');
 const PLOT_LIB = fs.readFileSync(path.join(ROOT, 'lib/plugins/function-plot/vendor/function-plot.js'), 'utf8');
-const HYDRATE = 'function hydrate(el, ctx) {}';
 const JOB: DrawJob = { kind: 'function-plot', configB64: 'e30=', configText: '{}', width: 600, height: 300, index: 0 };
 
 type Fake = { frame: unknown; posted: Array<Record<string, unknown>>; removed: boolean; reply: (data: unknown) => void };
 
-function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: boolean } = {}) {
+function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: boolean; libraries?: Record<string, DrawLibrary> } = {}) {
 	const frames: Fake[] = [];
 	const doc = {
 		body: {
@@ -45,7 +45,7 @@ function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: b
 			return el;
 		},
 	} as unknown as Document;
-	const host = createDrawHost({ libraryUrl: (file) => `/assets/${file}`, hydrateSource: () => HYDRATE, fetchText: opts.fetchText ?? (async () => PLOT_LIB), doc });
+	const host = createDrawHost({ libraryUrl: (file) => `/assets/${file}`, fetchText: opts.fetchText ?? (async () => PLOT_LIB), doc, ...(opts.libraries ? { libraries: opts.libraries } : {}) });
 	return { host, frames };
 }
 
@@ -199,5 +199,27 @@ describe('the draw host', () => {
 		expect(frames.length).toBe(2);
 		frames[1].reply({ t: 'result', id: 1, out: '<svg/>' });
 		await expect(queued).resolves.toBe('<svg/>');
+	});
+
+	it('draws a kind it was never written for, from the registry it is given, and sends each font face to a frame once', async () => {
+		const library = 'window.sparkLib = {};';
+		const sha256 = createHash('sha256').update(library).digest('hex');
+		const libraries: Record<string, DrawLibrary> = { sparkline: { file: 'sparkline.js', sha256, global: 'sparkLib', adapter: 'function draw(m, env) { return "x"; }' } };
+		const { host, frames } = rig({ libraries, fetchText: async () => library });
+		opened.push(host.close);
+		const face = { family: 'Brand Sans', weight: '400', style: 'normal', data: 'data:font/woff2;base64,AAAA' };
+		const first = host.draw({ kind: 'sparkline', fonts: [face] });
+		await new Promise((r) => setTimeout(r, 20));
+		expect(frames).toHaveLength(1);
+		expect((frames[0].frame as { srcdoc: string }).srcdoc).toContain('function draw(m, env)');
+		expect(frames[0].posted[0].fonts).toEqual([face]);
+		frames[0].reply({ t: 'result', id: 1, out: 'a' });
+		await expect(first).resolves.toBe('a');
+		const second = host.draw({ kind: 'sparkline', fonts: [face, { ...face, family: 'Other' }] });
+		await new Promise((r) => setTimeout(r, 20));
+		expect(frames[0].posted[1].fonts).toEqual([{ ...face, family: 'Other' }]);
+		frames[0].reply({ t: 'result', id: 2, out: 'b' });
+		await expect(second).resolves.toBe('b');
+		await expect(host.draw({ kind: 'math' })).rejects.toThrow(/no draw frame for math/);
 	});
 });

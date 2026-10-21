@@ -26,16 +26,19 @@ const TIMEOUT = 300000;
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 
 let core;
+let libs;
 const kernel = async () => (core ??= await import('../../../lib/packages/draw-frame-core.mjs'));
+/** What the registry build wrote from each plugin's manifest `draw` section: the kernel names no plugin, it is handed this. */
+const metaOf = async (kind) => (libs ??= (await import('../../../lib/plugins/draw-frame-libraries.generated.mjs')).DRAW_FRAME_LIBRARIES)[kind];
 
 async function frameHtml(kind, { tamper = false } = {}) {
   const k = await kernel();
   const library = fs.readFileSync(path.join(ROOT, kind === 'mermaid' ? 'lib/plugins/mermaid/vendor/mermaid.min.js' : 'lib/plugins/function-plot/vendor/function-plot.js'), 'utf8');
-  const hydrateSource = kind === 'function-plot' ? require('../../../lib/plugins/function-plot/function-plot.hydrate.js').hydrate.toString() : undefined;
-  const script = k.drawFrameScript({ kind, library, hydrateSource });
+  const meta = await metaOf(kind);
+  const script = k.drawFrameScript({ kind, library, meta });
   const hash = crypto.createHash('sha256').update(script).digest('base64');
   // `tamper` changes the script AFTER it was hashed: the policy must refuse it.
-  return k.drawFrameDocument({ kind, script: tamper ? `${script}\n;window.__ran=1` : script, hash });
+  return k.drawFrameDocument({ kind, script: tamper ? `${script}\n;window.__ran=1` : script, hash, meta });
 }
 
 /** Run `body(open)` in a page, where `open(html)` makes a sandboxed frame and answers `{ ready, draw(job, ms) }`. */
@@ -138,8 +141,8 @@ test('WALL: the parent cannot read a frame; only the plot frame\'s policy allows
   for (const policy of [k.drawFrameCsp('x'.repeat(43)), k.drawFrameCsp('x'.repeat(43), { evalOk: true })]) {
     for (const part of ["default-src 'none'", "connect-src 'none'", "frame-src 'none'", "worker-src 'none'", "base-uri 'none'", "form-action 'none'"]) assert.ok(policy.includes(part), part);
   }
-  assert.equal(k.DRAW_KINDS.mermaid.evalOk, false);
-  assert.equal(k.DRAW_KINDS['function-plot'].evalOk, true);
+  assert.equal((await metaOf('mermaid')).unsafeEval, false);
+  assert.equal((await metaOf('function-plot')).unsafeEval, true);
   const browser = await open();
   try {
     const plot = await frameHtml('function-plot');
@@ -165,4 +168,67 @@ test('REPLY: the host accepts a drawing and nothing else', async () => {
   assert.match(checkDrawReply({ t: 'result', id: 1, out: null }).error, /null/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 'x'.repeat(MAX_DRAW_CHARS + 1) }).error, /past the/);
   assert.equal(checkDrawReply({ t: 'result', id: 1, error: 'e'.repeat(1000) }).error.length, 600);
+});
+
+test('GENERIC: a third kind needs nothing in the kernel, only the metadata the registry build would write for it', { timeout: TIMEOUT }, async () => {
+  const k = await kernel();
+  // A made-up plugin ("sparkline"): a tiny library and the function that draws inside the frame, exactly the two things a plugin ships.
+  const meta = {
+    global: 'sparkLib',
+    unsafeEval: false,
+    adapter: 'function draw(m, env) { if (!Array.isArray(m.values)) throw new Error("a spark draw needs values"); if (m.evil) return String(new Function("return 7")()); return env.lib.render(m.values) + "|" + env.px(m.width) + "|" + (env.hydrate === null) + "|" + (typeof env.faces) + "|" + env.PX; }',
+  };
+  const library = 'window.sparkLib = { render(v) { return \'<svg data-n="\' + v.length + \'"></svg>\'; } };';
+  const script = k.drawFrameScript({ kind: 'sparkline', library, meta });
+  const hash = crypto.createHash('sha256').update(script).digest('base64');
+  const html = k.drawFrameDocument({ kind: 'sparkline', script, hash, meta });
+  assert.doesNotMatch(html, /unsafe-eval/, 'a plugin that does not declare unsafeEval gets a frame without it');
+  const browser = await open();
+  try {
+    const r = await inPage(browser, html, [
+      { kind: 'sparkline', values: [1, 2, 3], width: 100 },
+      { kind: 'sparkline' },
+      { kind: 'sparkline', values: [1], width: 100, evil: true },
+      { kind: 'mermaid', values: [1], width: 100 },
+    ], { drawMs: 4000 });
+    assert.equal(r.ready, true);
+    assert.equal(r.replies[0].out, '<svg data-n="3"></svg>|true|true|function|8000', 'the adapter drew with the kernel\'s env: lib, px, no hydrate, faces, the size limit');
+    assert.match(r.replies[1].error, /needs values/, 'the adapter validates its own job');
+    assert.match(r.replies[2].error, /unsafe-eval|Refused to evaluate/i, 'eval stays refused without the declared bit');
+    assert.equal(r.replies[3], null, 'a draw for another kind is ignored');
+  } finally {
+    await browser.close();
+  }
+  assert.throws(() => k.drawBootstrap({ kind: 'Sparkline', meta }), /no draw frame/);
+  assert.throws(() => k.drawBootstrap({ kind: 'sparkline', meta: { ...meta, global: 'a b' } }), /plain name/);
+  assert.throws(() => k.drawBootstrap({ kind: 'sparkline', meta: { ...meta, adapter: 'alert(1)' } }), /draw function as text/);
+  assert.throws(() => k.drawBootstrap({ kind: 'sparkline', meta: undefined }), /no draw frame/);
+});
+
+test('FONTS: a face the browser rejects does not fail the draw, and a changed face under the same family is loaded again', { timeout: TIMEOUT }, async () => {
+  const k = await kernel();
+  const meta = {
+    global: 'fontLib',
+    unsafeEval: false,
+    adapter: 'async function draw(m, env) { await env.faces(m.fonts); return String(document.fonts.size); }',
+  };
+  const library = 'window.fontLib = {};';
+  const script = k.drawFrameScript({ kind: 'fontprobe', library, meta });
+  const hash = crypto.createHash('sha256').update(script).digest('base64');
+  const html = k.drawFrameDocument({ kind: 'fontprobe', script, hash, meta });
+  const face = (b64) => ({ family: 'Brand', weight: '400', style: 'normal', url: `data:font/woff2;base64,${b64}` });
+  const browser = await open();
+  try {
+    const r = await inPage(browser, html, [
+      { kind: 'fontprobe', fonts: [face('AAAAAAAAAAAAAAAA')] },
+      { kind: 'fontprobe', fonts: [face('AAAAAAAAAAAAAAAA')] },
+      { kind: 'fontprobe', fonts: [face('BBBBBBBBBBBBBBBB')] },
+    ], { drawMs: 4000 });
+    assert.equal(r.ready, true);
+    assert.equal(r.replies[0].error, undefined, 'a rejected face is not an error for the diagram');
+    assert.equal(r.replies[1].error, undefined);
+    assert.equal(r.replies[2].error, undefined, 'a different face under the same family is accepted and tried');
+  } finally {
+    await browser.close();
+  }
 });

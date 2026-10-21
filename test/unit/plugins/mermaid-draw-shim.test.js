@@ -1,6 +1,6 @@
 /**
  * The Mermaid stand-in a preview frame installs when its page offers a draw host
- * (lib/plugins/mermaid/shared/draw-shim.mjs, lib/plugins/draw-shims.mjs, host-browser.mjs `ensureLibrary`), in jsdom with a fake
+ * (lib/plugins/mermaid/mermaid.draw-shim.mjs, lib/plugins/draw-shims.mjs, host-browser.mjs `ensureLibrary`), in jsdom with a fake
  * host. The real library, the real frame and the real sanitizer are the integration tier's
  * (test/integration/export/draw-frame-mermaid.test.js) and the Studio e2e's (docs/e2e/draw-frame-preview.spec.ts).
  */
@@ -11,7 +11,7 @@ const { JSDOM } = require('jsdom');
 const { installHydrateHost, releaseFigure } = require('../../../lib/plugins/host-browser.mjs');
 const { fromBase64 } = require('../../../lib/core/base64-utf8');
 const { HYDRATORS } = require('../../../lib/plugins/hydrate.generated.js');
-const { createMermaidShim, fontAsks, tooltipBinder } = require('../../../lib/plugins/mermaid/shared/draw-shim.mjs');
+const { createShim: createMermaidShim, fontAsks, tooltipBinder } = require('../../../lib/plugins/mermaid/mermaid.draw-shim.mjs');
 const { drawShimFor } = require('../../../lib/plugins/draw-shims.mjs');
 
 const win = (html = '') => {

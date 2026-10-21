@@ -654,7 +654,7 @@ Mermaid can (#1674).
 ## 5.3f Where the preview draws a diagram (the sandboxed draw frame)
 
 A live preview in the Studio or the Playground does not run Mermaid in the page that holds your deck. The preview frame
-holds a **stand-in for `window.mermaid`** (`lib/plugins/mermaid/shared/draw-shim.mjs`) and the runtime's Mermaid pass
+holds a **stand-in for `window.mermaid`** (`lib/plugins/mermaid/mermaid.draw-shim.mjs`) and the runtime's Mermaid pass
 (`mermaid.hydrate.js`) runs unchanged on top of it: same render queue, same per-palette `initialize`, same SVG cache, same
 gantt turn, same settle cap. The stand-in answers the three calls the pass makes (`initialize`, `render`,
 `mermaidAPI.getDiagramFromText`) by sending the definition, the config for its palette and the page width to the embedding

@@ -97,6 +97,27 @@ the capture page itself. `followups.d/2800-p2-capture-browser-os-sandbox.md` giv
 **The sanitizer, kept byte-exact.** For Mermaid, `sanitizeKeeping` (`lib/packages/code-door-worker.js`) keeps the
 drawing's own bytes only when the same markup, parsed in that page, serializes to exactly what the sanitizer returned.
 
+
+### 3.x The manifest `draw` section: a plugin chooses the frame (owner decision, 2026-10-21)
+
+The owner asked whether every plugin is handled the same and whether a future plugin can choose the sandboxed draw frame, and ruled that this could not wait for a follow-up. The frame was wired to Mermaid and function-plot by name in about ten files. It is now driven by the manifest. In-tree plugins only (a zip or npm plugin cannot declare `draw`; `lib/plugins/resolve.js` `checkDraw` checks it for the build, and `refusePluginCode` in `lib/packages/code-shape.mjs` refuses it on a zip).
+
+```json
+"draw": { "frame": { "library": "inline" | "esm", "unsafeEval": false, "usesHydrate": false, "preload": [] }, "host": false, "shim": false }
+```
+
+| Role file | What it is | Runs in |
+|---|---|---|
+| `<name>.draw-frame.js` | `draw(job, env)`; self-contained text, hashed into the frame's script | the sandboxed frame |
+| `<name>.draw-host.mjs` | `prepare(job, env)` before the frame (fonts) and `finish(raw, env)` after it (sanitizer profile); default is the slide sanitizer | the page |
+| `<name>.draw-shim.mjs` | `createShim(host, doc)`, a stand-in for the library global; required for `render.exec.hydrate: "pass"`, forbidden for `"browser"` | the preview frame |
+
+`tools/build-plugin-registry.js` turns these into `draw-frame-libraries`, `draw-host-adapters`, `draw-shims`, `draw-kinds` and `draw-warm` `.generated.mjs`. The kernel (`lib/packages/draw-frame-core.mjs`), the host (`docs/src/lib/code-packages/draw-host.ts`, `preview-draw-host-impl.ts`), the warm-up (`render-engine.ts`) and the preload skip read those tables, so `lib/` and `docs/` name no plugin. The markup the frame returns is written by ONE sink, `ctx.drawInto` in `lib/plugins/host-browser.mjs` (HARD RULE #22 census). The frame's `env` gives an adapter `lib, box, faces, px, token, hydrate`.
+
+**Proof.** A throwaway third plugin (`spark-probe`, an inline library, an adapter, no shim) was added by files and a manifest alone. In the real Studio it drew in one sandboxed `iframe[data-lattice-draw-frame="spark-probe"]`, `kinds` listed it, only the host fetched its library and no `script[src*=spark]` was in the preview. It was deleted afterward. `test/integration/export/draw-frame.test.js` keeps a generic third-kind arm in real Chromium.
+
+**D2 B, deck fonts.** The host forwards a deck's or theme's faces to the frame when they are engine-folder URLs or well-formed `data:font/(woff2|woff|ttf|otf);base64,` URLs (700,000 characters each, 8 data faces, 2,000,000 in all). Real Studio test: `docs/e2e/draw-frame-fonts.spec.ts` (frame node boxes within 1 px of the in-page baseline with a Playfair `data:` face; a plain serif gives boxes more than 2% different). Measured gap without it: Playfair about −5.7%, Shantell −4.7%, Caveat +11.4%, Outfit and JetBrains about 0.
+
 ## 4. Evidence
 
 | What | Result |
@@ -167,7 +188,7 @@ So the owner's pick includes `'unsafe-eval'` in the function-plot frame's policy
 
 ### Slice 3 built: Mermaid through the draw frame (2026-10-20 to 2026-10-21)
 
-**Shape.** The runtime's Mermaid pass is untouched. `lib/plugins/mermaid/shared/draw-shim.mjs` is an object with the library global's shape (`initialize`, `render`, `mermaidAPI.getDiagramFromText`), installed by the plugin host's loader (`ensureLibrary`) where the library would have landed, when the embedding page's draw host offers the kind (`kinds` in `docs/src/lib/preview-draw-host.ts`). `lib/plugins/draw-shims.mjs` names the stand-ins by plugin, so `lib/runtime` names no plugin (`runtimePluginNames` stays at its budget). This kept the render queue, the per-palette `initialize`, the SVG cache, the gantt turn and the settle cap exactly as they were.
+**Shape.** The runtime's Mermaid pass is untouched. `lib/plugins/mermaid/mermaid.draw-shim.mjs` is an object with the library global's shape (`initialize`, `render`, `mermaidAPI.getDiagramFromText`), installed by the plugin host's loader (`ensureLibrary`) where the library would have landed, when the embedding page's draw host offers the kind (`kinds` in `docs/src/lib/preview-draw-host.ts`). `lib/plugins/draw-shims.mjs` names the stand-ins by plugin, so `lib/runtime` names no plugin (`runtimePluginNames` stays at its budget). This kept the render queue, the per-palette `initialize`, the SVG cache, the gantt turn and the settle cap exactly as they were.
 
 **The diagram profile** (`lib/core/sanitize-diagram-svg.mjs`, HARD RULE #22 both channels): the slide profile with `<style>` and `<foreignObject>` admitted; each surviving sheet passes `sanitizeStyleText` and loses any `@import`. **It changes none of the 48 diagrams** in the corpus (the 32-diagram system-design deck, the plugin fixtures, the diagram gallery), compared as parsed-and-serialized DOM in real Chromium (`test/integration/export/draw-frame-mermaid.test.js`). The test is not vacuous: it requires the figures to hold both a `<foreignObject>` and a `<style>`, and a second arm shows a script, a handler, an `@import`, a `</style` terminator, an iframe in a label and a `javascript:` link all removed. So the provenance-census fallback was not needed.
 

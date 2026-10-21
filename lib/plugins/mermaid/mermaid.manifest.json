@@ -45,6 +45,11 @@
       "when": "used"
     }
   },
+  "draw": {
+    "frame": { "library": "esm", "preload": ["flowDiagram"] },
+    "host": true,
+    "shim": true
+  },
   "vendor": {
     "esm": { "from": "npm:mermaid/dist/mermaid.esm.min.mjs", "file": "vendor/esm/mermaid.esm.min.mjs", "version": "11.14.0", "sha256": "bdd76b636740ad413cdd711538f0b8c589f6fca3790bffa69dbc0d2c9832e515" },
     "esm-chunks": { "from": "npm:mermaid/dist/chunks/mermaid.esm.min/*.mjs", "file": "vendor/esm/chunks/mermaid.esm.min/", "version": "11.14.0", "sha256": "692e7d0c0cb17eee8d322314879dab8de7c468eb283c9e17a4d4d00cb6e7b115" },

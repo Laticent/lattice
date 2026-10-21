@@ -37,17 +37,19 @@ const sanitizerBundle = () =>
 const sha = (text) => crypto.createHash('sha256').update(text).digest('base64');
 let kernel;
 let registry;
+let meta;
 const load = async () => {
   kernel ??= await import('../../../lib/packages/draw-frame-core.mjs');
-  registry ??= (await import('../../../lib/plugins/draw-frame-libraries.generated.mjs')).DRAW_FRAME_LIBRARIES.mermaid.esm;
+  meta ??= (await import('../../../lib/plugins/draw-frame-libraries.generated.mjs')).DRAW_FRAME_LIBRARIES.mermaid;
+  registry ??= meta.esm;
 };
 
 /** The single-file bundle in an inline frame: the baseline the module-loaded frame must draw the same as. */
 async function inlineFrameHtml() {
   await load();
   const library = fs.readFileSync(path.join(ROOT, 'lib/plugins/mermaid/vendor/mermaid.min.js'), 'utf8');
-  const script = kernel.drawFrameScript({ kind: 'mermaid', library });
-  return kernel.drawFrameDocument({ kind: 'mermaid', script, hash: sha(script) });
+  const script = kernel.drawFrameScript({ kind: 'mermaid', library, meta });
+  return kernel.drawFrameDocument({ kind: 'mermaid', script, hash: sha(script), meta });
 }
 
 /**
@@ -92,9 +94,9 @@ async function serve({ tamper = false } = {}) {
 /** The module-loaded frame's document, built by the kernel the way the Studio's host builds it. `boot` overrides the boot module. */
 async function esmFrameHtml(base, { boot: bootText, preload } = {}) {
   await load();
-  const scripts = kernel.drawFrameEsmScripts({ kind: 'mermaid', base, entry: registry.entry, integrity: registry.integrity });
+  const scripts = kernel.drawFrameEsmScripts({ kind: 'mermaid', meta, base });
   const boot = bootText ?? scripts.boot;
-  return kernel.drawFrameEsmDocument({ kind: 'mermaid', base, entry: registry.entry, integrity: registry.integrity, boot, importMap: scripts.importMap, bootHash: sha(boot), mapHash: sha(scripts.importMap), preload: preload ?? registry.preload });
+  return kernel.drawFrameEsmDocument({ kind: 'mermaid', meta: { ...meta, esm: { ...registry, preload: preload ?? registry.preload } }, base, boot, importMap: scripts.importMap, bootHash: sha(boot), mapHash: sha(scripts.importMap) });
 }
 
 /** Draw every definition in one sandboxed frame; answers `{ ready, replies }`, each reply `{ out }` or `{ error }`. */
@@ -258,8 +260,8 @@ test('FAILFAST: a frame whose library cannot be fetched says so at once, so the 
 
 test('PATHS: a module path or directory with a dot segment is refused', async () => {
   await load();
-  assert.throws(() => kernel.drawFrameEsmScripts({ kind: 'mermaid', base: 'http://localhost:1/a/', entry: '../x.mjs', integrity: { '../x.mjs': registry.integrity[registry.entry] } }));
-  assert.throws(() => kernel.drawFrameEsmScripts({ kind: 'mermaid', base: 'http://localhost:1/a/../b/', entry: registry.entry, integrity: registry.integrity }));
+  assert.throws(() => kernel.drawFrameEsmScripts({ kind: 'mermaid', meta: { ...meta, esm: { ...registry, entry: '../x.mjs', integrity: { '../x.mjs': registry.integrity[registry.entry] } } }, base: 'http://localhost:1/a/' }));
+  assert.throws(() => kernel.drawFrameEsmScripts({ kind: 'mermaid', meta, base: 'http://localhost:1/a/../b/' }));
 });
 
 test('WALL: the policy names one directory and no eval, and a module outside it is never requested', { timeout: TIMEOUT }, async () => {
@@ -273,9 +275,9 @@ test('WALL: the policy names one directory and no eval, and a module outside it 
     assert.doesNotMatch(csp, /unsafe-eval|'self'|\*/, 'no eval, no whole-site allowance, no wildcard');
     assert.match(csp, /connect-src 'none'/);
     // A boot module that asks for a module outside the directory, with the right hash for itself: only the policy can stop it.
-    const { importMap } = kernel.drawFrameEsmScripts({ kind: 'mermaid', base: server.base, entry: registry.entry, integrity: registry.integrity });
+    const { importMap } = kernel.drawFrameEsmScripts({ kind: 'mermaid', meta, base: server.base });
     const rogue = `import("${server.origin}/outside/other.mjs").then(()=>parent.postMessage({t:"ready"},"*"),()=>{});`;
-    const doc = kernel.drawFrameEsmDocument({ kind: 'mermaid', base: server.base, entry: registry.entry, integrity: registry.integrity, boot: rogue, importMap, bootHash: sha(rogue), mapHash: sha(importMap), preload: [] });
+    const doc = kernel.drawFrameEsmDocument({ kind: 'mermaid', meta: { ...meta, esm: { ...registry, preload: [] } }, base: server.base, boot: rogue, importMap, bootHash: sha(rogue), mapHash: sha(importMap) });
     const { ready } = await drawAll(browser, `${server.origin}/parent.html`, doc, ['flowchart LR\n A-->B'], CONFIG, { readyMs: 4000 });
     assert.equal(ready, false, 'the rogue module did not load');
     assert.equal(server.hits.outside, 0, 'the browser did not even ask for it');
