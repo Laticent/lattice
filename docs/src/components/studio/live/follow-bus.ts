@@ -16,18 +16,18 @@ import * as React from 'react';
  * when a row is added without joining this list, so a new row either rings for a follower or is left out on purpose.
  */
 export const FOCUS_ROWS = [
-	'accent', 'acronyms', 'across', 'ai-writes-in', 'auto-glossary', 'backdrop',
+	'accent', 'acronyms', 'ai-writes-in', 'auto-glossary', 'backdrop',
 	'backdrop-mask', 'backdrop-strength', 'bar-placement', 'brand-bar', 'canvas', 'card-lift',
 	'card-rail', 'card-rail-placement', 'card-rows', 'card-tags', 'chart-finish', 'claim',
 	'clean-slide', 'color-mode', 'compact', 'corners', 'debug-overlay', 'deck-name',
-	'default-slide-class', 'delivery', 'down', 'eyebrow', 'finish', 'fit',
+	'default-slide-class', 'delivery', 'eyebrow', 'finish', 'fit',
 	'footer', 'header', 'heading-rule', 'headline', 'headline-alignment', 'hide-footer',
 	'hide-header', 'hide-page-number', 'hide-rail', 'image-card', 'in-the-exported-player', 'inline-pills-and-marks',
-	'inline-validation', 'language', 'lexicon', 'logo', 'logo-on', 'logo-style',
+	'inline-validation', 'language', 'lexicon', 'logo', 'logo-style',
 	'meta-line', 'mode', 'motion-speed', 'motion-style', 'new-slide-on', 'pace',
 	'page-numbers', 'play', 'preset', 'remove-reader-view', 'rename', 'section-rail',
-	'shape', 'show-on', 'size', 'slide-splitting', 'speed', 'stamp-shape',
-	'structural-trim', 'style', 'theme', 'this-slide', 'tone-shape', 'treatment',
+	'shape', 'size', 'slide-splitting', 'speed', 'stamp-shape',
+	'structural-trim', 'style', 'theme', 'this-slide', 'tone-shape',
 	'type-scale', 'venue',
 ] as const;
 const ROW_SET: ReadonlySet<string> = new Set(FOCUS_ROWS);
