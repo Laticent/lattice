@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-21 — measured on the callout plugin (#2836) on top of main at 405c145
+
+Raises the getting-started route's engine ceiling by 209 bytes (321241 → 321450), soft target unchanged; the owner chose this on 2026-10-21 (#2836), by exactly that PR's need. The route's engine is the preview runtime, and main sat 0.1KB under the ceiling. #2836 splits callouts into their own plugin and gives a chart's key and its callouts one row style; a docs build of it measures 321301 bytes after the owner dropped the pre-split `legend:` switches to save bytes. The remaining 60 bytes are the `@callout` reader and the shared marker size, and the margin covers the difference between a local build and CI's.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | engineJsGz | 288314 | 288314 | +0 | 321450 |
+
 ### 2026-10-20 — measured on the image card band (#2824) rebased onto main
 
 Raises the lint core's ceiling by 2,500 bytes (109500 → 112000), soft target unchanged; the owner chose this on 2026-10-20 (#2824). The PR adds the `thin-card-no-ink` rule and the class-reading policy it shares with the Studio (`lib/core/card-ink-policy.mjs`) to the lint core, and the image-card register gains the `shape` axis and 17 backing levels. Measured at 110,100 bytes with the rebased tree, about 600 over the old ceiling. Before asking, it gave back what it could: the policy is split from the photo-sampling maths so the lint core takes only the class reading (about 750 bytes), the composition reader is restated in the policy instead of pulling in `image-aspect` (about 1,000 bytes), the level lists are formulas, and the finding's text is shorter. The one remaining option, dropping the rule, would leave hand-written decks without a warning for the thin cards the Studio fixes automatically. The owner then asked for more room than the measurement needs (112000, about 1.9KB of headroom), so the next lint rule does not trip it at once.
