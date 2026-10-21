@@ -318,7 +318,7 @@ describe('through the real engine: capture, then substitute', () => {
   });
 
   test('a slide the inline-run pass serves is not denied: it wraps a label, it reads no address', () => {
-    // #2831 registered inline-run on 12 components, and the list derived from the registry then denied a plugin's
+    // #2831 registered inline-run on 11 components, and the list derived from the registry then denied a plugin's
     // span on every one of them (docs/e2e/plugin-inline-ui.spec.ts, the cards-grid slide).
     for (const c of ['cards-grid', 'agenda', 'cards-stack']) assert.equal(rebuiltBy([c]), null, `${c} is not rebuilt from its text`);
     assert.ok(!rebuiltAlternatives().some((a) => a.pass === 'inline-run'));
