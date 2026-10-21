@@ -12,11 +12,10 @@
 // the Studio's live preview renders only the CURRENT slide, so it can never account for a
 // deck. Rather than scrape a frame that only knows one slide, ask the parser directly.
 //
-// COST. Mermaid is ~3MB, so it is loaded LAZILY and only for a deck that actually
-// contains a diagram — a deck with no ```mermaid fence never pays. It is the same file the
-// preview frames load: the Mermaid plugin's payload, staged beside `lattice-runtime.js`
-// (`drawnLibraryUrl`, lib/plugins/drawn-library.mjs — our own origin, never a CDN — offline /
-// strict-CSP safe), so no new asset ships and no page threads its address.
+// COST. Mermaid is ~3MB, and none of it loads into this page. Each diagram goes to the preview's sandboxed draw
+// frame (docs/src/lib/preview-draw-host.ts) as an ordinary draw job; the frame already holds Mermaid for the
+// previews, and a refusal from the library is the diagnosis. A deck with no ```mermaid fence never pays, and a
+// frame that cannot answer gives `null` (no verdict), never a guess.
 //
 // This is a RENDER diagnostic, not an authoring lint rule: it needs the Mermaid library,
 // which `lib/authoring/lint-core.js` cannot take (pure, fs-free, shared with the CLI). So

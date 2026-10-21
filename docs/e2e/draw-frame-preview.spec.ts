@@ -262,3 +262,22 @@ test('when the Mermaid frame cannot load its modules, the host says so at once a
 	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toContainText('Drafted', { timeout: 90_000 });
 	expect(await page.locator('iframe[data-lattice-draw-frame="mermaid"]').count(), 'the failed frame is gone').toBe(0);
 });
+
+test("the Studio's deck-wide diagram check draws through the frame and never loads Mermaid into the page @smoke", async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'the check is the same code on every engine; one engine pins that the page loads no Mermaid');
+	test.setTimeout(240_000);
+	const pageLibrary: string[] = [];
+	page.on('request', (r) => {
+		if (/mermaid\.min\.js/.test(r.url())) pageLibrary.push(r.url());
+	});
+	await gotoStudio(page);
+	const preview = livePreview(page);
+	const slide = (n: number) => `## Flow ${n}\n\n\`\`\`mermaid\nflowchart LR\n  A${n}[Draft] --> B${n}[Ship]\n\`\`\`\n`;
+	await setEditorContent(page, `---\ntheme: indaco\n---\n\n${slide(1)}\n---\n\n${slide(2)}\n---\n\n${slide(3)}`);
+	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toBeAttached({ timeout: 90_000 });
+	// The preview draws the current slide (one draw). The check starts 900 ms after the deck settles and draws all three, one after the other.
+	await expect
+		.poll(() => page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length), { timeout: 60_000, message: 'the check drew the other slides' })
+		.toBeGreaterThanOrEqual(4);
+	expect(pageLibrary, 'the Studio page loaded the Mermaid library').toEqual([]);
+});

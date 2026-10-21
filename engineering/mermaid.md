@@ -720,8 +720,8 @@ process; the owner ruled a second origin out (2026-10-21), so this stays as it i
 **What it costs and what it saves** (real Studio, headless Chromium, local preview build, 10 interleaved runs per path, medians with ranges;
 editor change to first diagram): first visit 1414 ms (1268 to 1654) drawing in the page, 1342 ms (1082 to 1493) in the frame; returning visit
 1112 ms on both; an edit redraw 652 ms (609 to 719) in the page, 670 to 825 ms (633 to 1139) in the frame. The spread in the frame's redraw is the
-Studio's own editor loading `mermaid.min.js` (857 KB, its Mermaid syntax checker, `mermaid-parse`) into the Studio page on the first edit in about
-40% of runs; that load is there before and after. An earlier CPU trace of one condition (1779 to 1366 ms, prose deck 885 ms) overstated the first-visit
+Studio's own deck-wide diagram check loading `mermaid.min.js` (857 KB, `mermaid-parse`) into the Studio page on the first edit in about
+40% of runs; that load is there before and after this measurement. Since owner decision D1 A (2026-10-21) the check draws each diagram through the frame as an ordinary draw job and the page loads no Mermaid (`docs/src/components/studio/mermaid-parse.ts`); the numbers above predate that change. An earlier CPU trace of one condition (1779 to 1366 ms, prose deck 885 ms) overstated the first-visit
 gain. The page warms the frame when a deck holds a fence, so it overlaps the preview's own start.
 What is left over the prose floor (about 480 ms) is the preview's own start and the first draw, all on the one main thread: only a frame
 in another process would run in parallel (a frame served from a different site is isolated by the browser; measured 13 to 48 ms of

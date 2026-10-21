@@ -180,7 +180,8 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			mark('draw-answered');
 			if ('error' in r) {
 				// A module that fails to load after the frame is ready leaves the kind to the page, as a frame that never opened does.
-				w.reject('loadFailed' in r ? Object.assign(new Error(r.error), { drawUnavailable: true }) : new Error(r.error));
+				// `drawRefused` marks what the library itself said about this job (a parse error), as against the host's own failures (stopped, timed out).
+				w.reject('loadFailed' in r ? Object.assign(new Error(r.error), { drawUnavailable: true }) : Object.assign(new Error(r.error), { drawRefused: true }));
 				// A module that failed to load (offline, a stale deploy) stays failed for the frame's life, because a browser keeps the failed import: the next draw opens a fresh frame.
 				if ('loadFailed' in r) f.close();
 			} else w.resolve(r.out);

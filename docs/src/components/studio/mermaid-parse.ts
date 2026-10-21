@@ -3,44 +3,22 @@
 // lazily). Why it exists, and why the return type is the contract: mermaid-check.ts and the
 // docblock on `checkDiagrams` below.
 
-import { drawnLibraryUrl } from '../../../../lib/plugins/drawn-library.mjs';
+import { installPreviewDrawHost } from '../../lib/preview-draw-host';
 // Types only: a value import of mermaid-check.ts from this lazy chunk would make that module a
 // shared chunk of its own, and the re-chunking costs the Studio's startup more than this saves.
 import type { Diagram, DiagramError } from './mermaid-check';
 
-// The loaded library, memoized. `null` once a load has definitively failed, so a deck on a
-// broken/offline asset path doesn't re-inject a script on every debounce tick.
-type MermaidLib = { initialize: (o: unknown) => void; parse: (t: string) => Promise<unknown> };
-let mermaidPromise: Promise<MermaidLib | null> | null = null;
-
-/** Load the locally-vendored Mermaid once, resolving to the library (or null if it can't
- *  be had — a diagnostic that can't run reports nothing, it never guesses). */
-function loadMermaid(url: string): Promise<MermaidLib | null> {
-	if (mermaidPromise) return mermaidPromise;
-	mermaidPromise = new Promise<MermaidLib | null>((resolve) => {
-		const existing = (globalThis as { mermaid?: MermaidLib }).mermaid;
-		if (existing?.parse) return resolve(existing);
-		if (typeof document === 'undefined') return resolve(null);
-		const s = document.createElement('script');
-		s.src = url;
-		s.async = true;
-		s.onload = () => {
-			const lib = (globalThis as { mermaid?: MermaidLib }).mermaid;
-			if (!lib?.parse) return resolve(null);
-			// startOnLoad off: we are parsing, never rendering, and an auto-render pass in the
-			// PARENT page would walk the Studio's own DOM looking for diagrams to draw.
-			try {
-				lib.initialize({ startOnLoad: false });
-			} catch {
-				/* already initialized by another consumer — fine */
-			}
-			resolve(lib);
-		};
-		s.onerror = () => resolve(null);
-		document.head.appendChild(s);
-	});
-	return mermaidPromise;
-}
+// THE LIBRARY IS NOT IN THIS PAGE. Each diagram is sent to the preview's sandboxed draw frame as an ordinary
+// draw job (the frame already holds Mermaid for the previews), and what comes back is only whether the library
+// drew it. The drawing is discarded; a refusal from the library is the diagnosis.
+type DrawHost = { draw: (job: Record<string, unknown>) => Promise<string>; kinds?: readonly string[] };
+const host = (): DrawHost | null => {
+	if (typeof window === 'undefined') return null;
+	installPreviewDrawHost(window);
+	const h = (window as { __latticeDrawHost?: DrawHost }).__latticeDrawHost;
+	return h && Array.isArray(h.kinds) && h.kinds.includes('mermaid') ? h : null;
+};
+let ordinal = 0;
 
 /**
  * Mermaid's thrown error, reduced to the part that helps. Its parse errors look like:
@@ -75,7 +53,7 @@ export function parseErrorMessage(e: unknown): string {
 }
 
 /**
- * Parse every diagram in the deck and report the ones Mermaid rejects.
+ * Draw every diagram in the deck in the sandboxed frame and report the ones Mermaid rejects.
  *
  * THE RETURN TYPE IS THE WHOLE CONTRACT. `[]` means "checked, and every diagram parses" —
  * a positive claim the prompt repeats to the model as measured fact. `null` means "no
@@ -83,31 +61,29 @@ export function parseErrorMessage(e: unknown): string {
  * CSP, a 404 on the vendored asset, no URL). Collapsing those into `[]` — which this
  * module did on its first pass — made the app assert a verification it never performed,
  * the exact fabrication this whole change exists to remove, only now coming from us
- * instead of the model and impossible for the author to challenge. `loadMermaid` memoizes
- * its failure, so that lie would have been sticky for the session.
+ * instead of the model and impossible for the author to challenge. A frame that cannot answer
+ * (stopped, timed out, could not load) therefore returns `null`, never `[]`.
  */
-export async function checkDiagrams(diagrams: Diagram[], runtimeUrl: string): Promise<DiagramError[] | null> {
-	// The library is the Mermaid plugin's payload, beside the runtime (lib/plugins/drawn-library.mjs).
-	const libUrl = drawnLibraryUrl(runtimeUrl, 'mermaid');
-	if (!diagrams.length || !libUrl) return null;
-	const lib = await loadMermaid(libUrl);
-	if (!lib) return null;
+export async function checkDiagrams(diagrams: Diagram[], _runtimeUrl = ''): Promise<DiagramError[] | null> {
+	const draw = !diagrams.length ? null : host();
+	if (!draw) return null;
 	const errors: DiagramError[] = [];
-	// Bounded on purpose: this parses serially on the PARENT page's main thread, so a deck
-	// with many large diagrams froze the Studio for seconds on every debounce tick (red
-	// team measured ~1.5s for 8000 sequence messages). Past the cap we report what we have
-	// rather than what we wish we had — the caller states only what was actually checked.
+	// Bounded on purpose: each diagram is a full draw in the frame, one at a time. Past the cap we report what we have
+	// rather than what we wish we had, and the caller states only what was actually checked.
 	for (const d of diagrams.slice(0, MAX_DIAGRAMS)) {
 		if (d.code.length > MAX_DIAGRAM_CHARS) continue;
 		try {
-			await lib.parse(d.code);
+			await draw.draw({ kind: 'mermaid', definition: d.code, svgId: `lattice-mmd-check-${++ordinal}`, config: { startOnLoad: false, securityLevel: 'strict' }, stage: 1200, fonts: [] });
 		} catch (e) {
+			// Only the library's own refusal is a diagnosis. A frame that stopped, timed out or could not open says nothing about the diagram,
+			// so the whole check gives no answer (`null`) instead of claiming a result it did not get.
+			if (!(e as { drawRefused?: boolean })?.drawRefused) return null;
 			errors.push({ slide: d.slide, message: parseErrorMessage(e) });
 		}
 	}
 	return errors;
 }
 
-/** Bounds on the main-thread parse loop. */
+/** Bounds on the check loop. */
 const MAX_DIAGRAMS = 40;
 const MAX_DIAGRAM_CHARS = 20_000;
