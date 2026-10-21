@@ -70,6 +70,8 @@ describe('settings rows that can be marked', () => {
 	it('reject a row that is not on the list, however it is spelled', () => {
 		expect(rowIdOf('Card rail placement')).toBe('card-rail-placement');
 		expect(rowIdOf('Header')).toBe('header');
+		expect(rowIdOf('Section rail off')).toBe('section-rail');
+		expect(rowIdOf('Section rail on')).toBe('section-rail');
 		expect(rowIdOf('Amina’s secret plan')).toBeNull();
 		expect(cleanView({ focus: 'amina-s-secret-plan' }, VIEW_KEYS).view).toEqual({});
 		expect(cleanView({ focus: 'header', changed: { what: 'theme', n: 3 } }, VIEW_KEYS).view).toEqual({ focus: 'header', changed: { what: 'theme', n: 3 } });

@@ -1307,13 +1307,11 @@ describe('LiveController: activity, Follow and pointers', () => {
 		const atOf = () => g.view().people.find((p) => p.role === 'host');
 		lead.set('shown', 'setup');
 		lead.set('setupTab', 'AI');
-		lead.set('changed', { what: 'theme', n: 1 });
 		push();
 		await until(() => atOf()?.at === 'in Setup · AI', h, g);
-		// A change counter seen for the first time is history: nothing is announced.
-		expect(atOf()?.changed).toBeUndefined();
+		// Seen without a counter, so the first change is news.
 		await new Promise((r) => setTimeout(r, 150));
-		lead.set('changed', { what: 'theme', n: 2 });
+		lead.set('changed', { what: 'theme', n: 1 });
 		push();
 		await until(() => atOf()?.changed === 'changed Theme', h, g);
 		// The leader's focus reaches the screens of whoever follows, and ends with the follow.
@@ -1325,6 +1323,10 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(followBus.getLeader()?.name).toBe('Sharmarke');
 		g.actions.follow(null as unknown as string);
 		expect(followBus.getLeader()).toBeNull();
+		// A member who joins when a counter is already running sees history, not news.
+		const late = await guestOf(h, 'Bilal');
+		await new Promise((r) => setTimeout(r, 150));
+		expect(late.g.view().people.find((p) => p.role === 'host')?.changed).toBeUndefined();
 	});
 
 	it('a view value outside its list is dropped, counted by key, and named in the connection log', async () => {
@@ -1343,6 +1345,42 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect([...drops.keys()].sort()).toEqual(['focus', 'panel', 'section']);
 		// biome-ignore lint/suspicious/noExplicitAny: the log text a maintainer would be sent.
 		expect(await (h as any).logText()).toContain('dropped view values: panel 1, section 1, focus 1');
+	});
+
+	it('a width that does not mirror panels is moved by neither the settings panel nor Present, and still follows the slide', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const slides: number[] = [];
+		sh.host.followDoing = () => {};
+		sh.host.canFollowDoing = () => false;
+		sh.host.goToSlide = (n) => slides.push(n);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck', { slideCount: 5 }));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		const applied: string[] = [];
+		const off = followBus.onApply((k) => applied.push(k));
+		followBus.setLocal('inspector', 'none');
+		g.actions.follow(hostId);
+		// biome-ignore lint/suspicious/noExplicitAny: the leader's screen reports where it is.
+		const lead = (h as any).rt.view;
+		lead.set('inspector', 'deck');
+		lead.set('section', 'brand');
+		lead.set('present', { idx: 2, page: 0, lens: 'full' });
+		lead.flush();
+		h.update(deps('host-deck', { slideCount: 5, activeSlide: 3 }));
+		await until(() => slides.includes(3), h, g);
+		expect(applied).toEqual([]);
+		off();
 	});
 
 	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {

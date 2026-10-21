@@ -44,7 +44,7 @@ function doingLabel(p: LivePerson): string | null {
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
 	const doing = doingLabel(p);
-	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}${p.at ? ` · ${p.at}` : ''}${p.changed ? ` · ${p.changed}` : ''}`;
+	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}${p.at ? ` · ${p.at}` : ''}`;
 	if (p.slideHidden) return `Slide hidden${tail}`;
 	if (p.slide === null) return doing ? `Arriving… · ${doing}` : 'Arriving…';
 	return `Slide ${p.slide + 1}${tail}`;
@@ -314,6 +314,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 					<span className="truncate">{p.me ? `You · ${whereLabel(p)}` : following ? `Following · ${whereLabel(p)}` : whereLabel(p)}</span>
 					{LinkGlyph && p.link && <LinkGlyph className="size-3 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
 				</div>
+				{p.changed && <div className="truncate text-[11px] font-medium text-[var(--accent)]">{p.changed}</div>}
 			</div>
 			{view.audio && p.me && <CallControls view={view} actions={actions} />}
 			{p.me && <YourSettings view={view} actions={actions} />}

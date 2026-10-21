@@ -680,11 +680,13 @@ export class LiveController {
 		for (const peer of peers) {
 			const view = r.view.of(peer).all();
 			const c = view.changed as { n?: number } | undefined;
-			if (!c || typeof c.n !== 'number') continue;
+			const n = c && typeof c.n === 'number' ? c.n : 0;
 			const seen = this.changedSeen.get(peer);
-			if (!seen) this.changedSeen.set(peer, { n: c.n, at: 0, what: null });
-			else if (seen.n !== c.n) {
-				this.changedSeen.set(peer, { n: c.n, at: Date.now(), what: changedWords(view) });
+			// A person first seen with a counter already running is history (a late joiner); one first seen without
+			// any has a counter of 0, so their first change is news.
+			if (!seen) this.changedSeen.set(peer, { n, at: 0, what: null });
+			else if (seen.n !== n && n > 0) {
+				this.changedSeen.set(peer, { n, at: Date.now(), what: changedWords(view) });
 				news = true;
 			}
 		}

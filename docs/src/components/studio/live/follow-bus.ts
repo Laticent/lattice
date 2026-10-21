@@ -31,10 +31,14 @@ export const FOCUS_ROWS = [
 	'type-scale', 'venue',
 ] as const;
 const ROW_SET: ReadonlySet<string> = new Set(FOCUS_ROWS);
-/** The row id for a label, or null when the label is not one of the listed rows (a dynamic or user-named one). */
+/** The row id for a label, or null when the label is not one of the listed rows (a dynamic or user-named one).
+ *  A toggle writes "Section rail on" / "Section rail off": the row is "Section rail". */
 export const rowIdOf = (label: string): string | null => {
-	const id = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-	return ROW_SET.has(id) ? id : null;
+	const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+	const id = slug(label);
+	if (ROW_SET.has(id)) return id;
+	const bare = slug(label.replace(/\s+(on|off)$/i, ''));
+	return ROW_SET.has(bare) ? bare : null;
 };
 /** "card-rail-placement" as words: "Card rail placement". */
 export const rowName = (id: string): string => id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
