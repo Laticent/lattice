@@ -556,7 +556,10 @@ export class LiveController {
 	}
 	private set following(id: string | null) {
 		if (this.followingId !== id && this.presentFollow === 'open') followBus.apply('present', null);
-		if (this.followingId !== id) this.presentFollow = 'idle';
+		if (this.followingId !== id) {
+			this.presentFollow = 'idle';
+			this.presentGoneAt = 0;
+		}
 		this.followingId = id;
 		this.followName = (id && this.rt?.session.getState().members.find((m) => m.id === id)?.name) || '';
 		this.syncLeader();
@@ -771,6 +774,7 @@ export class LiveController {
 		// We opened it and it is no longer open, though no render has said so yet: the person closed it.
 		if (this.presentFollow === 'open' && !this.deps.presenting && Date.now() - this.presentOpenedAt > 1500) {
 			this.presentFollow = 'declined';
+			this.presentGoneAt = 0;
 			return;
 		}
 		if (this.presentFollow === 'idle' && this.deps.presenting) return;
@@ -1361,6 +1365,7 @@ export class LiveController {
 		this.followedDoing = null;
 		if (this.presentFollow === 'open') followBus.apply('present', null);
 		this.presentFollow = 'idle';
+		this.presentGoneAt = 0;
 		followBus.forgetApplied();
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
@@ -1793,7 +1798,10 @@ export class LiveController {
 		}
 		// Closing a Present that Follow opened is a choice: it stays closed until the leader's Present ends and another starts.
 		// (Or a Present of our own: closing it while the leader still presents is not a request to open theirs.)
-		if (prev.presenting && !deps.presenting && this.following && this.presentFollow !== 'declined') this.presentFollow = 'declined';
+		if (prev.presenting && !deps.presenting && this.following && this.presentFollow !== 'declined') {
+			this.presentFollow = 'declined';
+			this.presentGoneAt = 0;
+		}
 		// Activity: what I am doing, when I share it.
 		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) this.publishDoing(deps);
 		// The host keeps the lobby invite current.
@@ -1866,7 +1874,10 @@ export class LiveController {
 			// Fabricate is a workspace of one's own, never mirrored: leaving it would throw away the follower's work.
 			const view = doing && doing.view !== 'fabricate' && this.deps.view !== 'fabricate' ? doing.view : this.deps.view;
 			const mirrors = !!this.host.canFollowDoing?.();
-			const moves = mirrors && this.following ? settingsMoves(r.view.of(this.following).all(), { inspector: followBus.getLocal('inspector'), section: followBus.getLocal('section') }).filter(([k, v]) => followBus.lastApplied(k) !== v) : [];
+			const rawMoves = mirrors && this.following ? settingsMoves(r.view.of(this.following).all(), { inspector: followBus.getLocal('inspector'), section: followBus.getLocal('section') }) : [];
+			// A move is applied once per value; but a section id both panels have (`look`) rides along with a panel change.
+			const panelChanges = rawMoves.some(([k, v]) => k === 'inspector' && followBus.lastApplied('inspector') !== v);
+			const moves = rawMoves.filter(([k, v]) => (k === 'section' && panelChanges) || followBus.lastApplied(k) !== v);
 			const panelMoves = !!(doing && this.host.followDoing && mirrors && (doing.panel !== this.deps.panel || view !== this.deps.view));
 			if (doing && (panelMoves || moves.length)) {
 				const target = { panel: doing.panel, view, moves, panelMoves };

@@ -38,7 +38,7 @@ import { unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
-import { actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { ACTION_DURATION, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
@@ -992,6 +992,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// below can dismiss it the instant the source moves on its own. `next` is the
 	// source right after the write; `id` is Sonner's handle for dismiss().
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
+	const undoAtRef = React.useRef(0);
 	const undoRef = React.useRef(undo);
 	undoRef.current = undo;
 	const [palette, setPalette] = React.useState(() => {
@@ -1559,6 +1560,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				if (sourceRef.current === next) setSource(prev);
 			},
 		});
+		undoAtRef.current = Date.now();
 		setUndo({ next, id });
 	}, [setSource]);
 	const changedCountRef = React.useRef(0);
@@ -3939,7 +3941,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
 		// An Undo the person just earned keeps the action slot; Follow's prompts wait.
-		actionBusy: () => undoRef.current !== null,
+		// (The toast closes by itself after ACTION_DURATION; `undo` is only cleared when the source moves.)
+		actionBusy: () => undoRef.current !== null && Date.now() - undoAtRef.current < ACTION_DURATION,
 		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
 		// already running is left alone.
 		startTour: (tourId) => {

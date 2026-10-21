@@ -1479,6 +1479,92 @@ describe('LiveController: activity, Follow and pointers', () => {
 			await until(() => asks.some((a) => /is on slide 6/.test(a)), h, g);
 		});
 
+		it('Deck-Look to Slide-Look still moves the Slide panel to Look: a section id shared by both panels is not "already applied"', async () => {
+			const { h } = await hostSession();
+			const { g, hostId, lead } = await follower(h);
+			const applied: string[] = [];
+			const off = followBus.onApply((k, v) => applied.push(`${k}:${v}`));
+			followBus.setLocal('inspector', 'none');
+			g.actions.follow(hostId);
+			lead.set('inspector', 'deck');
+			lead.set('section', 'look');
+			lead.flush();
+			await until(() => applied.includes('section:look'), h, g);
+			await new Promise((r) => setTimeout(r, 150));
+			lead.set('inspector', 'slide');
+			lead.flush();
+			await until(() => applied.includes('inspector:slide'), h, g);
+			expect(applied.at(-1)).toBe('section:look');
+			off();
+		});
+
+		it('a Present the person closed stays closed after an earlier absence, a new follow, and a close (no stale clock)', async () => {
+			const { h } = await hostSession();
+			const { g, hostId, lead } = await follower(h);
+			const seen: unknown[] = [];
+			const off = followBus.onApply((k, v) => k === 'present' && seen.push(v));
+			// biome-ignore lint/suspicious/noExplicitAny: the controller's Present state, set up as an earlier follow left it.
+			const c = g as any;
+			c.presentFollow = 'declined';
+			c.presentGoneAt = Date.now() - 60_000;
+			g.actions.follow(hostId);
+			expect(c.presentGoneAt).toBe(0);
+			expect(c.presentFollow).toBe('idle');
+			lead.set('present', { idx: 1, page: 0, lens: 'full' });
+			lead.flush();
+			await until(() => seen.length === 1, h, g);
+			g.update(deps('shared-deck', { slideCount: 6, presenting: true }));
+			g.update(deps('shared-deck', { slideCount: 6, presenting: false }));
+			expect(c.presentFollow).toBe('declined');
+			expect(c.presentGoneAt).toBe(0);
+			off();
+		});
+
+		it('a Present closed by the person stays closed through a short absence of the leader, and a render race does not reopen it', async () => {
+			const { h } = await hostSession();
+			const { g, hostId, lead } = await follower(h);
+			const seen: unknown[] = [];
+			const off = followBus.onApply((k, v) => k === 'present' && seen.push(v));
+			// biome-ignore lint/suspicious/noExplicitAny: the controller's Present state.
+			const c = g as any;
+			g.actions.follow(hostId);
+			c.presentFollow = 'declined';
+			c.presentGoneAt = Date.now() - 1000;
+			lead.set('present', { idx: 2, page: 0, lens: 'full' });
+			lead.flush();
+			await new Promise((r) => setTimeout(r, 200));
+			await settle(h, g);
+			expect(seen).toEqual([]);
+			// A close no render has reported yet: opened over 1.5 s ago, no longer open.
+			c.presentFollow = 'open';
+			c.presentOpenedAt = Date.now() - 2000;
+			lead.set('present', { idx: 3, page: 0, lens: 'full' });
+			lead.flush();
+			await new Promise((r) => setTimeout(r, 200));
+			await settle(h, g);
+			expect(c.presentFollow).toBe('declined');
+			expect(seen).toEqual([]);
+			off();
+		});
+
+		it('a new follow starts from nothing applied, so the first sync moves the screen again', async () => {
+			const { h } = await hostSession();
+			const { g, hostId, lead } = await follower(h);
+			const applied: string[] = [];
+			const off = followBus.onApply((k, v) => applied.push(`${k}:${v}`));
+			followBus.setLocal('inspector', 'none');
+			g.actions.follow(hostId);
+			lead.set('inspector', 'deck');
+			lead.flush();
+			await until(() => applied.includes('inspector:deck'), h, g);
+			g.actions.follow(null as unknown as string);
+			followBus.setLocal('inspector', 'none');
+			applied.length = 0;
+			g.actions.follow(hostId);
+			await until(() => applied.includes('inspector:deck'), h, g);
+			off();
+		});
+
 		it('an own slide move ends the follow and says so; Stop does not announce itself', async () => {
 			const { h } = await hostSession();
 			const { g, sh, hostId } = await follower(h);

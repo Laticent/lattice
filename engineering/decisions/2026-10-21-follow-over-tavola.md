@@ -301,7 +301,12 @@ Built in #2830, one commit per slice. Where the build differs from the plan abov
 ## 14. What the adversarial trio found, and what changed (2026-10-21)
 
 Red team, Munger inversion and an independent checker reviewed the build. Fixed in this PR, each with a test that
-fails without the fix:
+fails without the fix (except one guard, `forget` iterating `bound` rather than `owner`: with the clock record
+already dropped on removal it only tidies a map, so no test can tell the two apart). A second checker then reviewed
+the fixes and found four more, fixed in the same pass with tests: a section id both panels share (`look`) was treated
+as already applied when the leader moved from Deck to Slide; a stale absence timestamp could reopen a Present the person
+just closed; the "Undo is showing" test outlived the toast (so Go and Join prompts could stay silent); and the 3 s,
+1.5 s and new-follow rules had no test that set them off.
 
 - **A removal left a forged clock behind** (red team, reproduced): a hostile host or a re-knocking member could mute a
   client for the session by sending removals that stepped its clock. The adapter now drops the clock record when it

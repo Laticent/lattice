@@ -14,7 +14,7 @@
 //     huge clock would mute that client for the session. The adapter forgets a client's clock record when
 //     its owner changes or it is removed, and refuses a clock that jumps too far.
 //   - RATE, WITHOUT LOSING THE LAST UPDATE. A sender's updates that change anything but the caret are applied
-//     at most ten a second; the latest one is kept and applied on a trailing timer, a removal is never held, and
+//     at most ten a second (about thirty while a caret is also moving, since both share a sender's one trailing timer); the latest one is kept and applied on a trailing timer, a removal is never held, and
 //     a caret-only update is held only to 30 a second per sender (latest kept), so a fast typist's caret stays
 //     current and a flood cannot run every peer's handlers. Awareness resends only on a
 //     change or every 15 s, so dropping a final update would leave a follower stale for up to 15 s.
