@@ -233,3 +233,21 @@ test('a Studio export draws Mermaid itself, never through the preview draw frame
 	await download;
 	expect(await page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length), 'the export asked the draw host to draw').toBe(0);
 });
+
+test('when the Mermaid frame cannot load its modules, the host says so at once and the next preview draws in the page @smoke', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'the fallback is engine-independent code; one engine pins it');
+	test.setTimeout(240_000);
+	// The page is offline for the frame's modules (a stale deploy, a dropped link): every request under frames/mermaid/ fails.
+	await page.route(/\/frames\/mermaid\//, (route) => route.abort());
+	await gotoStudio(page);
+	const preview = livePreview(page);
+	await setEditorContent(page, FLOW_DECK);
+	// The host learns of the failure from the frame at once, not after its 30 s open timeout.
+	await expect
+		.poll(() => page.evaluate(() => (window as unknown as { __latticeDrawHost?: { kinds?: string[] } }).__latticeDrawHost?.kinds?.includes('mermaid') ?? false), { timeout: 20_000 })
+		.toBe(false);
+	// The next preview frame finds no offer and loads the library itself.
+	await setEditorContent(page, FLOW_DECK.replace('Draft', 'Drafted'));
+	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toContainText('Drafted', { timeout: 90_000 });
+	expect(await page.locator('iframe[data-lattice-draw-frame="mermaid"]').count(), 'the failed frame is gone').toBe(0);
+});
