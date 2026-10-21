@@ -150,7 +150,6 @@ import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
-import { WelcomeCard } from './WelcomeCard';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
@@ -190,6 +189,8 @@ const Fabricate = React.lazy(() => {
 // lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
 // (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
+// Shown once on a first visit and once at the end of the welcome tour, so it rides its own chunk.
+const WelcomeCard = React.lazy(() => import('./WelcomeCard').then((m) => ({ default: m.WelcomeCard })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 // The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
 const StudioMap = React.lazy(() => import('./StudioMap'));
@@ -7470,7 +7471,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{(LiveLobby) => <LiveLobby view={live.lobby as NonNullable<typeof live.lobby>} actions={live.lobbyActions} />}
 				</PanelLoader>
 			)}
-			<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} />
+			{welcomeMode && (
+				<React.Suspense fallback={null}>
+					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} />
+				</React.Suspense>
+			)}
 			<Toaster />
 		</div>
 		</PanelNav>

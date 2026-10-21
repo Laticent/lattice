@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { PLAYGROUND_VOICE_DIR } from '../studio/tours/lines';
-import { WelcomeCard } from '../studio/WelcomeCard';
 
 // The Playground's tour offer. guided-tour.js (the Tour button and the first-visit timer) dispatches
 // `pg-tour-offer`; this shows the start card, which is also where a visitor tests their sound,
 // because audio only plays after a click. Start runs the narrated tour (playground-tour.js).
 // Design record: engineering/decisions/2026-10-20-first-run-onboarding.md.
+
+const WelcomeCard = React.lazy(() => import('../studio/WelcomeCard').then((m) => ({ default: m.WelcomeCard })));
 
 type Voice = typeof import('../studio/tours/tour-voice');
 
@@ -33,7 +34,9 @@ export function PlaygroundTourCard() {
 		import('@/playground/playground-tour.js').then((m) => m.startPlaygroundTour({ sound }));
 	};
 
+	if (!open) return null;
 	return (
+		<React.Suspense fallback={null}>
 		<WelcomeCard
 			mode={open ? 'start' : null}
 			onClose={() => setOpen(false)}
@@ -42,5 +45,6 @@ export function PlaygroundTourCard() {
 			onLessons={() => {}}
 			copy={{ title: 'Welcome to the Playground', body: 'A narrated tour of the Playground, about a minute and a half. It plays best with your sound on, ideally through headphones.' }}
 		/>
+		</React.Suspense>
 	);
 }
