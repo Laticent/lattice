@@ -5,11 +5,13 @@
  *
  * FONTS are embedded when the caller passes JSZip and the deck carries fonts: each face as
  * Embedded OpenType in `ppt/fonts/*.fntdata`, listed in `p:embeddedFontLst` (sfnt.ts).
- * PowerPoint's font model is a family with four slots, so every face that is not a plain
- * regular gets a family of its own ("Outfit SemiBold", "Playfair Display Bold Italic") in
- * its regular slot, and its runs name that family with no bold or italic flag. A run whose
- * face is not embedded names its family and is bold at 600 or heavier, as OOXML has no
- * numeric weight.
+ * PowerPoint's font model is a family with four slots. A regular or bold face (400 or 700,
+ * upright or italic) goes in its slot of the family's own name ("Playfair Display"), and its
+ * runs name that family with the bold or italic flag, so a reader that has the family or can
+ * fetch it (LibreOffice, Google Slides) finds it by name and ignores the embedded copy. Any
+ * other weight has no slot, so it is a family of its own ("Outfit SemiBold") in its regular
+ * slot, named with no flag. A run whose face is not embedded names its family and is bold at
+ * 600 or heavier, as OOXML has no numeric weight.
  *
  * LINE SPACING is proportional (`spcPct`), the browser's pitch over the face's natural line,
  * because Google Slides reads an exact `spcPts` as a multiple of the font size and spreads
@@ -37,7 +39,7 @@ import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFa
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
 import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { imageMime } from './picture.js';
-import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
+import { canEmbedAsEot, type FaceSlot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, FrameRole, Gradient, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
 
@@ -162,18 +164,17 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 	const runOptions = (run: TextRun, breakLine: boolean) => {
 		const s = run.style;
-		// An embedded face is named as its own family and carries its weight and slant; a
-		// system font is asked for by family, with OOXML's bold and italic flags.
+		// An embedded face is named by its family (400 and 700 in the bold and italic slots) or, with no slot, as a
+		// family of its own; a system font is asked for by family, with OOXML's bold and italic flags.
 		// Only the run's EXACT face, and only when the file carries it: a nearest-weight
 		// stand-in or a face that could not be embedded would name a family nobody has.
-		const name = options?.embedded?.byKey.get(faceKey(s.family, s.weight, s.italic));
-		const face = name !== undefined;
+		const hit = options?.embedded?.byKey.get(faceKey(s.family, s.weight, s.italic));
 		const opts: Record<string, unknown> = {
-			fontFace: face ? name : safeFamily(s.family),
+			fontFace: hit ? hit.name : safeFamily(s.family),
 			fontSize: Math.max(1, points(s.size)), // OOXML: 1pt is the smallest size (a 2px spacer on a wide deck)
 			color: bareHex(s.alpha < 1 && s.flatColor ? s.flatColor : s.color),
-			bold: face ? false : s.weight >= 600,
-			italic: face ? false : s.italic,
+			bold: hit ? hit.bold : s.weight >= 600,
+			italic: hit ? hit.italic : s.italic,
 		};
 		if (s.alpha < 1 && !s.flatColor) opts.transparency = Math.round((1 - s.alpha) * 100);
 		if (s.letterSpacing) opts.charSpacing = points(s.letterSpacing);
@@ -333,10 +334,12 @@ export const PPTX_MIMETYPE = 'application/vnd.openxmlformats-officedocument.pres
 
 /** What a .pptx embeds: each face once, under a family name no other face uses, and the run styles it serves. */
 export interface EmbeddingPlan {
-	faces: Array<{ face: EmbeddedFont; name: string }>;
-	/** `faceKey(family, weight, italic)` of a run style → the embedded family it names. */
-	byKey: Map<string, string>;
+	faces: Array<{ face: EmbeddedFont; name: string; slot: FaceSlot }>;
+	/** `faceKey(family, weight, italic)` of a run style → the family it names and the bold and italic flags that pick the slot. */
+	byKey: Map<string, { name: string; bold: boolean; italic: boolean }>;
 }
+
+const slotOf = (bold: boolean, italic: boolean): FaceSlot => (bold ? (italic ? 'boldItalic' : 'bold') : italic ? 'italic' : 'regular');
 
 /**
  * Plan the embedding: every run style whose exact face the deck carries as TrueType with the
@@ -351,11 +354,40 @@ export function planEmbedding(deck: Deck): EmbeddingPlan {
 		const face = faceFor(use, fonts);
 		if (face && face.weight === use.weight && canEmbedAsEot(face.bytes)) exact.set(faceKey(use.family, use.weight, use.italic), face);
 	}
-	const names = uniqueFaceNames([...new Set(exact.values())].map((face) => ({ ...face, family: safeFamily(face.family), face })));
-	for (const [entry, name] of names) plan.faces.push({ face: entry.face, name });
+	// A regular or bold face (400 or 700, upright or italic) goes in its slot of the family's OWN name, flagged bold or
+	// italic by the run: a reader that has the family, or can fetch it (LibreOffice, Google Slides), then finds it by
+	// that name. Any other weight has no slot, so it is a family of its own ("Outfit SemiBold").
+	const slotted = new Map<EmbeddedFont, { name: string; slot: FaceSlot }>();
+	const taken = new Set<string>();
+	const others: EmbeddedFont[] = [];
+	for (const [key, face] of exact) {
+		const parts = key.split('|');
+		const w = parts[parts.length - 2];
+		if (slotted.has(face) || others.includes(face)) continue;
+		const bold = Number(w) === 700;
+		if (Number(w) !== 400 && !bold) {
+			others.push(face);
+			continue;
+		}
+		const name = safeFamily(face.family);
+		const slot = slotOf(bold, face.italic);
+		if (taken.has(`${name}|${slot}`)) others.push(face);
+		else {
+			taken.add(`${name}|${slot}`);
+			slotted.set(face, { name, slot });
+		}
+	}
+	for (const [face, { name, slot }] of slotted) plan.faces.push({ face, name, slot });
+	const names = uniqueFaceNames(others.map((face) => ({ ...face, family: safeFamily(face.family), face })));
+	for (const [entry, name] of names) {
+		let unique = name;
+		while (taken.has(`${unique}|regular`)) unique = `${unique} ${entry.weight}`;
+		taken.add(`${unique}|regular`);
+		plan.faces.push({ face: entry.face, name: unique, slot: 'regular' });
+	}
 	for (const [key, face] of exact) {
 		const hit = plan.faces.find((f) => f.face === face);
-		if (hit) plan.byKey.set(key, hit.name);
+		if (hit) plan.byKey.set(key, { name: hit.name, bold: hit.slot === 'bold' || hit.slot === 'boldItalic', italic: hit.slot === 'italic' || hit.slot === 'boldItalic' });
 	}
 	return plan;
 }
@@ -699,7 +731,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
  * `embedTrueTypeFonts="1"` on the presentation. The package is tidied first (`tidyPptx`),
  * so an empty `faces` only tidies.
  */
-export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: EmbeddingPlan['faces'], outputType = 'uint8array'): Promise<T> {
+export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: Array<{ face: EmbeddedFont; name: string; slot?: FaceSlot }>, outputType = 'uint8array'): Promise<T> {
 	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
 	// PptxGenJS's `STREAM` is a Node buffer; JSZip has no stream output on every platform.
 	if (outputType === 'STREAM') outputType = 'nodebuffer';
@@ -720,14 +752,25 @@ export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: U
 	};
 	const entries: string[] = [];
 	const relXml: string[] = [];
-	faces.forEach(({ face, name }, i) => {
-		const eot = toEot(renameFace(face.bytes, name), { family: name });
+	// One `p:embeddedFont` per family name, its faces in the schema's slot order.
+	const byName = new Map<string, Array<{ slot: FaceSlot; id: string }>>();
+	faces.forEach(({ face, name, slot }, i) => {
+		const s: FaceSlot = slot || 'regular';
+		const style = { regular: 'Regular', bold: 'Bold', italic: 'Italic', boldItalic: 'Bold Italic' }[s];
+		const eot = toEot(renameFace(face.bytes, name, s), { family: name, style, full: s === 'regular' ? name : `${name} ${style}` });
 		const part = `fonts/calco-font${i + 1}.fntdata`;
 		const id = `rIdCalcoFont${i + 1}`;
 		zip.file(`ppt/${part}`, eot, { createFolders: false });
 		relXml.push(`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="${part}"/>`);
-		entries.push(`<p:embeddedFont><p:font typeface="${name}" charset="0"/><p:regular r:id="${id}"/></p:embeddedFont>`);
+		byName.set(name, [...(byName.get(name) || []), { slot: s, id }]);
 	});
+	for (const [name, list] of byName) {
+		const slots = (['regular', 'bold', 'italic', 'boldItalic'] as const).map((k) => {
+			const hit = list.find((x) => x.slot === k);
+			return hit ? `<p:${k} r:id="${hit.id}"/>` : '';
+		});
+		entries.push(`<p:embeddedFont><p:font typeface="${name}" charset="0"/>${slots.join('')}</p:embeddedFont>`);
+	}
 	if (!/Extension="fntdata"/i.test(types)) zip.file('[Content_Types].xml', insertBefore(types, '</Types>', '<Default Extension="fntdata" ContentType="application/x-fontdata"/>'));
 	zip.file('ppt/_rels/presentation.xml.rels', insertBefore(rels, '</Relationships>', relXml.join('')));
 	if (!/xmlns:r=/.test(pres)) throw new Error('calco: presentation.xml declares no r: namespace');
