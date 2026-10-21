@@ -205,7 +205,7 @@ const KIND_META: Record<string, { icon: React.ReactNode; desc: string }> = {
  *  menu item in look, so it matches the Studio's other rich menus. */
 function FilterRow({ icon, label, desc, count, on, onPick }: { icon: React.ReactNode; label: string; desc: string; count?: number; on: boolean; onPick: () => void }) {
 	return (
-		<DropdownMenuItem role="menuitemradio" aria-checked={on} onSelect={onPick} className="flex-col items-start gap-0.5">
+		<DropdownMenuItem role="menuitemradio" aria-checked={on} aria-label={count != null ? `${label}, ${count}` : label} onSelect={onPick} className="flex-col items-start gap-0.5">
 			<span className="flex w-full items-center gap-2 text-[12.5px] font-semibold text-[var(--text-heading)]">
 				<span className="shrink-0 text-muted-foreground">{icon}</span>
 				{label}
