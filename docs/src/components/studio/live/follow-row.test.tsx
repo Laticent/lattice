@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { followBus, useFollowRow } from './follow-bus';
+import { followBus, useFollowRow, useViewKey } from './follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './follow-ui';
 
 function Row({ label }: { label: string }) {
@@ -46,5 +46,38 @@ describe('a settings row in Follow', () => {
 		expect(screen.getByRole('status').textContent).toBe('Amina');
 		act(() => followBus.setLeader(null));
 		expect(screen.queryByRole('status')).toBeNull();
+	});
+});
+
+describe('two components reporting one key', () => {
+	function Report({ value }: { value: string | null }) {
+		useViewKey('section', value);
+		return null;
+	}
+	it('never wipe each other, whichever mounts or changes first', () => {
+		const { rerender } = render(
+			<>
+				<Report value="look" />
+				<Report value={null} />
+			</>,
+		);
+		expect(followBus.getLocal('section')).toBe('look');
+		// Switch which one is showing: the one that stops clears nothing of the other's.
+		rerender(
+			<>
+				<Report value={null} />
+				<Report value="notes" />
+			</>,
+		);
+		expect(followBus.getLocal('section')).toBe('notes');
+		rerender(
+			<>
+				<Report value="chrome" />
+				<Report value={null} />
+			</>,
+		);
+		expect(followBus.getLocal('section')).toBe('chrome');
+		cleanup();
+		expect(followBus.getLocal('section')).toBeNull();
 	});
 });

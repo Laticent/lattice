@@ -30,6 +30,15 @@ vi.mock('@/lib/tavola', async (importOriginal) => {
 
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
+// Every controller a test makes is disposed after it. Follow's bus is shared by the whole page (as it is in the
+// Studio), so a controller left running would keep answering awareness from an earlier test's network.
+const made: Ctl[] = [];
+class Made extends LiveController {
+	constructor(...args: ConstructorParameters<typeof LiveController>) {
+		super(...args);
+		made.push(this);
+	}
+}
 
 const deps = (deckId: string, over: Partial<LiveDeps> = {}): LiveDeps => ({ source: '# Q3 Board Review\n', deckId, deckTitle: 'Q3 Board Review', slideCount: 1, theme: 'indaco', mode: 'light', activeSlide: 0, records: NO_RECORDS, siteTheme: null, panel: null, view: 'compose', presenting: false, asking: false, comments: [], ...over });
 const shell = () => {
@@ -57,7 +66,7 @@ async function hostSession(over: Partial<LiveDeps> = {}) {
 	// Each controller is its own browser tab: no chat-id prefixes inherited (jsdom shares storage).
 	sessionStorage.removeItem('lattice-live-sids');
 	sessionStorage.removeItem('lattice-live-share');
-	const h = new LiveController(sh.host, deps('host-deck', over));
+	const h = new Made(sh.host, deps('host-deck', over));
 	h.actions.start('Sharmarke');
 	await until(() => h.view().status === 'live', h);
 	return { h, notes: sh.notes };
@@ -70,7 +79,7 @@ async function guestOf(h: Ctl, name: string, over: Partial<LiveDeps> = {}) {
 	sessionStorage.removeItem('lattice-live-share');
 	location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 	takeLiveIntent();
-	const g = new LiveController(sh.host, deps(`${name}-deck`, over));
+	const g = new Made(sh.host, deps(`${name}-deck`, over));
 	await g.resume();
 	await until(() => g.lobby()?.stage === 'ready', h, g);
 	g.lobbyActions.setName(name);
@@ -90,6 +99,7 @@ beforeEach(() => {
 	Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true });
 });
 afterEach(() => {
+	for (const c of made.splice(0)) c.dispose();
 	followBus.reset();
 	location.hash = '';
 });
@@ -113,7 +123,7 @@ describe('LiveController (second-round trio)', () => {
 		const { h } = await hostSession();
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(shell().host, deps('g'));
+		const g = new Made(shell().host, deps('g'));
 		const joins = net.joins;
 		await Promise.all([g.resume(), g.resume()]);
 		expect(net.joins).toBe(joins + 1);
@@ -139,7 +149,7 @@ describe('LiveController (second-round trio)', () => {
 		globalThis.indexedDB = undefined;
 		try {
 			const sh = shell();
-			const h = new LiveController(sh.host, deps('host-deck'));
+			const h = new Made(sh.host, deps('host-deck'));
 			h.actions.start('Sharmarke');
 			await until(() => sh.notes.length > 0, h);
 			expect(h.view().status).toBe('live');
@@ -153,7 +163,7 @@ describe('LiveController (second-round trio)', () => {
 	it('a cut-off link says so, instead of blaming the network', async () => {
 		location.hash = '#live=AAAAAAAAAAAAAAAAAAAAAA.BBBB';
 		takeLiveIntent();
-		const g = new LiveController(shell().host, deps('g'));
+		const g = new Made(shell().host, deps('g'));
 		await g.resume();
 		expect(g.lobby()?.stage).toBe('bad-link');
 	});
@@ -180,7 +190,7 @@ describe('LiveController (second-round trio)', () => {
 			await until(() => !!sessionStorage.getItem('lattice-live-host'), h);
 			// The duplicate: same sessionStorage (a duplicated tab copies it), same deck.
 			const sh = shell();
-			const dup = new LiveController(sh.host, deps('host-deck'));
+			const dup = new Made(sh.host, deps('host-deck'));
 			const joins = net.joins;
 			await dup.resume();
 			expect(net.joins).toBe(joins);
@@ -196,7 +206,7 @@ describe('LiveController (second-round trio)', () => {
 		const { h } = await hostSession();
 		location.hash = '#live=AAAAAAAAAAAAAAAAAAAAAA.BBBB';
 		takeLiveIntent();
-		const g = new LiveController(shell().host, deps('g'));
+		const g = new Made(shell().host, deps('g'));
 		await g.resume();
 		expect(g.lobby()?.stage).toBe('bad-link');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
@@ -385,7 +395,7 @@ describe('LiveController (second-round trio)', () => {
 		await until(() => !h.view().people.some((p) => p.name === 'Amina' && !p.away), h);
 		location.hash = `#live=${link}`;
 		takeLiveIntent();
-		const again = new LiveController(shell().host, deps('Amina-deck'));
+		const again = new Made(shell().host, deps('Amina-deck'));
 		await again.resume();
 		await until(() => again.view().status === 'live', h, again);
 		// biome-ignore lint/suspicious/noExplicitAny: seed the restored queue and resend it.
@@ -641,7 +651,7 @@ describe('what you share (2026-10-12)', () => {
 	it('what you hid survives a reload, and a session started afterwards in the same tab publishes nothing you hid', async () => {
 		const { h } = await hostSession();
 		h.actions.setShare({ slide: false, cursor: false });
-		const reloaded = new LiveController(shell().host, deps('host-deck'));
+		const reloaded = new Made(shell().host, deps('host-deck'));
 		reloaded.actions.start('Sharmarke');
 		await until(() => reloaded.view().status === 'live', reloaded);
 		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true, doing: true, pointer: true });
@@ -726,7 +736,7 @@ describe('LiveController: the session look', () => {
 		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
 		await (h as any).saveHost();
 		h.dispose();
-		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
+		const reloaded = new Made(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
 		await reloaded.resume();
 		await until(() => reloaded.view().status === 'live', reloaded);
 		expect(lookOf(reloaded)).toEqual({ palette: 'indaco', mode: 'dark' });
@@ -754,7 +764,7 @@ describe('LiveController: the session look', () => {
 		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
 		await (h as any).saveHost();
 		h.dispose();
-		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
+		const reloaded = new Made(shell().host, deps('host-deck', { theme: 'cuoio', mode: 'light' }));
 		await reloaded.resume();
 		await until(() => reloaded.view().status === 'live', reloaded);
 		expect(lookOf(reloaded)).toBeNull();
@@ -795,7 +805,7 @@ describe('LiveController: Library records', () => {
 		const actions: Array<{ m: string; go: () => void }> = [];
 		sh.host.notifyAction = (m, o) => actions.push({ m, go: o.onClick });
 		sessionStorage.removeItem('lattice-live-sids');
-		const h = new LiveController(sh.host, deps('host-deck'));
+		const h = new Made(sh.host, deps('host-deck'));
 		h.actions.start('Sharmarke');
 		await until(() => h.view().status === 'live', h);
 		const { g } = await guestOf(h, 'Amina');
@@ -852,7 +862,7 @@ describe('LiveController: Library records', () => {
 		const actions: Array<{ m: string; go: () => void }> = [];
 		sh.host.notifyAction = (m, o) => actions.push({ m, go: o.onClick });
 		sessionStorage.removeItem('lattice-live-sids');
-		const h = new LiveController(sh.host, deps('host-deck', { theme: 'acme-brand', mode: 'dark', siteTheme: acme }));
+		const h = new Made(sh.host, deps('host-deck', { theme: 'acme-brand', mode: 'dark', siteTheme: acme }));
 		h.actions.start('Sharmarke');
 		await until(() => h.view().status === 'live', h);
 		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio', mode: 'light' });
@@ -898,7 +908,7 @@ describe('LiveController: Library records', () => {
 		const asks: string[] = [];
 		sh.host.notifyAction = (m) => asks.push(m);
 		sessionStorage.removeItem('lattice-live-sids');
-		const h = new LiveController(sh.host, deps('host-deck'));
+		const h = new Made(sh.host, deps('host-deck'));
 		h.actions.start('Sharmarke');
 		await until(() => h.view().status === 'live', h);
 		const both = deps('host-deck', withRecords([{ name: 'private-brand', css: ':root{}' }], [linen]));
@@ -932,7 +942,7 @@ describe('LiveController: Library records', () => {
 		// biome-ignore lint/suspicious/noExplicitAny: wait for the host save the reload resumes from.
 		await (h as any).saveHost();
 		h.dispose();
-		const reloaded = new LiveController(shell().host, deps('host-deck', { theme: 'cuoio', siteTheme: null }));
+		const reloaded = new Made(shell().host, deps('host-deck', { theme: 'cuoio', siteTheme: null }));
 		await reloaded.resume();
 		await until(() => reloaded.view().status === 'live', reloaded);
 		// biome-ignore lint/suspicious/noExplicitAny: the look and the record the reloaded host holds.
@@ -998,7 +1008,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1069,7 +1079,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1116,7 +1126,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1144,7 +1154,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1196,7 +1206,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1262,7 +1272,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1358,7 +1368,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck', { slideCount: 5 }));
+		const g = new Made(sh.host, deps('g-deck', { slideCount: 5 }));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1397,7 +1407,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck', { slideCount: 5 }));
+		const g = new Made(sh.host, deps('g-deck', { slideCount: 5 }));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1443,7 +1453,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps('g-deck'));
+		const g = new Made(sh.host, deps('g-deck'));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName('Amina');
@@ -1546,7 +1556,7 @@ describe('LiveController: present together', () => {
 		sessionStorage.removeItem('lattice-live-sids');
 		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 		takeLiveIntent();
-		const g = new LiveController(sh.host, deps(`${name}-deck`));
+		const g = new Made(sh.host, deps(`${name}-deck`));
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 		g.lobbyActions.setName(name);

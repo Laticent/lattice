@@ -191,6 +191,30 @@ if (desktop) {
 	await guest.getByRole('switch', { name: 'Section rail' }).click();
 }
 
+// 7. The typing gate: a follower who is typing is not moved to the leader's slide; they get a Go.
+if (desktop) {
+	await guest.locator('nav[aria-label="Studio panels"] button[aria-label="Deck scope"]').last().click();
+	await guest.waitForTimeout(500);
+	if (!(await guest.locator('button[aria-label="Options for Sharmarke"]').count())) await guest.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
+	await guest.locator('button[aria-label="Options for Sharmarke"]').click();
+	await guest.getByRole('menuitem', { name: 'Follow Sharmarke' }).click();
+	// A click in the editor moves this person's own slide to the one under the caret: click a line of slide 1.
+	await guest.locator('.cm-line', { hasText: 'Write plain text' }).first().click();
+	await guest.waitForTimeout(500);
+	await guest.keyboard.type('x');
+	await host.locator('button[aria-label="Next slide"]').first().click();
+	await guest.waitForTimeout(1500);
+	const toast = guest.locator('[data-sonner-toast]', { hasText: 'is on slide 2' });
+	const asked = await toast.waitFor({ timeout: 15000 }).then(() => true, () => false);
+	check(asked, 'a typing guest is told "Sharmarke is on slide 2" instead of being moved');
+	const stayed = await guest.evaluate(() => /Slide 1 \/ 7/.test(document.body.innerText));
+	check(stayed, 'the guest stayed on slide 1 while typing');
+	await shot('7-typing-gate');
+	await toast.getByRole('button', { name: 'Go' }).click();
+	const went = await until(guest, () => /Slide 2 \/ 7/.test(document.body.innerText), null);
+	check(went, 'pressing Go took the guest to slide 2');
+}
+
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nall checks passed');
 await hb.close();
 await gb.close();

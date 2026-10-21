@@ -128,15 +128,29 @@ export const followBus = {
 	},
 };
 
-/** Say where this component is, for as long as it is mounted and `value` is not null/undefined. */
+/**
+ * Say where this component is, while `value` is not null/undefined. Two components may report the same key (the Deck
+ * and Slide panels both report `section`), and only one is showing at a time, so a component clears only what it set
+ * itself: it never wipes the other one's value, whichever order React runs their effects in.
+ */
 export function useViewKey<K extends BusKey>(key: K, value: LocalValues[K] | null | undefined) {
 	// An object value is compared by content, so a new object each render does not re-report.
 	const stable = JSON.stringify(value ?? null);
+	const mine = React.useRef<unknown>(null);
+	const release = React.useCallback(() => {
+		if (mine.current !== null && same(followBus.getLocal(key), mine.current)) followBus.setLocal(key, null);
+		mine.current = null;
+	}, [key]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `stable` stands for `value`.
 	React.useEffect(() => {
-		followBus.setLocal(key, value ?? null);
-		return () => followBus.setLocal(key, null);
-	}, [key, stable]);
+		if (value === null || value === undefined) {
+			release();
+			return;
+		}
+		mine.current = value;
+		followBus.setLocal(key, value);
+	}, [key, stable, release]);
+	React.useEffect(() => release, [release]);
 }
 
 /** Be moved when the session applies a value for `key`. `handler` should be cheap and idempotent. */
