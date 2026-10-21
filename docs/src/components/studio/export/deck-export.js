@@ -1608,6 +1608,28 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 	}
 }
 
+// A slide picture as a Blob: PNG, or JPEG when that is much smaller. A flat slide stays a
+// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a q92 JPEG of a tenth the
+// size. Calco owns the thresholds and the measurement (docs/src/lib/calco/picture.ts). The JPEG
+// is drawn onto a white canvas first, so a transparent pixel is white, not black. Only for
+// an opaque picture: the PPTX and Office captures square their corners, so they are.
+async function canvasToPictureBlob(canvas) {
+	const { worthTryingJpeg, jpegWins, PICTURE_JPEG_QUALITY } = await import('@/lib/calco');
+	const encode = (c, type, quality) => new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality));
+	const png = await encode(canvas, 'image/png');
+	if (!worthTryingJpeg(png.size)) return png;
+	const flat = document.createElement('canvas');
+	flat.width = canvas.width;
+	flat.height = canvas.height;
+	const ctx = flat.getContext('2d');
+	ctx.fillStyle = '#fff';
+	ctx.fillRect(0, 0, flat.width, flat.height);
+	ctx.drawImage(canvas, 0, 0);
+	const jpeg = await encode(flat, 'image/jpeg', PICTURE_JPEG_QUALITY);
+	// A browser that cannot encode JPEG hands back a PNG; that is no saving.
+	return jpeg.type === 'image/jpeg' && jpegWins(png.size, jpeg.size) ? jpeg : png;
+}
+
 // Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
 // stops at `canvas.toBlob` instead of `toDataURL`, so the base64 that a PowerPoint
 // needs is never built on this thread — the bytes transfer to the assembly worker for
@@ -1617,9 +1639,7 @@ async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, l
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
 			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-			const blob = await new Promise((resolve, reject) =>
-				canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
-			return await blob.arrayBuffer();
+			return await (await canvasToPictureBlob(canvas)).arrayBuffer();
 		}, undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
@@ -2377,7 +2397,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 					try {
 						const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-						const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+						const blob = await canvasToPictureBlob(canvas);
 						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames, shapes };
 					} finally {
 						calco.restoreSlide(section);

@@ -32,6 +32,7 @@
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
+import { imageMime } from './picture.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
@@ -226,7 +227,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const s = pptx.addSlide();
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
+		s.addImage({ data: `${imageMime(slide.image)};base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
 		const n = i + 1;
 		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
 			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.

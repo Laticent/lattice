@@ -17,6 +17,7 @@
  */
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame } from './layout.js';
+import { imageExt, imageMime } from './picture.js';
 import { renameFace } from './sfnt.js';
 import { drawOrder, type Insets, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
@@ -295,7 +296,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		return (
 			`<draw:page draw:name="Slide ${n}" draw:master-page-name="Default">` +
 			`<draw:frame draw:name="Slide ${n}" svg:x="0cm" svg:y="0cm" svg:width="${page.w}cm" svg:height="${page.h}cm">` +
-			`<draw:image xlink:href="Pictures/slide${pad3(i)}.png" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
+			`<draw:image xlink:href="Pictures/slide${pad3(i)}.${imageExt(slide.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
 			// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
 			`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
 			`</draw:frame>${boxes}${notesXml}</draw:page>`
@@ -340,7 +341,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		['styles.xml', 'text/xml'],
 		['meta.xml', 'text/xml'],
 		['settings.xml', 'text/xml'],
-		...deck.slides.map((_s, i): [string, string] => [`Pictures/slide${pad3(i)}.png`, 'image/png']),
+		...deck.slides.map((s, i): [string, string] => [`Pictures/slide${pad3(i)}.${imageExt(s.image)}`, imageMime(s.image)]),
 		...used.map((_f, i): [string, string] => [fontPath(i), 'application/x-font-ttf']),
 	];
 	const manifest = `<?xml version="1.0" encoding="UTF-8"?>
@@ -360,7 +361,7 @@ ${parts.map(([p, t]) => `<manifest:file-entry manifest:full-path="${p}" manifest
 	deck.slides.forEach((slide, i) => {
 		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		// PNG is compressed already; deflating it again costs time and saves nothing.
-		zip.file(`Pictures/slide${pad3(i)}.png`, slide.image, { ...NO_DIRS, compression: 'STORE' });
+		zip.file(`Pictures/slide${pad3(i)}.${imageExt(slide.image)}`, slide.image, { ...NO_DIRS, compression: 'STORE' });
 	});
 	embedded.forEach((e, i) => {
 		zip.file(fontPath(i), e.bytes, NO_DIRS);
